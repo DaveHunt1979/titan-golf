@@ -1,0 +1,300 @@
+import { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  RefreshControl,
+  Image,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useRouter, Link } from 'expo-router';
+import { supabase } from '../../../src/lib/supabase';
+import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+import { matchLabel, getEffectiveWinner } from '../../../src/lib/scoring';
+import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
+import type { Match, Team } from '../../../src/types';
+
+interface MatchWithTeams extends Match {
+  home_team: Pick<Team, 'name' | 'accent_color'> | null;
+  away_team: Pick<Team, 'name' | 'accent_color'> | null;
+}
+
+export default function ScoreScreen() {
+  const router = useRouter();
+  const [matches, setMatches] = useState<MatchWithTeams[]>([]);
+  const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function loadMatches() {
+    const { data, error } = await supabase
+      .from('matches')
+      .select(`
+        *,
+        home_team:home_team_id(name, accent_color),
+        away_team:away_team_id(name, accent_color)
+      `)
+      .order('match_number', { ascending: true });
+
+    if (!error && data) {
+      const matchData = data as unknown as MatchWithTeams[];
+      setMatches(matchData);
+
+      const allIds = [...new Set(matchData.flatMap(m => [...m.home_player_ids, ...m.away_player_ids]))];
+      if (allIds.length > 0) {
+        const { data: players } = await supabase.from('players').select('id,display_name').in('id', allIds);
+        if (players) {
+          const names: Record<string, string> = {};
+          (players as any[]).forEach(p => { names[p.id] = p.display_name; });
+          setPlayerNames(names);
+        }
+      }
+    }
+    setLoading(false);
+    setRefreshing(false);
+  }
+
+  useEffect(() => {
+    loadMatches();
+
+    const sub = supabase
+      .channel('matches-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, loadMatches)
+      .subscribe();
+
+    return () => { supabase.removeChannel(sub); };
+  }, []);
+
+  function onRefresh() {
+    setRefreshing(true);
+    loadMatches();
+  }
+
+  const live = matches.filter(m => m.status === 'in_progress');
+  const upcoming = matches.filter(m => m.status === 'upcoming');
+  const complete = matches.filter(m => m.status === 'complete');
+
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" />
+
+      <View style={styles.header}>
+        <Text style={styles.title}>Matches</Text>
+        <TouchableOpacity
+          style={styles.newGameBtn}
+          onPress={() => router.push('/(app)/games/new' as any)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.newGameBtnText}>+ New Game</Text>
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator color={colors.gold} size="large" />
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gold} />}
+          showsVerticalScrollIndicator={false}
+        >
+          {live.length > 0 && (
+            <Section label="LIVE" labelColor={colors.live}>
+              {live.map(m => <MatchCard key={m.id} match={m} playerNames={playerNames} />)}
+            </Section>
+          )}
+          {upcoming.length > 0 && (
+            <Section label="UPCOMING">
+              {upcoming.map(m => <MatchCard key={m.id} match={m} playerNames={playerNames} />)}
+            </Section>
+          )}
+          {complete.length > 0 && (
+            <Section label="COMPLETED">
+              {complete.map(m => <MatchCard key={m.id} match={m} playerNames={playerNames} />)}
+            </Section>
+          )}
+          {matches.length === 0 && (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>No matches yet.</Text>
+              <Text style={styles.emptySubtext}>Check back once the draw is set.</Text>
+            </View>
+          )}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
+function Section({ label, labelColor, children }: { label: string; labelColor?: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        {labelColor && <View style={[styles.liveDot, { backgroundColor: labelColor }]} />}
+        <Text style={[styles.sectionLabel, labelColor ? { color: labelColor } : {}]}>{label}</Text>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function MatchCard({ match, playerNames }: { match: MatchWithTeams; playerNames: Record<string, string> }) {
+  const router = useRouter();
+  const winner = getEffectiveWinner(match.status, match.winner, match.holes_string ?? '..................');
+  const label = matchLabel(match.status, match.winner, match.result_str, match.holes_string ?? '..................');
+
+  const homeWon = winner === 'home';
+  const awayWon = winner === 'away';
+
+  const firstName = (id: string) => (playerNames[id] ?? '?').split(' ')[0];
+  const hasTeam = match.home_team_id !== null;
+  const homeLogo = hasTeam && match.home_team ? teamLogos[match.home_team.name] : null;
+  const awayLogo = hasTeam && match.away_team ? teamLogos[match.away_team.name] : null;
+
+  const homeLabel = hasTeam
+    ? (match.home_team?.name ?? '—')
+    : match.home_player_ids.map(firstName).join(' & ');
+  const awayLabel = hasTeam
+    ? (match.away_team?.name ?? '—')
+    : match.away_player_ids.map(firstName).join(' & ');
+
+  function renderHomeVisual() {
+    if (hasTeam && homeLogo) return <Image source={homeLogo} style={styles.teamLogo} resizeMode="contain" />;
+    if (match.is_singles) {
+      const av = getPlayerAvatar(match.home_player_ids[0], 'normal');
+      return av
+        ? <Image source={av} style={styles.playerAv} />
+        : <View style={[styles.playerAv, styles.avFallback]}><Text style={styles.avInitial}>{homeLabel[0]}</Text></View>;
+    }
+    return (
+      <View style={styles.pairAvatars}>
+        {match.home_player_ids.map((id, i) => {
+          const av = getPlayerAvatar(id, 'normal');
+          return av
+            ? <Image key={id} source={av} style={[styles.pairAv, { marginLeft: i > 0 ? -6 : 0 }]} />
+            : <View key={id} style={[styles.pairAv, styles.avFallback, { marginLeft: i > 0 ? -6 : 0 }]}><Text style={styles.avInitialSm}>{firstName(id)[0]}</Text></View>;
+        })}
+      </View>
+    );
+  }
+
+  function renderAwayVisual() {
+    if (hasTeam && awayLogo) return <Image source={awayLogo} style={styles.teamLogo} resizeMode="contain" />;
+    if (match.is_singles) {
+      const av = getPlayerAvatar(match.away_player_ids[0], 'normal');
+      return av
+        ? <Image source={av} style={styles.playerAv} />
+        : <View style={[styles.playerAv, styles.avFallback]}><Text style={styles.avInitial}>{awayLabel[0]}</Text></View>;
+    }
+    return (
+      <View style={styles.pairAvatars}>
+        {match.away_player_ids.map((id, i) => {
+          const av = getPlayerAvatar(id, 'normal');
+          return av
+            ? <Image key={id} source={av} style={[styles.pairAv, { marginLeft: i > 0 ? -6 : 0 }]} />
+            : <View key={id} style={[styles.pairAv, styles.avFallback, { marginLeft: i > 0 ? -6 : 0 }]}><Text style={styles.avInitialSm}>{firstName(id)[0]}</Text></View>;
+        })}
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity style={styles.card} onPress={() => router.push(`/(app)/score/${match.id}`)} activeOpacity={0.75}>
+      <View style={styles.cardRow}>
+        {/* Home side */}
+        <View style={styles.teamSide}>
+          {renderHomeVisual()}
+          <Text style={[styles.teamName, homeWon && styles.teamWon]} numberOfLines={1}>{homeLabel}</Text>
+        </View>
+
+        {/* Result badge */}
+        <View style={[
+          styles.resultBadge,
+          match.status === 'in_progress' && styles.resultLive,
+          match.status === 'complete' && styles.resultComplete,
+        ]}>
+          <Text style={[
+            styles.resultText,
+            match.status === 'in_progress' && styles.resultTextLive,
+          ]}>{label}</Text>
+        </View>
+
+        {/* Away side */}
+        <View style={[styles.teamSide, styles.teamRight]}>
+          <Text style={[styles.teamName, awayWon && styles.teamWon]} numberOfLines={1}>{awayLabel}</Text>
+          {renderAwayVisual()}
+        </View>
+      </View>
+
+      {match.is_singles && (
+        <Text style={styles.matchType}>Singles</Text>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  title: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 1, flex: 1 },
+  newGameBtn: {
+    backgroundColor: colors.gold,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+  },
+  newGameBtnText: { fontSize: fonts.sm, fontWeight: '700', color: colors.bg, letterSpacing: 0.5 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scroll: { padding: spacing.md, paddingBottom: spacing.xxl },
+  section: { marginBottom: spacing.lg },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm, gap: spacing.xs },
+  sectionLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5 },
+  liveDot: { width: 7, height: 7, borderRadius: 4 },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cardRow: { flexDirection: 'row', alignItems: 'center' },
+  teamSide: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  teamRight: { justifyContent: 'flex-end' },
+  teamLogo: { width: 28, height: 28, borderRadius: 4 },
+  playerAv: { width: 28, height: 28, borderRadius: 14, overflow: 'hidden' },
+  pairAvatars: { flexDirection: 'row' },
+  pairAv: { width: 22, height: 22, borderRadius: 11, overflow: 'hidden' },
+  avFallback: { backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
+  avInitial: { fontSize: 11, fontWeight: '700', color: colors.white },
+  avInitialSm: { fontSize: 9, fontWeight: '700', color: colors.white },
+  teamName: { fontSize: fonts.md, fontWeight: '600', color: colors.textSecondary, flexShrink: 1 },
+  teamWon: { color: colors.white, fontWeight: '700' },
+  resultBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+    backgroundColor: colors.cardAlt,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  resultLive: { backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' },
+  resultComplete: { backgroundColor: colors.goldDim, borderWidth: 1, borderColor: colors.goldBorder },
+  resultText: { fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary },
+  resultTextLive: { color: colors.live },
+  matchType: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 6, textAlign: 'center' },
+  empty: { alignItems: 'center', paddingVertical: spacing.xxl },
+  emptyText: { fontSize: fonts.lg, color: colors.textSecondary, fontWeight: '600' },
+  emptySubtext: { fontSize: fonts.sm, color: colors.textMuted, marginTop: spacing.xs },
+});
