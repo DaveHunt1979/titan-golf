@@ -4,6 +4,7 @@ import {
   ScrollView, TextInput, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
@@ -121,11 +122,16 @@ export default function ProfileScreen() {
     if (result.canceled || !result.assets[0] || !player) return;
     setUploadingImage(true);
     try {
-      const response = await fetch(result.assets[0].uri);
-      const blob = await response.blob();
+      const uri = result.assets[0].uri;
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(`${player.id}.jpg`, blob, { contentType: 'image/jpeg', upsert: true });
+        .upload(`${player.id}.jpg`, bytes, { contentType: 'image/jpeg', upsert: true });
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(`${player.id}.jpg`);
       const avatarUrl = `${publicUrl}?t=${Date.now()}`;
