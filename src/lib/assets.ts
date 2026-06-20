@@ -1,5 +1,12 @@
 export const titanLogo = require('../../assets/teams/Titan Logo.png');
 
+export const hosts = {
+  birdie:     require('../../assets/hosts/Birdie_McGreen.jpg'),
+  chip:       require('../../assets/hosts/Chip_Fairway.jpg'),
+  birdieBody: require('../../assets/hosts/birdie_full.png'),
+  chipBody:   require('../../assets/hosts/chip_full.png'),
+};
+
 export const teamLogos: Record<string, any> = {
   'MOB':         require('../../assets/teams/The Mob.png'),
   'Destroyers':  require('../../assets/teams/Destroyers.png'),

@@ -1,18 +1,97 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet, Animated, Dimensions } from 'react-native';
 import { Slot, useRouter, useSegments } from 'expo-router';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { supabase } from '../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../src/lib/theme';
-import { titanLogo } from '../src/lib/assets';
+import { colors } from '../src/lib/theme';
+import { titanLogo, hosts } from '../src/lib/assets';
 
-type Gate = 'booting' | 'locked' | 'open';
+const { width: SW } = Dimensions.get('window');
+
+type Gate = 'booting' | 'open';
+
+function AnimatedSplash({ onDone }: { onDone: () => void }) {
+  const logoOpacity    = useRef(new Animated.Value(0)).current;
+  const logoScale      = useRef(new Animated.Value(0.4)).current;
+  const logoTranslateY = useRef(new Animated.Value(0)).current;
+  const hostsOpacity   = useRef(new Animated.Value(0)).current;
+  const birdieX        = useRef(new Animated.Value(-SW)).current;
+  const chipX          = useRef(new Animated.Value(SW)).current;
+  const line1Opacity   = useRef(new Animated.Value(0)).current;
+  const line2Opacity   = useRef(new Animated.Value(0)).current;
+  const screenOpacity  = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      // Logo springs in
+      Animated.parallel([
+        Animated.timing(logoOpacity,    { toValue: 1,   duration: 450, useNativeDriver: true }),
+        Animated.spring(logoScale,      { toValue: 1,   friction: 5,  tension: 90, useNativeDriver: true }),
+      ]),
+      Animated.delay(450),
+      // Logo whooshes out
+      Animated.parallel([
+        Animated.timing(logoOpacity,    { toValue: 0,   duration: 280, useNativeDriver: true }),
+        Animated.timing(logoScale,      { toValue: 2.8, duration: 320, useNativeDriver: true }),
+        Animated.timing(logoTranslateY, { toValue: -50, duration: 320, useNativeDriver: true }),
+      ]),
+      // Birdie & Chip slide in from sides
+      Animated.parallel([
+        Animated.timing(hostsOpacity,   { toValue: 1,   duration: 200, useNativeDriver: true }),
+        Animated.spring(birdieX,        { toValue: 0,   friction: 7,  tension: 65, useNativeDriver: true }),
+        Animated.spring(chipX,          { toValue: 0,   friction: 7,  tension: 65, useNativeDriver: true }),
+      ]),
+      Animated.delay(250),
+      // Text fades in
+      Animated.timing(line1Opacity,     { toValue: 1,   duration: 350, useNativeDriver: true }),
+      Animated.delay(100),
+      Animated.timing(line2Opacity,     { toValue: 1,   duration: 400, useNativeDriver: true }),
+      Animated.delay(1400),
+      // Everything fades out
+      Animated.timing(screenOpacity,    { toValue: 0,   duration: 500, useNativeDriver: true }),
+    ]).start(({ finished }) => { if (finished) onDone(); });
+  }, []);
+
+  return (
+    <Animated.View style={[ss.screen, { opacity: screenOpacity }]}>
+      <View style={ss.top}>
+        <Animated.Image
+          source={titanLogo}
+          style={[ss.logo, {
+            opacity: logoOpacity,
+            transform: [{ scale: logoScale }, { translateY: logoTranslateY }],
+          }]}
+          resizeMode="contain"
+        />
+        <Animated.Text style={[ss.line1, { opacity: line1Opacity }]}>
+          POWERED BY TITAN HOSTS
+        </Animated.Text>
+        <Animated.Text style={[ss.line2, { opacity: line2Opacity }]}>
+          CHIP & BIRDIE
+        </Animated.Text>
+      </View>
+      <View style={ss.hostsRow}>
+        <Animated.Image
+          source={hosts.birdieBody}
+          style={[ss.hostImg, { opacity: hostsOpacity, transform: [{ translateX: birdieX }] }]}
+          resizeMode="cover"
+        />
+        <Animated.Image
+          source={hosts.chipBody}
+          style={[ss.hostImg, { opacity: hostsOpacity, transform: [{ translateX: chipX }] }]}
+          resizeMode="cover"
+        />
+      </View>
+    </Animated.View>
+  );
+}
 
 export default function RootLayout() {
   const router   = useRouter();
   const segments = useSegments();
-  const [gate, setGate] = useState<Gate>('booting');
-  const gateRef = useRef<Gate>('booting');
+  const [gate, setGate]  = useState<Gate>('booting');
+  const gateRef          = useRef<Gate>('booting');
+  const splashDoneRef    = useRef(false);
+  const authResultRef    = useRef<{ hasSession: boolean } | null>(null);
 
   function updateGate(g: Gate) {
     gateRef.current = g;
@@ -25,22 +104,25 @@ export default function RootLayout() {
     else if (hasSession && inAuth) router.replace('/(app)');
   }, [segments, router]);
 
+  function proceed(hasSession: boolean) {
+    updateGate('open');
+    redirect(hasSession);
+  }
+
+  function onSplashDone() {
+    splashDoneRef.current = true;
+    if (authResultRef.current !== null) {
+      proceed(authResultRef.current.hasSession);
+    }
+  }
+
   useEffect(() => {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session && !__DEV__) {
-        const [hw, enrolled] = await Promise.all([
-          LocalAuthentication.hasHardwareAsync(),
-          LocalAuthentication.isEnrolledAsync(),
-        ]);
-        if (hw && enrolled) {
-          updateGate('locked');
-          tryBiometric();
-          return;
-        }
+      authResultRef.current = { hasSession: !!session };
+      if (splashDoneRef.current) {
+        proceed(!!session);
       }
-      updateGate('open');
-      redirect(!!session);
     }
     init();
 
@@ -51,40 +133,8 @@ export default function RootLayout() {
     return () => subscription.unsubscribe();
   }, [redirect]);
 
-  async function tryBiometric() {
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Unlock Titan Golf',
-      fallbackLabel: 'Use Passcode',
-    });
-    if (result.success) {
-      updateGate('open');
-      router.replace('/(app)');
-    }
-  }
-
-  async function signOutAndUnlock() {
-    await supabase.auth.signOut();
-    updateGate('open');
-    router.replace('/(auth)');
-  }
-
   if (gate !== 'open') {
-    return (
-      <View style={ls.container}>
-        <Image source={titanLogo} style={ls.logo} resizeMode="contain" />
-        <Text style={ls.title}>TITAN GOLF</Text>
-        {gate === 'locked' && (
-          <>
-            <TouchableOpacity style={ls.unlockBtn} onPress={tryBiometric} activeOpacity={0.85}>
-              <Text style={ls.unlockText}>Unlock</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={ls.signOutBtn} onPress={signOutAndUnlock} activeOpacity={0.7}>
-              <Text style={ls.signOutText}>Sign out</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-    );
+    return <AnimatedSplash onDone={onSplashDone} />;
   }
 
   return (
@@ -94,18 +144,43 @@ export default function RootLayout() {
   );
 }
 
-const ls = StyleSheet.create({
-  container: {
-    flex: 1, backgroundColor: colors.bg,
-    alignItems: 'center', justifyContent: 'center', gap: spacing.md,
+const ss = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.bg,
   },
-  logo:       { width: 120, height: 120 },
-  title:      { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 4 },
-  unlockBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.lg,
-    paddingVertical: spacing.md, paddingHorizontal: spacing.xxl, marginTop: spacing.lg,
+  top: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 40,
   },
-  unlockText:  { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
-  signOutBtn:  { marginTop: spacing.sm },
-  signOutText: { fontSize: fonts.sm, color: colors.textMuted },
+  logo: {
+    width: 160,
+    height: 160,
+    marginBottom: 48,
+  },
+  line1: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    letterSpacing: 4,
+  },
+  line2: {
+    fontSize: 44,
+    fontWeight: '900',
+    fontStyle: 'italic',
+    color: colors.gold,
+    letterSpacing: 3,
+    marginTop: 6,
+  },
+  hostsRow: {
+    height: 340,
+    flexDirection: 'row',
+    overflow: 'hidden',
+  },
+  hostImg: {
+    flex: 1,
+    height: 340,
+  },
 });
