@@ -56,6 +56,12 @@
           "savePhotosPermission": "Titan Golf needs permission to save photos and videos.",
           "isAccessMediaLocationEnabled": true
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Titan Golf uses your location to calculate distances on the course."
+        }
       ]
     ],
     "extra": {
