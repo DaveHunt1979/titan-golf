@@ -22,51 +22,50 @@ function AnimatedSplash({ onDone }: { onDone: () => void }) {
   const screenOpacity  = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.sequence([
-      // Swish 1: logo punches in (no bounce)
+    const swish1 = Animated.sequence([
       Animated.parallel([
         Animated.timing(logoOpacity, { toValue: 1,   duration: 350, useNativeDriver: true }),
         Animated.timing(logoScale,   { toValue: 1,   duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),
       Animated.delay(320),
-      // Swish 1: logo whooshes out
       Animated.parallel([
         Animated.timing(logoOpacity,    { toValue: 0,   duration: 220, useNativeDriver: true }),
         Animated.timing(logoScale,      { toValue: 2.6, duration: 260, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
         Animated.timing(logoTranslateY, { toValue: -60, duration: 260, useNativeDriver: true }),
       ]),
-      // Reset for second swish
-      Animated.parallel([
-        Animated.timing(logoScale,      { toValue: 0.4, duration: 0, useNativeDriver: true }),
-        Animated.timing(logoTranslateY, { toValue: 0,   duration: 0, useNativeDriver: true }),
-      ]),
-      // Swish 2: logo punches in again
+    ]);
+
+    const rest = Animated.sequence([
       Animated.parallel([
         Animated.timing(logoOpacity, { toValue: 1,   duration: 320, useNativeDriver: true }),
         Animated.timing(logoScale,   { toValue: 1,   duration: 350, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),
       Animated.delay(280),
-      // Swish 2: logo whooshes out
       Animated.parallel([
         Animated.timing(logoOpacity,    { toValue: 0,   duration: 220, useNativeDriver: true }),
         Animated.timing(logoScale,      { toValue: 2.6, duration: 260, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
         Animated.timing(logoTranslateY, { toValue: -60, duration: 260, useNativeDriver: true }),
       ]),
-      // Birdie & Chip slide in from sides
       Animated.parallel([
-        Animated.timing(hostsOpacity,   { toValue: 1,   duration: 200, useNativeDriver: true }),
-        Animated.spring(birdieX,        { toValue: 0,   friction: 7,  tension: 65, useNativeDriver: true }),
-        Animated.spring(chipX,          { toValue: 0,   friction: 7,  tension: 65, useNativeDriver: true }),
+        Animated.timing(hostsOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(birdieX,      { toValue: 0, friction: 7,   tension: 65, useNativeDriver: true }),
+        Animated.spring(chipX,        { toValue: 0, friction: 7,   tension: 65, useNativeDriver: true }),
       ]),
       Animated.delay(250),
-      // Text fades in
-      Animated.timing(line1Opacity,     { toValue: 1,   duration: 350, useNativeDriver: true }),
+      Animated.timing(line1Opacity, { toValue: 1, duration: 350, useNativeDriver: true }),
       Animated.delay(100),
-      Animated.timing(line2Opacity,     { toValue: 1,   duration: 400, useNativeDriver: true }),
+      Animated.timing(line2Opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
       Animated.delay(1400),
-      // Everything fades out
-      Animated.timing(screenOpacity,    { toValue: 0,   duration: 500, useNativeDriver: true }),
-    ]).start(({ finished }) => { if (finished) onDone(); });
+      Animated.timing(screenOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
+    ]);
+
+    swish1.start(({ finished }) => {
+      if (!finished) return;
+      // Reset between swishes using setValue (avoids duration:0 native driver issue)
+      logoScale.setValue(0.4);
+      logoTranslateY.setValue(0);
+      rest.start(({ finished: done }) => { if (done) onDone(); });
+    });
   }, []);
 
   return (

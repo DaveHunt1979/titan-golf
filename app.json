@@ -4,7 +4,7 @@
     "slug": "titan-golf",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/TitanAppLogo.png",
+    "icon": "./assets/icon.png",
     "scheme": "titangolf",
     "userInterfaceStyle": "dark",
     "ios": {

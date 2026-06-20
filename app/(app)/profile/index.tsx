@@ -132,6 +132,7 @@ export default function ProfileScreen() {
       const { error: dbError } = await supabase.from('players').update({ avatar_url: avatarUrl }).eq('id', player.id);
       if (dbError) throw dbError;
       setPlayer(p => p ? { ...p, avatar_url: avatarUrl } : p);
+      Alert.alert('Photo updated', 'Your profile photo has been saved.');
     } catch (e: any) {
       Alert.alert('Upload failed', e.message ?? 'Could not upload image.');
     } finally {
