@@ -12,7 +12,7 @@ import { getPlayerAvatar } from '../../../src/lib/assets';
 
 type GameMode  = '4bbb' | 'singles' | 'stableford' | 'medal';
 type HolesMode = 'full18' | 'front9' | 'back9';
-interface Player     { id: string; display_name: string; handicap_index: number; }
+interface Player     { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
 interface CourseItem { name: string; par: number; }
 
 const MODES: { key: GameMode; label: string; sub: string; available: boolean }[] = [
@@ -99,7 +99,7 @@ export default function NewGameScreen() {
 
       const { data } = await supabase
         .from('players')
-        .select('id, display_name, handicap_index')
+        .select('id, display_name, handicap_index, avatar_url')
         .in('id', ids)
         .order('display_name');
 
@@ -257,11 +257,12 @@ export default function NewGameScreen() {
                 <Text style={styles.pairBannerLabel}>Pair 1</Text>
                 <View style={styles.pairBannerAvatars}>
                   {pair1.map(id => {
-                    const av = getPlayerAvatar(id, 'normal');
+                    const player = players.find(p => p.id === id);
+                    const av = player?.avatar_url ?? getPlayerAvatar(id, 'normal');
                     return (
                       <View key={id} style={styles.bannerPlayer}>
                         {av
-                          ? <Image source={av} style={styles.bannerAvatar} />
+                          ? <Image source={typeof av === 'string' ? { uri: av } : av} style={styles.bannerAvatar} />
                           : <View style={[styles.bannerAvatar, styles.avatarFallback]}><Text style={styles.avatarInitial}>{firstName(id)[0]}</Text></View>
                         }
                         <Text style={styles.bannerName}>{firstName(id)}</Text>
@@ -277,7 +278,7 @@ export default function NewGameScreen() {
               : chunkArray(players, 3).map((row, ri) => (
                 <View key={ri} style={styles.playerRow}>
                   {row.map(p => {
-                    const avatar  = getPlayerAvatar(p.id, 'normal');
+                    const avatar  = p.avatar_url ?? getPlayerAvatar(p.id, 'normal');
                     const inP1    = pair1.includes(p.id);
                     const inP2    = pair2.includes(p.id);
                     const inActive = pairStep === 1 ? inP1 : inP2;
@@ -292,7 +293,7 @@ export default function NewGameScreen() {
                       >
                         <View style={[styles.avatarRing, inActive && styles.avatarRingOn]}>
                           {avatar
-                            ? <Image source={avatar} style={styles.playerAvatar} />
+                            ? <Image source={typeof avatar === 'string' ? { uri: avatar } : avatar} style={styles.playerAvatar} />
                             : <View style={[styles.playerAvatar, styles.avatarFallback]}><Text style={styles.avatarInitial}>{p.display_name[0]}</Text></View>
                           }
                           {inActive && (
