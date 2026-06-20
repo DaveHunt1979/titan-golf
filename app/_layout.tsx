@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Animated, Dimensions, Easing } from 'react-native';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
@@ -115,23 +115,32 @@ function AnimatedSplash({ onDone }: { onDone: () => void }) {
 export default function RootLayout() {
   const router   = useRouter();
   const segments = useSegments();
-  const [gate, setGate]  = useState<Gate>('booting');
-  const gateRef          = useRef<Gate>('booting');
-  const splashDoneRef    = useRef(false);
-  const authResultRef    = useRef<{ hasSession: boolean } | null>(null);
+  const [gate, setGate] = useState<Gate>('booting');
+  const gateRef         = useRef<Gate>('booting');
+  const splashDoneRef   = useRef(false);
+  const authResultRef   = useRef<{ hasSession: boolean } | null>(null);
+  const proceededRef    = useRef(false);
+  const routerRef       = useRef(router);
+  const segmentsRef     = useRef(segments);
+
+  // Keep refs current on every render without re-running the effect
+  routerRef.current   = router;
+  segmentsRef.current = segments;
 
   function updateGate(g: Gate) {
     gateRef.current = g;
     setGate(g);
   }
 
-  const redirect = useCallback((hasSession: boolean) => {
-    const inAuth = segments[0] === '(auth)';
-    if (!hasSession && !inAuth) router.replace('/(auth)');
-    else if (hasSession && inAuth) router.replace('/(app)');
-  }, [segments, router]);
+  function redirect(hasSession: boolean) {
+    const inAuth = segmentsRef.current[0] === '(auth)';
+    if (!hasSession && !inAuth) routerRef.current.replace('/(auth)');
+    else if (hasSession && inAuth) routerRef.current.replace('/(app)');
+  }
 
   function proceed(hasSession: boolean) {
+    if (proceededRef.current) return;
+    proceededRef.current = true;
     updateGate('open');
     redirect(hasSession);
   }
@@ -158,7 +167,7 @@ export default function RootLayout() {
       redirect(!!session);
     });
     return () => subscription.unsubscribe();
-  }, [redirect]);
+  }, []); // run once — router/segments accessed via refs
 
   if (gate !== 'open') {
     return <AnimatedSplash onDone={onSplashDone} />;
