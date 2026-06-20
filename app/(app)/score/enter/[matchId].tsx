@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as Location from 'expo-location';
 import CourseMapView from '../../../../src/components/CourseMapView';
 import { supabase } from '../../../../src/lib/supabase';
 import { colors, fonts, spacing, radius } from '../../../../src/lib/theme';
@@ -45,7 +46,7 @@ interface MatchInfo {
   } | null;
 }
 
-interface CourseHole { hole_number: number; par: number; stroke_index: number; }
+interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; }
 interface CompPlayer { player_id: string; handicap_index: number; }
 
 function playerCourseHcp(playerId: string, compPlayers: CompPlayer[], day: MatchInfo['day']): number {
@@ -66,6 +67,7 @@ export default function EnterScoresScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [courseLocation, setCourseLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsDistance, setGpsDistance] = useState<number | null>(null);
 
   // Score entry modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -93,7 +95,7 @@ export default function EnterScoresScreen() {
 
       const [{ data: holesData }, { data: compData }, { data: playersData }, { data: locationData }] = await Promise.all([
         matchData.day?.course_name
-          ? supabase.from('course_holes').select('hole_number,par,stroke_index').eq('course_name', matchData.day.course_name).order('hole_number')
+          ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage').eq('course_name', matchData.day.course_name).order('hole_number')
           : Promise.resolve({ data: [] }),
         matchData.competition_id && allIds.length
           ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', matchData.competition_id).in('player_id', allIds)
@@ -126,6 +128,40 @@ export default function EnterScoresScreen() {
     }
     load();
   }, [matchId]);
+
+  // ── GPS distance tracking ────────────────────────────────────────
+  useEffect(() => {
+    if (!courseLocation) return;
+    let sub: Location.LocationSubscription | null = null;
+
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      sub = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.High, distanceInterval: 5 },
+        (loc) => {
+          const d = haversineYards(
+            loc.coords.latitude, loc.coords.longitude,
+            courseLocation.lat, courseLocation.lng,
+          );
+          setGpsDistance(d);
+        },
+      );
+    })();
+
+    return () => { sub?.remove(); };
+  }, [courseLocation]);
+
+  function haversineYards(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371000;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+    return Math.round(2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.09361);
+  }
 
   // ── Derived values ──────────────────────────────────────────────
   const holesStr = (match?.holes_string ?? '..................').padEnd(18, '.').slice(0, 18);
@@ -386,6 +422,26 @@ export default function EnterScoresScreen() {
                   <Text style={styles.holeMetaLabel}>S.I.</Text>
                   <Text style={styles.holeMetaValue}>{courseHole.stroke_index}</Text>
                 </View>
+                {courseHole.yardage && (
+                  <>
+                    <View style={styles.holeMetaSep} />
+                    <View style={styles.holeMetaItem}>
+                      <Text style={styles.holeMetaLabel}>YARDS</Text>
+                      <Text style={styles.holeMetaValue}>{courseHole.yardage}</Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            )}
+
+            {gpsDistance !== null && (
+              <View style={styles.gpsRow}>
+                <Text style={styles.gpsIcon}>📍</Text>
+                <Text style={styles.gpsText}>
+                  {gpsDistance < 200
+                    ? `${gpsDistance} yds to course`
+                    : `${gpsDistance} yds from course`}
+                </Text>
               </View>
             )}
 
@@ -625,6 +681,10 @@ const styles = StyleSheet.create({
   holeMetaLabel: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 1, fontWeight: '600' },
   holeMetaValue: { fontSize: fonts.xl, fontWeight: '800', color: colors.textSecondary, marginTop: 2 },
   holeMetaSep: { width: 1, height: 32, backgroundColor: colors.border },
+
+  gpsRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, gap: 4 },
+  gpsIcon: { fontSize: 11 },
+  gpsText: { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600' },
 
   shotRow: { alignItems: 'center', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, width: '100%', paddingHorizontal: spacing.lg },
   shotLabel: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 1, marginBottom: spacing.xs },
