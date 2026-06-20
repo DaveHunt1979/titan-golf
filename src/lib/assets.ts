@@ -3,8 +3,8 @@ export const titanLogo = require('../../assets/teams/Titan Logo.png');
 export const hosts = {
   birdie:     require('../../assets/hosts/Birdie_McGreen.jpg'),
   chip:       require('../../assets/hosts/Chip_Fairway.jpg'),
-  birdieBody: require('../../assets/hosts/birdie_full.png'),
-  chipBody:   require('../../assets/hosts/chip_full.png'),
+  birdieBody: require('../../assets/hosts/birdie_splash.png'),
+  chipBody:   require('../../assets/hosts/chip_splash.png'),
 };
 
 export const teamLogos: Record<string, any> = {
