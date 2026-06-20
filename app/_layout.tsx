@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, StyleSheet, Animated, Dimensions, Easing } from 'react-native';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { colors } from '../src/lib/theme';
@@ -23,34 +23,34 @@ function AnimatedSplash({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     Animated.sequence([
-      // Swish 1: logo springs in
+      // Swish 1: logo punches in (no bounce)
       Animated.parallel([
-        Animated.timing(logoOpacity,    { toValue: 1,   duration: 400, useNativeDriver: true }),
-        Animated.spring(logoScale,      { toValue: 1,   friction: 5,  tension: 90, useNativeDriver: true }),
+        Animated.timing(logoOpacity, { toValue: 1,   duration: 350, useNativeDriver: true }),
+        Animated.timing(logoScale,   { toValue: 1,   duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),
-      Animated.delay(350),
+      Animated.delay(320),
       // Swish 1: logo whooshes out
       Animated.parallel([
-        Animated.timing(logoOpacity,    { toValue: 0,   duration: 250, useNativeDriver: true }),
-        Animated.timing(logoScale,      { toValue: 2.8, duration: 280, useNativeDriver: true }),
-        Animated.timing(logoTranslateY, { toValue: -60, duration: 280, useNativeDriver: true }),
+        Animated.timing(logoOpacity,    { toValue: 0,   duration: 220, useNativeDriver: true }),
+        Animated.timing(logoScale,      { toValue: 2.6, duration: 260, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(logoTranslateY, { toValue: -60, duration: 260, useNativeDriver: true }),
       ]),
-      // Reset logo for second swish
+      // Reset for second swish
       Animated.parallel([
-        Animated.timing(logoScale,      { toValue: 0.4, duration: 0,   useNativeDriver: true }),
-        Animated.timing(logoTranslateY, { toValue: 0,   duration: 0,   useNativeDriver: true }),
+        Animated.timing(logoScale,      { toValue: 0.4, duration: 0, useNativeDriver: true }),
+        Animated.timing(logoTranslateY, { toValue: 0,   duration: 0, useNativeDriver: true }),
       ]),
-      // Swish 2: logo springs in again
+      // Swish 2: logo punches in again
       Animated.parallel([
-        Animated.timing(logoOpacity,    { toValue: 1,   duration: 350, useNativeDriver: true }),
-        Animated.spring(logoScale,      { toValue: 1,   friction: 5,  tension: 100, useNativeDriver: true }),
+        Animated.timing(logoOpacity, { toValue: 1,   duration: 320, useNativeDriver: true }),
+        Animated.timing(logoScale,   { toValue: 1,   duration: 350, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),
       Animated.delay(280),
       // Swish 2: logo whooshes out
       Animated.parallel([
-        Animated.timing(logoOpacity,    { toValue: 0,   duration: 250, useNativeDriver: true }),
-        Animated.timing(logoScale,      { toValue: 2.8, duration: 280, useNativeDriver: true }),
-        Animated.timing(logoTranslateY, { toValue: -60, duration: 280, useNativeDriver: true }),
+        Animated.timing(logoOpacity,    { toValue: 0,   duration: 220, useNativeDriver: true }),
+        Animated.timing(logoScale,      { toValue: 2.6, duration: 260, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(logoTranslateY, { toValue: -60, duration: 260, useNativeDriver: true }),
       ]),
       // Birdie & Chip slide in from sides
       Animated.parallel([
@@ -79,7 +79,7 @@ function AnimatedSplash({ onDone }: { onDone: () => void }) {
           opacity: hostsOpacity,
           transform: [{ translateX: birdieX }],
         }]}
-        resizeMode="cover"
+        resizeMode="contain"
       />
       <Animated.Image
         source={hosts.chipBody}
@@ -87,7 +87,7 @@ function AnimatedSplash({ onDone }: { onDone: () => void }) {
           opacity: hostsOpacity,
           transform: [{ translateX: chipX }],
         }]}
-        resizeMode="cover"
+        resizeMode="contain"
       />
 
       {/* Logo — centered, appears then whooshes out */}
@@ -200,10 +200,10 @@ const ss = StyleSheet.create({
     height: 160,
     alignSelf: 'center',
   },
-  // Text: absolute, sits well above the hosts' heads
+  // Text: absolute, sits well above the hosts' heads (~10mm above)
   line1: {
     position: 'absolute',
-    bottom: HOST_HEIGHT + 68,
+    bottom: HOST_HEIGHT + 140,
     alignSelf: 'center',
     fontSize: 11,
     fontWeight: '600',
@@ -212,7 +212,7 @@ const ss = StyleSheet.create({
   },
   line2: {
     position: 'absolute',
-    bottom: HOST_HEIGHT + 16,
+    bottom: HOST_HEIGHT + 84,
     alignSelf: 'center',
     fontSize: 44,
     fontWeight: '900',

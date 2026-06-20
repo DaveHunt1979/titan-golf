@@ -1,4 +1,4 @@
-export const titanLogo = require('../../assets/TitanAppLogo.png');
+export const titanLogo = require('../../assets/teams/Titan Logo.png');
 
 export const hosts = {
   birdie:     require('../../assets/hosts/Birdie_McGreen.jpg'),
