@@ -5,7 +5,8 @@ import { supabase } from '../src/lib/supabase';
 import { colors } from '../src/lib/theme';
 import { titanLogo, hosts } from '../src/lib/assets';
 
-const { width: SW } = Dimensions.get('window');
+const { width: SW, height: SH } = Dimensions.get('window');
+const HOST_HEIGHT = SH * 0.62;
 
 type Gate = 'booting' | 'open';
 
@@ -32,7 +33,7 @@ function AnimatedSplash({ onDone }: { onDone: () => void }) {
       Animated.parallel([
         Animated.timing(logoOpacity,    { toValue: 0,   duration: 280, useNativeDriver: true }),
         Animated.timing(logoScale,      { toValue: 2.8, duration: 320, useNativeDriver: true }),
-        Animated.timing(logoTranslateY, { toValue: -50, duration: 320, useNativeDriver: true }),
+        Animated.timing(logoTranslateY, { toValue: -60, duration: 320, useNativeDriver: true }),
       ]),
       // Birdie & Chip slide in from sides
       Animated.parallel([
@@ -53,34 +54,43 @@ function AnimatedSplash({ onDone }: { onDone: () => void }) {
 
   return (
     <Animated.View style={[ss.screen, { opacity: screenOpacity }]}>
-      <View style={ss.top}>
-        <Animated.Image
-          source={titanLogo}
-          style={[ss.logo, {
-            opacity: logoOpacity,
-            transform: [{ scale: logoScale }, { translateY: logoTranslateY }],
-          }]}
-          resizeMode="contain"
-        />
-        <Animated.Text style={[ss.line1, { opacity: line1Opacity }]}>
-          POWERED BY TITAN HOSTS
-        </Animated.Text>
-        <Animated.Text style={[ss.line2, { opacity: line2Opacity }]}>
-          CHIP & BIRDIE
-        </Animated.Text>
-      </View>
-      <View style={ss.hostsRow}>
-        <Animated.Image
-          source={hosts.birdieBody}
-          style={[ss.hostImg, { opacity: hostsOpacity, transform: [{ translateX: birdieX }] }]}
-          resizeMode="cover"
-        />
-        <Animated.Image
-          source={hosts.chipBody}
-          style={[ss.hostImg, { opacity: hostsOpacity, transform: [{ translateX: chipX }] }]}
-          resizeMode="cover"
-        />
-      </View>
+
+      {/* Hosts — pinned to bottom, slide in from sides */}
+      <Animated.Image
+        source={hosts.birdieBody}
+        style={[ss.hostLeft, {
+          opacity: hostsOpacity,
+          transform: [{ translateX: birdieX }],
+        }]}
+        resizeMode="contain"
+      />
+      <Animated.Image
+        source={hosts.chipBody}
+        style={[ss.hostRight, {
+          opacity: hostsOpacity,
+          transform: [{ translateX: chipX }],
+        }]}
+        resizeMode="contain"
+      />
+
+      {/* Logo — centered, appears then whooshes out */}
+      <Animated.Image
+        source={titanLogo}
+        style={[ss.logo, {
+          opacity: logoOpacity,
+          transform: [{ scale: logoScale }, { translateY: logoTranslateY }],
+        }]}
+        resizeMode="contain"
+      />
+
+      {/* Text — sits above the hosts */}
+      <Animated.Text style={[ss.line1, { opacity: line1Opacity }]}>
+        POWERED BY TITAN HOSTS
+      </Animated.Text>
+      <Animated.Text style={[ss.line2, { opacity: line2Opacity }]}>
+        CHIP & BIRDIE
+      </Animated.Text>
+
     </Animated.View>
   );
 }
@@ -148,39 +158,49 @@ const ss = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.bg,
-  },
-  top: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 40,
   },
+  // Hosts: absolute, anchored to bottom, each half the screen width
+  hostLeft: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: SW / 2,
+    height: HOST_HEIGHT,
+  },
+  hostRight: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: SW / 2,
+    height: HOST_HEIGHT,
+  },
+  // Logo: absolute, centered on screen
   logo: {
+    position: 'absolute',
     width: 160,
     height: 160,
-    marginBottom: 48,
+    alignSelf: 'center',
   },
+  // Text: absolute, sits just above the hosts
   line1: {
+    position: 'absolute',
+    bottom: HOST_HEIGHT + 12,
+    alignSelf: 'center',
     fontSize: 11,
     fontWeight: '600',
     color: colors.textSecondary,
     letterSpacing: 4,
   },
   line2: {
+    position: 'absolute',
+    bottom: HOST_HEIGHT - 40,
+    alignSelf: 'center',
     fontSize: 44,
     fontWeight: '900',
     fontStyle: 'italic',
     color: colors.gold,
     letterSpacing: 3,
-    marginTop: 6,
-  },
-  hostsRow: {
-    height: 340,
-    flexDirection: 'row',
-    overflow: 'hidden',
-  },
-  hostImg: {
-    flex: 1,
-    height: 340,
   },
 });

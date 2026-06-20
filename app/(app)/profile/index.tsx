@@ -123,10 +123,14 @@ export default function ProfileScreen() {
     try {
       const response = await fetch(result.assets[0].uri);
       const blob = await response.blob();
-      await supabase.storage.from('avatars').upload(`${player.id}.jpg`, blob, { contentType: 'image/jpeg', upsert: true });
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(`${player.id}.jpg`, blob, { contentType: 'image/jpeg', upsert: true });
+      if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(`${player.id}.jpg`);
       const avatarUrl = `${publicUrl}?t=${Date.now()}`;
-      await supabase.from('players').update({ avatar_url: avatarUrl }).eq('id', player.id);
+      const { error: dbError } = await supabase.from('players').update({ avatar_url: avatarUrl }).eq('id', player.id);
+      if (dbError) throw dbError;
       setPlayer(p => p ? { ...p, avatar_url: avatarUrl } : p);
     } catch (e: any) {
       Alert.alert('Upload failed', e.message ?? 'Could not upload image.');
