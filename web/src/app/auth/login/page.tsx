@@ -15,13 +15,20 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setError(error.message);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setError(error.message);
+      } else if (data.session) {
+        window.location.href = '/dashboard';
+      } else {
+        setError('Sign in failed — please try again.');
+      }
+    } catch (err) {
+      setError(`Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
       setLoading(false);
-    } else {
-      window.location.href = '/dashboard';
     }
   }
 
