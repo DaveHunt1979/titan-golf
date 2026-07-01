@@ -1,0 +1,1 @@
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS side_game_results JSONB DEFAULT '{}';

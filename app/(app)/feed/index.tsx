@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, ActivityIndicator,
   TouchableOpacity, RefreshControl, Linking,
@@ -6,7 +6,8 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+import { fonts, spacing, radius } from '../../../src/lib/theme';
+import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import type { Notification } from '../../../src/types';
 
 // ── Info section types ────────────────────────────────────────
@@ -37,6 +38,44 @@ const LABELS: Record<string, string> = {
 };
 
 export default function FeedScreen() {
+  const colors = useDynamicColors();
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+    header: {
+      paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: 0,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    title: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 1, marginBottom: spacing.xs },
+    editBtn: {
+      position: 'absolute', top: 64, right: spacing.lg,
+      paddingHorizontal: spacing.md, paddingVertical: 4,
+      backgroundColor: colors.cardAlt, borderRadius: radius.sm,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    editBtnText: { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, letterSpacing: 0.5 },
+    tabs: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
+    tab: {
+      paddingHorizontal: spacing.sm, paddingVertical: spacing.sm,
+      borderBottomWidth: 2, borderBottomColor: 'transparent',
+    },
+    tabOn: { borderBottomColor: colors.gold },
+    tabText: { fontSize: fonts.xs, fontWeight: '600', color: colors.textMuted, letterSpacing: 0.3 },
+    tabTextOn: { color: colors.gold },
+    scroll: { padding: spacing.md, paddingBottom: 48 },
+    heroBanner: {
+      backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md,
+      marginBottom: spacing.md, borderWidth: 1, borderColor: colors.goldBorder,
+    },
+    heroLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, letterSpacing: 2, marginBottom: 4 },
+    heroName: { fontSize: fonts.lg, fontWeight: '800', color: colors.white },
+    empty: { alignItems: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.lg },
+    emptyTitle: { fontSize: fonts.lg, fontWeight: '700', color: colors.textSecondary, marginBottom: spacing.xs },
+    emptySub: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20, marginBottom: spacing.lg },
+    emptyBtn: { backgroundColor: colors.goldDim, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.goldBorder },
+    emptyBtnText: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
+  }), [colors]);
+
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('info');
   const [compName, setCompName] = useState('');
@@ -130,7 +169,7 @@ export default function FeedScreen() {
       </View>
 
       {tab === 'instagram' ? (
-        <InstagramView url={instagramUrl} onGoAdmin={() => router.push('/(app)/admin' as any)} />
+        <InstagramView url={instagramUrl} onGoAdmin={() => router.push('/(app)/admin' as any)} styles={styles} />
       ) : loading ? (
         <View style={styles.centered}><ActivityIndicator color={colors.gold} size="large" /></View>
       ) : (
@@ -205,7 +244,7 @@ function extractHandle(url: string): string {
   return url.replace(/^@/, '');
 }
 
-function InstagramView({ url, onGoAdmin }: { url: string | null; onGoAdmin: () => void }) {
+function InstagramView({ url, onGoAdmin, styles }: { url: string | null; onGoAdmin: () => void; styles: any }) {
   if (!url) {
     return (
       <View style={styles.centered}>
@@ -285,7 +324,7 @@ function TextCard({ s }: { s: TextSection }) {
 
 function ScheduleCard({ s }: { s: ScheduleSection }) {
   return (
-    <CardShell title={s.title} accent={colors.gold}>
+    <CardShell title={s.title} accent={sched.time.color}>
       {s.items.map((item, i) => (
         <View key={i} style={sched.row}>
           <View style={sched.timeCol}>
@@ -325,7 +364,7 @@ function LocationCard({ s }: { s: LocationSection }) {
       {s.address ? <Text style={loc.detail}>{s.address}</Text> : null}
       {s.phone ? (
         <Text style={loc.detail}>
-          <Text style={{ color: colors.textMuted }}>T  </Text>{s.phone}
+          <Text style={{ color: '#6b7280' }}>T  </Text>{s.phone}
         </Text>
       ) : null}
       {s.notes ? <Text style={[loc.detail, { marginTop: spacing.xs, fontStyle: 'italic' }]}>{s.notes}</Text> : null}
@@ -391,46 +430,9 @@ function FeedCard({ n }: { n: Notification }) {
 }
 
 // ── Styles ────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  header: {
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: 0,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  title: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 1, marginBottom: spacing.xs },
-  editBtn: {
-    position: 'absolute', top: 64, right: spacing.lg,
-    paddingHorizontal: spacing.md, paddingVertical: 4,
-    backgroundColor: colors.cardAlt, borderRadius: radius.sm,
-    borderWidth: 1, borderColor: colors.border,
-  },
-  editBtnText: { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, letterSpacing: 0.5 },
-  tabs: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
-  tab: {
-    paddingHorizontal: spacing.sm, paddingVertical: spacing.sm,
-    borderBottomWidth: 2, borderBottomColor: 'transparent',
-  },
-  tabOn: { borderBottomColor: colors.gold },
-  tabText: { fontSize: fonts.xs, fontWeight: '600', color: colors.textMuted, letterSpacing: 0.3 },
-  tabTextOn: { color: colors.gold },
-  scroll: { padding: spacing.md, paddingBottom: 48 },
-  heroBanner: {
-    backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md,
-    marginBottom: spacing.md, borderWidth: 1, borderColor: colors.goldBorder,
-  },
-  heroLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, letterSpacing: 2, marginBottom: 4 },
-  heroName: { fontSize: fonts.lg, fontWeight: '800', color: colors.white },
-  empty: { alignItems: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.lg },
-  emptyTitle: { fontSize: fonts.lg, fontWeight: '700', color: colors.textSecondary, marginBottom: spacing.xs },
-  emptySub: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20, marginBottom: spacing.lg },
-  emptyBtn: { backgroundColor: colors.goldDim, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.goldBorder },
-  emptyBtnText: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
-});
-
 const ig = StyleSheet.create({
-  emptyTitle: { fontSize: fonts.lg, fontWeight: '700', color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'center' },
-  emptySub: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20, marginBottom: spacing.lg, paddingHorizontal: spacing.lg },
+  emptyTitle: { fontSize: fonts.lg, fontWeight: '700', color: '#9ca3af', marginBottom: spacing.xs, textAlign: 'center' },
+  emptySub: { fontSize: fonts.sm, color: '#6b7280', textAlign: 'center', lineHeight: 20, marginBottom: spacing.lg, paddingHorizontal: spacing.lg },
   iconWrap: {
     width: 96, height: 96, borderRadius: 28,
     backgroundColor: '#833AB4', alignItems: 'center', justifyContent: 'center',
@@ -438,84 +440,84 @@ const ig = StyleSheet.create({
   },
   iconInner: { alignItems: 'center', justifyContent: 'center' },
   iconText: { fontSize: 44 },
-  handle: { fontSize: fonts.xl, fontWeight: '800', color: colors.white, marginBottom: 4 },
-  sub: { fontSize: fonts.sm, color: colors.textMuted },
+  handle: { fontSize: fonts.xl, fontWeight: '800', color: '#ffffff', marginBottom: 4 },
+  sub: { fontSize: fonts.sm, color: '#6b7280' },
   openBtn: {
     backgroundColor: '#833AB4', borderRadius: radius.md,
     paddingVertical: spacing.md, paddingHorizontal: spacing.xxl,
   },
-  openBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
-  webLink: { fontSize: fonts.sm, color: colors.textMuted, textDecorationLine: 'underline' },
+  openBtnText: { fontSize: fonts.md, fontWeight: '800', color: '#ffffff', letterSpacing: 0.5 },
+  webLink: { fontSize: fonts.sm, color: '#6b7280', textDecorationLine: 'underline' },
 });
 
 const card = StyleSheet.create({
   shell: {
-    backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1,
-    borderColor: colors.border, padding: spacing.md, marginBottom: spacing.md,
+    backgroundColor: '#1c1c1e', borderRadius: radius.md, borderWidth: 1,
+    borderColor: '#2c2c2e', padding: spacing.md, marginBottom: spacing.md,
   },
   title: {
-    fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted,
+    fontSize: fonts.xs, fontWeight: '800', color: '#6b7280',
     letterSpacing: 2, marginBottom: spacing.md, textTransform: 'uppercase',
   },
-  body: { fontSize: fonts.sm, color: colors.textSecondary, lineHeight: 22 },
+  body: { fontSize: fonts.sm, color: '#9ca3af', lineHeight: 22 },
 });
 
 const sched = StyleSheet.create({
   row: { flexDirection: 'row', marginBottom: 0 },
   timeCol: { width: 52, alignItems: 'flex-end', marginRight: spacing.md },
-  time: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold, lineHeight: 22 },
-  line: { width: 1, flex: 1, backgroundColor: colors.goldBorder, alignSelf: 'center', marginTop: 2, marginBottom: 2, minHeight: 20 },
+  time: { fontSize: fonts.sm, fontWeight: '700', color: '#d4af37', lineHeight: 22 },
+  line: { width: 1, flex: 1, backgroundColor: 'rgba(212,175,55,0.2)', alignSelf: 'center', marginTop: 2, marginBottom: 2, minHeight: 20 },
   content: { flex: 1, paddingBottom: spacing.md },
-  label: { fontSize: fonts.sm, fontWeight: '600', color: colors.white, lineHeight: 22 },
-  note: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 1 },
+  label: { fontSize: fonts.sm, fontWeight: '600', color: '#ffffff', lineHeight: 22 },
+  note: { fontSize: fonts.xs, color: '#6b7280', marginTop: 1 },
 });
 
 const travel = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, marginBottom: spacing.md },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.gold, marginTop: 6 },
-  label: { fontSize: fonts.sm, fontWeight: '700', color: colors.white, marginBottom: 2 },
-  detail: { fontSize: fonts.sm, color: colors.textSecondary },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d4af37', marginTop: 6 },
+  label: { fontSize: fonts.sm, fontWeight: '700', color: '#ffffff', marginBottom: 2 },
+  detail: { fontSize: fonts.sm, color: '#9ca3af' },
 });
 
 const loc = StyleSheet.create({
-  name: { fontSize: fonts.md, fontWeight: '700', color: colors.white, marginBottom: spacing.xs },
-  detail: { fontSize: fonts.sm, color: colors.textSecondary, lineHeight: 20 },
+  name: { fontSize: fonts.md, fontWeight: '700', color: '#ffffff', marginBottom: spacing.xs },
+  detail: { fontSize: fonts.sm, color: '#9ca3af', lineHeight: 20 },
 });
 
 const contact = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
-  rowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: '#2c2c2e' },
   avatar: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: '#2c2c2e', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#2c2c2e',
   },
-  initial: { fontSize: fonts.md, fontWeight: '800', color: colors.gold },
-  name: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  role: { fontSize: fonts.xs, color: colors.textMuted },
-  phone: { fontSize: fonts.xs, color: colors.textSecondary, fontWeight: '600' },
+  initial: { fontSize: fonts.md, fontWeight: '800', color: '#d4af37' },
+  name: { fontSize: fonts.sm, fontWeight: '700', color: '#ffffff' },
+  role: { fontSize: fonts.xs, color: '#6b7280' },
+  phone: { fontSize: fonts.xs, color: '#9ca3af', fontWeight: '600' },
 });
 
 const rules = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.sm },
   numBadge: {
     width: 22, height: 22, borderRadius: 11,
-    backgroundColor: colors.goldDim, borderWidth: 1, borderColor: colors.goldBorder,
+    backgroundColor: 'rgba(212,175,55,0.1)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.2)',
     alignItems: 'center', justifyContent: 'center', marginTop: 1,
   },
-  num: { fontSize: 10, fontWeight: '800', color: colors.gold },
-  text: { flex: 1, fontSize: fonts.sm, color: colors.textSecondary, lineHeight: 22 },
+  num: { fontSize: 10, fontWeight: '800', color: '#d4af37' },
+  text: { flex: 1, fontSize: fonts.sm, color: '#9ca3af', lineHeight: 22 },
 });
 
 const feedCard = StyleSheet.create({
   container: {
     flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md,
-    backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md,
-    marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: '#1c1c1e', borderRadius: radius.md, padding: spacing.md,
+    marginBottom: spacing.sm, borderWidth: 1, borderColor: '#2c2c2e',
   },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.gold, marginTop: 5 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d4af37', marginTop: 5 },
   top: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  label: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  time: { fontSize: fonts.xs, color: colors.textMuted },
-  body: { fontSize: fonts.sm, color: colors.textSecondary },
+  label: { fontSize: fonts.sm, fontWeight: '700', color: '#ffffff' },
+  time: { fontSize: fonts.xs, color: '#6b7280' },
+  body: { fontSize: fonts.sm, color: '#9ca3af' },
 });

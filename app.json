@@ -10,9 +10,18 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.titangolf.app",
-      "buildNumber": "1",
+      "buildNumber": "12",
+      "entitlements": {
+        "com.apple.developer.nfc.readersession.formats": ["NDEF", "TAG"]
+      },
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Titan Golf uses your location to show distances to the green.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Titan Golf uses your location to show distances to the green.",
+        "NFCReaderUsageDescription": "Tap your NFC club sticker to identify which club you're hitting."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyBPyekqwVRQ2H3ssieFjWBxq3yhXO8hL8c"
       }
     },
     "android": {
@@ -53,6 +62,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       "expo-secure-store",
       [
         "expo-camera",
@@ -69,26 +79,15 @@
           "savePhotosPermission": "Titan Golf needs permission to save photos and videos.",
           "isAccessMediaLocationEnabled": true
         }
-      ],
-      [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "Titan Golf uses your location to calculate distances on the course."
-        }
       ]
     ],
+    "newArchEnabled": false,
     "extra": {
       "router": {},
       "eas": {
         "projectId": "595df628-ba81-4fe5-82f7-d33ef97f274d"
       }
     },
-    "owner": "davehunt79",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/595df628-ba81-4fe5-82f7-d33ef97f274d"
-    }
+    "owner": "davehunt79"
   }
 }

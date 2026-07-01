@@ -1,5 +1,13 @@
 export const titanLogo = require('../../assets/teams/Titan Logo.png');
 
+const societyLogos: Record<string, any> = {
+  'mashie golf': require('../../assets/mashie/logo.png'),
+};
+
+export function getSocietyLogo(societyName: string): any | null {
+  return societyLogos[societyName.toLowerCase()] ?? null;
+}
+
 export const hosts = {
   birdie:     require('../../assets/hosts/Birdie_McGreen.jpg'),
   chip:       require('../../assets/hosts/Chip_Fairway.jpg'),
@@ -38,6 +46,7 @@ export const playerAvatars: Record<string, { normal: any; happy: any; angry: any
   '20000000-0000-0000-0000-000000000019': { normal: require('../../assets/players/19_normal.png'), happy: require('../../assets/players/19_happy.png'), angry: require('../../assets/players/19_angry.png') },
   '20000000-0000-0000-0000-000000000020': { normal: require('../../assets/players/20_normal.png'), happy: require('../../assets/players/20_happy.png'), angry: require('../../assets/players/20_angry.png') },
   '20000000-0000-0000-0000-000000000021': { normal: require('../../assets/players/21_normal.png'), happy: require('../../assets/players/21_happy.png'), angry: require('../../assets/players/21_angry.png') },
+  '20000000-0000-0000-0000-000000000025': { normal: require('../../assets/players/george.png'), happy: require('../../assets/players/george.png'), angry: require('../../assets/players/george.png') },
   '20000000-0000-0000-0000-000000000022': { normal: require('../../assets/players/22_normal.png'), happy: require('../../assets/players/22_happy.png'), angry: require('../../assets/players/22_angry.png') },
   '20000000-0000-0000-0000-000000000023': { normal: require('../../assets/players/23_normal.png'), happy: require('../../assets/players/23_happy.png'), angry: require('../../assets/players/23_angry.png') },
   '20000000-0000-0000-0000-000000000024': { normal: require('../../assets/players/24_normal.png'), happy: require('../../assets/players/24_happy.png'), angry: require('../../assets/players/24_angry.png') },
@@ -45,4 +54,10 @@ export const playerAvatars: Record<string, { normal: any; happy: any; angry: any
 
 export function getPlayerAvatar(playerId: string, mood: 'normal' | 'happy' | 'angry' = 'normal') {
   return playerAvatars[playerId]?.[mood] ?? null;
+}
+
+// Returns the best available avatar source: uploaded photo → static AI image → null
+export function resolveAvatar(playerId: string, avatarUrl: string | null | undefined, mood: 'normal' | 'happy' | 'angry' = 'normal'): { uri: string } | any | null {
+  if (avatarUrl) return { uri: avatarUrl };
+  return getPlayerAvatar(playerId, mood);
 }

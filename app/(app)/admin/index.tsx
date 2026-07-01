@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
@@ -7,9 +7,67 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+import { fonts, spacing, radius } from '../../../src/lib/theme';
+import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 
 export default function SocietyAdminScreen() {
+  const colors = useDynamicColors();
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    centered: { alignItems: 'center', justifyContent: 'center' },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    back: { fontSize: fonts.sm, color: colors.gold, fontWeight: '600' },
+    headerTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
+    saveBtn: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
+    scroll: { padding: spacing.lg, paddingBottom: 60 },
+    section: { marginBottom: spacing.xl },
+    sectionLabel: {
+      fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted,
+      letterSpacing: 2, marginBottom: spacing.sm, textTransform: 'uppercase',
+    },
+    card: {
+      backgroundColor: colors.card, borderRadius: radius.md,
+      borderWidth: 1, borderColor: colors.border, padding: spacing.md,
+    },
+    cardLabel: {
+      fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted,
+      letterSpacing: 1, marginBottom: spacing.xs,
+    },
+    cardValue: { fontSize: fonts.md, fontWeight: '700', color: colors.white },
+    input: {
+      backgroundColor: colors.cardAlt, borderRadius: radius.sm,
+      borderWidth: 1, borderColor: colors.border,
+      paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+      fontSize: fonts.sm, color: colors.white, marginTop: spacing.sm,
+    },
+    hint: { fontSize: fonts.xs, color: colors.textMuted, marginTop: spacing.xs },
+    linkCard: {
+      backgroundColor: colors.card, borderRadius: radius.md,
+      borderWidth: 1, borderColor: colors.border, padding: spacing.md,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    },
+    linkTitle: { fontSize: fonts.sm, fontWeight: '700', color: colors.white, marginBottom: 2 },
+    linkSub: { fontSize: fonts.xs, color: colors.textMuted },
+    arrow: { fontSize: 22, color: colors.textMuted },
+    saveButton: {
+      backgroundColor: colors.gold, borderRadius: radius.md,
+      paddingVertical: spacing.md, alignItems: 'center', marginBottom: spacing.xl,
+    },
+    saveButtonText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 0.5 },
+    pinValue: { fontSize: 28, fontWeight: '800', color: colors.gold, letterSpacing: 6, marginTop: 4 },
+    deleteCard: {
+      backgroundColor: 'rgba(248,113,113,0.08)', borderRadius: radius.md,
+      borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)',
+      padding: spacing.md, alignItems: 'center',
+    },
+    deleteTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.red },
+    deleteSub:   { fontSize: fonts.xs, color: colors.red, opacity: 0.7, marginTop: 4 },
+  }), [colors]);
+
   const router = useRouter();
   const { societyId, loading: societyLoading } = useAdminSociety();
   const [societyName, setSocietyName] = useState('');
@@ -246,12 +304,45 @@ export default function SocietyAdminScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.linkCard, { marginTop: spacing.sm }]}
+            onPress={() => router.push('/(app)/admin/pins' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.linkTitle}>⛳ Green Pins</Text>
+              <Text style={styles.linkSub}>Set green locations for satellite rangefinder</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.linkCard, { marginTop: spacing.sm }]}
             onPress={() => router.push('/(app)/admin/info' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
               <Text style={styles.linkTitle}>Edit Info Pack</Text>
               <Text style={styles.linkSub}>Update the tour info board</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.linkCard, { marginTop: spacing.sm, borderColor: colors.goldBorder }]}
+            onPress={() => router.push('/(app)/records' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.gold }]}>🏆 Wall of Records</Text>
+              <Text style={styles.linkSub}>All-time society bests</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.linkCard, { marginTop: spacing.sm, borderColor: colors.goldBorder }]}
+            onPress={() => router.push('/(app)/admin/transfers' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.gold }]}>Transfer Window</Text>
+              <Text style={styles.linkSub}>Move players between teams or release them</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -281,6 +372,35 @@ export default function SocietyAdminScreen() {
           <Text style={styles.saveButtonText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
         </TouchableOpacity>
 
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>CHAT</Text>
+          <TouchableOpacity
+            style={styles.linkCard}
+            onPress={() => Alert.alert(
+              'Clear All Chat?',
+              'This will delete all messages for everyone. Cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Clear Chat', style: 'destructive',
+                  onPress: async () => {
+                    const { error } = await supabase.from('messages').delete().gte('created_at', '2000-01-01');
+                    if (error) Alert.alert('Error', error.message);
+                    else Alert.alert('Done', 'Chat cleared.');
+                  },
+                },
+              ],
+            )}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.linkTitle}>Clear All Messages</Text>
+              <Text style={styles.linkSub}>Delete the entire chat history</Text>
+            </View>
+            <Text style={[styles.arrow, { color: colors.red }]}>›</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={[styles.section, { marginTop: spacing.xl }]}>
           <Text style={[styles.sectionLabel, { color: colors.red }]}>DANGER ZONE</Text>
           <TouchableOpacity
@@ -302,59 +422,3 @@ export default function SocietyAdminScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered: { alignItems: 'center', justifyContent: 'center' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  back: { fontSize: fonts.sm, color: colors.gold, fontWeight: '600' },
-  headerTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
-  saveBtn: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
-  scroll: { padding: spacing.lg, paddingBottom: 60 },
-  section: { marginBottom: spacing.xl },
-  sectionLabel: {
-    fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted,
-    letterSpacing: 2, marginBottom: spacing.sm, textTransform: 'uppercase',
-  },
-  card: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, padding: spacing.md,
-  },
-  cardLabel: {
-    fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted,
-    letterSpacing: 1, marginBottom: spacing.xs,
-  },
-  cardValue: { fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  input: {
-    backgroundColor: colors.cardAlt, borderRadius: radius.sm,
-    borderWidth: 1, borderColor: colors.border,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    fontSize: fonts.sm, color: colors.white, marginTop: spacing.sm,
-  },
-  hint: { fontSize: fonts.xs, color: colors.textMuted, marginTop: spacing.xs },
-  linkCard: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, padding: spacing.md,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  },
-  linkTitle: { fontSize: fonts.sm, fontWeight: '700', color: colors.white, marginBottom: 2 },
-  linkSub: { fontSize: fonts.xs, color: colors.textMuted },
-  arrow: { fontSize: 22, color: colors.textMuted },
-  saveButton: {
-    backgroundColor: colors.gold, borderRadius: radius.md,
-    paddingVertical: spacing.md, alignItems: 'center', marginBottom: spacing.xl,
-  },
-  saveButtonText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 0.5 },
-  pinValue: { fontSize: 28, fontWeight: '800', color: colors.gold, letterSpacing: 6, marginTop: 4 },
-  deleteCard: {
-    backgroundColor: 'rgba(248,113,113,0.08)', borderRadius: radius.md,
-    borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)',
-    padding: spacing.md, alignItems: 'center',
-  },
-  deleteTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.red },
-  deleteSub:   { fontSize: fonts.xs, color: colors.red, opacity: 0.7, marginTop: 4 },
-});

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,8 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
 import { getStandings } from '../../../src/lib/scoring';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+import { fonts, spacing, radius } from '../../../src/lib/theme';
+import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { teamLogos } from '../../../src/lib/assets';
 import type { Match, Team, Champion } from '../../../src/types';
 import type { TeamStanding } from '../../../src/lib/scoring';
@@ -25,6 +26,70 @@ interface TeamWithStanding extends TeamStanding {
 }
 
 export default function LeaderboardScreen() {
+  const colors = useDynamicColors();
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    header: {
+      paddingTop: 60,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: 0,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    title: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 1, marginBottom: spacing.md },
+    tabs: { flexDirection: 'row', gap: spacing.sm },
+    tab: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.sm,
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
+    },
+    tabActive: { borderBottomColor: colors.gold },
+    tabText: { fontSize: fonts.sm, fontWeight: '600', color: colors.textMuted },
+    tabTextActive: { color: colors.gold },
+    scroll: { padding: spacing.md, paddingBottom: spacing.xxl },
+    tableHeader: { flexDirection: 'row', paddingVertical: spacing.xs, paddingHorizontal: spacing.sm, marginBottom: spacing.xs },
+    headerText: { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '700', letterSpacing: 1 },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      borderRadius: radius.md,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.sm,
+      marginBottom: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    rowFirst: { borderColor: colors.goldBorder, backgroundColor: colors.cardAlt },
+    cell: { flex: 1, textAlign: 'center', fontSize: fonts.sm, color: colors.textSecondary, fontWeight: '500' },
+    cellTeam: { flex: 4, textAlign: 'left' },
+    cellPts: { flex: 1.5 },
+    pos: { fontSize: fonts.sm, color: colors.textMuted, width: 18, textAlign: 'center' },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    teamLogo: { width: 28, height: 28 },
+    teamName: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
+    pts: { fontSize: fonts.md, fontWeight: '800', color: colors.gold },
+    champYear: { marginBottom: spacing.lg },
+    champYearLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 2, marginBottom: spacing.sm },
+    champCard: {
+      backgroundColor: colors.card,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.goldBorder,
+    },
+    champAward: { fontSize: fonts.xs, color: colors.gold, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
+    champWinner: { fontSize: fonts.xl, fontWeight: '800', color: colors.white },
+    champDetail: { fontSize: fonts.sm, color: colors.textSecondary, marginTop: 4 },
+    empty: { alignItems: 'center', paddingVertical: spacing.xxl },
+    emptyText: { fontSize: fonts.lg, color: colors.textSecondary, fontWeight: '600', textAlign: 'center' },
+    emptySub: { fontSize: fonts.sm, color: colors.textMuted, marginTop: spacing.xs, textAlign: 'center', paddingHorizontal: spacing.lg },
+  }), [colors]);
+
   const [tab, setTab] = useState<Tab>('standings');
   const [teams, setTeams] = useState<Team[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -123,12 +188,12 @@ export default function LeaderboardScreen() {
                   <Text style={[styles.cell, styles.cellPts, styles.pts]}>{s.pts}</Text>
                 </View>
               ))}
-              {enriched.length === 0 && <EmptyState text="No matches played yet." />}
+              {enriched.length === 0 && <EmptyState text="No matches played yet." styles={styles} />}
             </View>
           )}
 
           {tab === 'kronos' && (
-            <EmptyState text="Kronos Trophy scores coming soon." sub="Individual Stableford totals will appear here once Day 1 begins." />
+            <EmptyState text="Kronos Trophy scores coming soon." sub="Individual Stableford totals will appear here once Day 1 begins." styles={styles} />
           )}
 
           {tab === 'champions' && (
@@ -165,7 +230,7 @@ export default function LeaderboardScreen() {
   );
 }
 
-function EmptyState({ text, sub }: { text: string; sub?: string }) {
+function EmptyState({ text, sub, styles }: { text: string; sub?: string; styles: any }) {
   return (
     <View style={styles.empty}>
       <Text style={styles.emptyText}>{text}</Text>
@@ -173,66 +238,3 @@ function EmptyState({ text, sub }: { text: string; sub?: string }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  title: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 1, marginBottom: spacing.md },
-  tabs: { flexDirection: 'row', gap: spacing.sm },
-  tab: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.sm,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: { borderBottomColor: colors.gold },
-  tabText: { fontSize: fonts.sm, fontWeight: '600', color: colors.textMuted },
-  tabTextActive: { color: colors.gold },
-  scroll: { padding: spacing.md, paddingBottom: spacing.xxl },
-  tableHeader: { flexDirection: 'row', paddingVertical: spacing.xs, paddingHorizontal: spacing.sm, marginBottom: spacing.xs },
-  headerText: { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '700', letterSpacing: 1 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    marginBottom: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  rowFirst: { borderColor: colors.goldBorder, backgroundColor: colors.cardAlt },
-  cell: { flex: 1, textAlign: 'center', fontSize: fonts.sm, color: colors.textSecondary, fontWeight: '500' },
-  cellTeam: { flex: 4, textAlign: 'left' },
-  cellPts: { flex: 1.5 },
-  pos: { fontSize: fonts.sm, color: colors.textMuted, width: 18, textAlign: 'center' },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  teamLogo: { width: 28, height: 28 },
-  teamName: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  pts: { fontSize: fonts.md, fontWeight: '800', color: colors.gold },
-  champYear: { marginBottom: spacing.lg },
-  champYearLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 2, marginBottom: spacing.sm },
-  champCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.goldBorder,
-  },
-  champAward: { fontSize: fonts.xs, color: colors.gold, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
-  champWinner: { fontSize: fonts.xl, fontWeight: '800', color: colors.white },
-  champDetail: { fontSize: fonts.sm, color: colors.textSecondary, marginTop: 4 },
-  empty: { alignItems: 'center', paddingVertical: spacing.xxl },
-  emptyText: { fontSize: fonts.lg, color: colors.textSecondary, fontWeight: '600', textAlign: 'center' },
-  emptySub: { fontSize: fonts.sm, color: colors.textMuted, marginTop: spacing.xs, textAlign: 'center', paddingHorizontal: spacing.lg },
-});

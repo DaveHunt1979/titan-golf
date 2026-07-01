@@ -22,6 +22,7 @@ export default function TourDayScreen() {
   const [day, setDay] = useState<CompetitionDay | null>(null);
   const [matches, setMatches] = useState<MatchWithTeams[]>([]);
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
+  const [playerAvatars, setPlayerAvatars] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -44,12 +45,14 @@ export default function TourDayScreen() {
       if (allIds.length > 0) {
         const { data: players } = await supabase
           .from('players')
-          .select('id,display_name')
+          .select('id,display_name,avatar_url')
           .in('id', allIds);
         if (players) {
           const names: Record<string, string> = {};
-          (players as any[]).forEach(p => { names[p.id] = p.display_name; });
+          const avatars: Record<string, string | null> = {};
+          (players as any[]).forEach(p => { names[p.id] = p.display_name; avatars[p.id] = p.avatar_url ?? null; });
           setPlayerNames(names);
+          setPlayerAvatars(avatars);
         }
       }
     }
@@ -109,17 +112,17 @@ export default function TourDayScreen() {
         >
           {live.length > 0 && (
             <Section label="LIVE" labelColor={colors.live}>
-              {live.map(m => <MatchCard key={m.id} match={m} playerNames={playerNames} />)}
+              {live.map(m => <MatchCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} />)}
             </Section>
           )}
           {upcoming.length > 0 && (
             <Section label="UPCOMING">
-              {upcoming.map(m => <MatchCard key={m.id} match={m} playerNames={playerNames} />)}
+              {upcoming.map(m => <MatchCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} />)}
             </Section>
           )}
           {complete.length > 0 && (
             <Section label="COMPLETE">
-              {complete.map(m => <MatchCard key={m.id} match={m} playerNames={playerNames} />)}
+              {complete.map(m => <MatchCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} />)}
             </Section>
           )}
           {matches.length === 0 && (
@@ -145,10 +148,13 @@ function Section({ label, labelColor, children }: { label: string; labelColor?: 
   );
 }
 
-function MatchCard({ match, playerNames }: { match: MatchWithTeams; playerNames: Record<string, string> }) {
+function MatchCard({ match, playerNames, playerAvatars }: { match: MatchWithTeams; playerNames: Record<string, string>; playerAvatars: Record<string, string | null> }) {
   const router = useRouter();
   const winner = getEffectiveWinner(match.status, match.winner, match.holes_string ?? '..................');
-  const label = matchLabel(match.status, match.winner, match.result_str, match.holes_string ?? '..................');
+  const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
+  const label = isStrokePlay
+    ? (match.status === 'complete' ? (match.result_str ?? 'Complete') : match.status === 'upcoming' ? 'Upcoming' : (match.result_str ?? 'In Progress'))
+    : matchLabel(match.status, match.winner, match.result_str, match.holes_string ?? '..................');
   const homeWon = winner === 'home';
   const awayWon = winner === 'away';
   const firstName = (id: string) => (playerNames[id] ?? '?').split(' ')[0];
@@ -165,17 +171,17 @@ function MatchCard({ match, playerNames }: { match: MatchWithTeams; playerNames:
   function renderSide(playerIds: string[], logo: any, label: string) {
     if (hasTeam && logo) return <Image source={logo} style={card.teamLogo} resizeMode="contain" />;
     if (match.is_singles) {
-      const av = getPlayerAvatar(playerIds[0], 'normal');
-      return av
-        ? <Image source={av} style={card.playerAv} />
+      const raw = playerAvatars[playerIds[0]] ?? getPlayerAvatar(playerIds[0], 'normal');
+      return raw
+        ? <Image source={typeof raw === 'string' ? { uri: raw } : raw} style={card.playerAv} />
         : <View style={[card.playerAv, card.avFallback]}><Text style={card.avInitial}>{label[0]}</Text></View>;
     }
     return (
       <View style={card.pairAvatars}>
         {playerIds.map((id, i) => {
-          const av = getPlayerAvatar(id, 'normal');
-          return av
-            ? <Image key={id} source={av} style={[card.pairAv, { marginLeft: i > 0 ? -6 : 0 }]} />
+          const raw = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
+          return raw
+            ? <Image key={id} source={typeof raw === 'string' ? { uri: raw } : raw} style={[card.pairAv, { marginLeft: i > 0 ? -6 : 0 }]} />
             : <View key={id} style={[card.pairAv, card.avFallback, { marginLeft: i > 0 ? -6 : 0 }]}>
                 <Text style={card.avInitialSm}>{firstName(id)[0]}</Text>
               </View>;

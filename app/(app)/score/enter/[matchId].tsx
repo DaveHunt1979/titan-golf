@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,11 @@ import {
   Alert,
   Modal,
   Image,
+  TextInput,
+  ScrollView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as Location from 'expo-location';
-import CourseMapView from '../../../../src/components/CourseMapView';
 import { supabase } from '../../../../src/lib/supabase';
 import { colors, fonts, spacing, radius } from '../../../../src/lib/theme';
 import {
@@ -23,6 +23,13 @@ import {
   calcStablefordPoints,
 } from '../../../../src/lib/scoring';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
+import { speakHole } from '../../../../src/lib/caddie';
+import RangeMap from '../../../../src/components/RangeMap';
+import ShotLogger from '../../../../src/components/ShotLogger';
+import RecordCelebration from '../../../../src/components/RecordCelebration';
+import { checkAndUpdateRecords, type BrokenRecord } from '../../../../src/lib/records';
+import { sendMatchNotification } from '../../../../src/lib/notifications';
+import { sendMatchToWatch, clearMatchFromWatch, onWatchScoreEntry } from '../../../../src/lib/watch';
 
 interface MatchInfo {
   id: string;
@@ -32,10 +39,12 @@ interface MatchInfo {
   winner: string | null;
   result_str: string | null;
   holes_string: string;
+  round_format: 'matchplay' | 'stableford' | 'medal';
   home_player_ids: string[];
   away_player_ids: string[];
   home_team: { name: string; accent_color: string } | null;
   away_team: { name: string; accent_color: string } | null;
+  side_games: string[] | null;
   day: {
     course_name: string;
     course_par: number;
@@ -64,16 +73,22 @@ export default function EnterScoresScreen() {
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
   const [compPlayers, setCompPlayers] = useState<CompPlayer[]>([]);
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
+  const [playerAvatars, setPlayerAvatars] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [courseLocation, setCourseLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [gpsDistance, setGpsDistance] = useState<number | null>(null);
+  const [recordsBroken, setRecordsBroken] = useState<BrokenRecord[]>([]);
 
   // Score entry modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [modalPlayerIdx, setModalPlayerIdx] = useState(0);
   const [holeScores, setHoleScores] = useState<Record<string, number>>({});
   const [selectedScore, setSelectedScore] = useState<number | null>(null);
+  const [selectedFairway, setSelectedFairway] = useState<'left' | 'centre' | 'right' | null>(null);
+  const [selectedPutts, setSelectedPutts] = useState<number | null>(null);
+  const [holeStatMap, setHoleStatMap] = useState<Record<string, { fairway: 'left' | 'centre' | 'right' | null; putts: number | null }>>({});
+  const [sideGameModal, setSideGameModal] = useState<{ type: string; hole: number } | null>(null);
+  const [sideGameResult, setSideGameResult] = useState('');
+  const [sideGameWinner, setSideGameWinner] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -93,7 +108,7 @@ export default function EnterScoresScreen() {
 
       const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
 
-      const [{ data: holesData }, { data: compData }, { data: playersData }, { data: locationData }] = await Promise.all([
+      const [{ data: holesData }, { data: compData }, { data: playersData }] = await Promise.all([
         matchData.day?.course_name
           ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage').eq('course_name', matchData.day.course_name).order('hole_number')
           : Promise.resolve({ data: [] }),
@@ -101,25 +116,22 @@ export default function EnterScoresScreen() {
           ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', matchData.competition_id).in('player_id', allIds)
           : Promise.resolve({ data: [] }),
         allIds.length
-          ? supabase.from('players').select('id,display_name,handicap_index').in('id', allIds)
+          ? supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allIds)
           : Promise.resolve({ data: [] }),
-        matchData.day?.course_name
-          ? supabase.from('courses').select('lat,lng').eq('name', matchData.day.course_name).maybeSingle()
-          : Promise.resolve({ data: null }),
       ]);
 
       if (holesData) setCourseHoles(holesData);
-      if (locationData && (locationData as any).lat && (locationData as any).lng) {
-        setCourseLocation({ lat: (locationData as any).lat, lng: (locationData as any).lng });
-      }
       if (playersData) {
         const names: Record<string, string> = {};
+        const avatars: Record<string, string | null> = {};
         const fallback: CompPlayer[] = [];
         (playersData as any[]).forEach(p => {
           names[p.id] = p.display_name;
+          avatars[p.id] = p.avatar_url ?? null;
           fallback.push({ player_id: p.id, handicap_index: p.handicap_index ?? 0 });
         });
         setPlayerNames(names);
+        setPlayerAvatars(avatars);
         // For casual games competition_players may be empty — fall back to players.handicap_index
         const comp = compData as CompPlayer[] | null;
         setCompPlayers(comp && comp.length > 0 ? comp : fallback);
@@ -129,38 +141,77 @@ export default function EnterScoresScreen() {
     load();
   }, [matchId]);
 
-  // ── GPS distance tracking ────────────────────────────────────────
+  // ── Apple Watch sync ────────────────────────────────────────────
   useEffect(() => {
-    if (!courseLocation) return;
-    let sub: Location.LocationSubscription | null = null;
+    if (!match) return;
+    const homeLabel = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+    const awayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+    const holesStr = (match.holes_string ?? '..................').padEnd(18, '.').slice(0, 18);
+    const currentHoleForWatch = holesStr.split('').findIndex(c => c === '.') + 1 || 19;
+    sendMatchToWatch({
+      matchId: match.id,
+      matchNumber: match.match_number,
+      homeLabel,
+      awayLabel,
+      homeColor: match.home_team?.accent_color ?? '#D4AF37',
+      awayColor: match.away_team?.accent_color ?? '#6366f1',
+      currentHole: currentHoleForWatch,
+      holesString: holesStr,
+    });
+  }, [match?.holes_string]);
 
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+  useEffect(() => {
+    const unsub = onWatchScoreEntry(async (entry) => {
+      if (!match || entry.matchId !== matchId) return;
+      await processWatchScore(entry.hole, entry.result);
+    });
+    return () => { unsub(); clearMatchFromWatch(); };
+  }, [match]);
 
-      sub = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.High, distanceInterval: 5 },
-        (loc) => {
-          const d = haversineYards(
-            loc.coords.latitude, loc.coords.longitude,
-            courseLocation.lat, courseLocation.lng,
-          );
-          setGpsDistance(d);
-        },
-      );
-    })();
+  async function processWatchScore(hole: number, holeResult: 'h' | 'f' | 'a') {
+    if (!match) return;
+    const chars = (match.holes_string ?? '..................').padEnd(18, '.').slice(0, 18).split('');
+    chars[hole - 1] = holeResult;
+    const newHolesStr = chars.join('');
+    const { homeUp, played, remaining, concluded } = calcHoles(newHolesStr);
 
-    return () => { sub?.remove(); };
-  }, [courseLocation]);
+    let newStatus: 'upcoming' | 'in_progress' | 'complete' = 'in_progress';
+    let winner: string | null = null;
+    let result_str: string | null = null;
 
-  function haversineYards(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371000;
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
-    return Math.round(2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.09361);
+    if (concluded) {
+      newStatus = 'complete';
+      winner = homeUp > 0 ? 'home' : 'away';
+      result_str = `${Math.abs(homeUp)}&${remaining}`;
+    } else if (played === 18) {
+      newStatus = 'complete';
+      if (homeUp === 0) { winner = 'half'; result_str = 'Halved'; }
+      else { winner = homeUp > 0 ? 'home' : 'away'; result_str = `${Math.abs(homeUp)}UP`; }
+    }
+
+    await supabase.from('matches')
+      .update({ holes_string: newHolesStr, status: newStatus, winner, result_str })
+      .eq('id', match.id);
+
+    setMatch({ ...match, holes_string: newHolesStr, status: newStatus, winner, result_str });
+
+    if (match.competition_id && newStatus !== 'complete' && [9, 12, 15].includes(hole)) {
+      const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+      const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+      const at = hole === 9 ? 'the turn' : `hole ${hole}`;
+      const scoreBody = homeUp > 0 ? `${homeTeam} ${homeUp}UP at ${at}` : homeUp < 0 ? `${awayTeam} ${Math.abs(homeUp)}UP at ${at}` : `All Square at ${at}`;
+      sendMatchNotification(match.competition_id, `⛳ Match ${match.match_number}`, scoreBody);
+    }
+
+    if (newStatus === 'complete') {
+      const winTeam = winner === 'home' ? match.home_team?.name : winner === 'away' ? match.away_team?.name : null;
+      const msg = winner === 'half' ? 'Match Halved!' : `${winTeam} win ${result_str}!`;
+      if (match.competition_id) {
+        sendMatchNotification(match.competition_id, '🏆 Match Complete', msg, [...match.home_player_ids, ...match.away_player_ids]);
+      }
+      clearMatchFromWatch();
+      Alert.alert('Match Complete', msg, [{ text: 'Done', onPress: () => router.back() }]);
+    }
   }
 
   // ── Derived values ──────────────────────────────────────────────
@@ -178,6 +229,24 @@ export default function EnterScoresScreen() {
   const allPlayerIds = match ? [...match.home_player_ids, ...match.away_player_ids] : [];
   const courseHole = courseHoles.find(h => h.hole_number === currentHole);
 
+  // Parse side games: "Longest Drive:7" → { 7: 'Longest Drive' }
+  const sideGameByHole = (match?.side_games ?? []).reduce((acc, sg) => {
+    const [type, hole] = sg.split(':');
+    if (hole) acc[parseInt(hole)] = type;
+    return acc;
+  }, {} as Record<number, string>);
+  const currentSideGame = sideGameByHole[currentHole] ?? null;
+
+
+  const [coachLoading, setCoachLoading] = useState(false);
+  async function onCoachMe() {
+    if (coachLoading) return;
+    setCoachLoading(true);
+    const firstNames = Object.values(playerNames).map(n => n.split(' ')[0]);
+    await speakHole(currentHole, courseHole?.par ?? null, courseHole?.yardage ?? null, courseHole?.stroke_index ?? null, firstNames);
+    setCoachLoading(false);
+  }
+
   // Players receiving a shot on the current hole
   const shotPlayerIds = courseHole
     ? allPlayerIds.filter(id => {
@@ -194,7 +263,9 @@ export default function EnterScoresScreen() {
     ? (match?.home_team?.accent_color ?? colors.gold)
     : (match?.away_team?.accent_color ?? colors.textMuted);
   const modalTeamName = isHomePlayer ? match?.home_team?.name : match?.away_team?.name;
-  const modalPlayerAvatar = modalPlayerId ? getPlayerAvatar(modalPlayerId, 'normal') : null;
+  const modalPlayerAvatar = modalPlayerId
+    ? (playerAvatars[modalPlayerId] ?? getPlayerAvatar(modalPlayerId, 'normal'))
+    : null;
   const modalPlayerGetsShot = modalPlayerId && courseHole
     ? shotPlayerIds.includes(modalPlayerId)
     : false;
@@ -202,7 +273,10 @@ export default function EnterScoresScreen() {
   // ── Score entry modal ───────────────────────────────────────────
   function openScoreModal() {
     setHoleScores({});
+    setHoleStatMap({});
     setSelectedScore(null);
+    setSelectedFairway(null);
+    setSelectedPutts(null);
     setModalPlayerIdx(0);
     setModalVisible(true);
   }
@@ -211,20 +285,24 @@ export default function EnterScoresScreen() {
     if (selectedScore === null || !modalPlayerId) return;
 
     const newScores = { ...holeScores, [modalPlayerId]: selectedScore };
+    const newStats = { ...holeStatMap, [modalPlayerId]: { fairway: selectedFairway, putts: selectedPutts } };
     setHoleScores(newScores);
+    setHoleStatMap(newStats);
     setSelectedScore(null);
+    setSelectedFairway(null);
+    setSelectedPutts(null);
 
     const nextIdx = modalPlayerIdx + 1;
     if (nextIdx < allPlayerIds.length) {
       setModalPlayerIdx(nextIdx);
     } else {
       setModalVisible(false);
-      processHoleScores(newScores);
+      processHoleScores(newScores, newStats);
     }
   }
 
   // ── Calculate and save hole result ──────────────────────────────
-  async function processHoleScores(scores: Record<string, number>) {
+  async function processHoleScores(scores: Record<string, number>, stats: Record<string, { fairway: 'left' | 'centre' | 'right' | null; putts: number | null }> = {}) {
     if (!match || !courseHole) return;
     setSaving(true);
 
@@ -232,6 +310,72 @@ export default function EnterScoresScreen() {
     const par = courseHole.par;
     const day = match.day;
 
+    const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
+
+    if (isStrokePlay) {
+      const { error: delErr } = await supabase.from('match_holes').delete()
+        .eq('match_id', matchId)
+        .eq('hole_number', currentHole);
+      if (delErr) console.error('match_holes delete error:', delErr);
+
+      const spRows = allPlayerIds.map(id => {
+        const hcp = playerCourseHcp(id, compPlayers, day);
+        const shots = calcStrokesReceived(hcp, si);
+        const gross = scores[id] ?? null;
+        const net = gross !== null ? gross - shots : null;
+        return {
+          match_id: matchId,
+          player_id: id,
+          hole_number: currentHole,
+          score: 'd',
+          gross_score: gross,
+          net_score: net,
+          stableford_pts: calcStablefordPoints(gross, par, shots),
+        };
+      });
+
+      const { error: insErr } = await supabase.from('match_holes').insert(spRows);
+      if (insErr) console.error('match_holes insert error:', insErr);
+
+      const spStatRows = allPlayerIds
+        .map(id => ({
+          match_id: matchId,
+          player_id: id,
+          hole_number: currentHole,
+          fairway_hit: courseHole.par >= 4 ? (stats[id]?.fairway != null ? stats[id]?.fairway === 'centre' : null) : null,
+          fairway_direction: courseHole.par >= 4 ? (stats[id]?.fairway ?? null) : null,
+          putts: stats[id]?.putts ?? null,
+        }))
+        .filter(r => r.fairway_direction !== null || r.putts !== null);
+      if (spStatRows.length > 0) {
+        await supabase.from('hole_stats').upsert(spStatRows, { onConflict: 'match_id,player_id,hole_number' });
+      }
+
+      const spChars = [...holeChars];
+      spChars[currentHole - 1] = 'd';
+      const newHolesStr = spChars.join('');
+      const holesPlayed = newHolesStr.split('').filter(c => c !== '.').length;
+      const newStatus: 'upcoming' | 'in_progress' | 'complete' = holesPlayed >= 18 ? 'complete' : 'in_progress';
+      const newResultStr = newStatus === 'complete' ? 'Complete' : null;
+
+      const { error } = await supabase.from('matches')
+        .update({ holes_string: newHolesStr, status: newStatus, winner: null, result_str: newResultStr })
+        .eq('id', match.id);
+
+      setSaving(false);
+      if (error) { Alert.alert('Error', error.message); return; }
+      setMatch({ ...match, holes_string: newHolesStr, status: newStatus, winner: null, result_str: newResultStr });
+
+      if (newStatus === 'complete') {
+        const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
+        const broken = allBroken.flat();
+        if (broken.length > 0) { setRecordsBroken(broken); }
+        else { Alert.alert('Round Complete', 'All 18 holes scored!', [{ text: 'Done', onPress: () => router.back() }]); }
+      }
+      return;
+    }
+
+    // ── Match play branch ────────────────────────────────────────────
     const getNetScore = (id: string) => {
       const hcp = playerCourseHcp(id, compPlayers, day);
       const shots = calcStrokesReceived(hcp, si);
@@ -265,6 +409,21 @@ export default function EnterScoresScreen() {
     const { error: insErr } = await supabase.from('match_holes').insert(rows);
     if (insErr) console.error('match_holes insert error:', insErr);
 
+    // Save per-player hole stats (fairway + putts)
+    const statRows = allPlayerIds
+      .map(id => ({
+        match_id: matchId,
+        player_id: id,
+        hole_number: currentHole,
+        fairway_hit: courseHole.par >= 4 ? (stats[id]?.fairway != null ? stats[id]?.fairway === 'centre' : null) : null,
+        fairway_direction: courseHole.par >= 4 ? (stats[id]?.fairway ?? null) : null,
+        putts: stats[id]?.putts ?? null,
+      }))
+      .filter(r => r.fairway_direction !== null || r.putts !== null);
+    if (statRows.length > 0) {
+      await supabase.from('hole_stats').upsert(statRows, { onConflict: 'match_id,player_id,hole_number' });
+    }
+
     // Update holes_string and match status
     const chars = [...holeChars];
     chars[currentHole - 1] = holeResult;
@@ -294,10 +453,55 @@ export default function EnterScoresScreen() {
 
     setMatch({ ...match, holes_string: newHolesStr, status: newStatus, winner, result_str });
 
+    // Live score update at the turn and key back-9 milestones
+    if (match.competition_id && newStatus !== 'complete' && [9, 12, 15].includes(currentHole)) {
+      const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+      const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+      const { homeUp: newHomeUp } = calcHoles(newHolesStr);
+      const at = currentHole === 9 ? 'the turn' : `hole ${currentHole}`;
+      const scoreBody = newHomeUp > 0
+        ? `${homeTeam} ${newHomeUp}UP at ${at}`
+        : newHomeUp < 0
+          ? `${awayTeam} ${Math.abs(newHomeUp)}UP at ${at}`
+          : `All Square at ${at}`;
+      sendMatchNotification(match.competition_id, `⛳ Match ${match.match_number}`, scoreBody);
+    }
+
+    // Show side game result entry if this was a side game hole
+    if (currentSideGame) {
+      setSideGameResult('');
+      setSideGameWinner(null);
+      setSideGameModal({ type: currentSideGame, hole: currentHole });
+    }
+
+    // Fire push notifications for birdies, eagles, HIOs
+    if (match.competition_id) {
+      for (const id of allPlayerIds) {
+        const gross = scores[id];
+        if (!gross) continue;
+        const firstName = (playerNames[id] ?? '').split(' ')[0];
+        const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
+        if (gross === 1) {
+          sendMatchNotification(match.competition_id, '⛳ HOLE IN ONE!', `${firstName} just made a hole in one on hole ${currentHole}!`, pids);
+        } else if (gross <= par - 2) {
+          sendMatchNotification(match.competition_id, '🦅 Eagle!', `${firstName} just made an eagle on hole ${currentHole}!`, pids);
+        } else if (gross === par - 1) {
+          sendMatchNotification(match.competition_id, '🐦 Birdie!', `${firstName} is on fire — birdie on hole ${currentHole}!`, pids);
+        }
+      }
+    }
+
     if (newStatus === 'complete') {
       const winTeam = winner === 'home' ? match.home_team?.name : winner === 'away' ? match.away_team?.name : null;
       const msg = winner === 'half' ? 'Match Halved!' : `${winTeam} win ${result_str}!`;
-      Alert.alert('Match Complete', msg, [{ text: 'Done', onPress: () => router.back() }]);
+      if (match.competition_id) {
+        const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
+        sendMatchNotification(match.competition_id, '🏆 Match Complete', msg, pids);
+      }
+      const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
+      const broken = allBroken.flat();
+      if (broken.length > 0) { setRecordsBroken(broken); }
+      else { Alert.alert('Match Complete', msg, [{ text: 'Done', onPress: () => router.back() }]); }
     }
   }
 
@@ -325,6 +529,25 @@ export default function EnterScoresScreen() {
     setMatch({ ...match, holes_string: newHolesStr, status: newStatus, winner: null, result_str: null });
   }
 
+  async function saveSideGameResult() {
+    if (!sideGameModal || !match) return;
+    const { type, hole } = sideGameModal;
+    const winnerName = sideGameWinner ? (playerNames[sideGameWinner] ?? '').split(' ')[0] : null;
+    const existing = (match as any).side_game_results ?? {};
+    const updated = { ...existing, [type]: { hole, result: sideGameResult, player: winnerName } };
+    await supabase.from('matches').update({ side_game_results: updated } as any).eq('id', match.id);
+    if (match.competition_id && sideGameResult) {
+      const icon = type === 'Longest Drive' ? '🏌️' : '📍';
+      const unit = type === 'Longest Drive' ? 'yards' : '';
+      const body = winnerName
+        ? `${winnerName} wins with ${sideGameResult}${unit ? ' ' + unit : ''} on hole ${hole}!`
+        : `Result on hole ${hole}: ${sideGameResult}${unit ? ' ' + unit : ''}`;
+      const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
+      sendMatchNotification(match.competition_id, `${icon} ${type}`, body, pids);
+    }
+    setSideGameModal(null);
+  }
+
   // ── Render ──────────────────────────────────────────────────────
   if (loading) return (
     <View style={styles.centered}>
@@ -338,7 +561,10 @@ export default function EnterScoresScreen() {
     </View>
   );
 
-  const label = matchLabel(match.status, match.winner, match.result_str, holesStr);
+  const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
+  const label = isStrokePlay
+    ? (match.status === 'complete' ? 'Complete' : currentHole <= 18 ? `Hole ${currentHole}` : 'In Progress')
+    : matchLabel(match.status, match.winner, match.result_str, holesStr);
   const homeColor = match.home_team?.accent_color ?? colors.gold;
   const awayColor = match.away_team?.accent_color ?? colors.textMuted;
   const HOLE_BG: Record<string, string> = { h: homeColor, a: awayColor, f: colors.grey };
@@ -391,19 +617,6 @@ export default function EnterScoresScreen() {
         ))}
       </View>
 
-      {courseLocation && (
-        <View style={styles.mapStrip}>
-          <CourseMapView
-            lat={courseLocation.lat}
-            lng={courseLocation.lng}
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-          />
-          <View style={styles.mapStripLabel}>
-            <Text style={styles.mapStripLabelText}>{match.day?.course_name}</Text>
-          </View>
-        </View>
-      )}
-
       {!isComplete ? (
         <>
           {/* Current hole card */}
@@ -434,15 +647,18 @@ export default function EnterScoresScreen() {
               </View>
             )}
 
-            {gpsDistance !== null && (
-              <View style={styles.gpsRow}>
-                <Text style={styles.gpsIcon}>📍</Text>
-                <Text style={styles.gpsText}>
-                  {gpsDistance < 200
-                    ? `${gpsDistance} yds to course`
-                    : `${gpsDistance} yds from course`}
+            {/* Coach Me button */}
+            {!isComplete && (
+              <TouchableOpacity
+                style={styles.coachBtn}
+                onPress={onCoachMe}
+                disabled={coachLoading}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.coachBtnText}>
+                  {coachLoading ? '🎙 Asking...' : '🎙 Coach Me'}
                 </Text>
-              </View>
+              </TouchableOpacity>
             )}
 
             {/* Shot receivers — tiny player faces */}
@@ -451,13 +667,13 @@ export default function EnterScoresScreen() {
                 <Text style={styles.shotLabel}>Gets a shot</Text>
                 <View style={styles.shotAvatars}>
                   {shotPlayerIds.map(id => {
-                    const avatar = getPlayerAvatar(id, 'normal');
+                    const avatar = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
                     const isHome = match.home_player_ids.includes(id);
                     const teamColor = isHome ? homeColor : awayColor;
                     return (
                       <View key={id} style={[styles.shotAvatarWrap, { borderColor: teamColor }]}>
                         {avatar ? (
-                          <Image source={avatar} style={styles.shotAvatar} />
+                          <Image source={typeof avatar === 'string' ? { uri: avatar } : avatar} style={styles.shotAvatar} />
                         ) : (
                           <View style={[styles.shotAvatar, styles.shotAvatarFallback]}>
                             <Text style={styles.shotAvatarInitial}>
@@ -472,6 +688,27 @@ export default function EnterScoresScreen() {
               </View>
             )}
           </View>
+
+          {/* Side game banner */}
+          {currentSideGame && (
+            <View style={styles.sideGameBanner}>
+              <Text style={styles.sideGameBannerIcon}>
+                {currentSideGame === 'Longest Drive' ? '🏌️' : '📍'}
+              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sideGameBannerTitle}>{currentSideGame.toUpperCase()}</Text>
+                <Text style={styles.sideGameBannerSub}>
+                  {currentSideGame === 'Longest Drive'
+                    ? 'Record your best drive in yards after scoring'
+                    : 'Record the closest distance after scoring'}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          <RangeMap courseName={match.day?.course_name} holeNumber={currentHole} />
+
+          <ShotLogger matchId={matchId!} holeNumber={currentHole} />
 
           {/* Score this hole button */}
           <TouchableOpacity
@@ -517,6 +754,12 @@ export default function EnterScoresScreen() {
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => {}}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
+            <ScrollView
+              style={{ width: '100%' }}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
 
             {/* Progress dots */}
             <View style={styles.modalProgress}>
@@ -540,7 +783,7 @@ export default function EnterScoresScreen() {
             {/* Player photo */}
             <View style={[styles.modalAvatarWrap, { borderColor: modalTeamColor }]}>
               {modalPlayerAvatar ? (
-                <Image source={modalPlayerAvatar} style={styles.modalAvatar} />
+                <Image source={typeof modalPlayerAvatar === 'string' ? { uri: modalPlayerAvatar } : modalPlayerAvatar} style={styles.modalAvatar} />
               ) : (
                 <View style={[styles.modalAvatar, styles.modalAvatarFallback]}>
                   <Text style={styles.modalAvatarInitial}>{modalPlayerName[0] ?? '?'}</Text>
@@ -586,6 +829,55 @@ export default function EnterScoresScreen() {
               ))}
             </View>
 
+            {/* Fairway — par 4/5 only */}
+            {courseHole && courseHole.par >= 4 && (
+              <View style={styles.statSection}>
+                <Text style={styles.statSectionLabel}>FAIRWAY</Text>
+                <View style={styles.statBtnRow}>
+                  <TouchableOpacity
+                    style={[styles.statBtn, selectedFairway === 'left' && styles.statBtnRed]}
+                    onPress={() => setSelectedFairway(selectedFairway === 'left' ? null : 'left')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.statBtnText, selectedFairway === 'left' && styles.statBtnTextSelected]}>◀ Left</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.statBtn, selectedFairway === 'centre' && styles.statBtnGreen]}
+                    onPress={() => setSelectedFairway(selectedFairway === 'centre' ? null : 'centre')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.statBtnText, selectedFairway === 'centre' && styles.statBtnTextSelected]}>● Centre</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.statBtn, selectedFairway === 'right' && { backgroundColor: 'rgba(249,115,22,0.25)', borderColor: '#f97316' }]}
+                    onPress={() => setSelectedFairway(selectedFairway === 'right' ? null : 'right')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.statBtnText, selectedFairway === 'right' && { color: '#f97316' }]}>Right ▶</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Putts */}
+            <View style={styles.statSection}>
+              <Text style={styles.statSectionLabel}>PUTTS</Text>
+              <View style={styles.statBtnRow}>
+                {([1, 2, 3, 4] as const).map(n => (
+                  <TouchableOpacity
+                    key={n}
+                    style={[styles.statBtn, styles.statBtnPutt, selectedPutts === n && styles.statBtnGold]}
+                    onPress={() => setSelectedPutts(selectedPutts === n ? null : n)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.statBtnText, selectedPutts === n && styles.statBtnTextSelected]}>
+                      {n === 4 ? '3+' : n}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
             {/* Submit */}
             <TouchableOpacity
               style={[styles.submitBtn, !selectedScore && styles.submitBtnDisabled]}
@@ -598,9 +890,64 @@ export default function EnterScoresScreen() {
               </Text>
             </TouchableOpacity>
 
+            </ScrollView>
           </View>
         </View>
       </Modal>
+
+      {/* Side game result modal */}
+      <Modal visible={!!sideGameModal} transparent animationType="slide" onRequestClose={() => setSideGameModal(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.sideGameModalTitle}>
+              {sideGameModal?.type === 'Longest Drive' ? '🏌️ LONGEST DRIVE' : '📍 NEAREST THE PIN'}
+            </Text>
+            <Text style={styles.sideGameModalSub}>
+              Hole {sideGameModal?.hole} · {sideGameModal?.type === 'Longest Drive' ? 'Enter distance in yards' : 'Enter distance (e.g. 4ft 2in)'}
+            </Text>
+
+            <TextInput
+              style={styles.sideGameInput}
+              value={sideGameResult}
+              onChangeText={setSideGameResult}
+              placeholder={sideGameModal?.type === 'Longest Drive' ? 'e.g. 285 yards' : 'e.g. 4ft 2in'}
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType={sideGameModal?.type === 'Longest Drive' ? 'numeric' : 'default'}
+            />
+
+            <Text style={styles.sideGameWinnerLabel}>WINNER (OPTIONAL)</Text>
+            <View style={styles.sideGameWinnerRow}>
+              {allPlayerIds.map(id => (
+                <TouchableOpacity
+                  key={id}
+                  style={[styles.sideGameWinnerBtn, sideGameWinner === id && styles.sideGameWinnerBtnOn]}
+                  onPress={() => setSideGameWinner(prev => prev === id ? null : id)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.sideGameWinnerName, sideGameWinner === id && styles.sideGameWinnerNameOn]}>
+                    {(playerNames[id] ?? '?').split(' ')[0]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity style={styles.sideGameSaveBtn} onPress={saveSideGameResult} activeOpacity={0.85}>
+              <Text style={styles.sideGameSaveBtnText}>Save Result</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sideGameSkipBtn} onPress={() => setSideGameModal(null)} activeOpacity={0.7}>
+              <Text style={styles.sideGameSkipText}>Skip</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      {recordsBroken.length > 0 && (
+        <RecordCelebration
+          records={recordsBroken}
+          onDismiss={() => { setRecordsBroken([]); router.back(); }}
+        />
+      )}
     </View>
   );
 }
@@ -639,31 +986,6 @@ const styles = StyleSheet.create({
   dotNum: { flex: 1, fontSize: 8, color: colors.textMuted, textAlign: 'center' },
   dotNumActive: { color: colors.gold, fontWeight: '700' },
 
-  mapStrip: {
-    height: 120,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  mapStripLabel: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingVertical: 4,
-    paddingHorizontal: spacing.md,
-  },
-  mapStripLabelText: {
-    fontSize: fonts.xs,
-    fontWeight: '700',
-    color: colors.white,
-    letterSpacing: 0.5,
-  },
-
   holeCard: {
     alignItems: 'center',
     marginHorizontal: spacing.lg,
@@ -682,9 +1004,8 @@ const styles = StyleSheet.create({
   holeMetaValue: { fontSize: fonts.xl, fontWeight: '800', color: colors.textSecondary, marginTop: 2 },
   holeMetaSep: { width: 1, height: 32, backgroundColor: colors.border },
 
-  gpsRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, gap: 4 },
-  gpsIcon: { fontSize: 11 },
-  gpsText: { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600' },
+  coachBtn: { marginTop: spacing.sm, alignSelf: 'center', backgroundColor: colors.cardAlt, borderRadius: radius.full, paddingHorizontal: spacing.lg, paddingVertical: spacing.xs + 2, borderWidth: 1, borderColor: colors.border },
+  coachBtnText: { fontSize: fonts.xs, color: colors.textSecondary, fontWeight: '700', letterSpacing: 0.3 },
 
   shotRow: { alignItems: 'center', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, width: '100%', paddingHorizontal: spacing.lg },
   shotLabel: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 1, marginBottom: spacing.xs },
@@ -734,11 +1055,16 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     paddingTop: spacing.lg,
-    paddingBottom: 48,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    maxHeight: '90%',
+  },
+  modalScrollContent: {
+    alignItems: 'center',
+    width: '100%',
+    paddingBottom: 48,
   },
 
   modalProgress: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
@@ -780,6 +1106,21 @@ const styles = StyleSheet.create({
   scoreBtnText: { fontSize: fonts.lg, fontWeight: '700', color: colors.textSecondary },
   scoreBtnTextSelected: { color: colors.white },
 
+  statSection: { width: '100%', marginTop: spacing.md },
+  statSectionLabel: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 2, marginBottom: spacing.xs, textAlign: 'center' },
+  statBtnRow: { flexDirection: 'row', gap: spacing.sm, justifyContent: 'center' },
+  statBtn: {
+    flex: 1, height: 40, borderRadius: radius.md,
+    backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  statBtnPutt: { flex: 0, width: 56 },
+  statBtnGreen: { backgroundColor: 'rgba(74,222,128,0.2)', borderColor: colors.green },
+  statBtnRed:   { backgroundColor: 'rgba(248,113,113,0.2)', borderColor: colors.red },
+  statBtnGold:  { backgroundColor: colors.goldDim, borderColor: colors.gold },
+  statBtnText:  { fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary },
+  statBtnTextSelected: { color: colors.white },
+
   submitBtn: {
     marginTop: spacing.lg,
     width: '100%',
@@ -790,4 +1131,41 @@ const styles = StyleSheet.create({
   },
   submitBtnDisabled: { opacity: 0.35 },
   submitBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
+
+  sideGameBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    backgroundColor: colors.goldDim, borderRadius: radius.md,
+    borderWidth: 1.5, borderColor: colors.gold,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
+    marginHorizontal: spacing.lg, marginBottom: spacing.sm,
+  },
+  sideGameBannerIcon: { fontSize: 28 },
+  sideGameBannerTitle: { fontSize: fonts.sm, fontWeight: '900', color: colors.gold, letterSpacing: 1 },
+  sideGameBannerSub: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+
+  sideGameModalTitle: { fontSize: fonts.md, fontWeight: '900', color: colors.gold, letterSpacing: 1.5, marginBottom: spacing.xs },
+  sideGameModalSub: { fontSize: fonts.xs, color: colors.textMuted, marginBottom: spacing.lg, textAlign: 'center' },
+  sideGameInput: {
+    width: '100%', backgroundColor: colors.cardAlt, borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.border,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 4,
+    fontSize: fonts.lg, fontWeight: '700', color: colors.white, textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  sideGameWinnerLabel: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 2, alignSelf: 'flex-start', marginBottom: spacing.sm },
+  sideGameWinnerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, width: '100%', marginBottom: spacing.lg },
+  sideGameWinnerBtn: {
+    paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2,
+    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardAlt,
+  },
+  sideGameWinnerBtnOn: { borderColor: colors.gold, backgroundColor: colors.goldDim },
+  sideGameWinnerName: { fontSize: fonts.sm, fontWeight: '600', color: colors.textSecondary },
+  sideGameWinnerNameOn: { color: colors.white },
+  sideGameSaveBtn: {
+    width: '100%', backgroundColor: colors.gold, borderRadius: radius.lg,
+    paddingVertical: spacing.md, alignItems: 'center', marginBottom: spacing.sm,
+  },
+  sideGameSaveBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
+  sideGameSkipBtn: { paddingVertical: spacing.sm, alignItems: 'center' },
+  sideGameSkipText: { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
 });

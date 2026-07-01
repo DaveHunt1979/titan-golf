@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import CourseMapView from '../../../src/components/CourseMapView';
 import { supabase } from '../../../src/lib/supabase';
 import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 import { matchLabel, getEffectiveWinner, calcHoles } from '../../../src/lib/scoring';
@@ -20,7 +19,7 @@ import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
 
 interface HoleResult { hole_number: number; score: 'h' | 'a' | 'f' | null; gross_score: number | null; stableford_pts: number | null; player_id: string; }
 interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; hole_name: string | null; }
-interface Player { id: string; display_name: string; }
+interface Player { id: string; display_name: string; avatar_url?: string | null; }
 
 interface MatchDetail {
   id: string;
@@ -56,8 +55,6 @@ export default function MatchDetailScreen() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [courseLocation, setCourseLocation] = useState<{ lat: number; lng: number } | null>(null);
-
   async function load() {
     const { data: matchData } = await supabase
       .from('matches')
@@ -70,25 +67,19 @@ export default function MatchDetailScreen() {
 
     const allPlayerIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
 
-    const [{ data: holesData }, { data: courseHoleData }, { data: playersData }, { data: locationData }] = await Promise.all([
+    const [{ data: holesData }, { data: courseHoleData }, { data: playersData }] = await Promise.all([
       supabase.from('match_holes').select('*').eq('match_id', matchId),
       matchData.day?.course_name
         ? supabase.from('course_holes').select('*').eq('course_name', matchData.day.course_name).order('hole_number')
         : Promise.resolve({ data: [] }),
       allPlayerIds.length
-        ? supabase.from('players').select('id,display_name').in('id', allPlayerIds)
+        ? supabase.from('players').select('id,display_name,avatar_url').in('id', allPlayerIds)
         : Promise.resolve({ data: [] }),
-      matchData.day?.course_name
-        ? supabase.from('courses').select('lat,lng').eq('name', matchData.day.course_name).maybeSingle()
-        : Promise.resolve({ data: null }),
     ]);
 
     if (holesData) setHoleResults(holesData);
     if (courseHoleData) setCourseHoles(courseHoleData);
     if (playersData) setPlayers(playersData);
-    if (locationData && (locationData as any).lat && (locationData as any).lng) {
-      setCourseLocation({ lat: (locationData as any).lat, lng: (locationData as any).lng });
-    }
     setLoading(false);
     setRefreshing(false);
   }
@@ -139,17 +130,17 @@ export default function MatchDetailScreen() {
       return <View style={[styles.sideColorBar, { backgroundColor: color }]} />;
     }
     if (playerIds.length === 1) {
-      const av = getPlayerAvatar(playerIds[0], 'normal');
-      return av
-        ? <Image source={av} style={styles.sideAvatar} />
+      const raw = players.find(p => p.id === playerIds[0])?.avatar_url ?? getPlayerAvatar(playerIds[0], 'normal');
+      return raw
+        ? <Image source={typeof raw === 'string' ? { uri: raw } : raw} style={styles.sideAvatar} />
         : <View style={[styles.sideAvatar, styles.sideAvatarFallback]}><Text style={styles.sideAvatarInitial}>{playerName(playerIds[0])[0]}</Text></View>;
     }
     return (
       <View style={styles.sidePairRow}>
         {playerIds.map((id, i) => {
-          const av = getPlayerAvatar(id, 'normal');
-          return av
-            ? <Image key={id} source={av} style={[styles.sidePairAv, i > 0 && styles.sidePairOverlap]} />
+          const raw = players.find(p => p.id === id)?.avatar_url ?? getPlayerAvatar(id, 'normal');
+          return raw
+            ? <Image key={id} source={typeof raw === 'string' ? { uri: raw } : raw} style={[styles.sidePairAv, i > 0 && styles.sidePairOverlap]} />
             : <View key={id} style={[styles.sidePairAv, styles.sideAvatarFallback, i > 0 && styles.sidePairOverlap]}><Text style={styles.sidePairInitial}>{playerName(id)[0]}</Text></View>;
         })}
       </View>
@@ -264,20 +255,6 @@ export default function MatchDetailScreen() {
                 <Text style={[styles.tagText, styles.tagTextGold]}>{g}</Text>
               </View>
             ))}
-          </View>
-        )}
-
-        {/* Satellite course map */}
-        {courseLocation && (
-          <View style={styles.mapCard}>
-            <CourseMapView
-              lat={courseLocation.lat}
-              lng={courseLocation.lng}
-              style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-            />
-            <View style={styles.mapOverlay}>
-              <Text style={styles.mapOverlayText}>{match.day?.course_name}</Text>
-            </View>
           </View>
         )}
 
@@ -497,30 +474,6 @@ const styles = StyleSheet.create({
   parLabel: { color: colors.textMuted },
   resultCell: { alignItems: 'center', justifyContent: 'center', borderRadius: 0 },
   resultChar: { fontSize: 10, fontWeight: '800', color: colors.white },
-
-  mapCard: {
-    height: 160,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.lg,
-  },
-  mapOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
-  mapOverlayText: {
-    fontSize: fonts.xs,
-    fontWeight: '700',
-    color: colors.white,
-    letterSpacing: 0.5,
-  },
 
   enterScoresBtn: {
     marginHorizontal: spacing.md,

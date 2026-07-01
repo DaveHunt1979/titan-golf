@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { searchUKClubs, getUKClub, clubLocation, type UKClub } from '../../../src/lib/ukgolf';
-import { scanScorecardFromCamera, scanScorecardFromLibrary } from '../../../src/lib/scanScorecard';
+import { scanScorecardFromCamera, scanScorecardFromLibrary, type ScannedCourse } from '../../../src/lib/scanScorecard';
 import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 
 interface CourseRow { name: string; par: number; holeCount: number; }
@@ -78,7 +78,7 @@ export default function CoursesScreen() {
     setEditingName(name);
     setCourseName(name);
     setHoles(loaded);
-    setStep('holes');
+    setStep('name');
     setModal(true);
   }
 
@@ -126,25 +126,143 @@ export default function CoursesScreen() {
     setStep('holes');
   }
 
+  function scannedToHoleConfig(holes: ScannedCourse['holes']): HoleConfig[] {
+    return holes.map((h, i) => ({
+      par: ([3, 4, 5].includes(h.par ?? 0) ? h.par : 4) as 3 | 4 | 5,
+      si:  h.si !== null ? String(h.si) : String(i + 1),
+    }));
+  }
+
+  function buildCombinedHoles(a: HoleConfig[], b: HoleConfig[]): HoleConfig[] {
+    // Rank each loop's holes by SI difficulty, then interleave:
+    // A's hardest (SI 1) → combined SI 1, B's hardest → combined SI 2, etc.
+    const rank = (arr: HoleConfig[]) => {
+      const sorted = arr.map((h, i) => ({ i, si: parseInt(h.si, 10) || i + 1 }))
+        .sort((x, y) => x.si - y.si);
+      const map = new Map<number, number>();
+      sorted.forEach(({ i }, rank) => map.set(i, rank));
+      return map;
+    };
+    const rankA = rank(a);
+    const rankB = rank(b);
+    return [
+      ...a.map((h, i) => ({ par: h.par, si: String((rankA.get(i) ?? i) * 2 + 1) })),
+      ...b.map((h, i) => ({ par: h.par, si: String((rankB.get(i) ?? i) * 2 + 2) })),
+    ];
+  }
+
+  async function saveAllScanned(prefix: string, scannedCourses: ScannedCourse[]) {
+    setScanning(true);
+    try {
+      type CourseToBeSaved = { name: string; holeConfigs: HoleConfig[] };
+      const toSave: CourseToBeSaved[] = [];
+
+      const named = scannedCourses.map(c => ({
+        shortName: c.name ?? 'Course',
+        fullName:  prefix ? `${prefix} - ${c.name ?? 'Course'}` : (c.name ?? 'Course'),
+        configs:   scannedToHoleConfig(c.holes),
+      }));
+
+      // Individual 9-hole courses
+      for (const c of named) {
+        toSave.push({ name: c.fullName, holeConfigs: c.configs });
+      }
+
+      // All pairwise combinations
+      for (let i = 0; i < named.length; i++) {
+        for (let j = i + 1; j < named.length; j++) {
+          const a = named[i];
+          const b = named[j];
+          const comboName = prefix
+            ? `${prefix} - ${a.shortName} & ${b.shortName}`
+            : `${a.shortName} & ${b.shortName}`;
+          toSave.push({ name: comboName, holeConfigs: buildCombinedHoles(a.configs, b.configs) });
+        }
+      }
+
+      for (const course of toSave) {
+        await supabase.from('course_holes').delete().eq('course_name', course.name);
+        const rows = course.holeConfigs.map((h, i) => ({
+          course_name:  course.name,
+          hole_number:  i + 1,
+          par:          h.par,
+          stroke_index: parseInt(h.si, 10) || i + 1,
+        }));
+        const { error } = await supabase.from('course_holes').insert(rows);
+        if (error) throw error;
+      }
+
+      const individCount = named.length;
+      const comboCount   = toSave.length - named.length;
+      const list = toSave.map(c => `• ${c.name}`).join('\n');
+      Alert.alert(
+        'All Courses Saved',
+        `Saved ${individCount} courses and ${comboCount} combination${comboCount !== 1 ? 's' : ''}:\n\n${list}\n\nYou can edit any course to adjust stroke indices.`,
+      );
+      setModal(false);
+      await loadCourses();
+    } catch (e: any) {
+      Alert.alert('Error saving courses', e.message ?? 'Could not save.');
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  function applyScannedCourse(course: ScannedCourse) {
+    const configs = scannedToHoleConfig(course.holes);
+    const updated = defaultHoles();
+    configs.forEach((h, i) => { if (i < 18) updated[i] = h; });
+    setHoles(updated);
+  }
+
   async function scanScorecard(source: 'camera' | 'library') {
     setScanning(true);
     try {
-      const scannedHoles = source === 'camera'
+      const scannedCourses = source === 'camera'
         ? await scanScorecardFromCamera()
         : await scanScorecardFromLibrary();
 
-      const updated = defaultHoles();
-      for (const h of scannedHoles) {
-        const idx = h.hole - 1;
-        if (idx >= 0 && idx < 18) {
-          updated[idx] = {
-            par: ([3, 4, 5].includes(h.par ?? 0) ? h.par : 4) as 3 | 4 | 5,
-            si:  h.si !== null ? String(h.si) : String(idx + 1),
-          };
-        }
+      if (scannedCourses.length === 0) {
+        Alert.alert('Scan Failed', 'No holes found — try a clearer photo.');
+        return;
       }
-      setHoles(updated);
-      Alert.alert('Scorecard Scanned', `${scannedHoles.length} holes read. Check the data below and tap Save.`);
+
+      if (scannedCourses.length === 1) {
+        applyScannedCourse(scannedCourses[0]);
+        Alert.alert('Scorecard Scanned', `${scannedCourses[0].holes.length} holes read. Check the data below and tap Save.`);
+        return;
+      }
+
+      // Multiple named courses — offer save-all or pick one
+      const prefix = courseName.trim();
+      const courseList = scannedCourses.map(c => c.name ?? 'Unnamed').join(', ');
+      const comboCount = (scannedCourses.length * (scannedCourses.length - 1)) / 2;
+
+      Alert.alert(
+        `${scannedCourses.length} Courses Found`,
+        `Detected: ${courseList}\n\nSave all ${scannedCourses.length} individual courses + ${comboCount} combinations in one go?`,
+        [
+          {
+            text: `Save All (${scannedCourses.length + comboCount} courses)`,
+            onPress: () => saveAllScanned(prefix, scannedCourses),
+          },
+          {
+            text: 'Load one manually…',
+            onPress: () => {
+              const picks = scannedCourses.map(c => ({
+                text: `${c.name ?? 'Unnamed'} (${c.holes.length}H)`,
+                onPress: () => {
+                  applyScannedCourse(c);
+                  if (c.name && !prefix) setCourseName(c.name);
+                },
+              }));
+              picks.push({ text: 'Cancel', onPress: () => {} } as any);
+              Alert.alert('Pick a course to load', 'Select which 9-hole loop to load into the editor:', picks as any);
+            },
+          },
+          { text: 'Cancel', style: 'cancel' as const },
+        ],
+      );
     } catch (e: any) {
       if (e.message !== 'Cancelled') Alert.alert('Scan Failed', e.message ?? 'Could not read scorecard.');
     } finally {

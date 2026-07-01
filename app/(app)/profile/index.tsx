@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
   ScrollView, TextInput, KeyboardAvoidingView, Platform, Image,
@@ -8,7 +8,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+import { fonts, spacing, radius } from '../../../src/lib/theme';
+import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import type { Player } from '../../../src/types';
 
 // ── Club definitions ──────────────────────────────────────────
@@ -38,6 +39,94 @@ const BRANDS = [
 type Bag = Record<string, { brand?: string; model?: string }>;
 
 export default function ProfileScreen() {
+  const colors = useDynamicColors();
+  const s = useMemo(() => StyleSheet.create({
+    container:  { flex: 1, backgroundColor: colors.bg },
+    centered:   { alignItems: 'center', justifyContent: 'center' },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    title:      { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 1 },
+    editLink:   { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
+    cancelLink: { fontSize: fonts.sm, fontWeight: '700', color: colors.textMuted },
+    cameraLink: { fontSize: 22 },
+    scroll:     { padding: spacing.lg, paddingBottom: 80 },
+
+    avatarArea:  { alignItems: 'center', paddingVertical: spacing.xl },
+    avatarWrap:  { position: 'relative', marginBottom: spacing.md },
+    avatarImage: { width: 88, height: 88, borderRadius: 44, borderWidth: 2, borderColor: colors.goldBorder },
+    avatar: {
+      width: 88, height: 88, borderRadius: 44,
+      backgroundColor: colors.goldDim, borderWidth: 2, borderColor: colors.goldBorder,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    avatarLetter:  { fontSize: fonts.hero * 0.7, fontWeight: '800', color: colors.gold },
+    avatarOverlay: {
+      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 44,
+      backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center',
+    },
+    displayName:    { fontSize: fonts.xl, fontWeight: '700', color: colors.white },
+    nickname:       { fontSize: fonts.sm, color: colors.gold, fontStyle: 'italic', marginTop: 2 },
+    email:          { fontSize: fonts.sm, color: colors.textMuted, marginTop: 4 },
+    changePhotoBtn: { marginTop: spacing.xs },
+    changePhotoText:{ fontSize: fonts.sm, fontWeight: '600', color: colors.gold, textDecorationLine: 'underline' },
+    setupBtn: {
+      backgroundColor: colors.gold, borderRadius: radius.md,
+      paddingVertical: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.md,
+    },
+    setupBtnText: { fontSize: fonts.sm, fontWeight: '800', color: colors.bg },
+
+    sectionLabel: {
+      fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted,
+      letterSpacing: 2, textTransform: 'uppercase', marginBottom: spacing.xs, marginTop: spacing.md,
+    },
+    card: {
+      backgroundColor: colors.card, borderRadius: radius.md,
+      borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md, overflow: 'hidden',
+    },
+    rowView: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: spacing.md, paddingVertical: spacing.md,
+    },
+    rowLabel: { fontSize: fonts.sm, color: colors.textSecondary },
+    rowValue:  { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
+    calcLink:  { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, textDecorationLine: 'underline' },
+
+    fieldRow:   { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+    fieldLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginBottom: 4 },
+    fieldInput: { fontSize: fonts.md, color: colors.white },
+
+    bagCard: {
+      backgroundColor: colors.card, borderRadius: radius.md,
+      borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.md,
+    },
+    bagHint:  { fontSize: fonts.xs, color: colors.textMuted, marginBottom: spacing.md },
+    bagCount: { fontSize: fonts.xs, color: colors.textMuted, marginTop: spacing.sm, textAlign: 'center' },
+    bagSummaryRow: { fontSize: fonts.sm, marginTop: 6, lineHeight: 20 },
+
+    clubGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center', marginBottom: spacing.sm },
+    clubCircle: {
+      width: 44, height: 44, borderRadius: 22,
+      backgroundColor: colors.cardAlt, borderWidth: 1.5, borderColor: colors.border,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    clubCircleOn:  { backgroundColor: colors.goldDim, borderColor: colors.gold },
+    clubLabel:     { fontSize: 11, fontWeight: '700', color: colors.textMuted },
+    clubLabelOn:   { color: colors.gold },
+
+    saveBtn: {
+      backgroundColor: colors.gold, borderRadius: radius.md,
+      paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.lg,
+    },
+    saveBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
+
+    action:      { paddingHorizontal: spacing.md, paddingVertical: spacing.md },
+    actionDanger:{ fontSize: fonts.md, color: colors.red, fontWeight: '600' },
+    version:     { textAlign: 'center', fontSize: fonts.xs, color: colors.textMuted, marginTop: spacing.xl },
+  }), [colors]);
+
   const router = useRouter();
   const [player, setPlayer]             = useState<Player | null>(null);
   const [loading, setLoading]           = useState(true);
@@ -248,13 +337,13 @@ export default function ProfileScreen() {
             {/* Edit: Details */}
             <Text style={s.sectionLabel}>DETAILS</Text>
             <View style={s.card}>
-              <Field label="Display Name" value={name} onChange={setName} placeholder="Your name" autoFocus />
-              <FieldDivider />
-              <Field label='Nickname' value={nickname} onChange={setNickname} placeholder='e.g. "The Machine"' />
-              <FieldDivider />
-              <Field label="Handicap Index" value={hcp} onChange={setHcp} placeholder="e.g. 14.2" keyboardType="decimal-pad" />
-              <FieldDivider />
-              <Field label="CDH Number" value={cdhNum} onChange={setCdhNum} placeholder="England Golf CDH number" keyboardType="number-pad" />
+              <Field label="Display Name" value={name} onChange={setName} placeholder="Your name" autoFocus s={s} colors={colors} />
+              <FieldDivider s={s} colors={colors} />
+              <Field label='Nickname' value={nickname} onChange={setNickname} placeholder='e.g. "The Machine"' s={s} colors={colors} />
+              <FieldDivider s={s} colors={colors} />
+              <Field label="Handicap Index" value={hcp} onChange={setHcp} placeholder="e.g. 14.2" keyboardType="decimal-pad" s={s} colors={colors} />
+              <FieldDivider s={s} colors={colors} />
+              <Field label="CDH Number" value={cdhNum} onChange={setCdhNum} placeholder="England Golf CDH number" keyboardType="number-pad" s={s} colors={colors} />
             </View>
 
             {/* Edit: My Bag */}
@@ -290,6 +379,7 @@ export default function ProfileScreen() {
                   expanded={expandedClub === c.id}
                   onToggle={() => setExpandedClub(prev => prev === c.id ? null : c.id)}
                   onUpdate={(field, val) => updateClub(c.id, field, val)}
+                  colors={colors}
                 />
               ))}
             </View>
@@ -321,7 +411,7 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
-              {player?.cdh_number ? <><FieldDivider /><Row label="CDH Number" value={player.cdh_number} /></> : null}
+              {player?.cdh_number ? <><FieldDivider s={s} colors={colors} /><Row label="CDH Number" value={player.cdh_number} s={s} /></> : null}
             </View>
 
             {/* Read: My Bag */}
@@ -350,8 +440,44 @@ export default function ProfileScreen() {
               </>
             )}
 
+            {/* My Bag & NFC */}
+            <TouchableOpacity
+              style={[s.card, { marginTop: spacing.md }]}
+              onPress={() => router.push('/(app)/profile/bag' as any)}
+              activeOpacity={0.7}
+            >
+              <View style={[s.rowView, { paddingVertical: spacing.sm }]}>
+                <Text style={[s.rowLabel, { color: colors.white, fontWeight: '700' }]}>📡 My Bag & NFC Tags</Text>
+                <Text style={{ fontSize: 18, color: colors.gold }}>›</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* My Stats */}
+            <TouchableOpacity
+              style={[s.card, { marginTop: spacing.sm }]}
+              onPress={() => router.push('/(app)/profile/stats' as any)}
+              activeOpacity={0.7}
+            >
+              <View style={[s.rowView, { paddingVertical: spacing.sm }]}>
+                <Text style={[s.rowLabel, { color: colors.white, fontWeight: '700' }]}>📊 My Stats</Text>
+                <Text style={{ fontSize: 18, color: colors.gold }}>›</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Round History */}
+            <TouchableOpacity
+              style={[s.card, { marginTop: spacing.sm }]}
+              onPress={() => router.push('/(app)/profile/rounds' as any)}
+              activeOpacity={0.7}
+            >
+              <View style={[s.rowView, { paddingVertical: spacing.sm }]}>
+                <Text style={[s.rowLabel, { color: colors.white, fontWeight: '700' }]}>🏌️ Round History</Text>
+                <Text style={{ fontSize: 18, color: colors.gold }}>›</Text>
+              </View>
+            </TouchableOpacity>
+
             {/* Sign out */}
-            <View style={[s.card, { marginTop: spacing.md }]}>
+            <View style={[s.card, { marginTop: spacing.sm }]}>
               <TouchableOpacity style={s.action} onPress={signOut} activeOpacity={0.7}>
                 <Text style={s.actionDanger}>Sign Out</Text>
               </TouchableOpacity>
@@ -367,13 +493,14 @@ export default function ProfileScreen() {
 
 // ── Club editor ───────────────────────────────────────────────
 function ClubEditor({
-  club, entry, expanded, onToggle, onUpdate,
+  club, entry, expanded, onToggle, onUpdate, colors,
 }: {
   club: { id: string; name: string };
   entry: { brand?: string; model?: string };
   expanded: boolean;
   onToggle: () => void;
   onUpdate: (field: 'brand' | 'model', val: string) => void;
+  colors: any;
 }) {
   return (
     <View style={ce.container}>
@@ -416,9 +543,9 @@ function ClubEditor({
 }
 
 // ── Sub-components ────────────────────────────────────────────
-function Field({ label, value, onChange, placeholder, keyboardType, autoFocus }: {
+function Field({ label, value, onChange, placeholder, keyboardType, autoFocus, s, colors }: {
   label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; keyboardType?: any; autoFocus?: boolean;
+  placeholder?: string; keyboardType?: any; autoFocus?: boolean; s: any; colors: any;
 }) {
   return (
     <View style={s.fieldRow}>
@@ -436,11 +563,11 @@ function Field({ label, value, onChange, placeholder, keyboardType, autoFocus }:
   );
 }
 
-function FieldDivider() {
+function FieldDivider({ s, colors }: { s: any; colors: any }) {
   return <View style={{ height: 1, backgroundColor: colors.border, marginHorizontal: spacing.md }} />;
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, s }: { label: string; value: string; s: any }) {
   return (
     <View style={s.rowView}>
       <Text style={s.rowLabel}>{label}</Text>
@@ -451,122 +578,35 @@ function Row({ label, value }: { label: string; value: string }) {
 
 const hit = { top: 10, bottom: 10, left: 10, right: 10 };
 
-// ── Styles ────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  container:  { flex: 1, backgroundColor: colors.bg },
-  centered:   { alignItems: 'center', justifyContent: 'center' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  title:      { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 1 },
-  editLink:   { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
-  cancelLink: { fontSize: fonts.sm, fontWeight: '700', color: colors.textMuted },
-  cameraLink: { fontSize: 22 },
-  scroll:     { padding: spacing.lg, paddingBottom: 80 },
-
-  avatarArea:  { alignItems: 'center', paddingVertical: spacing.xl },
-  avatarWrap:  { position: 'relative', marginBottom: spacing.md },
-  avatarImage: { width: 88, height: 88, borderRadius: 44, borderWidth: 2, borderColor: colors.goldBorder },
-  avatar: {
-    width: 88, height: 88, borderRadius: 44,
-    backgroundColor: colors.goldDim, borderWidth: 2, borderColor: colors.goldBorder,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  avatarLetter:  { fontSize: fonts.hero * 0.7, fontWeight: '800', color: colors.gold },
-  avatarOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 44,
-    backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center',
-  },
-  displayName:    { fontSize: fonts.xl, fontWeight: '700', color: colors.white },
-  nickname:       { fontSize: fonts.sm, color: colors.gold, fontStyle: 'italic', marginTop: 2 },
-  email:          { fontSize: fonts.sm, color: colors.textMuted, marginTop: 4 },
-  changePhotoBtn: { marginTop: spacing.xs },
-  changePhotoText:{ fontSize: fonts.sm, fontWeight: '600', color: colors.gold, textDecorationLine: 'underline' },
-  setupBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.md,
-    paddingVertical: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.md,
-  },
-  setupBtnText: { fontSize: fonts.sm, fontWeight: '800', color: colors.bg },
-
-  sectionLabel: {
-    fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted,
-    letterSpacing: 2, textTransform: 'uppercase', marginBottom: spacing.xs, marginTop: spacing.md,
-  },
-  card: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md, overflow: 'hidden',
-  },
-  rowView: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
-  },
-  rowLabel: { fontSize: fonts.sm, color: colors.textSecondary },
-  rowValue:  { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  calcLink:  { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, textDecorationLine: 'underline' },
-
-  fieldRow:   { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  fieldLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginBottom: 4 },
-  fieldInput: { fontSize: fonts.md, color: colors.white },
-
-  bagCard: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.md,
-  },
-  bagHint:  { fontSize: fonts.xs, color: colors.textMuted, marginBottom: spacing.md },
-  bagCount: { fontSize: fonts.xs, color: colors.textMuted, marginTop: spacing.sm, textAlign: 'center' },
-  bagSummaryRow: { fontSize: fonts.sm, marginTop: 6, lineHeight: 20 },
-
-  clubGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center', marginBottom: spacing.sm },
-  clubCircle: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: colors.cardAlt, borderWidth: 1.5, borderColor: colors.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  clubCircleOn:  { backgroundColor: colors.goldDim, borderColor: colors.gold },
-  clubLabel:     { fontSize: 11, fontWeight: '700', color: colors.textMuted },
-  clubLabelOn:   { color: colors.gold },
-
-  saveBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.md,
-    paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.lg,
-  },
-  saveBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
-
-  action:      { paddingHorizontal: spacing.md, paddingVertical: spacing.md },
-  actionDanger:{ fontSize: fonts.md, color: colors.red, fontWeight: '600' },
-  version:     { textAlign: 'center', fontSize: fonts.xs, color: colors.textMuted, marginTop: spacing.xl },
-});
-
+// ── Club editor styles (static — used only in ClubEditor) ─────
 const ce = StyleSheet.create({
   container: {
-    borderTopWidth: 1, borderTopColor: colors.border, marginTop: spacing.sm,
+    borderTopWidth: 1, borderTopColor: '#2c2c2e', marginTop: spacing.sm,
   },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     paddingVertical: spacing.sm,
   },
-  dot:     { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.gold },
-  name:    { flex: 1, fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  brand:   { fontSize: fonts.xs, color: colors.textMuted },
-  chevron: { fontSize: 10, color: colors.textMuted },
+  dot:     { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d4af37' },
+  name:    { flex: 1, fontSize: fonts.sm, fontWeight: '700', color: '#ffffff' },
+  brand:   { fontSize: fonts.xs, color: '#6b7280' },
+  chevron: { fontSize: 10, color: '#6b7280' },
   body:    { paddingBottom: spacing.md },
   fieldLabel: {
-    fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted,
+    fontSize: fonts.xs, fontWeight: '700', color: '#6b7280',
     letterSpacing: 1, marginBottom: 6,
   },
   brandChip: {
     paddingHorizontal: spacing.sm, paddingVertical: 5, borderRadius: 16,
-    backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: '#2c2c2e', borderWidth: 1, borderColor: '#2c2c2e',
   },
-  brandChipOn:     { backgroundColor: colors.goldDim, borderColor: colors.gold },
-  brandChipText:   { fontSize: fonts.xs, fontWeight: '600', color: colors.textMuted },
-  brandChipTextOn: { color: colors.gold },
+  brandChipOn:     { backgroundColor: 'rgba(212,175,55,0.1)', borderColor: '#d4af37' },
+  brandChipText:   { fontSize: fonts.xs, fontWeight: '600', color: '#6b7280' },
+  brandChipTextOn: { color: '#d4af37' },
   input: {
-    backgroundColor: colors.cardAlt, borderRadius: radius.sm,
-    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: '#2c2c2e', borderRadius: radius.sm,
+    borderWidth: 1, borderColor: '#2c2c2e',
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    fontSize: fonts.sm, color: colors.white,
+    fontSize: fonts.sm, color: '#ffffff',
   },
 });

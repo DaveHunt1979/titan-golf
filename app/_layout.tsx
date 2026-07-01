@@ -63,8 +63,12 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
-      proceed(!!session);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        proceed(!!session);
+      } catch {
+        proceed(false);
+      }
     }
     init();
 

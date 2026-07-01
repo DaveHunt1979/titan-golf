@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NFC Club Labels</title>
+  <meta name="hz:slide-selector" content=".page">
+  <meta name="hz:canvas-width" content="794">
+  <meta name="hz:canvas-height" content="1123">
+  <link rel="stylesheet" href="https://use.typekit.net/vbs1riz.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      padding: 24px;
+      background: #d0d0d0;
+      align-items: center;
+    }
+
+    /* ── A4 sheet ─────────────────────────────────── */
+    .page {
+      position: relative;
+      width: 210mm;
+      height: 297mm;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Sheet header ─────────────────────────────── */
+    .sheet-header {
+      margin-top: 14mm;
+      text-align: center;
+    }
+    .sheet-brand {
+      font-family: "tenez", sans-serif;
+      font-weight: 700;
+      font-size: 5.5mm;
+      letter-spacing: 2.5mm;
+      text-transform: uppercase;
+    }
+    .sheet-sub {
+      font-family: "tenez", sans-serif;
+      font-size: 2.8mm;
+      letter-spacing: 1.2mm;
+      text-transform: uppercase;
+      margin-top: 1.5mm;
+    }
+
+    /* ── 5×3 label grid ───────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 25mm);
+      grid-template-rows: repeat(3, 25mm);
+      column-gap: 13mm;
+      row-gap: 12mm;
+      margin-top: 14mm;
+    }
+
+    /* ── Base circle ──────────────────────────────── */
+    .lbl {
+      width: 25mm;
+      height: 25mm;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .lbl::before {
+      content: '';
+      position: absolute;
+      inset: 1mm;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .lbl-short {
+      font-family: "bebas-neue-v14-deprecated", sans-serif;
+      font-size: 7.2mm;
+      line-height: 1;
+      letter-spacing: 0.2mm;
+      position: relative;
+    }
+    .lbl-brand {
+      font-family: "tenez", sans-serif;
+      font-weight: 700;
+      font-size: 1.9mm;
+      letter-spacing: 0.8mm;
+      text-transform: uppercase;
+      margin-top: 0.5mm;
+      position: relative;
+    }
+
+    /* ── Footer ───────────────────────────────────── */
+    .sheet-footer {
+      position: absolute;
+      bottom: 11mm;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-family: "tenez", sans-serif;
+      font-size: 2.2mm;
+      letter-spacing: 1mm;
+      text-transform: uppercase;
+    }
+
+    /* ══ TITAN GOLF ═══════════════════════════════════ */
+    .titan-page { background: #f2f2f0; }
+
+    .titan-page .sheet-brand { color: #111111; }
+    .titan-page .sheet-sub   { color: #888888; }
+    .titan-page .sheet-footer{ color: #bbbbbb; }
+
+    .titan-lbl {
+      background: #111111;
+      border: 0.6mm solid #D4AF37;
+      box-shadow: 0 0 0 0.2mm rgba(212,175,55,0.18);
+    }
+    .titan-lbl::before {
+      border: 0.25mm solid rgba(212,175,55,0.22);
+    }
+    .titan-lbl .lbl-short { color: #D4AF37; }
+    .titan-lbl .lbl-brand { color: rgba(212,175,55,0.55); }
+
+    /* ══ MASHIE GOLF ══════════════════════════════════ */
+    .mashie-page { background: #edf0f4; }
+
+    .mashie-page .sheet-brand { color: #001F5B; }
+    .mashie-page .sheet-sub   { color: #7a8aaa; }
+    .mashie-page .sheet-footer{ color: #b0bac8; }
+
+    .mashie-lbl {
+      background: #001F5B;
+      border: 0.6mm solid #C4CEDB;
+      box-shadow: 0 0 0 0.2mm rgba(196,206,219,0.18);
+    }
+    .mashie-lbl::before {
+      border: 0.25mm solid rgba(196,206,219,0.22);
+    }
+    .mashie-lbl .lbl-short { color: #ffffff; }
+    .mashie-lbl .lbl-brand { color: #8a9db8; }
+  </style>
+</head>
+<body>
+
+  <!-- ══ PAGE 1 — TITAN GOLF ═════════════════════════════ -->
+  <div class="page titan-page" data-canvas-width="794" data-canvas-height="1123">
+    <div class="sheet-header">
+      <div class="sheet-brand">Titan Golf</div>
+      <div class="sheet-sub">NFC Club Labels · 25mm</div>
+    </div>
+
+    <div class="grid">
+      <div class="lbl titan-lbl"><span class="lbl-short">D</span><span class="lbl-brand">TITAN</span></div>
+      <div class="lbl titan-lbl"><span class="lbl-short">3W</span><span class="lbl-brand">TITAN</span></div>
+      <div class="lbl titan-lbl"><span class="lbl-short">5W</span><span class="lbl-brand">TITAN</span></div>
+      <div class="lbl titan-lbl"><span class="lbl-short">3H</span><span class="lbl-brand">TITAN</span></div>
+      <div class="lbl titan-lbl"><span class="lbl-short">4I</span><span class="lbl-brand">TITAN</span></div>
+
+      <div class="lbl titan-lbl"><span class="lbl-short">5I</span><span class="lbl-brand">TITAN</span></div>
+      <div class="lbl titan-lbl"><span class="lbl-short">6I</span><span class="lbl-brand">TITAN</span></div>
+      <div class="lbl titan-lbl"><span class="lbl-short">7I</span><span class="lbl-brand">TITAN</span></div>
+      <div class="lbl titan-lbl"><span class="lbl-short">8I</span><span class="lbl-brand">TITAN</span></div>
+      <div class="lbl titan-lbl"><span class="lbl-short">9I</span><span class="lbl-brand">TITAN</span></div>
+
+      <div class="lbl titan-lbl"><span class="lbl-short">PW</span><span class="lbl-brand">TITAN</span></div>
+      <div class="lbl titan-lbl"><span class="lbl-short">GW</span><span class="lbl-brand">TITAN</span></div>
+      <div class="lbl titan-lbl"><span class="lbl-short">SW</span><span class="lbl-brand">TITAN</span></div>
+      <div class="lbl titan-lbl"><span class="lbl-short">LW</span><span class="lbl-brand">TITAN</span></div>
+      <div class="lbl titan-lbl"><span class="lbl-short">P</span><span class="lbl-brand">TITAN</span></div>
+    </div>
+
+    <div class="sheet-footer">Stick over NFC sticker · Print at 100% scale</div>
+  </div>
+
+  <!-- ══ PAGE 2 — MASHIE GOLF ════════════════════════════ -->
+  <div class="page mashie-page" data-canvas-width="794" data-canvas-height="1123">
+    <div class="sheet-header">
+      <div class="sheet-brand">Mashie Golf</div>
+      <div class="sheet-sub">NFC Club Labels · 25mm</div>
+    </div>
+
+    <div class="grid">
+      <div class="lbl mashie-lbl"><span class="lbl-short">D</span><span class="lbl-brand">MASHIE</span></div>
+      <div class="lbl mashie-lbl"><span class="lbl-short">3W</span><span class="lbl-brand">MASHIE</span></div>
+      <div class="lbl mashie-lbl"><span class="lbl-short">5W</span><span class="lbl-brand">MASHIE</span></div>
+      <div class="lbl mashie-lbl"><span class="lbl-short">3H</span><span class="lbl-brand">MASHIE</span></div>
+      <div class="lbl mashie-lbl"><span class="lbl-short">4I</span><span class="lbl-brand">MASHIE</span></div>
+
+      <div class="lbl mashie-lbl"><span class="lbl-short">5I</span><span class="lbl-brand">MASHIE</span></div>
+      <div class="lbl mashie-lbl"><span class="lbl-short">6I</span><span class="lbl-brand">MASHIE</span></div>
+      <div class="lbl mashie-lbl"><span class="lbl-short">7I</span><span class="lbl-brand">MASHIE</span></div>
+      <div class="lbl mashie-lbl"><span class="lbl-short">8I</span><span class="lbl-brand">MASHIE</span></div>
+      <div class="lbl mashie-lbl"><span class="lbl-short">9I</span><span class="lbl-brand">MASHIE</span></div>
+
+      <div class="lbl mashie-lbl"><span class="lbl-short">PW</span><span class="lbl-brand">MASHIE</span></div>
+      <div class="lbl mashie-lbl"><span class="lbl-short">GW</span><span class="lbl-brand">MASHIE</span></div>
+      <div class="lbl mashie-lbl"><span class="lbl-short">SW</span><span class="lbl-brand">MASHIE</span></div>
+      <div class="lbl mashie-lbl"><span class="lbl-short">LW</span><span class="lbl-brand">MASHIE</span></div>
+      <div class="lbl mashie-lbl"><span class="lbl-short">P</span><span class="lbl-brand">MASHIE</span></div>
+    </div>
+
+    <div class="sheet-footer">Stick over NFC sticker · Print at 100% scale</div>
+  </div>
+
+</body>
+</html>

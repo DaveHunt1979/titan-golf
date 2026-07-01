@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   TextInput, Image, Alert, ActivityIndicator,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -10,35 +10,98 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { uploadImage } from '../../../src/lib/uploadImage';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+import { fonts, spacing, radius } from '../../../src/lib/theme';
+import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
+import { derivePalette } from '../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../src/lib/assets';
 
-const SWATCHES = [
-  { label: 'Gold',     hex: '#D4AF37' },
-  { label: 'Navy',     hex: '#1B3A5C' },
-  { label: 'Forest',   hex: '#2D6A4F' },
-  { label: 'Crimson',  hex: '#9B2335' },
-  { label: 'Purple',   hex: '#6B3FA0' },
-  { label: 'Steel',    hex: '#4A5568' },
-  { label: 'Teal',     hex: '#2B8A8A' },
-  { label: 'Copper',   hex: '#C2611F' },
-  { label: 'Sky',      hex: '#0284C7' },
-  { label: 'Rose',     hex: '#BE185D' },
-  { label: 'Emerald',  hex: '#059669' },
-  { label: 'Midnight', hex: '#312e81' },
+const BG_SWATCHES = [
+  { label: 'Midnight',   hex: '#0A0A1A' },
+  { label: 'Deep Navy',  hex: '#000035' },
+  { label: 'Royal Navy', hex: '#001F5B' },
+  { label: 'Navy',       hex: '#003087' },
+  { label: 'Forest',     hex: '#0D3321' },
+  { label: 'Dark Slate', hex: '#1A1A2E' },
+  { label: 'Graphite',   hex: '#1C1C1E' },
+  { label: 'Espresso',   hex: '#1A0A00' },
 ];
 
+const ACCENT_SWATCHES = [
+  { label: 'Gold',    hex: '#D4AF37' },
+  { label: 'Silver',  hex: '#C4CEDB' },
+  { label: 'Steel',   hex: '#8898A8' },
+  { label: 'White',   hex: '#F0F0F0' },
+  { label: 'Sky',     hex: '#0284C7' },
+  { label: 'Emerald', hex: '#059669' },
+  { label: 'Teal',    hex: '#2B8A8A' },
+  { label: 'Crimson', hex: '#9B2335' },
+  { label: 'Purple',  hex: '#6B3FA0' },
+  { label: 'Copper',  hex: '#C2611F' },
+  { label: 'Rose',    hex: '#BE185D' },
+  { label: 'Lime',    hex: '#65A30D' },
+];
+
+function isValidHex(h: string) {
+  return /^#[0-9A-Fa-f]{6}$/.test(h);
+}
+
+function SplashPreview({ name, logoUri, primary, secondary }: {
+  name: string; logoUri: string | null; primary: string; secondary: string;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const palette = derivePalette(primary, secondary);
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale, { toValue: 1.12, duration: 700, useNativeDriver: true }),
+        Animated.timing(scale, { toValue: 1.0,  duration: 700, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
+  return (
+    <View style={[prev.box, { backgroundColor: palette.bg }]}>
+      <Animated.Image
+        source={logoUri ? { uri: logoUri } : titanLogo}
+        style={[prev.logo, { transform: [{ scale }] }]}
+        resizeMode="contain"
+      />
+      <Text style={[prev.name, { color: palette.text }]} numberOfLines={1}>
+        {name || 'Your Society'}
+      </Text>
+      <Text style={[prev.sub, { color: palette.accent }]}>Loading…</Text>
+    </View>
+  );
+}
+
 export default function SocietyBrandingScreen() {
-  const router = useRouter();
+  const router  = useRouter();
+  const colors  = useDynamicColors();
   const { societyId, loading: societyLoading } = useAdminSociety();
 
-  const [name, setName]                       = useState('');
-  const [tagline, setTagline]                 = useState('');
-  const [primaryColor, setPrimaryColor]       = useState(colors.gold);
-  const [secondaryColor, setSecondaryColor]   = useState('#1B3A5C');
-  const [logoUrl, setLogoUrl]                 = useState<string | null>(null);
-  const [logoLocalUri, setLogoLocalUri]       = useState<string | null>(null);
-  const [loading, setLoading]                 = useState(true);
-  const [saving, setSaving]                   = useState(false);
+  const [name,           setName]           = useState('');
+  const [tagline,        setTagline]        = useState('');
+  const [primaryColor,   setPrimaryColor]   = useState('#001F5B');
+  const [secondaryColor, setSecondaryColor] = useState('#C4CEDB');
+  const [primaryHex,     setPrimaryHex]     = useState('#001F5B');
+  const [secondaryHex,   setSecondaryHex]   = useState('#C4CEDB');
+  const [logoUrl,        setLogoUrl]        = useState<string | null>(null);
+  const [logoLocalUri,   setLogoLocalUri]   = useState<string | null>(null);
+  const [loading,        setLoading]        = useState(true);
+  const [saving,         setSaving]         = useState(false);
+
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  useEffect(() => {
+    if (secondaryHex !== secondaryColor) setSecondaryHex(secondaryColor);
+  }, [secondaryColor]);
+
+  useEffect(() => {
+    if (primaryHex !== primaryColor) setPrimaryHex(primaryColor);
+  }, [primaryColor]);
 
   useEffect(() => {
     if (societyLoading || !societyId) return;
@@ -49,26 +112,37 @@ export default function SocietyBrandingScreen() {
         .eq('id', societyId)
         .single();
       if (data) {
-        setName((data as any).name ?? '');
-        setTagline((data as any).tagline ?? '');
-        setPrimaryColor((data as any).primary_color ?? colors.gold);
-        setSecondaryColor((data as any).secondary_color ?? '#1B3A5C');
-        setLogoUrl((data as any).logo_url ?? null);
+        const d = data as any;
+        setName(d.name ?? '');
+        setTagline(d.tagline ?? '');
+        const pc = d.primary_color   ?? '#001F5B';
+        const sc = d.secondary_color ?? '#C4CEDB';
+        setPrimaryColor(pc);   setPrimaryHex(pc);
+        setSecondaryColor(sc); setSecondaryHex(sc);
+        setLogoUrl(d.logo_url ?? null);
       }
       setLoading(false);
     })();
   }, [societyId, societyLoading]);
 
+  function applyPrimaryHex(raw: string) {
+    const h = raw.startsWith('#') ? raw : '#' + raw;
+    setPrimaryHex(h);
+    if (isValidHex(h)) setPrimaryColor(h);
+  }
+
+  function applySecondaryHex(raw: string) {
+    const h = raw.startsWith('#') ? raw : '#' + raw;
+    setSecondaryHex(h);
+    if (isValidHex(h)) setSecondaryColor(h);
+  }
+
   async function pickLogo() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'] as any,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
+      allowsEditing: true, aspect: [1, 1], quality: 0.85,
     });
-    if (!result.canceled) {
-      setLogoLocalUri(result.assets[0].uri);
-    }
+    if (!result.canceled) setLogoLocalUri(result.assets[0].uri);
   }
 
   async function save() {
@@ -76,26 +150,20 @@ export default function SocietyBrandingScreen() {
     setSaving(true);
     try {
       let finalLogoUrl = logoUrl;
-
       if (logoLocalUri) {
         finalLogoUrl = await uploadImage(logoLocalUri, 'society-assets', `${societyId}/logo.jpg`);
       }
-
-      const { error } = await supabase
-        .from('societies')
-        .update({
-          name: name.trim() || undefined,
-          tagline: tagline.trim() || null,
-          primary_color: primaryColor,
-          secondary_color: secondaryColor,
-          logo_url: finalLogoUrl,
-        } as any)
-        .eq('id', societyId);
-
+      const { error } = await supabase.from('societies').update({
+        name:            name.trim() || undefined,
+        tagline:         tagline.trim() || null,
+        primary_color:   primaryColor,
+        secondary_color: secondaryColor,
+        logo_url:        finalLogoUrl,
+      } as any).eq('id', societyId);
       if (error) throw error;
       if (finalLogoUrl !== logoUrl) setLogoUrl(finalLogoUrl);
       setLogoLocalUri(null);
-      Alert.alert('Saved', 'Society branding updated.');
+      Alert.alert('Saved ✓', 'Branding saved. Restart the app to see the new splash screen.');
     } catch (e: any) {
       Alert.alert('Error', e.message ?? 'Could not save.');
     } finally {
@@ -107,7 +175,7 @@ export default function SocietyBrandingScreen() {
 
   if (loading || societyLoading) {
     return (
-      <View style={[s.container, s.centered]}>
+      <View style={[styles.container, styles.centered]}>
         <StatusBar style="light" />
         <ActivityIndicator color={colors.gold} size="large" />
       </View>
@@ -115,114 +183,106 @@ export default function SocietyBrandingScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="light" />
 
-      <View style={s.header}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={hit}>
-          <Text style={s.back}>← Back</Text>
+          <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Society Branding</Text>
+        <Text style={styles.headerTitle}>Society Branding</Text>
         <TouchableOpacity onPress={save} disabled={saving} hitSlop={hit}>
-          <Text style={[s.saveBtn, saving && { opacity: 0.4 }]}>
+          <Text style={[styles.saveBtn, saving && { opacity: 0.4 }]}>
             {saving ? 'Saving…' : 'Save'}
           </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+
+        {/* Splash Preview */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>LOADING SCREEN PREVIEW</Text>
+          <SplashPreview
+            name={name}
+            logoUri={displayUri}
+            primary={primaryColor}
+            secondary={secondaryColor}
+          />
+          <Text style={styles.hint}>This is exactly what members see when they open the app.</Text>
+        </View>
 
         {/* Logo */}
-        <View style={s.logoSection}>
-          <TouchableOpacity onPress={pickLogo} activeOpacity={0.8}>
-            <View style={[s.logoCircle, { borderColor: primaryColor }]}>
-              {displayUri
-                ? <Image source={{ uri: displayUri }} style={s.logoImg} />
-                : (
-                  <View style={[s.logoPlaceholder, { backgroundColor: primaryColor + '22' }]}>
-                    <Text style={s.logoPlaceholderIcon}>⛳</Text>
-                  </View>
-                )
-              }
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>SOCIETY LOGO</Text>
+          <View style={styles.logoRow}>
+            <TouchableOpacity onPress={pickLogo} activeOpacity={0.8}>
+              <View style={[styles.logoCircle, { borderColor: primaryColor }]}>
+                {displayUri
+                  ? <Image source={{ uri: displayUri }} style={styles.logoImg} />
+                  : <View style={[styles.logoPlaceholder, { backgroundColor: primaryColor + '22' }]}>
+                      <Text style={styles.logoPlaceholderIcon}>⛳</Text>
+                    </View>
+                }
+              </View>
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                style={[styles.uploadBtn, { borderColor: primaryColor }]}
+                onPress={pickLogo} activeOpacity={0.8}
+              >
+                <Text style={[styles.uploadBtnText, { color: primaryColor }]}>
+                  {displayUri ? 'Change Logo' : 'Upload Logo'}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.hint}>Square PNG or JPEG · max 10 MB{'\n'}Used in the splash screen and app header.</Text>
             </View>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={pickLogo} activeOpacity={0.7}>
-            <Text style={[s.logoChangeText, { color: primaryColor }]}>
-              {displayUri ? 'Change Logo' : 'Add Logo'}
-            </Text>
-          </TouchableOpacity>
-          <Text style={s.logoHint}>Square image · PNG or JPEG · max 10 MB</Text>
+          </View>
         </View>
 
         {/* Name */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>SOCIETY NAME</Text>
-          <View style={s.card}>
-            <TextInput
-              style={s.input}
-              value={name}
-              onChangeText={setName}
-              placeholderTextColor={colors.textMuted}
-              placeholder="e.g. Titan Golf Society"
-            />
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>SOCIETY NAME</Text>
+          <View style={styles.card}>
+            <TextInput style={styles.input} value={name} onChangeText={setName}
+              placeholderTextColor={colors.textMuted} placeholder="e.g. Titan Golf Society" />
           </View>
         </View>
 
         {/* Tagline */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>TAGLINE</Text>
-          <View style={s.card}>
-            <TextInput
-              style={s.input}
-              value={tagline}
-              onChangeText={setTagline}
-              placeholderTextColor={colors.textMuted}
-              placeholder="e.g. Tour life. No excuses."
-              maxLength={60}
-            />
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>TAGLINE</Text>
+          <View style={styles.card}>
+            <TextInput style={styles.input} value={tagline} onChangeText={setTagline}
+              placeholderTextColor={colors.textMuted} placeholder="e.g. Tour life. No excuses."
+              maxLength={60} />
           </View>
-          <Text style={s.hint}>Shown on the home screen · max 60 characters</Text>
+          <Text style={styles.hint}>Shown on the home screen · max 60 characters</Text>
         </View>
 
         {/* Primary Colour */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>PRIMARY COLOUR</Text>
-          <ColorPicker selected={primaryColor} onSelect={setPrimaryColor} />
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>BACKGROUND COLOUR</Text>
+          <Text style={styles.hint2}>Choose a dark colour — this becomes the app background.</Text>
+          <ColorSwatches swatches={BG_SWATCHES} selected={primaryColor} onSelect={setPrimaryColor} />
+          <HexInput label="Custom hex" value={primaryHex} onChange={applyPrimaryHex} accent={primaryColor} />
         </View>
 
         {/* Secondary Colour */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>SECONDARY COLOUR</Text>
-          <ColorPicker selected={secondaryColor} onSelect={setSecondaryColor} />
-        </View>
-
-        {/* Live Preview */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>PREVIEW</Text>
-          <View style={[s.previewCard, { borderColor: primaryColor + '55', backgroundColor: primaryColor + '0d' }]}>
-            {displayUri
-              ? <Image source={{ uri: displayUri }} style={s.previewLogo} />
-              : <View style={[s.previewLogoDot, { backgroundColor: primaryColor }]} />
-            }
-            <View style={{ flex: 1 }}>
-              <Text style={[s.previewName, { color: primaryColor }]}>{name || 'Society Name'}</Text>
-              {tagline ? <Text style={s.previewTagline}>{tagline}</Text> : null}
-            </View>
-            <View style={[s.previewBadge, { backgroundColor: secondaryColor }]}>
-              <Text style={s.previewBadgeText}>MEMBER</Text>
-            </View>
-          </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>ACCENT COLOUR</Text>
+          <Text style={styles.hint2}>Icons, highlights, active tabs — choose a light or vibrant colour.</Text>
+          <ColorSwatches swatches={ACCENT_SWATCHES} selected={secondaryColor} onSelect={setSecondaryColor} />
+          <HexInput label="Custom hex" value={secondaryHex} onChange={applySecondaryHex} accent={secondaryColor} />
         </View>
 
         <TouchableOpacity
-          style={[s.saveButton, { backgroundColor: primaryColor }, saving && { opacity: 0.5 }]}
-          onPress={save}
-          disabled={saving}
-          activeOpacity={0.8}
+          style={[styles.saveButton, { backgroundColor: primaryColor }, saving && { opacity: 0.5 }]}
+          onPress={save} disabled={saving} activeOpacity={0.8}
         >
           {saving
-            ? <ActivityIndicator color={colors.bg} />
-            : <Text style={s.saveButtonText}>Save Branding</Text>
+            ? <ActivityIndicator color="#ffffff" />
+            : <Text style={styles.saveButtonText}>Save Branding</Text>
           }
         </TouchableOpacity>
 
@@ -231,96 +291,126 @@ export default function SocietyBrandingScreen() {
   );
 }
 
-function ColorPicker({ selected, onSelect }: { selected: string; onSelect: (hex: string) => void }) {
-  const current = SWATCHES.find(sw => sw.hex === selected);
+function ColorSwatches({ swatches, selected, onSelect }: {
+  swatches: { label: string; hex: string }[];
+  selected: string;
+  onSelect: (hex: string) => void;
+}) {
+  const selectedSwatch = swatches.find(s => s.hex.toLowerCase() === selected.toLowerCase());
   return (
-    <>
-      <View style={cp.grid}>
-        {SWATCHES.map(sw => (
+    <View style={sw.wrap}>
+      <View style={sw.grid}>
+        {swatches.map(s => (
           <TouchableOpacity
-            key={sw.hex}
-            style={[cp.swatch, { backgroundColor: sw.hex }, selected === sw.hex && cp.swatchOn]}
-            onPress={() => onSelect(sw.hex)}
+            key={s.hex}
+            style={[sw.swatch, { backgroundColor: s.hex }, selected.toLowerCase() === s.hex.toLowerCase() && sw.swatchOn]}
+            onPress={() => onSelect(s.hex)}
             activeOpacity={0.8}
           >
-            {selected === sw.hex && <Text style={cp.tick}>✓</Text>}
+            {selected.toLowerCase() === s.hex.toLowerCase() && <Text style={sw.tick}>✓</Text>}
           </TouchableOpacity>
         ))}
       </View>
-      <Text style={cp.label}>{current?.label ?? ''}</Text>
-    </>
+      {selectedSwatch && <Text style={sw.label}>{selectedSwatch.label}</Text>}
+    </View>
+  );
+}
+
+function HexInput({ label, value, onChange, accent }: {
+  label: string; value: string; onChange: (v: string) => void; accent: string;
+}) {
+  const valid = isValidHex(value);
+  return (
+    <View style={hi.row}>
+      <View style={[hi.preview, { backgroundColor: valid ? value : '#444' }]} />
+      <TextInput
+        style={[hi.input, { borderColor: valid ? accent : '#f87171' }]}
+        value={value}
+        onChangeText={onChange}
+        autoCapitalize="none"
+        autoCorrect={false}
+        maxLength={7}
+        placeholder="#000000"
+        placeholderTextColor="#556677"
+      />
+    </View>
   );
 }
 
 const hit = { top: 12, bottom: 12, left: 12, right: 12 };
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered:  { alignItems: 'center', justifyContent: 'center' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  back:        { fontSize: fonts.sm, color: colors.gold, fontWeight: '600' },
-  headerTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
-  saveBtn:     { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
-  scroll:      { padding: spacing.lg, paddingBottom: 60 },
+function makeStyles(c: ReturnType<typeof useDynamicColors>) {
+  return StyleSheet.create({
+    container:  { flex: 1, backgroundColor: c.bg },
+    centered:   { alignItems: 'center', justifyContent: 'center' },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
+      borderBottomWidth: 1, borderBottomColor: c.border,
+    },
+    back:        { fontSize: fonts.sm, color: c.gold, fontWeight: '600' },
+    headerTitle: { fontSize: fonts.md, fontWeight: '800', color: c.white, letterSpacing: 0.5 },
+    saveBtn:     { fontSize: fonts.sm, fontWeight: '700', color: c.gold },
+    scroll:      { padding: spacing.lg, paddingBottom: 60 },
+    section:     { marginBottom: spacing.xl },
+    sectionLabel: {
+      fontSize: fonts.xs, fontWeight: '800', color: c.textMuted,
+      letterSpacing: 2, marginBottom: spacing.xs, textTransform: 'uppercase',
+    },
+    hint:  { fontSize: fonts.xs, color: c.textMuted, marginTop: spacing.xs, lineHeight: 17 },
+    hint2: { fontSize: fonts.xs, color: c.textSecondary, marginBottom: spacing.sm },
+    card: {
+      backgroundColor: c.card, borderRadius: radius.md,
+      borderWidth: 1, borderColor: c.border,
+    },
+    input: {
+      paddingHorizontal: spacing.md, paddingVertical: spacing.md,
+      fontSize: fonts.md, color: c.white,
+    },
+    logoRow:     { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
+    logoCircle: {
+      width: 88, height: 88, borderRadius: 44,
+      borderWidth: 3, overflow: 'hidden',
+    },
+    logoImg:             { width: '100%', height: '100%' },
+    logoPlaceholder:     { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    logoPlaceholderIcon: { fontSize: 36 },
+    uploadBtn: {
+      borderWidth: 1.5, borderRadius: radius.md, borderStyle: 'dashed',
+      paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+      alignItems: 'center', marginBottom: spacing.xs,
+    },
+    uploadBtnText: { fontSize: fonts.sm, fontWeight: '700' },
+    saveButton: {
+      borderRadius: radius.md, paddingVertical: spacing.md,
+      alignItems: 'center', marginTop: spacing.md,
+    },
+    saveButtonText: { fontSize: fonts.md, fontWeight: '800', color: '#ffffff', letterSpacing: 0.5 },
+  });
+}
 
-  logoSection:          { alignItems: 'center', marginBottom: spacing.xl },
-  logoCircle: {
-    width: 120, height: 120, borderRadius: 60,
-    borderWidth: 3, overflow: 'hidden', marginBottom: spacing.sm,
+const prev = StyleSheet.create({
+  box: {
+    borderRadius: radius.lg, height: 200,
+    alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    overflow: 'hidden',
   },
-  logoImg:              { width: '100%', height: '100%' },
-  logoPlaceholder:      { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  logoPlaceholderIcon:  { fontSize: 48 },
-  logoChangeText:       { fontSize: fonts.sm, fontWeight: '700', marginBottom: spacing.xs },
-  logoHint:             { fontSize: fonts.xs, color: colors.textMuted },
-
-  section: { marginBottom: spacing.lg },
-  sectionLabel: {
-    fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted,
-    letterSpacing: 2, marginBottom: spacing.sm, textTransform: 'uppercase',
-  },
-  card: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-  },
-  input: {
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
-    fontSize: fonts.md, color: colors.white,
-  },
-  hint: { fontSize: fonts.xs, color: colors.textMuted, marginTop: spacing.xs },
-
-  previewCard: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    borderRadius: radius.md, borderWidth: 1, padding: spacing.md,
-  },
-  previewLogo:    { width: 36, height: 36, borderRadius: 18 },
-  previewLogoDot: { width: 12, height: 12, borderRadius: 6 },
-  previewName:    { fontSize: fonts.md, fontWeight: '800' },
-  previewTagline: { fontSize: fonts.xs, color: colors.textSecondary, marginTop: 2 },
-  previewBadge:   { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.sm },
-  previewBadgeText: { fontSize: 9, fontWeight: '800', color: colors.white, letterSpacing: 1 },
-
-  saveButton: {
-    borderRadius: radius.md, paddingVertical: spacing.md,
-    alignItems: 'center', marginTop: spacing.md,
-  },
-  saveButtonText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 0.5 },
+  logo: { width: 80, height: 80 },
+  name: { fontSize: fonts.lg, fontWeight: '800', letterSpacing: 1 },
+  sub:  { fontSize: fonts.xs, fontWeight: '600', letterSpacing: 2 },
 });
 
-const cp = StyleSheet.create({
-  grid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm,
-  },
-  swatch: {
-    width: 48, height: 48, borderRadius: 24,
-    borderWidth: 2, borderColor: 'transparent',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  swatchOn: { borderColor: colors.white, transform: [{ scale: 1.12 }] },
-  tick:     { color: colors.white, fontSize: 18, fontWeight: '800' },
-  label:    { fontSize: fonts.xs, color: colors.textSecondary, marginTop: spacing.xs, minHeight: 16 },
+const sw = StyleSheet.create({
+  wrap:     { marginBottom: spacing.sm },
+  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.xs },
+  swatch:   { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
+  swatchOn: { borderColor: '#ffffff', transform: [{ scale: 1.12 }] },
+  tick:     { color: '#ffffff', fontSize: 16, fontWeight: '800' },
+  label:    { fontSize: fonts.xs, color: '#8899aa', minHeight: 16 },
+});
+
+const hi = StyleSheet.create({
+  row:     { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+  preview: { width: 32, height: 32, borderRadius: 8 },
+  input:   { flex: 1, backgroundColor: '#0d1520', borderWidth: 1.5, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, fontSize: fonts.md, color: '#ffffff', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
 });

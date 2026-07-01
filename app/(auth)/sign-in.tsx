@@ -21,7 +21,7 @@ export default function SignInScreen() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
     setLoading(false);
     if (error) Alert.alert('Sign in failed', error.message);
     // Root layout handles redirect via onAuthStateChange

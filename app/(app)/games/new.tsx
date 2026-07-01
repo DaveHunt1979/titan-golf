@@ -18,8 +18,8 @@ interface CourseItem { name: string; par: number; }
 const MODES: { key: GameMode; label: string; sub: string; available: boolean }[] = [
   { key: '4bbb',       label: '4BBB Matchplay', sub: 'Two pairs · best ball',         available: true },
   { key: 'singles',    label: 'Singles',        sub: 'Head-to-head matchplay',         available: true },
-  { key: 'stableford', label: 'Stableford',     sub: 'Solo round · points per hole',   available: true },
-  { key: 'medal',      label: 'Medal',          sub: 'Solo round · total stroke play', available: true },
+  { key: 'stableford', label: 'Stableford',     sub: '1–4 players · points per hole',   available: true },
+  { key: 'medal',      label: 'Medal',          sub: '1–4 players · total stroke play', available: true },
 ];
 
 const HCP_ALLOWANCES: { pct: number; label: string; sub: string }[] = [
@@ -29,7 +29,8 @@ const HCP_ALLOWANCES: { pct: number; label: string; sub: string }[] = [
   { pct: 0,   label: 'Off Scratch',  sub: 'No strokes — play level' },
 ];
 
-const SIDE_GAMES = ['Skins', 'Nassau', 'Stableford', 'Stroke Play', 'Bingo Bango Bongo', 'Greensomes', 'Wolf', 'Closest to Pin', 'Longest Drive'];
+const SIDE_GAMES_ALL      = ['Skins', 'Nassau', 'Stableford', 'Stroke Play', 'Bingo Bango Bongo', 'Greensomes', 'Wolf', 'Closest to Pin', 'Longest Drive'];
+const SIDE_GAMES_STROKE   = ['Skins', 'Closest to Pin', 'Longest Drive'];
 
 const HOLES: { key: HolesMode; label: string; sub: string }[] = [
   { key: 'full18', label: 'Full 18', sub: 'All 18 holes' },
@@ -62,6 +63,20 @@ export default function NewGameScreen() {
   const [courses, setCourses]               = useState<CourseItem[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [creating, setCreating]             = useState(false);
+  const [courseHoleData, setCourseHoleData] = useState<{ hole_number: number; par: number }[]>([]);
+  const [coursePinsSet, setCoursePinsSet]   = useState<boolean | null>(null);
+  const [ldHole,  setLdHole]  = useState<number | null>(null);
+  const [ntpHole, setNtpHole] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!selectedCourse) { setCourseHoleData([]); setCoursePinsSet(null); return; }
+    supabase.from('course_holes').select('hole_number,par,green_lat').eq('course_name', selectedCourse).order('hole_number')
+      .then(({ data, error }) => {
+        if (error || !data) { setCoursePinsSet(false); return; }
+        setCourseHoleData(data as any[]);
+        setCoursePinsSet((data as any[]).some((h: any) => !!h.green_lat));
+      });
+  }, [selectedCourse]);
 
   useEffect(() => {
     if (societyLoading) return;
@@ -108,8 +123,10 @@ export default function NewGameScreen() {
     })();
   }, [societyId, societyLoading]);
 
-  const isSolo   = mode === 'stableford' || mode === 'medal';
-  const maxPer   = (mode === 'singles' || isSolo) ? 1 : 2;
+  const isSolo    = mode === 'stableford' || mode === 'medal';
+  const maxPer    = mode === 'singles' ? 1 : isSolo ? 4 : 2;
+  const atMax     = isSolo && pair1.length >= maxPer;
+  const sideGamesList = isSolo ? SIDE_GAMES_STROKE : SIDE_GAMES_ALL;
   const activePair    = pairStep === 1 ? pair1 : pair2;
   const setActivePair = pairStep === 1 ? setPair1 : setPair2;
 
@@ -123,7 +140,7 @@ export default function NewGameScreen() {
   }
 
   function goNext() {
-    if (step === 1) { setPair1([]); setPair2([]); setPairStep(1); setStep(2); return; }
+    if (step === 1) { setPair1([]); setPair2([]); setPairStep(1); setSideGames([]); setStep(2); return; }
     if (step === 2 && pairStep === 1 && !isSolo) { setPairStep(2); return; }
     if (step === 2) { setStep(3); return; }
     if (step === 3) { setStep(4); return; }
@@ -140,7 +157,7 @@ export default function NewGameScreen() {
   const canNext = (() => {
     if (step === 1) return mode !== null && MODES.find(m => m.key === mode)?.available === true;
     if (step === 2) {
-      if (isSolo) return pair1.length === 1;
+      if (isSolo) return pair1.length >= 1;
       const need = mode === 'singles' ? 1 : 2;
       return pairStep === 1 ? pair1.length === need : pair2.length === need;
     }
@@ -177,16 +194,16 @@ export default function NewGameScreen() {
         is_singles: mode === 'singles',
         round_format: isSolo ? mode : 'matchplay',
         hcp_allowance: hcpAllowance,
-        side_games: sideGames,
+        side_games: sideGames.map(g => {
+            if (g === 'Longest Drive' && ldHole) return `Longest Drive:${ldHole}`;
+            if (g === 'Closest to Pin' && ntpHole) return `Closest to Pin:${ntpHole}`;
+            return g;
+          }),
       }).select().single();
 
       if (error || !newMatch) throw error ?? new Error('Could not create game');
 
-      if (isSolo) {
-        router.replace(`/(app)/score/solo/${newMatch.id}` as any);
-      } else {
-        router.replace(`/(app)/score/enter/${newMatch.id}` as any);
-      }
+      router.replace(`/(app)/score/preview/${newMatch.id}` as any);
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Could not create game');
       setCreating(false);
@@ -198,7 +215,11 @@ export default function NewGameScreen() {
   const stepTitle = (() => {
     if (step === 1) return 'Choose Game Mode';
     if (step === 2) {
-      if (isSolo) return 'Pick Player';
+      if (isSolo) {
+        if (pair1.length === 0) return 'Who is playing today?';
+        if (atMax) return `${pair1.length} players selected — ready to go!`;
+        return `${pair1.length} player${pair1.length > 1 ? 's' : ''} selected — add more or tap Next`;
+      }
       if (mode === 'singles') return pairStep === 1 ? 'Pick Player 1' : 'Pick Player 2';
       return pairStep === 1 ? 'Pick Pair 1  ·  choose 2 players' : 'Pick Pair 2  ·  choose 2 players';
     }
@@ -252,6 +273,27 @@ export default function NewGameScreen() {
         {/* ── Step 2 — Players ───────────────────────────────── */}
         {step === 2 && (
           <>
+            {isSolo && pair1.length > 0 && (
+              <View style={styles.pairBanner}>
+                <Text style={styles.pairBannerLabel}>PLAYING TODAY</Text>
+                <View style={styles.pairBannerAvatars}>
+                  {pair1.map(id => {
+                    const player = players.find(p => p.id === id);
+                    const av = player?.avatar_url ?? getPlayerAvatar(id, 'normal');
+                    return (
+                      <View key={id} style={styles.bannerPlayer}>
+                        {av
+                          ? <Image source={typeof av === 'string' ? { uri: av } : av} style={styles.bannerAvatar} />
+                          : <View style={[styles.bannerAvatar, styles.avatarFallback]}><Text style={styles.avatarInitial}>{firstName(id)[0]}</Text></View>
+                        }
+                        <Text style={styles.bannerName}>{firstName(id)}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
             {pairStep === 2 && pair1.length > 0 && (
               <View style={styles.pairBanner}>
                 <Text style={styles.pairBannerLabel}>Pair 1</Text>
@@ -279,16 +321,17 @@ export default function NewGameScreen() {
                 <View key={ri} style={styles.playerRow}>
                   {row.map(p => {
                     const avatar  = p.avatar_url ?? getPlayerAvatar(p.id, 'normal');
-                    const inP1    = pair1.includes(p.id);
-                    const inP2    = pair2.includes(p.id);
+                    const inP1     = pair1.includes(p.id);
+                    const inP2     = pair2.includes(p.id);
                     const inActive = pairStep === 1 ? inP1 : inP2;
                     const inOther  = pairStep === 1 ? inP2 : inP1;
+                    const isDisabled = inOther || (atMax && !inActive);
                     return (
                       <TouchableOpacity
                         key={p.id}
-                        style={[styles.playerTile, inActive && styles.playerTileOn, inOther && styles.playerTileDim]}
+                        style={[styles.playerTile, inActive && styles.playerTileOn, isDisabled && styles.playerTileDim]}
                         onPress={() => togglePlayer(p.id)}
-                        disabled={inOther}
+                        disabled={isDisabled}
                         activeOpacity={0.8}
                       >
                         <View style={[styles.avatarRing, inActive && styles.avatarRingOn]}>
@@ -319,6 +362,19 @@ export default function NewGameScreen() {
         {/* ── Step 3 — Course & Holes ────────────────────────── */}
         {step === 3 && (
           <>
+            {selectedCourse && coursePinsSet === false && (
+              <TouchableOpacity
+                style={styles.pinsNotice}
+                onPress={() => router.push('/(app)/admin/pins' as any)}
+                activeOpacity={0.8}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pinsNoticeTitle}>⛳ No rangefinder pins set</Text>
+                  <Text style={styles.pinsNoticeSub}>Tap to drop green pins for this course — distances won't show without them</Text>
+                </View>
+                <Text style={{ color: colors.gold, fontSize: 20 }}>›</Text>
+              </TouchableOpacity>
+            )}
             {loadingCourses
               ? <ActivityIndicator color={colors.gold} style={{ marginTop: 40 }} />
               : courses.length === 0
@@ -404,7 +460,7 @@ export default function NewGameScreen() {
 
             <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>SIDE GAMES</Text>
             <View style={styles.sideGamesGrid}>
-              {SIDE_GAMES.map(g => {
+              {sideGamesList.map(g => {
                 const on = sideGames.includes(g);
                 return (
                   <TouchableOpacity
@@ -419,13 +475,53 @@ export default function NewGameScreen() {
               })}
             </View>
 
+            {/* Longest Drive hole picker */}
+            {sideGames.includes('Longest Drive') && courseHoleData.filter(h => h.par === 5).length > 0 && (
+              <>
+                <Text style={styles.sectionLabel}>LONGEST DRIVE — PICK HOLE (PAR 5)</Text>
+                <View style={styles.holePickerRow}>
+                  {courseHoleData.filter(h => h.par === 5).map(h => (
+                    <TouchableOpacity
+                      key={h.hole_number}
+                      style={[styles.holePickerBtn, ldHole === h.hole_number && styles.holePickerBtnOn]}
+                      onPress={() => setLdHole(h.hole_number)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.holePickerNum, ldHole === h.hole_number && styles.holePickerNumOn]}>{h.hole_number}</Text>
+                      <Text style={styles.holePickerPar}>Par 5</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {/* Closest to Pin hole picker */}
+            {sideGames.includes('Closest to Pin') && courseHoleData.filter(h => h.par === 3).length > 0 && (
+              <>
+                <Text style={styles.sectionLabel}>NEAREST THE PIN — PICK HOLE (PAR 3)</Text>
+                <View style={styles.holePickerRow}>
+                  {courseHoleData.filter(h => h.par === 3).map(h => (
+                    <TouchableOpacity
+                      key={h.hole_number}
+                      style={[styles.holePickerBtn, ntpHole === h.hole_number && styles.holePickerBtnOn]}
+                      onPress={() => setNtpHole(h.hole_number)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.holePickerNum, ntpHole === h.hole_number && styles.holePickerNumOn]}>{h.hole_number}</Text>
+                      <Text style={styles.holePickerPar}>Par 3</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
             {/* Summary */}
             <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>GAME SUMMARY</Text>
             <View style={styles.summaryCard}>
               {[
                 { k: 'Mode',   v: MODES.find(m => m.key === mode)?.label ?? '—' },
                 isSolo
-                  ? { k: 'Player', v: firstName(pair1[0] ?? '') }
+                  ? { k: pair1.length > 1 ? 'Players' : 'Player', v: pair1.map(firstName).join(', ') || '—' }
                   : { k: 'Pair 1', v: pair1.map(firstName).join(' & ') },
                 ...(!isSolo ? [{ k: 'Pair 2', v: pair2.map(firstName).join(' & ') }] : []),
                 { k: 'Course',   v: selectedCourse ?? '—' },
@@ -523,6 +619,14 @@ const styles = StyleSheet.create({
   playerHcp: { fontSize: 9, color: colors.textMuted, marginTop: 1 },
 
   sectionLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5, marginTop: spacing.lg, marginBottom: spacing.sm },
+  pinsNotice: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(212,175,55,0.08)', borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.goldBorder,
+    padding: spacing.md, marginTop: spacing.sm,
+  },
+  pinsNoticeTitle: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold, marginBottom: 2 },
+  pinsNoticeSub:   { fontSize: fonts.xs, color: colors.textMuted },
 
   holesRow: { flexDirection: 'row', gap: spacing.sm },
   holeBtn: {
@@ -560,6 +664,16 @@ const styles = StyleSheet.create({
   sideGameText: { fontSize: fonts.sm, fontWeight: '600', color: colors.textSecondary },
   sideGameTextOn: { color: colors.white },
 
+  holePickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
+  holePickerBtn: {
+    width: 52, alignItems: 'center', paddingVertical: spacing.sm,
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  holePickerBtnOn: { borderColor: colors.gold, backgroundColor: colors.goldDim },
+  holePickerNum: { fontSize: fonts.lg, fontWeight: '800', color: colors.textSecondary },
+  holePickerNumOn: { color: colors.white },
+  holePickerPar: { fontSize: 8, color: colors.textMuted, fontWeight: '600', marginTop: 1 },
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: spacing.lg, paddingBottom: 40, backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.border },
   nextBtn: { backgroundColor: colors.gold, borderRadius: radius.lg, paddingVertical: spacing.md + 2, alignItems: 'center' },
   nextBtnOff: { opacity: 0.35 },

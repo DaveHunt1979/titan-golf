@@ -95,6 +95,13 @@ export default function HandicapCalculatorScreen() {
       .from('players')
       .update({ handicap_index: handicapIndex, handicap_rounds: rounds } as any)
       .eq('id', playerId);
+    if (!error) {
+      await supabase.from('handicap_history').insert({
+        player_id:      playerId,
+        handicap_index: handicapIndex,
+        calculated_at:  new Date().toISOString(),
+      });
+    }
     setSaving(false);
     if (error) {
       Alert.alert('Error', error.message);

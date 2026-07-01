@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"wc -l /Users/davehunt/Desktop/titan-golf/app/(app)/profile/bag.tsx /Users/davehunt/Desktop/titan-golf/app/(app)/range/index.tsx /Users/davehunt/Desktop/titan-golf/app/(app)/range/\\\\[sessio...",
+  "error": "Exit code 1\n(eval):1: no matches found: /Users/davehunt/Desktop/titan-golf/app/(app)/profile/bag.tsx",
+  "timestamp": "2026-06-30T14:36:54.561Z",
+  "retry_count": 1
+}

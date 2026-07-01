@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model:      'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
+        max_tokens: 2048,
         messages: [{
           role: 'user',
           content: [
@@ -37,13 +37,21 @@ Deno.serve(async (req) => {
             },
             {
               type: 'text',
-              text: `This is a golf scorecard. Extract the hole data and return ONLY valid JSON with no other text, in this exact format:
-{"holes":[{"hole":1,"par":4,"yardage":385,"si":7},{"hole":2,"par":3,"yardage":162,"si":15},...]}
+              text: `This is a golf scorecard. Extract the hole data and return ONLY valid JSON with no other text.
+
+IMPORTANT: Some courses have multiple named 9-hole loops on one scorecard (e.g. "Shore", "Himalaya", "Dunes" at The Princes, or "Lakeside", "Heathland" etc). If you can see distinct named sections, return each as a separate course. Otherwise return a single course with name null.
+
+Return this exact format:
+{"courses":[{"name":"Shore","holes":[{"hole":1,"par":4,"yardage":385,"si":7},...]},{"name":"Himalaya","holes":[{"hole":1,"par":3,"yardage":162,"si":5},...]}]}
+
+For a normal single course:
+{"courses":[{"name":null,"holes":[{"hole":1,"par":4,"yardage":385,"si":7},{"hole":2,"par":3,"yardage":162,"si":15},...]}]}
 
 Rules:
-- Include every hole shown (9 or 18)
+- Each named section gets its own entry in the courses array
+- Hole numbers within each course/section start from 1
 - "par" must be 3, 4, or 5
-- "si" is stroke index (1–18), use null if not shown
+- "si" is stroke index, use null if not shown
 - "yardage" is the main tee yardage shown, use null if not shown
 - Return null for any field you cannot read clearly
 - Return ONLY the JSON, nothing else`,
@@ -61,16 +69,27 @@ Rules:
     }
 
     const anthropicData = await res.json();
-    const text = anthropicData.content?.[0]?.text ?? '';
+    const text = (anthropicData.content?.[0]?.text ?? '').trim();
 
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    // Strip markdown code fences if present
+    const stripped = text.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
+
+    const jsonMatch = stripped.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return new Response(JSON.stringify({ error: 'Could not parse scorecard — try a clearer photo' }), {
+      return new Response(JSON.stringify({ error: `Could not parse scorecard — raw: ${text.slice(0, 200)}` }), {
         status: 200, headers: { 'Content-Type': 'application/json', ...CORS },
       });
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    let parsed: any;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (parseErr: any) {
+      return new Response(JSON.stringify({ error: `JSON parse failed: ${parseErr.message} — raw: ${text.slice(0, 200)}` }), {
+        status: 200, headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+
     return new Response(JSON.stringify(parsed), {
       status: 200, headers: { 'Content-Type': 'application/json', ...CORS },
     });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, ActivityIndicator,
   TouchableOpacity, Image, RefreshControl,
@@ -7,11 +7,82 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
 import { getStandings } from '../../../src/lib/scoring';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+import { fonts, spacing, radius } from '../../../src/lib/theme';
+import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { teamLogos } from '../../../src/lib/assets';
 import type { Competition, CompetitionDay, Match, Team } from '../../../src/types';
 
 export default function TourScreen() {
+  const colors = useDynamicColors();
+  const styles = useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    header: {
+      paddingTop: 60,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerSub: { fontSize: fonts.xs, color: colors.gold, fontWeight: '700', letterSpacing: 2, marginBottom: 4 },
+    title: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 0.5, marginBottom: spacing.xs },
+    liveBadge: {
+      alignSelf: 'flex-start',
+      backgroundColor: 'rgba(34,197,94,0.12)',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: 'rgba(34,197,94,0.3)',
+    },
+    liveBadgeText: { fontSize: fonts.xs, color: '#22c55e', fontWeight: '700', letterSpacing: 1 },
+    scroll: { padding: spacing.md, paddingBottom: 40 },
+    sectionLabel: {
+      fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted,
+      letterSpacing: 2, marginBottom: spacing.sm, marginTop: spacing.sm,
+    },
+    standingsCard: {
+      backgroundColor: colors.card, borderRadius: radius.md,
+      borderWidth: 1, borderColor: colors.border, overflow: 'hidden', marginBottom: spacing.lg,
+    },
+    standingRow: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+      paddingVertical: 10, paddingHorizontal: spacing.md,
+    },
+    rowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+    pos: { width: 18, fontSize: fonts.sm, color: colors.textMuted, fontWeight: '700', textAlign: 'center' },
+    posGold: { color: colors.gold },
+    logo: { width: 26, height: 26 },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    teamName: { flex: 1, fontSize: fonts.sm, fontWeight: '700', color: colors.white },
+    teamNameGold: { color: colors.gold },
+    record: { fontSize: fonts.xs, color: colors.textMuted, width: 72, textAlign: 'right' },
+    pts: { fontSize: fonts.lg, fontWeight: '800', color: colors.textSecondary, minWidth: 28, textAlign: 'right' },
+    ptsGold: { color: colors.gold },
+    ptsLabel: { fontSize: fonts.xs, color: colors.textMuted, width: 22 },
+    noResults: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', padding: spacing.lg },
+    dayCard: {
+      backgroundColor: colors.card, borderRadius: radius.md,
+      borderWidth: 1, borderColor: colors.border,
+      padding: spacing.md, marginBottom: spacing.sm,
+    },
+    dayCardLive: { borderColor: 'rgba(34,197,94,0.4)' },
+    dayCardDone: { opacity: 0.65 },
+    dayTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 4 },
+    dayNum: { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, letterSpacing: 1.5 },
+    badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.sm, backgroundColor: colors.bg },
+    badgeLive: {
+      backgroundColor: 'rgba(34,197,94,0.12)',
+      borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)',
+    },
+    badgeText: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },
+    badgeTextLive: { color: '#22c55e' },
+    courseName: { fontSize: fonts.lg, fontWeight: '700', color: colors.white, marginBottom: spacing.sm },
+    dayBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    dayCount: { fontSize: fonts.xs, color: colors.textMuted },
+    chevron: { fontSize: 20, color: colors.textMuted, lineHeight: 22 },
+  }), [colors]);
+
   const router = useRouter();
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [days, setDays] = useState<CompetitionDay[]>([]);
@@ -153,72 +224,3 @@ export default function TourScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerSub: { fontSize: fonts.xs, color: colors.gold, fontWeight: '700', letterSpacing: 2, marginBottom: 4 },
-  title: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 0.5, marginBottom: spacing.xs },
-  liveBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(34,197,94,0.12)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.3)',
-  },
-  liveBadgeText: { fontSize: fonts.xs, color: '#22c55e', fontWeight: '700', letterSpacing: 1 },
-  scroll: { padding: spacing.md, paddingBottom: 40 },
-  sectionLabel: {
-    fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted,
-    letterSpacing: 2, marginBottom: spacing.sm, marginTop: spacing.sm,
-  },
-  standingsCard: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, overflow: 'hidden', marginBottom: spacing.lg,
-  },
-  standingRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    paddingVertical: 10, paddingHorizontal: spacing.md,
-  },
-  rowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
-  pos: { width: 18, fontSize: fonts.sm, color: colors.textMuted, fontWeight: '700', textAlign: 'center' },
-  posGold: { color: colors.gold },
-  logo: { width: 26, height: 26 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  teamName: { flex: 1, fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  teamNameGold: { color: colors.gold },
-  record: { fontSize: fonts.xs, color: colors.textMuted, width: 72, textAlign: 'right' },
-  pts: { fontSize: fonts.lg, fontWeight: '800', color: colors.textSecondary, minWidth: 28, textAlign: 'right' },
-  ptsGold: { color: colors.gold },
-  ptsLabel: { fontSize: fonts.xs, color: colors.textMuted, width: 22 },
-  noResults: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', padding: spacing.lg },
-  dayCard: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.md, marginBottom: spacing.sm,
-  },
-  dayCardLive: { borderColor: 'rgba(34,197,94,0.4)' },
-  dayCardDone: { opacity: 0.65 },
-  dayTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 4 },
-  dayNum: { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, letterSpacing: 1.5 },
-  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.sm, backgroundColor: colors.bg },
-  badgeLive: {
-    backgroundColor: 'rgba(34,197,94,0.12)',
-    borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)',
-  },
-  badgeText: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },
-  badgeTextLive: { color: '#22c55e' },
-  courseName: { fontSize: fonts.lg, fontWeight: '700', color: colors.white, marginBottom: spacing.sm },
-  dayBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dayCount: { fontSize: fonts.xs, color: colors.textMuted },
-  chevron: { fontSize: 20, color: colors.textMuted, lineHeight: 22 },
-});

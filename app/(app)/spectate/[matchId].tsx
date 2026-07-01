@@ -22,20 +22,22 @@ interface MatchDetail {
   away_team_id: string | null;
   home_player_ids: string[];
   away_player_ids: string[];
+  round_format: 'matchplay' | 'stableford' | 'medal';
   home_team: { name: string; accent_color: string } | null;
   away_team: { name: string; accent_color: string } | null;
   day: { course_name: string | null; day_number: number; competition_id: string } | null;
 }
 
-interface Player    { id: string; display_name: string; }
+interface Player    { id: string; display_name: string; avatar_url?: string | null; }
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 
-function SideAvatar({ playerIds, team, teamId, size, getFirstName }: {
+function SideAvatar({ playerIds, team, teamId, size, getFirstName, getAvatar }: {
   playerIds: string[];
   team: { name: string; accent_color: string } | null;
   teamId: string | null;
   size: number;
   getFirstName: (id: string) => string;
+  getAvatar: (id: string) => string | null;
 }) {
   if (teamId && team) {
     const logo = teamLogos[team.name];
@@ -43,9 +45,9 @@ function SideAvatar({ playerIds, team, teamId, size, getFirstName }: {
     return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: team.accent_color + '33' }} />;
   }
   if (playerIds.length === 1) {
-    const av = getPlayerAvatar(playerIds[0], 'normal');
-    return av
-      ? <Image source={av} style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden' }} />
+    const raw = getAvatar(playerIds[0]) ?? getPlayerAvatar(playerIds[0], 'normal');
+    return raw
+      ? <Image source={typeof raw === 'string' ? { uri: raw } : raw} style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden' }} />
       : <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontSize: size * 0.38, fontWeight: '800', color: colors.gold }}>{getFirstName(playerIds[0])[0]}</Text>
         </View>;
@@ -54,9 +56,9 @@ function SideAvatar({ playerIds, team, teamId, size, getFirstName }: {
   return (
     <View style={{ flexDirection: 'row' }}>
       {playerIds.map((id, i) => {
-        const av = getPlayerAvatar(id, 'normal');
-        return av
-          ? <Image key={id} source={av} style={{ width: avSize, height: avSize, borderRadius: avSize / 2, marginLeft: i > 0 ? -avSize * 0.28 : 0, overflow: 'hidden' }} />
+        const raw = getAvatar(id) ?? getPlayerAvatar(id, 'normal');
+        return raw
+          ? <Image key={id} source={typeof raw === 'string' ? { uri: raw } : raw} style={{ width: avSize, height: avSize, borderRadius: avSize / 2, marginLeft: i > 0 ? -avSize * 0.28 : 0, overflow: 'hidden' }} />
           : <View key={id} style={{ width: avSize, height: avSize, borderRadius: avSize / 2, backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center', marginLeft: i > 0 ? -avSize * 0.28 : 0 }}>
               <Text style={{ fontSize: avSize * 0.38, fontWeight: '800', color: colors.gold }}>{getFirstName(id)[0]}</Text>
             </View>;
@@ -102,7 +104,7 @@ export default function SpectateScreen() {
 
     const [{ data: pd }, { data: cd }, { data: compData }] = await Promise.all([
       allIds.length
-        ? supabase.from('players').select('id,display_name').in('id', allIds)
+        ? supabase.from('players').select('id,display_name,avatar_url').in('id', allIds)
         : Promise.resolve({ data: [] }),
       courseName
         ? supabase.from('course_holes').select('hole_number,par,stroke_index').eq('course_name', courseName).order('hole_number')
@@ -142,13 +144,17 @@ export default function SpectateScreen() {
   const currentHole  = Math.min(holesPlayed + 1, 18);
   const status       = match.status;
   const winner       = getEffectiveWinner(status, match.winner, holesStr);
-  const label        = matchLabel(status, match.winner, match.result_str, holesStr);
+  const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
+  const label        = isStrokePlay
+    ? (status === 'complete' ? (match.result_str ?? 'Complete') : status === 'upcoming' ? 'Upcoming' : (match.result_str ?? 'In Progress'))
+    : matchLabel(status, match.winner, match.result_str, holesStr);
   const aheadSide    = status === 'complete' ? winner : homeUp > 0 ? 'home' : homeUp < 0 ? 'away' : null;
 
   const homeColor = match.home_team?.accent_color ?? colors.gold;
   const awayColor = match.away_team?.accent_color ?? '#6366f1';
 
   const firstName  = (id: string) => (players.find(p => p.id === id)?.display_name ?? '?').split(' ')[0];
+  const getAvatar  = (id: string) => players.find(p => p.id === id)?.avatar_url ?? null;
   const homeLabel  = match.home_team?.name ?? match.home_player_ids.map(firstName).join(' & ');
   const awayLabel  = match.away_team?.name ?? match.away_player_ids.map(firstName).join(' & ');
   const aheadLabel = aheadSide === 'home' ? homeLabel : aheadSide === 'away' ? awayLabel : null;
@@ -192,7 +198,7 @@ export default function SpectateScreen() {
             {/* Home */}
             <View style={s.heroSide}>
               <View style={[s.avatarRing, { borderColor: aheadSide === 'home' ? homeColor : colors.border }]}>
-                <SideAvatar playerIds={match.home_player_ids} team={match.home_team} teamId={match.home_team_id} size={58} getFirstName={firstName} />
+                <SideAvatar playerIds={match.home_player_ids} team={match.home_team} teamId={match.home_team_id} size={58} getFirstName={firstName} getAvatar={getAvatar} />
               </View>
               <Text style={[s.sideName, aheadSide === 'home' && { color: colors.white }]} numberOfLines={2}>{homeLabel}</Text>
               {match.home_team && (
@@ -218,7 +224,7 @@ export default function SpectateScreen() {
             {/* Away */}
             <View style={[s.heroSide, s.heroSideRight]}>
               <View style={[s.avatarRing, { borderColor: aheadSide === 'away' ? awayColor : colors.border }]}>
-                <SideAvatar playerIds={match.away_player_ids} team={match.away_team} teamId={match.away_team_id} size={58} getFirstName={firstName} />
+                <SideAvatar playerIds={match.away_player_ids} team={match.away_team} teamId={match.away_team_id} size={58} getFirstName={firstName} getAvatar={getAvatar} />
               </View>
               <Text style={[s.sideName, s.sideNameRight, aheadSide === 'away' && { color: colors.white }]} numberOfLines={2}>{awayLabel}</Text>
               {match.away_team && (
