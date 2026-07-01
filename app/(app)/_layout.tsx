@@ -134,6 +134,14 @@ function AppLayoutInner() {
         <Tabs.Screen name="score/enter/[matchId]"    options={{ href: null }} />
         <Tabs.Screen name="score/preview/[matchId]"  options={{ href: null }} />
         <Tabs.Screen name="score/solo/[matchId]"     options={{ href: null }} />
+        <Tabs.Screen name="score/skins/[matchId]"    options={{ href: null }} />
+        <Tabs.Screen name="score/nassau/[matchId]"   options={{ href: null }} />
+        <Tabs.Screen name="score/wolf/[matchId]"     options={{ href: null }} />
+        <Tabs.Screen name="score/scramble/[matchId]" options={{ href: null }} />
+        <Tabs.Screen name="score/bbb/[matchId]"          options={{ href: null }} />
+        <Tabs.Screen name="score/modified/[matchId]"    options={{ href: null }} />
+        <Tabs.Screen name="score/parbogey/[matchId]"    options={{ href: null }} />
+        <Tabs.Screen name="score/chacha/[matchId]"      options={{ href: null }} />
         <Tabs.Screen name="tour/day/[dayId]"         options={{ href: null }} />
         <Tabs.Screen name="admin/info"               options={{ href: null }} />
         <Tabs.Screen name="admin/create-society"     options={{ href: null }} />

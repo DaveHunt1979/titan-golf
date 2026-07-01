@@ -29,6 +29,7 @@ interface MatchDetail {
   result_str: string | null;
   holes_string: string;
   is_singles: boolean;
+  round_format: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
   home_player_ids: string[];
@@ -192,7 +193,20 @@ export default function MatchDetailScreen() {
       {status !== 'complete' && (
         <TouchableOpacity
           style={styles.enterScoresBtn}
-          onPress={() => router.push(`/(app)/score/enter/${matchId}` as any)}
+          onPress={() => {
+            const fmt = match?.round_format ?? '';
+            const routes: Record<string, string> = {
+              skins:               `/(app)/score/skins/${matchId}`,
+              nassau:              `/(app)/score/nassau/${matchId}`,
+              wolf:                `/(app)/score/wolf/${matchId}`,
+              scramble:            `/(app)/score/scramble/${matchId}`,
+              bbb:                 `/(app)/score/bbb/${matchId}`,
+              modified_stableford: `/(app)/score/modified/${matchId}`,
+              par_bogey:           `/(app)/score/parbogey/${matchId}`,
+              chacha:              `/(app)/score/chacha/${matchId}`,
+            };
+            router.push((routes[fmt] ?? `/(app)/score/enter/${matchId}`) as any);
+          }}
           activeOpacity={0.85}
         >
           <Text style={styles.enterScoresBtnText}>Enter Scores</Text>

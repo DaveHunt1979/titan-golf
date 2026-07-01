@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v CourseMapView | head -30",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v CourseMapView | grep -v \"web/src\" | head -20",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -198,8 +198,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 85,
-      "lastAccessed": 1782846603108,
+      "accessCount": 87,
+      "lastAccessed": 1782916868773,
       "type": "file"
     },
     {
@@ -210,8 +210,8 @@
     },
     {
       "path": "app/(app)/games/new.tsx",
-      "accessCount": 28,
-      "lastAccessed": 1782580829179,
+      "accessCount": 32,
+      "lastAccessed": 1782917247797,
       "type": "file"
     },
     {
@@ -222,8 +222,8 @@
     },
     {
       "path": "app/(app)/_layout.tsx",
-      "accessCount": 19,
-      "lastAccessed": 1782843517092,
+      "accessCount": 21,
+      "lastAccessed": 1782917236864,
       "type": "file"
     },
     {
@@ -353,6 +353,12 @@
       "type": "file"
     },
     {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 3,
+      "lastAccessed": 1782916816523,
+      "type": "file"
+    },
+    {
       "path": "ios/titangolf.xcodeproj/project.pbxproj",
       "accessCount": 2,
       "lastAccessed": 1782455421791,
@@ -368,12 +374,6 @@
       "path": "app/(app)/tour/day/[dayId].tsx",
       "accessCount": 2,
       "lastAccessed": 1782578173238,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/scoring.ts",
-      "accessCount": 2,
-      "lastAccessed": 1782580437135,
       "type": "file"
     },
     {

@@ -10,16 +10,26 @@ import { useSociety } from '../../../src/lib/useSociety';
 import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 import { getPlayerAvatar } from '../../../src/lib/assets';
 
-type GameMode  = '4bbb' | 'singles' | 'stableford' | 'medal';
+type GameMode  = '4bbb' | 'singles' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'wolf' | 'scramble' | 'greensome' | 'bbb' | 'foursomes' | 'modified_stableford' | 'par_bogey' | 'chacha';
 type HolesMode = 'full18' | 'front9' | 'back9';
 interface Player     { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
 interface CourseItem { name: string; par: number; }
 
 const MODES: { key: GameMode; label: string; sub: string; available: boolean }[] = [
-  { key: '4bbb',       label: '4BBB Matchplay', sub: 'Two pairs · best ball',         available: true },
-  { key: 'singles',    label: 'Singles',        sub: 'Head-to-head matchplay',         available: true },
-  { key: 'stableford', label: 'Stableford',     sub: '1–4 players · points per hole',   available: true },
-  { key: 'medal',      label: 'Medal',          sub: '1–4 players · total stroke play', available: true },
+  { key: '4bbb',       label: '4BBB Matchplay',     sub: 'Two pairs · best ball',                       available: true },
+  { key: 'singles',    label: 'Singles',             sub: 'Head-to-head matchplay',                      available: true },
+  { key: 'stableford', label: 'Stableford',          sub: '1–4 players · points per hole',               available: true },
+  { key: 'medal',      label: 'Medal',               sub: '1–4 players · total stroke play',             available: true },
+  { key: 'skins',      label: 'Skins',               sub: '2–4 players · per-hole prize · carryovers',  available: true },
+  { key: 'nassau',     label: 'Nassau',              sub: 'Front 9 / Back 9 / Overall · 3 bets',        available: true },
+  { key: 'wolf',       label: 'Wolf',                sub: '3–4 players · rotating Wolf picks partner',   available: true },
+  { key: 'scramble',   label: 'Scramble',            sub: '2–4 players · team best ball',               available: true },
+  { key: 'greensome',  label: 'Greensomes',          sub: 'Pairs · best tee shot then alternate',        available: true },
+  { key: 'bbb',        label: 'Bingo Bango Bongo',   sub: 'First on green · closest · first out',       available: true },
+  { key: 'foursomes',          label: 'Foursomes',           sub: 'Alternate shot matchplay',                    available: true },
+  { key: 'modified_stableford', label: 'Modified Stableford', sub: 'Eagle +8 · Birdie +4 · Par +2 · Bogey 0',     available: true },
+  { key: 'par_bogey',           label: 'Par / Bogey',         sub: '1–4 players · win/halve/lose vs nett par',    available: true },
+  { key: 'chacha',              label: 'ChaChaCha',           sub: '4 players · best 1/2/3 Stableford per hole',  available: true },
 ];
 
 const HCP_ALLOWANCES: { pct: number; label: string; sub: string }[] = [
@@ -123,8 +133,8 @@ export default function NewGameScreen() {
     })();
   }, [societyId, societyLoading]);
 
-  const isSolo    = mode === 'stableford' || mode === 'medal';
-  const maxPer    = mode === 'singles' ? 1 : isSolo ? 4 : 2;
+  const isSolo    = ['stableford', 'medal', 'skins', 'wolf', 'scramble', 'bbb', 'modified_stableford', 'par_bogey', 'chacha'].includes(mode ?? '');
+  const maxPer    = (mode === 'singles' || mode === 'nassau') ? 1 : isSolo ? 4 : 2;
   const atMax     = isSolo && pair1.length >= maxPer;
   const sideGamesList = isSolo ? SIDE_GAMES_STROKE : SIDE_GAMES_ALL;
   const activePair    = pairStep === 1 ? pair1 : pair2;
@@ -192,7 +202,7 @@ export default function NewGameScreen() {
         status: 'in_progress',
         holes_string: '..................',
         is_singles: mode === 'singles',
-        round_format: isSolo ? mode : 'matchplay',
+        round_format: (mode === '4bbb' || mode === 'singles') ? 'matchplay' : mode,
         hcp_allowance: hcpAllowance,
         side_games: sideGames.map(g => {
             if (g === 'Longest Drive' && ldHole) return `Longest Drive:${ldHole}`;
