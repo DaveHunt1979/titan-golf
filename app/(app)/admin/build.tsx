@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput,
   TouchableOpacity, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -105,6 +105,7 @@ export default function BuildTournamentScreen() {
   const [name, setName] = useState('');
   const [year, setYear] = useState(String(new Date().getFullYear() + 1));
   const [days, setDays] = useState<DayConfig[]>([]);
+  const [includeInKronos, setIncludeInKronos] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const formatDef = COMP_FORMATS.find(f => f.id === selectedFormat);
@@ -112,6 +113,7 @@ export default function BuildTournamentScreen() {
   function pickFormat(f: CompFormat) {
     if (!f.available) return;
     setSelectedFormat(f.id);
+    setIncludeInKronos(f.id === 'team_matchplay');
     // Smart defaults: last day is singles for multi-team tour
     const builtDays: DayConfig[] = Array.from({ length: f.defaultDays }, (_, i) => {
       const isLastDay = i === f.defaultDays - 1;
@@ -169,6 +171,7 @@ export default function BuildTournamentScreen() {
         format: selectedFormat,
         status: 'draft',
         settings,
+        include_in_kronos: includeInKronos,
       })
       .select()
       .single();
@@ -315,6 +318,20 @@ export default function BuildTournamentScreen() {
                 <Text style={styles.stepperBtnText}>+</Text>
               </TouchableOpacity>
             </View>
+
+            <Text style={styles.fieldLabel}>KRONOS TROPHY</Text>
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.toggleLabel}>Include in Kronos Trophy</Text>
+                <Text style={styles.toggleSub}>Individual Stableford scores count toward the season leaderboard</Text>
+              </View>
+              <Switch
+                value={includeInKronos}
+                onValueChange={setIncludeInKronos}
+                trackColor={{ false: colors.border, true: colors.goldBorder }}
+                thumbColor={includeInKronos ? colors.gold : colors.textMuted}
+              />
+            </View>
           </View>
         )}
 
@@ -388,7 +405,8 @@ export default function BuildTournamentScreen() {
               <ReviewRow label="Format" value={formatDef?.label ?? '—'} />
               <ReviewRow label="Name" value={name.trim() || '—'} />
               <ReviewRow label="Year" value={year} />
-              <ReviewRow label="Days" value={String(days.length)} last />
+              <ReviewRow label="Days" value={String(days.length)} />
+              <ReviewRow label="Kronos" value={includeInKronos ? '✓ Included' : 'Not included'} last />
             </View>
 
             <View style={styles.reviewCard}>
@@ -536,6 +554,15 @@ const styles = StyleSheet.create({
   hcpChipOn: { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
   hcpText: { fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary },
   hcpTextOn: { color: colors.gold },
+
+  // Kronos toggle
+  toggleRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1,
+    borderColor: colors.border, padding: spacing.md, marginTop: spacing.xs,
+  },
+  toggleLabel: { fontSize: fonts.sm, fontWeight: '700', color: colors.white, marginBottom: 2 },
+  toggleSub: { fontSize: fonts.xs, color: colors.textSecondary, lineHeight: 16 },
 
   // Review
   reviewCard: {

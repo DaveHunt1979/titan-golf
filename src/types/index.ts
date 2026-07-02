@@ -39,6 +39,7 @@ export interface Competition {
   status: 'draft' | 'active' | 'complete';
   settings: Json;
   info_sections: Json[];
+  include_in_kronos: boolean;
 }
 
 export interface CompetitionDay {

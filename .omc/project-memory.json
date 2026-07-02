@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"web/src\" | grep -v \"CourseMapView\" | head -10",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck --project tsconfig.json 2>&1 | grep -v \"CourseMapView\\|react-native-webview\\|web/src\" | head -20",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -255,6 +255,12 @@
       "type": "file"
     },
     {
+      "path": "web/src/app/dashboard/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1782977918405,
+      "type": "file"
+    },
+    {
       "path": "src/lib/theme.ts",
       "accessCount": 1,
       "lastAccessed": 1782971090312,
@@ -288,6 +294,30 @@
       "path": "web/public/titan-logo.png",
       "accessCount": 1,
       "lastAccessed": 1782972411163,
+      "type": "file"
+    },
+    {
+      "path": "web/src/app/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1782977752271,
+      "type": "file"
+    },
+    {
+      "path": "web/src/components/Navbar.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1782977791833,
+      "type": "file"
+    },
+    {
+      "path": "web/src/app/layout.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1782977791860,
+      "type": "file"
+    },
+    {
+      "path": "web/src/app/leaderboard/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1782977875494,
       "type": "file"
     }
   ],

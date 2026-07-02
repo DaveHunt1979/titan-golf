@@ -99,20 +99,28 @@ export default function LeaderboardScreen() {
   const [kronosRows, setKronosRows] = useState<{ playerId: string; name: string; total: number; holes: number }[]>([]);
 
   async function load() {
-    const [{ data: teamsData }, { data: matchesData }, { data: champsData }, { data: holesData }, { data: playersData }] = await Promise.all([
+    const [{ data: teamsData }, { data: matchesData }, { data: champsData }, { data: holesData }, { data: playersData }, { data: kronosComps }] = await Promise.all([
       supabase.from('teams').select('*').order('sort_order'),
       supabase.from('matches').select('*'),
       supabase.from('champions').select('*').order('year', { ascending: false }),
-      supabase.from('match_holes').select('player_id,stableford_pts'),
+      supabase.from('match_holes').select('player_id,stableford_pts,match_id'),
       supabase.from('players').select('id,display_name'),
+      supabase.from('competitions').select('id').eq('include_in_kronos', true),
     ]);
     if (teamsData) setTeams(teamsData);
     if (matchesData) setMatches(matchesData);
     if (champsData) setChampions(champsData);
     if (holesData && playersData) {
+      // Kronos only counts scores from competitions explicitly marked include_in_kronos
+      const kronosCompIds = new Set((kronosComps ?? []).map((c: any) => c.id));
+      const titanMatchIds = new Set(
+        (matchesData as any[])
+          .filter(m => m.competition_id && kronosCompIds.has(m.competition_id))
+          .map(m => m.id)
+      );
       const totals: Record<string, { total: number; holes: number }> = {};
       (holesData as any[]).forEach(h => {
-        if (h.stableford_pts != null) {
+        if (h.stableford_pts != null && titanMatchIds.has(h.match_id)) {
           if (!totals[h.player_id]) totals[h.player_id] = { total: 0, holes: 0 };
           totals[h.player_id].total += h.stableford_pts;
           totals[h.player_id].holes += 1;
