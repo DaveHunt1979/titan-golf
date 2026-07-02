@@ -238,8 +238,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 16,
-      "lastAccessed": 1782982170224,
+      "accessCount": 24,
+      "lastAccessed": 1782989470754,
       "type": "file"
     },
     {

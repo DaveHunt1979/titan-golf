@@ -30,6 +30,8 @@ import RecordCelebration from '../../../../src/components/RecordCelebration';
 import { checkAndUpdateRecords, type BrokenRecord } from '../../../../src/lib/records';
 import { sendMatchNotification } from '../../../../src/lib/notifications';
 import { sendMatchToWatch, clearMatchFromWatch, onWatchScoreEntry, onWatchRequestsState } from '../../../../src/lib/watch';
+import CaddieButton from '../../../../src/components/CaddieButton';
+import type { VoiceCommandResult } from '../../../../src/lib/voiceCommand';
 
 interface MatchInfo {
   id: string;
@@ -91,6 +93,7 @@ export default function EnterScoresScreen() {
   const [sideGameWinner, setSideGameWinner] = useState<string | null>(null);
   const [showRangeMap, setShowRangeMap] = useState(false);
   const [showShotLogger, setShowShotLogger] = useState(false);
+  const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -137,6 +140,11 @@ export default function EnterScoresScreen() {
         // For casual games competition_players may be empty — fall back to players.handicap_index
         const comp = compData as CompPlayer[] | null;
         setCompPlayers(comp && comp.length > 0 ? comp : fallback);
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: playerRow } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
+        if (playerRow) setMyPlayerId(playerRow.id);
       }
       setLoading(false);
     }
@@ -724,6 +732,38 @@ export default function EnterScoresScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Voice caddie */}
+          {courseHole && match && (
+            <CaddieButton
+              context={{
+                playerName: myPlayerId ? (playerNames[myPlayerId] ?? 'Player') : 'Player',
+                holeNumber: currentHole,
+                par: courseHole.par,
+                yardage: courseHole.yardage,
+                strokeIndex: courseHole.stroke_index,
+                format: match.round_format,
+                holesCompleted: holeChars.filter(c => c !== '.').length,
+                runningScore: (() => {
+                  const up = holeChars.reduce((n, c) => n + (c === 'h' ? 1 : c === 'a' ? -1 : 0), 0);
+                  const left = holeChars.filter(c => c === '.').length;
+                  if (up === 0) return 'All Square';
+                  return `${Math.abs(up)}UP with ${left} to play`;
+                })(),
+              }}
+              onAction={async (result: VoiceCommandResult) => {
+                if (result.action?.type === 'log_shot' && result.action.club && myPlayerId) {
+                  await supabase.from('shots').insert({
+                    match_id: match.id,
+                    player_id: myPlayerId,
+                    hole_number: currentHole,
+                    club_short: result.action.club,
+                    distance_yards: result.action.distance ?? null,
+                  });
+                }
+              }}
+            />
+          )}
 
           {/* Side game banner */}
           {currentSideGame && (
