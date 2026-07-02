@@ -124,7 +124,7 @@ export default function TourScreen() {
     return () => { supabase.removeChannel(sub); };
   }, []);
 
-  const standings = getStandings(matches as any[]);
+  const standings = getStandings((matches as any[]).filter((m: any) => m.home_team_id && m.away_team_id));
   const enriched = standings.map(s => {
     const t = teams.find(t => t.id === s.teamId);
     return { ...s, name: t?.name ?? '—', accent_color: t?.accent_color ?? colors.textMuted };

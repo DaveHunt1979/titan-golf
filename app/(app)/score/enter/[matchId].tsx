@@ -29,7 +29,7 @@ import ShotLogger from '../../../../src/components/ShotLogger';
 import RecordCelebration from '../../../../src/components/RecordCelebration';
 import { checkAndUpdateRecords, type BrokenRecord } from '../../../../src/lib/records';
 import { sendMatchNotification } from '../../../../src/lib/notifications';
-import { sendMatchToWatch, clearMatchFromWatch, onWatchScoreEntry } from '../../../../src/lib/watch';
+import { sendMatchToWatch, clearMatchFromWatch, onWatchScoreEntry, onWatchRequestsState } from '../../../../src/lib/watch';
 
 interface MatchInfo {
   id: string;
@@ -169,6 +169,28 @@ export default function EnterScoresScreen() {
     });
     return () => { unsub(); clearMatchFromWatch(); };
   }, [match]);
+
+  // Resend match data when Watch app opens and requests fresh state
+  useEffect(() => {
+    const unsub = onWatchRequestsState(() => {
+      if (!match) return;
+      const homeLabel = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+      const awayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+      const holesStr = (match.holes_string ?? '..................').padEnd(18, '.').slice(0, 18);
+      const currentHoleForWatch = holesStr.split('').findIndex(c => c === '.') + 1 || 19;
+      sendMatchToWatch({
+        matchId: match.id,
+        matchNumber: match.match_number,
+        homeLabel,
+        awayLabel,
+        homeColor: match.home_team?.accent_color ?? '#D4AF37',
+        awayColor: match.away_team?.accent_color ?? '#6366f1',
+        currentHole: currentHoleForWatch,
+        holesString: holesStr,
+      });
+    });
+    return unsub;
+  }, [match, playerNames]);
 
   async function processWatchScore(hole: number, holeResult: 'h' | 'f' | 'a') {
     if (!match) return;

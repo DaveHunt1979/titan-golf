@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck --project tsconfig.json 2>&1 | grep -v \"CourseMapView\\|react-native-webview\\|web/src\" | head -20",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|react-native-webview\\|web/src\" | head -20",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -238,8 +238,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 13,
-      "lastAccessed": 1782971568371,
+      "accessCount": 16,
+      "lastAccessed": 1782982170224,
       "type": "file"
     },
     {
@@ -258,6 +258,12 @@
       "path": "web/src/app/dashboard/page.tsx",
       "accessCount": 2,
       "lastAccessed": 1782977918405,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf/WatchBridge.swift",
+      "accessCount": 2,
+      "lastAccessed": 1782982127138,
       "type": "file"
     },
     {
@@ -318,6 +324,72 @@
       "path": "web/src/app/leaderboard/page.tsx",
       "accessCount": 1,
       "lastAccessed": 1782977875494,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/watch/index.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1782982036333,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/watch.ts",
+      "accessCount": 1,
+      "lastAccessed": 1782982056577,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf Watch App Watch App/WatchSessionManager.swift",
+      "accessCount": 1,
+      "lastAccessed": 1782982057901,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf Watch App Watch App/ContentView.swift",
+      "accessCount": 1,
+      "lastAccessed": 1782982062953,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf Watch App Watch App/ScoreEntryView.swift",
+      "accessCount": 1,
+      "lastAccessed": 1782982063849,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf/WatchBridge.m",
+      "accessCount": 1,
+      "lastAccessed": 1782982084800,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 1,
+      "lastAccessed": 1782982101115,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 1,
+      "lastAccessed": 1782982537489,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1782982550295,
+      "type": "file"
+    },
+    {
+      "path": "csv/Supabase Snippet Untitled query.csv",
+      "accessCount": 1,
+      "lastAccessed": 1782983097319,
+      "type": "file"
+    },
+    {
+      "path": "csv/Supabase Snippet Untitled query (1).csv",
+      "accessCount": 1,
+      "lastAccessed": 1782983097342,
       "type": "file"
     }
   ],
