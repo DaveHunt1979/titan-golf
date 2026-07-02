@@ -96,16 +96,36 @@ export default function LeaderboardScreen() {
   const [champions, setChampions] = useState<Champion[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [kronosRows, setKronosRows] = useState<{ playerId: string; name: string; total: number; holes: number }[]>([]);
 
   async function load() {
-    const [{ data: teamsData }, { data: matchesData }, { data: champsData }] = await Promise.all([
+    const [{ data: teamsData }, { data: matchesData }, { data: champsData }, { data: holesData }, { data: playersData }] = await Promise.all([
       supabase.from('teams').select('*').order('sort_order'),
       supabase.from('matches').select('*'),
       supabase.from('champions').select('*').order('year', { ascending: false }),
+      supabase.from('match_holes').select('player_id,stableford_pts'),
+      supabase.from('players').select('id,display_name'),
     ]);
     if (teamsData) setTeams(teamsData);
     if (matchesData) setMatches(matchesData);
     if (champsData) setChampions(champsData);
+    if (holesData && playersData) {
+      const totals: Record<string, { total: number; holes: number }> = {};
+      (holesData as any[]).forEach(h => {
+        if (h.stableford_pts != null) {
+          if (!totals[h.player_id]) totals[h.player_id] = { total: 0, holes: 0 };
+          totals[h.player_id].total += h.stableford_pts;
+          totals[h.player_id].holes += 1;
+        }
+      });
+      const rows = Object.entries(totals)
+        .map(([pid, v]) => {
+          const p = (playersData as any[]).find(x => x.id === pid);
+          return { playerId: pid, name: p?.display_name ?? '—', total: v.total, holes: v.holes };
+        })
+        .sort((a, b) => b.total - a.total);
+      setKronosRows(rows);
+    }
     setLoading(false);
     setRefreshing(false);
   }
@@ -119,7 +139,7 @@ export default function LeaderboardScreen() {
     return () => { supabase.removeChannel(sub); };
   }, []);
 
-  const standings = getStandings(matches as any[]);
+  const standings = getStandings((matches as any[]).filter((m: any) => m.home_team_id && m.away_team_id));
   const enriched: TeamWithStanding[] = standings.map(s => {
     const t = teams.find(t => t.id === s.teamId);
     return { ...s, name: t?.name ?? '—', accent_color: t?.accent_color ?? colors.textMuted };
@@ -193,7 +213,24 @@ export default function LeaderboardScreen() {
           )}
 
           {tab === 'kronos' && (
-            <EmptyState text="Kronos Trophy scores coming soon." sub="Individual Stableford totals will appear here once Day 1 begins." styles={styles} />
+            <View>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.cell, styles.cellTeam, styles.headerText]}>PLAYER</Text>
+                <Text style={[styles.cell, styles.headerText]}>HLS</Text>
+                <Text style={[styles.cell, styles.cellPts, styles.headerText]}>PTS</Text>
+              </View>
+              {kronosRows.map((r, i) => (
+                <View key={r.playerId} style={[styles.row, i === 0 && styles.rowFirst]}>
+                  <View style={[styles.cell, styles.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: spacing.xs }]}>
+                    <Text style={styles.pos}>{i + 1}</Text>
+                    <Text style={styles.teamName}>{r.name}</Text>
+                  </View>
+                  <Text style={styles.cell}>{r.holes}</Text>
+                  <Text style={[styles.cell, styles.cellPts, styles.pts]}>{r.total}</Text>
+                </View>
+              ))}
+              {kronosRows.length === 0 && <EmptyState text="No Stableford scores yet." sub="Individual totals will appear here once rounds begin." styles={styles} />}
+            </View>
           )}
 
           {tab === 'champions' && (

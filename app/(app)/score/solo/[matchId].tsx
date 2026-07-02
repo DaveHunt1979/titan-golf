@@ -55,6 +55,8 @@ export default function SoloRoundScreen() {
   const [sideGameModal, setSideGameModal] = useState<{ type: string; hole: number } | null>(null);
   const [sideGameResult, setSideGameResult] = useState('');
   const [sideGameWinner, setSideGameWinner] = useState<string | null>(null);
+  const [showRangeMap, setShowRangeMap]     = useState(false);
+  const [showShotLogger, setShowShotLogger] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -438,10 +440,17 @@ export default function SoloRoundScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={styles.backText}>‹ Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerSub}>{match.day?.course_name} · {formatLabel}</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+            <Text style={styles.backText}>‹ Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerSub}>{match.day?.course_name} · {formatLabel}</Text>
+        </View>
+        {!isComplete && (
+          <TouchableOpacity onPress={deleteMatch} style={styles.headerDeleteBtn} activeOpacity={0.7}>
+            <Text style={styles.headerDeleteTxt}>Delete</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -491,6 +500,17 @@ export default function SoloRoundScreen() {
             <View style={styles.holeCard}>
               <Text style={styles.holeLabelSmall}>HOLE</Text>
               <Text style={styles.holeBig}>{nextHole}</Text>
+              <View style={styles.holeIconRow}>
+                <TouchableOpacity style={styles.holeIconBtn} onPress={() => setShowRangeMap(true)} activeOpacity={0.7}>
+                  <Text style={styles.holeIconEmoji}>🔭</Text>
+                  <Text style={styles.holeIconLbl}>RANGE</Text>
+                </TouchableOpacity>
+                <View style={styles.holeIconSep} />
+                <TouchableOpacity style={styles.holeIconBtn} onPress={() => setShowShotLogger(true)} activeOpacity={0.7}>
+                  <Text style={styles.holeIconEmoji}>🎯</Text>
+                  <Text style={styles.holeIconLbl}>SHOTS</Text>
+                </TouchableOpacity>
+              </View>
               {courseHole && (
                 <View style={styles.holeMetaRow}>
                   <View style={styles.holeMetaItem}>
@@ -540,10 +560,6 @@ export default function SoloRoundScreen() {
                 </View>
               </View>
             )}
-
-            <RangeMap courseName={match.day?.course_name} holeNumber={nextHole} />
-
-            <ShotLogger matchId={matchId!} holeNumber={nextHole} />
 
             <TouchableOpacity
               style={styles.scoreBtn}
@@ -850,6 +866,40 @@ export default function SoloRoundScreen() {
           </View>
         </View>
       </Modal>
+      {/* Range finder popup */}
+      <Modal visible={showRangeMap} transparent animationType="slide" onRequestClose={() => setShowRangeMap(false)}>
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupSheet}>
+            <View style={styles.popupHeader}>
+              <Text style={styles.popupTitle}>🔭  RANGE FINDER</Text>
+              <TouchableOpacity onPress={() => setShowRangeMap(false)} style={styles.popupClose} activeOpacity={0.7}>
+                <Text style={styles.popupCloseTxt}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ padding: spacing.md }}>
+              <RangeMap courseName={match?.day?.course_name} holeNumber={nextHole} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Shot tracker popup */}
+      <Modal visible={showShotLogger} transparent animationType="slide" onRequestClose={() => setShowShotLogger(false)}>
+        <View style={styles.popupOverlay}>
+          <View style={[styles.popupSheet, { height: '75%' }]}>
+            <View style={styles.popupHeader}>
+              <Text style={styles.popupTitle}>🎯  SHOT TRACKER</Text>
+              <TouchableOpacity onPress={() => setShowShotLogger(false)} style={styles.popupClose} activeOpacity={0.7}>
+                <Text style={styles.popupCloseTxt}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ flex: 1 }}>
+              {matchId && <ShotLogger matchId={matchId} holeNumber={nextHole} />}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {recordsBroken.length > 0 && (
         <RecordCelebration
           records={recordsBroken}
@@ -867,10 +917,34 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
     borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
   },
+  headerLeft: { flex: 1 },
+  headerDeleteBtn: { paddingTop: 4, paddingLeft: spacing.md },
+  headerDeleteTxt: { fontSize: fonts.sm, fontWeight: '600', color: colors.red },
   backBtn: { marginBottom: spacing.xs },
   backText: { fontSize: fonts.md, color: colors.gold, fontWeight: '600' },
   headerSub: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 1 },
+
+  holeIconRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs, marginBottom: spacing.xs },
+  holeIconBtn: { alignItems: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing.xs },
+  holeIconEmoji: { fontSize: 22 },
+  holeIconLbl: { fontSize: 8, fontWeight: '800', color: colors.textMuted, letterSpacing: 1, marginTop: 2 },
+  holeIconSep: { width: 1, height: 28, backgroundColor: colors.border },
+
+  popupOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
+  popupSheet: {
+    backgroundColor: colors.bg, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+    borderTopWidth: 1, borderTopColor: colors.border, overflow: 'hidden',
+  },
+  popupHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  popupTitle: { fontSize: fonts.sm, fontWeight: '800', color: colors.white, letterSpacing: 1 },
+  popupClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  popupCloseTxt: { fontSize: fonts.md, fontWeight: '700', color: colors.textSecondary },
 
   scroll: { padding: spacing.md, paddingBottom: 100 },
 

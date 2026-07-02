@@ -89,6 +89,8 @@ export default function EnterScoresScreen() {
   const [sideGameModal, setSideGameModal] = useState<{ type: string; hole: number } | null>(null);
   const [sideGameResult, setSideGameResult] = useState('');
   const [sideGameWinner, setSideGameWinner] = useState<string | null>(null);
+  const [showRangeMap, setShowRangeMap] = useState(false);
+  const [showShotLogger, setShowShotLogger] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -687,6 +689,18 @@ export default function EnterScoresScreen() {
                 </View>
               </View>
             )}
+
+            <View style={styles.holeIconRow}>
+              <TouchableOpacity style={styles.holeIconBtn} onPress={() => setShowRangeMap(true)} activeOpacity={0.7}>
+                <Text style={styles.holeIconEmoji}>🔭</Text>
+                <Text style={styles.holeIconLbl}>RANGE</Text>
+              </TouchableOpacity>
+              <View style={styles.holeIconSep} />
+              <TouchableOpacity style={styles.holeIconBtn} onPress={() => setShowShotLogger(true)} activeOpacity={0.7}>
+                <Text style={styles.holeIconEmoji}>🎯</Text>
+                <Text style={styles.holeIconLbl}>SHOTS</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Side game banner */}
@@ -706,9 +720,6 @@ export default function EnterScoresScreen() {
             </View>
           )}
 
-          <RangeMap courseName={match.day?.course_name} holeNumber={currentHole} />
-
-          <ShotLogger matchId={matchId!} holeNumber={currentHole} />
 
           {/* Score this hole button */}
           <TouchableOpacity
@@ -751,9 +762,12 @@ export default function EnterScoresScreen() {
       )}
 
       {/* ── Score entry modal ───────────────────────────────────── */}
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => {}}>
+      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setModalVisible(false)} activeOpacity={0.7}>
+              <Text style={styles.modalCloseTxt}>✕</Text>
+            </TouchableOpacity>
             <ScrollView
               style={{ width: '100%' }}
               contentContainerStyle={styles.modalScrollContent}
@@ -942,6 +956,40 @@ export default function EnterScoresScreen() {
           </View>
         </View>
       </Modal>
+      {/* Range finder popup */}
+      <Modal visible={showRangeMap} transparent animationType="slide" onRequestClose={() => setShowRangeMap(false)}>
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupSheet}>
+            <View style={styles.popupHeader}>
+              <Text style={styles.popupTitle}>🔭  RANGE FINDER</Text>
+              <TouchableOpacity onPress={() => setShowRangeMap(false)} style={styles.popupClose} activeOpacity={0.7}>
+                <Text style={styles.popupCloseTxt}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ padding: spacing.md }}>
+              <RangeMap courseName={match?.day?.course_name} holeNumber={currentHole} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Shot tracker popup */}
+      <Modal visible={showShotLogger} transparent animationType="slide" onRequestClose={() => setShowShotLogger(false)}>
+        <View style={styles.popupOverlay}>
+          <View style={[styles.popupSheet, { height: '75%' }]}>
+            <View style={styles.popupHeader}>
+              <Text style={styles.popupTitle}>🎯  SHOT TRACKER</Text>
+              <TouchableOpacity onPress={() => setShowShotLogger(false)} style={styles.popupClose} activeOpacity={0.7}>
+                <Text style={styles.popupCloseTxt}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ flex: 1 }}>
+              {matchId && <ShotLogger matchId={matchId} holeNumber={currentHole} />}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {recordsBroken.length > 0 && (
         <RecordCelebration
           records={recordsBroken}
@@ -1168,4 +1216,20 @@ const styles = StyleSheet.create({
   sideGameSaveBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
   sideGameSkipBtn: { paddingVertical: spacing.sm, alignItems: 'center' },
   sideGameSkipText: { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
+
+  modalCloseBtn: { position: 'absolute', top: spacing.md, right: spacing.md, zIndex: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  modalCloseTxt: { fontSize: fonts.md, fontWeight: '600', color: colors.textMuted },
+
+  holeIconRow: { flexDirection: 'row', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, width: '100%', alignItems: 'center', justifyContent: 'center' },
+  holeIconBtn: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm },
+  holeIconEmoji: { fontSize: 22 },
+  holeIconLbl: { fontSize: 8, fontWeight: '800', color: colors.textMuted, letterSpacing: 1, marginTop: 3 },
+  holeIconSep: { width: 1, height: 32, backgroundColor: colors.border },
+
+  popupOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  popupSheet: { backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, maxHeight: '80%' },
+  popupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border },
+  popupTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.white, letterSpacing: 1 },
+  popupClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
+  popupCloseTxt: { fontSize: fonts.md, fontWeight: '600', color: colors.white },
 });
