@@ -16,6 +16,8 @@ import ShotLogger from '../../../../src/components/ShotLogger';
 import RecordCelebration from '../../../../src/components/RecordCelebration';
 import { checkAndUpdateRecords, type BrokenRecord } from '../../../../src/lib/records';
 import { sendSoloMatchToWatch, clearSoloMatchFromWatch, onWatchSoloScoreEntry, onWatchRequestsState } from '../../../../src/lib/watch';
+import CaddieButton from '../../../../src/components/CaddieButton';
+import type { VoiceCommandResult } from '../../../../src/lib/voiceCommand';
 
 interface MatchInfo {
   id: string;
@@ -544,6 +546,37 @@ export default function SoloRoundScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Voice caddie */}
+            {courseHole && match && (
+              <CaddieButton
+                context={{
+                  playerName,
+                  holeNumber: nextHole,
+                  par: courseHole.par,
+                  strokeIndex: courseHole.stroke_index,
+                  format: match.round_format,
+                  holesCompleted: savedScores.length,
+                  runningScore: isStableford
+                    ? `${totalPts} pts`
+                    : vsPar === 0 ? 'level par' : `${vsPar > 0 ? '+' : ''}${vsPar}`,
+                }}
+                onAction={async (result: VoiceCommandResult) => {
+                  if (result.action?.type === 'log_shot' && result.action.club) {
+                    const playerId = match.home_player_ids[0];
+                    if (playerId) {
+                      await supabase.from('shots').insert({
+                        match_id: match.id,
+                        player_id: playerId,
+                        hole_number: nextHole,
+                        club_short: result.action.club,
+                        distance_yards: result.action.distance ?? null,
+                      });
+                    }
+                  }
+                }}
+              />
+            )}
 
             {currentSideGame && (
               <View style={styles.sideGameBanner}>

@@ -255,6 +255,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 5,
+      "lastAccessed": 1782985897353,
+      "type": "file"
+    },
+    {
       "path": "web/src/app/dashboard/page.tsx",
       "accessCount": 2,
       "lastAccessed": 1782977918405,
@@ -264,6 +270,12 @@
       "path": "ios/titangolf/WatchBridge.swift",
       "accessCount": 2,
       "lastAccessed": 1782982127138,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/caddie.ts",
+      "accessCount": 2,
+      "lastAccessed": 1782985790716,
       "type": "file"
     },
     {
@@ -363,12 +375,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 1,
-      "lastAccessed": 1782982101115,
-      "type": "file"
-    },
-    {
       "path": "src/lib/scoring.ts",
       "accessCount": 1,
       "lastAccessed": 1782982537489,
@@ -390,6 +396,30 @@
       "path": "csv/Supabase Snippet Untitled query (1).csv",
       "accessCount": 1,
       "lastAccessed": 1782983097342,
+      "type": "file"
+    },
+    {
+      "path": "supabase/functions/tts-caddie/index.ts",
+      "accessCount": 1,
+      "lastAccessed": 1782985680376,
+      "type": "file"
+    },
+    {
+      "path": "supabase/functions/voice-command/index.ts",
+      "accessCount": 1,
+      "lastAccessed": 1782985776334,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/voiceCommand.ts",
+      "accessCount": 1,
+      "lastAccessed": 1782985804854,
+      "type": "file"
+    },
+    {
+      "path": "src/components/CaddieButton.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1782985824780,
       "type": "file"
     }
   ],
