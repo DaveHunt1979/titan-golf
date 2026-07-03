@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"git push\",\"description\":\"Push v35 to GitHub\"}",
+  "error": "Exit code 128\nfatal: could not read Username for 'https://github.com': Device not configured",
+  "timestamp": "2026-07-03T14:00:30.705Z",
+  "retry_count": 1
+}

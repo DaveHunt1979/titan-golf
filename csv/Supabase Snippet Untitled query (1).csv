@@ -1,7 +1,0 @@
-id,name,format,include_in_kronos
-40000000-0000-0000-0000-000000000002,Casual Games,casual,false
-40000000-0000-0000-0000-000000000001,Titan Tour 2027,team_matchplay_4bbb,false
-154f1fde-b408-48b0-830d-dc0be0cb1d68,Ryder Cup 2027,ryder_cup,false
-9fd1e7bd-320e-46fb-a437-eacf05a99c61,Ryder Cup 2027,ryder_cup,false
-0f7ce974-25ad-4520-b4ed-f1eb95ab54b8,Multi-Team Tour 2027,team_matchplay,true
-67a101a8-006e-47e7-82e3-2e34a98ad3d3,Multi-Team Tour 2027,team_matchplay,true

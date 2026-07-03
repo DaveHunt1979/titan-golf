@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v CourseMapView | grep -E \"score/\\[matchId\\]\" | head -20",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v CourseMapView | grep \"tour/index\" | head -20",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -257,6 +257,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/admin/index.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1783078392702,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/score/[matchId].tsx",
       "accessCount": 10,
       "lastAccessed": 1783069029691,
@@ -269,15 +275,15 @@
       "type": "file"
     },
     {
-      "path": "assets/titan_golf_grip_cap.scad",
-      "accessCount": 6,
-      "lastAccessed": 1782972837028,
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1783079602186,
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/index.tsx",
+      "path": "assets/titan_golf_grip_cap.scad",
       "accessCount": 6,
-      "lastAccessed": 1783057240221,
+      "lastAccessed": 1782972837028,
       "type": "file"
     },
     {
@@ -294,8 +300,8 @@
     },
     {
       "path": "app/(app)/leaderboard/index.tsx",
-      "accessCount": 5,
-      "lastAccessed": 1782971065001,
+      "accessCount": 6,
+      "lastAccessed": 1783078701709,
       "type": "file"
     },
     {
@@ -329,6 +335,12 @@
       "type": "file"
     },
     {
+      "path": "web/src/components/Navbar.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1783087521615,
+      "type": "file"
+    },
+    {
       "path": "web/src/app/dashboard/page.tsx",
       "accessCount": 2,
       "lastAccessed": 1782977918405,
@@ -353,9 +365,21 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/admin/pins.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1783077931135,
+      "type": "file"
+    },
+    {
       "path": "src/lib/theme.ts",
-      "accessCount": 1,
-      "lastAccessed": 1782971090312,
+      "accessCount": 2,
+      "lastAccessed": 1783079252762,
+      "type": "file"
+    },
+    {
+      "path": "web/src/app/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1783087508302,
       "type": "file"
     },
     {
@@ -368,18 +392,6 @@
       "path": "web/public/titan-logo.png",
       "accessCount": 1,
       "lastAccessed": 1782972411163,
-      "type": "file"
-    },
-    {
-      "path": "web/src/app/page.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1782977752271,
-      "type": "file"
-    },
-    {
-      "path": "web/src/components/Navbar.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1782977791833,
       "type": "file"
     },
     {
@@ -431,12 +443,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/tour/index.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1782982550295,
-      "type": "file"
-    },
-    {
       "path": "csv/Supabase Snippet Untitled query.csv",
       "accessCount": 1,
       "lastAccessed": 1782983097319,
@@ -482,12 +488,6 @@
       "path": "app/(auth)/join.tsx",
       "accessCount": 1,
       "lastAccessed": 1783057164251,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/admin/pins.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1783057164814,
       "type": "file"
     },
     {
