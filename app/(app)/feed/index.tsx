@@ -74,6 +74,16 @@ export default function FeedScreen() {
     emptySub: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20, marginBottom: spacing.lg },
     emptyBtn: { backgroundColor: colors.goldDim, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.goldBorder },
     emptyBtnText: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
+    shopBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+      backgroundColor: colors.card, borderRadius: radius.md,
+      borderWidth: 1, borderColor: colors.goldBorder,
+      padding: spacing.md, marginBottom: spacing.md,
+    },
+    shopBannerEmoji: { fontSize: 28 },
+    shopBannerTitle: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 2 },
+    shopBannerSub: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+    shopBannerArrow: { fontSize: 22, color: colors.textMuted },
   }), [colors]);
 
   const router = useRouter();
@@ -185,6 +195,20 @@ export default function FeedScreen() {
           }
           showsVerticalScrollIndicator={false}
         >
+          {/* ── Shop banner ── */}
+          <TouchableOpacity
+            style={styles.shopBanner}
+            onPress={() => Linking.openURL('https://titangolf-web.vercel.app/')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.shopBannerEmoji}>🛍️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.shopBannerTitle}>TITAN GOLF SHOP</Text>
+              <Text style={styles.shopBannerSub}>Bags, headcovers & more — coming soon</Text>
+            </View>
+            <Text style={styles.shopBannerArrow}>›</Text>
+          </TouchableOpacity>
+
           {/* ── Info Pack ── */}
           {tab === 'info' && (
             <>

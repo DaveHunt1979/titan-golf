@@ -88,6 +88,16 @@ export default function Navbar() {
           ))}
         </div>
 
+        {/* Shop */}
+        <div className="hidden items-center md:flex">
+          <div className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-600 text-slate-300 cursor-default">
+            🛍️ Shop
+            <span className="rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#D4AF37]">
+              Soon
+            </span>
+          </div>
+        </div>
+
         {/* Right side */}
         <div className="flex items-center gap-3">
           <Link
