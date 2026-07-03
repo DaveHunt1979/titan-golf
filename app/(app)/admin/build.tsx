@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View, Text, ScrollView, StyleSheet, TextInput,
   TouchableOpacity, KeyboardAvoidingView, Platform,
@@ -107,6 +108,17 @@ export default function BuildTournamentScreen() {
   const [days, setDays] = useState<DayConfig[]>([]);
   const [includeInKronos, setIncludeInKronos] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  // Reset all state each time the screen is focused so old tournament settings don't bleed through
+  useFocusEffect(useCallback(() => {
+    setStep(0);
+    setSelectedFormat(null);
+    setName('');
+    setYear(String(new Date().getFullYear() + 1));
+    setDays([]);
+    setIncludeInKronos(false);
+    setCreating(false);
+  }, []));
 
   const formatDef = COMP_FORMATS.find(f => f.id === selectedFormat);
 

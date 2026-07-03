@@ -10,6 +10,7 @@ import {
   Image,
   TextInput,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -94,6 +95,10 @@ export default function EnterScoresScreen() {
   const [showRangeMap, setShowRangeMap] = useState(false);
   const [showShotLogger, setShowShotLogger] = useState(false);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
+  const [playerTotals, setPlayerTotals] = useState<Record<string, number>>({});
+  const [holeData, setHoleData] = useState<Record<string, Record<number, { gross: number | null; pts: number | null }>>>({});
+  const [currentPage, setCurrentPage] = useState(0);
+  const { width: screenWidth } = useWindowDimensions();
 
   useEffect(() => {
     async function load() {
@@ -177,6 +182,32 @@ export default function EnterScoresScreen() {
     });
     return () => { unsub(); clearMatchFromWatch(); };
   }, [match]);
+
+  // Load running totals per player whenever a hole is scored
+  useEffect(() => {
+    if (!match) return;
+    async function loadTotals() {
+      const { data } = await supabase
+        .from('match_holes')
+        .select('player_id,hole_number,stableford_pts,gross_score')
+        .eq('match_id', matchId);
+      if (!data) return;
+      const totals: Record<string, number> = {};
+      const holes: Record<string, Record<number, { gross: number | null; pts: number | null }>> = {};
+      for (const row of data as any[]) {
+        const id = row.player_id;
+        const val = match!.round_format === 'stableford'
+          ? (row.stableford_pts ?? 0)
+          : (row.gross_score ?? 0);
+        totals[id] = (totals[id] ?? 0) + val;
+        if (!holes[id]) holes[id] = {};
+        holes[id][row.hole_number] = { gross: row.gross_score ?? null, pts: row.stableford_pts ?? null };
+      }
+      setPlayerTotals(totals);
+      setHoleData(holes);
+    }
+    loadTotals();
+  }, [match?.holes_string, matchId]);
 
   // Resend match data when Watch app opens and requests fresh state
   useEffect(() => {
@@ -598,13 +629,17 @@ export default function EnterScoresScreen() {
   );
 
   const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
-  const label = isStrokePlay
-    ? (match.status === 'complete' ? 'Complete' : currentHole <= 18 ? `Hole ${currentHole}` : 'In Progress')
-    : matchLabel(match.status, match.winner, match.result_str, holesStr);
+  const label = isStrokePlay ? '' : matchLabel(match.status, match.winner, match.result_str, holesStr);
   const homeColor = match.home_team?.accent_color ?? colors.gold;
   const awayColor = match.away_team?.accent_color ?? colors.textMuted;
   const homeLabel = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const awayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+  const { homeUp: liveHomeUp } = calcHoles(holesStr);
+  const modalStatusText = isStrokePlay
+    ? `Hole ${currentHole} · ${holeChars.filter(c => c !== '.').length} played`
+    : liveHomeUp === 0 ? 'All Square'
+      : liveHomeUp > 0 ? `${homeLabel} lead ${Math.abs(liveHomeUp)}UP`
+      : `${awayLabel} lead ${Math.abs(liveHomeUp)}UP`;
   const HOLE_BG: Record<string, string> = { h: homeColor, a: awayColor, f: colors.grey };
 
   return (
@@ -620,19 +655,6 @@ export default function EnterScoresScreen() {
           {match.day?.competition?.format === 'casual'
             ? `Casual · ${match.day?.course_name} · Live Scoring`
             : `Day ${match.day?.day_number} · Match ${match.match_number} · Live Scoring`}
-        </Text>
-      </View>
-
-      {/* Score bar */}
-      <View style={styles.scoreBar}>
-        <Text style={[styles.scoreTeam, { color: homeColor }]} numberOfLines={1}>
-          {homeLabel}
-        </Text>
-        <View style={styles.scoreLabelBox}>
-          <Text style={styles.scoreLabel}>{label}</Text>
-        </View>
-        <Text style={[styles.scoreTeam, { color: awayColor, textAlign: 'right' }]} numberOfLines={1}>
-          {awayLabel}
         </Text>
       </View>
 
@@ -655,51 +677,83 @@ export default function EnterScoresScreen() {
         ))}
       </View>
 
+      {!isStrokePlay && (
+        <Text style={styles.liveStatus}>{label}</Text>
+      )}
+
       {!isComplete ? (
         <>
+          {/* Horizontal page swiper — Page 0: hole, Page 1: Front 9, Page 2: Back 9 */}
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={e => setCurrentPage(Math.round(e.nativeEvent.contentOffset.x / screenWidth))}
+            style={{ flex: 1 }}
+          >
+          {/* Page 0: current hole info */}
+          <ScrollView
+            style={{ width: screenWidth }}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
           {/* Current hole card */}
           <View style={styles.holeCard}>
-            <Text style={styles.holeLabelSmall}>HOLE</Text>
-            <Text style={styles.holeBig}>{currentHole}</Text>
+            <View style={styles.holeCardInner}>
 
-            {courseHole && (
-              <View style={styles.holeMetaRow}>
-                <View style={styles.holeMetaItem}>
-                  <Text style={styles.holeMetaLabel}>PAR</Text>
-                  <Text style={styles.holeMetaValue}>{courseHole.par}</Text>
-                </View>
-                <View style={styles.holeMetaSep} />
-                <View style={styles.holeMetaItem}>
-                  <Text style={styles.holeMetaLabel}>S.I.</Text>
-                  <Text style={styles.holeMetaValue}>{courseHole.stroke_index}</Text>
-                </View>
-                {courseHole.yardage && (
+              {/* Left: hole info */}
+              <View style={styles.holeCardLeft}>
+                <Text style={styles.holeLabelSmall}>HOLE</Text>
+                <Text style={styles.holeBig}>{currentHole}</Text>
+                {courseHole && (
                   <>
-                    <View style={styles.holeMetaSep} />
-                    <View style={styles.holeMetaItem}>
-                      <Text style={styles.holeMetaLabel}>YARDS</Text>
-                      <Text style={styles.holeMetaValue}>{courseHole.yardage}</Text>
-                    </View>
+                    <Text style={styles.holeMetaChip}>Par {courseHole.par}  ·  SI {courseHole.stroke_index}</Text>
+                    {courseHole.yardage ? <Text style={styles.holeMetaChip}>{courseHole.yardage} yards</Text> : null}
                   </>
                 )}
+                {!isComplete && (
+                  <TouchableOpacity style={styles.coachBtn} onPress={onCoachMe} disabled={coachLoading} activeOpacity={0.7}>
+                    <Text style={styles.coachBtnText}>{coachLoading ? '🎙 Asking...' : '🎙 Coach Me'}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-            )}
 
-            {/* Coach Me button */}
-            {!isComplete && (
-              <TouchableOpacity
-                style={styles.coachBtn}
-                onPress={onCoachMe}
-                disabled={coachLoading}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.coachBtnText}>
-                  {coachLoading ? '🎙 Asking...' : '🎙 Coach Me'}
-                </Text>
-              </TouchableOpacity>
-            )}
+              <View style={styles.holeCardDivider} />
 
-            {/* Shot receivers — tiny player faces */}
+              {/* Right: mini leaderboard */}
+              <View style={styles.holeCardRight}>
+                {allPlayerIds.map(id => {
+                  const isHome = match.home_player_ids.includes(id);
+                  const teamColor = isHome ? homeColor : awayColor;
+                  const avatar = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
+                  const firstName = (playerNames[id] ?? '?').split(' ')[0];
+                  const total = playerTotals[id] ?? 0;
+                  const scoreStr = total > 0
+                    ? (match.round_format === 'stableford' ? `${total}pts` : `${total}`)
+                    : '—';
+                  return (
+                    <View key={id} style={styles.lbRow}>
+                      <View style={[styles.lbAvatarWrap, { borderColor: teamColor }]}>
+                        {avatar ? (
+                          <Image source={typeof avatar === 'string' ? { uri: avatar } : avatar} style={styles.lbAvatar} />
+                        ) : (
+                          <View style={[styles.lbAvatar, styles.lbAvatarFallback]}>
+                            <Text style={styles.lbAvatarInitial}>{firstName[0]}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.lbName} numberOfLines={1}>{firstName}</Text>
+                      <Text style={[styles.lbScore, { color: teamColor }]}>{scoreStr}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+
+            </View>
+
+            {/* Gets a shot */}
             {shotPlayerIds.length > 0 && (
               <View style={styles.shotRow}>
                 <Text style={styles.shotLabel}>Gets a shot</Text>
@@ -714,9 +768,7 @@ export default function EnterScoresScreen() {
                           <Image source={typeof avatar === 'string' ? { uri: avatar } : avatar} style={styles.shotAvatar} />
                         ) : (
                           <View style={[styles.shotAvatar, styles.shotAvatarFallback]}>
-                            <Text style={styles.shotAvatarInitial}>
-                              {(playerNames[id] ?? '?')[0]}
-                            </Text>
+                            <Text style={styles.shotAvatarInitial}>{(playerNames[id] ?? '?')[0]}</Text>
                           </View>
                         )}
                       </View>
@@ -756,24 +808,7 @@ export default function EnterScoresScreen() {
             </View>
           )}
 
-
-          {/* Score this hole button */}
-          <TouchableOpacity
-            style={styles.scoreHoleBtn}
-            onPress={openScoreModal}
-            disabled={saving}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.scoreHoleBtnText}>Score Hole {currentHole}</Text>
-          </TouchableOpacity>
-
-          {lastPlayedHole > 0 && (
-            <TouchableOpacity style={styles.undoBtn} onPress={undoHole} disabled={saving}>
-              <Text style={styles.undoText}>Undo Hole {lastPlayedHole}</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Voice caddie — below primary actions so it's clearly a secondary tool */}
+          {/* Voice caddie */}
           {courseHole && match && (
             <CaddieButton
               context={{
@@ -804,23 +839,161 @@ export default function EnterScoresScreen() {
               }}
             />
           )}
+          </ScrollView>
+
+          {/* Page 1: Front 9 scorecard */}
+          <Scorecard
+            startHole={1}
+            allPlayerIds={allPlayerIds}
+            playerNames={playerNames}
+            holeData={holeData}
+            courseHoles={courseHoles}
+            matchHomeIds={match.home_player_ids}
+            holeChars={holeChars}
+            homeColor={homeColor}
+            awayColor={awayColor}
+            isStrokePlay={isStrokePlay}
+            roundFormat={match.round_format}
+            onUndo={undoHole}
+            lastPlayedHole={lastPlayedHole}
+            saving={saving}
+            screenWidth={screenWidth}
+          />
+
+          {/* Page 2: Back 9 scorecard */}
+          <Scorecard
+            startHole={10}
+            allPlayerIds={allPlayerIds}
+            playerNames={playerNames}
+            holeData={holeData}
+            courseHoles={courseHoles}
+            matchHomeIds={match.home_player_ids}
+            holeChars={holeChars}
+            homeColor={homeColor}
+            awayColor={awayColor}
+            isStrokePlay={isStrokePlay}
+            roundFormat={match.round_format}
+            onUndo={undoHole}
+            lastPlayedHole={lastPlayedHole}
+            saving={saving}
+            screenWidth={screenWidth}
+          />
+          </ScrollView>
+
+          {/* Pagination dots */}
+          <View style={styles.pageDots}>
+            {[0, 1, 2].map(i => (
+              <View key={i} style={[styles.pageDot, currentPage === i && styles.pageDotActive]} />
+            ))}
+          </View>
+
+          {/* Fixed footer */}
+          <View style={styles.actionFooter}>
+            <TouchableOpacity
+              style={styles.scoreHoleBtn}
+              onPress={openScoreModal}
+              disabled={saving}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.scoreHoleBtnText}>Score Hole {currentHole}</Text>
+            </TouchableOpacity>
+          </View>
         </>
       ) : (
-        <View style={styles.completeCard}>
-          <Text style={styles.completeStar}>★</Text>
-          <Text style={styles.completeTitle}>MATCH COMPLETE</Text>
-          <Text style={styles.completeResult}>{match.result_str ?? 'Done'}</Text>
-          <Text style={styles.completeWinner}>
-            {match.winner === 'half'
-              ? 'Match Halved'
-              : `${match.winner === 'home' ? homeLabel : awayLabel} Win`}
-          </Text>
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
+
+          {/* Winner announcement */}
+          <View style={styles.completeHero}>
+            <Text style={styles.completeStar}>★</Text>
+            <Text style={styles.completeTitle}>MATCH COMPLETE</Text>
+            <Text style={styles.completeResult}>{match.result_str ?? 'Done'}</Text>
+            <Text style={styles.completeWinner}>
+              {match.winner === 'half'
+                ? 'Match Halved'
+                : `${match.winner === 'home' ? homeLabel : awayLabel} Win`}
+            </Text>
+          </View>
+
+          {/* Side game results */}
+          {match.side_games && match.side_games.length > 0 && (
+            <View style={styles.sideGameSummary}>
+              <Text style={styles.sideGameSummaryTitle}>SIDE GAMES</Text>
+              {match.side_games.map(sg => {
+                const type = sg.split(':')[0];
+                const result = (match as any).side_game_results?.[type];
+                return (
+                  <View key={sg} style={styles.sideGameSummaryRow}>
+                    <Text style={styles.sideGameSummaryIcon}>{type === 'Longest Drive' ? '🏌️' : '📍'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sideGameSummaryType}>{type}</Text>
+                      <Text style={styles.sideGameSummaryResult}>
+                        {result ? `${result.player ? result.player + ' · ' : ''}${result.result}` : 'Not recorded'}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Scorecard pager */}
+          <View style={styles.completeScorecardWrap}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={e => setCurrentPage(Math.round(e.nativeEvent.contentOffset.x / screenWidth))}
+              style={{ flex: 1 }}
+            >
+              <Scorecard
+                startHole={1}
+                allPlayerIds={allPlayerIds}
+                playerNames={playerNames}
+                holeData={holeData}
+                courseHoles={courseHoles}
+                matchHomeIds={match.home_player_ids}
+                holeChars={holeChars}
+                homeColor={homeColor}
+                awayColor={awayColor}
+                isStrokePlay={isStrokePlay}
+                roundFormat={match.round_format}
+                onUndo={undoHole}
+                lastPlayedHole={0}
+                saving={saving}
+                screenWidth={screenWidth}
+              />
+              <Scorecard
+                startHole={10}
+                allPlayerIds={allPlayerIds}
+                playerNames={playerNames}
+                holeData={holeData}
+                courseHoles={courseHoles}
+                matchHomeIds={match.home_player_ids}
+                holeChars={holeChars}
+                homeColor={homeColor}
+                awayColor={awayColor}
+                isStrokePlay={isStrokePlay}
+                roundFormat={match.round_format}
+                onUndo={undoHole}
+                lastPlayedHole={0}
+                saving={saving}
+                screenWidth={screenWidth}
+              />
+            </ScrollView>
+            <View style={styles.pageDots}>
+              {[0, 1].map(i => (
+                <View key={i} style={[styles.pageDot, currentPage === i && styles.pageDotActive]} />
+              ))}
+            </View>
+          </View>
+
           {lastPlayedHole > 0 && (
-            <TouchableOpacity style={[styles.undoBtn, { marginTop: spacing.xl }]} onPress={undoHole} disabled={saving}>
-              <Text style={styles.undoText}>Undo Last Hole</Text>
+            <TouchableOpacity style={styles.undoBtn} onPress={undoHole} disabled={saving}>
+              <Text style={styles.undoText}>← Correct Last Hole</Text>
             </TouchableOpacity>
           )}
-        </View>
+        </ScrollView>
       )}
 
       {saving && (
@@ -855,6 +1028,11 @@ export default function EnterScoresScreen() {
                   ]}
                 />
               ))}
+            </View>
+
+            {/* Live match status — compact, always one line */}
+            <View style={styles.modalStatusStrip}>
+              <Text style={styles.modalStatusText} numberOfLines={1}>{modalStatusText}</Text>
             </View>
 
             {/* Team label */}
@@ -1068,6 +1246,128 @@ export default function EnterScoresScreen() {
   );
 }
 
+interface ScorecardProps {
+  startHole: number;
+  allPlayerIds: string[];
+  playerNames: Record<string, string>;
+  holeData: Record<string, Record<number, { gross: number | null; pts: number | null }>>;
+  courseHoles: CourseHole[];
+  matchHomeIds: string[];
+  holeChars: string[];
+  homeColor: string;
+  awayColor: string;
+  isStrokePlay: boolean;
+  roundFormat: string;
+  onUndo: () => void;
+  lastPlayedHole: number;
+  saving: boolean;
+  screenWidth: number;
+}
+
+function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles, matchHomeIds, holeChars, homeColor, awayColor, isStrokePlay, roundFormat, onUndo, lastPlayedHole, saving, screenWidth }: ScorecardProps) {
+  const holes = Array.from({ length: 9 }, (_, i) => startHole + i);
+
+  return (
+    <ScrollView style={{ width: screenWidth }} contentContainerStyle={{ padding: spacing.md, paddingBottom: spacing.xl }} showsVerticalScrollIndicator={false}>
+      <View style={{ backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+
+        {/* Hole numbers */}
+        <View style={{ flexDirection: 'row', backgroundColor: colors.cardAlt, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+          <View style={scStyles.labelCol}><Text style={scStyles.headerTxt}>HOLE</Text></View>
+          {holes.map(h => (
+            <View key={h} style={scStyles.dataCol}>
+              <Text style={[scStyles.headerTxt, holeChars[h - 1] !== '.' && { color: colors.white }]}>{h}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Par row */}
+        {courseHoles.length > 0 && (
+          <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border }}>
+            <View style={scStyles.labelCol}><Text style={scStyles.subTxt}>Par</Text></View>
+            {holes.map(h => {
+              const ch = courseHoles.find(c => c.hole_number === h);
+              return <View key={h} style={scStyles.dataCol}><Text style={scStyles.subTxt}>{ch?.par ?? '—'}</Text></View>;
+            })}
+          </View>
+        )}
+
+        {/* Player rows */}
+        {allPlayerIds.map((id, idx) => {
+          const isHome = matchHomeIds.includes(id);
+          const teamColor = isHome ? homeColor : awayColor;
+          const firstName = (playerNames[id] ?? '?').split(' ')[0];
+          const isLastRow = idx === allPlayerIds.length - 1 && isStrokePlay;
+          return (
+            <View key={id} style={[{ flexDirection: 'row' }, !isLastRow && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+              <View style={scStyles.labelCol}>
+                <Text style={[scStyles.nameTxt, { color: teamColor }]} numberOfLines={1}>{firstName}</Text>
+              </View>
+              {holes.map(h => {
+                const score = holeData[id]?.[h];
+                const gross = score?.gross;
+                const pts = score?.pts;
+                const played = holeChars[h - 1] !== '.';
+                let bg = 'transparent';
+                if (roundFormat === 'stableford' && gross && pts !== null && pts !== undefined) {
+                  if (pts >= 4) bg = 'rgba(212,175,55,0.25)';
+                  else if (pts >= 3) bg = 'rgba(74,222,128,0.18)';
+                  else if (pts <= 0) bg = 'rgba(248,113,113,0.12)';
+                }
+                return (
+                  <View key={h} style={[scStyles.dataCol, { backgroundColor: bg }]}>
+                    <Text style={[scStyles.scoreTxt, { color: gross ? colors.white : played ? colors.textMuted : 'transparent' }]}>
+                      {gross ?? (played ? '—' : '')}
+                    </Text>
+                    {roundFormat === 'stableford' && gross && pts !== null && pts !== undefined && (
+                      <Text style={[scStyles.ptsTxt, { color: pts >= 3 ? colors.gold : colors.textMuted }]}>{pts}</Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          );
+        })}
+
+        {/* Matchplay hole result row */}
+        {!isStrokePlay && (
+          <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.cardAlt }}>
+            <View style={scStyles.labelCol}><Text style={scStyles.subTxt}>Hole</Text></View>
+            {holes.map(h => {
+              const c = holeChars[h - 1];
+              const color = c === 'h' ? homeColor : c === 'a' ? awayColor : colors.textMuted;
+              return (
+                <View key={h} style={scStyles.dataCol}>
+                  <Text style={[scStyles.resultTxt, { color }]}>
+                    {c === 'h' ? 'H' : c === 'a' ? 'A' : c === 'f' ? '½' : ''}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      {lastPlayedHole > 0 && (
+        <TouchableOpacity style={{ alignItems: 'center', paddingVertical: spacing.lg }} onPress={onUndo} disabled={saving} activeOpacity={0.7}>
+          <Text style={{ fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600', letterSpacing: 0.5 }}>← Edit Hole {lastPlayedHole}</Text>
+        </TouchableOpacity>
+      )}
+    </ScrollView>
+  );
+}
+
+const scStyles = StyleSheet.create({
+  labelCol: { width: 52, justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 8 },
+  dataCol: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 7 },
+  headerTxt: { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },
+  subTxt: { fontSize: 10, color: colors.textMuted, fontWeight: '600' },
+  nameTxt: { fontSize: 10, fontWeight: '800' },
+  scoreTxt: { fontSize: 13, fontWeight: '700' },
+  ptsTxt: { fontSize: 7, fontWeight: '800', marginTop: 1 },
+  resultTxt: { fontSize: 11, fontWeight: '800' },
+});
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
@@ -1083,17 +1383,13 @@ const styles = StyleSheet.create({
   backText: { fontSize: fonts.md, color: colors.gold, fontWeight: '600' },
   headerSub: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 1 },
 
-  scoreBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+  liveStatus: {
+    textAlign: 'center',
+    fontSize: fonts.md,
+    fontWeight: '900',
+    color: colors.live,
+    paddingVertical: spacing.xs,
   },
-  scoreTeam: { flex: 1, fontSize: fonts.md, fontWeight: '700' },
-  scoreLabelBox: { paddingHorizontal: spacing.sm },
-  scoreLabel: { fontSize: fonts.xxl, fontWeight: '900', color: colors.live, textAlign: 'center', minWidth: 80 },
 
   dotsRow: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: spacing.lg, gap: 3 },
   dot: { flex: 1, height: 10, borderRadius: 2 },
@@ -1103,25 +1399,37 @@ const styles = StyleSheet.create({
   dotNumActive: { color: colors.gold, fontWeight: '700' },
 
   holeCard: {
-    alignItems: 'center',
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
-    paddingVertical: spacing.lg,
     backgroundColor: colors.card,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: 'hidden',
   },
-  holeLabelSmall: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 2, fontWeight: '700' },
-  holeBig: { fontSize: 80, fontWeight: '900', color: colors.white, lineHeight: 88 },
-  holeMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs },
-  holeMetaItem: { alignItems: 'center', paddingHorizontal: spacing.xl },
-  holeMetaLabel: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 1, fontWeight: '600' },
-  holeMetaValue: { fontSize: fonts.xl, fontWeight: '800', color: colors.textSecondary, marginTop: 2 },
-  holeMetaSep: { width: 1, height: 32, backgroundColor: colors.border },
+  holeCardInner: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
+  holeCardLeft: { flex: 1 },
+  holeCardDivider: { width: 1, backgroundColor: colors.border, marginHorizontal: spacing.md },
+  holeCardRight: { flex: 1, justifyContent: 'center', gap: spacing.sm },
 
-  coachBtn: { marginTop: spacing.sm, alignSelf: 'center', backgroundColor: colors.cardAlt, borderRadius: radius.full, paddingHorizontal: spacing.lg, paddingVertical: spacing.xs + 2, borderWidth: 1, borderColor: colors.border },
+  holeLabelSmall: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 2, fontWeight: '700' },
+  holeBig: { fontSize: 56, fontWeight: '900', color: colors.white, lineHeight: 62 },
+  holeMetaChip: { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600', marginTop: 3 },
+
+  coachBtn: { marginTop: spacing.sm, alignSelf: 'flex-start', backgroundColor: colors.cardAlt, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, borderWidth: 1, borderColor: colors.border },
   coachBtnText: { fontSize: fonts.xs, color: colors.textSecondary, fontWeight: '700', letterSpacing: 0.3 },
+
+  lbRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  lbAvatarWrap: { borderRadius: 14, borderWidth: 1.5, overflow: 'hidden' },
+  lbAvatar: { width: 26, height: 26 },
+  lbAvatarFallback: { backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
+  lbAvatarInitial: { fontSize: 10, fontWeight: '700', color: colors.white },
+  lbName: { flex: 1, fontSize: fonts.xs, color: colors.textSecondary, fontWeight: '600' },
+  lbScore: { fontSize: fonts.sm, fontWeight: '800' },
 
   shotRow: { alignItems: 'center', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, width: '100%', paddingHorizontal: spacing.lg },
   shotLabel: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 1, marginBottom: spacing.xs },
@@ -1131,23 +1439,53 @@ const styles = StyleSheet.create({
   shotAvatarFallback: { backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
   shotAvatarInitial: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
 
+  scrollContent: { paddingBottom: spacing.md },
+
+  actionFooter: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: 28,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.bg,
+  },
   scoreHoleBtn: {
-    marginHorizontal: spacing.lg,
     backgroundColor: colors.gold,
     borderRadius: radius.lg,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.lg + 2,
     alignItems: 'center',
   },
-  scoreHoleBtnText: { fontSize: fonts.lg, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
+  scoreHoleBtnText: { fontSize: fonts.xl, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
 
-  undoBtn: { alignItems: 'center', paddingVertical: spacing.md, marginTop: spacing.xs },
+  pageDots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingVertical: spacing.xs + 2 },
+  pageDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border },
+  pageDotActive: { backgroundColor: colors.gold, borderColor: colors.gold, width: 18, borderRadius: 3 },
+
+  undoBtn: { alignItems: 'center', paddingVertical: spacing.sm, marginTop: spacing.xs },
   undoText: { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600', letterSpacing: 0.5 },
 
-  completeCard: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
-  completeStar: { fontSize: 48, color: colors.gold, marginBottom: spacing.md },
+  completeHero: { alignItems: 'center', paddingVertical: spacing.xl, paddingHorizontal: spacing.xl },
+  completeStar: { fontSize: 40, color: colors.gold, marginBottom: spacing.sm },
   completeTitle: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 3, marginBottom: spacing.sm },
-  completeResult: { fontSize: 64, fontWeight: '900', color: colors.gold, letterSpacing: 2 },
-  completeWinner: { fontSize: fonts.lg, fontWeight: '600', color: colors.white, marginTop: spacing.sm },
+  completeResult: { fontSize: 56, fontWeight: '900', color: colors.gold, letterSpacing: 2 },
+  completeWinner: { fontSize: fonts.lg, fontWeight: '600', color: colors.white, marginTop: spacing.xs },
+
+  sideGameSummary: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  sideGameSummaryTitle: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 2, marginBottom: spacing.sm },
+  sideGameSummaryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
+  sideGameSummaryIcon: { fontSize: 20 },
+  sideGameSummaryType: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
+  sideGameSummaryResult: { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600', marginTop: 2 },
+
+  completeScorecardWrap: { height: 340, marginBottom: spacing.sm },
 
   savingIndicator: {
     position: 'absolute',
@@ -1188,6 +1526,16 @@ const styles = StyleSheet.create({
   progressDotDone: { backgroundColor: colors.grey },
   progressDotActive: { backgroundColor: colors.gold, borderColor: colors.gold },
 
+  modalStatusStrip: {
+    backgroundColor: colors.cardAlt,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalStatusText: { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, textAlign: 'center', letterSpacing: 0.5 },
   modalTeamLabel: { fontSize: fonts.xs, fontWeight: '700', letterSpacing: 2, marginBottom: spacing.md },
 
   modalAvatarWrap: { borderRadius: 52, borderWidth: 3, overflow: 'hidden', marginBottom: spacing.sm },

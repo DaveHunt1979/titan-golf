@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   Image, ActivityIndicator, Alert, TextInput,
@@ -77,6 +78,23 @@ export default function NewGameScreen() {
   const [coursePinsSet, setCoursePinsSet]   = useState<boolean | null>(null);
   const [ldHole,  setLdHole]  = useState<number | null>(null);
   const [ntpHole, setNtpHole] = useState<number | null>(null);
+
+  // Reset game setup state each time screen is focused so old settings don't carry over
+  useFocusEffect(useCallback(() => {
+    setStep(1);
+    setPairStep(1);
+    setMode(null);
+    setPair1([]);
+    setPair2([]);
+    setSelectedCourse(null);
+    setHcpAllowance(100);
+    setCustomHcp('');
+    setSideGames([]);
+    setHoles('full18');
+    setLdHole(null);
+    setNtpHole(null);
+    setCreating(false);
+  }, []));
 
   useEffect(() => {
     if (!selectedCourse) { setCourseHoleData([]); setCoursePinsSet(null); return; }

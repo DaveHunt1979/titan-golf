@@ -135,9 +135,20 @@ export default function MatchPreviewScreen() {
 
         {/* Player matchup */}
         {isSolo ? (
-          <View style={styles.soloRow}>
-            {homePlayers.map(p => <PlayerCard key={p.id} player={p} size="large" />)}
-          </View>
+          homePlayers.length > 2 ? (
+            // 2×2 grid for 3–4 players
+            <View style={styles.soloGrid}>
+              {homePlayers.map(p => (
+                <View key={p.id} style={styles.soloGridCell}>
+                  <PlayerCard player={p} size="large" />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.soloRow}>
+              {homePlayers.map(p => <PlayerCard key={p.id} player={p} size="large" />)}
+            </View>
+          )
         ) : (
           <View style={styles.matchupRow}>
             <View style={styles.matchupSide}>
@@ -259,7 +270,13 @@ const styles = StyleSheet.create({
   vsCol: { width: 44, alignItems: 'center' },
   vsText: { fontSize: fonts.xl, fontWeight: '900', color: colors.textMuted, letterSpacing: 2 },
 
-  soloRow: { alignItems: 'center', paddingVertical: spacing.lg },
+  soloRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.xl, paddingVertical: spacing.lg },
+  soloGrid: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.lg,
+    gap: spacing.lg,
+  },
+  soloGridCell: { width: '45%', alignItems: 'center' },
 
   playerCard: { alignItems: 'center', gap: 6 },
   avatarRing: { borderWidth: 2, borderColor: colors.gold, overflow: 'hidden' },
