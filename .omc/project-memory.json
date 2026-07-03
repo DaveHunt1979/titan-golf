@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v CourseMapView | grep -E \"score/\" | head -20",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v CourseMapView | grep -E \"score/\\[matchId\\]\" | head -20",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -252,8 +252,14 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 103,
-      "lastAccessed": 1783064872421,
+      "accessCount": 105,
+      "lastAccessed": 1783068457776,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/[matchId].tsx",
+      "accessCount": 10,
+      "lastAccessed": 1783069029691,
       "type": "file"
     },
     {
@@ -281,9 +287,9 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/[matchId].tsx",
+      "path": "app/(app)/score/preview/[matchId].tsx",
       "accessCount": 6,
-      "lastAccessed": 1783066540707,
+      "lastAccessed": 1783068452405,
       "type": "file"
     },
     {
@@ -311,15 +317,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/preview/[matchId].tsx",
-      "accessCount": 4,
-      "lastAccessed": 1783059336754,
-      "type": "file"
-    },
-    {
       "path": "ios/titangolf/WatchBridge.swift",
       "accessCount": 3,
       "lastAccessed": 1783000691085,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/caddie.ts",
+      "accessCount": 3,
+      "lastAccessed": 1783068155929,
       "type": "file"
     },
     {
@@ -329,15 +335,21 @@
       "type": "file"
     },
     {
-      "path": "src/lib/caddie.ts",
-      "accessCount": 2,
-      "lastAccessed": 1782985790716,
-      "type": "file"
-    },
-    {
       "path": "ios/titangolf Watch App Watch App/WatchSessionManager.swift",
       "accessCount": 2,
       "lastAccessed": 1783000702742,
+      "type": "file"
+    },
+    {
+      "path": "src/components/CaddieButton.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1783068156240,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/voiceCommand.ts",
+      "accessCount": 2,
+      "lastAccessed": 1783068161437,
       "type": "file"
     },
     {
@@ -446,18 +458,6 @@
       "path": "supabase/functions/voice-command/index.ts",
       "accessCount": 1,
       "lastAccessed": 1782985776334,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/voiceCommand.ts",
-      "accessCount": 1,
-      "lastAccessed": 1782985804854,
-      "type": "file"
-    },
-    {
-      "path": "src/components/CaddieButton.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1782985824780,
       "type": "file"
     },
     {

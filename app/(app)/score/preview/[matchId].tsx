@@ -73,7 +73,7 @@ export default function MatchPreviewScreen() {
       .filter(Boolean) as string[];
     await Promise.race([
       speakIntro(firstNames),
-      new Promise(resolve => setTimeout(resolve, 35000)),
+      new Promise(resolve => setTimeout(resolve, 6000)),
     ]);
     router.replace(`/(app)/score/${matchId}` as any);
   }

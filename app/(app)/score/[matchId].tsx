@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Image,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -56,6 +57,8 @@ export default function MatchDetailScreen() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [cardPage, setCardPage] = useState(0);
+  const { width: screenWidth } = useWindowDimensions();
   async function load() {
     const { data: matchData } = await supabase
       .from('matches')
@@ -308,14 +311,21 @@ export default function MatchDetailScreen() {
           </ScrollView>
         </View>
 
-        {/* Player scorecards */}
-        {[
-          { label: match.home_team?.name ?? 'Home', color: homeColor, ids: match.home_player_ids },
-          { label: match.away_team?.name ?? 'Away', color: awayColor, ids: match.away_player_ids },
-        ].map(team => (
-          <View key={team.label} style={styles.section}>
-            <Text style={styles.sectionTitle}>{team.label.toUpperCase()}</Text>
-            {team.ids.map(pid => {
+        {/* Player scorecards — horizontal pager */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>SCORECARDS</Text>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={e => setCardPage(Math.round(e.nativeEvent.contentOffset.x / screenWidth))}
+            style={{ marginHorizontal: -spacing.md }}
+          >
+            {[
+              ...match.home_player_ids.map(pid => ({ pid, color: homeColor })),
+              ...match.away_player_ids.map(pid => ({ pid, color: awayColor })),
+            ].map(({ pid, color }) => {
               const name = players.find(p => p.id === pid)?.display_name?.split(' ')[0] ?? '—';
               const gross = (hole: number) => grossForHole(pid, hole);
               const pts   = (hole: number) => stablefordForHole(pid, hole);
@@ -333,7 +343,7 @@ export default function MatchDetailScreen() {
               const totPts     = frontPts + backPts;
               const hasScores  = courseHoles.some(h => gross(h.hole_number) !== null);
 
-              const SL = 32; const SC = 26; const ST = 30; // label / cell / total widths
+              const SL = 32; const SC = 26; const ST = 30;
 
               const ScCell = ({ val, par: p }: { val: number | null; par: number | null }) => {
                 const diff = val !== null && p !== null ? val - p : null;
@@ -351,37 +361,32 @@ export default function MatchDetailScreen() {
 
               const renderHalf = (holes: CourseHole[], outLabel: string, showTot: boolean) => (
                 <View>
-                  {/* HOLE row */}
                   <View style={styles.scRow}>
                     <Text style={[styles.scLabel, { width: SL }]}>HOLE</Text>
                     {holes.map(h => <Text key={h.hole_number} style={[styles.scHoleNum, { width: SC }]}>{h.hole_number}</Text>)}
                     <Text style={[styles.scTotLabel, { width: ST }]}>{outLabel}</Text>
                     {showTot && <Text style={[styles.scTotLabel, { width: ST }]}>TOT</Text>}
                   </View>
-                  {/* SI row */}
                   <View style={styles.scRow}>
                     <Text style={[styles.scLabel, { width: SL }]}>SI</Text>
                     {holes.map(h => <Text key={h.hole_number} style={[styles.scMuted, { width: SC }]}>{h.stroke_index}</Text>)}
                     <Text style={{ width: ST }} />
                     {showTot && <Text style={{ width: ST }} />}
                   </View>
-                  {/* PAR row */}
                   <View style={[styles.scRow, styles.scParRow]}>
                     <Text style={[styles.scLabel, { width: SL }]}>PAR</Text>
                     {holes.map(h => <Text key={h.hole_number} style={[styles.scParText, { width: SC }]}>{h.par}</Text>)}
                     <Text style={[styles.scTot, { width: ST }]}>{holes.reduce((s, h) => s + h.par, 0)}</Text>
                     {showTot && <Text style={[styles.scTot, { width: ST }]}>{frontPar + backPar}</Text>}
                   </View>
-                  {/* SCORE row */}
                   <View style={styles.scRow}>
-                    <Text style={[styles.scLabel, styles.scPlayerLabel, { width: SL, color: team.color }]} numberOfLines={1}>{name}</Text>
+                    <Text style={[styles.scLabel, styles.scPlayerLabel, { width: SL, color }]} numberOfLines={1}>{name}</Text>
                     {holes.map(h => <ScCell key={h.hole_number} val={gross(h.hole_number)} par={h.par} />)}
                     <Text style={[styles.scTot, styles.scTotBold, { width: ST }]}>
                       {holes.reduce((s, h) => s + (gross(h.hole_number) ?? 0), 0) || '·'}
                     </Text>
                     {showTot && <Text style={[styles.scTot, styles.scTotBold, { width: ST, color: colors.gold }]}>{totGross || '·'}</Text>}
                   </View>
-                  {/* PTS row */}
                   <View style={[styles.scRow, styles.scPtsRow]}>
                     <Text style={[styles.scLabel, { width: SL }]}>PTS</Text>
                     {holes.map(h => <Text key={h.hole_number} style={[styles.scPtsCell, { width: SC }]}>{pts(h.hole_number) ?? '·'}</Text>)}
@@ -394,21 +399,28 @@ export default function MatchDetailScreen() {
               );
 
               return (
-                <View key={pid} style={styles.scorecardCard}>
-                  <View style={styles.scorecardHeader}>
-                    <View style={[styles.scorecardDot, { backgroundColor: team.color }]} />
-                    <Text style={styles.scorecardName}>{name}</Text>
-                    {hasScores && <Text style={styles.scorecardTotal}>{totGross}</Text>}
-                    {hasScores && totPts > 0 && <Text style={styles.scorecardStableford}>{totPts} pts</Text>}
+                <View key={pid} style={{ width: screenWidth, paddingHorizontal: spacing.md }}>
+                  <View style={styles.scorecardCard}>
+                    <View style={styles.scorecardHeader}>
+                      <View style={[styles.scorecardDot, { backgroundColor: color }]} />
+                      <Text style={styles.scorecardName}>{name}</Text>
+                      {hasScores && <Text style={styles.scorecardTotal}>{totGross}</Text>}
+                      {hasScores && totPts > 0 && <Text style={styles.scorecardStableford}>{totPts} pts</Text>}
+                    </View>
+                    {renderHalf(front, 'OUT', false)}
+                    <View style={styles.scDivider} />
+                    {renderHalf(back, 'IN', true)}
                   </View>
-                  {renderHalf(front, 'OUT', false)}
-                  <View style={styles.scDivider} />
-                  {renderHalf(back, 'IN', true)}
                 </View>
               );
             })}
+          </ScrollView>
+          <View style={styles.cardPageDots}>
+            {[...match.home_player_ids, ...match.away_player_ids].map((_, i) => (
+              <View key={i} style={[styles.cardPageDot, cardPage === i && styles.cardPageDotActive]} />
+            ))}
           </View>
-        ))}
+        </View>
 
         {/* Delete game */}
         <TouchableOpacity style={styles.deleteBtn} onPress={deleteMatch} activeOpacity={0.7}>
@@ -473,6 +485,9 @@ const styles = StyleSheet.create({
   tagGold: { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
   tagText: { fontSize: fonts.xs, fontWeight: '600', color: colors.textMuted },
   tagTextGold: { color: colors.gold },
+  cardPageDots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingVertical: spacing.sm },
+  cardPageDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border },
+  cardPageDotActive: { backgroundColor: colors.gold, borderColor: colors.gold, width: 18 },
   deleteBtn: { alignItems: 'center', paddingVertical: spacing.lg, marginTop: spacing.lg },
   deleteBtnText: { fontSize: fonts.sm, fontWeight: '600', color: colors.live, letterSpacing: 0.5 },
   section: { marginBottom: spacing.lg },

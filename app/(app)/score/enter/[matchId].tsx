@@ -734,9 +734,19 @@ export default function EnterScoresScreen() {
 
               <View style={styles.holeCardDivider} />
 
-              {/* Right: mini leaderboard */}
+              {/* Right: mini leaderboard — sorted best score first */}
               <View style={styles.holeCardRight}>
-                {allPlayerIds.map(id => {
+                {[...allPlayerIds].sort((a, b) => {
+                  const aVal = playerTotals[a] ?? 0;
+                  const bVal = playerTotals[b] ?? 0;
+                  if (match.round_format === 'medal') {
+                    if (aVal === 0 && bVal === 0) return 0;
+                    if (aVal === 0) return 1;
+                    if (bVal === 0) return -1;
+                    return aVal - bVal;
+                  }
+                  return bVal - aVal;
+                }).map(id => {
                   const isHome = match.home_player_ids.includes(id);
                   const teamColor = isHome ? homeColor : awayColor;
                   const avatar = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
