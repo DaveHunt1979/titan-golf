@@ -642,6 +642,14 @@ export default function EnterScoresScreen() {
   const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
   const label = isStrokePlay ? '' : matchLabel(match.status, match.winner, match.result_str, holesStr);
   const homeColor = match.home_team?.accent_color ?? colors.gold;
+
+  const sortedLeaders = [...allPlayerIds].sort((a, b) => (playerTotals[b] ?? 0) - (playerTotals[a] ?? 0));
+  const leaderId = sortedLeaders[0];
+  const leaderPts = leaderId ? (playerTotals[leaderId] ?? 0) : 0;
+  const leaderName = leaderId ? (playerNames[leaderId] ?? '').split(' ')[0] : null;
+  const leaderStatusText = leaderPts > 0
+    ? `${leaderName} leads · ${leaderPts}pts`
+    : null;
   const awayColor = match.away_team?.accent_color ?? colors.textMuted;
   const homeLabel = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const awayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
@@ -688,8 +696,8 @@ export default function EnterScoresScreen() {
         ))}
       </View>
 
-      {!isStrokePlay && (
-        <Text style={styles.liveStatus}>{label}</Text>
+      {leaderStatusText && (
+        <Text style={styles.liveStatus}>{leaderStatusText}</Text>
       )}
 
       {!isComplete ? (
@@ -736,41 +744,49 @@ export default function EnterScoresScreen() {
 
               {/* Right: mini leaderboard — sorted best score first */}
               <View style={styles.holeCardRight}>
-                {[...allPlayerIds].sort((a, b) => {
-                  const aVal = playerTotals[a] ?? 0;
-                  const bVal = playerTotals[b] ?? 0;
-                  if (match.round_format === 'medal') {
-                    if (aVal === 0 && bVal === 0) return 0;
-                    if (aVal === 0) return 1;
-                    if (bVal === 0) return -1;
-                    return aVal - bVal;
-                  }
-                  return bVal - aVal;
-                }).map(id => {
-                  const isHome = match.home_player_ids.includes(id);
-                  const teamColor = isHome ? homeColor : awayColor;
-                  const avatar = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
-                  const firstName = (playerNames[id] ?? '?').split(' ')[0];
-                  const total = playerTotals[id] ?? 0;
-                  const scoreStr = total > 0
-                    ? (match.round_format === 'stableford' ? `${total}pts` : `${total}`)
-                    : '—';
-                  return (
-                    <View key={id} style={styles.lbRow}>
-                      <View style={[styles.lbAvatarWrap, { borderColor: teamColor }]}>
-                        {avatar ? (
-                          <Image source={typeof avatar === 'string' ? { uri: avatar } : avatar} style={styles.lbAvatar} />
-                        ) : (
-                          <View style={[styles.lbAvatar, styles.lbAvatarFallback]}>
-                            <Text style={styles.lbAvatarInitial}>{firstName[0]}</Text>
-                          </View>
-                        )}
+                {(() => {
+                  const sorted = [...allPlayerIds].sort((a, b) => {
+                    const aVal = playerTotals[a] ?? 0;
+                    const bVal = playerTotals[b] ?? 0;
+                    if (match.round_format === 'medal') {
+                      if (aVal === 0 && bVal === 0) return 0;
+                      if (aVal === 0) return 1;
+                      if (bVal === 0) return -1;
+                      return aVal - bVal;
+                    }
+                    return bVal - aVal;
+                  });
+                  const topScore = playerTotals[sorted[0]] ?? 0;
+                  return sorted.map((id, rank) => {
+                    const isHome = match.home_player_ids.includes(id);
+                    const teamColor = isHome ? homeColor : awayColor;
+                    const avatar = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
+                    const firstName = (playerNames[id] ?? '?').split(' ')[0];
+                    const total = playerTotals[id] ?? 0;
+                    const scoreStr = total > 0
+                      ? (match.round_format === 'stableford' ? `${total}pts` : `${total}`)
+                      : '—';
+                    const isLeader = rank === 0 && topScore > 0;
+                    return (
+                      <View key={id} style={styles.lbRow}>
+                        <View style={[styles.lbAvatarWrap, { borderColor: teamColor }]}>
+                          {avatar ? (
+                            <Image source={typeof avatar === 'string' ? { uri: avatar } : avatar} style={styles.lbAvatar} />
+                          ) : (
+                            <View style={[styles.lbAvatar, styles.lbAvatarFallback]}>
+                              <Text style={styles.lbAvatarInitial}>{firstName[0]}</Text>
+                            </View>
+                          )}
+                          {isLeader && (
+                            <Text style={styles.lbCrown}>👑</Text>
+                          )}
+                        </View>
+                        <Text style={styles.lbName} numberOfLines={1}>{firstName}</Text>
+                        <Text style={[styles.lbScore, { color: teamColor }]}>{scoreStr}</Text>
                       </View>
-                      <Text style={styles.lbName} numberOfLines={1}>{firstName}</Text>
-                      <Text style={[styles.lbScore, { color: teamColor }]}>{scoreStr}</Text>
-                    </View>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </View>
 
             </View>
@@ -1468,6 +1484,7 @@ const styles = StyleSheet.create({
   lbAvatarInitial: { fontSize: 10, fontWeight: '700', color: colors.white },
   lbName: { flex: 1, fontSize: fonts.xs, color: colors.textSecondary, fontWeight: '600' },
   lbScore: { fontSize: fonts.sm, fontWeight: '800' },
+  lbCrown: { position: 'absolute', top: -8, right: -8, fontSize: 10 },
 
   shotRow: { alignItems: 'center', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, width: '100%', paddingHorizontal: spacing.lg },
   shotLabel: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 1, marginBottom: spacing.xs },

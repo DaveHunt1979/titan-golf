@@ -122,7 +122,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="index"          options={{ title: 'Home',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><HomeIcon        color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="score/index"    options={{ title: 'Score',    tabBarIcon: ({ focused }) => <TabIcon focused={focused}><ScoreIcon       color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="tour/index"     options={{ title: 'Tour',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><TourIcon        color={ic(focused)} /></TabIcon> }} />
-        <Tabs.Screen name="leaderboard/index" options={{ title: 'Standings', tabBarIcon: ({ focused }) => <TabIcon focused={focused}><LeaderboardIcon color={ic(focused)} /></TabIcon> }} />
+        <Tabs.Screen name="leaderboard/index" options={{ href: null }} />
         <Tabs.Screen name="watch/index"    options={{ title: 'Live',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><WatchIcon       color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="chat/index"     options={{ href: null }} />
         <Tabs.Screen name="feed/index"     options={{ title: 'Feed',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><FeedIcon        color={ic(focused)} /></TabIcon> }} />

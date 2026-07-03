@@ -174,6 +174,8 @@ export default function BuildTournamentScreen() {
         : {}),
     };
 
+    const pin = String(1000 + Math.floor(Math.random() * 9000));
+
     const { data: comp, error: compErr } = await supabase
       .from('competitions')
       .insert({
@@ -184,6 +186,7 @@ export default function BuildTournamentScreen() {
         status: 'draft',
         settings,
         include_in_kronos: includeInKronos,
+        pin,
       })
       .select()
       .single();
@@ -210,7 +213,7 @@ export default function BuildTournamentScreen() {
 
     Alert.alert(
       'Tournament Created',
-      `${name.trim()} is ready. Add players and generate the draw from the admin screen.`,
+      `${name.trim()} is ready!\n\nTournament PIN: ${pin}\n\nShare this PIN with players so they can unlock the Tour tab. You can also find it in Admin at any time.`,
       [{ text: 'View Tour', onPress: () => router.replace('/(app)/tour' as any) }],
     );
   }

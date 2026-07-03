@@ -165,6 +165,19 @@ export default function MatchDetailScreen() {
   const homeColor = match?.home_team?.accent_color ?? colors.textMuted;
   const awayColor = match?.away_team?.accent_color ?? colors.textMuted;
 
+  const isStrokePlay = match?.round_format === 'stableford' || match?.round_format === 'medal';
+  const allPlayerIds = match ? [...match.home_player_ids, ...match.away_player_ids] : [];
+  const playerTotals = allPlayerIds.reduce((acc, pid) => {
+    const pts = holeResults.filter(h => h.player_id === pid).reduce((s, h) => s + (h.stableford_pts ?? 0), 0);
+    acc[pid] = pts;
+    return acc;
+  }, {} as Record<string, number>);
+  const sortedByPts = [...allPlayerIds].sort((a, b) => (playerTotals[b] ?? 0) - (playerTotals[a] ?? 0));
+  const spLeaderId = sortedByPts[0];
+  const spLeaderPts = spLeaderId ? (playerTotals[spLeaderId] ?? 0) : 0;
+  const spLeaderName = spLeaderId ? playerName(spLeaderId) : null;
+  const spLabel = isStrokePlay && spLeaderPts > 0 ? `${spLeaderName} leads · ${spLeaderPts}pts` : isStrokePlay ? label : label;
+
   if (loading) return (
     <View style={styles.centered}>
       <ActivityIndicator color={colors.gold} size="large" />
@@ -228,37 +241,30 @@ export default function MatchDetailScreen() {
             {/* Home side */}
             <View style={styles.teamBlock}>
               {renderSideVisual(match.home_player_ids, match.home_team, match.home_team_id, homeColor)}
-              <Text style={[styles.teamLabel, winner === 'home' && styles.teamWinner]} numberOfLines={1}>
-                {match.home_team?.name ?? match.home_player_ids.map(playerName).join(' & ')}
-              </Text>
-              {match.home_team && (
-                <Text style={styles.playerNames}>{match.home_player_ids.map(playerName).join(' & ')}</Text>
-              )}
             </View>
 
             {/* Status + arrow */}
             <View style={styles.statusBlock}>
-              {status === 'in_progress' && <View style={styles.liveDot} />}
-              {currentlyAhead === 'home' && <Text style={[styles.winArrow, { color: homeColor }]}>◀</Text>}
-              <Text style={[styles.statusLabel,
-                status === 'in_progress' && styles.statusLive,
-                status === 'complete' && styles.statusComplete,
-              ]}>{label}</Text>
-              {currentlyAhead === 'away' && <Text style={[styles.winArrow, { color: awayColor }]}>▶</Text>}
+              {!isStrokePlay && status === 'in_progress' && <View style={styles.liveDot} />}
+              {!isStrokePlay && currentlyAhead === 'home' && <Text style={[styles.winArrow, { color: homeColor }]}>◀</Text>}
+              {!isStrokePlay && (
+                <Text style={[styles.statusLabel,
+                  status === 'in_progress' && styles.statusLive,
+                  status === 'complete' && styles.statusComplete,
+                ]}>{label}</Text>
+              )}
+              {!isStrokePlay && currentlyAhead === 'away' && <Text style={[styles.winArrow, { color: awayColor }]}>▶</Text>}
             </View>
 
             {/* Away side */}
             <View style={[styles.teamBlock, styles.teamBlockRight]}>
               {renderSideVisual(match.away_player_ids, match.away_team, match.away_team_id, awayColor)}
-              <Text style={[styles.teamLabel, winner === 'away' && styles.teamWinner]} numberOfLines={1}>
-                {match.away_team?.name ?? match.away_player_ids.map(playerName).join(' & ')}
-              </Text>
-              {match.away_team && (
-                <Text style={styles.playerNames}>{match.away_player_ids.map(playerName).join(' & ')}</Text>
-              )}
             </View>
 
           </View>
+          {isStrokePlay && spLeaderPts > 0 && (
+            <Text style={styles.spLeaderRow}>{spLeaderName} leads · {spLeaderPts}pts</Text>
+          )}
         </View>
 
         {/* Side games + settings */}
@@ -301,11 +307,33 @@ export default function MatchDetailScreen() {
             {/* Result row */}
             <View style={styles.holeRow}>
               <Text style={[styles.holeCell, styles.holeLabelCell]}>RESULT</Text>
-              {holeChars.map((c, i) => (
-                <View key={i} style={[styles.holeCell, styles.resultCell, c !== '.' && { backgroundColor: HOLE_COLORS[c] ?? 'transparent' }]}>
-                  <Text style={styles.resultChar}>{c === '.' ? '' : c.toUpperCase()}</Text>
-                </View>
-              ))}
+              {holeChars.map((c, i) => {
+                const holeNum = i + 1;
+                if (c === 'd') {
+                  // Stableford — show hole winner by pts
+                  const allIds = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
+                  const entries = allIds.map(pid => ({
+                    pid,
+                    pts: holeResults.find(h => h.player_id === pid && h.hole_number === holeNum)?.stableford_pts ?? 0,
+                    isHome: match.home_player_ids.includes(pid),
+                  }));
+                  const maxPts = Math.max(...entries.map(e => e.pts));
+                  const winners = entries.filter(e => e.pts === maxPts && maxPts > 0);
+                  const tied = winners.length > 1;
+                  const cellColor = tied ? colors.grey : winners[0]?.isHome ? homeColor : awayColor;
+                  const initial = tied ? '½' : playerName(winners[0]?.pid ?? '')[0] ?? '?';
+                  return (
+                    <View key={i} style={[styles.holeCell, styles.resultCell, maxPts > 0 && { backgroundColor: cellColor + '55' }]}>
+                      <Text style={[styles.resultChar, { color: maxPts > 0 ? cellColor : colors.textMuted }]}>{maxPts > 0 ? initial : ''}</Text>
+                    </View>
+                  );
+                }
+                return (
+                  <View key={i} style={[styles.holeCell, styles.resultCell, c !== '.' && { backgroundColor: HOLE_COLORS[c] ?? 'transparent' }]}>
+                    <Text style={styles.resultChar}>{c === '.' ? '' : c.toUpperCase()}</Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
           </ScrollView>
@@ -453,10 +481,10 @@ const styles = StyleSheet.create({
   matchCard: {
     backgroundColor: colors.card,
     borderRadius: radius.lg,
-    padding: spacing.lg,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   teamsRow: { flexDirection: 'row', alignItems: 'center' },
   teamBlock: { flex: 1 },
@@ -477,6 +505,8 @@ const styles = StyleSheet.create({
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.live, marginBottom: 4 },
   winArrow: { fontSize: fonts.lg, fontWeight: '900', marginVertical: 2 },
   statusLabel: { fontSize: fonts.xl, fontWeight: '900', color: colors.textSecondary, letterSpacing: 0.5 },
+  statusLabelSmall: { fontSize: fonts.xs, fontWeight: '700', letterSpacing: 0.5 },
+  spLeaderRow: { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, textAlign: 'right', paddingHorizontal: spacing.sm, paddingTop: spacing.xs, letterSpacing: 0.5 },
   statusLive: { color: colors.live },
   statusComplete: { color: colors.gold },
 

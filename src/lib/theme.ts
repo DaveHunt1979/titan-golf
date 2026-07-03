@@ -14,7 +14,7 @@ export const colors = {
   green:        '#4ade80',   // home win / birdie
   red:          '#f87171',   // away win
   grey:         '#6b7280',   // halved
-  live:         '#ef4444',   // live indicator dot
+  live:         '#D4AF37',   // live indicator dot
 };
 
 export const fonts = {

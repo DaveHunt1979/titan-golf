@@ -40,6 +40,7 @@ export interface Competition {
   settings: Json;
   info_sections: Json[];
   include_in_kronos: boolean;
+  pin: string | null;
 }
 
 export interface CompetitionDay {

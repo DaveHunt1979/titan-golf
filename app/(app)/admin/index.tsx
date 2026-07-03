@@ -79,6 +79,8 @@ export default function SocietyAdminScreen() {
   const [societyName, setSocietyName] = useState('');
   const [instagramUrl, setInstagramUrl] = useState('');
   const [joinPin, setJoinPin]           = useState('');
+  const [activeTournamentName, setActiveTournamentName] = useState('');
+  const [activeTournamentPin, setActiveTournamentPin]   = useState('');
   const [loading, setLoading]           = useState(true);
   const [saving, setSaving]             = useState(false);
   const [deleting, setDeleting]         = useState(false);
@@ -88,15 +90,18 @@ export default function SocietyAdminScreen() {
     if (!societyId) { setLoading(false); return; }
     (async () => {
       try {
-        const { data } = await supabase
-          .from('societies')
-          .select('name, instagram_url, join_pin')
-          .eq('id', societyId)
-          .single();
+        const [{ data }, { data: activeComp }] = await Promise.all([
+          supabase.from('societies').select('name, instagram_url, join_pin').eq('id', societyId).single(),
+          supabase.from('competitions').select('name, pin').eq('status', 'active').limit(1).single(),
+        ]);
         if (data) {
           setSocietyName((data as any).name ?? '');
           setInstagramUrl((data as any).instagram_url ?? '');
           setJoinPin((data as any).join_pin ?? '');
+        }
+        if (activeComp) {
+          setActiveTournamentName((activeComp as any).name ?? '');
+          setActiveTournamentPin((activeComp as any).pin ?? '');
         }
       } finally {
         setLoading(false);
@@ -154,6 +159,16 @@ export default function SocietyAdminScreen() {
     } catch {
       Clipboard.setString(joinPin);
       Alert.alert('Copied', 'PIN copied to clipboard.');
+    }
+  }
+
+  async function shareTournamentPin() {
+    const formatted = activeTournamentPin.split('').join(' ');
+    try {
+      await Share.share({ message: `Join ${activeTournamentName} on Titan Golf — your tournament PIN is: ${formatted}` });
+    } catch {
+      Clipboard.setString(activeTournamentPin);
+      Alert.alert('Copied', 'Tournament PIN copied to clipboard.');
     }
   }
 
@@ -314,6 +329,31 @@ export default function SocietyAdminScreen() {
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>ACTIVE TOURNAMENT</Text>
+          <View style={styles.card}>
+            {activeTournamentName ? (
+              <>
+                <Text style={styles.cardLabel}>{activeTournamentName}</Text>
+                <Text style={[styles.cardLabel, { marginTop: spacing.sm }]}>Tournament PIN</Text>
+                {activeTournamentPin ? (
+                  <>
+                    <Text style={styles.pinValue}>{activeTournamentPin.split('').join('  ')}</Text>
+                    <Text style={styles.hint}>Share this PIN so players can unlock the Tour tab</Text>
+                    <TouchableOpacity style={styles.pinShareBtn} onPress={shareTournamentPin} activeOpacity={0.8}>
+                      <Text style={styles.pinShareBtnText}>Share Tournament PIN</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <Text style={[styles.hint, { marginTop: spacing.xs }]}>No PIN — run add_competition_pin.sql migration</Text>
+                )}
+              </>
+            ) : (
+              <Text style={styles.hint}>No active tournament running</Text>
+            )}
+          </View>
         </View>
 
         <View style={styles.section}>
