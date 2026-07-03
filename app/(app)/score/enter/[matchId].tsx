@@ -236,7 +236,9 @@ export default function EnterScoresScreen() {
     }
 
     if (newStatus === 'complete') {
-      const winTeam = winner === 'home' ? match.home_team?.name : winner === 'away' ? match.away_team?.name : null;
+      const homeDisplayName = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+      const awayDisplayName = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+      const winTeam = winner === 'home' ? homeDisplayName : winner === 'away' ? awayDisplayName : null;
       const msg = winner === 'half' ? 'Match Halved!' : `${winTeam} win ${result_str}!`;
       if (match.competition_id) {
         sendMatchNotification(match.competition_id, '🏆 Match Complete', msg, [...match.home_player_ids, ...match.away_player_ids]);
@@ -524,7 +526,9 @@ export default function EnterScoresScreen() {
     }
 
     if (newStatus === 'complete') {
-      const winTeam = winner === 'home' ? match.home_team?.name : winner === 'away' ? match.away_team?.name : null;
+      const homeDisplayName = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+      const awayDisplayName = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+      const winTeam = winner === 'home' ? homeDisplayName : winner === 'away' ? awayDisplayName : null;
       const msg = winner === 'half' ? 'Match Halved!' : `${winTeam} win ${result_str}!`;
       if (match.competition_id) {
         const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
@@ -599,6 +603,8 @@ export default function EnterScoresScreen() {
     : matchLabel(match.status, match.winner, match.result_str, holesStr);
   const homeColor = match.home_team?.accent_color ?? colors.gold;
   const awayColor = match.away_team?.accent_color ?? colors.textMuted;
+  const homeLabel = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+  const awayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const HOLE_BG: Record<string, string> = { h: homeColor, a: awayColor, f: colors.grey };
 
   return (
@@ -620,13 +626,13 @@ export default function EnterScoresScreen() {
       {/* Score bar */}
       <View style={styles.scoreBar}>
         <Text style={[styles.scoreTeam, { color: homeColor }]} numberOfLines={1}>
-          {match.home_team?.name}
+          {homeLabel}
         </Text>
         <View style={styles.scoreLabelBox}>
           <Text style={styles.scoreLabel}>{label}</Text>
         </View>
         <Text style={[styles.scoreTeam, { color: awayColor, textAlign: 'right' }]} numberOfLines={1}>
-          {match.away_team?.name}
+          {awayLabel}
         </Text>
       </View>
 
@@ -733,38 +739,6 @@ export default function EnterScoresScreen() {
             </View>
           </View>
 
-          {/* Voice caddie */}
-          {courseHole && match && (
-            <CaddieButton
-              context={{
-                playerName: myPlayerId ? (playerNames[myPlayerId] ?? 'Player') : 'Player',
-                holeNumber: currentHole,
-                par: courseHole.par,
-                yardage: courseHole.yardage,
-                strokeIndex: courseHole.stroke_index,
-                format: match.round_format,
-                holesCompleted: holeChars.filter(c => c !== '.').length,
-                runningScore: (() => {
-                  const up = holeChars.reduce((n, c) => n + (c === 'h' ? 1 : c === 'a' ? -1 : 0), 0);
-                  const left = holeChars.filter(c => c === '.').length;
-                  if (up === 0) return 'All Square';
-                  return `${Math.abs(up)}UP with ${left} to play`;
-                })(),
-              }}
-              onAction={async (result: VoiceCommandResult) => {
-                if (result.action?.type === 'log_shot' && result.action.club && myPlayerId) {
-                  await supabase.from('shots').insert({
-                    match_id: match.id,
-                    player_id: myPlayerId,
-                    hole_number: currentHole,
-                    club_short: result.action.club,
-                    distance_yards: result.action.distance ?? null,
-                  });
-                }
-              }}
-            />
-          )}
-
           {/* Side game banner */}
           {currentSideGame && (
             <View style={styles.sideGameBanner}>
@@ -798,6 +772,38 @@ export default function EnterScoresScreen() {
               <Text style={styles.undoText}>Undo Hole {lastPlayedHole}</Text>
             </TouchableOpacity>
           )}
+
+          {/* Voice caddie — below primary actions so it's clearly a secondary tool */}
+          {courseHole && match && (
+            <CaddieButton
+              context={{
+                playerName: myPlayerId ? (playerNames[myPlayerId] ?? 'Player') : 'Player',
+                holeNumber: currentHole,
+                par: courseHole.par,
+                yardage: courseHole.yardage,
+                strokeIndex: courseHole.stroke_index,
+                format: match.round_format,
+                holesCompleted: holeChars.filter(c => c !== '.').length,
+                runningScore: (() => {
+                  const up = holeChars.reduce((n, c) => n + (c === 'h' ? 1 : c === 'a' ? -1 : 0), 0);
+                  const left = holeChars.filter(c => c === '.').length;
+                  if (up === 0) return 'All Square';
+                  return `${Math.abs(up)}UP with ${left} to play`;
+                })(),
+              }}
+              onAction={async (result: VoiceCommandResult) => {
+                if (result.action?.type === 'log_shot' && result.action.club && myPlayerId) {
+                  await supabase.from('shots').insert({
+                    match_id: match.id,
+                    player_id: myPlayerId,
+                    hole_number: currentHole,
+                    club_short: result.action.club,
+                    distance_yards: result.action.distance ?? null,
+                  });
+                }
+              }}
+            />
+          )}
         </>
       ) : (
         <View style={styles.completeCard}>
@@ -807,7 +813,7 @@ export default function EnterScoresScreen() {
           <Text style={styles.completeWinner}>
             {match.winner === 'half'
               ? 'Match Halved'
-              : `${match.winner === 'home' ? match.home_team?.name : match.away_team?.name} Win`}
+              : `${match.winner === 'home' ? homeLabel : awayLabel} Win`}
           </Text>
           {lastPlayedHole > 0 && (
             <TouchableOpacity style={[styles.undoBtn, { marginTop: spacing.xl }]} onPress={undoHole} disabled={saving}>

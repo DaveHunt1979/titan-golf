@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity,
-  KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Share, Clipboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -59,6 +59,12 @@ export default function SocietyAdminScreen() {
     },
     saveButtonText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 0.5 },
     pinValue: { fontSize: 28, fontWeight: '800', color: colors.gold, letterSpacing: 6, marginTop: 4 },
+    pinShareBtn: {
+      marginTop: spacing.sm, backgroundColor: colors.goldDim,
+      borderRadius: radius.sm, paddingVertical: spacing.sm,
+      alignItems: 'center', borderWidth: 1, borderColor: colors.goldBorder,
+    },
+    pinShareBtnText: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
     deleteCard: {
       backgroundColor: 'rgba(248,113,113,0.08)', borderRadius: radius.md,
       borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)',
@@ -129,6 +135,26 @@ export default function SocietyAdminScreen() {
         },
       ],
     );
+  }
+
+  async function generatePin() {
+    const newPin = String(Math.floor(100000 + Math.random() * 900000));
+    const { error } = await supabase
+      .from('societies')
+      .update({ join_pin: newPin } as any)
+      .eq('id', societyId);
+    if (error) { Alert.alert('Error', error.message); return; }
+    setJoinPin(newPin);
+  }
+
+  async function sharePin() {
+    const formatted = `${joinPin.slice(0, 3)} ${joinPin.slice(3)}`;
+    try {
+      await Share.share({ message: `Join ${societyName} on Titan Golf — your PIN is: ${formatted}` });
+    } catch {
+      Clipboard.setString(joinPin);
+      Alert.alert('Copied', 'PIN copied to clipboard.');
+    }
   }
 
   async function save() {
@@ -208,13 +234,25 @@ export default function SocietyAdminScreen() {
             <Text style={styles.cardLabel}>Name</Text>
             <Text style={styles.cardValue}>{societyName}</Text>
           </View>
-          {joinPin ? (
-            <View style={[styles.card, { marginTop: spacing.sm }]}>
-              <Text style={styles.cardLabel}>Player Join PIN</Text>
-              <Text style={styles.pinValue}>{joinPin.slice(0, 3)} {joinPin.slice(3)}</Text>
-              <Text style={styles.hint}>Share this PIN so players can join your society</Text>
-            </View>
-          ) : null}
+          <View style={[styles.card, { marginTop: spacing.sm }]}>
+            <Text style={styles.cardLabel}>Player Join PIN</Text>
+            {joinPin ? (
+              <>
+                <Text style={styles.pinValue}>{joinPin.slice(0, 3)} {joinPin.slice(3)}</Text>
+                <Text style={styles.hint}>Share this PIN so new players can join your society</Text>
+                <TouchableOpacity style={styles.pinShareBtn} onPress={sharePin} activeOpacity={0.8}>
+                  <Text style={styles.pinShareBtnText}>Share PIN</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.hint, { marginTop: spacing.xs }]}>No join PIN generated yet</Text>
+                <TouchableOpacity style={styles.pinShareBtn} onPress={generatePin} activeOpacity={0.8}>
+                  <Text style={styles.pinShareBtnText}>Generate PIN</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
 
         <View style={styles.section}>

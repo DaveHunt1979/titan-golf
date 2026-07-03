@@ -22,10 +22,12 @@ interface Me { id: string; display_name: string; avatar_url: string | null; }
 export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [me, setMe] = useState<Me | null>(null);
+  const [societyId, setSocietyId] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const flatRef = useRef<FlatList>(null);
+  const subRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // Mark all messages as read whenever this screen is visible
   useFocusEffect(
@@ -44,42 +46,57 @@ export default function ChatScreen() {
         .select('id, display_name, avatar_url')
         .eq('auth_uid', user.id)
         .maybeSingle();
-      if (player) setMe(player as Me);
+      if (!player) { setLoading(false); return; }
+      setMe(player as Me);
+
+      const { data: membership } = await supabase
+        .from('society_members')
+        .select('society_id')
+        .eq('player_id', player.id)
+        .maybeSingle();
+      const sid = membership?.society_id ?? null;
+      setSocietyId(sid);
+
+      if (!sid) { setLoading(false); return; }
 
       const { data } = await supabase
         .from('messages')
         .select('*, player:player_id(display_name, avatar_url)')
+        .eq('society_id', sid)
         .order('created_at', { ascending: false })
         .limit(60);
       if (data) setMessages(data as unknown as Message[]);
       setLoading(false);
+
+      // Subscribe to this society's chat only — set up here so sid is known
+      subRef.current = supabase
+        .channel(`chat-live-${sid}`)
+        .on('postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages', filter: `society_id=eq.${sid}` },
+          async (payload) => {
+            const { data: msg } = await supabase
+              .from('messages')
+              .select('*, player:player_id(display_name, avatar_url)')
+              .eq('id', payload.new.id)
+              .single();
+            if (msg) setMessages(prev => [msg as unknown as Message, ...prev]);
+          })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, (payload) => {
+          setMessages(prev => prev.filter(m => m.id !== payload.old.id));
+        })
+        .subscribe();
     }
     init();
 
-    const sub = supabase
-      .channel('chat-live')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
-        const { data } = await supabase
-          .from('messages')
-          .select('*, player:player_id(display_name, avatar_url)')
-          .eq('id', payload.new.id)
-          .single();
-        if (data) setMessages(prev => [data as unknown as Message, ...prev]);
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, (payload) => {
-        setMessages(prev => prev.filter(m => m.id !== payload.old.id));
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(sub); };
+    return () => { if (subRef.current) supabase.removeChannel(subRef.current); };
   }, []);
 
   async function sendMessage() {
-    if (!text.trim() || !me || sending) return;
+    if (!text.trim() || !me || !societyId || sending) return;
     const content = text.trim();
     setText('');
     setSending(true);
-    await supabase.from('messages').insert({ player_id: me.id, content });
+    await supabase.from('messages').insert({ player_id: me.id, content, society_id: societyId });
     setSending(false);
   }
 

@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|react-native-webview\\|web/src\" | head -20",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|react-native-webview\\|web/src\" | grep -v \"^$\" | head -40",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -238,14 +238,26 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 24,
-      "lastAccessed": 1782989470754,
+      "accessCount": 44,
+      "lastAccessed": 1783056901500,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/chat/index.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1783056968162,
       "type": "file"
     },
     {
       "path": "assets/titan_golf_grip_cap.scad",
       "accessCount": 6,
       "lastAccessed": 1782972837028,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/index.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1783057240221,
       "type": "file"
     },
     {
@@ -261,21 +273,33 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/profile/bag.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1783057160948,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf/WatchBridge.swift",
+      "accessCount": 3,
+      "lastAccessed": 1783000691085,
+      "type": "file"
+    },
+    {
       "path": "web/src/app/dashboard/page.tsx",
       "accessCount": 2,
       "lastAccessed": 1782977918405,
       "type": "file"
     },
     {
-      "path": "ios/titangolf/WatchBridge.swift",
-      "accessCount": 2,
-      "lastAccessed": 1782982127138,
-      "type": "file"
-    },
-    {
       "path": "src/lib/caddie.ts",
       "accessCount": 2,
       "lastAccessed": 1782985790716,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf Watch App Watch App/WatchSessionManager.swift",
+      "accessCount": 2,
+      "lastAccessed": 1783000702742,
       "type": "file"
     },
     {
@@ -351,12 +375,6 @@
       "type": "file"
     },
     {
-      "path": "ios/titangolf Watch App Watch App/WatchSessionManager.swift",
-      "accessCount": 1,
-      "lastAccessed": 1782982057901,
-      "type": "file"
-    },
-    {
       "path": "ios/titangolf Watch App Watch App/ContentView.swift",
       "accessCount": 1,
       "lastAccessed": 1782982062953,
@@ -420,6 +438,36 @@
       "path": "src/components/CaddieButton.tsx",
       "accessCount": 1,
       "lastAccessed": 1782985824780,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/SocietyThemeContext.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1783056600063,
+      "type": "file"
+    },
+    {
+      "path": "supabase/add_society_chat.sql",
+      "accessCount": 1,
+      "lastAccessed": 1783056921708,
+      "type": "file"
+    },
+    {
+      "path": "supabase/add_club_brand.sql",
+      "accessCount": 1,
+      "lastAccessed": 1783057063453,
+      "type": "file"
+    },
+    {
+      "path": "app/(auth)/join.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1783057164251,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/pins.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1783057164814,
       "type": "file"
     }
   ],
