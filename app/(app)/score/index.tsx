@@ -277,16 +277,7 @@ function MatchCard({ match, playerNames, playerAvatars, styles, colors }: { matc
 
   return (
     <TouchableOpacity style={styles.card} onPress={() => {
-      const isSinglePlayer = match.away_player_ids.length === 0 && match.home_player_ids.length === 1;
-      const isGroupStroke = match.away_player_ids.length === 0 && match.home_player_ids.length > 1;
-      if (match.status === 'in_progress') {
-        if (isSinglePlayer) router.push(`/(app)/score/solo/${match.id}` as any);
-        else router.push(`/(app)/score/enter/${match.id}` as any);
-      } else {
-        if (isSinglePlayer) router.push(`/(app)/score/solo/${match.id}` as any);
-        else if (isGroupStroke) router.push(`/(app)/score/enter/${match.id}` as any);
-        else router.push(`/(app)/score/${match.id}` as any);
-      }
+      router.push(`/(app)/score/${match.id}` as any);
     }} activeOpacity={0.75}>
       <View style={styles.cardRow}>
         {/* Home side */}

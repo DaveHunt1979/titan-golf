@@ -194,6 +194,8 @@ export default function MatchDetailScreen() {
         <TouchableOpacity
           style={styles.enterScoresBtn}
           onPress={() => {
+            const isSolo = match.away_player_ids.length === 0 && match.home_player_ids.length === 1;
+            if (isSolo) { router.push(`/(app)/score/solo/${matchId}` as any); return; }
             const fmt = match?.round_format ?? '';
             const routes: Record<string, string> = {
               skins:               `/(app)/score/skins/${matchId}`,
@@ -275,6 +277,7 @@ export default function MatchDetailScreen() {
         {/* Hole-by-hole matchplay grid */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>HOLE BY HOLE</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.holeGrid}>
             {/* Header row */}
             <View style={styles.holeRow}>
@@ -302,6 +305,7 @@ export default function MatchDetailScreen() {
               ))}
             </View>
           </View>
+          </ScrollView>
         </View>
 
         {/* Player scorecards */}

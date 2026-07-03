@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -99,6 +99,7 @@ export default function EnterScoresScreen() {
   const [holeData, setHoleData] = useState<Record<string, Record<number, { gross: number | null; pts: number | null }>>>({});
   const [currentPage, setCurrentPage] = useState(0);
   const { width: screenWidth } = useWindowDimensions();
+  const pagerRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     async function load() {
@@ -182,6 +183,16 @@ export default function EnterScoresScreen() {
     });
     return () => { unsub(); clearMatchFromWatch(); };
   }, [match]);
+
+  // Auto-scroll to Front 9 scorecard if game is already in progress
+  useEffect(() => {
+    if (!match || match.holes_string === '..................') return;
+    const timer = setTimeout(() => {
+      pagerRef.current?.scrollTo({ x: screenWidth, animated: false });
+      setCurrentPage(1);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [match?.id, screenWidth]);
 
   // Load running totals per player whenever a hole is scored
   useEffect(() => {
@@ -685,6 +696,7 @@ export default function EnterScoresScreen() {
         <>
           {/* Horizontal page swiper — Page 0: hole, Page 1: Front 9, Page 2: Back 9 */}
           <ScrollView
+            ref={pagerRef}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
@@ -897,6 +909,11 @@ export default function EnterScoresScreen() {
             >
               <Text style={styles.scoreHoleBtnText}>Score Hole {currentHole}</Text>
             </TouchableOpacity>
+            {lastPlayedHole > 0 && (
+              <TouchableOpacity style={styles.undoBtn} onPress={undoHole} disabled={saving}>
+                <Text style={styles.undoText}>← Edit Hole {lastPlayedHole}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </>
       ) : (
@@ -989,8 +1006,19 @@ export default function EnterScoresScreen() {
           </View>
 
           {lastPlayedHole > 0 && (
-            <TouchableOpacity style={styles.undoBtn} onPress={undoHole} disabled={saving}>
-              <Text style={styles.undoText}>← Correct Last Hole</Text>
+            <TouchableOpacity
+              style={styles.undoBtn}
+              onPress={() => Alert.alert(
+                'Correct Last Hole?',
+                `This will remove hole ${lastPlayedHole}'s score and reopen the match.`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Correct', style: 'destructive', onPress: undoHole },
+                ]
+              )}
+              disabled={saving}
+            >
+              <Text style={styles.undoText}>← Correct Hole {lastPlayedHole}</Text>
             </TouchableOpacity>
           )}
         </ScrollView>

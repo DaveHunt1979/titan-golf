@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": null,
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v CourseMapView | grep -E \"score/\" | head -20",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -252,8 +252,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 97,
-      "lastAccessed": 1783062042337,
+      "accessCount": 103,
+      "lastAccessed": 1783064872421,
       "type": "file"
     },
     {
@@ -272,6 +272,18 @@
       "path": "app/(app)/admin/index.tsx",
       "accessCount": 6,
       "lastAccessed": 1783057240221,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/index.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1783066534171,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/[matchId].tsx",
+      "accessCount": 6,
+      "lastAccessed": 1783066540707,
       "type": "file"
     },
     {
@@ -329,21 +341,9 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/index.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1783060989843,
-      "type": "file"
-    },
-    {
       "path": "src/lib/theme.ts",
       "accessCount": 1,
       "lastAccessed": 1782971090312,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/[matchId].tsx",
-      "accessCount": 1,
-      "lastAccessed": 1782971323094,
       "type": "file"
     },
     {
