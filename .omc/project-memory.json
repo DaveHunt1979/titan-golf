@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v CourseMapView | grep -E \"enter|solo\" | head -20",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v CourseMapView | grep -E \"swindle|feed/_layout\" | head -20",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -252,8 +252,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 131,
-      "lastAccessed": 1783143412934,
+      "accessCount": 134,
+      "lastAccessed": 1783145493558,
       "type": "file"
     },
     {
@@ -311,6 +311,12 @@
       "type": "file"
     },
     {
+      "path": "src/lib/caddie.ts",
+      "accessCount": 5,
+      "lastAccessed": 1783145454797,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/profile/bag.tsx",
       "accessCount": 4,
       "lastAccessed": 1783057160948,
@@ -329,15 +335,21 @@
       "type": "file"
     },
     {
-      "path": "src/lib/caddie.ts",
-      "accessCount": 3,
-      "lastAccessed": 1783068155929,
-      "type": "file"
-    },
-    {
       "path": "web/src/components/Navbar.tsx",
       "accessCount": 3,
       "lastAccessed": 1783087521615,
+      "type": "file"
+    },
+    {
+      "path": "supabase/functions/tts-caddie/index.ts",
+      "accessCount": 3,
+      "lastAccessed": 1783145447426,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/theme.ts",
+      "accessCount": 3,
+      "lastAccessed": 1783145735309,
       "type": "file"
     },
     {
@@ -368,12 +380,6 @@
       "path": "app/(app)/admin/pins.tsx",
       "accessCount": 2,
       "lastAccessed": 1783077931135,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/theme.ts",
-      "accessCount": 2,
-      "lastAccessed": 1783079252762,
       "type": "file"
     },
     {
@@ -452,12 +458,6 @@
       "path": "csv/Supabase Snippet Untitled query (1).csv",
       "accessCount": 1,
       "lastAccessed": 1782983097342,
-      "type": "file"
-    },
-    {
-      "path": "supabase/functions/tts-caddie/index.ts",
-      "accessCount": 1,
-      "lastAccessed": 1782985680376,
       "type": "file"
     },
     {
