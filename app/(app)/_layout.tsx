@@ -162,6 +162,10 @@ function AppLayoutInner() {
         <Tabs.Screen name="profile/rounds"           options={{ href: null }} />
         <Tabs.Screen name="profile/round/[matchId]"  options={{ href: null }} />
         <Tabs.Screen name="records/index"             options={{ href: null }} />
+        <Tabs.Screen name="swindle/index"            options={{ href: null }} />
+        <Tabs.Screen name="swindle/create"           options={{ href: null }} />
+        <Tabs.Screen name="swindle/[gameId]"         options={{ href: null }} />
+        <Tabs.Screen name="swindle/score/[gameId]"   options={{ href: null }} />
         <Tabs.Screen name="join" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>
 

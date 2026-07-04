@@ -83,6 +83,14 @@ export default function FeedScreen() {
     shopBannerEmoji: { fontSize: 28 },
     shopBannerTitle: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 2 },
     shopBannerSub: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+    swindleBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+      marginHorizontal: spacing.md, marginBottom: spacing.sm,
+      backgroundColor: 'rgba(74,222,128,0.08)', borderWidth: 1,
+      borderColor: 'rgba(74,222,128,0.25)', borderRadius: radius.lg,
+      paddingHorizontal: spacing.md, paddingVertical: 14,
+    },
+    swindleTitle: { fontSize: fonts.xs, fontWeight: '800', color: '#4ade80', letterSpacing: 2 },
     shopBannerArrow: { fontSize: 22, color: colors.textMuted },
   }), [colors]);
 
@@ -205,6 +213,20 @@ export default function FeedScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.shopBannerTitle}>TITAN GOLF SHOP</Text>
               <Text style={styles.shopBannerSub}>Bags, headcovers & more — coming soon</Text>
+            </View>
+            <Text style={styles.shopBannerArrow}>›</Text>
+          </TouchableOpacity>
+
+          {/* ── Swindle banner ── */}
+          <TouchableOpacity
+            style={styles.swindleBanner}
+            onPress={() => router.push('/(app)/swindle' as any)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.shopBannerEmoji}>💰</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.swindleTitle}>SWINDLE / ROLL-UP</Text>
+              <Text style={styles.shopBannerSub}>Create or join a prize pot game</Text>
             </View>
             <Text style={styles.shopBannerArrow}>›</Text>
           </TouchableOpacity>
