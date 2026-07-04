@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v CourseMapView | grep -E \"enter|solo\" | head -10",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v CourseMapView | grep -E \"enter|solo\" | head -20",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -252,8 +252,14 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 113,
-      "lastAccessed": 1783142390957,
+      "accessCount": 131,
+      "lastAccessed": 1783143412934,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 19,
+      "lastAccessed": 1783143520439,
       "type": "file"
     },
     {
@@ -278,12 +284,6 @@
       "path": "app/(app)/tour/index.tsx",
       "accessCount": 7,
       "lastAccessed": 1783079602186,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 7,
-      "lastAccessed": 1783142084706,
       "type": "file"
     },
     {
