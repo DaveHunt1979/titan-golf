@@ -207,10 +207,7 @@ export default function EnterScoresScreen() {
       const holes: Record<string, Record<number, { gross: number | null; pts: number | null }>> = {};
       for (const row of data as any[]) {
         const id = row.player_id;
-        const val = match!.round_format === 'stableford'
-          ? (row.stableford_pts ?? 0)
-          : (row.gross_score ?? 0);
-        totals[id] = (totals[id] ?? 0) + val;
+        totals[id] = (totals[id] ?? 0) + (row.stableford_pts ?? 0);
         if (!holes[id]) holes[id] = {};
         holes[id][row.hole_number] = { gross: row.gross_score ?? null, pts: row.stableford_pts ?? null };
       }
@@ -295,7 +292,7 @@ export default function EnterScoresScreen() {
   const holeChars = holesStr.split('');
   const firstUnplayedIdx = holeChars.findIndex(c => c === '.');
   const currentHole = firstUnplayedIdx === -1 ? 19 : firstUnplayedIdx + 1;
-  const isComplete = match?.status === 'complete' || currentHole > 18;
+  const isComplete = currentHole > 18;
 
   let lastPlayedHole = 0;
   for (let i = holeChars.length - 1; i >= 0; i--) {
@@ -381,6 +378,7 @@ export default function EnterScoresScreen() {
   async function processHoleScores(scores: Record<string, number>, stats: Record<string, { fairway: 'left' | 'centre' | 'right' | null; putts: number | null }> = {}) {
     if (!match || !courseHole) return;
     setSaving(true);
+    const wasAlreadyComplete = match.status === 'complete';
 
     const si = courseHole.stroke_index;
     const par = courseHole.par;
@@ -567,7 +565,7 @@ export default function EnterScoresScreen() {
       }
     }
 
-    if (newStatus === 'complete') {
+    if (newStatus === 'complete' && !wasAlreadyComplete) {
       const homeDisplayName = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
       const awayDisplayName = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
       const winTeam = winner === 'home' ? homeDisplayName : winner === 'away' ? awayDisplayName : null;
@@ -655,7 +653,7 @@ export default function EnterScoresScreen() {
   const awayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const { homeUp: liveHomeUp } = calcHoles(holesStr);
   const modalStatusText = isStrokePlay
-    ? `Hole ${currentHole} · ${holeChars.filter(c => c !== '.').length} played`
+    ? (leaderStatusText ?? `Hole ${currentHole} · ${holeChars.filter(c => c !== '.').length} played`)
     : liveHomeUp === 0 ? 'All Square'
       : liveHomeUp > 0 ? `${homeLabel} lead ${Math.abs(liveHomeUp)}UP`
       : `${awayLabel} lead ${Math.abs(liveHomeUp)}UP`;

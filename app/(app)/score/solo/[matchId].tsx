@@ -117,7 +117,7 @@ export default function SoloRoundScreen() {
   const holesStr  = match?.holes_string ?? '..................';
   const holeChars = holesStr.split('');
   const nextHole  = holeChars.findIndex(c => c === '.') + 1 || 19;
-  const isComplete = match?.status === 'complete' || nextHole > 18;
+  const isComplete = nextHole > 18;
   const isStableford = match?.round_format === 'stableford';
 
   const sideGameByHole = (match?.side_games ?? []).reduce((acc, sg) => {
