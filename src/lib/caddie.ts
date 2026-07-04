@@ -66,6 +66,25 @@ export async function speakBack9(
 
 let lastVoice: 'chip' | 'birdie' = 'birdie';
 
+export type PressureStanding = { name: string; pts: number };
+
+export async function speakPressure(params: {
+  standings?: PressureStanding[];
+  holeNumber: number;
+  holesLeft: number;
+  format: 'stableford' | 'matchplay';
+  matchplay?: { homeTeam: string; awayTeam: string; homeUp: number; remaining: number };
+}): Promise<void> {
+  try {
+    const voice: 'chip' | 'birdie' = lastVoice === 'chip' ? 'birdie' : 'chip';
+    lastVoice = voice;
+    const { data } = await supabase.functions.invoke('tts-caddie', {
+      body: { mode: 'pressure', ...params, voice },
+    });
+    if (data?.audio) await playBase64Audio(data.audio);
+  } catch {}
+}
+
 export async function speakHole(
   holeNumber: number,
   par: number | null,

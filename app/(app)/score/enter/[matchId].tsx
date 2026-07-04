@@ -24,7 +24,7 @@ import {
   calcStablefordPoints,
 } from '../../../../src/lib/scoring';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
-import { speakHole } from '../../../../src/lib/caddie';
+import { speakHole, speakPressure } from '../../../../src/lib/caddie';
 import RangeMap from '../../../../src/components/RangeMap';
 import ShotLogger from '../../../../src/components/ShotLogger';
 import RecordCelebration from '../../../../src/components/RecordCelebration';
@@ -462,6 +462,19 @@ export default function EnterScoresScreen() {
         if (broken.length > 0) { setRecordsBroken(broken); }
         else { Alert.alert('Round Complete', 'All 18 holes scored!', [{ text: 'Done', onPress: () => router.back() }]); }
       }
+
+      // Live Pressure commentary at key stableford moments
+      if (!editingHole && [6, 9, 12, 15, 16, 17, 18].includes(activeHole)) {
+        const updatedTotals = { ...playerTotals };
+        for (const row of spRows) {
+          updatedTotals[row.player_id] = (updatedTotals[row.player_id] ?? 0) + (row.stableford_pts ?? 0);
+        }
+        const standings = allPlayerIds.map(id => ({
+          name: (playerNames[id] ?? 'Player').split(' ')[0],
+          pts: updatedTotals[id] ?? 0,
+        }));
+        speakPressure({ standings, holeNumber: activeHole, holesLeft: 18 - holesPlayed, format: 'stableford' });
+      }
       return;
     }
 
@@ -597,6 +610,19 @@ export default function EnterScoresScreen() {
       const broken = allBroken.flat();
       if (broken.length > 0) { setRecordsBroken(broken); }
       else { Alert.alert('Match Complete', msg, [{ text: 'Done', onPress: () => router.back() }]); }
+    }
+
+    // Live Pressure commentary at key matchplay moments
+    if (!editingHole && [9, 12, 15].includes(activeHole)) {
+      const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+      const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+      const { homeUp: newHomeUp, remaining: newRemaining } = calcHoles(newHolesStr);
+      speakPressure({
+        holeNumber: activeHole,
+        holesLeft: newRemaining,
+        format: 'matchplay',
+        matchplay: { homeTeam, awayTeam, homeUp: newHomeUp, remaining: newRemaining },
+      });
     }
   }
 

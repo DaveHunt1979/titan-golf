@@ -114,6 +114,54 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Pressure mode: live commentary on current standings ──────────
+    if (mode === 'pressure') {
+      const { standings, holeNumber, holesLeft, format, matchplay } = body;
+      const pressureVoice = voice === 'birdie' ? 'birdie' : 'chip';
+      const voiceName     = pressureVoice === 'birdie' ? 'Birdie' : 'Chip';
+
+      let context = '';
+      if (format === 'matchplay' && matchplay) {
+        const { homeTeam, awayTeam, homeUp, remaining } = matchplay;
+        if (homeUp === 0)
+          context = `All square with ${remaining} to play between ${homeTeam} and ${awayTeam}.`;
+        else if (homeUp > 0)
+          context = `${homeTeam} are ${homeUp} UP with ${remaining} holes left against ${awayTeam}.`;
+        else
+          context = `${awayTeam} are ${Math.abs(homeUp)} UP with ${remaining} holes left against ${homeTeam}.`;
+      } else if (standings?.length) {
+        const sorted = [...standings].sort((a: any, b: any) => b.pts - a.pts);
+        const leader = sorted[0];
+        const second = sorted[1];
+        const gap    = second ? leader.pts - second.pts : null;
+        const left   = holesLeft > 0 ? `${holesLeft} hole${holesLeft === 1 ? '' : 's'} to play` : 'final hole done';
+        if (gap === null)
+          context = `${leader.name} is leading with ${leader.pts} points after hole ${holeNumber}.`;
+        else if (gap === 0)
+          context = `${leader.name} and ${second.name} are dead level on ${leader.pts} points with ${left} — it's anyone's game.`;
+        else if (gap <= 2)
+          context = `${leader.name} leads on ${leader.pts} points, just ${gap} ahead of ${second.name} with ${left}. Very tight.`;
+        else
+          context = `${leader.name} out in front on ${leader.pts} points, ${gap} clear of ${second.name} with ${left}.`;
+        if (sorted.length > 2) {
+          const third = sorted[2];
+          if (leader.pts - third.pts <= 4)
+            context += ` ${third.name} still in touch on ${third.pts}.`;
+        }
+      }
+
+      const script = await claudeText(
+        `You are ${voiceName}, a quick-witted British golf caddie commentator.\n\nSituation after hole ${holeNumber}: ${context}\n\nGive one punchy live commentary line — like a great Sky Sports moment. Make players feel the pressure or excitement. Use first names. Under 35 words. No hashtags, no stage directions, no quotes — just spoken words.`
+      );
+
+      const voiceId = pressureVoice === 'birdie' ? VOICE_BIRDIE : VOICE_CHIP;
+      const audio   = await tts(script || context, voiceId);
+
+      return new Response(JSON.stringify({ audio, script }), {
+        status: 200, headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+
     // ── Hole mode: generate banter then voice it ─────────────────────
     if (hole && par && players?.length) {
       const yardsStr = yardage ? `, ${yardage} yards` : '';
