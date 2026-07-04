@@ -97,6 +97,7 @@ export default function EnterScoresScreen() {
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [playerTotals, setPlayerTotals] = useState<Record<string, number>>({});
   const [holeData, setHoleData] = useState<Record<string, Record<number, { gross: number | null; pts: number | null }>>>({});
+  const [editingHole, setEditingHole] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const { width: screenWidth } = useWindowDimensions();
   const pagerRef = useRef<ScrollView>(null);
@@ -292,6 +293,7 @@ export default function EnterScoresScreen() {
   const holeChars = holesStr.split('');
   const firstUnplayedIdx = holeChars.findIndex(c => c === '.');
   const currentHole = firstUnplayedIdx === -1 ? 19 : firstUnplayedIdx + 1;
+  const activeHole = editingHole ?? currentHole;
   const isComplete = currentHole > 18;
 
   let lastPlayedHole = 0;
@@ -300,7 +302,7 @@ export default function EnterScoresScreen() {
   }
 
   const allPlayerIds = match ? [...match.home_player_ids, ...match.away_player_ids] : [];
-  const courseHole = courseHoles.find(h => h.hole_number === currentHole);
+  const courseHole = courseHoles.find(h => h.hole_number === activeHole);
 
   // Parse side games: "Longest Drive:7" → { 7: 'Longest Drive' }
   const sideGameByHole = (match?.side_games ?? []).reduce((acc, sg) => {
@@ -308,7 +310,7 @@ export default function EnterScoresScreen() {
     if (hole) acc[parseInt(hole)] = type;
     return acc;
   }, {} as Record<number, string>);
-  const currentSideGame = sideGameByHole[currentHole] ?? null;
+  const currentSideGame = sideGameByHole[activeHole] ?? null;
 
 
   const [coachLoading, setCoachLoading] = useState(false);
@@ -344,10 +346,19 @@ export default function EnterScoresScreen() {
     : false;
 
   // ── Score entry modal ───────────────────────────────────────────
-  function openScoreModal() {
-    setHoleScores({});
+  function openScoreModal(forHole?: number) {
+    const hole = forHole ?? editingHole;
+    const preScores: Record<string, number> = {};
+    if (hole) {
+      for (const id of allPlayerIds) {
+        const g = holeData[id]?.[hole]?.gross;
+        if (g != null) preScores[id] = g;
+      }
+    }
+    const firstId = allPlayerIds[0];
+    setHoleScores(preScores);
     setHoleStatMap({});
-    setSelectedScore(null);
+    setSelectedScore(hole && firstId ? (holeData[firstId]?.[hole]?.gross ?? null) : null);
     setSelectedFairway(null);
     setSelectedPutts(null);
     setModalPlayerIdx(0);
@@ -361,14 +372,18 @@ export default function EnterScoresScreen() {
     const newStats = { ...holeStatMap, [modalPlayerId]: { fairway: selectedFairway, putts: selectedPutts } };
     setHoleScores(newScores);
     setHoleStatMap(newStats);
-    setSelectedScore(null);
-    setSelectedFairway(null);
-    setSelectedPutts(null);
-
     const nextIdx = modalPlayerIdx + 1;
     if (nextIdx < allPlayerIds.length) {
+      const nextId = allPlayerIds[nextIdx];
+      const nextExisting = editingHole ? (holeData[nextId]?.[editingHole]?.gross ?? null) : null;
+      setSelectedScore(nextExisting);
+      setSelectedFairway(null);
+      setSelectedPutts(null);
       setModalPlayerIdx(nextIdx);
     } else {
+      setSelectedScore(null);
+      setSelectedFairway(null);
+      setSelectedPutts(null);
       setModalVisible(false);
       processHoleScores(newScores, newStats);
     }
@@ -389,7 +404,7 @@ export default function EnterScoresScreen() {
     if (isStrokePlay) {
       const { error: delErr } = await supabase.from('match_holes').delete()
         .eq('match_id', matchId)
-        .eq('hole_number', currentHole);
+        .eq('hole_number', activeHole);
       if (delErr) console.error('match_holes delete error:', delErr);
 
       const spRows = allPlayerIds.map(id => {
@@ -400,7 +415,7 @@ export default function EnterScoresScreen() {
         return {
           match_id: matchId,
           player_id: id,
-          hole_number: currentHole,
+          hole_number: activeHole,
           score: 'd',
           gross_score: gross,
           net_score: net,
@@ -415,7 +430,7 @@ export default function EnterScoresScreen() {
         .map(id => ({
           match_id: matchId,
           player_id: id,
-          hole_number: currentHole,
+          hole_number: activeHole,
           fairway_hit: courseHole.par >= 4 ? (stats[id]?.fairway != null ? stats[id]?.fairway === 'centre' : null) : null,
           fairway_direction: courseHole.par >= 4 ? (stats[id]?.fairway ?? null) : null,
           putts: stats[id]?.putts ?? null,
@@ -426,7 +441,7 @@ export default function EnterScoresScreen() {
       }
 
       const spChars = [...holeChars];
-      spChars[currentHole - 1] = 'd';
+      spChars[activeHole - 1] = 'd';
       const newHolesStr = spChars.join('');
       const holesPlayed = newHolesStr.split('').filter(c => c !== '.').length;
       const newStatus: 'upcoming' | 'in_progress' | 'complete' = holesPlayed >= 18 ? 'complete' : 'in_progress';
@@ -439,8 +454,9 @@ export default function EnterScoresScreen() {
       setSaving(false);
       if (error) { Alert.alert('Error', error.message); return; }
       setMatch({ ...match, holes_string: newHolesStr, status: newStatus, winner: null, result_str: newResultStr });
+      setEditingHole(null);
 
-      if (newStatus === 'complete') {
+      if (newStatus === 'complete' && !editingHole) {
         const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
         const broken = allBroken.flat();
         if (broken.length > 0) { setRecordsBroken(broken); }
@@ -463,7 +479,7 @@ export default function EnterScoresScreen() {
     // Clear existing match_holes rows for this hole then insert fresh
     const { error: delErr } = await supabase.from('match_holes').delete()
       .eq('match_id', matchId)
-      .eq('hole_number', currentHole);
+      .eq('hole_number', activeHole);
     if (delErr) console.error('match_holes delete error:', delErr);
 
     const rows = allPlayerIds.map(id => {
@@ -473,7 +489,7 @@ export default function EnterScoresScreen() {
       return {
         match_id: matchId,
         player_id: id,
-        hole_number: currentHole,
+        hole_number: activeHole,
         score: holeResult,
         gross_score: gross,
         stableford_pts: calcStablefordPoints(gross, par, shots),
@@ -488,7 +504,7 @@ export default function EnterScoresScreen() {
       .map(id => ({
         match_id: matchId,
         player_id: id,
-        hole_number: currentHole,
+        hole_number: activeHole,
         fairway_hit: courseHole.par >= 4 ? (stats[id]?.fairway != null ? stats[id]?.fairway === 'centre' : null) : null,
         fairway_direction: courseHole.par >= 4 ? (stats[id]?.fairway ?? null) : null,
         putts: stats[id]?.putts ?? null,
@@ -500,7 +516,7 @@ export default function EnterScoresScreen() {
 
     // Update holes_string and match status
     const chars = [...holeChars];
-    chars[currentHole - 1] = holeResult;
+    chars[activeHole - 1] = holeResult;
     const newHolesStr = chars.join('');
     const { homeUp, played, remaining, concluded } = calcHoles(newHolesStr);
 
@@ -526,41 +542,44 @@ export default function EnterScoresScreen() {
     if (error) { Alert.alert('Error', error.message); return; }
 
     setMatch({ ...match, holes_string: newHolesStr, status: newStatus, winner, result_str });
+    setEditingHole(null);
 
-    // Live score update at the turn and key back-9 milestones
-    if (match.competition_id && newStatus !== 'complete' && [9, 12, 15].includes(currentHole)) {
-      const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-      const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-      const { homeUp: newHomeUp } = calcHoles(newHolesStr);
-      const at = currentHole === 9 ? 'the turn' : `hole ${currentHole}`;
-      const scoreBody = newHomeUp > 0
-        ? `${homeTeam} ${newHomeUp}UP at ${at}`
-        : newHomeUp < 0
-          ? `${awayTeam} ${Math.abs(newHomeUp)}UP at ${at}`
-          : `All Square at ${at}`;
-      sendMatchNotification(match.competition_id, `⛳ Match ${match.match_number}`, scoreBody);
-    }
+    if (!editingHole) {
+      // Live score update at the turn and key back-9 milestones
+      if (match.competition_id && newStatus !== 'complete' && [9, 12, 15].includes(activeHole)) {
+        const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+        const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+        const { homeUp: newHomeUp } = calcHoles(newHolesStr);
+        const at = activeHole === 9 ? 'the turn' : `hole ${activeHole}`;
+        const scoreBody = newHomeUp > 0
+          ? `${homeTeam} ${newHomeUp}UP at ${at}`
+          : newHomeUp < 0
+            ? `${awayTeam} ${Math.abs(newHomeUp)}UP at ${at}`
+            : `All Square at ${at}`;
+        sendMatchNotification(match.competition_id, `⛳ Match ${match.match_number}`, scoreBody);
+      }
 
-    // Show side game result entry if this was a side game hole
-    if (currentSideGame) {
-      setSideGameResult('');
-      setSideGameWinner(null);
-      setSideGameModal({ type: currentSideGame, hole: currentHole });
-    }
+      // Show side game result entry if this was a side game hole
+      if (currentSideGame) {
+        setSideGameResult('');
+        setSideGameWinner(null);
+        setSideGameModal({ type: currentSideGame, hole: activeHole });
+      }
 
-    // Fire push notifications for birdies, eagles, HIOs
-    if (match.competition_id) {
-      for (const id of allPlayerIds) {
-        const gross = scores[id];
-        if (!gross) continue;
-        const firstName = (playerNames[id] ?? '').split(' ')[0];
-        const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
-        if (gross === 1) {
-          sendMatchNotification(match.competition_id, '⛳ HOLE IN ONE!', `${firstName} just made a hole in one on hole ${currentHole}!`, pids);
-        } else if (gross <= par - 2) {
-          sendMatchNotification(match.competition_id, '🦅 Eagle!', `${firstName} just made an eagle on hole ${currentHole}!`, pids);
-        } else if (gross === par - 1) {
-          sendMatchNotification(match.competition_id, '🐦 Birdie!', `${firstName} is on fire — birdie on hole ${currentHole}!`, pids);
+      // Fire push notifications for birdies, eagles, HIOs
+      if (match.competition_id) {
+        for (const id of allPlayerIds) {
+          const gross = scores[id];
+          if (!gross) continue;
+          const firstName = (playerNames[id] ?? '').split(' ')[0];
+          const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
+          if (gross === 1) {
+            sendMatchNotification(match.competition_id, '⛳ HOLE IN ONE!', `${firstName} just made a hole in one on hole ${activeHole}!`, pids);
+          } else if (gross <= par - 2) {
+            sendMatchNotification(match.competition_id, '🦅 Eagle!', `${firstName} just made an eagle on hole ${activeHole}!`, pids);
+          } else if (gross === par - 1) {
+            sendMatchNotification(match.competition_id, '🐦 Birdie!', `${firstName} is on fire — birdie on hole ${activeHole}!`, pids);
+          }
         }
       }
     }
@@ -652,11 +671,13 @@ export default function EnterScoresScreen() {
   const homeLabel = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const awayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const { homeUp: liveHomeUp } = calcHoles(holesStr);
-  const modalStatusText = isStrokePlay
-    ? (leaderStatusText ?? `Hole ${currentHole} · ${holeChars.filter(c => c !== '.').length} played`)
-    : liveHomeUp === 0 ? 'All Square'
-      : liveHomeUp > 0 ? `${homeLabel} lead ${Math.abs(liveHomeUp)}UP`
-      : `${awayLabel} lead ${Math.abs(liveHomeUp)}UP`;
+  const modalStatusText = editingHole
+    ? `Editing Hole ${editingHole}`
+    : isStrokePlay
+      ? (leaderStatusText ?? `Hole ${currentHole} · ${holeChars.filter(c => c !== '.').length} played`)
+      : liveHomeUp === 0 ? 'All Square'
+        : liveHomeUp > 0 ? `${homeLabel} lead ${Math.abs(liveHomeUp)}UP`
+        : `${awayLabel} lead ${Math.abs(liveHomeUp)}UP`;
   const HOLE_BG: Record<string, string> = { h: homeColor, a: awayColor, f: colors.grey };
 
   return (
@@ -675,12 +696,23 @@ export default function EnterScoresScreen() {
         </Text>
       </View>
 
-      {/* Hole progress dots */}
+      {/* Hole progress dots — tap a played hole to edit it */}
       <View style={styles.dotsRow}>
         {Array.from({ length: 18 }, (_, i) => {
           const c = holeChars[i] ?? '.';
-          const isActive = i + 1 === currentHole && !isComplete;
-          const bg = c !== '.' ? (HOLE_BG[c] ?? colors.grey) : colors.cardAlt;
+          const isActive = i + 1 === activeHole;
+          const isPlayed = c !== '.';
+          const bg = isPlayed ? (HOLE_BG[c] ?? colors.grey) : colors.cardAlt;
+          if (isPlayed) {
+            return (
+              <TouchableOpacity
+                key={i}
+                style={[styles.dot, { backgroundColor: bg }, isActive && styles.dotActive]}
+                onPress={() => { setEditingHole(i + 1); openScoreModal(i + 1); }}
+                activeOpacity={0.7}
+              />
+            );
+          }
           return (
             <View key={i} style={[styles.dot, { backgroundColor: bg }, isActive && styles.dotActive]} />
           );
@@ -926,18 +958,24 @@ export default function EnterScoresScreen() {
           {/* Fixed footer */}
           <View style={styles.actionFooter}>
             <TouchableOpacity
-              style={styles.scoreHoleBtn}
-              onPress={openScoreModal}
+              style={[styles.scoreHoleBtn, editingHole ? { backgroundColor: colors.gold } : null]}
+              onPress={() => openScoreModal()}
               disabled={saving}
               activeOpacity={0.85}
             >
-              <Text style={styles.scoreHoleBtnText}>Score Hole {currentHole}</Text>
+              <Text style={styles.scoreHoleBtnText}>
+                {editingHole ? `Save Edit — Hole ${editingHole}` : `Score Hole ${currentHole}`}
+              </Text>
             </TouchableOpacity>
-            {lastPlayedHole > 0 && (
-              <TouchableOpacity style={styles.undoBtn} onPress={undoHole} disabled={saving}>
-                <Text style={styles.undoText}>← Edit Hole {lastPlayedHole}</Text>
+            {editingHole ? (
+              <TouchableOpacity style={styles.undoBtn} onPress={() => setEditingHole(null)} disabled={saving}>
+                <Text style={styles.undoText}>✕ Cancel Edit</Text>
               </TouchableOpacity>
-            )}
+            ) : lastPlayedHole > 0 ? (
+              <TouchableOpacity style={styles.undoBtn} onPress={undoHole} disabled={saving}>
+                <Text style={styles.undoText}>← Undo Hole {lastPlayedHole}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </>
       ) : (

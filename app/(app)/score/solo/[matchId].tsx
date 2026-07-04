@@ -52,6 +52,7 @@ export default function SoloRoundScreen() {
   const [coachLoading, setCoachLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedScore, setSelectedScore] = useState<number | null>(null);
+  const [editingHole, setEditingHole] = useState<number | null>(null);
   const [selectedFairway, setSelectedFairway] = useState<'left' | 'centre' | 'right' | null>(null);
   const [selectedPutts, setSelectedPutts] = useState<number | null>(null);
   const [sideGameModal, setSideGameModal] = useState<{ type: string; hole: number } | null>(null);
@@ -117,6 +118,7 @@ export default function SoloRoundScreen() {
   const holesStr  = match?.holes_string ?? '..................';
   const holeChars = holesStr.split('');
   const nextHole  = holeChars.findIndex(c => c === '.') + 1 || 19;
+  const activeHole = editingHole ?? nextHole;
   const isComplete = nextHole > 18;
   const isStableford = match?.round_format === 'stableford';
 
@@ -125,9 +127,9 @@ export default function SoloRoundScreen() {
     if (hole) acc[parseInt(hole)] = type;
     return acc;
   }, {} as Record<number, string>);
-  const currentSideGame = sideGameByHole[nextHole] ?? null;
+  const currentSideGame = sideGameByHole[activeHole] ?? null;
 
-  const courseHole = courseHoles.find(h => h.hole_number === nextHole);
+  const courseHole = courseHoles.find(h => h.hole_number === activeHole);
   const shots = courseHole ? calcStrokesReceived(courseHcp, courseHole.stroke_index) : 0;
 
   // Running totals
@@ -291,13 +293,13 @@ export default function SoloRoundScreen() {
     const pts   = calcStablefordPoints(gross, courseHole.par, shots);
 
     const { error: delErr } = await supabase.from('match_holes').delete()
-      .eq('match_id', matchId).eq('hole_number', nextHole);
+      .eq('match_id', matchId).eq('hole_number', activeHole);
     if (delErr) console.error('delete error:', delErr);
 
     const { error: insErr } = await supabase.from('match_holes').insert({
       match_id: matchId,
       player_id: match.home_player_ids[0],
-      hole_number: nextHole,
+      hole_number: activeHole,
       score: null,
       gross_score: gross,
       net_score: net,
@@ -307,7 +309,7 @@ export default function SoloRoundScreen() {
 
     // Mark hole as done in holes_string ('d' = done)
     const chars = [...holeChars];
-    chars[nextHole - 1] = 'd';
+    chars[activeHole - 1] = 'd';
     const newHolesStr = chars.join('');
     const holesLeft = newHolesStr.split('').filter(c => c === '.').length;
     const newStatus = holesLeft === 0 ? 'complete' : 'in_progress';
@@ -322,14 +324,15 @@ export default function SoloRoundScreen() {
       result_str: result,
     }).eq('id', match.id);
 
-    setSavedScores(prev => [...prev.filter(h => h.hole_number !== nextHole), { hole_number: nextHole, gross, net, pts }]);
+    setSavedScores(prev => [...prev.filter(h => h.hole_number !== activeHole), { hole_number: activeHole, gross, net, pts }]);
     setMatch({ ...match, holes_string: newHolesStr, status: newStatus });
+    setEditingHole(null);
 
     if (selectedFairway !== null || selectedPutts !== null) {
       await supabase.from('hole_stats').upsert({
         match_id: matchId,
         player_id: match.home_player_ids[0],
-        hole_number: nextHole,
+        hole_number: activeHole,
         fairway_hit: courseHole.par >= 4 ? (selectedFairway != null ? selectedFairway === 'centre' : null) : null,
         fairway_direction: courseHole.par >= 4 ? selectedFairway : null,
         putts: selectedPutts,
@@ -341,29 +344,31 @@ export default function SoloRoundScreen() {
     setSelectedPutts(null);
     setSaving(false);
 
-    if (match.competition_id && playerName) {
-      const firstName = playerName.split(' ')[0];
-      const pids = [...(match.home_player_ids ?? [])];
-      if (gross === 1) {
-        sendMatchNotification(match.competition_id, '⛳ HOLE IN ONE!', `${firstName} just made a hole in one on hole ${nextHole}!`, pids);
-      } else if (gross <= courseHole.par - 2) {
-        sendMatchNotification(match.competition_id, '🦅 Eagle!', `${firstName} just made an eagle on hole ${nextHole}!`, pids);
-      } else if (gross === courseHole.par - 1) {
-        sendMatchNotification(match.competition_id, '🐦 Birdie!', `${firstName} is on fire — birdie on hole ${nextHole}!`, pids);
+    if (!editingHole) {
+      if (match.competition_id && playerName) {
+        const firstName = playerName.split(' ')[0];
+        const pids = [...(match.home_player_ids ?? [])];
+        if (gross === 1) {
+          sendMatchNotification(match.competition_id, '⛳ HOLE IN ONE!', `${firstName} just made a hole in one on hole ${activeHole}!`, pids);
+        } else if (gross <= courseHole.par - 2) {
+          sendMatchNotification(match.competition_id, '🦅 Eagle!', `${firstName} just made an eagle on hole ${activeHole}!`, pids);
+        } else if (gross === courseHole.par - 1) {
+          sendMatchNotification(match.competition_id, '🐦 Birdie!', `${firstName} is on fire — birdie on hole ${activeHole}!`, pids);
+        }
       }
-    }
 
-    if (currentSideGame) {
-      setSideGameResult('');
-      setSideGameWinner(null);
-      setSideGameModal({ type: currentSideGame, hole: nextHole });
-    }
+      if (currentSideGame) {
+        setSideGameResult('');
+        setSideGameWinner(null);
+        setSideGameModal({ type: currentSideGame, hole: activeHole });
+      }
 
-    if (newStatus === 'complete') {
-      const summary = isStableford ? `${totalPts + pts} points` : `${vsPar + gross - courseHole.par >= 0 ? '+' : ''}${vsPar + gross - courseHole.par}`;
-      const broken = await checkAndUpdateRecords(matchId as string, match.home_player_ids[0]);
-      if (broken.length > 0) { setRecordsBroken(broken); }
-      else { Alert.alert('Round Complete!', summary, [{ text: 'Done', onPress: () => router.back() }]); }
+      if (newStatus === 'complete') {
+        const summary = isStableford ? `${totalPts + pts} points` : `${vsPar + gross - courseHole.par >= 0 ? '+' : ''}${vsPar + gross - courseHole.par}`;
+        const broken = await checkAndUpdateRecords(matchId as string, match.home_player_ids[0]);
+        if (broken.length > 0) { setRecordsBroken(broken); }
+        else { Alert.alert('Round Complete!', summary, [{ text: 'Done', onPress: () => router.back() }]); }
+      }
     }
   }
 
@@ -474,18 +479,32 @@ export default function SoloRoundScreen() {
             </View>
           </View>
 
-          {/* Hole progress */}
+          {/* Hole progress — tap a played hole to edit it */}
           <View style={styles.dotsRow}>
             {Array.from({ length: 18 }, (_, i) => {
               const c = holeChars[i] ?? '.';
               const done = c === 'd';
-              const active = i + 1 === nextHole && !isComplete;
+              const active = i + 1 === activeHole;
+              if (done) {
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    style={[styles.dot, styles.dotDone, active && styles.dotActive]}
+                    onPress={() => {
+                      const h = i + 1;
+                      const existing = savedScores.find(s => s.hole_number === h);
+                      setSelectedScore(existing?.gross ?? null);
+                      setSelectedFairway(null);
+                      setSelectedPutts(null);
+                      setEditingHole(h);
+                      setModalVisible(true);
+                    }}
+                    activeOpacity={0.7}
+                  />
+                );
+              }
               return (
-                <View key={i} style={[
-                  styles.dot,
-                  done && styles.dotDone,
-                  active && styles.dotActive,
-                ]} />
+                <View key={i} style={[styles.dot, active && styles.dotActive]} />
               );
             })}
           </View>
@@ -595,7 +614,7 @@ export default function SoloRoundScreen() {
             )}
 
             <TouchableOpacity
-              style={styles.scoreBtn}
+              style={[styles.scoreBtn, editingHole ? { backgroundColor: colors.gold } : null]}
               onPress={() => {
                 setSelectedScore(null);
                 setSelectedFairway(null);
@@ -605,14 +624,20 @@ export default function SoloRoundScreen() {
               disabled={saving}
               activeOpacity={0.85}
             >
-              <Text style={styles.scoreBtnText}>Score Hole {nextHole}</Text>
+              <Text style={styles.scoreBtnText}>
+                {editingHole ? `Save Edit — Hole ${editingHole}` : `Score Hole ${nextHole}`}
+              </Text>
             </TouchableOpacity>
 
-            {nextHole > 1 && (
+            {editingHole ? (
+              <TouchableOpacity style={styles.undoBtn} onPress={() => setEditingHole(null)} disabled={saving}>
+                <Text style={styles.undoText}>✕ Cancel Edit</Text>
+              </TouchableOpacity>
+            ) : nextHole > 1 ? (
               <TouchableOpacity style={styles.undoBtn} onPress={undoHole} disabled={saving}>
                 <Text style={styles.undoText}>Undo Hole {nextHole - 1}</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
             <TouchableOpacity style={styles.deleteBtn} onPress={deleteMatch}>
               <Text style={styles.deleteBtnText}>Delete Round</Text>
             </TouchableOpacity>
@@ -798,7 +823,7 @@ export default function SoloRoundScreen() {
                 )}
               </View>
               <Text style={styles.modalPlayerName}>{playerName}</Text>
-              <Text style={styles.modalTitle}>Hole {nextHole}</Text>
+              <Text style={styles.modalTitle}>{editingHole ? `Edit Hole ${editingHole}` : `Hole ${nextHole}`}</Text>
               {courseHole && (
                 <Text style={styles.modalSub}>Par {courseHole.par} · SI {courseHole.stroke_index}</Text>
               )}
@@ -890,7 +915,7 @@ export default function SoloRoundScreen() {
                 disabled={!selectedScore}
                 activeOpacity={0.85}
               >
-                <Text style={styles.submitBtnText}>Save Hole {nextHole}</Text>
+                <Text style={styles.submitBtnText}>{editingHole ? `Save Edit — Hole ${editingHole}` : `Save Hole ${nextHole}`}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={{ marginTop: spacing.sm }}>
                 <Text style={{ color: colors.textMuted, fontSize: fonts.sm, textAlign: 'center' }}>Cancel</Text>
