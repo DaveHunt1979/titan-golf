@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
-  ScrollView, TextInput, KeyboardAvoidingView, Platform, Image,
+  ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, Modal,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -133,6 +133,12 @@ export default function ProfileScreen() {
   const [editing, setEditing]           = useState(false);
   const [saving, setSaving]             = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Change password
+  const [showPwModal, setShowPwModal]   = useState(false);
+  const [newPw, setNewPw]               = useState('');
+  const [confirmPw, setConfirmPw]       = useState('');
+  const [pwSaving, setPwSaving]         = useState(false);
 
   // Edit fields
   const [name, setName]         = useState('');
@@ -268,6 +274,18 @@ export default function ProfileScreen() {
     setPlayer(p => p ? { ...p, ...updates } : p);
     setBag(cleanBag);
     setEditing(false);
+  }
+
+  async function changePassword() {
+    if (newPw.length < 6) { Alert.alert('Too short', 'Password must be at least 6 characters.'); return; }
+    if (newPw !== confirmPw) { Alert.alert('No match', 'Passwords do not match.'); return; }
+    setPwSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: newPw });
+    setPwSaving(false);
+    if (error) { Alert.alert('Error', error.message); return; }
+    setShowPwModal(false);
+    setNewPw(''); setConfirmPw('');
+    Alert.alert('Password updated', 'Your new password is active.');
   }
 
   async function signOut() {
@@ -476,6 +494,18 @@ export default function ProfileScreen() {
               </View>
             </TouchableOpacity>
 
+            {/* Change Password */}
+            <TouchableOpacity
+              style={[s.card, { marginTop: spacing.sm }]}
+              onPress={() => { setNewPw(''); setConfirmPw(''); setShowPwModal(true); }}
+              activeOpacity={0.7}
+            >
+              <View style={[s.rowView, { paddingVertical: spacing.sm }]}>
+                <Text style={[s.rowLabel, { color: colors.white, fontWeight: '700' }]}>🔑 Change Password</Text>
+                <Text style={{ fontSize: 18, color: colors.gold }}>›</Text>
+              </View>
+            </TouchableOpacity>
+
             {/* Sign out */}
             <View style={[s.card, { marginTop: spacing.sm }]}>
               <TouchableOpacity style={s.action} onPress={signOut} activeOpacity={0.7}>
@@ -484,6 +514,58 @@ export default function ProfileScreen() {
             </View>
           </>
         )}
+
+        {/* Change Password Modal */}
+        <Modal visible={showPwModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowPwModal(false)}>
+          <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={[s.header, { paddingTop: 60 }]}>
+              <TouchableOpacity onPress={() => setShowPwModal(false)} hitSlop={hit}>
+                <Text style={s.cancelLink}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={s.title}>Password</Text>
+              <TouchableOpacity onPress={changePassword} disabled={pwSaving} hitSlop={hit}>
+                <Text style={[s.editLink, pwSaving && { opacity: 0.4 }]}>{pwSaving ? 'Saving…' : 'Save'}</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+              <Text style={s.sectionLabel}>NEW PASSWORD</Text>
+              <View style={s.card}>
+                <View style={s.fieldRow}>
+                  <Text style={s.fieldLabel}>NEW PASSWORD</Text>
+                  <TextInput
+                    style={s.fieldInput}
+                    value={newPw}
+                    onChangeText={setNewPw}
+                    placeholder="Min 6 characters"
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry
+                    autoFocus
+                    autoCapitalize="none"
+                  />
+                </View>
+                <FieldDivider s={s} colors={colors} />
+                <View style={s.fieldRow}>
+                  <Text style={s.fieldLabel}>CONFIRM PASSWORD</Text>
+                  <TextInput
+                    style={s.fieldInput}
+                    value={confirmPw}
+                    onChangeText={setConfirmPw}
+                    placeholder="Repeat new password"
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[s.saveBtn, pwSaving && { opacity: 0.5 }]}
+                onPress={changePassword} disabled={pwSaving} activeOpacity={0.8}
+              >
+                {pwSaving ? <ActivityIndicator color={colors.bg} /> : <Text style={s.saveBtnText}>Update Password</Text>}
+              </TouchableOpacity>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </Modal>
 
         <Text style={s.version}>Titan Golf · v1.0</Text>
       </ScrollView>

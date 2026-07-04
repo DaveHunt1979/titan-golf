@@ -77,12 +77,16 @@ export default function PlayersScreen() {
   async function addPlayer() {
     if (!newName.trim()) { Alert.alert('Name required'); return; }
     setSaving(true);
+    const email = newEmail.trim().toLowerCase() || null;
     const { error } = await supabase.rpc('admin_add_player', {
       p_society_id:   societyId!,
       p_display_name: newName.trim(),
-      p_email:        newEmail.trim() || null,
+      p_email:        email,
       p_handicap:     newHcp ? parseFloat(newHcp) : null,
     });
+    if (!error && email) {
+      await supabase.rpc('admin_create_login', { p_email: email });
+    }
     setSaving(false);
     if (error) { Alert.alert('Error', error.message); return; }
     setNewName(''); setNewEmail(''); setNewHcp('');
