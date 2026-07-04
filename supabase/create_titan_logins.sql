@@ -46,7 +46,7 @@ BEGIN
     ) VALUES (
       v_uid,
       v_email,
-      crypt(v_password, gen_salt('bf')),
+      crypt(v_password, gen_salt('bf', 10)),
       now(),
       'authenticated',
       'authenticated',

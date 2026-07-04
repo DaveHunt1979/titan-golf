@@ -28,7 +28,7 @@ BEGIN
     is_super_admin
   ) VALUES (
     v_uid, v_email,
-    crypt(p_password, gen_salt('bf')),
+    crypt(p_password, gen_salt('bf', 10)),
     now(), 'authenticated', 'authenticated',
     now(), now(),
     '{"provider":"email","providers":["email"]}',
