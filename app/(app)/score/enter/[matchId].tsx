@@ -1366,13 +1366,23 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
                   else if (pts >= 3) bg = 'rgba(74,222,128,0.18)';
                   else if (pts <= 0) bg = 'rgba(248,113,113,0.12)';
                 }
+                const ptsColor = pts === null || pts === undefined ? colors.textMuted
+                  : pts >= 4 ? colors.gold
+                  : pts === 3 ? colors.green
+                  : pts === 2 ? colors.white
+                  : pts === 1 ? colors.textSecondary
+                  : colors.red;
                 return (
                   <View key={h} style={[scStyles.dataCol, { backgroundColor: bg }]}>
-                    <Text style={[scStyles.scoreTxt, { color: gross ? colors.white : played ? colors.textMuted : 'transparent' }]}>
-                      {gross ?? (played ? '—' : '')}
-                    </Text>
-                    {roundFormat === 'stableford' && gross && pts !== null && pts !== undefined && (
-                      <Text style={[scStyles.ptsTxt, { color: pts >= 3 ? colors.gold : colors.textMuted }]}>{pts}</Text>
+                    {roundFormat === 'stableford' && gross ? (
+                      <>
+                        <Text style={[scStyles.scoreTxt, { color: ptsColor }]}>{pts ?? '·'}</Text>
+                        <Text style={scStyles.grossSub}>{gross}</Text>
+                      </>
+                    ) : (
+                      <Text style={[scStyles.scoreTxt, { color: gross ? colors.white : played ? colors.textMuted : 'transparent' }]}>
+                        {gross ?? (played ? '—' : '')}
+                      </Text>
                     )}
                   </View>
                 );
@@ -1417,6 +1427,7 @@ const scStyles = StyleSheet.create({
   nameTxt: { fontSize: 10, fontWeight: '800' },
   scoreTxt: { fontSize: 13, fontWeight: '700' },
   ptsTxt: { fontSize: 7, fontWeight: '800', marginTop: 1 },
+  grossSub: { fontSize: 7, fontWeight: '600', color: colors.textMuted, marginTop: 1 },
   resultTxt: { fontSize: 11, fontWeight: '800' },
 });
 
