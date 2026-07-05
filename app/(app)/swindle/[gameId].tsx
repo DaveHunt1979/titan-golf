@@ -351,11 +351,19 @@ export default function SwindleGame() {
 
         {/* Leaderboard */}
         <View style={s.section}>
-          <Text style={s.sectionLabel}>LEADERBOARD</Text>
+          <View style={s.lbHeader}>
+            <Text style={s.sectionLabel}>LEADERBOARD</Text>
+            {game.status === 'in_progress' && prizes.some(p => p > 0) && (
+              <View style={s.liveMoneyBadge}>
+                <Text style={s.liveMoneyText}>💰 LIVE MONEY</Text>
+              </View>
+            )}
+          </View>
           {entries.length === 0 && <Text style={s.noEntries}>No players yet — share the code!</Text>}
           {entries.map((e, rank) => {
             const prizeAmt = prizes[rank] ?? 0;
             const isMe = e.player_id === myId;
+            const prizeColor = rank === 0 ? colors.gold : rank === 1 ? '#C0C0C0' : rank === 2 ? '#CD7F32' : colors.textMuted;
             return (
               <View key={e.player_id} style={[s.lbRow, isMe && s.lbRowMe]}>
                 <Text style={[s.lbRank, rank === 0 && { color: colors.gold }]}>{rank + 1}</Text>
@@ -369,9 +377,9 @@ export default function SwindleGame() {
                   ? <Text style={s.lbPts}>{e.net_total > 0 ? e.net_total : '—'}</Text>
                   : <Text style={s.lbPts}>{e.total_pts}pts</Text>
                 }
-                {prizeAmt > 0 && (
-                  <Text style={[s.lbPrize, rank === 0 && { color: colors.gold }]}>{game.currency}{prizeAmt.toFixed(0)}</Text>
-                )}
+                <Text style={[s.lbPrize, { color: prizeAmt > 0 ? prizeColor : colors.textMuted }]}>
+                  {prizeAmt > 0 ? `${game.currency}${prizeAmt.toFixed(0)}` : '—'}
+                </Text>
               </View>
             );
           })}
@@ -460,7 +468,7 @@ const s = StyleSheet.create({
   statusText:       { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
 
   section:          { marginHorizontal: spacing.md, marginBottom: spacing.md },
-  sectionLabel:     { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5, marginBottom: spacing.sm },
+  sectionLabel:     { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5 },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
   potBadge:         { backgroundColor: colors.goldDim, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 2, borderWidth: 1, borderColor: colors.goldBorder },
 
@@ -477,6 +485,9 @@ const s = StyleSheet.create({
   setWinnerBtn:     { backgroundColor: colors.goldDim, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: 1, borderColor: colors.goldBorder },
   setWinnerText:    { fontSize: fonts.xs, color: colors.gold, fontWeight: '700' },
 
+  lbHeader:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
+  liveMoneyBadge:   { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 3, borderWidth: 1, borderColor: colors.goldBorder },
+  liveMoneyText:    { fontSize: 9, fontWeight: '800', color: colors.gold, letterSpacing: 1 },
   lbRow:            { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
   lbRowMe:          { backgroundColor: colors.goldDim, borderRadius: radius.md, paddingHorizontal: spacing.sm, marginHorizontal: -spacing.sm },
   lbRank:           { width: 24, fontSize: fonts.md, fontWeight: '800', color: colors.textMuted, textAlign: 'center' },

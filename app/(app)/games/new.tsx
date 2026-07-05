@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  Image, ActivityIndicator, Alert, TextInput,
+  Image, ActivityIndicator, Alert, TextInput, Animated,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -17,20 +17,52 @@ interface Player     { id: string; display_name: string; handicap_index: number;
 interface CourseItem { name: string; par: number; }
 
 const MODES: { key: GameMode; label: string; sub: string; available: boolean }[] = [
-  { key: '4bbb',       label: '4BBB Matchplay',     sub: 'Two pairs · best ball',                       available: true },
-  { key: 'singles',    label: 'Singles',             sub: 'Head-to-head matchplay',                      available: true },
-  { key: 'stableford', label: 'Stableford',          sub: '1–4 players · points per hole',               available: true },
-  { key: 'medal',      label: 'Medal',               sub: '1–4 players · total stroke play',             available: true },
-  { key: 'skins',      label: 'Skins',               sub: '2–4 players · per-hole prize · carryovers',  available: true },
-  { key: 'nassau',     label: 'Nassau',              sub: 'Front 9 / Back 9 / Overall · 3 bets',        available: true },
-  { key: 'wolf',       label: 'Wolf',                sub: '3–4 players · rotating Wolf picks partner',   available: true },
-  { key: 'scramble',   label: 'Scramble',            sub: '2–4 players · team best ball',               available: true },
-  { key: 'greensome',  label: 'Greensomes',          sub: 'Pairs · best tee shot then alternate',        available: true },
-  { key: 'bbb',        label: 'Bingo Bango Bongo',   sub: 'First on green · closest · first out',       available: true },
-  { key: 'foursomes',          label: 'Foursomes',           sub: 'Alternate shot matchplay',                    available: true },
-  { key: 'modified_stableford', label: 'Modified Stableford', sub: 'Eagle +8 · Birdie +4 · Par +2 · Bogey 0',     available: true },
+  { key: '4bbb',                label: '4BBB Matchplay',     sub: 'Two pairs · best ball',                       available: true },
+  { key: 'singles',             label: 'Singles',             sub: 'Head-to-head matchplay',                      available: true },
+  { key: 'stableford',          label: 'Stableford',          sub: '1–4 players · points per hole',               available: true },
+  { key: 'medal',               label: 'Medal',               sub: '1–4 players · total stroke play',             available: true },
+  { key: 'skins',               label: 'Skins',               sub: '2–4 players · per-hole prize · carryovers',  available: true },
+  { key: 'nassau',              label: 'Nassau',              sub: 'Front 9 / Back 9 / Overall · 3 bets',        available: true },
+  { key: 'wolf',                label: 'Wolf',                sub: '3–4 players · rotating Wolf picks partner',   available: true },
+  { key: 'scramble',            label: 'Scramble',            sub: '2–4 players · team best ball',               available: true },
+  { key: 'greensome',           label: 'Greensomes',          sub: 'Pairs · best tee shot then alternate',        available: true },
+  { key: 'bbb',                 label: 'Bingo Bango Bongo',   sub: 'First on green · closest · first out',       available: true },
+  { key: 'foursomes',           label: 'Foursomes',           sub: 'Alternate shot matchplay',                    available: true },
+  { key: 'modified_stableford', label: 'Modified Stableford', sub: 'Eagle +8 · Birdie +4 · Par +2 · Bogey 0',    available: true },
   { key: 'par_bogey',           label: 'Par / Bogey',         sub: '1–4 players · win/halve/lose vs nett par',    available: true },
   { key: 'chacha',              label: 'ChaChaCha',           sub: '4 players · best 1/2/3 Stableford per hole',  available: true },
+];
+
+const MODE_SECTIONS = [
+  {
+    label: 'TEAM MATCHPLAY', accent: '#D4AF37',
+    modes: [
+      { key: '4bbb'      as GameMode, label: '4BBB',       sub: 'Best ball pairs',    icon: '🤝' },
+      { key: 'singles'   as GameMode, label: 'Singles',    sub: 'Head to head',        icon: '⚔️' },
+      { key: 'foursomes' as GameMode, label: 'Foursomes',  sub: 'Alternate shot',      icon: '🔄' },
+      { key: 'greensome' as GameMode, label: 'Greensomes', sub: 'Best drive, alt.',    icon: '🌿' },
+    ],
+  },
+  {
+    label: 'INDIVIDUAL', accent: '#4ade80',
+    modes: [
+      { key: 'stableford' as GameMode, label: 'Stableford', sub: 'Points per hole',  icon: '⭐' },
+      { key: 'medal'      as GameMode, label: 'Medal',      sub: 'Stroke play',       icon: '🏅' },
+      { key: 'skins'      as GameMode, label: 'Skins',      sub: 'Per-hole prize',    icon: '💳' },
+      { key: 'nassau'     as GameMode, label: 'Nassau',     sub: 'Three bets',        icon: '🎲' },
+    ],
+  },
+  {
+    label: 'FUN GAMES', accent: '#a78bfa',
+    modes: [
+      { key: 'wolf'                as GameMode, label: 'Wolf',       sub: 'Pick your partner', icon: '🐺' },
+      { key: 'scramble'            as GameMode, label: 'Scramble',   sub: 'Team best ball',    icon: '🌀' },
+      { key: 'bbb'                 as GameMode, label: 'Bingo Bango', sub: 'Three targets',    icon: '🎯' },
+      { key: 'chacha'              as GameMode, label: 'ChaChaCha',  sub: 'Best 1-2-3 pts',   icon: '💃' },
+      { key: 'modified_stableford' as GameMode, label: 'Modified',   sub: 'Eagle +8 pts',      icon: '⚡' },
+      { key: 'par_bogey'           as GameMode, label: 'Par/Bogey',  sub: 'Vs par nett',       icon: '⚖️' },
+    ],
+  },
 ];
 
 const HCP_ALLOWANCES: { pct: number; label: string; sub: string }[] = [
@@ -52,6 +84,11 @@ const HOLES: { key: HolesMode; label: string; sub: string }[] = [
 function chunkArray<T>(arr: T[], size: number): T[][] {
   const result: T[][] = [];
   for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size));
+  return result;
+}
+function chunk2<T>(arr: readonly T[]): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i += 2) result.push(arr.slice(i, i + 2) as T[]);
   return result;
 }
 
@@ -167,6 +204,21 @@ export default function NewGameScreen() {
       prev.includes(id) ? prev.filter(p => p !== id)
         : prev.length < maxPer ? [...prev, id] : prev,
     );
+  }
+
+  // Animated scale per mode card
+  const scaleAnims = useRef<Record<string, Animated.Value>>({}).current;
+  function getScaleAnim(key: string): Animated.Value {
+    if (!scaleAnims[key]) scaleAnims[key] = new Animated.Value(1);
+    return scaleAnims[key];
+  }
+  function selectMode(key: GameMode) {
+    if (mode) Animated.spring(getScaleAnim(mode), { toValue: 1, useNativeDriver: true, friction: 8, tension: 120 }).start();
+    setMode(key);
+    Animated.sequence([
+      Animated.spring(getScaleAnim(key), { toValue: 1.06, useNativeDriver: true, friction: 4, tension: 400 }),
+      Animated.spring(getScaleAnim(key), { toValue: 1,    useNativeDriver: true, friction: 8, tension: 200 }),
+    ]).start();
   }
 
   // When joining an existing day, course is pre-set — skip step 3
@@ -312,21 +364,42 @@ export default function NewGameScreen() {
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll}>
 
-        {/* ── Step 1 — Mode ──────────────────────────────────── */}
-        {step === 1 && MODES.map(m => (
-          <TouchableOpacity
-            key={m.key}
-            style={[styles.card, mode === m.key && styles.cardSelected, !m.available && styles.cardDim]}
-            onPress={() => m.available && setMode(m.key)}
-            activeOpacity={m.available ? 0.8 : 1}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.cardLabel, mode === m.key && styles.cardLabelSelected]}>{m.label}</Text>
-              <Text style={styles.cardSub}>{m.sub}</Text>
+        {/* ── Step 1 — Mode grid ─────────────────────────────── */}
+        {step === 1 && MODE_SECTIONS.map(section => (
+          <View key={section.label}>
+            <View style={styles.modeSectionHeader}>
+              <View style={[styles.modeSectionDot, { backgroundColor: section.accent }]} />
+              <Text style={[styles.modeSectionLabel, { color: section.accent }]}>{section.label}</Text>
             </View>
-            {!m.available && <View style={styles.soonBadge}><Text style={styles.soonText}>SOON</Text></View>}
-            {mode === m.key && <Text style={styles.cardCheck}>✓</Text>}
-          </TouchableOpacity>
+            {chunk2(section.modes).map((pair, ri) => (
+              <View key={ri} style={styles.modeRow}>
+                {pair.map(m => {
+                  const isSelected = mode === m.key;
+                  const scale = getScaleAnim(m.key);
+                  return (
+                    <Animated.View key={m.key} style={[styles.modeCardWrap, { transform: [{ scale }] }]}>
+                      <TouchableOpacity
+                        style={[styles.modeCard, isSelected && styles.modeCardOn, isSelected && { borderColor: section.accent }]}
+                        onPress={() => selectMode(m.key)}
+                        activeOpacity={0.75}
+                      >
+                        {isSelected && <View style={[styles.modeCardBar, { backgroundColor: section.accent }]} />}
+                        <Text style={styles.modeIcon}>{m.icon}</Text>
+                        <Text style={[styles.modeLabel, isSelected && { color: colors.white }]}>{m.label}</Text>
+                        <Text style={styles.modeSub}>{m.sub}</Text>
+                        {isSelected && (
+                          <View style={[styles.modeCheck, { backgroundColor: section.accent }]}>
+                            <Text style={styles.modeCheckText}>✓</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    </Animated.View>
+                  );
+                })}
+                {pair.length === 1 && <View style={styles.modeCardWrap} />}
+              </View>
+            ))}
+          </View>
         ))}
 
         {/* ── Step 2 — Players ───────────────────────────────── */}
@@ -647,6 +720,26 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scroll: { padding: spacing.lg, paddingBottom: 120 },
 
+  // ── Mode grid ───────────────────────────────────────────────
+  modeSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.lg, marginBottom: spacing.sm },
+  modeSectionDot:    { width: 7, height: 7, borderRadius: 3.5 },
+  modeSectionLabel:  { fontSize: fonts.xs, fontWeight: '800', letterSpacing: 1.8 },
+  modeRow:           { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  modeCardWrap:      { flex: 1 },
+  modeCard: {
+    backgroundColor: colors.card, borderRadius: radius.lg, padding: 14,
+    borderWidth: 1.5, borderColor: colors.border, alignItems: 'center',
+    minHeight: 106, overflow: 'hidden', position: 'relative',
+  },
+  modeCardOn:        { backgroundColor: 'rgba(30,25,15,0.9)' },
+  modeCardBar:       { position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
+  modeIcon:          { fontSize: 32, marginBottom: 6, marginTop: 4 },
+  modeLabel:         { fontSize: 13, fontWeight: '700', color: colors.textSecondary, textAlign: 'center', marginBottom: 3 },
+  modeSub:           { fontSize: 10, color: colors.textMuted, textAlign: 'center', lineHeight: 13 },
+  modeCheck:         { position: 'absolute', top: 8, right: 8, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  modeCheckText:     { fontSize: 9, fontWeight: '900', color: colors.bg },
+
+  // ── Step 2+ cards ───────────────────────────────────────────
   card: {
     backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md,
     marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border,

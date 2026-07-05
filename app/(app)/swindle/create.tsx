@@ -37,6 +37,8 @@ export default function SwindleCreate() {
   const [ldEnabled,     setLdEnabled]     = useState(false);
   const [ldHole,        setLdHole]        = useState<number | null>(null);
   const [ldFee,         setLdFee]         = useState('');
+  const [isRecurring,   setIsRecurring]   = useState(false);
+  const [recurringDay,  setRecurringDay]  = useState<string>('saturday');
   const [saving,        setSaving]        = useState(false);
 
   useEffect(() => {
@@ -81,6 +83,8 @@ export default function SwindleCreate() {
         status: 'open',
         created_by: player.id,
         game_date: new Date().toISOString().split('T')[0],
+        is_recurring: isRecurring,
+        recurring_day: isRecurring ? recurringDay : null,
         format,
         twos_enabled: twosEnabled,
         twos_fee: twosEnabled && twosFee ? parseFloat(twosFee) || 0 : 0,
@@ -169,6 +173,39 @@ export default function SwindleCreate() {
               </View>
             </TouchableOpacity>
           ))}
+        </Field>
+
+        {/* Recurring */}
+        <Field label="RECURRING GAME">
+          <TouchableOpacity
+            style={[s.sidePotCard, isRecurring && s.sidePotCardActive]}
+            onPress={() => setIsRecurring(v => !v)}
+            activeOpacity={0.8}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[s.sidePotTitle, isRecurring && s.sidePotTitleActive]}>Weekly Roll-Up</Text>
+              <Text style={s.sidePotDesc}>Players tap "I'm in" each week to enter — perfect for Saturday or Sunday morning swindles</Text>
+            </View>
+            <View style={[s.toggle, isRecurring && s.toggleOn]}>
+              <View style={[s.toggleKnob, isRecurring && s.toggleKnobOn]} />
+            </View>
+          </TouchableOpacity>
+          {isRecurring && (
+            <View style={s.holePickRow}>
+              {(['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as const).map(day => (
+                <TouchableOpacity
+                  key={day}
+                  style={[s.holePill, recurringDay === day && s.holePillActive]}
+                  onPress={() => setRecurringDay(day)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.holePillNum, recurringDay === day && s.holePillNumActive]}>
+                    {day.charAt(0).toUpperCase() + day.slice(1, 3)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </Field>
 
         {/* Two's competition */}
