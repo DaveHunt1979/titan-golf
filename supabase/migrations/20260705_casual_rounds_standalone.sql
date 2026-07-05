@@ -27,7 +27,7 @@ BEGIN
     FOR i IN 1..6 LOOP
       v_code := v_code || substr(chars, floor(random() * length(chars))::integer + 1, 1);
     END LOOP;
-    EXIT WHEN NOT EXISTS (SELECT 1 FROM competition_days WHERE join_code = v_code);
+    EXIT WHEN NOT EXISTS (SELECT 1 FROM competition_days cd WHERE cd.join_code = v_code);
   END LOOP;
 
   -- Derive par from course holes if available, else default 72

@@ -42,7 +42,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit 2>&1 | head -30",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -15 & npx tsc --noEmit 2>&1 | grep \"error\" | head -15",
     "testCommand": null,
     "lintCommand": "npm run lint",
     "devCommand": "npm run dev",
@@ -128,6 +128,12 @@
       "path": "src/app/leaderboard/page.tsx",
       "accessCount": 4,
       "lastAccessed": 1782979835704,
+      "type": "file"
+    },
+    {
+      "path": "src/app/tournament/archive/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1783261739636,
       "type": "file"
     },
     {

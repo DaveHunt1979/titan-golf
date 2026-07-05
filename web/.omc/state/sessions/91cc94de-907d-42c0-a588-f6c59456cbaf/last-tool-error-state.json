@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"git add \\\\\\n  supabase/functions/tts-caddie/index.ts \\\\\\n  app/\\\\(app\\\\)/admin/courses.tsx \\\\\\n  app/\\\\(app\\\\)/admin/tournaments.tsx \\\\\\n  app/\\\\(app\\\\)/admin/index.tsx \\\\\\n  app/\\\\(app\\\\)...",
+  "error": "Exit code 128\nfatal: pathspec 'supabase/functions/tts-caddie/index.ts' did not match any files",
+  "timestamp": "2026-07-05T14:39:10.985Z",
+  "retry_count": 1
+}
