@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   RefreshControl,
   Image,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, Link } from 'expo-router';
@@ -86,6 +88,11 @@ export default function ScoreScreen() {
     empty: { alignItems: 'center', paddingVertical: spacing.xxl },
     emptyText: { fontSize: fonts.lg, color: colors.textSecondary, fontWeight: '600' },
     emptySubtext: { fontSize: fonts.sm, color: colors.textMuted, marginTop: spacing.xs },
+    joinDayRow:   { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+    joinDayInput: { flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: 8, color: colors.white, fontSize: fonts.sm, fontWeight: '700', letterSpacing: 2 },
+    joinDayBtn:   { backgroundColor: colors.gold, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: 8, justifyContent: 'center' },
+    joinDayBtnOff:{ opacity: 0.4 },
+    joinDayBtnText: { color: colors.bg, fontSize: fonts.sm, fontWeight: '800' },
   }), [colors]);
 
   const router = useRouter();
@@ -94,6 +101,19 @@ export default function ScoreScreen() {
   const [playerAvatars, setPlayerAvatars] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [dayCode, setDayCode] = useState('');
+  const [joiningDay, setJoiningDay] = useState(false);
+
+  async function joinGameDay() {
+    const code = dayCode.trim().toUpperCase();
+    if (code.length !== 6) { Alert.alert('Enter 6-character code'); return; }
+    setJoiningDay(true);
+    const { data } = await supabase
+      .from('competition_days').select('id,course_name').eq('join_code', code).maybeSingle();
+    setJoiningDay(false);
+    if (!data) { Alert.alert('Not found', 'No game day with that code. Check with the organiser.'); return; }
+    router.push(`/(app)/score/day/${(data as any).id}` as any);
+  }
 
   async function loadMatches() {
     const { data, error } = await supabase
@@ -157,6 +177,27 @@ export default function ScoreScreen() {
           activeOpacity={0.8}
         >
           <Text style={styles.newGameBtnText}>+ New Game</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Join Game Day banner */}
+      <View style={styles.joinDayRow}>
+        <TextInput
+          style={styles.joinDayInput}
+          placeholder="Game Day code…"
+          placeholderTextColor={colors.textMuted}
+          value={dayCode}
+          onChangeText={t => setDayCode(t.toUpperCase())}
+          autoCapitalize="characters"
+          maxLength={6}
+        />
+        <TouchableOpacity
+          style={[styles.joinDayBtn, (!dayCode || joiningDay) && styles.joinDayBtnOff]}
+          onPress={joinGameDay}
+          disabled={!dayCode || joiningDay}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.joinDayBtnText}>{joiningDay ? '…' : 'Join Day'}</Text>
         </TouchableOpacity>
       </View>
 

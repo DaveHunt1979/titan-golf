@@ -4,7 +4,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   Image, ActivityIndicator, Alert, TextInput,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
 import { useSociety } from '../../../src/lib/useSociety';
@@ -58,13 +58,14 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 export default function NewGameScreen() {
   const router = useRouter();
   const { societyId, loading: societyLoading } = useSociety();
+  const { existingDayId, course: preselectedCourse } = useLocalSearchParams<{ existingDayId?: string; course?: string }>();
 
   const [step, setStep]         = useState<1 | 2 | 3 | 4>(1);
   const [pairStep, setPairStep] = useState<1 | 2>(1);
   const [mode, setMode]         = useState<GameMode | null>(null);
   const [pair1, setPair1]       = useState<string[]>([]);
   const [pair2, setPair2]       = useState<string[]>([]);
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(preselectedCourse ?? null);
   const [hcpAllowance, setHcpAllowance]     = useState<number>(100);
   const [customHcp, setCustomHcp]           = useState<string>('');
   const [sideGames, setSideGames]           = useState<string[]>([]);
@@ -167,19 +168,24 @@ export default function NewGameScreen() {
     );
   }
 
-  function goNext() {
-    if (step === 1) { setPair1([]); setPair2([]); setPairStep(1); setSideGames([]); setStep(2); return; }
-    if (step === 2 && pairStep === 1 && !isSolo) { setPairStep(2); return; }
-    if (step === 2) { setStep(3); return; }
-    if (step === 3) { setStep(4); return; }
-    createGame();
-  }
+  // When joining an existing day, course is pre-set — skip step 3
+  const skipCourse = !!existingDayId && !!preselectedCourse;
 
   function goBack() {
     if (step === 1) { router.back(); return; }
     if (step === 2 && pairStep === 2) { setPairStep(1); return; }
     if (step === 2) { setStep(1); return; }
+    if (step === 4 && skipCourse) { setStep(2); return; }
     setStep(s => (s - 1) as any);
+  }
+
+  function goNext() {
+    if (step === 1) { setPair1([]); setPair2([]); setPairStep(1); setSideGames([]); setStep(2); return; }
+    if (step === 2 && pairStep === 1 && !isSolo) { setPairStep(2); return; }
+    if (step === 2 && skipCourse) { setStep(4); return; }
+    if (step === 2) { setStep(3); return; }
+    if (step === 3) { setStep(4); return; }
+    createGame();
   }
 
   const canNext = (() => {
@@ -197,21 +203,38 @@ export default function NewGameScreen() {
     if (!mode || !selectedCourse || !societyId || creating) return;
     setCreating(true);
     try {
-      const { data: compId, error: compErr } = await supabase.rpc('get_or_create_casual_competition', {
-        p_society_id: societyId,
-      });
-      if (compErr) throw compErr;
+      let resolvedDayId: string;
+      let dayCode: string | null = null;
+      let compId: string;
 
-      const { data: dayId, error: dayErr } = await supabase.rpc('get_or_create_course_day', {
-        p_competition_id: compId,
-        p_course_name: selectedCourse,
-      });
-      if (dayErr) throw dayErr;
+      if (existingDayId) {
+        // Joining an existing game day — use the day's competition
+        const { data: dayData } = await supabase
+          .from('competition_days').select('id,competition_id,join_code').eq('id', existingDayId).single();
+        if (!dayData) throw new Error('Game day not found');
+        resolvedDayId = existingDayId;
+        compId = (dayData as any).competition_id;
+      } else {
+        // Create a fresh game day with a shareable code
+        const { data: dayResult, error: dayErr } = await supabase.rpc('create_game_day_with_code', {
+          p_society_id: societyId,
+          p_course_name: selectedCourse,
+        });
+        if (dayErr) throw dayErr;
+        const row = Array.isArray(dayResult) ? dayResult[0] : dayResult;
+        resolvedDayId = row.day_id;
+        dayCode = row.join_code;
+
+        // Get comp id from the new day
+        const { data: dayData } = await supabase
+          .from('competition_days').select('competition_id').eq('id', resolvedDayId).single();
+        compId = (dayData as any)?.competition_id;
+      }
 
       const matchNum = Math.floor(Date.now() / 1000) % 100000;
       const { data: newMatch, error } = await supabase.from('matches').insert({
         competition_id: compId,
-        day_id: dayId,
+        day_id: resolvedDayId,
         match_number: matchNum,
         home_team_id: null,
         away_team_id: null,
@@ -231,7 +254,14 @@ export default function NewGameScreen() {
 
       if (error || !newMatch) throw error ?? new Error('Could not create game');
 
-      router.replace(`/(app)/score/preview/${newMatch.id}` as any);
+      if (existingDayId) {
+        // Going back to an existing day lobby
+        router.replace(`/(app)/score/day/${existingDayId}` as any);
+      } else {
+        // New game day — go to preview with day code
+        const params = dayCode ? `?dayId=${resolvedDayId}&dayCode=${dayCode}` : '';
+        router.replace(`/(app)/score/preview/${newMatch.id}${params}` as any);
+      }
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Could not create game');
       setCreating(false);

@@ -32,7 +32,7 @@ interface Player {
 }
 
 export default function MatchPreviewScreen() {
-  const { matchId } = useLocalSearchParams<{ matchId: string }>();
+  const { matchId, dayId, dayCode } = useLocalSearchParams<{ matchId: string; dayId?: string; dayCode?: string }>();
   const router = useRouter();
 
   const [match, setMatch] = useState<MatchPreview | null>(null);
@@ -176,6 +176,22 @@ export default function MatchPreviewScreen() {
           )}
         </View>
 
+        {/* Game Day section */}
+        {dayCode && dayId && (
+          <View style={styles.dayCard}>
+            <Text style={styles.dayCardTitle}>GAME DAY</Text>
+            <Text style={styles.dayCardSub}>Share this code so other groups can join the leaderboard</Text>
+            <Text style={styles.dayCode}>{dayCode}</Text>
+            <TouchableOpacity
+              style={styles.dayBtn}
+              onPress={() => router.push(`/(app)/score/day/${dayId}` as any)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.dayBtnText}>View Day Leaderboard →</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
       </ScrollView>
 
       {/* Tee off */}
@@ -318,4 +334,16 @@ const styles = StyleSheet.create({
   },
   teeBtnLoading: { opacity: 0.75 },
   teeBtnText: { fontSize: fonts.lg, fontWeight: '900', color: colors.bg, letterSpacing: 2 },
+
+  dayCard: {
+    marginHorizontal: spacing.md, marginTop: spacing.md,
+    backgroundColor: colors.card, borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.goldBorder, padding: spacing.lg,
+    alignItems: 'center', gap: spacing.sm,
+  },
+  dayCardTitle: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 2 },
+  dayCardSub:   { fontSize: fonts.xs, color: colors.textMuted, textAlign: 'center' },
+  dayCode:      { fontSize: 36, fontWeight: '800', color: colors.white, letterSpacing: 8, marginVertical: spacing.sm },
+  dayBtn:       { backgroundColor: colors.goldDim, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.goldBorder },
+  dayBtnText:   { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
 });
