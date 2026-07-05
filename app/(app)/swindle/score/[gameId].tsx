@@ -21,11 +21,13 @@ export default function SwindleScore() {
   const [saving,      setSaving]      = useState(false);
   const [loading,     setLoading]     = useState(true);
 
-  const nextHole  = (() => { for (let h = 1; h <= 18; h++) { if (!saved.find(s => s.hole_number === h)) return h; } return 19; })();
+  const isStroke   = (game?.format ?? 'stableford') === 'stroke';
+  const nextHole   = (() => { for (let h = 1; h <= 18; h++) { if (!saved.find(s => s.hole_number === h)) return h; } return 19; })();
   const isComplete = nextHole > 18;
   const courseHole = courseHoles.find(h => h.hole_number === nextHole);
   const shots      = courseHole ? calcStrokesReceived(myHcp, courseHole.stroke_index) : 0;
   const totalPts   = saved.reduce((s, h) => s + h.pts, 0);
+  const totalGross = saved.reduce((s, h) => s + h.gross, 0);
 
   useEffect(() => { init(); }, [gameId]);
 
@@ -100,7 +102,10 @@ export default function SwindleScore() {
     }
 
     if (nextHole === 18) {
-      Alert.alert('Round Complete!', `You scored ${totalPts + pts} points 🏆`, [
+      const msg = isStroke
+        ? `Gross total: ${gross}. Net total: ${totalGross + gross} 🏌️`
+        : `You scored ${totalPts + pts} points 🏆`;
+      Alert.alert('Round Complete!', msg, [
         { text: 'View Leaderboard', onPress: () => router.replace(`/(app)/swindle/${gameId}` as any) },
       ]);
     }
@@ -117,7 +122,7 @@ export default function SwindleScore() {
         <View style={s.doneWrap}>
           <Text style={s.doneEmoji}>🏆</Text>
           <Text style={s.doneTitle}>Round complete!</Text>
-          <Text style={s.donePts}>{totalPts} points</Text>
+          <Text style={s.donePts}>{isStroke ? `${totalGross}` : `${totalPts} pts`}</Text>
           <TouchableOpacity style={s.lbBtn} onPress={() => router.replace(`/(app)/swindle/${gameId}` as any)}>
             <Text style={s.lbBtnText}>View Leaderboard</Text>
           </TouchableOpacity>
@@ -131,7 +136,10 @@ export default function SwindleScore() {
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()}><Text style={s.backText}>← Back</Text></TouchableOpacity>
         <Text style={s.headerTitle}>{game?.name}</Text>
-        <Text style={s.headerPts}>{totalPts}pts</Text>
+        {isStroke
+          ? <Text style={s.headerPts}>{totalGross > 0 ? `${totalGross}` : '—'}</Text>
+          : <Text style={s.headerPts}>{totalPts}pts</Text>
+        }
       </View>
 
       {/* Progress dots */}
@@ -140,7 +148,15 @@ export default function SwindleScore() {
           const sc = saved.find(s => s.hole_number === i + 1);
           const isDone   = !!sc;
           const isActive = i + 1 === nextHole;
-          const ptColor  = !sc ? colors.cardAlt : sc.pts >= 4 ? 'rgba(212,175,55,0.8)' : sc.pts === 3 ? 'rgba(74,222,128,0.8)' : sc.pts === 2 ? colors.textSecondary : 'rgba(248,113,113,0.5)';
+          let ptColor = colors.cardAlt;
+          if (sc && isStroke) {
+            const ch = courseHoles.find(h => h.hole_number === i + 1);
+            const net = ch ? sc.gross - calcStrokesReceived(myHcp, ch.stroke_index) : sc.gross;
+            const rel = ch ? net - ch.par : 0;
+            ptColor = rel < 0 ? 'rgba(212,175,55,0.8)' : rel === 0 ? 'rgba(74,222,128,0.8)' : rel === 1 ? colors.textSecondary : 'rgba(248,113,113,0.5)';
+          } else if (sc) {
+            ptColor = sc.pts >= 4 ? 'rgba(212,175,55,0.8)' : sc.pts === 3 ? 'rgba(74,222,128,0.8)' : sc.pts === 2 ? colors.textSecondary : 'rgba(248,113,113,0.5)';
+          }
           return <View key={i} style={[s.dot, isDone && { backgroundColor: ptColor }, isActive && s.dotActive]} />;
         })}
       </View>
@@ -167,9 +183,16 @@ export default function SwindleScore() {
         <Text style={s.gridLabel}>SELECT SCORE</Text>
         <View style={s.grid}>
           {Array.from({ length: 12 }, (_, i) => i + 1).map(n => {
-            const pts = courseHole ? calcStablefordPoints(n, courseHole.par, shots) : 0;
+            const pts    = courseHole ? calcStablefordPoints(n, courseHole.par, shots) : 0;
+            const net    = courseHole ? n - shots : n;
+            const relPar = courseHole ? net - courseHole.par : 0;
             const isSelected = selected === n;
-            const ptColor = pts >= 4 ? colors.gold : pts === 3 ? colors.green : pts === 2 ? colors.white : pts === 1 ? colors.textMuted : colors.red;
+            const ptColor  = pts >= 4 ? colors.gold : pts === 3 ? colors.green : pts === 2 ? colors.white : pts === 1 ? colors.textMuted : colors.red;
+            const netColor = relPar < 0 ? colors.gold : relPar === 0 ? colors.green : relPar === 1 ? colors.white : colors.red;
+            const subLabel = isStroke
+              ? `net ${net > 0 ? net : '—'}`
+              : `${pts}pt${pts !== 1 ? 's' : ''}`;
+            const subColor = isStroke ? netColor : ptColor;
             return (
               <TouchableOpacity
                 key={n}
@@ -178,7 +201,7 @@ export default function SwindleScore() {
                 activeOpacity={0.7}
               >
                 <Text style={[s.scoreBtnNum, isSelected && s.scoreBtnNumActive]}>{n}</Text>
-                {courseHole && <Text style={[s.scoreBtnPts, { color: isSelected ? colors.bg : ptColor }]}>{pts}pt{pts !== 1 ? 's' : ''}</Text>}
+                {courseHole && <Text style={[s.scoreBtnPts, { color: isSelected ? colors.bg : subColor }]}>{subLabel}</Text>}
               </TouchableOpacity>
             );
           })}
