@@ -223,7 +223,16 @@ export default function MatchDetailScreen() {
               par_bogey:           `/(app)/score/parbogey/${matchId}`,
               chacha:              `/(app)/score/chacha/${matchId}`,
             };
-            router.push((routes[fmt] ?? `/(app)/score/enter/${matchId}`) as any);
+            const dest = routes[fmt] ?? `/(app)/score/enter/${matchId}`;
+            // For main enter screen, ask which hole to start from
+            if (!routes[fmt]) {
+              Alert.alert('Starting Hole', 'Which hole are you starting from?', [
+                { text: 'Hole 1 (Front 9)', onPress: () => router.push(dest as any) },
+                { text: 'Hole 10 (Back 9)', onPress: () => router.push(`/(app)/score/enter/${matchId}?startHole=10` as any) },
+              ]);
+            } else {
+              router.push(dest as any);
+            }
           }}
           activeOpacity={0.85}
         >

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, Modal, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../../src/lib/supabase';
 import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
@@ -17,12 +17,24 @@ function genCode() {
 
 export default function SwindleCreate() {
   const router = useRouter();
-  const [name,     setName]     = useState('');
-  const [course,   setCourse]   = useState('');
-  const [fee,      setFee]      = useState('5');
-  const [currency, setCurrency] = useState('£');
-  const [splitIdx, setSplitIdx] = useState(0);
-  const [saving,   setSaving]   = useState(false);
+  const [name,          setName]          = useState('');
+  const [course,        setCourse]        = useState('');
+  const [courses,       setCourses]       = useState<string[]>([]);
+  const [showPicker,    setShowPicker]    = useState(false);
+  const [courseSearch,  setCourseSearch]  = useState('');
+  const [fee,           setFee]           = useState('5');
+  const [currency,      setCurrency]      = useState('£');
+  const [splitIdx,      setSplitIdx]      = useState(0);
+  const [saving,        setSaving]        = useState(false);
+
+  useEffect(() => {
+    supabase.from('course_holes').select('course_name').then(({ data }) => {
+      if (data) {
+        const names = [...new Set((data as any[]).map(r => r.course_name).filter(Boolean))].sort() as string[];
+        setCourses(names);
+      }
+    });
+  }, []);
 
   async function create() {
     if (!name.trim()) { Alert.alert('Name required'); return; }
@@ -79,7 +91,16 @@ export default function SwindleCreate() {
         </Field>
 
         <Field label="COURSE (OPTIONAL)">
-          <TextInput style={s.input} value={course} onChangeText={setCourse} placeholder="e.g. Wrotham Heath" placeholderTextColor={colors.textMuted} />
+          <TouchableOpacity
+            style={[s.input, s.pickerBtn]}
+            onPress={() => { setCourseSearch(''); setShowPicker(true); }}
+            activeOpacity={0.8}
+          >
+            <Text style={course ? s.pickerBtnText : s.pickerBtnPlaceholder}>
+              {course || 'Select course…'}
+            </Text>
+            <Text style={s.pickerArrow}>›</Text>
+          </TouchableOpacity>
         </Field>
 
         <Field label="ENTRY FEE">
@@ -119,6 +140,46 @@ export default function SwindleCreate() {
           <Text style={s.createBtnText}>{saving ? 'Creating…' : 'Create Swindle'}</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Course picker modal */}
+      <Modal visible={showPicker} animationType="slide" transparent>
+        <View style={s.pickerOverlay}>
+          <View style={s.pickerSheet}>
+            <View style={s.pickerHeader}>
+              <Text style={s.pickerTitle}>Select Course</Text>
+              <TouchableOpacity onPress={() => setShowPicker(false)}>
+                <Text style={s.pickerClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={s.pickerSearch}
+              placeholder="Search courses…"
+              placeholderTextColor={colors.textMuted}
+              value={courseSearch}
+              onChangeText={setCourseSearch}
+              autoFocus
+            />
+            <FlatList
+              data={courses.filter(c => c.toLowerCase().includes(courseSearch.toLowerCase()))}
+              keyExtractor={item => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[s.pickerItem, course === item && s.pickerItemActive]}
+                  onPress={() => { setCourse(item); setShowPicker(false); }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.pickerItemText, course === item && s.pickerItemTextActive]}>{item}</Text>
+                  {course === item && <Text style={s.pickerTick}>✓</Text>}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={<Text style={s.pickerEmpty}>No courses found</Text>}
+            />
+            <TouchableOpacity style={s.pickerClear} onPress={() => { setCourse(''); setShowPicker(false); }}>
+              <Text style={s.pickerClearText}>Clear selection</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -157,7 +218,25 @@ const s = StyleSheet.create({
   pillActive:        { backgroundColor: 'rgba(212,175,55,0.2)' },
   pillText:          { fontSize: 10, fontWeight: '600', color: colors.textMuted },
   pillTextActive:    { color: colors.gold },
-  createBtn:         { backgroundColor: colors.gold, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: spacing.md },
-  createBtnDisabled: { opacity: 0.6 },
-  createBtnText:     { color: colors.bg, fontSize: fonts.lg, fontWeight: '800', letterSpacing: 0.5 },
+  createBtn:           { backgroundColor: colors.gold, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: spacing.md },
+  createBtnDisabled:   { opacity: 0.6 },
+  createBtnText:       { color: colors.bg, fontSize: fonts.lg, fontWeight: '800', letterSpacing: 0.5 },
+  pickerBtn:           { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  pickerBtnText:       { color: colors.white, fontSize: fonts.md, flex: 1 },
+  pickerBtnPlaceholder:{ color: colors.textMuted, fontSize: fonts.md, flex: 1 },
+  pickerArrow:         { color: colors.textMuted, fontSize: 20 },
+  pickerOverlay:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  pickerSheet:         { backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingBottom: 40, maxHeight: '75%' },
+  pickerHeader:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  pickerTitle:         { fontSize: fonts.lg, fontWeight: '800', color: colors.white },
+  pickerClose:         { fontSize: fonts.lg, color: colors.textMuted, paddingHorizontal: spacing.sm },
+  pickerSearch:        { margin: spacing.md, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10, color: colors.white, fontSize: fonts.md },
+  pickerItem:          { paddingHorizontal: spacing.md, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center' },
+  pickerItemActive:    { backgroundColor: colors.goldDim },
+  pickerItemText:      { flex: 1, fontSize: fonts.md, color: colors.textSecondary },
+  pickerItemTextActive:{ color: colors.gold, fontWeight: '700' },
+  pickerTick:          { color: colors.gold, fontWeight: '800' },
+  pickerEmpty:         { color: colors.textMuted, textAlign: 'center', paddingVertical: spacing.xl, fontSize: fonts.sm },
+  pickerClear:         { alignItems: 'center', paddingVertical: spacing.md, marginTop: spacing.xs },
+  pickerClearText:     { color: colors.textMuted, fontSize: fonts.sm },
 });

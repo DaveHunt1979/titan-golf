@@ -97,11 +97,12 @@ export default function SocietyAdminScreen() {
         if (data) {
           setSocietyName((data as any).name ?? '');
           setInstagramUrl((data as any).instagram_url ?? '');
-          setJoinPin((data as any).join_pin ?? '');
+          // Strip any decimal formatting (DB numeric type can return "105.326" instead of "105326")
+          setJoinPin(String((data as any).join_pin ?? '').replace(/[^0-9]/g, ''));
         }
         if (activeComp) {
           setActiveTournamentName((activeComp as any).name ?? '');
-          setActiveTournamentPin((activeComp as any).pin ?? '');
+          setActiveTournamentPin(String((activeComp as any).pin ?? '').replace(/[^0-9]/g, ''));
         }
       } finally {
         setLoading(false);

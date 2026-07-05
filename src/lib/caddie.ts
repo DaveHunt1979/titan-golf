@@ -2,7 +2,15 @@ import { supabase } from './supabase';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Audio } from 'expo-av';
 
-export async function playBase64Audio(b64: string): Promise<void> {
+let audioQueue: Promise<void> = Promise.resolve();
+
+// Queues audio so voices never overlap — each clip waits for the previous to finish
+export function playBase64Audio(b64: string): Promise<void> {
+  audioQueue = audioQueue.then(() => _playAudio(b64)).catch(() => {});
+  return audioQueue;
+}
+
+async function _playAudio(b64: string): Promise<void> {
   const path = `${FileSystem.cacheDirectory}caddie_${Date.now()}.mp3`;
   await FileSystem.writeAsStringAsync(path, b64, { encoding: FileSystem.EncodingType.Base64 });
   await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });

@@ -69,7 +69,8 @@ function playerCourseHcp(playerId: string, compPlayers: CompPlayer[], day: Match
 }
 
 export default function EnterScoresScreen() {
-  const { matchId } = useLocalSearchParams<{ matchId: string }>();
+  const { matchId, startHole: startHoleParam } = useLocalSearchParams<{ matchId: string; startHole?: string }>();
+  const startHole = Math.max(1, Math.min(18, parseInt(startHoleParam ?? '1', 10) || 1));
   const router = useRouter();
 
   const [match, setMatch] = useState<MatchInfo | null>(null);
@@ -291,8 +292,11 @@ export default function EnterScoresScreen() {
   // ── Derived values ──────────────────────────────────────────────
   const holesStr = (match?.holes_string ?? '..................').padEnd(18, '.').slice(0, 18);
   const holeChars = holesStr.split('');
-  const firstUnplayedIdx = holeChars.findIndex(c => c === '.');
-  const currentHole = firstUnplayedIdx === -1 ? 19 : firstUnplayedIdx + 1;
+  // Hole sequence respects starting hole (e.g. start 10 → 10,11,...18,1,...9)
+  const holeSequence = startHole > 1
+    ? [...Array.from({ length: 19 - startHole }, (_, i) => startHole + i), ...Array.from({ length: startHole - 1 }, (_, i) => i + 1)]
+    : Array.from({ length: 18 }, (_, i) => i + 1);
+  const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? 19;
   const activeHole = editingHole ?? currentHole;
   const isComplete = currentHole > 18;
 
@@ -463,8 +467,8 @@ export default function EnterScoresScreen() {
         else { Alert.alert('Round Complete', 'All 18 holes scored!', [{ text: 'Done', onPress: () => router.back() }]); }
       }
 
-      // Live Pressure commentary at key stableford moments
-      if (!editingHole && [6, 9, 12, 15, 16, 17, 18].includes(activeHole)) {
+      // Live Pressure commentary at key stableford moments (skip if match already done)
+      if (!editingHole && !wasAlreadyComplete && [6, 9, 12, 15, 16, 17, 18].includes(activeHole)) {
         const updatedTotals = { ...playerTotals };
         for (const row of spRows) {
           updatedTotals[row.player_id] = (updatedTotals[row.player_id] ?? 0) + (row.stableford_pts ?? 0);
@@ -612,8 +616,8 @@ export default function EnterScoresScreen() {
       else { Alert.alert('Match Complete', msg, [{ text: 'Done', onPress: () => router.back() }]); }
     }
 
-    // Live Pressure commentary at key matchplay moments
-    if (!editingHole && [9, 12, 15].includes(activeHole)) {
+    // Live Pressure commentary at key matchplay moments (skip if match already decided)
+    if (!editingHole && !wasAlreadyComplete && [9, 12, 15].includes(activeHole)) {
       const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
       const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
       const { homeUp: newHomeUp, remaining: newRemaining } = calcHoles(newHolesStr);
@@ -1205,54 +1209,57 @@ export default function EnterScoresScreen() {
               ))}
             </View>
 
-            {/* Fairway — par 4/5 only */}
-            {courseHole && courseHole.par >= 4 && (
-              <View style={styles.statSection}>
-                <Text style={styles.statSectionLabel}>FAIRWAY</Text>
-                <View style={styles.statBtnRow}>
-                  <TouchableOpacity
-                    style={[styles.statBtn, selectedFairway === 'left' && styles.statBtnRed]}
-                    onPress={() => setSelectedFairway(selectedFairway === 'left' ? null : 'left')}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.statBtnText, selectedFairway === 'left' && styles.statBtnTextSelected]}>◀ Left</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.statBtn, selectedFairway === 'centre' && styles.statBtnGreen]}
-                    onPress={() => setSelectedFairway(selectedFairway === 'centre' ? null : 'centre')}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.statBtnText, selectedFairway === 'centre' && styles.statBtnTextSelected]}>● Centre</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.statBtn, selectedFairway === 'right' && { backgroundColor: 'rgba(249,115,22,0.25)', borderColor: '#f97316' }]}
-                    onPress={() => setSelectedFairway(selectedFairway === 'right' ? null : 'right')}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.statBtnText, selectedFairway === 'right' && { color: '#f97316' }]}>Right ▶</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
+            {/* Fairway + Putts — only for the player scoring on this device */}
+            {modalPlayerId === myPlayerId && (
+              <>
+                {courseHole && courseHole.par >= 4 && (
+                  <View style={styles.statSection}>
+                    <Text style={styles.statSectionLabel}>FAIRWAY</Text>
+                    <View style={styles.statBtnRow}>
+                      <TouchableOpacity
+                        style={[styles.statBtn, selectedFairway === 'left' && styles.statBtnRed]}
+                        onPress={() => setSelectedFairway(selectedFairway === 'left' ? null : 'left')}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.statBtnText, selectedFairway === 'left' && styles.statBtnTextSelected]}>◀ Left</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.statBtn, selectedFairway === 'centre' && styles.statBtnGreen]}
+                        onPress={() => setSelectedFairway(selectedFairway === 'centre' ? null : 'centre')}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.statBtnText, selectedFairway === 'centre' && styles.statBtnTextSelected]}>● Centre</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.statBtn, selectedFairway === 'right' && { backgroundColor: 'rgba(249,115,22,0.25)', borderColor: '#f97316' }]}
+                        onPress={() => setSelectedFairway(selectedFairway === 'right' ? null : 'right')}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.statBtnText, selectedFairway === 'right' && { color: '#f97316' }]}>Right ▶</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
 
-            {/* Putts */}
-            <View style={styles.statSection}>
-              <Text style={styles.statSectionLabel}>PUTTS</Text>
-              <View style={styles.statBtnRow}>
-                {([1, 2, 3, 4] as const).map(n => (
-                  <TouchableOpacity
-                    key={n}
-                    style={[styles.statBtn, styles.statBtnPutt, selectedPutts === n && styles.statBtnGold]}
-                    onPress={() => setSelectedPutts(selectedPutts === n ? null : n)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.statBtnText, selectedPutts === n && styles.statBtnTextSelected]}>
-                      {n === 4 ? '3+' : n}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+                <View style={styles.statSection}>
+                  <Text style={styles.statSectionLabel}>PUTTS</Text>
+                  <View style={styles.statBtnRow}>
+                    {([1, 2, 3, 4] as const).map(n => (
+                      <TouchableOpacity
+                        key={n}
+                        style={[styles.statBtn, styles.statBtnPutt, selectedPutts === n && styles.statBtnGold]}
+                        onPress={() => setSelectedPutts(selectedPutts === n ? null : n)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.statBtnText, selectedPutts === n && styles.statBtnTextSelected]}>
+                          {n === 4 ? '3+' : n}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </>
+            )}
 
             {/* Submit */}
             <TouchableOpacity
@@ -1545,7 +1552,7 @@ const styles = StyleSheet.create({
 
   holeLabelSmall: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 2, fontWeight: '700' },
   holeBig: { fontSize: 56, fontWeight: '900', color: colors.white, lineHeight: 62 },
-  holeMetaChip: { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600', marginTop: 3 },
+  holeMetaChip: { fontSize: fonts.xs, color: colors.white, fontWeight: '700', marginTop: 3 },
 
   coachBtn: { marginTop: spacing.sm, alignSelf: 'flex-start', backgroundColor: colors.cardAlt, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, borderWidth: 1, borderColor: colors.border },
   coachBtnText: { fontSize: fonts.xs, color: colors.textSecondary, fontWeight: '700', letterSpacing: 0.3 },
@@ -1555,7 +1562,7 @@ const styles = StyleSheet.create({
   lbAvatar: { width: 26, height: 26 },
   lbAvatarFallback: { backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
   lbAvatarInitial: { fontSize: 10, fontWeight: '700', color: colors.white },
-  lbName: { flex: 1, fontSize: fonts.xs, color: colors.textSecondary, fontWeight: '600' },
+  lbName: { flex: 1, fontSize: fonts.xs, color: colors.white, fontWeight: '700' },
   lbScore: { fontSize: fonts.sm, fontWeight: '800' },
   lbCrown: { position: 'absolute', top: -8, right: -8, fontSize: 10 },
 
