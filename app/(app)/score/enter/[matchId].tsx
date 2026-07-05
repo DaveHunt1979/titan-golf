@@ -25,6 +25,7 @@ import {
 } from '../../../../src/lib/scoring';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { speakHole, speakPressure } from '../../../../src/lib/caddie';
+import * as Location from 'expo-location';
 import RangeMap from '../../../../src/components/RangeMap';
 import ShotLogger from '../../../../src/components/ShotLogger';
 import RecordCelebration from '../../../../src/components/RecordCelebration';
@@ -102,6 +103,21 @@ export default function EnterScoresScreen() {
   const [currentPage, setCurrentPage] = useState(0);
   const { width: screenWidth } = useWindowDimensions();
   const pagerRef = useRef<ScrollView>(null);
+  const gpsRef   = useRef<{ lat: number; lng: number } | null>(null);
+
+  // Passive GPS — used only for tagging shot locations
+  useEffect(() => {
+    let sub: Location.LocationSubscription | null = null;
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      sub = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, distanceInterval: 5 },
+        loc => { gpsRef.current = { lat: loc.coords.latitude, lng: loc.coords.longitude }; },
+      );
+    })();
+    return () => { sub?.remove(); };
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -932,6 +948,8 @@ export default function EnterScoresScreen() {
                     hole_number: currentHole,
                     club_short: result.action.club,
                     distance_yards: result.action.distance ?? null,
+                    lat: gpsRef.current?.lat ?? null,
+                    lng: gpsRef.current?.lng ?? null,
                   });
                 }
               }}

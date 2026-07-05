@@ -11,6 +11,7 @@ import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints } from '.
 import { resolveAvatar } from '../../../../src/lib/assets';
 import { sendMatchNotification } from '../../../../src/lib/notifications';
 import { speakHole, speakIntro, speakBack9, speakOutro } from '../../../../src/lib/caddie';
+import * as Location from 'expo-location';
 import RangeMap from '../../../../src/components/RangeMap';
 import ShotLogger from '../../../../src/components/ShotLogger';
 import RecordCelebration from '../../../../src/components/RecordCelebration';
@@ -250,6 +251,20 @@ export default function SoloRoundScreen() {
 
   const introPlayedRef = useRef(false);
   const back9PlayedRef = useRef(false);
+  const gpsRef         = useRef<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    let sub: Location.LocationSubscription | null = null;
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      sub = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, distanceInterval: 5 },
+        loc => { gpsRef.current = { lat: loc.coords.latitude, lng: loc.coords.longitude }; },
+      );
+    })();
+    return () => { sub?.remove(); };
+  }, []);
 
   // Auto intro on hole 1 when round starts
   useEffect(() => {
@@ -590,6 +605,8 @@ export default function SoloRoundScreen() {
                         hole_number: nextHole,
                         club_short: result.action.club,
                         distance_yards: result.action.distance ?? null,
+                        lat: gpsRef.current?.lat ?? null,
+                        lng: gpsRef.current?.lng ?? null,
                       });
                     }
                   }

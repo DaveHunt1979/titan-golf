@@ -162,6 +162,31 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Debrief mode: Chip & Birdie roast a completed round ─────────
+    if (mode === 'debrief') {
+      const { player, course, gross, toPar, stablefordPts, putts, fairwaysHit, fairwaysTracked, birdies, bogeys, doubles, bestHole, worstHole } = body;
+      const toParStr  = toPar === 0 ? 'level par' : toPar > 0 ? `+${toPar}` : `${toPar}`;
+      const fwyStr    = fairwaysTracked > 0 ? `${fairwaysHit} of ${fairwaysTracked} fairways hit` : 'no fairway data';
+      const puttStr   = putts > 0 ? `${putts} putts total` : 'no putt data';
+      const bestStr   = bestHole ? `best hole was ${bestHole.hole} (${bestHole.pts} pts)` : '';
+      const worstStr  = worstHole ? `worst hole was ${worstHole.hole} (${worstHole.gross} vs par ${worstHole.par})` : '';
+      const summary   = `${player} shot ${gross} (${toParStr}) at ${course}. Stableford: ${stablefordPts} pts. ${puttStr}. ${fwyStr}. ${birdies} birdie(s), ${bogeys} bogey(s), ${doubles} double(s) or worse. ${bestStr}. ${worstStr}.`;
+
+      const [chipScript, birdieScript] = await Promise.all([
+        claudeText(`You are Chip, savagely funny British golf commentator. Debrief this round brutally but with warmth: ${summary}. Pick the most embarrassing stat and destroy ${player} with it. Sound like a brilliant post-match pundit. Under 45 words. No quotes, no stage directions.`),
+        claudeText(`You are Birdie, Chip's brutal co-host. Add a devastating but affectionate follow-up to this debrief: ${summary}. One killer observation that sounds almost supportive but really twists the knife. Under 25 words. No quotes, no stage directions.`),
+      ]);
+
+      const [chipAudio, birdieAudio] = await Promise.all([
+        tts(chipScript || `Right ${player}, ${gross} at ${course}. ${toParStr}. ${puttStr}. I've heard worse. I've also heard much better, but that's beside the point.`, VOICE_CHIP),
+        tts(birdieScript || `The ${fwyStr} really tells the story, doesn't it. Lovely stuff.`, VOICE_BIRDIE),
+      ]);
+
+      return new Response(JSON.stringify({ chipAudio, birdieAudio, chipScript, birdieScript }), {
+        status: 200, headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+
     // ── Hole mode ────────────────────────────────────────────────────
     if (hole && par && players?.length) {
       const yardsStr = yardage ? `, ${yardage} yards` : '';
