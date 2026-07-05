@@ -74,6 +74,7 @@ export default function NewGameScreen() {
   const [loadingPlayers, setLoadingPlayers] = useState(true);
   const [courses, setCourses]               = useState<CourseItem[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
+  const [courseSearch, setCourseSearch]     = useState('');
   const [creating, setCreating]             = useState(false);
   const [courseHoleData, setCourseHoleData] = useState<{ hole_number: number; par: number }[]>([]);
   const [coursePinsSet, setCoursePinsSet]   = useState<boolean | null>(null);
@@ -183,7 +184,7 @@ export default function NewGameScreen() {
     if (step === 1) { setPair1([]); setPair2([]); setPairStep(1); setSideGames([]); setStep(2); return; }
     if (step === 2 && pairStep === 1 && !isSolo) { setPairStep(2); return; }
     if (step === 2 && skipCourse) { setStep(4); return; }
-    if (step === 2) { setStep(3); return; }
+    if (step === 2) { setCourseSearch(''); setStep(3); return; }
     if (step === 3) { setStep(4); return; }
     createGame();
   }
@@ -444,20 +445,34 @@ export default function NewGameScreen() {
                     </View>
                   </View>
                 )
-                : courses.map(c => (
-                  <TouchableOpacity
-                    key={c.name}
-                    style={[styles.card, selectedCourse === c.name && styles.cardSelected]}
-                    onPress={() => setSelectedCourse(c.name)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.cardLabel, selectedCourse === c.name && styles.cardLabelSelected]}>{c.name}</Text>
-                      <Text style={styles.cardSub}>Par {c.par}</Text>
-                    </View>
-                    {selectedCourse === c.name && <Text style={styles.cardCheck}>✓</Text>}
-                  </TouchableOpacity>
-                ))
+                : <>
+                    <TextInput
+                      style={styles.courseSearch}
+                      placeholder="Search courses…"
+                      placeholderTextColor={colors.textMuted}
+                      value={courseSearch}
+                      onChangeText={setCourseSearch}
+                      autoCorrect={false}
+                      clearButtonMode="while-editing"
+                    />
+                    {courses
+                      .filter(c => c.name.toLowerCase().includes(courseSearch.toLowerCase()))
+                      .map(c => (
+                        <TouchableOpacity
+                          key={c.name}
+                          style={[styles.card, selectedCourse === c.name && styles.cardSelected]}
+                          onPress={() => setSelectedCourse(c.name)}
+                          activeOpacity={0.8}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.cardLabel, selectedCourse === c.name && styles.cardLabelSelected]}>{c.name}</Text>
+                            <Text style={styles.cardSub}>Par {c.par}</Text>
+                          </View>
+                          {selectedCourse === c.name && <Text style={styles.cardCheck}>✓</Text>}
+                        </TouchableOpacity>
+                      ))
+                    }
+                  </>
             }
 
             <Text style={styles.sectionLabel}>HOLES TO PLAY</Text>
@@ -677,6 +692,11 @@ const styles = StyleSheet.create({
   playerHcp: { fontSize: 9, color: colors.textMuted, marginTop: 1 },
 
   sectionLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5, marginTop: spacing.lg, marginBottom: spacing.sm },
+  courseSearch: {
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10,
+    color: colors.white, fontSize: fonts.md, marginBottom: spacing.sm,
+  },
   pinsNotice: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(212,175,55,0.08)', borderRadius: radius.md,
