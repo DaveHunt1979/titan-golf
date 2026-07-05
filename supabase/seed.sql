@@ -65,8 +65,8 @@ ON CONFLICT (course_name, hole_number) DO NOTHING;
 
 -- ── Wall of Champions ─────────────────────────────────────────
 INSERT INTO champions (society_id, year, award_name, winner_name, winner_type, detail) VALUES
-  ('00000000-0000-0000-0000-000000000001', 2025, 'Titan Tour',    'TBC',           'team',   NULL),
-  ('00000000-0000-0000-0000-000000000001', 2025, 'Kronos Trophy', 'TBC',           'player', NULL),
+  ('00000000-0000-0000-0000-000000000001', 2025, 'Titan Tour',    'Instigators',   'team',   NULL),
+  ('00000000-0000-0000-0000-000000000001', 2025, 'Kronos Trophy', 'George Lings',  'player', NULL),
   ('00000000-0000-0000-0000-000000000001', 2026, 'Titan Tour',    'Elite',         'team',   'Portugal 2026'),
   ('00000000-0000-0000-0000-000000000001', 2026, 'Kronos Trophy', 'Ian Henderson', 'player', '140 pts — The Instigators')
 ON CONFLICT (society_id, year, award_name) DO NOTHING;
