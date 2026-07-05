@@ -36,7 +36,8 @@ interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 interface HoleScore { hole_number: number; gross: number; net: number; pts: number; }
 
 export default function SoloRoundScreen() {
-  const { matchId } = useLocalSearchParams<{ matchId: string }>();
+  const { matchId, startHole: startHoleParam } = useLocalSearchParams<{ matchId: string; startHole?: string }>();
+  const startHole = Math.max(1, Math.min(18, parseInt(startHoleParam ?? '1', 10) || 1));
   const router = useRouter();
 
   const [match, setMatch]           = useState<MatchInfo | null>(null);
@@ -116,9 +117,12 @@ export default function SoloRoundScreen() {
   const nextHoleRef      = useRef<number>(1);
   const isStablefordRef  = useRef<boolean>(false);
 
-  const holesStr  = match?.holes_string ?? '..................';
-  const holeChars = holesStr.split('');
-  const nextHole  = holeChars.findIndex(c => c === '.') + 1 || 19;
+  const holesStr    = match?.holes_string ?? '..................';
+  const holeChars   = holesStr.split('');
+  const holeSequence = startHole > 1
+    ? [...Array.from({ length: 19 - startHole }, (_, i) => startHole + i), ...Array.from({ length: startHole - 1 }, (_, i) => i + 1)]
+    : Array.from({ length: 18 }, (_, i) => i + 1);
+  const nextHole  = holeSequence.find(h => holeChars[h - 1] === '.') ?? 19;
   const activeHole = editingHole ?? nextHole;
   const isComplete = nextHole > 18;
   const isStableford = match?.round_format === 'stableford';

@@ -211,7 +211,13 @@ export default function MatchDetailScreen() {
           style={styles.enterScoresBtn}
           onPress={() => {
             const isSolo = match.away_player_ids.length === 0 && match.home_player_ids.length === 1;
-            if (isSolo) { router.push(`/(app)/score/solo/${matchId}` as any); return; }
+            if (isSolo) {
+              Alert.alert('Starting Hole', 'Which hole are you starting from?', [
+                { text: 'Hole 1 (Front 9)', onPress: () => router.push(`/(app)/score/solo/${matchId}` as any) },
+                { text: 'Hole 10 (Back 9)', onPress: () => router.push(`/(app)/score/solo/${matchId}?startHole=10` as any) },
+              ]);
+              return;
+            }
             const fmt = match?.round_format ?? '';
             const routes: Record<string, string> = {
               skins:               `/(app)/score/skins/${matchId}`,
