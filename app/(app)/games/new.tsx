@@ -258,17 +258,15 @@ export default function NewGameScreen() {
     try {
       let resolvedDayId: string;
       let dayCode: string | null = null;
-      let compId: string;
 
       if (existingDayId) {
-        // Joining an existing game day — use the day's competition
+        // Joining an existing game day
         const { data: dayData } = await supabase
-          .from('competition_days').select('id,competition_id,join_code').eq('id', existingDayId).single();
+          .from('competition_days').select('id, join_code').eq('id', existingDayId).single();
         if (!dayData) throw new Error('Game day not found');
         resolvedDayId = existingDayId;
-        compId = (dayData as any).competition_id;
       } else {
-        // Create a fresh game day with a shareable code
+        // Create a fresh standalone game day with a shareable code
         const { data: dayResult, error: dayErr } = await supabase.rpc('create_game_day_with_code', {
           p_society_id: societyId,
           p_course_name: selectedCourse,
@@ -277,16 +275,11 @@ export default function NewGameScreen() {
         const row = Array.isArray(dayResult) ? dayResult[0] : dayResult;
         resolvedDayId = row.day_id;
         dayCode = row.join_code;
-
-        // Get comp id from the new day
-        const { data: dayData } = await supabase
-          .from('competition_days').select('competition_id').eq('id', resolvedDayId).single();
-        compId = (dayData as any)?.competition_id;
       }
 
       const matchNum = Math.floor(Date.now() / 1000) % 100000;
       const { data: newMatch, error } = await supabase.from('matches').insert({
-        competition_id: compId,
+        competition_id: null,
         day_id: resolvedDayId,
         match_number: matchNum,
         home_team_id: null,
