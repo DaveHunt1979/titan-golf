@@ -372,6 +372,17 @@ export default function SocietyAdminScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.linkCard, { marginTop: spacing.sm }]}
+            onPress={() => router.push('/(app)/admin/tournaments' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.linkTitle}>Tournament History</Text>
+              <Text style={styles.linkSub}>All competitions, champions &amp; PINs</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.linkCard, { marginTop: spacing.sm }]}
             onPress={() => router.push('/(app)/admin/courses' as any)}
             activeOpacity={0.7}
           >

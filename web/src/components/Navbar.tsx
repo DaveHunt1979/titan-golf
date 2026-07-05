@@ -26,9 +26,9 @@ const NAV = [
     label: 'Tournament',
     items: [
       { label: 'Create Competition', href: '/tournament/new' },
-      { label: 'Manage Draw', href: '/tournament' },
-      { label: 'Live Leaderboard', href: '/leaderboard' },
       { label: 'Results Archive', href: '/tournament/archive' },
+      { label: 'Live Leaderboard', href: '/leaderboard' },
+      { label: 'Admin Panel', href: '/admin' },
     ],
   },
   {

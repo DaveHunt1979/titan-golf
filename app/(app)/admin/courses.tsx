@@ -36,6 +36,7 @@ export default function CoursesScreen() {
   const [pendingLat, setPendingLat]   = useState<number | null>(null);
   const [pendingLng, setPendingLng]   = useState<number | null>(null);
   const [scanning, setScanning]       = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadCourses = useCallback(async () => {
     const { data } = await supabase.from('course_holes').select('course_name, par');
@@ -366,39 +367,69 @@ export default function CoursesScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Live search */}
+      {courses.length > 3 && (
+        <View style={s.searchWrap}>
+          <TextInput
+            style={s.courseSearchInput}
+            placeholder="Search courses…"
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            clearButtonMode="while-editing"
+            autoCorrect={false}
+          />
+        </View>
+      )}
+
       <ScrollView contentContainerStyle={s.scroll}>
-        {courses.length === 0 ? (
-          <View style={s.empty}>
-            <Text style={s.emptyIcon}>⛳</Text>
-            <Text style={s.emptyTitle}>No courses yet</Text>
-            <Text style={s.emptyHint}>
-              Add your courses so players can select them when starting a round.
-            </Text>
-            <TouchableOpacity style={s.emptyBtn} onPress={openNew} activeOpacity={0.8}>
-              <Text style={s.emptyBtnText}>Add First Course</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            {courses.map(c => (
-              <TouchableOpacity
-                key={c.name}
-                style={s.courseRow}
-                onPress={() => openEdit(c.name)}
-                activeOpacity={0.7}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={s.courseName}>{c.name}</Text>
-                  <Text style={s.courseMeta}>{c.holeCount} holes · Par {c.par}</Text>
-                </View>
-                <Text style={s.arrow}>›</Text>
+        {(() => {
+          const filtered = searchQuery.trim()
+            ? courses.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
+            : courses;
+          if (courses.length === 0) return (
+            <View style={s.empty}>
+              <Text style={s.emptyIcon}>⛳</Text>
+              <Text style={s.emptyTitle}>No courses yet</Text>
+              <Text style={s.emptyHint}>
+                Add your courses so players can select them when starting a round.
+              </Text>
+              <TouchableOpacity style={s.emptyBtn} onPress={openNew} activeOpacity={0.8}>
+                <Text style={s.emptyBtnText}>Add First Course</Text>
               </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={s.addRowBtn} onPress={openNew} activeOpacity={0.8}>
-              <Text style={s.addRowBtnText}>+ Add Another Course</Text>
-            </TouchableOpacity>
-          </>
-        )}
+            </View>
+          );
+          if (filtered.length === 0) return (
+            <View style={s.empty}>
+              <Text style={s.emptyIcon}>🔍</Text>
+              <Text style={s.emptyTitle}>No matches</Text>
+              <Text style={s.emptyHint}>No courses match "{searchQuery}"</Text>
+            </View>
+          );
+          return (
+            <>
+              {filtered.map(c => (
+                <TouchableOpacity
+                  key={c.name}
+                  style={s.courseRow}
+                  onPress={() => openEdit(c.name)}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.courseName}>{c.name}</Text>
+                    <Text style={s.courseMeta}>{c.holeCount} holes · Par {c.par}</Text>
+                  </View>
+                  <Text style={s.arrow}>›</Text>
+                </TouchableOpacity>
+              ))}
+              {!searchQuery && (
+                <TouchableOpacity style={s.addRowBtn} onPress={openNew} activeOpacity={0.8}>
+                  <Text style={s.addRowBtnText}>+ Add Another Course</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          );
+        })()}
       </ScrollView>
 
       <Modal
@@ -620,6 +651,8 @@ const s = StyleSheet.create({
   back:        { fontSize: fonts.sm, color: colors.gold, fontWeight: '600' },
   headerTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
   addBtn:      { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
+  searchWrap:        { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  courseSearchInput: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10, color: colors.white, fontSize: fonts.md },
   scroll:      { padding: spacing.lg, paddingBottom: 60 },
 
   courseRow: {

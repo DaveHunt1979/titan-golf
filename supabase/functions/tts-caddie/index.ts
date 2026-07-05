@@ -50,18 +50,18 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { mode, voice = 'chip', hole, par, yardage, si, players, text } = body;
 
-    // ── Intro mode: Chip speaks first, Birdie responds ──────────────
+    // ── Intro mode: BIG laughs — Chip opens, Birdie piles on ────────
     if (mode === 'intro') {
       const names = (players ?? []).join(', ') || 'lads';
 
       const [chipScript, birdieScript] = await Promise.all([
-        claudeText(`You are Chip, a cheeky golf commentator. Welcome the players (${names}) to their round in one punchy sentence. Reference that you and Birdie are hosting. Be funny and slightly self-deprecating — something like "here to ruin... I mean coach you round." Under 25 words. No quotes or stage directions.`),
-        claudeText(`You are Birdie, the enthusiastic co-host to Chip. Respond to Chip's welcome with one short line — hype up the players (${names}) with genuine warmth and a cheeky twist. Under 20 words. No quotes or stage directions.`),
+        claudeText(`You are Chip, a savagely funny British golf commentator. Your job is to roast the players (${names}) as they're about to tee off. Be absolutely brutal — mock their handicaps, their fashion sense, their life choices, their swing. Like a best man speech meets golf commentary. Reference Birdie as your partner in crime. Under 35 words. No quotes, no stage directions. Pure gold banter.`),
+        claudeText(`You are Birdie, Chip's comedy co-host. Chip just roasted ${names}. Pile on with an even worse dig — something that sounds warm but absolutely destroys them. Could reference the weather, the course, or their total lack of ability. Under 25 words. No quotes, no stage directions.`),
       ]);
 
       const [chipAudio, birdieAudio] = await Promise.all([
-        tts(chipScript || `Chip here, and Birdie too — ready to coach you round ${names}. Let's have it!`, VOICE_CHIP),
-        tts(birdieScript || `You're all going to be brilliant today. Probably. Good luck lads!`, VOICE_BIRDIE),
+        tts(chipScript || `Right then ${names}, Chip and Birdie here — and frankly, I've seen better swings on a playground. Let's see if we can get round without embarrassing yourselves. No promises.`, VOICE_CHIP),
+        tts(birdieScript || `Don't worry lads, the bar is on the floor. You can only go up. Well. Statistically. Anyway, good luck!`, VOICE_BIRDIE),
       ]);
 
       return new Response(JSON.stringify({ chipAudio, birdieAudio, chipScript, birdieScript }), {
@@ -69,19 +69,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Outro mode: Chip & Birdie sign off with final score ──────────────
+    // ── Outro mode: funny witty banter to close ──────────────────────
     if (mode === 'outro') {
       const names = (players ?? []).join(', ') || 'lads';
       const score = body.score ?? '';
 
       const [chipScript, birdieScript] = await Promise.all([
-        claudeText(`You are Chip, quick-witted golf caddie. The round is done for ${names} — final score: ${score}. Give a punchy send-off in one sentence, hand to Birdie for the last word. Under 25 words. No quotes, no stage directions.`),
-        claudeText(`You are Birdie, enthusiastic golf co-host. Say a warm, slightly cheeky goodbye to ${names} after their round (${score}). One sentence, under 20 words. No quotes, no stage directions.`),
+        claudeText(`You are Chip, a savagely funny British golf commentator. The round is over for ${names} — final score: ${score}. Give them absolute grief about it. Too low? Mock them. Too high? Mock them harder. One sentence, brutal but affectionate. Under 30 words. No quotes, no stage directions.`),
+        claudeText(`You are Birdie, comedy golf co-host. Add a final devastating one-liner about ${names}'s round (${score}). Something that sounds almost like a compliment but really isn't. Under 20 words. No quotes, no stage directions.`),
       ]);
 
       const [chipAudio, birdieAudio] = await Promise.all([
-        tts(chipScript || `Well played ${names}! ${score} — not bad at all. Over to Birdie for the final word.`, VOICE_CHIP),
-        tts(birdieScript || `Brilliant effort! We'll see you back on the course very soon. Take care!`, VOICE_BIRDIE),
+        tts(chipScript || `Well ${names}, ${score} — I've seen better scores on a whist drive. Same time next week so we can all do this again to ourselves?`, VOICE_CHIP),
+        tts(birdieScript || `Genuinely inspiring. Not the golf, but the sheer commitment to turning up. See you next time!`, VOICE_BIRDIE),
       ]);
 
       return new Response(JSON.stringify({ chipAudio, birdieAudio, chipScript, birdieScript }), {
@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Back 9 mode: Chip summarises front 9, Birdie adds abuse ────────
+    // ── Back 9 mode: Chip summarises front 9, Birdie adds commentary ─
     if (mode === 'back9') {
       const names    = (players ?? []).join(', ') || 'lads';
       const format   = body.format ?? 'stableford';
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Hole mode: generate banter then voice it ─────────────────────
+    // ── Hole mode ────────────────────────────────────────────────────
     if (hole && par && players?.length) {
       const yardsStr = yardage ? `, ${yardage} yards` : '';
       const siStr    = si     ? `, stroke index ${si}` : '';
@@ -170,10 +170,20 @@ Deno.serve(async (req) => {
       const otherName = voice === 'birdie' ? 'Chip'   : 'Birdie';
       const playerList = players.join(', ');
 
-      const script = await claudeText(
-        `You are ${voiceName}, a quick-witted golf caddie and commentator (your co-host is ${otherName}).\n\nHole ${hole}, par ${par}${yardsStr}${siStr}. Players: ${playerList}.\n\nAnnounce the hole stats then add a cheeky, affectionate dig at one player by first name. Sound like a local caddie who knows these lads well. Warm and funny. Under 45 words. No hashtags, no stage directions, no quotes — just spoken words.`,
-      );
+      let prompt: string;
 
+      if (hole === 9) {
+        // The turn — serious, reflective commentary
+        prompt = `You are ${voiceName}, a seasoned golf commentator. This is the 9th hole — the turn. Par ${par}${yardsStr}. Players: ${playerList}. This is a serious moment in any round. Give a proper, focused commentary about what the 9th means — where rounds are made or broken. Mention the players. Measured and real, like proper TV golf. Under 40 words. No quotes, no stage directions.`;
+      } else if (hole === 18) {
+        // The final hole — drama, gravitas
+        prompt = `You are ${voiceName}, a serious golf commentator. Hole 18 — the final hole. Par ${par}${yardsStr}. Players: ${playerList}. Build the drama of the last hole. Speak with weight and gravitas — this is it. Every shot counts now. Proper Sky Sports final-hole commentary. Under 40 words. No quotes, no stage directions.`;
+      } else {
+        // All other holes — fun, banter, piss-taking
+        prompt = `You are ${voiceName}, a savagely funny British golf caddie commentator (your partner is ${otherName}).\n\nHole ${hole}, par ${par}${yardsStr}${siStr}. Players: ${playerList}.\n\nAnnounce the hole stats then add a cheeky, affectionate dig — mock the par, the distance, or single out a player by first name. Sound like the funniest caddie at the club who knows exactly how to wind them up. Warm and properly funny. Under 45 words. No hashtags, no stage directions, no quotes.`;
+      }
+
+      const script = await claudeText(prompt);
       const voiceId = voice === 'birdie' ? VOICE_BIRDIE : VOICE_CHIP;
       const audio   = await tts(
         script || `Hole ${hole}. Par ${par}${yardsStr}. Good luck ${playerList}.`,
