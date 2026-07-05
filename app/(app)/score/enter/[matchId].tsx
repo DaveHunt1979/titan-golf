@@ -96,6 +96,7 @@ export default function EnterScoresScreen() {
   const [sideGameWinner, setSideGameWinner] = useState<string | null>(null);
   const [showRangeMap, setShowRangeMap] = useState(false);
   const [showShotLogger, setShowShotLogger] = useState(false);
+  const [showCaddieModal, setShowCaddieModal] = useState(false);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [playerTotals, setPlayerTotals] = useState<Record<string, number>>({});
   const [holeData, setHoleData] = useState<Record<string, Record<number, { gross: number | null; pts: number | null }>>>({});
@@ -902,6 +903,11 @@ export default function EnterScoresScreen() {
                 <Text style={styles.holeIconEmoji}>🎯</Text>
                 <Text style={styles.holeIconLbl}>SHOTS</Text>
               </TouchableOpacity>
+              <View style={styles.holeIconSep} />
+              <TouchableOpacity style={styles.holeIconBtn} onPress={() => setShowCaddieModal(true)} activeOpacity={0.7}>
+                <Text style={styles.holeIconEmoji}>🏌️</Text>
+                <Text style={styles.holeIconLbl}>CADDIE</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -922,39 +928,53 @@ export default function EnterScoresScreen() {
             </View>
           )}
 
-          {/* Voice caddie */}
-          {courseHole && match && (
-            <CaddieButton
-              context={{
-                playerName: myPlayerId ? (playerNames[myPlayerId] ?? 'Player') : 'Player',
-                holeNumber: currentHole,
-                par: courseHole.par,
-                yardage: courseHole.yardage,
-                strokeIndex: courseHole.stroke_index,
-                format: match.round_format,
-                holesCompleted: holeChars.filter(c => c !== '.').length,
-                runningScore: (() => {
-                  const up = holeChars.reduce((n, c) => n + (c === 'h' ? 1 : c === 'a' ? -1 : 0), 0);
-                  const left = holeChars.filter(c => c === '.').length;
-                  if (up === 0) return 'All Square';
-                  return `${Math.abs(up)}UP with ${left} to play`;
-                })(),
-              }}
-              onAction={async (result: VoiceCommandResult) => {
-                if (result.action?.type === 'log_shot' && result.action.club && myPlayerId) {
-                  await supabase.from('shots').insert({
-                    match_id: match.id,
-                    player_id: myPlayerId,
-                    hole_number: currentHole,
-                    club_short: result.action.club,
-                    distance_yards: result.action.distance ?? null,
-                    lat: gpsRef.current?.lat ?? null,
-                    lng: gpsRef.current?.lng ?? null,
-                  });
-                }
-              }}
-            />
-          )}
+          {/* Voice caddie modal */}
+          <Modal visible={showCaddieModal} transparent animationType="slide" onRequestClose={() => setShowCaddieModal(false)}>
+            <TouchableOpacity style={styles.popupOverlay} activeOpacity={1} onPress={() => setShowCaddieModal(false)}>
+              <View style={styles.popupSheet} onStartShouldSetResponder={() => true}>
+                <View style={styles.popupHeader} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
+                  <Text style={styles.popupTitle}>🏌️ Voice Caddie</Text>
+                  <TouchableOpacity onPress={() => setShowCaddieModal(false)} style={styles.popupClose} activeOpacity={0.7}>
+                    <Text style={{ fontSize: fonts.lg, color: colors.textMuted }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                {courseHole && match && (
+                  <CaddieButton
+                    context={{
+                      playerName: myPlayerId ? (playerNames[myPlayerId] ?? 'Player') : 'Player',
+                      holeNumber: currentHole,
+                      par: courseHole.par,
+                      yardage: courseHole.yardage,
+                      strokeIndex: courseHole.stroke_index,
+                      format: match.round_format,
+                      holesCompleted: holeChars.filter(c => c !== '.').length,
+                      runningScore: (() => {
+                        const up = holeChars.reduce((n, c) => n + (c === 'h' ? 1 : c === 'a' ? -1 : 0), 0);
+                        const left = holeChars.filter(c => c === '.').length;
+                        if (up === 0) return 'All Square';
+                        return `${Math.abs(up)}UP with ${left} to play`;
+                      })(),
+                    }}
+                    onAction={async (result: VoiceCommandResult) => {
+                      if (result.action?.type === 'log_shot' && result.action.club && myPlayerId) {
+                        await supabase.from('shots').insert({
+                          match_id: match.id,
+                          player_id: myPlayerId,
+                          hole_number: currentHole,
+                          club_short: result.action.club,
+                          distance_yards: result.action.distance ?? null,
+                          lat: gpsRef.current?.lat ?? null,
+                          lng: gpsRef.current?.lng ?? null,
+                        });
+                        setShowCaddieModal(false);
+                      }
+                    }}
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+          </Modal>
           </ScrollView>
 
           {/* Page 1: Front 9 scorecard */}
