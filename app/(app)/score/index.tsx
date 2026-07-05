@@ -96,6 +96,7 @@ export default function ScoreScreen() {
   }), [colors]);
 
   const router = useRouter();
+  const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [matches, setMatches] = useState<MatchWithTeams[]>([]);
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
   const [playerAvatars, setPlayerAvatars] = useState<Record<string, string | null>>({});
@@ -116,6 +117,16 @@ export default function ScoreScreen() {
   }
 
   async function loadMatches() {
+    // Resolve current player once
+    let pid = myPlayerId;
+    if (!pid) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: p } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
+        if (p) { pid = p.id; setMyPlayerId(p.id); }
+      }
+    }
+
     const { data, error } = await supabase
       .from('matches')
       .select(`
@@ -126,7 +137,10 @@ export default function ScoreScreen() {
       .order('match_number', { ascending: true });
 
     if (!error && data) {
-      const matchData = data as unknown as MatchWithTeams[];
+      // Only show matches the current player is actually in
+      const matchData = (data as unknown as MatchWithTeams[]).filter(m =>
+        !pid || m.home_player_ids.includes(pid) || m.away_player_ids.includes(pid)
+      );
       setMatches(matchData);
 
       const allIds = [...new Set(matchData.flatMap(m => [...m.home_player_ids, ...m.away_player_ids]))];

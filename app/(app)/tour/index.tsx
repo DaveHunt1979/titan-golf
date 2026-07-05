@@ -54,6 +54,7 @@ export default function TourScreen() {
   const [players, setPlayers]         = useState<{ id: string; display_name: string }[]>([]);
   const [kronosRows, setKronosRows]   = useState<{ playerId: string; name: string; total: number; holes: number }[]>([]);
   const [champions, setChampions]     = useState<Champion[]>([]);
+  const [myPlayerId, setMyPlayerId]   = useState<string | null>(null);
   const [loading, setLoading]         = useState(true);
   const [refreshing, setRefreshing]   = useState(false);
   const [activeTab, setActiveTab]     = useState<TourTab>('teams');
@@ -198,6 +199,18 @@ export default function TourScreen() {
 
       noResults: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', padding: spacing.lg, lineHeight: 22 },
 
+      // ── Play Your Match banner ──────────────────────────────────────
+      playBanner: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: colors.gold, paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+        borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.15)',
+        gap: spacing.md,
+      },
+      playBannerLabel: { fontSize: 9, fontWeight: '800', color: 'rgba(0,0,0,0.5)', letterSpacing: 1.5, marginBottom: 2 },
+      playBannerTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
+      playBannerBtn:   { backgroundColor: colors.bg, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+      playBannerBtnText: { fontSize: fonts.sm, fontWeight: '800', color: colors.gold },
+
       // ── PIN entry ───────────────────────────────────────────────────
       pinScroll: { alignItems: 'center', paddingTop: 80, paddingHorizontal: spacing.lg, paddingBottom: 60 },
       pinIcon:    { fontSize: 56, marginBottom: spacing.lg },
@@ -281,6 +294,15 @@ export default function TourScreen() {
   }
 
   async function load() {
+    // Resolve current player once
+    if (!myPlayerId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: p } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
+        if (p) setMyPlayerId(p.id);
+      }
+    }
+
     const { data: comp } = await supabase
       .from('competitions').select('*').eq('status', 'active').limit(1).single();
 
@@ -371,6 +393,15 @@ export default function TourScreen() {
   }
 
   const champYears = [...new Set(champions.map(c => c.year))].sort((a, b) => b - a);
+
+  // My match in this tournament
+  const myMatch = myPlayerId
+    ? (matches as any[]).find(m =>
+        (m.home_player_ids ?? []).includes(myPlayerId) ||
+        (m.away_player_ids ?? []).includes(myPlayerId)
+      ) ?? null
+    : null;
+  const myMatchActive = myMatch && (myMatch.status === 'upcoming' || myMatch.status === 'in_progress');
 
   // ── Loading ─────────────────────────────────────────────────────────
   if (loading) return (
@@ -484,6 +515,34 @@ export default function TourScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Play Your Match banner */}
+      {myMatchActive && (
+        <TouchableOpacity
+          style={styles.playBanner}
+          onPress={() => router.push(
+            myMatch.status === 'in_progress'
+              ? `/(app)/score/enter/${myMatch.id}` as any
+              : `/(app)/score/preview/${myMatch.id}` as any
+          )}
+          activeOpacity={0.88}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.playBannerLabel}>YOUR MATCH</Text>
+            <Text style={styles.playBannerTitle}>
+              {(() => {
+                const names = matchNames(myMatch as Match);
+                return `${names.home} vs ${names.away}`;
+              })()}
+            </Text>
+          </View>
+          <View style={styles.playBannerBtn}>
+            <Text style={styles.playBannerBtnText}>
+              {myMatch.status === 'in_progress' ? '▶ Resume' : '⛳ Play'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* Content */}
       <ScrollView
