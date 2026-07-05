@@ -32,7 +32,7 @@ interface MatchInfo {
   day: { course_name: string; course_par: number; course_rating: number; slope_rating: number; day_number: number } | null;
 }
 
-interface CourseHole { hole_number: number; par: number; stroke_index: number; }
+interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; }
 interface HoleScore { hole_number: number; gross: number; net: number; pts: number; }
 
 export default function SoloRoundScreen() {
@@ -78,7 +78,7 @@ export default function SoloRoundScreen() {
       const playerId = m.home_player_ids[0];
       const [{ data: holesData }, { data: playerData }, { data: scoresData }] = await Promise.all([
         m.day?.course_name
-          ? supabase.from('course_holes').select('hole_number,par,stroke_index').eq('course_name', m.day.course_name).order('hole_number')
+          ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage').eq('course_name', m.day.course_name).order('hole_number')
           : Promise.resolve({ data: [] }),
         supabase.from('players').select('display_name,handicap_index,avatar_url').eq('id', playerId).single(),
         supabase.from('match_holes').select('hole_number,gross_score,net_score,stableford_pts').eq('match_id', matchId).eq('player_id', playerId),
@@ -298,7 +298,7 @@ export default function SoloRoundScreen() {
   async function onCoachMe() {
     if (coachLoading) return;
     setCoachLoading(true);
-    await speakHole(nextHole, courseHole?.par ?? null, null, courseHole?.stroke_index ?? null, playerName ? [playerName.split(' ')[0]] : []);
+    await speakHole(nextHole, courseHole?.par ?? null, courseHole?.yardage ?? null, courseHole?.stroke_index ?? null, playerName ? [playerName.split(' ')[0]] : []);
     setCoachLoading(false);
   }
 
@@ -562,6 +562,15 @@ export default function SoloRoundScreen() {
                     <Text style={styles.holeMetaLabel}>S.I.</Text>
                     <Text style={styles.holeMetaValue}>{courseHole.stroke_index}</Text>
                   </View>
+                  {courseHole.yardage != null && (
+                    <>
+                      <View style={styles.holeMetaSep} />
+                      <View style={styles.holeMetaItem}>
+                        <Text style={styles.holeMetaLabel}>YRD</Text>
+                        <Text style={styles.holeMetaValue}>{courseHole.yardage}</Text>
+                      </View>
+                    </>
+                  )}
                   {shots > 0 && (
                     <>
                       <View style={styles.holeMetaSep} />
