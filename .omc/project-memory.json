@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -10 && git add app/\\(app\\)/score/enter/\\[matchId\\].tsx && git commit -m \"$(cat <<'EOF'\nMove voice caddie into CADDIE icon button next to SHOTS\n\n- CaddieButton removed from always-visible position below the hole card\n- New 🏌️ CADDIE icon button added to the holeIconRow alongside RANGE\n  and SHOTS; tapping it opens a bottom sheet modal containing the\n  hold-to-speak voice caddie\n- Modal auto-closes after a shot is successfully logged\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\nEOF\n)\"",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -10",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -257,8 +257,8 @@
     },
     {
       "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 34,
-      "lastAccessed": 1783271360467,
+      "accessCount": 39,
+      "lastAccessed": 1783271967616,
       "type": "file"
     },
     {
