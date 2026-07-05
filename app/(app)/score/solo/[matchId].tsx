@@ -62,6 +62,7 @@ export default function SoloRoundScreen() {
   const [sideGameWinner, setSideGameWinner] = useState<string | null>(null);
   const [showRangeMap, setShowRangeMap]     = useState(false);
   const [showShotLogger, setShowShotLogger] = useState(false);
+  const [showCaddieModal, setShowCaddieModal] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -550,6 +551,11 @@ export default function SoloRoundScreen() {
                   <Text style={styles.holeIconEmoji}>🎯</Text>
                   <Text style={styles.holeIconLbl}>SHOTS</Text>
                 </TouchableOpacity>
+                <View style={styles.holeIconSep} />
+                <TouchableOpacity style={styles.holeIconBtn} onPress={() => setShowCaddieModal(true)} activeOpacity={0.7}>
+                  <Text style={styles.holeIconEmoji}>🏌️</Text>
+                  <Text style={styles.holeIconLbl}>CADDIE</Text>
+                </TouchableOpacity>
               </View>
               {courseHole && (
                 <View style={styles.holeMetaRow}>
@@ -594,38 +600,52 @@ export default function SoloRoundScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Voice caddie */}
-            {courseHole && match && (
-              <CaddieButton
-                context={{
-                  playerName,
-                  holeNumber: nextHole,
-                  par: courseHole.par,
-                  strokeIndex: courseHole.stroke_index,
-                  format: match.round_format,
-                  holesCompleted: savedScores.length,
-                  runningScore: isStableford
-                    ? `${totalPts} pts`
-                    : vsPar === 0 ? 'level par' : `${vsPar > 0 ? '+' : ''}${vsPar}`,
-                }}
-                onAction={async (result: VoiceCommandResult) => {
-                  if (result.action?.type === 'log_shot' && result.action.club) {
-                    const playerId = match.home_player_ids[0];
-                    if (playerId) {
-                      await supabase.from('shots').insert({
-                        match_id: match.id,
-                        player_id: playerId,
-                        hole_number: nextHole,
-                        club_short: result.action.club,
-                        distance_yards: result.action.distance ?? null,
-                        lat: gpsRef.current?.lat ?? null,
-                        lng: gpsRef.current?.lng ?? null,
-                      });
-                    }
-                  }
-                }}
-              />
-            )}
+            {/* Voice caddie modal */}
+            <Modal visible={showCaddieModal} transparent animationType="slide" onRequestClose={() => setShowCaddieModal(false)}>
+              <TouchableOpacity style={styles.popupOverlay} activeOpacity={1} onPress={() => setShowCaddieModal(false)}>
+                <View style={styles.popupSheet} onStartShouldSetResponder={() => true}>
+                  <View style={styles.popupHeader} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
+                    <Text style={styles.popupTitle}>🏌️ Voice Caddie</Text>
+                    <TouchableOpacity onPress={() => setShowCaddieModal(false)} style={styles.popupClose} activeOpacity={0.7}>
+                      <Text style={{ fontSize: fonts.lg, color: colors.textMuted }}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {courseHole && match && (
+                    <CaddieButton
+                      context={{
+                        playerName,
+                        holeNumber: nextHole,
+                        par: courseHole.par,
+                        strokeIndex: courseHole.stroke_index,
+                        format: match.round_format,
+                        holesCompleted: savedScores.length,
+                        runningScore: isStableford
+                          ? `${totalPts} pts`
+                          : vsPar === 0 ? 'level par' : `${vsPar > 0 ? '+' : ''}${vsPar}`,
+                      }}
+                      onAction={async (result: VoiceCommandResult) => {
+                        if (result.action?.type === 'log_shot' && result.action.club) {
+                          const playerId = match.home_player_ids[0];
+                          if (playerId) {
+                            await supabase.from('shots').insert({
+                              match_id: match.id,
+                              player_id: playerId,
+                              hole_number: nextHole,
+                              club_short: result.action.club,
+                              distance_yards: result.action.distance ?? null,
+                              lat: gpsRef.current?.lat ?? null,
+                              lng: gpsRef.current?.lng ?? null,
+                            });
+                            setShowCaddieModal(false);
+                          }
+                        }
+                      }}
+                    />
+                  )}
+                </View>
+              </TouchableOpacity>
+            </Modal>
 
             {currentSideGame && (
               <View style={styles.sideGameBanner}>
