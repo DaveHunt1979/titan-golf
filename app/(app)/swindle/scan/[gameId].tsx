@@ -46,7 +46,7 @@ export default function SwindleScan() {
     setPlayers(((entriesData ?? []) as any[]).map(e => ({
       player_id:    e.player_id,
       display_name: e.players?.display_name ?? 'Unknown',
-      handicap:     e.handicap ?? null,
+      handicap:     e.handicap != null ? Math.round(e.handicap) : null,
       has_scores:   scoredPlayers.has(e.player_id),
     })).sort((a, b) => a.display_name.localeCompare(b.display_name)));
 

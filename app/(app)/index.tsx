@@ -1,25 +1,29 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
   TouchableOpacity, Image, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../src/lib/supabase';
 import { spacing, radius } from '../../src/lib/theme';
 import { titanLogo } from '../../src/lib/assets';
 import { useSocietyTheme } from '../../src/lib/SocietyThemeContext';
 
-const SOCIETY_ID = '00000000-0000-0000-0000-000000000001';
+const SOCIETY_ID   = '00000000-0000-0000-0000-000000000001';
+const CHAT_READ_KEY = 'chat_last_read';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { logoUrl, localLogo, societyName, palette } = useSocietyTheme();
 
-  const [loading, setLoading]         = useState(true);
-  const [refreshing, setRefreshing]   = useState(false);
-  const [memberTypes, setMemberTypes] = useState<string[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
+  const [memberTypes, setMemberTypes]   = useState<string[]>([]);
   const [isPrivileged, setIsPrivileged] = useState(false);
+  const [myPlayerId, setMyPlayerId]     = useState<string | null>(null);
+  const [unread, setUnread]             = useState(0);
 
   // live stats
   const [casualGames, setCasualGames]   = useState(0);
@@ -27,6 +31,26 @@ export default function HomeScreen() {
   const [tourLive, setTourLive]         = useState(0);
   const [swindleName, setSwindleName]   = useState<string | null>(null);
   const [swindleCount, setSwindleCount] = useState(0);
+
+  async function checkUnread(pid: string | null) {
+    const lastRead = await AsyncStorage.getItem(CHAT_READ_KEY);
+    const since = lastRead ?? new Date(0).toISOString();
+    let q = supabase.from('messages').select('*', { count: 'exact', head: true }).gt('created_at', since);
+    if (pid) q = q.neq('player_id', pid);
+    const { count } = await q;
+    setUnread(count ?? 0);
+  }
+
+  useEffect(() => {
+    const sub = supabase.channel('home-chat-badge')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        if ((payload.new as any).player_id !== myPlayerId) setUnread(prev => prev + 1);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(sub); };
+  }, [myPlayerId]);
+
+  useFocusEffect(useCallback(() => { checkUnread(myPlayerId); }, [myPlayerId]));
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -52,10 +76,13 @@ export default function HomeScreen() {
     if (user) {
       const { data: playerRow } = await supabase.from('players').select('id').eq('auth_uid', user.id).single();
       if (playerRow) {
+        const pid = (playerRow as any).id;
+        setMyPlayerId(pid);
+        checkUnread(pid);
         const { data: sm } = await supabase.from('society_members')
           .select('membership_types, role')
           .eq('society_id', SOCIETY_ID)
-          .eq('player_id', (playerRow as any).id)
+          .eq('player_id', pid)
           .single();
         const role = (sm as any)?.role ?? '';
         const priv = role === 'admin' || role === 'owner';
@@ -85,6 +112,10 @@ export default function HomeScreen() {
           <Text style={[s.societyName, { color: palette.accent }]}>{societyName.toUpperCase()}</Text>
           <Text style={s.tagline}>Choose your game</Text>
         </View>
+        <TouchableOpacity style={s.headerBtn} onPress={() => router.push('/(app)/chat' as any)} activeOpacity={0.75}>
+          <Text style={s.headerBtnIcon}>💬</Text>
+          {unread > 0 && <View style={[s.unreadDot, { backgroundColor: palette.accent }]} />}
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -197,6 +228,13 @@ const s = StyleSheet.create({
   logo:        { width: 44, height: 44, borderRadius: 10 },
   societyName: { fontSize: 11, fontWeight: '800', letterSpacing: 2 },
   tagline:     { fontSize: 20, fontWeight: '800', color: '#ffffff', marginTop: 2 },
+  headerBtn:     { padding: 6, position: 'relative' },
+  headerBtnIcon: { fontSize: 24 },
+  unreadDot: {
+    position: 'absolute', top: 4, right: 4,
+    width: 10, height: 10, borderRadius: 5,
+    borderWidth: 2, borderColor: '#070b10',
+  },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll:      { padding: spacing.md, paddingBottom: 48 },
   utilRow:     { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },

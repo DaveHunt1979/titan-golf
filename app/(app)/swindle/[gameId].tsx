@@ -396,7 +396,7 @@ export default function SwindleGame() {
             <Text style={s.scoreBtnText}>⛳ Score My Round</Text>
           </TouchableOpacity>
         )}
-        {isCreator && game.status !== 'complete' && (
+        {inGame && game.status !== 'complete' && (
           <TouchableOpacity style={s.scanBtn2} onPress={() => router.push(`/(app)/swindle/scan/${game.id}` as any)} activeOpacity={0.85}>
             <Text style={s.scanBtn2Text}>📋 Scan Paper Scorecard</Text>
           </TouchableOpacity>

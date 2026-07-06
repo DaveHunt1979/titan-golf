@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -20",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -10",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -251,8 +251,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 177,
-      "lastAccessed": 1783322756448,
+      "accessCount": 194,
+      "lastAccessed": 1783341722172,
       "type": "file"
     },
     {
@@ -263,14 +263,14 @@
     },
     {
       "path": "app/(app)/games/new.tsx",
-      "accessCount": 32,
-      "lastAccessed": 1783270988921,
+      "accessCount": 41,
+      "lastAccessed": 1783342111989,
       "type": "file"
     },
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 31,
-      "lastAccessed": 1783338563917,
+      "accessCount": 40,
+      "lastAccessed": 1783342141251,
       "type": "file"
     },
     {
@@ -280,15 +280,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/index.tsx",
-      "accessCount": 18,
-      "lastAccessed": 1783269155384,
+      "path": "app/(app)/score/[matchId].tsx",
+      "accessCount": 26,
+      "lastAccessed": 1783341110952,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/[matchId].tsx",
-      "accessCount": 17,
-      "lastAccessed": 1783322661066,
+      "path": "app/(app)/score/index.tsx",
+      "accessCount": 18,
+      "lastAccessed": 1783269155384,
       "type": "file"
     },
     {
@@ -353,8 +353,8 @@
     },
     {
       "path": "src/lib/theme.ts",
-      "accessCount": 3,
-      "lastAccessed": 1783145735309,
+      "accessCount": 4,
+      "lastAccessed": 1783342022508,
       "type": "file"
     },
     {
@@ -424,6 +424,12 @@
       "type": "file"
     },
     {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 2,
+      "lastAccessed": 1783341052429,
+      "type": "file"
+    },
+    {
       "path": "assets/logo_trans.png",
       "accessCount": 1,
       "lastAccessed": 1782972400940,
@@ -439,12 +445,6 @@
       "path": "web/src/app/leaderboard/page.tsx",
       "accessCount": 1,
       "lastAccessed": 1782977875494,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/scoring.ts",
-      "accessCount": 1,
-      "lastAccessed": 1782982537489,
       "type": "file"
     },
     {

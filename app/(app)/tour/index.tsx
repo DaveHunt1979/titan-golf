@@ -122,19 +122,25 @@ export default function TourScreen() {
       leaveBtn:      { paddingVertical: 4, paddingLeft: spacing.sm },
       leaveBtnText:  { fontSize: fonts.xs, fontWeight: '700', letterSpacing: 1, color: aMuted },
 
-      // ── Top tab bar (same accent bg) ────────────────────────────────
+      // ── Top tab bar ─────────────────────────────────────────────────
       tabBar: {
-        backgroundColor: palette.accent,
+        backgroundColor: colors.bg,
+        borderBottomWidth: 1, borderBottomColor: colors.border,
+      },
+      tabBarContent: {
         flexDirection: 'row',
-        borderBottomWidth: 1, borderBottomColor: aSep,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        gap: spacing.xs,
       },
       tabItem: {
-        paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2,
-        alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent',
+        paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 3,
+        borderRadius: radius.full, borderWidth: 1,
+        borderColor: colors.border, backgroundColor: colors.card,
       },
-      tabItemActive: { borderBottomColor: aUnder },
-      tabLabel:      { fontSize: fonts.sm, fontWeight: '700', letterSpacing: 0.5, color: aMuted },
-      tabLabelActive: { color: aText },
+      tabItemActive: { borderColor: palette.accent, backgroundColor: `${palette.accent}22` },
+      tabLabel:      { fontSize: fonts.sm, fontWeight: '700', letterSpacing: 0.3, color: colors.textMuted },
+      tabLabelActive: { color: palette.accent },
 
       scroll: { padding: spacing.md, paddingBottom: 48 },
 
@@ -230,7 +236,7 @@ export default function TourScreen() {
       // ── Play Your Match banner ──────────────────────────────────────
       playBanner: {
         flexDirection: 'row', alignItems: 'center',
-        backgroundColor: colors.gold, paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+        backgroundColor: colors.gold, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
         borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.15)',
         gap: spacing.md,
       },
@@ -540,7 +546,7 @@ export default function TourScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.tabBar}
-        contentContainerStyle={{ flexDirection: 'row' }}
+        contentContainerStyle={styles.tabBarContent}
       >
         {TABS.map(t => (
           <TouchableOpacity

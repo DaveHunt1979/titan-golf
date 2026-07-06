@@ -37,7 +37,7 @@ export default function SwindleScore() {
     const { data: p } = await supabase.from('players').select('id,handicap_index').eq('auth_uid', user.id).maybeSingle();
     if (!p) return;
     setMyId(p.id);
-    setMyHcp(p.handicap_index ?? 0);
+    setMyHcp(Math.round(p.handicap_index ?? 0));
 
     const { data: g } = await supabase.from('swindle_games').select('*').eq('id', gameId).single();
     if (!g) return;

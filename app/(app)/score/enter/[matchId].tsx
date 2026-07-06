@@ -49,6 +49,7 @@ interface MatchInfo {
   home_team: { name: string; accent_color: string } | null;
   away_team: { name: string; accent_color: string } | null;
   side_games: string[] | null;
+  secondary_format: string | null;
   day: {
     course_name: string;
     course_par: number;
@@ -632,8 +633,21 @@ export default function EnterScoresScreen() {
       }
       const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
       const broken = allBroken.flat();
-      if (broken.length > 0) { setRecordsBroken(broken); }
-      else { Alert.alert('Match Complete', msg, [{ text: 'Done', onPress: () => router.back() }]); }
+      if (broken.length > 0) {
+        setRecordsBroken(broken);
+      } else if (match.secondary_format && match.round_format === 'matchplay') {
+        const secLabel = match.secondary_format === 'stableford' ? 'Stableford' : 'Stroke Play';
+        Alert.alert(
+          'Matchplay Complete',
+          `${msg}\n\nYou have a ${secLabel} secondary game running — continue to finish all 18 holes.`,
+          [
+            { text: 'Finish Now', style: 'cancel', onPress: () => router.back() },
+            { text: `Continue ${secLabel}`, onPress: () => {} },
+          ]
+        );
+      } else {
+        Alert.alert('Match Complete', msg, [{ text: 'Done', onPress: () => router.back() }]);
+      }
     }
 
     // Live Pressure commentary at key matchplay moments (skip if match already decided)
@@ -780,6 +794,12 @@ export default function EnterScoresScreen() {
         <Text style={styles.liveStatus}>{leaderStatusText}</Text>
       )}
 
+      {match.secondary_format && match.round_format === 'matchplay' && (
+        <Text style={styles.secondaryBadge}>
+          2nd Game: {match.secondary_format === 'stableford' ? 'Stableford' : 'Stroke Play'}
+        </Text>
+      )}
+
       {!isComplete ? (
         <>
           {/* Horizontal page swiper — Page 0: hole, Page 1: Front 9, Page 2: Back 9 */}
@@ -844,7 +864,7 @@ export default function EnterScoresScreen() {
                     const firstName = (playerNames[id] ?? '?').split(' ')[0];
                     const total = playerTotals[id] ?? 0;
                     const scoreStr = total > 0
-                      ? (match.round_format === 'stableford' ? `${total}pts` : `${total}`)
+                      ? (match.round_format === 'stableford' || match.secondary_format ? `${total}pts` : `${total}`)
                       : '—';
                     const isLeader = rank === 0 && topScore > 0;
                     return (
@@ -1564,6 +1584,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: colors.live,
     paddingVertical: spacing.xs,
+  },
+  secondaryBadge: {
+    textAlign: 'center',
+    fontSize: fonts.xs,
+    fontWeight: '700',
+    color: colors.gold,
+    letterSpacing: 0.8,
+    paddingBottom: spacing.xs,
   },
 
   dotsRow: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: spacing.lg, gap: 3 },

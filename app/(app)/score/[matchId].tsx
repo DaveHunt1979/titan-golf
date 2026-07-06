@@ -58,6 +58,7 @@ export default function MatchDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [cardPage, setCardPage] = useState(0);
+  const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const { width: screenWidth } = useWindowDimensions();
   async function load() {
     const { data: matchData } = await supabase
@@ -68,6 +69,12 @@ export default function MatchDetailScreen() {
 
     if (!matchData) { setLoading(false); return; }
     setMatch(matchData as unknown as MatchDetail);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: p } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
+      if (p) setMyPlayerId((p as any).id);
+    }
 
     const allPlayerIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
 
@@ -281,6 +288,18 @@ export default function MatchDetailScreen() {
           activeOpacity={0.85}
         >
           <Text style={styles.enterScoresBtnText}>Enter Scores</Text>
+        </TouchableOpacity>
+      )}
+
+      {status !== 'complete' && myPlayerId && (
+        [...(match?.home_player_ids ?? []), ...(match?.away_player_ids ?? [])].includes(myPlayerId)
+      ) && (
+        <TouchableOpacity
+          style={styles.scanScorecardBtn}
+          onPress={() => router.push(`/(app)/score/scan/${matchId}` as any)}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.scanScorecardBtnText}>📋 Scan Paper Scorecard</Text>
         </TouchableOpacity>
       )}
 
@@ -604,6 +623,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.bg,
     letterSpacing: 1,
+  },
+  scanScorecardBtn: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    backgroundColor: 'rgba(212,175,55,0.08)',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.goldBorder,
+    paddingVertical: spacing.sm + 2,
+    alignItems: 'center',
+  },
+  scanScorecardBtnText: {
+    fontSize: fonts.sm,
+    fontWeight: '700',
+    color: colors.gold,
+    letterSpacing: 0.5,
   },
 
   scorecardCard: {

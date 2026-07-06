@@ -119,7 +119,7 @@ function AppLayoutInner() {
           },
         }}
       >
-        <Tabs.Screen name="index"          options={{ title: 'Home',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><GridIcon        color={ic(focused)} /></TabIcon> }} />
+        <Tabs.Screen name="index"          options={{ title: 'Home',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><HomeIcon        color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="score/index"    options={{ href: null }} />
         <Tabs.Screen name="tour/index"     options={{ href: null }} />
         <Tabs.Screen name="swindle/index"  options={{ href: null }} />
@@ -154,6 +154,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="admin/pins"               options={{ href: null }} />
         <Tabs.Screen name="admin/tournaments"        options={{ href: null }} />
         <Tabs.Screen name="score/day/[dayId]"        options={{ href: null }} />
+        <Tabs.Screen name="score/scan/[matchId]"     options={{ href: null }} />
         <Tabs.Screen name="camera/index"             options={{ href: null }} />
         <Tabs.Screen name="spectate/[matchId]"       options={{ href: null }} />
         <Tabs.Screen name="range/index"              options={{ href: null }} />

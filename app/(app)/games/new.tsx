@@ -106,6 +106,7 @@ export default function NewGameScreen() {
   const [hcpAllowance, setHcpAllowance]     = useState<number>(100);
   const [customHcp, setCustomHcp]           = useState<string>('');
   const [sideGames, setSideGames]           = useState<string[]>([]);
+  const [secondaryFormat, setSecondaryFormat] = useState<string | null>(null);
   const [holesMode, setHoles]               = useState<HolesMode>('full18');
   const [players, setPlayers]               = useState<Player[]>([]);
   const [loadingPlayers, setLoadingPlayers] = useState(true);
@@ -129,6 +130,7 @@ export default function NewGameScreen() {
     setHcpAllowance(100);
     setCustomHcp('');
     setSideGames([]);
+    setSecondaryFormat(null);
     setHoles('full18');
     setLdHole(null);
     setNtpHole(null);
@@ -296,6 +298,7 @@ export default function NewGameScreen() {
             if (g === 'Closest to Pin' && ntpHole) return `Closest to Pin:${ntpHole}`;
             return g;
           }),
+        secondary_format: secondaryFormat,
       }).select().single();
 
       if (error || !newMatch) throw error ?? new Error('Could not create game');
@@ -650,6 +653,30 @@ export default function NewGameScreen() {
                       <Text style={styles.holePickerPar}>Par 3</Text>
                     </TouchableOpacity>
                   ))}
+                </View>
+              </>
+            )}
+
+            {/* 2nd Game — only for matchplay modes */}
+            {(mode === 'singles' || mode === '4bbb') && (
+              <>
+                <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>2ND GAME</Text>
+                <Text style={styles.cardSub}>Run a secondary scoring game alongside matchplay</Text>
+                <View style={styles.sideGamesGrid}>
+                  {(['Stableford', 'Stroke Play'] as const).map(g => {
+                    const key = g === 'Stableford' ? 'stableford' : 'stroke';
+                    const on = secondaryFormat === key;
+                    return (
+                      <TouchableOpacity
+                        key={g}
+                        style={[styles.sideGameChip, on && styles.sideGameChipOn]}
+                        onPress={() => setSecondaryFormat(on ? null : key)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.sideGameText, on && styles.sideGameTextOn]}>{g}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </>
             )}
