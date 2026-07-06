@@ -44,6 +44,9 @@ export interface WatchSoloPayload {
   par: number;
   extraStrokes: number;
   holesCompleted: number;
+  yardage?: number | null;
+  totalPts?: number;
+  toPar?: number;
 }
 
 export interface WatchSoloScoreEntry {

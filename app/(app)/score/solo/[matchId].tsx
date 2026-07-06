@@ -172,8 +172,11 @@ export default function SoloRoundScreen() {
       par: hole.par,
       extraStrokes: calcStrokesReceived(courseHcp, hole.stroke_index),
       holesCompleted: savedScores.length,
+      yardage: hole.yardage ?? null,
+      totalPts,
+      toPar: vsPar,
     });
-  }, [match?.id, match?.status, nextHole, courseHcp, courseHoles.length, isComplete, playerName]);
+  }, [match?.id, match?.status, nextHole, courseHcp, courseHoles.length, isComplete, playerName, savedScores.length]);
 
   // Listen for Watch score entries — registered once, reads state via refs
   useEffect(() => {
@@ -238,6 +241,10 @@ export default function SoloRoundScreen() {
       if (!m || holes.length === 0) return;
       const hole = holes.find(h => h.hole_number === nh);
       if (!hole) return;
+      const scores = savedScoresRef.current;
+      const tPts   = scores.reduce((s, h) => s + h.pts, 0);
+      const tGross = scores.reduce((s, h) => s + h.gross, 0);
+      const tPar   = scores.reduce((s, h) => { const ch = holes.find(c => c.hole_number === h.hole_number); return s + (ch?.par ?? 0); }, 0);
       sendSoloMatchToWatch({
         matchId: m.id,
         playerName,
@@ -245,7 +252,10 @@ export default function SoloRoundScreen() {
         currentHole: nh,
         par: hole.par,
         extraStrokes: calcStrokesReceived(courseHcpRef.current, hole.stroke_index),
-        holesCompleted: savedScoresRef.current.length,
+        holesCompleted: scores.length,
+        yardage: hole.yardage ?? null,
+        totalPts: tPts,
+        toPar: tGross - tPar,
       });
     });
     return unsub;
