@@ -257,8 +257,8 @@
     },
     {
       "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 39,
-      "lastAccessed": 1783271967616,
+      "accessCount": 44,
+      "lastAccessed": 1783272901747,
       "type": "file"
     },
     {
@@ -334,6 +334,12 @@
       "type": "file"
     },
     {
+      "path": "ios/titangolf Watch App Watch App/WatchSessionManager.swift",
+      "accessCount": 5,
+      "lastAccessed": 1783272858412,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/profile/bag.tsx",
       "accessCount": 4,
       "lastAccessed": 1783057160948,
@@ -341,8 +347,8 @@
     },
     {
       "path": "ios/titangolf/WatchBridge.swift",
-      "accessCount": 3,
-      "lastAccessed": 1783000691085,
+      "accessCount": 4,
+      "lastAccessed": 1783272633701,
       "type": "file"
     },
     {
@@ -358,9 +364,9 @@
       "type": "file"
     },
     {
-      "path": "ios/titangolf Watch App Watch App/WatchSessionManager.swift",
-      "accessCount": 2,
-      "lastAccessed": 1783000702742,
+      "path": "src/lib/watch.ts",
+      "accessCount": 3,
+      "lastAccessed": 1783272826573,
       "type": "file"
     },
     {
@@ -394,6 +400,30 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/watch/index.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1783272614305,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf Watch App Watch App/ContentView.swift",
+      "accessCount": 2,
+      "lastAccessed": 1783272627713,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf Watch App Watch App/ScoreEntryView.swift",
+      "accessCount": 2,
+      "lastAccessed": 1783272628328,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf/WatchBridge.m",
+      "accessCount": 2,
+      "lastAccessed": 1783272649036,
+      "type": "file"
+    },
+    {
       "path": "assets/logo_trans.png",
       "accessCount": 1,
       "lastAccessed": 1782972400940,
@@ -409,36 +439,6 @@
       "path": "web/src/app/leaderboard/page.tsx",
       "accessCount": 1,
       "lastAccessed": 1782977875494,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/watch/index.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1782982036333,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/watch.ts",
-      "accessCount": 1,
-      "lastAccessed": 1782982056577,
-      "type": "file"
-    },
-    {
-      "path": "ios/titangolf Watch App Watch App/ContentView.swift",
-      "accessCount": 1,
-      "lastAccessed": 1782982062953,
-      "type": "file"
-    },
-    {
-      "path": "ios/titangolf Watch App Watch App/ScoreEntryView.swift",
-      "accessCount": 1,
-      "lastAccessed": 1782982063849,
-      "type": "file"
-    },
-    {
-      "path": "ios/titangolf/WatchBridge.m",
-      "accessCount": 1,
-      "lastAccessed": 1782982084800,
       "type": "file"
     },
     {
