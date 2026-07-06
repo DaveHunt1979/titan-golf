@@ -32,11 +32,11 @@ interface MatchInfo {
   day: { course_name: string; course_par: number; course_rating: number; slope_rating: number; day_number: number } | null;
 }
 
-interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; }
+interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; tee_yardages: Record<string, number> | null; }
 interface HoleScore { hole_number: number; gross: number; net: number; pts: number; }
 
 export default function SoloRoundScreen() {
-  const { matchId, startHole: startHoleParam } = useLocalSearchParams<{ matchId: string; startHole?: string }>();
+  const { matchId, startHole: startHoleParam, teeColor } = useLocalSearchParams<{ matchId: string; startHole?: string; teeColor?: string }>();
   const startHole = Math.max(1, Math.min(18, parseInt(startHoleParam ?? '1', 10) || 1));
   const router = useRouter();
 
@@ -79,7 +79,7 @@ export default function SoloRoundScreen() {
       const playerId = m.home_player_ids[0];
       const [{ data: holesData }, { data: playerData }, { data: scoresData }] = await Promise.all([
         m.day?.course_name
-          ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage').eq('course_name', m.day.course_name).order('hole_number')
+          ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages').eq('course_name', m.day.course_name).order('hole_number')
           : Promise.resolve({ data: [] }),
         supabase.from('players').select('display_name,handicap_index,avatar_url').eq('id', playerId).single(),
         supabase.from('match_holes').select('hole_number,gross_score,net_score,stableford_pts').eq('match_id', matchId).eq('player_id', playerId),
@@ -137,6 +137,9 @@ export default function SoloRoundScreen() {
 
   const courseHole = courseHoles.find(h => h.hole_number === activeHole);
   const shots = courseHole ? calcStrokesReceived(courseHcp, courseHole.stroke_index) : 0;
+  const holeYardage = courseHole
+    ? ((teeColor && courseHole.tee_yardages?.[teeColor]) || courseHole.yardage || null)
+    : null;
 
   // Running totals
   const totalGross = savedScores.reduce((s, h) => s + h.gross, 0);
@@ -172,7 +175,7 @@ export default function SoloRoundScreen() {
       par: hole.par,
       extraStrokes: calcStrokesReceived(courseHcp, hole.stroke_index),
       holesCompleted: savedScores.length,
-      yardage: hole.yardage ?? null,
+      yardage: (teeColor && hole.tee_yardages?.[teeColor]) || hole.yardage || null,
       totalPts,
       toPar: vsPar,
     });
@@ -253,7 +256,7 @@ export default function SoloRoundScreen() {
         par: hole.par,
         extraStrokes: calcStrokesReceived(courseHcpRef.current, hole.stroke_index),
         holesCompleted: scores.length,
-        yardage: hole.yardage ?? null,
+        yardage: (teeColor && hole.tee_yardages?.[teeColor]) || hole.yardage || null,
         totalPts: tPts,
         toPar: tGross - tPar,
       });
@@ -309,7 +312,7 @@ export default function SoloRoundScreen() {
   async function onCoachMe() {
     if (coachLoading) return;
     setCoachLoading(true);
-    await speakHole(nextHole, courseHole?.par ?? null, courseHole?.yardage ?? null, courseHole?.stroke_index ?? null, playerName ? [playerName.split(' ')[0]] : []);
+    await speakHole(nextHole, courseHole?.par ?? null, holeYardage, courseHole?.stroke_index ?? null, playerName ? [playerName.split(' ')[0]] : []);
     setCoachLoading(false);
   }
 
@@ -578,12 +581,12 @@ export default function SoloRoundScreen() {
                     <Text style={styles.holeMetaLabel}>S.I.</Text>
                     <Text style={styles.holeMetaValue}>{courseHole.stroke_index}</Text>
                   </View>
-                  {courseHole.yardage != null && (
+                  {holeYardage != null && (
                     <>
                       <View style={styles.holeMetaSep} />
                       <View style={styles.holeMetaItem}>
                         <Text style={styles.holeMetaLabel}>YRD</Text>
-                        <Text style={styles.holeMetaValue}>{courseHole.yardage}</Text>
+                        <Text style={styles.holeMetaValue}>{holeYardage}</Text>
                       </View>
                     </>
                   )}

@@ -12,10 +12,10 @@ import { scanScorecardFromCamera, scanScorecardFromLibrary, type ScannedCourse }
 import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 
 interface CourseRow { name: string; par: number; holeCount: number; }
-interface HoleConfig { par: 3 | 4 | 5; si: string; }
+interface HoleConfig { par: 3 | 4 | 5; si: string; teeYardages: Record<string, number>; }
 
 function defaultHoles(): HoleConfig[] {
-  return Array.from({ length: 18 }, (_, i) => ({ par: 4 as 3 | 4 | 5, si: String(i + 1) }));
+  return Array.from({ length: 18 }, (_, i) => ({ par: 4 as 3 | 4 | 5, si: String(i + 1), teeYardages: {} }));
 }
 
 export default function CoursesScreen() {
@@ -63,7 +63,7 @@ export default function CoursesScreen() {
   async function openEdit(name: string) {
     const { data } = await supabase
       .from('course_holes')
-      .select('hole_number, par, stroke_index')
+      .select('hole_number, par, stroke_index, tee_yardages')
       .eq('course_name', name)
       .order('hole_number');
 
@@ -72,7 +72,7 @@ export default function CoursesScreen() {
       for (const row of data as any[]) {
         const idx = (row.hole_number as number) - 1;
         if (idx >= 0 && idx < 18) {
-          loaded[idx] = { par: row.par as 3 | 4 | 5, si: String(row.stroke_index ?? idx + 1) };
+          loaded[idx] = { par: row.par as 3 | 4 | 5, si: String(row.stroke_index ?? idx + 1), teeYardages: row.tee_yardages ?? {} };
         }
       }
     }
@@ -129,8 +129,9 @@ export default function CoursesScreen() {
 
   function scannedToHoleConfig(holes: ScannedCourse['holes']): HoleConfig[] {
     return holes.map((h, i) => ({
-      par: ([3, 4, 5].includes(h.par ?? 0) ? h.par : 4) as 3 | 4 | 5,
-      si:  h.si !== null ? String(h.si) : String(i + 1),
+      par:         ([3, 4, 5].includes(h.par ?? 0) ? h.par : 4) as 3 | 4 | 5,
+      si:          h.si !== null ? String(h.si) : String(i + 1),
+      teeYardages: h.tees ?? (h.yardage ? { white: h.yardage } : {}),
     }));
   }
 
@@ -147,8 +148,8 @@ export default function CoursesScreen() {
     const rankA = rank(a);
     const rankB = rank(b);
     return [
-      ...a.map((h, i) => ({ par: h.par, si: String((rankA.get(i) ?? i) * 2 + 1) })),
-      ...b.map((h, i) => ({ par: h.par, si: String((rankB.get(i) ?? i) * 2 + 2) })),
+      ...a.map((h, i) => ({ par: h.par, si: String((rankA.get(i) ?? i) * 2 + 1), teeYardages: h.teeYardages })),
+      ...b.map((h, i) => ({ par: h.par, si: String((rankB.get(i) ?? i) * 2 + 2), teeYardages: h.teeYardages })),
     ];
   }
 
@@ -188,6 +189,8 @@ export default function CoursesScreen() {
           hole_number:  i + 1,
           par:          h.par,
           stroke_index: parseInt(h.si, 10) || i + 1,
+          tee_yardages: h.teeYardages,
+          yardage:      h.teeYardages.white ?? h.teeYardages.yellow ?? null,
         }));
         const { error } = await supabase.from('course_holes').insert(rows);
         if (error) throw error;
@@ -296,10 +299,12 @@ export default function CoursesScreen() {
         await supabase.from('course_holes').delete().eq('course_name', editingName);
       }
       const rows = holes.map((h, i) => ({
-        course_name: name,
-        hole_number: i + 1,
-        par: h.par,
+        course_name:  name,
+        hole_number:  i + 1,
+        par:          h.par,
         stroke_index: parseInt(h.si, 10) || i + 1,
+        tee_yardages: h.teeYardages ?? {},
+        yardage:      h.teeYardages?.white ?? h.teeYardages?.yellow ?? null,
       }));
       const { error } = await supabase.from('course_holes').insert(rows);
       if (error) throw error;

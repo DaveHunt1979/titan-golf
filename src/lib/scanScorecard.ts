@@ -4,8 +4,9 @@ import { supabase } from './supabase';
 export interface ScannedHole {
   hole:    number;
   par:     number | null;
-  yardage: number | null;
+  yardage: number | null;  // legacy fallback — prefer tees
   si:      number | null;
+  tees:    Record<string, number> | null;
 }
 
 export interface ScannedCourse {

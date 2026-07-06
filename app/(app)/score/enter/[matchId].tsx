@@ -59,7 +59,7 @@ interface MatchInfo {
   } | null;
 }
 
-interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; }
+interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; tee_yardages: Record<string, number> | null; }
 interface CompPlayer { player_id: string; handicap_index: number; }
 
 function playerCourseHcp(playerId: string, compPlayers: CompPlayer[], day: MatchInfo['day']): number {
@@ -70,7 +70,7 @@ function playerCourseHcp(playerId: string, compPlayers: CompPlayer[], day: Match
 }
 
 export default function EnterScoresScreen() {
-  const { matchId, startHole: startHoleParam } = useLocalSearchParams<{ matchId: string; startHole?: string }>();
+  const { matchId, startHole: startHoleParam, teeColor } = useLocalSearchParams<{ matchId: string; startHole?: string; teeColor?: string }>();
   const startHole = Math.max(1, Math.min(18, parseInt(startHoleParam ?? '1', 10) || 1));
   const router = useRouter();
 
@@ -140,7 +140,7 @@ export default function EnterScoresScreen() {
 
       const [{ data: holesData }, { data: compData }, { data: playersData }] = await Promise.all([
         matchData.day?.course_name
-          ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage').eq('course_name', matchData.day.course_name).order('hole_number')
+          ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages').eq('course_name', matchData.day.course_name).order('hole_number')
           : Promise.resolve({ data: [] }),
         matchData.competition_id && allIds.length
           ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', matchData.competition_id).in('player_id', allIds)
@@ -324,6 +324,9 @@ export default function EnterScoresScreen() {
 
   const allPlayerIds = match ? [...match.home_player_ids, ...match.away_player_ids] : [];
   const courseHole = courseHoles.find(h => h.hole_number === activeHole);
+  const holeYardage = courseHole
+    ? ((teeColor && courseHole.tee_yardages?.[teeColor]) || courseHole.yardage || null)
+    : null;
 
   // Parse side games: "Longest Drive:7" → { 7: 'Longest Drive' }
   const sideGameByHole = (match?.side_games ?? []).reduce((acc, sg) => {
@@ -339,7 +342,7 @@ export default function EnterScoresScreen() {
     if (coachLoading) return;
     setCoachLoading(true);
     const firstNames = Object.values(playerNames).map(n => n.split(' ')[0]);
-    await speakHole(currentHole, courseHole?.par ?? null, courseHole?.yardage ?? null, courseHole?.stroke_index ?? null, firstNames);
+    await speakHole(currentHole, courseHole?.par ?? null, holeYardage, courseHole?.stroke_index ?? null, firstNames);
     setCoachLoading(false);
   }
 
@@ -807,7 +810,7 @@ export default function EnterScoresScreen() {
                 {courseHole && (
                   <>
                     <Text style={styles.holeMetaChip}>Par {courseHole.par}  ·  SI {courseHole.stroke_index}</Text>
-                    {courseHole.yardage ? <Text style={styles.holeMetaChip}>{courseHole.yardage} yards</Text> : null}
+                    {holeYardage ? <Text style={styles.holeMetaChip}>{holeYardage} yards</Text> : null}
                   </>
                 )}
                 {!isComplete && (
@@ -945,7 +948,7 @@ export default function EnterScoresScreen() {
                       playerName: myPlayerId ? (playerNames[myPlayerId] ?? 'Player') : 'Player',
                       holeNumber: currentHole,
                       par: courseHole.par,
-                      yardage: courseHole.yardage,
+                      yardage: holeYardage,
                       strokeIndex: courseHole.stroke_index,
                       format: match.round_format,
                       holesCompleted: holeChars.filter(c => c !== '.').length,

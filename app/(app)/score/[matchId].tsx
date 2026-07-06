@@ -209,36 +209,74 @@ export default function MatchDetailScreen() {
       {status !== 'complete' && (
         <TouchableOpacity
           style={styles.enterScoresBtn}
-          onPress={() => {
+          onPress={async () => {
+            const courseName = match.day?.course_name ?? null;
             const isSolo = match.away_player_ids.length === 0 && match.home_player_ids.length === 1;
-            if (isSolo) {
-              Alert.alert('Starting Hole', 'Which hole are you starting from?', [
-                { text: 'Hole 1 (Front 9)', onPress: () => router.push(`/(app)/score/solo/${matchId}` as any) },
-                { text: 'Hole 10 (Back 9)', onPress: () => router.push(`/(app)/score/solo/${matchId}?startHole=10` as any) },
-              ]);
-              return;
+
+            // Fetch available tees for this course (fast, single row)
+            let availableTees: string[] = [];
+            if (courseName) {
+              const { data: teeData } = await supabase
+                .from('course_holes')
+                .select('tee_yardages')
+                .eq('course_name', courseName)
+                .limit(1)
+                .single();
+              const ty = (teeData as any)?.tee_yardages ?? {};
+              availableTees = Object.keys(ty).filter(k => ty[k] > 0);
             }
-            const fmt = match?.round_format ?? '';
-            const routes: Record<string, string> = {
-              skins:               `/(app)/score/skins/${matchId}`,
-              nassau:              `/(app)/score/nassau/${matchId}`,
-              wolf:                `/(app)/score/wolf/${matchId}`,
-              scramble:            `/(app)/score/scramble/${matchId}`,
-              bbb:                 `/(app)/score/bbb/${matchId}`,
-              modified_stableford: `/(app)/score/modified/${matchId}`,
-              par_bogey:           `/(app)/score/parbogey/${matchId}`,
-              chacha:              `/(app)/score/chacha/${matchId}`,
+
+            const navigate = (startHole: number) => {
+              const buildUrl = (base: string, teeColor?: string) => {
+                const params = new URLSearchParams();
+                if (startHole !== 1) params.set('startHole', String(startHole));
+                if (teeColor)        params.set('teeColor', teeColor);
+                const qs = params.toString();
+                return qs ? `${base}?${qs}` : base;
+              };
+
+              const goToScorer = (teeColor?: string) => {
+                if (isSolo) {
+                  router.push(buildUrl(`/(app)/score/solo/${matchId}`, teeColor) as any);
+                  return;
+                }
+                const fmt = match?.round_format ?? '';
+                const specialRoutes: Record<string, string> = {
+                  skins:               `/(app)/score/skins/${matchId}`,
+                  nassau:              `/(app)/score/nassau/${matchId}`,
+                  wolf:                `/(app)/score/wolf/${matchId}`,
+                  scramble:            `/(app)/score/scramble/${matchId}`,
+                  bbb:                 `/(app)/score/bbb/${matchId}`,
+                  modified_stableford: `/(app)/score/modified/${matchId}`,
+                  par_bogey:           `/(app)/score/parbogey/${matchId}`,
+                  chacha:              `/(app)/score/chacha/${matchId}`,
+                };
+                if (specialRoutes[fmt]) {
+                  router.push(specialRoutes[fmt] as any);
+                } else {
+                  router.push(buildUrl(`/(app)/score/enter/${matchId}`, teeColor) as any);
+                }
+              };
+
+              if (availableTees.length > 1) {
+                const TEE_LABELS: Record<string, string> = {
+                  black: '⚫ Black', white: '⚪ White', yellow: '🟡 Yellow',
+                  blue:  '🔵 Blue',  red:   '🔴 Red',   gold:   '🟠 Gold',
+                };
+                const teeButtons = availableTees.map(t => ({
+                  text: TEE_LABELS[t] ?? t.charAt(0).toUpperCase() + t.slice(1),
+                  onPress: () => goToScorer(t),
+                }));
+                Alert.alert('Which Tees?', 'Select the tees you\'re playing from:', teeButtons);
+              } else {
+                goToScorer(availableTees[0]);
+              }
             };
-            const dest = routes[fmt] ?? `/(app)/score/enter/${matchId}`;
-            // For main enter screen, ask which hole to start from
-            if (!routes[fmt]) {
-              Alert.alert('Starting Hole', 'Which hole are you starting from?', [
-                { text: 'Hole 1 (Front 9)', onPress: () => router.push(dest as any) },
-                { text: 'Hole 10 (Back 9)', onPress: () => router.push(`/(app)/score/enter/${matchId}?startHole=10` as any) },
-              ]);
-            } else {
-              router.push(dest as any);
-            }
+
+            Alert.alert('Starting Hole', 'Which hole are you starting from?', [
+              { text: 'Hole 1 (Front 9)', onPress: () => navigate(1) },
+              { text: 'Hole 10 (Back 9)', onPress: () => navigate(10) },
+            ]);
           }}
           activeOpacity={0.85}
         >

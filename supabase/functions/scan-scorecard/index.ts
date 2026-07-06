@@ -42,17 +42,18 @@ Deno.serve(async (req) => {
 IMPORTANT: Some courses have multiple named 9-hole loops on one scorecard (e.g. "Shore", "Himalaya", "Dunes" at The Princes, or "Lakeside", "Heathland" etc). If you can see distinct named sections, return each as a separate course. Otherwise return a single course with name null.
 
 Return this exact format:
-{"courses":[{"name":"Shore","holes":[{"hole":1,"par":4,"yardage":385,"si":7},...]},{"name":"Himalaya","holes":[{"hole":1,"par":3,"yardage":162,"si":5},...]}]}
+{"courses":[{"name":"Shore","holes":[{"hole":1,"par":4,"si":7,"tees":{"black":425,"white":390,"yellow":365}},...]},{"name":"Himalaya","holes":[{"hole":1,"par":3,"si":5,"tees":{"black":180,"white":162,"yellow":145}},...]}]}
 
 For a normal single course:
-{"courses":[{"name":null,"holes":[{"hole":1,"par":4,"yardage":385,"si":7},{"hole":2,"par":3,"yardage":162,"si":15},...]}]}
+{"courses":[{"name":null,"holes":[{"hole":1,"par":4,"si":7,"tees":{"black":425,"white":390,"yellow":365}},{"hole":2,"par":3,"si":15,"tees":{"white":162,"yellow":145}},...]}]}
 
 Rules:
 - Each named section gets its own entry in the courses array
 - Hole numbers within each course/section start from 1
 - "par" must be 3, 4, or 5
 - "si" is stroke index, use null if not shown
-- "yardage" is the main tee yardage shown, use null if not shown
+- "tees" is an object mapping tee colour name to yardage. Common colours: black, white, yellow, blue, red, gold, silver. Use the colour names printed or shown on the card (often colour-coded rows). If only one yardage row exists and no colour is labelled, use "white" as the key.
+- Use lowercase colour names as keys
 - Return null for any field you cannot read clearly
 - Return ONLY the JSON, nothing else`,
             },
