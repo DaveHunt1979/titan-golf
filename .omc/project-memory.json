@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -10",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -20",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -256,6 +256,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 55,
+      "lastAccessed": 1783344802307,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/score/solo/[matchId].tsx",
       "accessCount": 54,
       "lastAccessed": 1783322703683,
@@ -265,12 +271,6 @@
       "path": "app/(app)/games/new.tsx",
       "accessCount": 41,
       "lastAccessed": 1783342111989,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/tour/index.tsx",
-      "accessCount": 40,
-      "lastAccessed": 1783342141251,
       "type": "file"
     },
     {

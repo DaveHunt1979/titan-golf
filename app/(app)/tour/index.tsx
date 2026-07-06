@@ -82,7 +82,7 @@ export default function TourScreen() {
   const [myPlayerId, setMyPlayerId]   = useState<string | null>(null);
   const [loading, setLoading]         = useState(true);
   const [refreshing, setRefreshing]   = useState(false);
-  const [activeTab, setActiveTab]     = useState<TourTab>('teams');
+  const [selectedSection, setSelectedSection] = useState<'matches' | 'standings' | 'info' | 'social' | null>(null);
   const [pin, setPin]                 = useState('');
   const [verifying, setVerifying]     = useState(false);
   const [sections, setSections]         = useState<InfoSection[]>([]);
@@ -122,25 +122,35 @@ export default function TourScreen() {
       leaveBtn:      { paddingVertical: 4, paddingLeft: spacing.sm },
       leaveBtnText:  { fontSize: fonts.xs, fontWeight: '700', letterSpacing: 1, color: aMuted },
 
-      // ── Top tab bar ─────────────────────────────────────────────────
-      tabBar: {
-        backgroundColor: colors.bg,
+      // ── Section grid ─────────────────────────────────────────────────
+      sectionGridScroll: { padding: spacing.md, paddingBottom: 48 },
+      sectionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+      sectionTile: {
+        width: '48%', backgroundColor: colors.card,
+        borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
+        padding: spacing.md, paddingVertical: 22,
+      },
+      sectionTileIcon:  { fontSize: 32, marginBottom: spacing.sm },
+      sectionTileLabel: { fontSize: 18, fontWeight: '900', color: colors.white, marginBottom: 4 },
+      sectionTileSub:   { fontSize: 12, color: colors.textMuted, lineHeight: 17, marginBottom: spacing.sm },
+      sectionTileArrow: { fontSize: 22, color: palette.accent, fontWeight: '300' },
+
+      // ── Section back button ──────────────────────────────────────────
+      sectionBack: {
+        flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+        paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
         borderBottomWidth: 1, borderBottomColor: colors.border,
+        backgroundColor: colors.bg,
       },
-      tabBarContent: {
-        flexDirection: 'row',
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        gap: spacing.xs,
+      sectionBackText:  { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
+      sectionBackTitle: { fontSize: fonts.md, color: colors.white, fontWeight: '800' },
+
+      // ── Standings section headings ───────────────────────────────────
+      standingsSectionHeader: {
+        fontSize: fonts.xs, fontWeight: '800', letterSpacing: 1.5,
+        color: colors.textMuted, paddingVertical: spacing.sm,
+        marginTop: spacing.sm,
       },
-      tabItem: {
-        paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 3,
-        borderRadius: radius.full, borderWidth: 1,
-        borderColor: colors.border, backgroundColor: colors.card,
-      },
-      tabItemActive: { borderColor: palette.accent, backgroundColor: `${palette.accent}22` },
-      tabLabel:      { fontSize: fonts.sm, fontWeight: '700', letterSpacing: 0.3, color: colors.textMuted },
-      tabLabelActive: { color: palette.accent },
 
       scroll: { padding: spacing.md, paddingBottom: 48 },
 
@@ -541,26 +551,15 @@ export default function TourScreen() {
         </View>
       </View>
 
-      {/* Top tab bar — scrollable for 7 tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabBar}
-        contentContainerStyle={styles.tabBarContent}
-      >
-        {TABS.map(t => (
-          <TouchableOpacity
-            key={t.id}
-            style={[styles.tabItem, activeTab === t.id && styles.tabItemActive]}
-            onPress={() => setActiveTab(t.id)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.tabLabel, activeTab === t.id && styles.tabLabelActive]}>
-              {t.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {/* Section back button — shown when inside a section */}
+      {selectedSection !== null && (
+        <TouchableOpacity style={styles.sectionBack} onPress={() => setSelectedSection(null)} activeOpacity={0.7}>
+          <Text style={styles.sectionBackText}>‹ Back</Text>
+          <Text style={styles.sectionBackTitle}>
+            {selectedSection === 'matches' ? 'Matches' : selectedSection === 'standings' ? 'Standings' : selectedSection === 'info' ? 'Info Pack' : 'Live & Social'}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Play Your Match banner */}
       {myMatchActive && (
@@ -590,24 +589,57 @@ export default function TourScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Content */}
+      {/* 2×2 section grid — shown when no section selected */}
+      {selectedSection === null && (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.sectionGridScroll}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.gold} />}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.sectionGrid}>
+            <TouchableOpacity style={styles.sectionTile} onPress={() => setSelectedSection('matches')} activeOpacity={0.82}>
+              <Text style={styles.sectionTileIcon}>🏌️</Text>
+              <Text style={styles.sectionTileLabel}>Matches</Text>
+              <Text style={styles.sectionTileSub}>Results & fixtures</Text>
+              <Text style={styles.sectionTileArrow}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sectionTile} onPress={() => setSelectedSection('standings')} activeOpacity={0.82}>
+              <Text style={styles.sectionTileIcon}>📊</Text>
+              <Text style={styles.sectionTileLabel}>Standings</Text>
+              <Text style={styles.sectionTileSub}>Teams, points & honours</Text>
+              <Text style={styles.sectionTileArrow}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sectionTile} onPress={() => setSelectedSection('info')} activeOpacity={0.82}>
+              <Text style={styles.sectionTileIcon}>📋</Text>
+              <Text style={styles.sectionTileLabel}>Info Pack</Text>
+              <Text style={styles.sectionTileSub}>Schedule & travel</Text>
+              <Text style={styles.sectionTileArrow}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sectionTile} onPress={() => setSelectedSection('social')} activeOpacity={0.82}>
+              <Text style={styles.sectionTileIcon}>📸</Text>
+              <Text style={styles.sectionTileLabel}>Live & Social</Text>
+              <Text style={styles.sectionTileSub}>Feed & Instagram</Text>
+              <Text style={styles.sectionTileArrow}>›</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      )}
+
+      {/* Content — shown when a section is selected */}
       <ScrollView
-        style={{ flex: 1 }}
+        style={{ flex: 1, display: selectedSection !== null && selectedSection !== 'social' ? 'flex' : 'none' }}
         contentContainerStyle={styles.scroll}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => { setRefreshing(true); load(); }}
-            tintColor={colors.gold}
-          />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.gold} />}
         showsVerticalScrollIndicator={false}
-        key={activeTab}
+        key={selectedSection ?? 'grid'}
       >
 
-        {/* ── Teams ── */}
-        {activeTab === 'teams' && (
+        {/* ── Standings (teams + kronos + honours combined) ── */}
+        {selectedSection === 'standings' && (
           <View>
+            <Text style={styles.standingsSectionHeader}>TEAM STANDINGS</Text>
+            <View>
             <View style={styles.tableHeader}>
               <Text style={[styles.cell, styles.cellTeam, styles.th]}>TEAM</Text>
               <Text style={[styles.cell, styles.th]}>P</Text>
@@ -636,11 +668,56 @@ export default function TourScreen() {
             {enriched.length === 0 && (
               <Text style={styles.noResults}>No matches played yet.{'\n'}Results will appear here as games complete.</Text>
             )}
+            </View>
+
+            <Text style={styles.standingsSectionHeader}>ORDER OF MERIT</Text>
+            <View>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.cell, styles.cellTeam, styles.th]}>PLAYER</Text>
+                <Text style={[styles.cell, styles.th]}>HLS</Text>
+                <Text style={[styles.cell, styles.cellPts, styles.th]}>PTS</Text>
+              </View>
+              {kronosRows.map((r, i) => (
+                <View key={r.playerId} style={[styles.row, i === 0 && styles.rowFirst]}>
+                  <View style={[styles.cell, styles.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: spacing.xs }]}>
+                    <Text style={styles.pos}>{i + 1}</Text>
+                    <Text style={styles.teamName}>{r.name}</Text>
+                  </View>
+                  <Text style={styles.cell}>{r.holes}</Text>
+                  <Text style={[styles.cell, styles.cellPts, styles.pts]}>{r.total}</Text>
+                </View>
+              ))}
+              {kronosRows.length === 0 && (
+                <Text style={styles.noResults}>No Stableford scores yet.</Text>
+              )}
+            </View>
+
+            <Text style={styles.standingsSectionHeader}>ROLL OF HONOUR</Text>
+            <View>
+              {champYears.map(year => {
+                const yearChamps = champions.filter(c => c.year === year);
+                return (
+                  <View key={year} style={styles.champYear}>
+                    <Text style={styles.champYearLabel}>{year}</Text>
+                    {yearChamps.map(c => (
+                      <View key={c.id} style={styles.champCard}>
+                        <Text style={styles.champAward}>{c.award_name.toUpperCase()}</Text>
+                        <Text style={styles.champWinner}>{c.winner_name}</Text>
+                        {c.detail && <Text style={styles.champDetail}>{c.detail}</Text>}
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
+              {champYears.length === 0 && (
+                <Text style={styles.noResults}>No champions recorded yet.</Text>
+              )}
+            </View>
           </View>
         )}
 
-        {/* ── Scores ── */}
-        {activeTab === 'scores' && (
+        {/* ── Matches ── */}
+        {selectedSection === 'matches' && (
           <View>
             {days.length === 0 && (
               <Text style={styles.noResults}>No days scheduled yet.</Text>
@@ -718,56 +795,8 @@ export default function TourScreen() {
           </View>
         )}
 
-        {/* ── Kronos ── */}
-        {activeTab === 'kronos' && (
-          <View>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.cell, styles.cellTeam, styles.th]}>PLAYER</Text>
-              <Text style={[styles.cell, styles.th]}>HLS</Text>
-              <Text style={[styles.cell, styles.cellPts, styles.th]}>PTS</Text>
-            </View>
-            {kronosRows.map((r, i) => (
-              <View key={r.playerId} style={[styles.row, i === 0 && styles.rowFirst]}>
-                <View style={[styles.cell, styles.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: spacing.xs }]}>
-                  <Text style={styles.pos}>{i + 1}</Text>
-                  <Text style={styles.teamName}>{r.name}</Text>
-                </View>
-                <Text style={styles.cell}>{r.holes}</Text>
-                <Text style={[styles.cell, styles.cellPts, styles.pts]}>{r.total}</Text>
-              </View>
-            ))}
-            {kronosRows.length === 0 && (
-              <Text style={styles.noResults}>No Stableford scores yet.{'\n'}Individual totals appear here once rounds begin.</Text>
-            )}
-          </View>
-        )}
-
-        {/* ── Honours ── */}
-        {activeTab === 'honours' && (
-          <View>
-            {champYears.map(year => {
-              const yearChamps = champions.filter(c => c.year === year);
-              return (
-                <View key={year} style={styles.champYear}>
-                  <Text style={styles.champYearLabel}>{year}</Text>
-                  {yearChamps.map(c => (
-                    <View key={c.id} style={styles.champCard}>
-                      <Text style={styles.champAward}>{c.award_name.toUpperCase()}</Text>
-                      <Text style={styles.champWinner}>{c.winner_name}</Text>
-                      {c.detail && <Text style={styles.champDetail}>{c.detail}</Text>}
-                    </View>
-                  ))}
-                </View>
-              );
-            })}
-            {champYears.length === 0 && (
-              <Text style={styles.noResults}>No champions recorded yet.</Text>
-            )}
-          </View>
-        )}
-
         {/* ── Info Pack ── */}
-        {activeTab === 'info' && (
+        {selectedSection === 'info' && (
           <View>
             {competition && (
               <View style={infoStyles.heroBanner}>
@@ -788,27 +817,35 @@ export default function TourScreen() {
           </View>
         )}
 
-        {/* ── Live Feed ── */}
-        {activeTab === 'live' && (
-          <View>
-            {notifications.length === 0 && (
-              <View style={infoStyles.empty}>
-                <Text style={infoStyles.emptyTitle}>Nothing yet</Text>
-                <Text style={infoStyles.emptySub}>Birdies, match results and announcements will appear here.</Text>
-              </View>
-            )}
-            {notifications.map(n => <TourFeedCard key={n.id} n={n} />)}
-          </View>
-        )}
-
       </ScrollView>
 
-      {/* ── Instagram (full screen, outside scroll) ── */}
-      {activeTab === 'instagram' && (
-        <TourInstagramView
-          url={instagramUrl}
-          onGoAdmin={() => router.push('/(app)/admin' as any)}
-        />
+      {/* ── Live & Social (outside scroll — Live feed + Instagram) ── */}
+      {selectedSection === 'social' && (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scroll}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.gold} />}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.standingsSectionHeader}>LIVE FEED</Text>
+          {notifications.length === 0 && (
+            <View style={infoStyles.empty}>
+              <Text style={infoStyles.emptyTitle}>Nothing yet</Text>
+              <Text style={infoStyles.emptySub}>Birdies, match results and announcements will appear here.</Text>
+            </View>
+          )}
+          {notifications.map(n => <TourFeedCard key={n.id} n={n} />)}
+
+          {instagramUrl && (
+            <>
+              <Text style={[styles.standingsSectionHeader, { marginTop: spacing.lg }]}>INSTAGRAM</Text>
+              <TourInstagramView
+                url={instagramUrl}
+                onGoAdmin={() => router.push('/(app)/admin' as any)}
+              />
+            </>
+          )}
+        </ScrollView>
       )}
     </View>
   );
