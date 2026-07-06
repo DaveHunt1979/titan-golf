@@ -268,6 +268,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 31,
+      "lastAccessed": 1783338563917,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/admin/index.tsx",
       "accessCount": 27,
       "lastAccessed": 1783334882846,
@@ -277,12 +283,6 @@
       "path": "app/(app)/score/index.tsx",
       "accessCount": 18,
       "lastAccessed": 1783269155384,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/tour/index.tsx",
-      "accessCount": 17,
-      "lastAccessed": 1783269192306,
       "type": "file"
     },
     {

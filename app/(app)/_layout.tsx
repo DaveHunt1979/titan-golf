@@ -119,13 +119,14 @@ function AppLayoutInner() {
           },
         }}
       >
-        <Tabs.Screen name="index"          options={{ title: 'Home',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><HomeIcon        color={ic(focused)} /></TabIcon> }} />
-        <Tabs.Screen name="score/index"    options={{ title: 'Score',    tabBarIcon: ({ focused }) => <TabIcon focused={focused}><ScoreIcon       color={ic(focused)} /></TabIcon> }} />
+        <Tabs.Screen name="index"          options={{ href: null }} />
+        <Tabs.Screen name="score/index"    options={{ title: 'Casual',   tabBarIcon: ({ focused }) => <TabIcon focused={focused}><CasualIcon      color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="tour/index"     options={{ title: 'Tour',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><TourIcon        color={ic(focused)} /></TabIcon> }} />
+        <Tabs.Screen name="swindle/index"  options={{ title: 'Swindle',  tabBarIcon: ({ focused }) => <TabIcon focused={focused}><SwindleIcon     color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="leaderboard/index" options={{ href: null }} />
-        <Tabs.Screen name="watch/index"    options={{ title: 'Live',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><WatchIcon       color={ic(focused)} /></TabIcon> }} />
+        <Tabs.Screen name="watch/index"    options={{ href: null }} />
         <Tabs.Screen name="chat/index"     options={{ href: null }} />
-        <Tabs.Screen name="feed/index"     options={{ title: 'Feed',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><FeedIcon        color={ic(focused)} /></TabIcon> }} />
+        <Tabs.Screen name="feed/index"     options={{ href: null }} />
         <Tabs.Screen name="profile/index"  options={{ title: 'Profile',  tabBarIcon: ({ focused }) => <TabIcon focused={focused}><ProfileIcon     color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="admin/index"    options={{ href: isAdmin ? undefined : null, title: 'Admin', tabBarIcon: ({ focused }) => <TabIcon focused={focused}><AdminIcon color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="admin/build"              options={{ href: null }} />
@@ -164,10 +165,11 @@ function AppLayoutInner() {
         <Tabs.Screen name="profile/rounds"           options={{ href: null }} />
         <Tabs.Screen name="profile/round/[matchId]"  options={{ href: null }} />
         <Tabs.Screen name="records/index"             options={{ href: null }} />
-        <Tabs.Screen name="swindle/index"            options={{ href: null }} />
         <Tabs.Screen name="swindle/create"           options={{ href: null }} />
         <Tabs.Screen name="swindle/[gameId]"         options={{ href: null }} />
         <Tabs.Screen name="swindle/score/[gameId]"   options={{ href: null }} />
+        <Tabs.Screen name="swindle/scan/[gameId]"    options={{ href: null }} />
+        <Tabs.Screen name="admin/membership"         options={{ href: null }} />
         <Tabs.Screen name="join" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>
 
@@ -225,6 +227,24 @@ const splash = StyleSheet.create({
   logo: { width: 160, height: 160 },
 });
 
+function CasualIcon({ color }: { color: string }) {
+  return (
+    <View style={{ width: 22, height: 22 }}>
+      <View style={{ position: 'absolute', left: 4, top: 1, bottom: 3, width: 2, backgroundColor: color, borderRadius: 1 }} />
+      <View style={{ position: 'absolute', left: 6, top: 1, width: 12, height: 8, backgroundColor: color, borderRadius: 2 }} />
+      <View style={{ position: 'absolute', bottom: 0, left: 1, right: 1, height: 2, backgroundColor: color, borderRadius: 1, opacity: 0.45 }} />
+    </View>
+  );
+}
+function SwindleIcon({ color }: { color: string }) {
+  return (
+    <View style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+      <View style={{ width: 18, height: 2.5, backgroundColor: color, borderRadius: 1 }} />
+      <View style={{ width: 14, height: 2.5, backgroundColor: color, borderRadius: 1 }} />
+      <View style={{ width: 18, height: 2.5, backgroundColor: color, borderRadius: 1 }} />
+    </View>
+  );
+}
 function HomeIcon({ color }: { color: string }) {
   return <View style={{ alignItems: 'center', width: 22, height: 22, justifyContent: 'flex-end' }}>
     <View style={{ width: 16, height: 12, backgroundColor: color, borderRadius: 2 }} />
