@@ -251,14 +251,14 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 165,
-      "lastAccessed": 1783271772614,
+      "accessCount": 177,
+      "lastAccessed": 1783322756448,
       "type": "file"
     },
     {
       "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 44,
-      "lastAccessed": 1783272901747,
+      "accessCount": 54,
+      "lastAccessed": 1783322703683,
       "type": "file"
     },
     {
@@ -286,15 +286,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/preview/[matchId].tsx",
-      "accessCount": 16,
-      "lastAccessed": 1783271020326,
+      "path": "app/(app)/score/[matchId].tsx",
+      "accessCount": 17,
+      "lastAccessed": 1783322661066,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/[matchId].tsx",
-      "accessCount": 14,
-      "lastAccessed": 1783271083858,
+      "path": "app/(app)/score/preview/[matchId].tsx",
+      "accessCount": 16,
+      "lastAccessed": 1783271020326,
       "type": "file"
     },
     {
