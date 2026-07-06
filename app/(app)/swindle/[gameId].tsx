@@ -397,6 +397,11 @@ export default function SwindleGame() {
           </TouchableOpacity>
         )}
         {isCreator && game.status !== 'complete' && (
+          <TouchableOpacity style={s.scanBtn2} onPress={() => router.push(`/(app)/swindle/scan/${game.id}` as any)} activeOpacity={0.85}>
+            <Text style={s.scanBtn2Text}>📋 Scan Paper Scorecard</Text>
+          </TouchableOpacity>
+        )}
+        {isCreator && game.status !== 'complete' && (
           <TouchableOpacity style={s.completeBtn} onPress={complete} activeOpacity={0.85}>
             <Text style={s.completeBtnText}>Mark Complete</Text>
           </TouchableOpacity>
@@ -500,6 +505,8 @@ const s = StyleSheet.create({
   joinBtnText:      { color: colors.bg, fontSize: fonts.lg, fontWeight: '800' },
   scoreBtn:         { marginHorizontal: spacing.md, backgroundColor: colors.green, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginBottom: spacing.sm },
   scoreBtnText:     { color: colors.bg, fontSize: fonts.lg, fontWeight: '800' },
+  scanBtn2:         { marginHorizontal: spacing.md, backgroundColor: 'rgba(167,139,250,0.12)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.3)', borderRadius: radius.lg, paddingVertical: 14, alignItems: 'center', marginBottom: spacing.sm },
+  scanBtn2Text:     { color: '#a78bfa', fontSize: fonts.md, fontWeight: '700' },
   completeBtn:      { marginHorizontal: spacing.md, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingVertical: 12, alignItems: 'center', marginBottom: spacing.sm },
   completeBtnText:  { color: colors.textMuted, fontSize: fonts.sm, fontWeight: '700' },
   shareResultsBtn:  { marginHorizontal: spacing.md, backgroundColor: '#25D366', borderRadius: radius.lg, paddingVertical: 14, alignItems: 'center', marginBottom: spacing.sm },

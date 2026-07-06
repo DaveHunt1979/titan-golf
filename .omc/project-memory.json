@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -10",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -20",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -268,15 +268,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/index.tsx",
-      "accessCount": 18,
-      "lastAccessed": 1783269155384,
+      "path": "app/(app)/admin/index.tsx",
+      "accessCount": 27,
+      "lastAccessed": 1783334882846,
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/index.tsx",
-      "accessCount": 17,
-      "lastAccessed": 1783261572551,
+      "path": "app/(app)/score/index.tsx",
+      "accessCount": 18,
+      "lastAccessed": 1783269155384,
       "type": "file"
     },
     {

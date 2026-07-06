@@ -81,9 +81,12 @@ export default function SocietyAdminScreen() {
   const [joinPin, setJoinPin]           = useState('');
   const [activeTournamentName, setActiveTournamentName] = useState('');
   const [activeTournamentPin, setActiveTournamentPin]   = useState('');
-  const [loading, setLoading]           = useState(true);
-  const [saving, setSaving]             = useState(false);
-  const [deleting, setDeleting]         = useState(false);
+  const [casualCode, setCasualCode]   = useState('');
+  const [tourCode, setTourCode]       = useState('');
+  const [swindleCode, setSwindleCode] = useState('');
+  const [loading, setLoading]         = useState(true);
+  const [saving, setSaving]           = useState(false);
+  const [deleting, setDeleting]       = useState(false);
 
   useEffect(() => {
     if (societyLoading) return;
@@ -91,7 +94,7 @@ export default function SocietyAdminScreen() {
     (async () => {
       try {
         const [{ data }, { data: activeComp }] = await Promise.all([
-          supabase.from('societies').select('name, instagram_url, join_pin').eq('id', societyId).single(),
+          supabase.from('societies').select('name, instagram_url, join_pin, casual_join_code, tour_join_code, swindle_join_code').eq('id', societyId).single(),
           supabase.from('competitions').select('name, pin').eq('status', 'active').limit(1).single(),
         ]);
         if (data) {
@@ -99,6 +102,9 @@ export default function SocietyAdminScreen() {
           setInstagramUrl((data as any).instagram_url ?? '');
           // Strip any decimal formatting (DB numeric type can return "105.326" instead of "105326")
           setJoinPin(String((data as any).join_pin ?? '').replace(/[^0-9]/g, ''));
+          setCasualCode((data as any).casual_join_code ?? '');
+          setTourCode((data as any).tour_join_code ?? '');
+          setSwindleCode((data as any).swindle_join_code ?? '');
         }
         if (activeComp) {
           setActiveTournamentName((activeComp as any).name ?? '');
@@ -170,6 +176,16 @@ export default function SocietyAdminScreen() {
     } catch {
       Clipboard.setString(activeTournamentPin);
       Alert.alert('Copied', 'Tournament PIN copied to clipboard.');
+    }
+  }
+
+  async function shareAreaCode(code: string, area: string) {
+    const msg = `Join ${societyName} on Titan Golf — ${area} code: ${code}`;
+    try {
+      await Share.share({ message: msg });
+    } catch {
+      Clipboard.setString(code);
+      Alert.alert('Copied', `${area} code copied to clipboard.`);
     }
   }
 
@@ -327,6 +343,41 @@ export default function SocietyAdminScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.linkTitle}>Manage Players</Text>
               <Text style={styles.linkSub}>View roster, add players manually</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>MEMBERSHIP AREAS</Text>
+          {[
+            { key: 'casual',  label: 'Casual Golf', icon: '🏌️', code: casualCode,  color: '#4ade80' },
+            { key: 'tour',    label: 'The Tour',    icon: '🏆', code: tourCode,    color: '#D4AF37' },
+            { key: 'swindle', label: 'The Swindle', icon: '💰', code: swindleCode, color: '#a78bfa' },
+          ].map((area, idx) => (
+            <View key={area.key} style={[styles.card, idx > 0 && { marginTop: spacing.sm }]}>
+              <Text style={[styles.cardLabel, { color: area.color }]}>{area.icon}  {area.label.toUpperCase()}</Text>
+              {area.code ? (
+                <>
+                  <Text style={[styles.pinValue, { color: area.color, letterSpacing: 8 }]}>{area.code}</Text>
+                  <Text style={styles.hint}>Share this code for players joining {area.label}</Text>
+                  <TouchableOpacity style={[styles.pinShareBtn, { borderColor: area.color + '55', backgroundColor: area.color + '15' }]} onPress={() => shareAreaCode(area.code, area.label)} activeOpacity={0.8}>
+                    <Text style={[styles.pinShareBtnText, { color: area.color }]}>Share {area.label} Code</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <Text style={styles.hint}>Code not generated — run membership_areas migration</Text>
+              )}
+            </View>
+          ))}
+          <TouchableOpacity
+            style={[styles.linkCard, { marginTop: spacing.sm }]}
+            onPress={() => router.push('/(app)/admin/membership' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.linkTitle}>Manage Player Access</Text>
+              <Text style={styles.linkSub}>Toggle Casual / Tour / Swindle per player</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>

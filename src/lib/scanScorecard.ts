@@ -46,6 +46,38 @@ export async function scanScorecardFromLibrary(): Promise<ScannedCourse[]> {
   return callScanFunction(asset.base64, asset.mimeType ?? 'image/jpeg');
 }
 
+export interface ScannedScore { hole: number; gross: number | null; }
+
+export async function scanPlayerScoresFromCamera(): Promise<ScannedScore[]> {
+  const { status } = await ImagePicker.requestCameraPermissionsAsync();
+  if (status !== 'granted') throw new Error('Camera permission denied');
+  const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, base64: true });
+  if (result.canceled || !result.assets[0]) throw new Error('Cancelled');
+  const asset = result.assets[0];
+  if (!asset.base64) throw new Error('Could not read image data');
+  return callScanScores(asset.base64, asset.mimeType ?? 'image/jpeg');
+}
+
+export async function scanPlayerScoresFromLibrary(): Promise<ScannedScore[]> {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') throw new Error('Photo library permission denied');
+  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, base64: true });
+  if (result.canceled || !result.assets[0]) throw new Error('Cancelled');
+  const asset = result.assets[0];
+  if (!asset.base64) throw new Error('Could not read image data');
+  return callScanScores(asset.base64, asset.mimeType ?? 'image/jpeg');
+}
+
+async function callScanScores(imageBase64: string, mediaType: string): Promise<ScannedScore[]> {
+  const { data, error } = await supabase.functions.invoke('scan-scorecard', {
+    body: { imageBase64, mediaType, mode: 'scores' },
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  if (data?.holes && Array.isArray(data.holes)) return data.holes as ScannedScore[];
+  throw new Error('No scores returned — try a clearer photo');
+}
+
 async function callScanFunction(imageBase64: string, mediaType: string): Promise<ScannedCourse[]> {
   const { data, error } = await supabase.functions.invoke('scan-scorecard', {
     body: { imageBase64, mediaType },

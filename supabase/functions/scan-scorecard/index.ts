@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const { imageBase64, mediaType } = await req.json();
+    const { imageBase64, mediaType, mode } = await req.json();
 
     if (!imageBase64) {
       return new Response(JSON.stringify({ error: 'imageBase64 required' }), { status: 400, headers: CORS });
@@ -37,7 +37,20 @@ Deno.serve(async (req) => {
             },
             {
               type: 'text',
-              text: `This is a golf scorecard. Extract the hole data and return ONLY valid JSON with no other text.
+              text: mode === 'scores'
+                ? `This is a completed golf scorecard with handwritten or printed scores. Extract the player's gross score for each hole and return ONLY valid JSON with no other text.
+
+Return this exact format:
+{"holes":[{"hole":1,"gross":5},{"hole":2,"gross":3},{"hole":3,"gross":6},...]}
+
+Rules:
+- Return all 18 holes (or 9 if it's a 9-hole card)
+- "gross" is the raw stroke count written on the card for that hole (the number of shots taken, NOT stableford points or net scores)
+- If you cannot read a score clearly, use null
+- Ignore any printed par, stroke index, or yardage rows — only extract the written/filled scores
+- Look for the row that contains the player's actual scores (usually handwritten numbers)
+- Return ONLY the JSON, nothing else`
+                : `This is a golf scorecard. Extract the hole data and return ONLY valid JSON with no other text.
 
 IMPORTANT: Some courses have multiple named 9-hole loops on one scorecard (e.g. "Shore", "Himalaya", "Dunes" at The Princes, or "Lakeside", "Heathland" etc). If you can see distinct named sections, return each as a separate course. Otherwise return a single course with name null.
 
