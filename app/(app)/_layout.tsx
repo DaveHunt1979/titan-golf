@@ -119,10 +119,10 @@ function AppLayoutInner() {
           },
         }}
       >
-        <Tabs.Screen name="index"          options={{ href: null }} />
-        <Tabs.Screen name="score/index"    options={{ title: 'Casual',   tabBarIcon: ({ focused }) => <TabIcon focused={focused}><CasualIcon      color={ic(focused)} /></TabIcon> }} />
-        <Tabs.Screen name="tour/index"     options={{ title: 'Tour',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><TourIcon        color={ic(focused)} /></TabIcon> }} />
-        <Tabs.Screen name="swindle/index"  options={{ title: 'Swindle',  tabBarIcon: ({ focused }) => <TabIcon focused={focused}><SwindleIcon     color={ic(focused)} /></TabIcon> }} />
+        <Tabs.Screen name="index"          options={{ title: 'Home',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><GridIcon        color={ic(focused)} /></TabIcon> }} />
+        <Tabs.Screen name="score/index"    options={{ href: null }} />
+        <Tabs.Screen name="tour/index"     options={{ href: null }} />
+        <Tabs.Screen name="swindle/index"  options={{ href: null }} />
         <Tabs.Screen name="leaderboard/index" options={{ href: null }} />
         <Tabs.Screen name="watch/index"    options={{ href: null }} />
         <Tabs.Screen name="chat/index"     options={{ href: null }} />
@@ -227,6 +227,20 @@ const splash = StyleSheet.create({
   logo: { width: 160, height: 160 },
 });
 
+function GridIcon({ color }: { color: string }) {
+  return (
+    <View style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flexDirection: 'row', gap: 3, marginBottom: 3 }}>
+        <View style={{ width: 8, height: 8, backgroundColor: color, borderRadius: 2 }} />
+        <View style={{ width: 8, height: 8, backgroundColor: color, borderRadius: 2 }} />
+      </View>
+      <View style={{ flexDirection: 'row', gap: 3 }}>
+        <View style={{ width: 8, height: 8, backgroundColor: color, borderRadius: 2 }} />
+        <View style={{ width: 8, height: 8, backgroundColor: color, borderRadius: 2 }} />
+      </View>
+    </View>
+  );
+}
 function CasualIcon({ color }: { color: string }) {
   return (
     <View style={{ width: 22, height: 22 }}>
