@@ -487,6 +487,17 @@ export default function SocietyAdminScreen() {
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.linkCard, { marginTop: spacing.sm, borderColor: '#a78bfa55' }]}
+            onPress={() => router.push('/(app)/admin/swindle' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: '#a78bfa' }]}>💰 Swindle Manager</Text>
+              <Text style={styles.linkSub}>Games, results & season money list</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>

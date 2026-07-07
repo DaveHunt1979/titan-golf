@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1783260237389,
+  "lastScanned": 1783403392027,
   "projectRoot": "/Users/davehunt/Desktop/titan-golf",
   "techStack": {
     "languages": [
@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -20",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -10",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -69,7 +69,7 @@
       "path": "app",
       "purpose": "Application code",
       "fileCount": 2,
-      "lastAccessed": 1783260237376,
+      "lastAccessed": 1783403392018,
       "keyFiles": [
         "_layout.tsx"
       ]
@@ -78,7 +78,7 @@
       "path": "assets",
       "purpose": "Static assets",
       "fileCount": 15,
-      "lastAccessed": 1783260237378,
+      "lastAccessed": 1783403392018,
       "keyFiles": [
         "Golf_Competition_Format_Library_App_Blueprint.docx",
         "TitanAppLogo.png",
@@ -91,7 +91,7 @@
       "path": "csv",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1783260237378,
+      "lastAccessed": 1783403392020,
       "keyFiles": [
         "Supabase Snippet Untitled query.csv"
       ]
@@ -100,7 +100,7 @@
       "path": "dist",
       "purpose": "Distribution/build output",
       "fileCount": 1,
-      "lastAccessed": 1783260237379,
+      "lastAccessed": 1783403392020,
       "keyFiles": [
         "metadata.json"
       ]
@@ -109,7 +109,7 @@
       "path": "errors",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1783260237379,
+      "lastAccessed": 1783403392020,
       "keyFiles": [
         "Bad.png",
         "Good.png",
@@ -122,7 +122,7 @@
       "path": "ios",
       "purpose": null,
       "fileCount": 7,
-      "lastAccessed": 1783260237379,
+      "lastAccessed": 1783403392020,
       "keyFiles": [
         "Podfile",
         "Podfile.lock",
@@ -133,14 +133,14 @@
       "path": "mashie",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1783260237379,
+      "lastAccessed": 1783403392020,
       "keyFiles": []
     },
     "screenshots": {
       "path": "screenshots",
       "purpose": null,
-      "fileCount": 9,
-      "lastAccessed": 1783260237380,
+      "fileCount": 10,
+      "lastAccessed": 1783403392020,
       "keyFiles": [
         "Golf App Build List.docx",
         "Screenshot 2026-07-05 at 15.01.47.png",
@@ -153,7 +153,7 @@
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 1,
-      "lastAccessed": 1783260237380,
+      "lastAccessed": 1783403392020,
       "keyFiles": [
         "rename_player_assets.sh"
       ]
@@ -162,14 +162,14 @@
       "path": "src",
       "purpose": "Source code",
       "fileCount": 0,
-      "lastAccessed": 1783260237380,
+      "lastAccessed": 1783403392020,
       "keyFiles": []
     },
     "supabase": {
       "path": "supabase",
       "purpose": null,
       "fileCount": 44,
-      "lastAccessed": 1783260237380,
+      "lastAccessed": 1783403392020,
       "keyFiles": [
         "add_admin_create_login.sql",
         "add_avatars_bucket.sql",
@@ -182,7 +182,7 @@
       "path": "web",
       "purpose": null,
       "fileCount": 12,
-      "lastAccessed": 1783260237381,
+      "lastAccessed": 1783403392021,
       "keyFiles": [
         "README.md",
         "eslint.config.mjs",
@@ -195,7 +195,7 @@
       "path": "dist/assets",
       "purpose": "Static assets",
       "fileCount": 106,
-      "lastAccessed": 1783260237382,
+      "lastAccessed": 1783403392021,
       "keyFiles": [
         "017bc6ba3fc25503e5eb5e53826d48a8",
         "034b95d9056dbaa6b07ba86af2c28ce4",
@@ -206,14 +206,14 @@
       "path": "ios/build",
       "purpose": "Build output",
       "fileCount": 0,
-      "lastAccessed": 1783260237382,
+      "lastAccessed": 1783403392021,
       "keyFiles": []
     },
     "src/components": {
       "path": "src/components",
       "purpose": "UI components",
       "fileCount": 5,
-      "lastAccessed": 1783260237382,
+      "lastAccessed": 1783403392021,
       "keyFiles": [
         "CaddieButton.tsx",
         "CourseMapView.tsx",
@@ -224,7 +224,7 @@
       "path": "src/lib",
       "purpose": "Library code",
       "fileCount": 17,
-      "lastAccessed": 1783260237383,
+      "lastAccessed": 1783403392021,
       "keyFiles": [
         "SocietyThemeContext.tsx",
         "assets.ts",
@@ -235,7 +235,7 @@
       "path": "src/types",
       "purpose": "Type definitions",
       "fileCount": 1,
-      "lastAccessed": 1783260237383,
+      "lastAccessed": 1783403392021,
       "keyFiles": [
         "index.ts"
       ]
@@ -244,15 +244,15 @@
       "path": "web/node_modules",
       "purpose": "Dependencies",
       "fileCount": 1,
-      "lastAccessed": 1783260237384,
+      "lastAccessed": 1783403392022,
       "keyFiles": []
     }
   },
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 194,
-      "lastAccessed": 1783341722172,
+      "accessCount": 217,
+      "lastAccessed": 1783402254534,
       "type": "file"
     },
     {
@@ -275,20 +275,20 @@
     },
     {
       "path": "app/(app)/admin/index.tsx",
-      "accessCount": 27,
-      "lastAccessed": 1783334882846,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/[matchId].tsx",
-      "accessCount": 26,
-      "lastAccessed": 1783341110952,
+      "accessCount": 30,
+      "lastAccessed": 1783402315332,
       "type": "file"
     },
     {
       "path": "app/(app)/score/index.tsx",
-      "accessCount": 18,
-      "lastAccessed": 1783269155384,
+      "accessCount": 28,
+      "lastAccessed": 1783403784885,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/[matchId].tsx",
+      "accessCount": 27,
+      "lastAccessed": 1783401937631,
       "type": "file"
     },
     {
@@ -370,6 +370,12 @@
       "type": "file"
     },
     {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 3,
+      "lastAccessed": 1783401851416,
+      "type": "file"
+    },
+    {
       "path": "src/components/CaddieButton.tsx",
       "accessCount": 2,
       "lastAccessed": 1783068156240,
@@ -421,12 +427,6 @@
       "path": "ios/titangolf/WatchBridge.m",
       "accessCount": 2,
       "lastAccessed": 1783272649036,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/scoring.ts",
-      "accessCount": 2,
-      "lastAccessed": 1783341052429,
       "type": "file"
     },
     {

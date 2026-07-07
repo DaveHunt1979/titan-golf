@@ -93,6 +93,11 @@ export default function ScoreScreen() {
     joinDayBtn:   { backgroundColor: colors.gold, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: 8, justifyContent: 'center' },
     joinDayBtnOff:{ opacity: 0.4 },
     joinDayBtnText: { color: colors.bg, fontSize: fonts.sm, fontWeight: '800' },
+    dayTile: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.xs, borderWidth: 1, borderColor: colors.goldBorder },
+    dayTileCourse: { fontSize: fonts.md, fontWeight: '700', color: colors.white },
+    dayTileSub: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+    dayTileCode: { backgroundColor: colors.bg, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 4, marginLeft: spacing.sm },
+    dayTileCodeText: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 2 },
   }), [colors]);
 
   const router = useRouter();
@@ -104,6 +109,7 @@ export default function ScoreScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [dayCode, setDayCode] = useState('');
   const [joiningDay, setJoiningDay] = useState(false);
+  const [activeDays, setActiveDays] = useState<{ id: string; course_name: string; join_code: string; day_date: string; player_count: number }[]>([]);
 
   async function joinGameDay() {
     const code = dayCode.trim().toUpperCase();
@@ -127,14 +133,30 @@ export default function ScoreScreen() {
       }
     }
 
-    const { data, error } = await supabase
-      .from('matches')
-      .select(`
-        *,
-        home_team:home_team_id(name, accent_color),
-        away_team:away_team_id(name, accent_color)
-      `)
-      .order('match_number', { ascending: true });
+    const [{ data, error }, { data: daysData }] = await Promise.all([
+      supabase
+        .from('matches')
+        .select(`*, home_team:home_team_id(name, accent_color), away_team:away_team_id(name, accent_color)`)
+        .order('match_number', { ascending: true }),
+      supabase
+        .from('competition_days')
+        .select('id, course_name, join_code, day_date, matches(home_player_ids, away_player_ids)')
+        .eq('day_date', new Date().toISOString().split('T')[0])
+        .order('day_date', { ascending: false }),
+    ]);
+
+    if (daysData) {
+      const days = (daysData as any[])
+        .filter(d => {
+          const allIds = (d.matches ?? []).flatMap((m: any) => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]);
+          return !pid || allIds.includes(pid);
+        })
+        .map(d => {
+          const allIds = new Set((d.matches ?? []).flatMap((m: any) => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]));
+          return { id: d.id, course_name: d.course_name, join_code: d.join_code, day_date: d.day_date, player_count: allIds.size };
+        });
+      setActiveDays(days);
+    }
 
     if (!error && data) {
       // Only show matches the current player is actually in
@@ -225,6 +247,30 @@ export default function ScoreScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gold} />}
           showsVerticalScrollIndicator={false}
         >
+          {activeDays.length > 0 && (
+            <Section label="GROUP DAYS" styles={styles}>
+              {activeDays.map(d => (
+                <TouchableOpacity
+                  key={d.id}
+                  style={styles.dayTile}
+                  onPress={() => router.push(`/(app)/score/day/${d.id}` as any)}
+                  activeOpacity={0.8}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.dayTileCourse}>{d.course_name}</Text>
+                    <Text style={styles.dayTileSub}>
+                      {new Date(d.day_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      {d.player_count > 0 ? ` · ${d.player_count} players` : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.dayTileCode}>
+                    <Text style={styles.dayTileCodeText}>{d.join_code}</Text>
+                  </View>
+                  <Text style={{ color: colors.gold, fontSize: 20, marginLeft: 4 }}>›</Text>
+                </TouchableOpacity>
+              ))}
+            </Section>
+          )}
           {live.length > 0 && (
             <Section label="LIVE" labelColor={colors.live} styles={styles}>
               {live.map(m => <MatchCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} styles={styles} colors={colors} />)}

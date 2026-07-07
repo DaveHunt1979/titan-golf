@@ -26,7 +26,6 @@ import {
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { speakHole, speakPressure } from '../../../../src/lib/caddie';
 import * as Location from 'expo-location';
-import RangeMap from '../../../../src/components/RangeMap';
 import ShotLogger from '../../../../src/components/ShotLogger';
 import RecordCelebration from '../../../../src/components/RecordCelebration';
 import { checkAndUpdateRecords, type BrokenRecord } from '../../../../src/lib/records';
@@ -50,6 +49,7 @@ interface MatchInfo {
   away_team: { name: string; accent_color: string } | null;
   side_games: string[] | null;
   secondary_format: string | null;
+  hcp_allowance: number | null;
   day: {
     course_name: string;
     course_par: number;
@@ -63,11 +63,13 @@ interface MatchInfo {
 interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; tee_yardages: Record<string, number> | null; }
 interface CompPlayer { player_id: string; handicap_index: number; }
 
-function playerCourseHcp(playerId: string, compPlayers: CompPlayer[], day: MatchInfo['day']): number {
+function playerCourseHcp(playerId: string, compPlayers: CompPlayer[], day: MatchInfo['day'], hcpAllowance: number = 100): number {
   const cp = compPlayers.find(c => c.player_id === playerId);
   const hcpIndex = cp?.handicap_index ?? 0;
-  if (!day?.slope_rating || !day?.course_rating || !day?.course_par) return Math.round(hcpIndex);
-  return calcCourseHandicap(hcpIndex, day.slope_rating, day.course_rating, day.course_par);
+  const raw = (!day?.slope_rating || !day?.course_rating || !day?.course_par)
+    ? Math.round(hcpIndex)
+    : calcCourseHandicap(hcpIndex, day.slope_rating, day.course_rating, day.course_par);
+  return Math.round(raw * (hcpAllowance / 100));
 }
 
 export default function EnterScoresScreen() {
@@ -95,7 +97,6 @@ export default function EnterScoresScreen() {
   const [sideGameModal, setSideGameModal] = useState<{ type: string; hole: number } | null>(null);
   const [sideGameResult, setSideGameResult] = useState('');
   const [sideGameWinner, setSideGameWinner] = useState<string | null>(null);
-  const [showRangeMap, setShowRangeMap] = useState(false);
   const [showShotLogger, setShowShotLogger] = useState(false);
   const [showCaddieModal, setShowCaddieModal] = useState(false);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
@@ -350,7 +351,7 @@ export default function EnterScoresScreen() {
   // Players receiving a shot on the current hole
   const shotPlayerIds = courseHole
     ? allPlayerIds.filter(id => {
-        const hcp = playerCourseHcp(id, compPlayers, match?.day ?? null);
+        const hcp = playerCourseHcp(id, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100);
         return calcStrokesReceived(hcp, courseHole.stroke_index) >= 1;
       })
     : [];
@@ -433,7 +434,7 @@ export default function EnterScoresScreen() {
       if (delErr) console.error('match_holes delete error:', delErr);
 
       const spRows = allPlayerIds.map(id => {
-        const hcp = playerCourseHcp(id, compPlayers, day);
+        const hcp = playerCourseHcp(id, compPlayers, day, match.hcp_allowance ?? 100);
         const shots = calcStrokesReceived(hcp, si);
         const gross = scores[id] ?? null;
         const net = gross !== null ? gross - shots : null;
@@ -505,7 +506,7 @@ export default function EnterScoresScreen() {
 
     // ── Match play branch ────────────────────────────────────────────
     const getNetScore = (id: string) => {
-      const hcp = playerCourseHcp(id, compPlayers, day);
+      const hcp = playerCourseHcp(id, compPlayers, day, match.hcp_allowance ?? 100);
       const shots = calcStrokesReceived(hcp, si);
       return (scores[id] ?? 99) - shots;
     };
@@ -521,7 +522,7 @@ export default function EnterScoresScreen() {
     if (delErr) console.error('match_holes delete error:', delErr);
 
     const rows = allPlayerIds.map(id => {
-      const hcp = playerCourseHcp(id, compPlayers, day);
+      const hcp = playerCourseHcp(id, compPlayers, day, match.hcp_allowance ?? 100);
       const shots = calcStrokesReceived(hcp, si);
       const gross = scores[id] ?? null;
       return {
@@ -728,7 +729,8 @@ export default function EnterScoresScreen() {
   const leaderId = sortedLeaders[0];
   const leaderPts = leaderId ? (playerTotals[leaderId] ?? 0) : 0;
   const leaderName = leaderId ? (playerNames[leaderId] ?? '').split(' ')[0] : null;
-  const leaderStatusText = leaderPts > 0
+  const isMatchplay = match.round_format === 'matchplay';
+  const leaderStatusText = leaderPts > 0 && (isStrokePlay || match.secondary_format)
     ? `${leaderName} leads · ${leaderPts}pts`
     : null;
   const awayColor = match.away_team?.accent_color ?? colors.textMuted;
@@ -917,7 +919,7 @@ export default function EnterScoresScreen() {
             )}
 
             <View style={styles.holeIconRow}>
-              <TouchableOpacity style={styles.holeIconBtn} onPress={() => setShowRangeMap(true)} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.holeIconBtn} onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${currentHole}` as any)} activeOpacity={0.7}>
                 <Text style={styles.holeIconEmoji}>🔭</Text>
                 <Text style={styles.holeIconLbl}>RANGE</Text>
               </TouchableOpacity>
@@ -1383,22 +1385,6 @@ export default function EnterScoresScreen() {
             <TouchableOpacity style={styles.sideGameSkipBtn} onPress={() => setSideGameModal(null)} activeOpacity={0.7}>
               <Text style={styles.sideGameSkipText}>Skip</Text>
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-      {/* Range finder popup */}
-      <Modal visible={showRangeMap} transparent animationType="slide" onRequestClose={() => setShowRangeMap(false)}>
-        <View style={styles.popupOverlay}>
-          <View style={styles.popupSheet}>
-            <View style={styles.popupHeader}>
-              <Text style={styles.popupTitle}>🔭  RANGE FINDER</Text>
-              <TouchableOpacity onPress={() => setShowRangeMap(false)} style={styles.popupClose} activeOpacity={0.7}>
-                <Text style={styles.popupCloseTxt}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={{ padding: spacing.md }}>
-              <RangeMap courseName={match?.day?.course_name} holeNumber={currentHole} />
-            </View>
           </View>
         </View>
       </Modal>

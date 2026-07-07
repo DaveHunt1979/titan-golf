@@ -151,6 +151,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="admin/teams"              options={{ href: null }} />
         <Tabs.Screen name="admin/courses"            options={{ href: null }} />
         <Tabs.Screen name="admin/transfers"          options={{ href: null }} />
+        <Tabs.Screen name="admin/swindle"            options={{ href: null }} />
         <Tabs.Screen name="admin/pins"               options={{ href: null }} />
         <Tabs.Screen name="admin/tournaments"        options={{ href: null }} />
         <Tabs.Screen name="score/day/[dayId]"        options={{ href: null }} />

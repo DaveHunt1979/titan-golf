@@ -4,6 +4,7 @@ import {
   TouchableOpacity, Image, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../src/lib/supabase';
@@ -178,6 +179,20 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Shop */}
+          <TouchableOpacity
+            style={s.shopTile}
+            onPress={() => Linking.openURL('https://titangolf-web.vercel.app/')}
+            activeOpacity={0.8}
+          >
+            <Text style={s.shopIcon}>🛍️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.shopLabel}>Shop</Text>
+              <Text style={s.shopSub}>Titan Golf merch & more</Text>
+            </View>
+            <Text style={s.shopArrow}>›</Text>
+          </TouchableOpacity>
+
         </ScrollView>
       )}
     </View>
@@ -246,6 +261,17 @@ const s = StyleSheet.create({
   utilIcon:  { fontSize: 28, marginBottom: 8 },
   utilLabel: { fontSize: 14, fontWeight: '800', color: '#ffffff', marginBottom: 3 },
   utilSub:   { fontSize: 11, color: '#6b7280', lineHeight: 16 },
+  shopTile: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    backgroundColor: '#1c1c1e', borderRadius: radius.lg,
+    borderWidth: 1, borderColor: '#2c2c2e',
+    paddingVertical: 16, paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+  },
+  shopIcon:  { fontSize: 28 },
+  shopLabel: { fontSize: 15, fontWeight: '800', color: '#ffffff', marginBottom: 2 },
+  shopSub:   { fontSize: 11, color: '#6b7280' },
+  shopArrow: { fontSize: 24, color: '#6b7280', fontWeight: '300' },
 });
 
 const tile = StyleSheet.create({

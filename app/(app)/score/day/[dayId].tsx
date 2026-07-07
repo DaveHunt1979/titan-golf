@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Share, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Share, StyleSheet, RefreshControl, ActivityIndicator, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../../src/lib/supabase';
 import { colors, fonts, spacing, radius } from '../../../../src/lib/theme';
 
@@ -18,6 +19,7 @@ export default function DayLobby() {
   const [myMatchId,  setMyMatchId]  = useState<string | null>(null);
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [tab,        setTab]        = useState<'leaderboard' | 'scores'>('leaderboard');
 
   useEffect(() => { init(); }, [dayId]);
 
@@ -114,71 +116,89 @@ export default function DayLobby() {
 
   return (
     <View style={s.container}>
+      <StatusBar style="light" />
+
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={s.backText}>← Back</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><Text style={s.backText}>‹ Back</Text></TouchableOpacity>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={s.headerCourse}>{day.course_name}</Text>
+          <Text style={s.headerDate}>{dateStr}</Text>
+        </View>
         <TouchableOpacity style={s.shareBtn} onPress={shareCode}>
-          <Text style={s.shareBtnText}>Share Code</Text>
+          <Text style={s.shareBtnText}>📤 {day.join_code}</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Tabs */}
+      <View style={s.tabBar}>
+        {(['leaderboard', 'scores'] as const).map(t => (
+          <TouchableOpacity
+            key={t}
+            style={[s.tabItem, tab === t && s.tabItemActive]}
+            onPress={() => setTab(t)}
+            activeOpacity={0.7}
+          >
+            <Text style={[s.tabLabel, tab === t && s.tabLabelActive]}>
+              {t === 'leaderboard' ? `Leaderboard · ${players.length}` : `Groups · ${groups.length}`}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 48 }}
+        contentContainerStyle={{ padding: spacing.md, paddingBottom: 96 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.gold} />}
+        key={tab}
       >
-        {/* Day info card */}
-        <View style={s.dayCard}>
-          <Text style={s.course}>{day.course_name}</Text>
-          <Text style={s.dateStr}>{dateStr}</Text>
-          <View style={s.codeRow}>
-            <View style={s.codeBox}>
-              <Text style={s.codeLabel}>DAY CODE</Text>
-              <Text style={s.code}>{day.join_code}</Text>
-            </View>
-            <Text style={s.codeHint}>Share this code with other groups{'\n'}so they can join the leaderboard</Text>
-          </View>
-        </View>
-
-        {/* Combined leaderboard */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>COMBINED LEADERBOARD  ·  {players.length} PLAYERS</Text>
-          {players.length === 0 ? (
-            <Text style={s.empty}>No scores yet — get playing!</Text>
-          ) : (
-            players.map((p, rank) => {
-              const isMe = p.player_id === myId;
-              return (
-                <View key={p.player_id} style={[s.lbRow, isMe && s.lbRowMe]}>
-                  <Text style={[s.lbRank, rank === 0 && s.lbRankGold]}>{rank + 1}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.lbName, isMe && s.lbNameMe]}>{p.name.split(' ')[0]}{isMe ? ' (you)' : ''}</Text>
-                    <Text style={s.lbSub}>{p.holes} holes · hcp {p.hcp.toFixed(0)}</Text>
+        {tab === 'leaderboard' && (
+          <>
+            {players.length === 0 ? (
+              <Text style={s.empty}>No scores yet — get playing!</Text>
+            ) : (
+              players.map((p, rank) => {
+                const isMe = p.player_id === myId;
+                return (
+                  <View key={p.player_id} style={[s.lbRow, isMe && s.lbRowMe]}>
+                    <Text style={[s.lbRank, rank === 0 && s.lbRankGold]}>{rank + 1}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.lbName, isMe && s.lbNameMe]}>{p.name.split(' ')[0]}{isMe ? ' (you)' : ''}</Text>
+                      <Text style={s.lbSub}>{p.holes} holes · hcp {p.hcp.toFixed(0)}</Text>
+                    </View>
+                    <Text style={[s.lbPts, rank === 0 && s.lbPtsGold]}>{p.pts}pts</Text>
                   </View>
-                  <Text style={[s.lbPts, rank === 0 && s.lbPtsGold]}>{p.pts}pts</Text>
+                );
+              })
+            )}
+          </>
+        )}
+
+        {tab === 'scores' && (
+          <>
+            {groups.map((g, i) => (
+              <TouchableOpacity
+                key={g.match_id}
+                style={[s.groupCard, g.match_id === myMatch && s.groupCardMe]}
+                onPress={() => router.push(`/(app)/score/${g.match_id}` as any)}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.groupNum}>GROUP {i + 1} · {g.format.toUpperCase()}</Text>
+                    <Text style={s.groupPlayers}>{g.player_names.join(', ')}</Text>
+                  </View>
+                  {g.match_id === myMatch && <Text style={s.groupYou}>YOUR GROUP</Text>}
+                  <Text style={{ color: colors.gold, fontSize: 20, marginLeft: spacing.sm }}>›</Text>
                 </View>
-              );
-            })
-          )}
-        </View>
+              </TouchableOpacity>
+            ))}
+            {groups.length === 0 && <Text style={s.empty}>No groups yet.</Text>}
+          </>
+        )}
+      </ScrollView>
 
-        {/* Groups */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>GROUPS  ·  {groups.length}</Text>
-          {groups.map((g, i) => (
-            <TouchableOpacity
-              key={g.match_id}
-              style={[s.groupCard, g.match_id === myMatch && s.groupCardMe]}
-              onPress={() => router.push(`/(app)/score/${g.match_id}` as any)}
-              activeOpacity={0.8}
-            >
-              <Text style={s.groupNum}>Group {i + 1}</Text>
-              <Text style={s.groupPlayers}>{g.player_names.join(', ')}</Text>
-              {g.match_id === myMatch && <Text style={s.groupYou}>YOUR GROUP</Text>}
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Actions */}
+      {/* Fixed bottom action */}
+      <View style={s.bottomBar}>
         {myMatch ? (
           <TouchableOpacity
             style={s.scoreBtn}
@@ -196,30 +216,44 @@ export default function DayLobby() {
             <Text style={s.joinBtnText}>+ Add My Group</Text>
           </TouchableOpacity>
         )}
-      </ScrollView>
+      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: colors.bg, paddingTop: 56 },
-  header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, marginBottom: spacing.md },
-  backText:     { color: colors.gold, fontSize: fonts.md, fontWeight: '600' },
-  shareBtn:     { backgroundColor: colors.goldDim, borderWidth: 1, borderColor: colors.goldBorder, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: 6 },
-  shareBtnText: { color: colors.gold, fontSize: fonts.sm, fontWeight: '700' },
+  container:     { flex: 1, backgroundColor: colors.bg },
+  header:        {
+    paddingTop: Platform.OS === 'ios' ? 56 : 32,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: spacing.sm,
+  },
+  backText:      { color: colors.gold, fontSize: fonts.md, fontWeight: '600', minWidth: 50 },
+  headerCourse:  { fontSize: fonts.md, fontWeight: '800', color: colors.white },
+  headerDate:    { fontSize: fonts.xs, color: colors.textMuted, marginTop: 1 },
+  shareBtn:      { backgroundColor: colors.goldDim, borderWidth: 1, borderColor: colors.goldBorder, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 5 },
+  shareBtnText:  { color: colors.gold, fontSize: fonts.xs, fontWeight: '800', letterSpacing: 2 },
 
-  dayCard:      { marginHorizontal: spacing.md, backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.goldBorder, marginBottom: spacing.md },
-  course:       { fontSize: fonts.xxl, fontWeight: '800', color: colors.white },
-  dateStr:      { fontSize: fonts.sm, color: colors.textMuted, marginTop: 2, marginBottom: spacing.md },
-  codeRow:      { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  codeBox:      { backgroundColor: colors.bg, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', minWidth: 100 },
-  codeLabel:    { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5, marginBottom: 4 },
-  code:         { fontSize: fonts.xxl, fontWeight: '800', color: colors.gold, letterSpacing: 4 },
-  codeHint:     { fontSize: fonts.xs, color: colors.textMuted, lineHeight: 18, flex: 1 },
+  tabBar:         {
+    flexDirection: 'row',
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: 0,
+    gap: spacing.sm,
+  },
+  tabItem:        {
+    flex: 1, paddingVertical: 10, alignItems: 'center',
+    borderBottomWidth: 3, borderBottomColor: 'transparent',
+  },
+  tabItemActive:  { borderBottomColor: colors.gold },
+  tabLabel:       { fontSize: fonts.sm, fontWeight: '700', color: colors.textMuted },
+  tabLabelActive: { color: colors.gold },
 
-  section:      { marginHorizontal: spacing.md, marginBottom: spacing.md },
-  sectionLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5, marginBottom: spacing.sm },
-  empty:        { color: colors.textMuted, fontSize: fonts.sm, textAlign: 'center', paddingVertical: spacing.lg },
+  empty:        { color: colors.textMuted, fontSize: fonts.sm, textAlign: 'center', paddingVertical: spacing.xl },
 
   lbRow:        { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
   lbRowMe:      { backgroundColor: colors.goldDim, borderRadius: radius.md, paddingHorizontal: spacing.sm, marginHorizontal: -spacing.sm },
@@ -235,10 +269,18 @@ const s = StyleSheet.create({
   groupCardMe:  { borderColor: colors.gold, backgroundColor: colors.goldDim },
   groupNum:     { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginBottom: 2 },
   groupPlayers: { fontSize: fonts.md, fontWeight: '600', color: colors.white },
-  groupYou:     { fontSize: 9, fontWeight: '800', color: colors.gold, letterSpacing: 1, marginTop: 4 },
+  groupYou:     { fontSize: 9, fontWeight: '800', color: colors.gold, letterSpacing: 1 },
 
-  scoreBtn:     { marginHorizontal: spacing.md, backgroundColor: colors.green, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginBottom: spacing.sm },
+  bottomBar:     {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    paddingHorizontal: spacing.md,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    paddingTop: spacing.sm,
+    backgroundColor: colors.bg,
+    borderTopWidth: 1, borderTopColor: colors.border,
+  },
+  scoreBtn:     { backgroundColor: colors.green, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center' },
   scoreBtnText: { color: colors.bg, fontSize: fonts.lg, fontWeight: '800' },
-  joinBtn:      { marginHorizontal: spacing.md, backgroundColor: colors.gold, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginBottom: spacing.sm },
+  joinBtn:      { backgroundColor: colors.gold, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center' },
   joinBtnText:  { color: colors.bg, fontSize: fonts.lg, fontWeight: '800' },
 });

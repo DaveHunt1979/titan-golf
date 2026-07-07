@@ -121,6 +121,12 @@ export default function ProfileScreen() {
       paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.lg,
     },
     saveBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
+    syncBtn: {
+      borderRadius: radius.md, borderWidth: 1, borderColor: '#22c55e55',
+      backgroundColor: 'rgba(34,197,94,0.08)',
+      paddingVertical: spacing.sm + 2, alignItems: 'center', marginTop: spacing.sm,
+    },
+    syncBtnText: { fontSize: fonts.sm, fontWeight: '700', color: '#22c55e' },
 
     action:      { paddingHorizontal: spacing.md, paddingVertical: spacing.md },
     actionDanger:{ fontSize: fonts.md, color: colors.red, fontWeight: '600' },
@@ -145,6 +151,7 @@ export default function ProfileScreen() {
   const [nickname, setNickname] = useState('');
   const [hcp, setHcp]           = useState('');
   const [cdhNum, setCdhNum]     = useState('');
+  const [syncingHcp, setSyncingHcp] = useState(false);
   const [bag, setBag]           = useState<Bag>({});
   const [expandedClub, setExpandedClub] = useState<string | null>(null);
 
@@ -238,6 +245,38 @@ export default function ProfileScreen() {
       Alert.alert('Upload failed', e.message ?? 'Could not upload image.');
     } finally {
       setUploadingImage(false);
+    }
+  }
+
+  async function syncFromEnglandGolf() {
+    const cdh = (cdhNum.trim() || player?.cdh_number || '').trim();
+    if (!cdh) { Alert.alert('CDH Number required', 'Enter your England Golf CDH number first.'); return; }
+    setSyncingHcp(true);
+    try {
+      const res = await fetch(
+        `https://api.golfgenius.com/api/v1.0/GolfEngland/HandicapIndex/${encodeURIComponent(cdh)}`,
+        { headers: { 'Accept': 'application/json' } }
+      );
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const json = await res.json();
+      // Response shape varies — try common field names
+      const hi = json.handicapIndex ?? json.HandicapIndex ?? json.whs_handicap_index ?? json.data?.handicapIndex;
+      if (hi == null) throw new Error('Handicap not found in response');
+      const rounded = Math.round(hi * 10) / 10;
+      setHcp(String(rounded));
+      if (player) {
+        await supabase.from('players').update({ handicap_index: rounded }).eq('id', player.id);
+        setPlayer(p => p ? { ...p, handicap_index: rounded } : p);
+      }
+      Alert.alert('Synced!', `Handicap index updated to ${rounded}.`);
+    } catch (e: any) {
+      Alert.alert(
+        'Sync failed',
+        'Could not fetch your handicap from England Golf. Check your CDH number is correct or update your handicap manually.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setSyncingHcp(false);
     }
   }
 
@@ -363,6 +402,16 @@ export default function ProfileScreen() {
               <FieldDivider s={s} colors={colors} />
               <Field label="CDH Number" value={cdhNum} onChange={setCdhNum} placeholder="England Golf CDH number" keyboardType="number-pad" s={s} colors={colors} />
             </View>
+            <TouchableOpacity
+              style={[s.syncBtn, (!cdhNum.trim() || syncingHcp) && { opacity: 0.45 }]}
+              onPress={syncFromEnglandGolf}
+              disabled={!cdhNum.trim() || syncingHcp}
+              activeOpacity={0.8}
+            >
+              {syncingHcp
+                ? <ActivityIndicator color="#22c55e" size="small" />
+                : <Text style={s.syncBtnText}>⛳ Sync Handicap from England Golf</Text>}
+            </TouchableOpacity>
 
             {/* Edit: My Bag */}
             <Text style={s.sectionLabel}>MY BAG</Text>
@@ -429,7 +478,26 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
-              {player?.cdh_number ? <><FieldDivider s={s} colors={colors} /><Row label="CDH Number" value={player.cdh_number} s={s} /></> : null}
+              {player?.cdh_number ? (
+                <>
+                  <FieldDivider s={s} colors={colors} />
+                  <View style={s.rowView}>
+                    <Text style={s.rowLabel}>CDH Number</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                      <Text style={s.rowValue}>{player.cdh_number}</Text>
+                      <TouchableOpacity
+                        onPress={syncFromEnglandGolf}
+                        disabled={syncingHcp}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        {syncingHcp
+                          ? <ActivityIndicator size="small" color="#22c55e" />
+                          : <Text style={s.calcLink}>Sync ⛳</Text>}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </>
+              ) : null}
             </View>
 
             {/* Read: My Bag */}
