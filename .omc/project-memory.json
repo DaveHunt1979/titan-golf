@@ -251,8 +251,14 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 217,
-      "lastAccessed": 1783402254534,
+      "accessCount": 223,
+      "lastAccessed": 1783414153346,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 62,
+      "lastAccessed": 1783415180091,
       "type": "file"
     },
     {
@@ -265,12 +271,6 @@
       "path": "app/(app)/score/solo/[matchId].tsx",
       "accessCount": 54,
       "lastAccessed": 1783322703683,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 41,
-      "lastAccessed": 1783342111989,
       "type": "file"
     },
     {
@@ -293,14 +293,14 @@
     },
     {
       "path": "app/(app)/score/preview/[matchId].tsx",
-      "accessCount": 16,
-      "lastAccessed": 1783271020326,
+      "accessCount": 19,
+      "lastAccessed": 1783414121533,
       "type": "file"
     },
     {
       "path": "src/lib/caddie.ts",
-      "accessCount": 9,
-      "lastAccessed": 1783269758106,
+      "accessCount": 10,
+      "lastAccessed": 1783413915583,
       "type": "file"
     },
     {

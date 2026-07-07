@@ -118,15 +118,18 @@ export default function NewGameScreen() {
   const [coursePinsSet, setCoursePinsSet]   = useState<boolean | null>(null);
   const [ldHole,  setLdHole]  = useState<number | null>(null);
   const [ntpHole, setNtpHole] = useState<number | null>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [takenPlayerIds, setTakenPlayerIds] = useState<string[]>([]);
 
   // Reset game setup state each time screen is focused so old settings don't carry over
   useFocusEffect(useCallback(() => {
-    setStep(1);
+    const isGroupDay = !!existingDayId;
+    setStep(isGroupDay ? 2 : 1);
     setPairStep(1);
-    setMode(null);
+    setMode(isGroupDay ? 'stableford' : null);
     setPair1([]);
     setPair2([]);
-    setSelectedCourse(null);
+    setSelectedCourse(isGroupDay && preselectedCourse ? preselectedCourse : null);
     setHcpAllowance(100);
     setCustomHcp('');
     setSideGames([]);
@@ -135,7 +138,22 @@ export default function NewGameScreen() {
     setLdHole(null);
     setNtpHole(null);
     setCreating(false);
-  }, []));
+    setVoiceEnabled(true);
+    setTakenPlayerIds([]);
+    if (existingDayId) {
+      supabase
+        .from('matches')
+        .select('home_player_ids, away_player_ids')
+        .eq('day_id', existingDayId)
+        .neq('status', 'cancelled')
+        .then(({ data }) => {
+          if (data) {
+            const ids = (data as any[]).flatMap(m => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]);
+            setTakenPlayerIds([...new Set(ids)]);
+          }
+        });
+    }
+  }, [existingDayId, preselectedCourse]));
 
   useEffect(() => {
     if (!selectedCourse) { setCourseHoleData([]); setCoursePinsSet(null); return; }
@@ -293,24 +311,46 @@ export default function NewGameScreen() {
         is_singles: mode === 'singles',
         round_format: (mode === '4bbb' || mode === 'singles') ? 'matchplay' : mode,
         hcp_allowance: hcpAllowance,
-        side_games: sideGames.map(g => {
+        side_games: [
+          ...sideGames.map(g => {
             if (g === 'Longest Drive' && ldHole) return `Longest Drive:${ldHole}`;
             if (g === 'Closest to Pin' && ntpHole) return `Closest to Pin:${ntpHole}`;
             return g;
           }),
+          ...(!voiceEnabled ? ['voice:off'] : []),
+        ],
         secondary_format: secondaryFormat,
       }).select().single();
 
       if (error || !newMatch) throw error ?? new Error('Could not create game');
 
-      if (existingDayId) {
-        // Going back to an existing day lobby
-        router.replace(`/(app)/score/day/${existingDayId}` as any);
-      } else {
-        // New game day — go to preview with day code
-        const params = dayCode ? `?dayId=${resolvedDayId}&dayCode=${dayCode}` : '';
-        router.replace(`/(app)/score/preview/${newMatch.id}${params}` as any);
-      }
+      const codeMsg = dayCode ? `\nDay code: ${dayCode}` : '';
+      Alert.alert(
+        'Group added!',
+        `${pair1.map(id => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '').join(', ')} are on.${codeMsg}\n\nAdd another group to the same day?`,
+        [
+          {
+            text: 'Add Another Group',
+            onPress: () => {
+              router.replace(
+                `/(app)/games/new?existingDayId=${resolvedDayId}&course=${encodeURIComponent(selectedCourse ?? '')}` as any
+              );
+            },
+          },
+          {
+            text: "Let's Play",
+            style: 'default',
+            onPress: () => {
+              if (existingDayId) {
+                router.replace(`/(app)/score/day/${resolvedDayId}` as any);
+              } else {
+                const params = dayCode ? `?dayId=${resolvedDayId}&dayCode=${dayCode}` : '';
+                router.replace(`/(app)/score/preview/${newMatch.id}${params}` as any);
+              }
+            },
+          },
+        ]
+      );
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Could not create game');
       setCreating(false);
@@ -453,7 +493,8 @@ export default function NewGameScreen() {
                     const inP2     = pair2.includes(p.id);
                     const inActive = pairStep === 1 ? inP1 : inP2;
                     const inOther  = pairStep === 1 ? inP2 : inP1;
-                    const isDisabled = inOther || (atMax && !inActive);
+                    const alreadyTaken = takenPlayerIds.includes(p.id);
+                    const isDisabled = inOther || alreadyTaken || (atMax && !inActive);
                     return (
                       <TouchableOpacity
                         key={p.id}
@@ -681,6 +722,24 @@ export default function NewGameScreen() {
               </>
             )}
 
+            {/* Voice caddie toggle */}
+            <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>CHIP & BIRDIE</Text>
+            <TouchableOpacity
+              style={[styles.voiceToggleRow]}
+              onPress={() => setVoiceEnabled(v => !v)}
+              activeOpacity={0.8}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.voiceToggleLabel}>AI Voice Caddie</Text>
+                <Text style={styles.voiceToggleSub}>
+                  {voiceEnabled ? 'On — Chip & Birdie will announce holes' : 'Off — no audio announcements'}
+                </Text>
+              </View>
+              <View style={[styles.voiceToggleSwitch, voiceEnabled && styles.voiceToggleSwitchOn]}>
+                <View style={[styles.voiceToggleThumb, voiceEnabled && styles.voiceToggleThumbOn]} />
+              </View>
+            </TouchableOpacity>
+
             {/* Summary */}
             <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>GAME SUMMARY</Text>
             <View style={styles.summaryCard}>
@@ -869,4 +928,12 @@ const styles = StyleSheet.create({
   nextBtn: { backgroundColor: colors.gold, borderRadius: radius.lg, paddingVertical: spacing.md + 2, alignItems: 'center' },
   nextBtnOff: { opacity: 0.35 },
   nextBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
+
+  voiceToggleRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
+  voiceToggleLabel: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
+  voiceToggleSub: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+  voiceToggleSwitch: { width: 44, height: 24, borderRadius: 12, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', padding: 2 },
+  voiceToggleSwitchOn: { backgroundColor: colors.green, borderColor: colors.green },
+  voiceToggleThumb: { width: 18, height: 18, borderRadius: 9, backgroundColor: colors.textMuted },
+  voiceToggleThumbOn: { backgroundColor: colors.white, alignSelf: 'flex-end' },
 });

@@ -340,8 +340,10 @@ export default function EnterScoresScreen() {
 
 
   const [coachLoading, setCoachLoading] = useState(false);
+  const voiceOff = match?.side_games?.includes('voice:off') ?? false;
+
   async function onCoachMe() {
-    if (coachLoading) return;
+    if (coachLoading || voiceOff) return;
     setCoachLoading(true);
     const firstNames = Object.values(playerNames).map(n => n.split(' ')[0]);
     await speakHole(currentHole, courseHole?.par ?? null, holeYardage, courseHole?.stroke_index ?? null, firstNames);
@@ -499,7 +501,7 @@ export default function EnterScoresScreen() {
           name: (playerNames[id] ?? 'Player').split(' ')[0],
           pts: updatedTotals[id] ?? 0,
         }));
-        speakPressure({ standings, holeNumber: activeHole, holesLeft: 18 - holesPlayed, format: 'stableford' });
+        if (!voiceOff) speakPressure({ standings, holeNumber: activeHole, holesLeft: 18 - holesPlayed, format: 'stableford' });
       }
       return;
     }
@@ -656,7 +658,7 @@ export default function EnterScoresScreen() {
       const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
       const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
       const { homeUp: newHomeUp, remaining: newRemaining } = calcHoles(newHolesStr);
-      speakPressure({
+      if (!voiceOff) speakPressure({
         holeNumber: activeHole,
         holesLeft: newRemaining,
         format: 'matchplay',

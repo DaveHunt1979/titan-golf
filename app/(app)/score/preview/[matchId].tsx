@@ -71,10 +71,13 @@ export default function MatchPreviewScreen() {
     const firstNames = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])]
       .map(id => players.find(p => p.id === id)?.display_name.split(' ')[0])
       .filter(Boolean) as string[];
-    await Promise.race([
-      speakIntro(firstNames),
-      new Promise(resolve => setTimeout(resolve, 6000)),
-    ]);
+    const voiceOff = match.side_games?.includes('voice:off');
+    if (!voiceOff) {
+      await Promise.race([
+        speakIntro(firstNames),
+        new Promise(resolve => setTimeout(resolve, 6000)),
+      ]);
+    }
     router.replace(`/(app)/score/${matchId}` as any);
   }
 
