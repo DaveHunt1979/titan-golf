@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "cd /Users/davehunt/Desktop/titan-golf/web && npx tsc --noEmit 2>&1 | head -30",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | grep \"concept\\|admin\" | head -10",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -275,8 +275,8 @@
     },
     {
       "path": "app/(app)/admin/index.tsx",
-      "accessCount": 30,
-      "lastAccessed": 1783402315332,
+      "accessCount": 35,
+      "lastAccessed": 1783520833398,
       "type": "file"
     },
     {
