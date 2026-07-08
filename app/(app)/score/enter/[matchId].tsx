@@ -871,9 +871,12 @@ export default function EnterScoresScreen() {
                       ? (match.round_format === 'stableford' || match.secondary_format ? `${total}pts` : `${total}`)
                       : '—';
                     const isLeader = rank === 0 && topScore > 0;
+                    const isStablefordMode = match.round_format === 'stableford' || !!match.secondary_format;
+                    const nameColor = isStablefordMode ? (isLeader ? colors.white : colors.textMuted) : colors.white;
+                    const scoreColor = isStablefordMode ? (isLeader ? colors.gold : colors.textMuted) : teamColor;
                     return (
                       <View key={id} style={styles.lbRow}>
-                        <View style={[styles.lbAvatarWrap, { borderColor: teamColor }]}>
+                        <View style={[styles.lbAvatarWrap, { borderColor: isStablefordMode ? (isLeader ? colors.gold : colors.border) : teamColor, opacity: isStablefordMode && !isLeader ? 0.5 : 1 }]}>
                           {avatar ? (
                             <Image source={typeof avatar === 'string' ? { uri: avatar } : avatar} style={styles.lbAvatar} />
                           ) : (
@@ -885,8 +888,8 @@ export default function EnterScoresScreen() {
                             <Text style={styles.lbCrown}>👑</Text>
                           )}
                         </View>
-                        <Text style={styles.lbName} numberOfLines={1}>{firstName}</Text>
-                        <Text style={[styles.lbScore, { color: teamColor }]}>{scoreStr}</Text>
+                        <Text style={[styles.lbName, { color: nameColor, fontWeight: isLeader ? '800' : '600' }]} numberOfLines={1}>{firstName}</Text>
+                        <Text style={[styles.lbScore, { color: scoreColor, fontWeight: isLeader ? '800' : '600' }]}>{scoreStr}</Text>
                       </View>
                     );
                   });
@@ -1017,6 +1020,7 @@ export default function EnterScoresScreen() {
             awayColor={awayColor}
             isStrokePlay={isStrokePlay}
             roundFormat={match.round_format}
+            secondaryFormat={match.secondary_format}
             onUndo={undoHole}
             lastPlayedHole={lastPlayedHole}
             saving={saving}
@@ -1036,6 +1040,7 @@ export default function EnterScoresScreen() {
             awayColor={awayColor}
             isStrokePlay={isStrokePlay}
             roundFormat={match.round_format}
+            secondaryFormat={match.secondary_format}
             onUndo={undoHole}
             lastPlayedHole={lastPlayedHole}
             saving={saving}
@@ -1088,11 +1093,35 @@ export default function EnterScoresScreen() {
             </Text>
           </View>
 
+          {/* Stableford final leaderboard — shown for stableford or secondary game */}
+          {(match.round_format === 'stableford' || match.secondary_format) && allPlayerIds.length > 0 && (
+            <View style={styles.sideGameSummary}>
+              <Text style={styles.sideGameSummaryTitle}>
+                {match.secondary_format ? '2ND GAME · STABLEFORD FINAL' : 'STABLEFORD FINAL'}
+              </Text>
+              {[...allPlayerIds]
+                .sort((a, b) => (playerTotals[b] ?? 0) - (playerTotals[a] ?? 0))
+                .map((id, i) => (
+                  <View key={id} style={[styles.sideGameSummaryRow, { paddingVertical: 8 }]}>
+                    <Text style={[styles.sideGameSummaryIcon, { color: i === 0 ? colors.gold : colors.textMuted, fontWeight: '800', width: 24, textAlign: 'center' }]}>{i + 1}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.sideGameSummaryType, { color: i === 0 ? colors.white : colors.textMuted, fontWeight: i === 0 ? '800' : '600' }]}>
+                        {(playerNames[id] ?? '?').split(' ')[0]}
+                      </Text>
+                    </View>
+                    <Text style={{ color: i === 0 ? colors.gold : colors.textMuted, fontWeight: '800', fontSize: fonts.lg }}>
+                      {playerTotals[id] ?? 0}pts
+                    </Text>
+                  </View>
+                ))}
+            </View>
+          )}
+
           {/* Side game results */}
-          {match.side_games && match.side_games.length > 0 && (
+          {match.side_games && match.side_games.filter(sg => !sg.startsWith('voice')).length > 0 && (
             <View style={styles.sideGameSummary}>
               <Text style={styles.sideGameSummaryTitle}>SIDE GAMES</Text>
-              {match.side_games.map(sg => {
+              {match.side_games.filter(sg => !sg.startsWith('voice')).map(sg => {
                 const type = sg.split(':')[0];
                 const result = (match as any).side_game_results?.[type];
                 return (
@@ -1132,6 +1161,7 @@ export default function EnterScoresScreen() {
                 awayColor={awayColor}
                 isStrokePlay={isStrokePlay}
                 roundFormat={match.round_format}
+                secondaryFormat={match.secondary_format}
                 onUndo={undoHole}
                 lastPlayedHole={0}
                 saving={saving}
@@ -1149,6 +1179,7 @@ export default function EnterScoresScreen() {
                 awayColor={awayColor}
                 isStrokePlay={isStrokePlay}
                 roundFormat={match.round_format}
+                secondaryFormat={match.secondary_format}
                 onUndo={undoHole}
                 lastPlayedHole={0}
                 saving={saving}
@@ -1430,13 +1461,14 @@ interface ScorecardProps {
   awayColor: string;
   isStrokePlay: boolean;
   roundFormat: string;
+  secondaryFormat?: string | null;
   onUndo: () => void;
   lastPlayedHole: number;
   saving: boolean;
   screenWidth: number;
 }
 
-function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles, matchHomeIds, holeChars, homeColor, awayColor, isStrokePlay, roundFormat, onUndo, lastPlayedHole, saving, screenWidth }: ScorecardProps) {
+function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles, matchHomeIds, holeChars, homeColor, awayColor, isStrokePlay, roundFormat, secondaryFormat, onUndo, lastPlayedHole, saving, screenWidth }: ScorecardProps) {
   const holes = Array.from({ length: 9 }, (_, i) => startHole + i);
 
   return (
@@ -1492,9 +1524,10 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
                   : pts === 2 ? colors.white
                   : pts === 1 ? colors.textSecondary
                   : colors.red;
+                const showPts = roundFormat === 'stableford' || !!secondaryFormat;
                 return (
                   <View key={h} style={[scStyles.dataCol, { backgroundColor: bg }]}>
-                    {roundFormat === 'stableford' && gross ? (
+                    {showPts && gross ? (
                       <>
                         <Text style={[scStyles.scoreTxt, { color: ptsColor }]}>{pts ?? '·'}</Text>
                         <Text style={scStyles.grossSub}>{gross}</Text>
@@ -1514,14 +1547,14 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
         {/* Matchplay hole result row */}
         {!isStrokePlay && (
           <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.cardAlt }}>
-            <View style={scStyles.labelCol}><Text style={scStyles.subTxt}>Hole</Text></View>
+            <View style={scStyles.labelCol}><Text style={scStyles.subTxt}>Result</Text></View>
             {holes.map(h => {
               const c = holeChars[h - 1];
-              const color = c === 'h' ? homeColor : c === 'a' ? awayColor : colors.textMuted;
+              const color = c === 'h' ? homeColor : c === 'a' ? awayColor : c === 'f' ? colors.textMuted : 'transparent';
               return (
                 <View key={h} style={scStyles.dataCol}>
                   <Text style={[scStyles.resultTxt, { color }]}>
-                    {c === 'h' ? 'H' : c === 'a' ? 'A' : c === 'f' ? '½' : ''}
+                    {c === 'h' ? 'H' : c === 'a' ? 'A' : c === 'f' ? '=' : ''}
                   </Text>
                 </View>
               );

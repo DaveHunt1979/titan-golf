@@ -11,8 +11,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.titangolf.app",
       "buildNumber": "44",
+      "deploymentTarget": "16.0",
       "entitlements": {
-        "com.apple.developer.nfc.readersession.formats": ["NDEF", "TAG"]
+        "com.apple.developer.nfc.readersession.formats": ["TAG"]
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
