@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity,
-  KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Modal,
+  KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Modal, Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
@@ -22,6 +24,7 @@ interface Member {
     display_name: string;
     email: string | null;
     handicap_index: number | null;
+    avatar_url: string | null;
   };
 }
 
@@ -46,6 +49,7 @@ export default function PlayersScreen() {
   const [editEmail, setEditEmail]         = useState('');
   const [editHcp, setEditHcp]             = useState('');
   const [roleSaving, setRoleSaving]       = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   async function load() {
     if (!societyId) return;
@@ -54,7 +58,7 @@ export default function PlayersScreen() {
     const [membersRes, myRoleRes] = await Promise.all([
       supabase
         .from('society_members')
-        .select('role, committee_role, player:player_id(id, display_name, email, handicap_index)')
+        .select('role, committee_role, player:player_id(id, display_name, email, handicap_index, avatar_url)')
         .eq('society_id', societyId)
         .order('role'),
       user ? supabase
@@ -92,6 +96,65 @@ export default function PlayersScreen() {
     setNewName(''); setNewEmail(''); setNewHcp('');
     setShowAdd(false);
     load();
+  }
+
+  async function pickPhoto() {
+    if (!selected) return;
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow access to your photo library to change the player photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images', allowsEditing: true, aspect: [1, 1], quality: 0.7,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    setPhotoUploading(true);
+    try {
+      const uri = result.assets[0].uri;
+      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(`${selected.player.id}.jpg`, bytes, { contentType: 'image/jpeg', upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(`${selected.player.id}.jpg`);
+      const avatarUrl = `${publicUrl}?t=${Date.now()}`;
+      const { error: dbError } = await supabase.from('players').update({ avatar_url: avatarUrl }).eq('id', selected.player.id);
+      if (dbError) throw dbError;
+      setSelected(prev => prev ? { ...prev, player: { ...prev.player, avatar_url: avatarUrl } } : prev);
+      load();
+    } catch (e: any) {
+      Alert.alert('Upload failed', e.message ?? 'Could not upload image.');
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
+
+  function confirmDeletePlayer() {
+    if (!selected) return;
+    Alert.alert(
+      'Remove Player',
+      `Remove ${selected.player.display_name} from this society? Their match history will be kept.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove', style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase
+              .from('society_members')
+              .delete()
+              .eq('player_id', selected.player.id)
+              .eq('society_id', societyId!);
+            if (error) { Alert.alert('Error', error.message); return; }
+            setSelected(null);
+            load();
+          },
+        },
+      ]
+    );
   }
 
   function openRoleModal(m: Member) {
@@ -232,6 +295,24 @@ export default function PlayersScreen() {
 
           <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
+            {/* Avatar + Change Photo */}
+            <View style={s.avatarSection}>
+              <TouchableOpacity onPress={pickPhoto} disabled={photoUploading} activeOpacity={0.8}>
+                {selected?.player.avatar_url ? (
+                  <Image source={{ uri: selected.player.avatar_url }} style={s.avatarLarge} />
+                ) : (
+                  <View style={s.avatarLarge}>
+                    <Text style={s.avatarLargeText}>{selected?.player.display_name[0]?.toUpperCase() ?? '?'}</Text>
+                  </View>
+                )}
+                <View style={s.photoOverlay}>
+                  {photoUploading
+                    ? <ActivityIndicator color={colors.white} size="small" />
+                    : <Text style={s.photoOverlayText}>📷</Text>}
+                </View>
+              </TouchableOpacity>
+            </View>
+
             {/* Player Details */}
             <Text style={s.sectionLabel}>PLAYER DETAILS</Text>
             <Text style={s.sectionHint}>
@@ -307,8 +388,14 @@ export default function PlayersScreen() {
 
             <TouchableOpacity style={[s.saveBtn, { marginTop: spacing.xl }, roleSaving && { opacity: 0.5 }]}
               onPress={saveRoles} disabled={roleSaving} activeOpacity={0.8}>
-              {roleSaving ? <ActivityIndicator color={colors.bg} /> : <Text style={s.saveBtnText}>Save Roles</Text>}
+              {roleSaving ? <ActivityIndicator color={colors.bg} /> : <Text style={s.saveBtnText}>Save Changes</Text>}
             </TouchableOpacity>
+
+            {selected?.role !== 'owner' && (
+              <TouchableOpacity style={s.deleteBtn} onPress={confirmDeletePlayer} activeOpacity={0.8}>
+                <Text style={s.deleteBtnText}>Remove from Society</Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         </View>
       </Modal>
@@ -323,9 +410,13 @@ function MemberRow({ member, isLast }: { member: Member; isLast: boolean }) {
 
   return (
     <View style={[s.memberRow, !isLast && s.memberRowBorder]}>
-      <View style={s.avatar}>
-        <Text style={s.avatarText}>{initial}</Text>
-      </View>
+      {player.avatar_url ? (
+        <Image source={{ uri: player.avatar_url }} style={s.avatar} />
+      ) : (
+        <View style={s.avatar}>
+          <Text style={s.avatarText}>{initial}</Text>
+        </View>
+      )}
       <View style={{ flex: 1 }}>
         <Text style={s.memberName}>{player.display_name}</Text>
         {committee_role
@@ -427,4 +518,25 @@ const s = StyleSheet.create({
   hint:    { fontSize: fonts.xs, color: colors.textMuted, lineHeight: 18, marginTop: spacing.lg },
   saveBtn: { backgroundColor: colors.gold, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.xl },
   saveBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
+
+  avatarSection: { alignItems: 'center', marginBottom: spacing.xl },
+  avatarLarge: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: colors.goldDim, borderWidth: 2, borderColor: colors.goldBorder,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarLargeText: { fontSize: 28, fontWeight: '800', color: colors.gold },
+  photoOverlay: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  photoOverlayText: { fontSize: 14 },
+
+  deleteBtn: {
+    marginTop: spacing.lg, paddingVertical: spacing.md, borderRadius: radius.md,
+    borderWidth: 1, borderColor: '#ef4444', alignItems: 'center',
+  },
+  deleteBtnText: { fontSize: fonts.sm, fontWeight: '700', color: '#ef4444' },
 });
