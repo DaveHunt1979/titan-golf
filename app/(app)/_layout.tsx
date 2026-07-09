@@ -89,12 +89,10 @@ function AppLayoutInner() {
     setAvatarUrl(player.avatar_url ?? null);
     setPlayerId(player.id);
     registerForPushNotifications(player.id);
-    const { data: member } = await supabase
+    const { data: members } = await supabase
       .from('society_members').select('role')
-      .eq('player_id', player.id)
-      .in('role', ['admin', 'owner'])
-      .maybeSingle();
-    setIsAdmin(!!member);
+      .eq('player_id', player.id);
+    setIsAdmin((members ?? []).some(m => ['admin', 'owner'].includes((m.role ?? '').toLowerCase())));
   }
 
   const ic = (focused: boolean) =>
