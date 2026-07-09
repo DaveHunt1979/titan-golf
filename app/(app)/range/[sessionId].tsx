@@ -154,71 +154,77 @@ export default function RangeSessionScreen() {
         </View>
       )}
 
-      {/* Carry input */}
-      <View style={s.inputCard}>
-        <Text style={s.inputLabel}>CARRY (YARDS)</Text>
-        <TextInput
-          style={s.carryInput}
-          value={carry}
-          onChangeText={setCarry}
-          keyboardType="number-pad"
-          placeholder="e.g. 150"
-          placeholderTextColor={colors.textMuted}
-          maxLength={3}
-        />
-      </View>
-
-      {/* Shape picker */}
-      <View style={s.inputCard}>
-        <Text style={s.inputLabel}>BALL FLIGHT</Text>
-        <View style={s.shapeRow}>
-          {SHAPES.map(sh => (
-            <TouchableOpacity
-              key={sh.key}
-              style={[s.shapeBtn, shape === sh.key && s.shapeBtnOn]}
-              onPress={() => setShape(sh.key)}
-              activeOpacity={0.7}
-            >
-              <Text style={[s.shapeIcon, shape === sh.key && s.shapeIconOn]}>{sh.label}</Text>
-              <Text style={[s.shapeTip, shape === sh.key && s.shapeTipOn]}>{sh.tip}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* Quality picker */}
-      <View style={s.inputCard}>
-        <Text style={s.inputLabel}>QUALITY</Text>
-        <View style={s.qualRow}>
-          {QUALITY.map(q => (
-            <TouchableOpacity
-              key={q.key}
-              style={[s.qualBtn, quality === q.key && s.qualBtnOn]}
-              onPress={() => setQuality(q.key)}
-              activeOpacity={0.7}
-            >
-              <Text style={s.qualIcon}>{q.label}</Text>
-              <Text style={[s.qualTip, quality === q.key && s.qualTipOn]}>{q.tip}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* Log button */}
-      <TouchableOpacity
-        style={[s.logBtn, saving && s.logBtnOff]}
-        onPress={logShot}
-        disabled={saving}
-        activeOpacity={0.85}
+      {/* ── Scrollable body: inputs + history ───────────────────── */}
+      <ScrollView
+        contentContainerStyle={s.scroll}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {saving
-          ? <ActivityIndicator color={colors.bg} />
-          : <Text style={s.logBtnText}>Log Shot · {club}{carry ? ` · ${carry} yds` : ''}</Text>
-        }
-      </TouchableOpacity>
 
-      {/* ── Scrollable shot history ──────────────────────────────── */}
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        {/* Carry input */}
+        <View style={s.inputCard}>
+          <Text style={s.inputLabel}>CARRY (YARDS)</Text>
+          <TextInput
+            style={s.carryInput}
+            value={carry}
+            onChangeText={setCarry}
+            keyboardType="number-pad"
+            placeholder="e.g. 150"
+            placeholderTextColor={colors.textMuted}
+            maxLength={3}
+          />
+        </View>
+
+        {/* Shape picker */}
+        <View style={s.inputCard}>
+          <Text style={s.inputLabel}>BALL FLIGHT</Text>
+          <View style={s.shapeRow}>
+            {SHAPES.map(sh => (
+              <TouchableOpacity
+                key={sh.key}
+                style={[s.shapeBtn, shape === sh.key && s.shapeBtnOn]}
+                onPress={() => setShape(sh.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={[s.shapeIcon, shape === sh.key && s.shapeIconOn]}>{sh.label}</Text>
+                <Text style={[s.shapeTip, shape === sh.key && s.shapeTipOn]}>{sh.tip}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Quality picker */}
+        <View style={s.inputCard}>
+          <Text style={s.inputLabel}>QUALITY</Text>
+          <View style={s.qualRow}>
+            {QUALITY.map(q => (
+              <TouchableOpacity
+                key={q.key}
+                style={[s.qualBtn, quality === q.key && s.qualBtnOn]}
+                onPress={() => setQuality(q.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={s.qualIcon}>{q.label}</Text>
+                <Text style={[s.qualTip, quality === q.key && s.qualTipOn]}>{q.tip}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Log button */}
+        <TouchableOpacity
+          style={[s.logBtn, saving && s.logBtnOff]}
+          onPress={logShot}
+          disabled={saving}
+          activeOpacity={0.85}
+        >
+          {saving
+            ? <ActivityIndicator color={colors.bg} />
+            : <Text style={s.logBtnText}>Log Shot · {club}{carry ? ` · ${carry} yds` : ''}</Text>
+          }
+        </TouchableOpacity>
+
+        {/* Shot history */}
 
         {shots.length > 0 && (
           <>
@@ -333,9 +339,9 @@ const s = StyleSheet.create({
   shapeRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.xs },
   shapeBtn:    { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: radius.md, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border },
   shapeBtnOn:  { backgroundColor: colors.goldDim, borderColor: colors.gold },
-  shapeIcon:   { fontSize: fonts.lg, color: colors.textMuted, fontWeight: '700' },
+  shapeIcon:   { fontSize: fonts.lg, color: colors.textSecondary, fontWeight: '700' },
   shapeIconOn: { color: colors.gold },
-  shapeTip:    { fontSize: 9, color: colors.textMuted, marginTop: 2, fontWeight: '600' },
+  shapeTip:    { fontSize: 9, color: colors.textSecondary, marginTop: 2, fontWeight: '700' },
   shapeTipOn:  { color: colors.gold },
 
   qualRow: { flexDirection: 'row', gap: spacing.md, justifyContent: 'center' },

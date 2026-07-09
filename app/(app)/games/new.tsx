@@ -46,21 +46,8 @@ const MODE_SECTIONS = [
   {
     label: 'INDIVIDUAL', accent: '#4ade80',
     modes: [
-      { key: 'stableford' as GameMode, label: 'Stableford', sub: 'Points per hole',  icon: '⭐' },
-      { key: 'medal'      as GameMode, label: 'Medal',      sub: 'Stroke play',       icon: '🏅' },
-      { key: 'skins'      as GameMode, label: 'Skins',      sub: 'Per-hole prize',    icon: '💳' },
-      { key: 'nassau'     as GameMode, label: 'Nassau',     sub: 'Three bets',        icon: '🎲' },
-    ],
-  },
-  {
-    label: 'FUN GAMES', accent: '#a78bfa',
-    modes: [
-      { key: 'wolf'                as GameMode, label: 'Wolf',       sub: 'Pick your partner', icon: '🐺' },
-      { key: 'scramble'            as GameMode, label: 'Scramble',   sub: 'Team best ball',    icon: '🌀' },
-      { key: 'bbb'                 as GameMode, label: 'Bingo Bango', sub: 'Three targets',    icon: '🎯' },
-      { key: 'chacha'              as GameMode, label: 'ChaChaCha',  sub: 'Best 1-2-3 pts',   icon: '💃' },
-      { key: 'modified_stableford' as GameMode, label: 'Modified',   sub: 'Eagle +8 pts',      icon: '⚡' },
-      { key: 'par_bogey'           as GameMode, label: 'Par/Bogey',  sub: 'Vs par nett',       icon: '⚖️' },
+      { key: 'stableford' as GameMode, label: 'Stableford', sub: 'Points per hole', icon: '⭐' },
+      { key: 'medal'      as GameMode, label: 'Medal',      sub: 'Stroke play',      icon: '🏅' },
     ],
   },
 ];
@@ -72,8 +59,8 @@ const HCP_ALLOWANCES: { pct: number; label: string; sub: string }[] = [
   { pct: 0,   label: 'Off Scratch',  sub: 'No strokes — play level' },
 ];
 
-const SIDE_GAMES_ALL      = ['Skins', 'Nassau', 'Stableford', 'Stroke Play', 'Bingo Bango Bongo', 'Greensomes', 'Wolf', 'Closest to Pin', 'Longest Drive'];
-const SIDE_GAMES_STROKE   = ['Skins', 'Closest to Pin', 'Longest Drive'];
+const SIDE_GAMES_ALL    = ['Stableford', 'Stroke Play', 'Closest to Pin', 'Longest Drive'];
+const SIDE_GAMES_STROKE = ['Closest to Pin', 'Longest Drive'];
 
 const HOLES: { key: HolesMode; label: string; sub: string }[] = [
   { key: 'full18', label: 'Full 18', sub: 'All 18 holes' },

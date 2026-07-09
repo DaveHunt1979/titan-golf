@@ -102,3 +102,5 @@
 {"t":0,"agent":"system","event":"keyword_detected","keyword":"deepsearch"}
 {"t":0,"agent":"a37e55b","agent_type":"executor","event":"agent_start","parent_mode":"none"}
 {"t":0,"agent":"a37e55b","agent_type":"executor","event":"agent_stop","success":true,"duration_ms":803343}
+{"t":0,"agent":"a93f15b","agent_type":"unknown","event":"agent_stop","success":true,"duration_ms":0}
+{"t":0,"agent":"acc77f8","agent_type":"unknown","event":"agent_stop","success":true,"duration_ms":0}

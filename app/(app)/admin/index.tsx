@@ -310,18 +310,7 @@ export default function SocietyAdminScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>BRANDING</Text>
           <TouchableOpacity
-            style={[styles.linkCard, { borderColor: colors.goldBorder, backgroundColor: colors.goldDim }]}
-            onPress={() => router.push('/(app)/admin/concept' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.linkTitle, { color: colors.gold }]}>🎨 Concept Preview</Text>
-              <Text style={styles.linkSub}>Preview the new Titan Tour UI concept</Text>
-            </View>
-            <Text style={styles.arrow}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.linkCard, { marginTop: spacing.sm }]}
+            style={styles.linkCard}
             onPress={() => router.push('/(app)/admin/branding' as any)}
             activeOpacity={0.7}
           >
