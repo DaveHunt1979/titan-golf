@@ -129,6 +129,9 @@ function AppLayoutInner() {
         <Tabs.Screen name="admin/index"    options={{ href: isAdmin ? undefined : null, title: 'Admin', tabBarIcon: ({ focused }) => <TabIcon focused={focused}><AdminIcon color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="admin/build"              options={{ href: null }} />
         <Tabs.Screen name="admin/concept"            options={{ href: null }} />
+        <Tabs.Screen name="admin/concept-locker"    options={{ href: null }} />
+        <Tabs.Screen name="admin/concept-stats"     options={{ href: null }} />
+        <Tabs.Screen name="admin/concept-casual"    options={{ href: null }} />
         <Tabs.Screen name="games/new"                options={{ href: null }} />
         <Tabs.Screen name="score/[matchId]"          options={{ href: null }} />
         <Tabs.Screen name="score/enter/[matchId]"    options={{ href: null }} />

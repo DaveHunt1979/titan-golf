@@ -12,8 +12,10 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
+import { SvgXml } from 'react-native-svg';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { PLAY_SVG, EVENT_SVG, CLUBHOUSE_SVG, CADDIE_SVG, PRACTICE_SVG, LOCKER_SVG, tintSvg } from '../../../src/lib/tileIcons';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const GOLD = '#D4AF37';
@@ -162,16 +164,13 @@ export default function ConceptPreviewScreen() {
             </View>
           </View>
 
-          {/* ── Hero image placeholder ── */}
-          {/* Dave: replace this View with:
-              <Image source={require('../../../assets/your-course-photo.jpg')}
-                     style={s.heroImage} resizeMode="cover" />
-          */}
+          {/* ── Hero image ── */}
           <View style={s.heroWrap}>
-            <View style={s.heroPlaceholder}>
-              <Ionicons name="image-outline" size={28} color={`${GOLD}40`} />
-              <Text style={s.heroPlaceholderText}>COURSE PHOTO</Text>
-            </View>
+            <Image
+              source={require('../../../assets/hero-course.jpeg')}
+              style={s.heroImage}
+              resizeMode="cover"
+            />
 
             {/* ── Next Tee Time card ── */}
             <View style={s.teetime}>

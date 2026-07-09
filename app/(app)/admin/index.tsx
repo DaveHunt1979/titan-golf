@@ -528,6 +528,28 @@ export default function SocietyAdminScreen() {
             </View>
             <Text style={[styles.arrow, { color: colors.gold }]}>›</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.linkCard, { borderColor: 'rgba(212,175,55,0.5)', backgroundColor: 'rgba(212,175,55,0.06)', marginTop: 8 }]}
+            onPress={() => router.push('/(app)/admin/concept-locker' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.gold }]}>✦ Locker Room Preview</Text>
+              <Text style={styles.linkSub}>Premium Locker Room / profile concept — safe sandbox</Text>
+            </View>
+            <Text style={[styles.arrow, { color: colors.gold }]}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.linkCard, { borderColor: 'rgba(212,175,55,0.5)', backgroundColor: 'rgba(212,175,55,0.06)', marginTop: 8 }]}
+            onPress={() => router.push('/(app)/admin/concept-casual' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.gold }]}>✦ Casual Round Preview</Text>
+              <Text style={styles.linkSub}>Single-screen game setup concept — safe sandbox</Text>
+            </View>
+            <Text style={[styles.arrow, { color: colors.gold }]}>›</Text>
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity

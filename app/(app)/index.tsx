@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
   TouchableOpacity, Image, ActivityIndicator, RefreshControl,
@@ -53,6 +53,7 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => { checkUnread(myPlayerId); }, [myPlayerId]));
 
   const load = useCallback(async () => {
+    if (!SOCIETY_ID) return;
     const { data: { user } } = await supabase.auth.getUser();
 
     const [
@@ -93,13 +94,80 @@ export default function HomeScreen() {
 
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [SOCIETY_ID]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const hasArea = (a: string) => isPrivileged || memberTypes.includes(a);
+  // Casual always open. Tour + Swindle require a join code.
+  const hasArea = (a: string) => a === 'casual' || isPrivileged || memberTypes.length === 0 || memberTypes.includes(a);
 
   const logoSrc = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
+
+  const s = useMemo(() => StyleSheet.create({
+    container:   { flex: 1, backgroundColor: palette.bg },
+    header: {
+      paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
+      flexDirection: 'row', alignItems: 'center',
+      borderBottomWidth: 1, borderBottomColor: palette.border,
+    },
+    logo:        { width: 44, height: 44, borderRadius: 10 },
+    societyName: { fontSize: 11, fontWeight: '800', letterSpacing: 2 },
+    tagline:     { fontSize: 20, fontWeight: '800', color: '#ffffff', marginTop: 2 },
+    headerBtn:     { padding: 6, position: 'relative' },
+    headerBtnIcon: { fontSize: 24 },
+    unreadDot: {
+      position: 'absolute', top: 4, right: 4,
+      width: 10, height: 10, borderRadius: 5,
+      borderWidth: 2, borderColor: palette.bg,
+    },
+    loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    scroll:      { padding: spacing.md, paddingBottom: 48 },
+    utilRow:     { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
+    utilTile: {
+      flex: 1, backgroundColor: palette.card, borderRadius: radius.lg,
+      borderWidth: 1, borderColor: palette.border,
+      padding: spacing.md, paddingVertical: 18, alignItems: 'flex-start',
+    },
+    utilIcon:  { fontSize: 28, marginBottom: 8 },
+    utilLabel: { fontSize: 14, fontWeight: '800', color: '#ffffff', marginBottom: 3 },
+    utilSub:   { fontSize: 11, color: palette.textMuted, lineHeight: 16 },
+    shopTile: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+      backgroundColor: palette.card, borderRadius: radius.lg,
+      borderWidth: 1, borderColor: palette.border,
+      paddingVertical: 16, paddingHorizontal: spacing.md,
+      marginTop: spacing.xs,
+    },
+    shopIcon:  { fontSize: 28 },
+    shopLabel: { fontSize: 15, fontWeight: '800', color: '#ffffff', marginBottom: 2 },
+    shopSub:   { fontSize: 11, color: palette.textMuted },
+    shopArrow: { fontSize: 24, color: palette.textMuted, fontWeight: '300' },
+  }), [palette]);
+
+  const tileStyles = useMemo(() => StyleSheet.create({
+    wrap: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+      backgroundColor: palette.card, borderRadius: radius.lg,
+      borderWidth: 1, borderColor: palette.border, borderLeftWidth: 5,
+      paddingVertical: 22, paddingHorizontal: spacing.md,
+      marginBottom: spacing.sm,
+    },
+    locked:      { opacity: 0.6 },
+    icon:        { fontSize: 34, width: 42, textAlign: 'center' },
+    labelRow:    { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: 5 },
+    label:       { fontSize: 20, fontWeight: '900', color: '#ffffff', letterSpacing: 0.2 },
+    labelLocked: { color: palette.textMuted },
+    sub:         { fontSize: 13, color: palette.textMuted, lineHeight: 18 },
+    arrow:       { fontSize: 32, fontWeight: '300', lineHeight: 36 },
+    lock:        { fontSize: 18 },
+    livePill: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      backgroundColor: 'rgba(34,197,94,0.12)', paddingHorizontal: 7, paddingVertical: 2,
+      borderRadius: 20, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)',
+    },
+    liveDot:  { width: 5, height: 5, borderRadius: 3, backgroundColor: '#22c55e' },
+    liveText: { fontSize: 9, fontWeight: '800', color: '#22c55e', letterSpacing: 1 },
+  }), [palette]);
 
   return (
     <View style={s.container}>
@@ -136,6 +204,7 @@ export default function HomeScreen() {
             sub={casualGames > 0 ? `${casualGames} game${casualGames !== 1 ? 's' : ''} in progress` : 'Pick-up games with the boys'}
             color="#4ade80"
             locked={!hasArea('casual')}
+            tileStyles={tileStyles}
             onPress={() => hasArea('casual') ? router.push('/(app)/score' as any) : router.push('/(app)/join' as any)}
           />
           <AreaTile
@@ -145,6 +214,7 @@ export default function HomeScreen() {
             color="#D4AF37"
             locked={!hasArea('tour')}
             live={tourLive > 0}
+            tileStyles={tileStyles}
             onPress={() => hasArea('tour') ? router.push('/(app)/tour' as any) : router.push('/(app)/join' as any)}
           />
           <AreaTile
@@ -153,6 +223,7 @@ export default function HomeScreen() {
             sub={swindleName ?? (swindleCount > 0 ? `${swindleCount} entered` : 'Weekly money competition')}
             color="#a78bfa"
             locked={!hasArea('swindle')}
+            tileStyles={tileStyles}
             onPress={() => hasArea('swindle') ? router.push('/(app)/swindle' as any) : router.push('/(app)/join' as any)}
           />
 
@@ -198,102 +269,38 @@ export default function HomeScreen() {
   );
 }
 
+type TileStyles = ReturnType<typeof StyleSheet.create>;
+
 function AreaTile({
-  icon, label, sub, color, locked, live, onPress,
+  icon, label, sub, color, locked, live, tileStyles, onPress,
 }: {
   icon: string; label: string; sub: string; color: string;
-  locked: boolean; live?: boolean; onPress: () => void;
+  locked: boolean; live?: boolean; tileStyles: TileStyles; onPress: () => void;
 }) {
   return (
     <TouchableOpacity
-      style={[tile.wrap, { borderLeftColor: locked ? '#374151' : color }, locked && tile.locked]}
+      style={[tileStyles.wrap, { borderLeftColor: locked ? '#374151' : color }, locked && tileStyles.locked]}
       onPress={onPress}
       activeOpacity={0.82}
     >
-      <Text style={[tile.icon, locked && { opacity: 0.35 }]}>{icon}</Text>
+      <Text style={[tileStyles.icon, locked && { opacity: 0.35 }]}>{icon}</Text>
       <View style={{ flex: 1 }}>
-        <View style={tile.labelRow}>
-          <Text style={[tile.label, locked && tile.labelLocked]}>{label}</Text>
+        <View style={tileStyles.labelRow}>
+          <Text style={[tileStyles.label, locked && tileStyles.labelLocked]}>{label}</Text>
           {live && !locked && (
-            <View style={tile.livePill}>
-              <View style={tile.liveDot} />
-              <Text style={tile.liveText}>LIVE</Text>
+            <View style={tileStyles.livePill}>
+              <View style={tileStyles.liveDot} />
+              <Text style={tileStyles.liveText}>LIVE</Text>
             </View>
           )}
         </View>
-        <Text style={tile.sub} numberOfLines={1}>
+        <Text style={tileStyles.sub} numberOfLines={1}>
           {locked ? 'Ask Rick for access' : sub}
         </Text>
       </View>
       {locked
-        ? <Text style={tile.lock}>🔒</Text>
-        : <Text style={[tile.arrow, { color }]}>›</Text>}
+        ? <Text style={tileStyles.lock}>🔒</Text>
+        : <Text style={[tileStyles.arrow, { color }]}>›</Text>}
     </TouchableOpacity>
   );
 }
-
-const s = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: '#070b10' },
-  header: {
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
-    flexDirection: 'row', alignItems: 'center',
-    borderBottomWidth: 1, borderBottomColor: '#1c2030',
-  },
-  logo:        { width: 44, height: 44, borderRadius: 10 },
-  societyName: { fontSize: 11, fontWeight: '800', letterSpacing: 2 },
-  tagline:     { fontSize: 20, fontWeight: '800', color: '#ffffff', marginTop: 2 },
-  headerBtn:     { padding: 6, position: 'relative' },
-  headerBtnIcon: { fontSize: 24 },
-  unreadDot: {
-    position: 'absolute', top: 4, right: 4,
-    width: 10, height: 10, borderRadius: 5,
-    borderWidth: 2, borderColor: '#070b10',
-  },
-  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll:      { padding: spacing.md, paddingBottom: 48 },
-  utilRow:     { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
-  utilTile: {
-    flex: 1, backgroundColor: '#1c1c1e', borderRadius: radius.lg,
-    borderWidth: 1, borderColor: '#2c2c2e',
-    padding: spacing.md, paddingVertical: 18, alignItems: 'flex-start',
-  },
-  utilIcon:  { fontSize: 28, marginBottom: 8 },
-  utilLabel: { fontSize: 14, fontWeight: '800', color: '#ffffff', marginBottom: 3 },
-  utilSub:   { fontSize: 11, color: '#6b7280', lineHeight: 16 },
-  shopTile: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    backgroundColor: '#1c1c1e', borderRadius: radius.lg,
-    borderWidth: 1, borderColor: '#2c2c2e',
-    paddingVertical: 16, paddingHorizontal: spacing.md,
-    marginTop: spacing.xs,
-  },
-  shopIcon:  { fontSize: 28 },
-  shopLabel: { fontSize: 15, fontWeight: '800', color: '#ffffff', marginBottom: 2 },
-  shopSub:   { fontSize: 11, color: '#6b7280' },
-  shopArrow: { fontSize: 24, color: '#6b7280', fontWeight: '300' },
-});
-
-const tile = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    backgroundColor: '#1c1c1e', borderRadius: radius.lg,
-    borderWidth: 1, borderColor: '#2c2c2e', borderLeftWidth: 5,
-    paddingVertical: 22, paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  locked:      { opacity: 0.6 },
-  icon:        { fontSize: 34, width: 42, textAlign: 'center' },
-  labelRow:    { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: 5 },
-  label:       { fontSize: 20, fontWeight: '900', color: '#ffffff', letterSpacing: 0.2 },
-  labelLocked: { color: '#6b7280' },
-  sub:         { fontSize: 13, color: '#6b7280', lineHeight: 18 },
-  arrow:       { fontSize: 32, fontWeight: '300', lineHeight: 36 },
-  lock:        { fontSize: 18 },
-  livePill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(34,197,94,0.12)', paddingHorizontal: 7, paddingVertical: 2,
-    borderRadius: 20, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)',
-  },
-  liveDot:  { width: 5, height: 5, borderRadius: 3, backgroundColor: '#22c55e' },
-  liveText: { fontSize: 9, fontWeight: '800', color: '#22c55e', letterSpacing: 1 },
-});

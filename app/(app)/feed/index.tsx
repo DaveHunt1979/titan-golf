@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
 import { fonts, spacing, radius } from '../../../src/lib/theme';
-import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import type { Notification } from '../../../src/types';
 
 export type SectionType = 'text' | 'schedule' | 'travel' | 'location' | 'contacts' | 'rules';
@@ -21,8 +21,6 @@ export interface LocationSection { id: string; type: 'location'; title: string; 
 export interface ContactsSection { id: string; type: 'contacts'; title: string; items: ContactItem[]; }
 export interface RulesSection    { id: string; type: 'rules';    title: string; items: string[]; }
 export type InfoSection = TextSection | ScheduleSection | TravelSection | LocationSection | ContactsSection | RulesSection;
-
-const SOCIETY_ID = '00000000-0000-0000-0000-000000000001';
 type FeedTab = 'info' | 'live' | 'instagram';
 
 const LABELS: Record<string, string> = {
@@ -42,6 +40,7 @@ interface AreaStats {
 
 export default function FeedScreen() {
   const colors = useDynamicColors();
+  const { societyId } = useSocietyTheme();
   const router = useRouter();
 
   const styles = useMemo(() => StyleSheet.create({
@@ -93,13 +92,13 @@ export default function FeedScreen() {
       { data: swindleData },
     ] = await Promise.all([
       user
-        ? supabase.from('society_members').select('membership_types').eq('society_id', SOCIETY_ID).eq('player_id',
+        ? supabase.from('society_members').select('membership_types').eq('society_id', societyId).eq('player_id',
             supabase.from('players').select('id').eq('auth_uid', user.id).single() as any
           ).single()
         : Promise.resolve({ data: null }),
       supabase.from('competitions').select('id,name,info_sections').eq('status','active').neq('format','casual').order('created_at',{ascending:false}).limit(1).single(),
       supabase.from('notifications').select('*').order('created_at',{ascending:false}).limit(50),
-      supabase.from('societies').select('instagram_url').eq('id',SOCIETY_ID).single(),
+      supabase.from('societies').select('instagram_url').eq('id',societyId).single(),
       supabase.from('matches').select('id',{count:'exact'}).eq('status','in_progress').is('competition_id', null),
       supabase.from('matches').select('id',{count:'exact'}).eq('status','in_progress').not('competition_id','is',null),
       supabase.from('swindle_games').select('title,entries_count:swindle_entries(count)').eq('status','open').order('created_at',{ascending:false}).limit(1).single(),
@@ -109,7 +108,7 @@ export default function FeedScreen() {
     if (user) {
       const { data: playerRow } = await supabase.from('players').select('id').eq('auth_uid', user.id).single();
       if (playerRow) {
-        const { data: sm } = await supabase.from('society_members').select('membership_types, role').eq('society_id', SOCIETY_ID).eq('player_id', (playerRow as any).id).single();
+        const { data: sm } = await supabase.from('society_members').select('membership_types, role').eq('society_id', societyId).eq('player_id', (playerRow as any).id).single();
         const role = (sm as any)?.role ?? '';
         const isPrivileged = role === 'admin' || role === 'owner';
         setMemberTypes(isPrivileged ? ['casual', 'tour', 'swindle'] : ((sm as any)?.membership_types ?? []));
@@ -132,14 +131,15 @@ export default function FeedScreen() {
   }
 
   useEffect(() => {
-    load();
+    if (societyId) load();
     const sub = supabase.channel('feed-live')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, load)
       .subscribe();
     return () => { supabase.removeChannel(sub); };
-  }, []);
+  }, [societyId]);
 
-  const hasArea = (a: string) => memberTypes.length === 0 || memberTypes.includes(a);
+  // Casual is always open. Tour and Swindle require a join code (membership_type).
+  const hasArea = (a: string) => a === 'casual' || memberTypes.length === 0 || memberTypes.includes(a);
 
   return (
     <View style={styles.container}>
