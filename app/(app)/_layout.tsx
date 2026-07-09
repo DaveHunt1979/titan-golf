@@ -132,6 +132,11 @@ function AppLayoutInner() {
         <Tabs.Screen name="admin/concept-locker"    options={{ href: null }} />
         <Tabs.Screen name="admin/concept-stats"     options={{ href: null }} />
         <Tabs.Screen name="admin/concept-casual"    options={{ href: null }} />
+        <Tabs.Screen name="admin/concept-score"        options={{ href: null }} />
+        <Tabs.Screen name="admin/concept-practice"    options={{ href: null }} />
+        <Tabs.Screen name="admin/concept-rangefinder" options={{ href: null }} />
+        <Tabs.Screen name="admin/concept-swindle"      options={{ href: null }} />
+        <Tabs.Screen name="admin/concept-swindle-game" options={{ href: null }} />
         <Tabs.Screen name="games/new"                options={{ href: null }} />
         <Tabs.Screen name="score/[matchId]"          options={{ href: null }} />
         <Tabs.Screen name="score/enter/[matchId]"    options={{ href: null }} />

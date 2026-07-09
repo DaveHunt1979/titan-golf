@@ -550,6 +550,61 @@ export default function SocietyAdminScreen() {
             </View>
             <Text style={[styles.arrow, { color: colors.gold }]}>›</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.linkCard, { borderColor: 'rgba(212,175,55,0.5)', backgroundColor: 'rgba(212,175,55,0.06)', marginTop: 8 }]}
+            onPress={() => router.push('/(app)/admin/concept-score' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.gold }]}>✦ Score Entry Preview</Text>
+              <Text style={styles.linkSub}>Premium live scoring with scrollable hole strip — safe sandbox</Text>
+            </View>
+            <Text style={[styles.arrow, { color: colors.gold }]}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.linkCard, { borderColor: 'rgba(212,175,55,0.5)', backgroundColor: 'rgba(212,175,55,0.06)', marginTop: 8 }]}
+            onPress={() => router.push('/(app)/admin/concept-practice' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.gold }]}>✦ Driving Range Preview</Text>
+              <Text style={styles.linkSub}>Premium practice screen with bag distances — safe sandbox</Text>
+            </View>
+            <Text style={[styles.arrow, { color: colors.gold }]}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.linkCard, { borderColor: 'rgba(212,175,55,0.5)', backgroundColor: 'rgba(212,175,55,0.06)', marginTop: 8 }]}
+            onPress={() => router.push('/(app)/admin/concept-rangefinder' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.gold }]}>✦ Rangefinder Preview</Text>
+              <Text style={styles.linkSub}>Premium FCB overlay — Apple Maps sits behind in live app</Text>
+            </View>
+            <Text style={[styles.arrow, { color: colors.gold }]}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.linkCard, { borderColor: 'rgba(212,175,55,0.5)', backgroundColor: 'rgba(212,175,55,0.06)', marginTop: 8 }]}
+            onPress={() => router.push('/(app)/admin/concept-swindle' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.gold }]}>✦ Swindle Lobby Preview</Text>
+              <Text style={styles.linkSub}>Premium game list with pot hero, I'm In CTA — safe sandbox</Text>
+            </View>
+            <Text style={[styles.arrow, { color: colors.gold }]}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.linkCard, { borderColor: 'rgba(212,175,55,0.5)', backgroundColor: 'rgba(212,175,55,0.06)', marginTop: 8 }]}
+            onPress={() => router.push('/(app)/admin/concept-swindle-game' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.gold }]}>✦ Swindle Game Preview</Text>
+              <Text style={styles.linkSub}>Podium prizes, leaderboard, side pots — safe sandbox</Text>
+            </View>
+            <Text style={[styles.arrow, { color: colors.gold }]}>›</Text>
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity

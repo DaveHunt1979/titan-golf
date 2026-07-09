@@ -17,15 +17,19 @@ import { useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 const GOLD  = '#D4AF37';
 const GREEN = '#22c55e';
 const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
 const { width: W } = Dimensions.get('window');
 
-type Format = 'Stableford' | 'Medal' | 'Matchplay' | 'Skins' | 'Scramble';
-type Tees   = 'Yellow' | 'White' | 'Red' | 'Blue' | 'Black';
-type Holes  = 'Full 18' | 'Front 9' | 'Back 9';
+type Format     = 'Stableford' | 'Medal' | 'Matchplay' | 'Skins' | 'Scramble';
+type SecondGame = 'None' | Format;
+type Tees       = 'Yellow' | 'White' | 'Red' | 'Blue' | 'Black';
+type Holes      = 'Full 18' | 'Front 9' | 'Back 9';
 
-const FORMATS: Format[]  = ['Stableford', 'Medal', 'Matchplay', 'Skins', 'Scramble'];
-const TEES_LIST: Tees[]  = ['Yellow', 'White', 'Red', 'Blue', 'Black'];
-const HOLES_LIST: Holes[] = ['Full 18', 'Front 9', 'Back 9'];
+const FORMATS: Format[]         = ['Stableford', 'Medal', 'Matchplay', 'Skins', 'Scramble'];
+const SECOND_GAMES: SecondGame[] = ['None', 'Stableford', 'Medal', 'Matchplay', 'Skins', 'Scramble'];
+const TEES_LIST: Tees[]          = ['Yellow', 'White', 'Red', 'Blue', 'Black'];
+const HOLES_LIST: Holes[]        = ['Full 18', 'Front 9', 'Back 9'];
+const ALL_HOLES                  = Array.from({ length: 18 }, (_, i) => String(i + 1));
 
 interface Player { id: string; display_name: string; handicap_index: number | null; avatar_url?: string | null }
 interface Course { name: string; par: number }
@@ -154,7 +158,8 @@ export default function ConceptCasualScreen() {
   const router = useRouter();
 
   const [fontsLoaded] = useFonts({
-    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
   // Data
@@ -173,13 +178,34 @@ export default function ConceptCasualScreen() {
   const [tees,            setTees]            = useState<Tees>('Yellow');
   const [holes,           setHoles]           = useState<Holes>('Full 18');
   const [trackClubs,      setTrackClubs]      = useState(true);
+  const [aiCommentary,    setAiCommentary]    = useState(true);
+
+  // Scorecard
+  const [courseHoles,   setCourseHoles]   = useState<{ hole_number: number; par: number; stroke_index: number }[]>([]);
+  const [showScorecard, setShowScorecard] = useState(false);
 
   // Pickers open state
-  const [showCourse,   setShowCourse]   = useState(false);
-  const [showPlayers,  setShowPlayers]  = useState(false);
-  const [showFormat,   setShowFormat]   = useState(false);
-  const [showTees,     setShowTees]     = useState(false);
-  const [showHoles,    setShowHoles]    = useState(false);
+  // Side games
+  const [secondGame,     setSecondGame]     = useState<SecondGame>('None');
+  const [ldActive,       setLdActive]       = useState(false);
+  const [ldHole,         setLdHole]         = useState<string | null>(null);
+  const [npActive,       setNpActive]       = useState(false);
+  const [npHole,         setNpHole]         = useState<string | null>(null);
+  const [twosActive,     setTwosActive]     = useState(false);
+
+  // Groups
+  const [groupCount,     setGroupCount]     = useState(1);
+  const [combineGroups,  setCombineGroups]  = useState(false);
+
+  // Pickers open
+  const [showCourse,      setShowCourse]      = useState(false);
+  const [showPlayers,     setShowPlayers]     = useState(false);
+  const [showFormat,      setShowFormat]      = useState(false);
+  const [showTees,        setShowTees]        = useState(false);
+  const [showHoles,       setShowHoles]       = useState(false);
+  const [showSecondGame,  setShowSecondGame]  = useState(false);
+  const [showLdHole,      setShowLdHole]      = useState(false);
+  const [showNpHole,      setShowNpHole]      = useState(false);
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -235,6 +261,13 @@ export default function ConceptCasualScreen() {
   }, [societyId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!selectedCourse) { setCourseHoles([]); return; }
+    supabase.from('course_holes').select('hole_number, par, stroke_index')
+      .eq('course_name', selectedCourse).order('hole_number')
+      .then(({ data }) => setCourseHoles((data ?? []) as any[]));
+  }, [selectedCourse]);
 
   const toggleExtraPlayer = (id: string) =>
     setExtraPlayers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -336,6 +369,21 @@ export default function ConceptCasualScreen() {
 
           {/* ── Settings rows ── */}
           <View style={s.settingsCard}>
+            {/* Course */}
+            <TouchableOpacity style={s.settingRow} onPress={() => setShowCourse(true)} activeOpacity={0.7}>
+              <View style={s.settingLeft}>
+                <View style={s.settingIconWrap}>
+                  <Ionicons name="map-outline" size={16} color={GOLD} />
+                </View>
+                <Text style={s.settingLabel}>Course</Text>
+              </View>
+              <View style={s.settingRight}>
+                <Text style={s.settingValue} numberOfLines={1}>{selectedCourse ?? 'Select…'}</Text>
+                <Ionicons name="chevron-forward" size={14} color="#444" />
+              </View>
+            </TouchableOpacity>
+            <View style={s.settingDivider} />
+
             {/* Players */}
             <TouchableOpacity style={s.settingRow} onPress={() => setShowPlayers(true)} activeOpacity={0.7}>
               <View style={s.settingLeft}>
@@ -361,6 +409,28 @@ export default function ConceptCasualScreen() {
               </View>
               <View style={s.settingRight}>
                 <Text style={s.settingValue}>{format}</Text>
+                <Ionicons name="chevron-forward" size={14} color="#444" />
+              </View>
+            </TouchableOpacity>
+            <View style={s.settingDivider} />
+
+            {/* 2nd Game */}
+            <TouchableOpacity style={s.settingRow} onPress={() => setShowSecondGame(true)} activeOpacity={0.7}>
+              <View style={s.settingLeft}>
+                <View style={s.settingIconWrap}>
+                  <Ionicons name="layers-outline" size={16} color={GOLD} />
+                </View>
+                <View>
+                  <Text style={s.settingLabel}>2nd Game</Text>
+                  {secondGame !== 'None' && (
+                    <Text style={s.settingSubLabel}>Running alongside {format}</Text>
+                  )}
+                </View>
+              </View>
+              <View style={s.settingRight}>
+                <Text style={[s.settingValue, secondGame !== 'None' && { color: GOLD }]}>
+                  {secondGame}
+                </Text>
                 <Ionicons name="chevron-forward" size={14} color="#444" />
               </View>
             </TouchableOpacity>
@@ -394,6 +464,35 @@ export default function ConceptCasualScreen() {
                 <Ionicons name="chevron-forward" size={14} color="#444" />
               </View>
             </TouchableOpacity>
+            <View style={s.settingDivider} />
+
+            {/* Groups */}
+            <View style={s.settingRow}>
+              <View style={s.settingLeft}>
+                <View style={s.settingIconWrap}>
+                  <Ionicons name="people-circle-outline" size={16} color={GOLD} />
+                </View>
+                <View>
+                  <Text style={s.settingLabel}>Groups</Text>
+                  {groupCount > 1 && <Text style={s.settingSubLabel}>Leaderboard will combine all groups</Text>}
+                </View>
+              </View>
+              <View style={s.settingRight}>
+                <TouchableOpacity
+                  onPress={() => setGroupCount(n => Math.max(1, n - 1))}
+                  style={s.stepperBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={s.stepperBtnText}>−</Text>
+                </TouchableOpacity>
+                <Text style={s.stepperVal}>{groupCount}</Text>
+                <TouchableOpacity
+                  onPress={() => setGroupCount(n => Math.min(6, n + 1))}
+                  style={s.stepperBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={s.stepperBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
             <View style={s.settingDivider} />
 
             {/* Track Clubs */}
@@ -431,33 +530,239 @@ export default function ConceptCasualScreen() {
                 <Text style={s.settingValue}>{format}</Text>
               </View>
             </View>
+            <View style={s.settingDivider} />
+
+            {/* AI Commentary */}
+            <TouchableOpacity style={s.settingRow} onPress={() => setAiCommentary(v => !v)} activeOpacity={0.7}>
+              <View style={s.settingLeft}>
+                <View style={[s.settingIconWrap, aiCommentary && { backgroundColor: `${GOLD}18`, borderColor: `${GOLD}40` }]}>
+                  <Ionicons name="mic-outline" size={16} color={aiCommentary ? GOLD : '#6b7280'} />
+                </View>
+                <View>
+                  <Text style={s.settingLabel}>AI Commentary</Text>
+                  <Text style={s.settingSubLabel}>Chip &amp; Birdie live audio</Text>
+                </View>
+              </View>
+              <View style={s.settingRight}>
+                <Text style={[s.settingValue, { color: aiCommentary ? GOLD : '#6b7280' }]}>
+                  {aiCommentary ? 'On' : 'Off'}
+                </Text>
+                <View style={[s.toggle, aiCommentary && s.toggleOn]}>
+                  <View style={[s.toggleThumb, aiCommentary && s.toggleThumbOn]} />
+                </View>
+              </View>
+            </TouchableOpacity>
           </View>
+
+          {/* ── Side Games ── */}
+          <Text style={s.sectionLabel}>SIDE GAMES</Text>
+          <View style={s.settingsCard}>
+
+            {/* Longest Drive */}
+            <TouchableOpacity style={s.settingRow} onPress={() => setLdActive(v => !v)} activeOpacity={0.7}>
+              <View style={s.settingLeft}>
+                <View style={[s.settingIconWrap, ldActive && { backgroundColor: `${GOLD}18`, borderColor: `${GOLD}40` }]}>
+                  <Ionicons name="arrow-forward-circle-outline" size={16} color={ldActive ? GOLD : '#6b7280'} />
+                </View>
+                <View>
+                  <Text style={[s.settingLabel, !ldActive && { color: '#6b7280' }]}>Longest Drive</Text>
+                  {ldActive && (
+                    <TouchableOpacity onPress={() => setShowLdHole(true)}>
+                      <Text style={s.settingSubLabel}>
+                        Hole: <Text style={{ color: GOLD }}>{ldHole ?? 'Pick hole'}</Text>
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+              <View style={s.settingRight}>
+                <View style={[s.toggle, ldActive && s.toggleOn]}>
+                  <View style={[s.toggleThumb, ldActive && s.toggleThumbOn]} />
+                </View>
+              </View>
+            </TouchableOpacity>
+            <View style={s.settingDivider} />
+
+            {/* Nearest Pin */}
+            <TouchableOpacity style={s.settingRow} onPress={() => setNpActive(v => !v)} activeOpacity={0.7}>
+              <View style={s.settingLeft}>
+                <View style={[s.settingIconWrap, npActive && { backgroundColor: `${GOLD}18`, borderColor: `${GOLD}40` }]}>
+                  <Ionicons name="golf-outline" size={16} color={npActive ? GOLD : '#6b7280'} />
+                </View>
+                <View>
+                  <Text style={[s.settingLabel, !npActive && { color: '#6b7280' }]}>Nearest the Pin</Text>
+                  {npActive && (
+                    <TouchableOpacity onPress={() => setShowNpHole(true)}>
+                      <Text style={s.settingSubLabel}>
+                        Hole: <Text style={{ color: GOLD }}>{npHole ?? 'Pick hole'}</Text>
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+              <View style={s.settingRight}>
+                <View style={[s.toggle, npActive && s.toggleOn]}>
+                  <View style={[s.toggleThumb, npActive && s.toggleThumbOn]} />
+                </View>
+              </View>
+            </TouchableOpacity>
+            <View style={s.settingDivider} />
+
+            {/* 2s Club */}
+            <TouchableOpacity style={s.settingRow} onPress={() => setTwosActive(v => !v)} activeOpacity={0.7}>
+              <View style={s.settingLeft}>
+                <View style={[s.settingIconWrap, twosActive && { backgroundColor: `${GOLD}18`, borderColor: `${GOLD}40` }]}>
+                  <Ionicons name="star-outline" size={16} color={twosActive ? GOLD : '#6b7280'} />
+                </View>
+                <View>
+                  <Text style={[s.settingLabel, !twosActive && { color: '#6b7280' }]}>2s Club</Text>
+                  <Text style={s.settingSubLabel}>Pot for holing out on par 3s</Text>
+                </View>
+              </View>
+              <View style={s.settingRight}>
+                <View style={[s.toggle, twosActive && s.toggleOn]}>
+                  <View style={[s.toggleThumb, twosActive && s.toggleThumbOn]} />
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Combined Leaderboard (multiple groups) ── */}
+          {groupCount > 1 && (
+            <>
+              <Text style={s.sectionLabel}>LEADERBOARD</Text>
+              <View style={s.settingsCard}>
+                <View style={s.groupsBanner}>
+                  <View style={s.groupsCountRow}>
+                    {Array.from({ length: groupCount }).map((_, i) => (
+                      <View key={i} style={[s.groupPill, i === 0 && s.groupPillActive]}>
+                        <Text style={[s.groupPillText, i === 0 && s.groupPillTextActive]}>
+                          G{i + 1}
+                        </Text>
+                      </View>
+                    ))}
+                    <Text style={s.groupsLabel}>{groupCount} groups</Text>
+                  </View>
+                </View>
+                <View style={s.settingDivider} />
+                <TouchableOpacity
+                  style={s.settingRow}
+                  onPress={() => setCombineGroups(v => !v)}
+                  activeOpacity={0.7}
+                >
+                  <View style={s.settingLeft}>
+                    <View style={[s.settingIconWrap, combineGroups && { backgroundColor: `${GOLD}18`, borderColor: `${GOLD}40` }]}>
+                      <Ionicons name="podium-outline" size={16} color={combineGroups ? GOLD : '#6b7280'} />
+                    </View>
+                    <View>
+                      <Text style={s.settingLabel}>Combined Leaderboard</Text>
+                      <Text style={s.settingSubLabel}>Live scoring across all groups</Text>
+                    </View>
+                  </View>
+                  <View style={s.settingRight}>
+                    <View style={[s.toggle, combineGroups && s.toggleOn]}>
+                      <View style={[s.toggleThumb, combineGroups && s.toggleThumbOn]} />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
           {/* ── GPS & Course Features ── */}
           <Text style={s.sectionLabel}>GPS & COURSE FEATURES</Text>
-          <View style={s.featuresRow}>
-            <View style={s.featureCard}>
-              <View style={[s.featureIcon, { backgroundColor: 'rgba(34,197,94,0.12)', borderColor: 'rgba(34,197,94,0.25)' }]}>
-                <Ionicons name="navigate-circle-outline" size={24} color={GREEN} />
+          <View style={s.featuresGrid}>
+            <View style={s.featuresRow}>
+              <View style={s.featureCard}>
+                <View style={[s.featureIcon, { backgroundColor: 'rgba(34,197,94,0.12)', borderColor: 'rgba(34,197,94,0.25)' }]}>
+                  <Ionicons name="navigate-circle-outline" size={24} color={GREEN} />
+                </View>
+                <Text style={s.featureTitle}>Live Yardages</Text>
+                <Text style={s.featureSub}>Real-time{'\n'}distances</Text>
               </View>
-              <Text style={s.featureTitle}>Live Yardages</Text>
-              <Text style={s.featureSub}>Real-time{'\n'}detailed view</Text>
+              <View style={s.featureCard}>
+                <View style={[s.featureIcon, { backgroundColor: `${GOLD}12`, borderColor: `${GOLD}30` }]}>
+                  <Ionicons name="map-outline" size={24} color={GOLD} />
+                </View>
+                <Text style={s.featureTitle}>Hole Maps</Text>
+                <Text style={s.featureSub}>Detailed view{'\n'}of every hole</Text>
+              </View>
             </View>
-            <View style={s.featureCard}>
-              <View style={[s.featureIcon, { backgroundColor: `${GOLD}12`, borderColor: `${GOLD}30` }]}>
-                <Ionicons name="map-outline" size={24} color={GOLD} />
+            <View style={s.featuresRow}>
+              <View style={s.featureCard}>
+                <View style={[s.featureIcon, { backgroundColor: 'rgba(99,102,241,0.12)', borderColor: 'rgba(99,102,241,0.25)' }]}>
+                  <Ionicons name="analytics-outline" size={24} color="#818cf8" />
+                </View>
+                <Text style={s.featureTitle}>Shot Tracking</Text>
+                <Text style={s.featureSub}>Track every{'\n'}shot</Text>
               </View>
-              <Text style={s.featureTitle}>Hole Maps</Text>
-              <Text style={s.featureSub}>Detailed view{'\n'}of every hole</Text>
-            </View>
-            <View style={s.featureCard}>
-              <View style={[s.featureIcon, { backgroundColor: 'rgba(99,102,241,0.12)', borderColor: 'rgba(99,102,241,0.25)' }]}>
-                <Ionicons name="analytics-outline" size={24} color="#818cf8" />
-              </View>
-              <Text style={s.featureTitle}>Shot Tracking</Text>
-              <Text style={s.featureSub}>Track every{'\n'}shot</Text>
+              <TouchableOpacity
+                style={s.featureCard}
+                onPress={() => router.push('/(app)/rangefinder' as any)}
+                activeOpacity={0.8}
+              >
+                <View style={[s.featureIcon, { backgroundColor: 'rgba(239,68,68,0.10)', borderColor: 'rgba(239,68,68,0.22)' }]}>
+                  <Ionicons name="scan-outline" size={24} color="#f87171" />
+                </View>
+                <Text style={s.featureTitle}>Rangefinder</Text>
+                <Text style={s.featureSub}>GPS pin-point{'\n'}accuracy</Text>
+              </TouchableOpacity>
             </View>
           </View>
+
+          {/* ── Scorecard preview ── */}
+          {courseHoles.length > 0 && (
+            <>
+              <TouchableOpacity
+                style={s.scorecardToggle}
+                onPress={() => setShowScorecard(v => !v)}
+                activeOpacity={0.7}
+              >
+                <Text style={s.sectionLabel} >SCORECARD PREVIEW</Text>
+                <Ionicons
+                  name={showScorecard ? 'chevron-up' : 'chevron-down'}
+                  size={14} color={GOLD}
+                  style={{ marginBottom: 10 }}
+                />
+              </TouchableOpacity>
+              {showScorecard && (
+                <View style={s.scorecardCard}>
+                  {[courseHoles.slice(0, 9), courseHoles.slice(9, 18)].map((half, hi) => {
+                    const total = half.reduce((acc, h) => acc + h.par, 0);
+                    const label = hi === 0 ? 'OUT' : 'IN';
+                    return (
+                      <View key={hi} style={[s.scorecardHalf, hi === 1 && { marginTop: 12 }]}>
+                        <View style={s.scorecardRow}>
+                          <Text style={s.scHole}>HOLE</Text>
+                          {half.map(h => (
+                            <Text key={h.hole_number} style={s.scHole}>{h.hole_number}</Text>
+                          ))}
+                          <Text style={[s.scHole, s.scTotal]}>{label}</Text>
+                        </View>
+                        <View style={[s.scorecardRow, { backgroundColor: '#0a0a0a' }]}>
+                          <Text style={s.scPar}>PAR</Text>
+                          {half.map(h => (
+                            <Text key={h.hole_number} style={s.scPar}>{h.par}</Text>
+                          ))}
+                          <Text style={[s.scPar, s.scTotal, { color: GOLD }]}>{total}</Text>
+                        </View>
+                        <View style={s.scorecardRow}>
+                          <Text style={s.scSi}>SI</Text>
+                          {half.map(h => (
+                            <Text key={h.hole_number} style={s.scSi}>{h.stroke_index}</Text>
+                          ))}
+                          <Text style={[s.scSi, s.scTotal]}>—</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                  <Text style={s.scFooter}>
+                    Total par {courseHoles.reduce((a, h) => a + h.par, 0)} · {courseHoles.length} holes
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
 
           {/* ── Ready to Play ── */}
           <Text style={s.sectionLabel}>READY TO PLAY</Text>
@@ -520,6 +825,24 @@ export default function ConceptCasualScreen() {
       <PickerSheet
         visible={showHoles} title="Holes" options={HOLES_LIST}
         selected={holes} onSelect={setHoles} onClose={() => setShowHoles(false)}
+      />
+      <PickerSheet
+        visible={showSecondGame} title="2nd Game" options={SECOND_GAMES}
+        selected={secondGame} onSelect={setSecondGame} onClose={() => setShowSecondGame(false)}
+      />
+      <PickerSheet
+        visible={showLdHole} title="Longest Drive — pick hole"
+        options={ALL_HOLES}
+        selected={ldHole ?? '1'} onSelect={v => setLdHole(v)} onClose={() => setShowLdHole(false)}
+      />
+      <PickerSheet
+        visible={showNpHole} title="Nearest the Pin — pick hole"
+        options={
+          courseHoles.filter(h => h.par === 3).length > 0
+            ? courseHoles.filter(h => h.par === 3).map(h => String(h.hole_number))
+            : ALL_HOLES
+        }
+        selected={npHole ?? '1'} onSelect={v => setNpHole(v)} onClose={() => setShowNpHole(false)}
       />
     </View>
   );
@@ -619,8 +942,9 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   teeColorDot:   { width: 14, height: 14, borderRadius: 7 },
-  settingLabel:  { fontFamily: FF, fontSize: 15, color: '#ffffff' },
-  settingValue:  { fontFamily: FF, fontSize: 14, color: '#6b7280' },
+  settingLabel:    { fontFamily: FF, fontSize: 15, color: '#ffffff' },
+  settingSubLabel: { fontFamily: FF, fontSize: 11, color: '#6b7280', marginTop: 1 },
+  settingValue:    { fontFamily: FF, fontSize: 14, color: '#6b7280', flexShrink: 1 },
   settingDivider:{ height: 1, backgroundColor: '#1a1a1a', marginHorizontal: 14 },
 
   // Toggle
@@ -639,9 +963,8 @@ const s = StyleSheet.create({
   },
 
   // Features
-  featuresRow: {
-    flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginBottom: 20,
-  },
+  featuresGrid: { paddingHorizontal: 16, gap: 10, marginBottom: 20 },
+  featuresRow:  { flexDirection: 'row', gap: 10 },
   featureCard: {
     flex: 1, backgroundColor: '#111111',
     borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c',
@@ -654,6 +977,24 @@ const s = StyleSheet.create({
   },
   featureTitle: { fontFamily: FF, fontSize: 12, color: '#ffffff', textAlign: 'center' },
   featureSub:   { fontFamily: FF, fontSize: 10, color: '#6b7280', textAlign: 'center', lineHeight: 14 },
+
+  // Scorecard
+  scorecardToggle: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  scorecardCard: {
+    marginHorizontal: 16, marginBottom: 20,
+    backgroundColor: '#111111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', padding: 12,
+  },
+  scorecardHalf: {},
+  scorecardRow:  { flexDirection: 'row', paddingVertical: 7, borderRadius: 6 },
+  scHole:  { flex: 1, fontFamily: FF, fontSize: 10, color: '#6b7280', textAlign: 'center' },
+  scPar:   { flex: 1, fontFamily: FF, fontSize: 12, color: '#ffffff', textAlign: 'center' },
+  scTotal: { color: GOLD, fontFamily: FF },
+  scSi:    { flex: 1, fontFamily: FF, fontSize: 10, color: '#6b7280', textAlign: 'center' },
+  scFooter:{ fontFamily: FF, fontSize: 10, color: '#6b7280', textAlign: 'center', marginTop: 10 },
 
   // Ready
   readyCard: {
@@ -676,6 +1017,23 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   ctaBtnText: { fontFamily: FF, fontSize: 17, color: '#000000' },
+
+  // Stepper (groups)
+  stepperBtn:     { width: 28, height: 28, borderRadius: 8, backgroundColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center' },
+  stepperBtnText: { fontFamily: FFB, fontSize: 16, color: GOLD, lineHeight: 20 },
+  stepperVal:     { fontFamily: FFB, fontSize: 18, color: '#ffffff', minWidth: 24, textAlign: 'center' },
+
+  // Groups leaderboard
+  groupsBanner:    { paddingHorizontal: 14, paddingVertical: 12 },
+  groupsCountRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  groupsLabel:     { fontFamily: FF, fontSize: 12, color: '#6b7280', marginLeft: 4 },
+  groupPill: {
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
+    backgroundColor: '#1c1c1c', borderWidth: 1, borderColor: '#2c2c2c',
+  },
+  groupPillActive:     { backgroundColor: `${GOLD}15`, borderColor: `${GOLD}40` },
+  groupPillText:       { fontFamily: FF, fontSize: 12, color: '#6b7280' },
+  groupPillTextActive: { color: GOLD },
 
   // Watermark
   watermark:     { alignItems: 'center', paddingVertical: 12 },

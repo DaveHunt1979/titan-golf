@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.titangolf.app",
-      "buildNumber": "49",
+      "buildNumber": "54",
       "deploymentTarget": "16.0",
       "entitlements": {
         "com.apple.developer.nfc.readersession.formats": ["TAG"]
