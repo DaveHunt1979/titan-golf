@@ -645,7 +645,12 @@ export default function EnterScoresScreen() {
           `${msg}\n\nYou have a ${secLabel} secondary game running — continue to finish all 18 holes.`,
           [
             { text: 'Finish Now', style: 'cancel', onPress: () => router.back() },
-            { text: `Continue ${secLabel}`, onPress: () => {} },
+            { text: `Continue ${secLabel}`, onPress: () => {
+                // Keep scoring mode active for the secondary game.
+                // Does NOT change Supabase — matchplay result is already saved.
+                // Resets local UI state so the screen accepts scores for remaining holes.
+                setMatch(prev => prev ? { ...prev, status: 'in_progress' } : prev);
+              } },
           ]
         );
       } else {
@@ -794,14 +799,29 @@ export default function EnterScoresScreen() {
         ))}
       </View>
 
-      {leaderStatusText && (
-        <Text style={styles.liveStatus}>{leaderStatusText}</Text>
+      {/* Matchplay primary status */}
+      {isMatchplay && (
+        <Text style={styles.liveStatus}>
+          {liveHomeUp === 0
+            ? 'All Square'
+            : liveHomeUp > 0
+              ? `${homeLabel} ${Math.abs(liveHomeUp)} Up`
+              : `${awayLabel} ${Math.abs(liveHomeUp)} Up`}
+        </Text>
       )}
 
+      {/* Secondary Stableford actual score */}
       {match.secondary_format && match.round_format === 'matchplay' && (
         <Text style={styles.secondaryBadge}>
-          2nd Game: {match.secondary_format === 'stableford' ? 'Stableford' : 'Stroke Play'}
+          {leaderPts > 0
+            ? `2nd Game: ${leaderName} leads · ${leaderPts}pts`
+            : '2nd Game: All Square'}
         </Text>
+      )}
+
+      {/* Stableford/medal primary status (non-matchplay games) */}
+      {!isMatchplay && leaderStatusText && (
+        <Text style={styles.liveStatus}>{leaderStatusText}</Text>
       )}
 
       {!isComplete ? (

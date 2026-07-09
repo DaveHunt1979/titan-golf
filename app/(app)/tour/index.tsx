@@ -15,7 +15,6 @@ import { teamLogos } from '../../../src/lib/assets';
 import type { Competition, CompetitionDay, Match, Team, Champion, Notification } from '../../../src/types';
 
 const STORAGE_KEY = 'tour_joined_competition_id';
-const SOCIETY_ID  = '00000000-0000-0000-0000-000000000001';
 
 type TourTab = 'teams' | 'scores' | 'kronos' | 'honours' | 'info' | 'live' | 'instagram';
 
@@ -66,7 +65,7 @@ function formatDate(s: string | null): string {
 
 export default function TourScreen() {
   const colors = useDynamicColors();
-  const { palette } = useSocietyTheme();
+  const { palette, societyId: SOCIETY_ID } = useSocietyTheme();
 
   const router = useRouter();
   const pinRef = useRef<TextInput>(null);

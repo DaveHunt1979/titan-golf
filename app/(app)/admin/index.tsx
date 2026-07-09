@@ -515,6 +515,21 @@ export default function SocietyAdminScreen() {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>DESIGN</Text>
+          <TouchableOpacity
+            style={[styles.linkCard, { borderColor: 'rgba(212,175,55,0.5)', backgroundColor: 'rgba(212,175,55,0.06)' }]}
+            onPress={() => router.push('/(app)/admin/concept' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.linkTitle, { color: colors.gold }]}>✦ Concept Preview</Text>
+              <Text style={styles.linkSub}>New premium home screen redesign — safe sandbox</Text>
+            </View>
+            <Text style={[styles.arrow, { color: colors.gold }]}>›</Text>
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity
           style={[styles.saveButton, saving && { opacity: 0.5 }]}
           onPress={save}

@@ -12,12 +12,11 @@ import { spacing, radius } from '../../src/lib/theme';
 import { titanLogo } from '../../src/lib/assets';
 import { useSocietyTheme } from '../../src/lib/SocietyThemeContext';
 
-const SOCIETY_ID   = '00000000-0000-0000-0000-000000000001';
 const CHAT_READ_KEY = 'chat_last_read';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { logoUrl, localLogo, societyName, palette } = useSocietyTheme();
+  const { logoUrl, localLogo, societyName, palette, societyId: SOCIETY_ID } = useSocietyTheme();
 
   const [loading, setLoading]           = useState(true);
   const [refreshing, setRefreshing]     = useState(false);

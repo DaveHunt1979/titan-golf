@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep \"admin/players\" | head -20",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -10",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -263,8 +263,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 242,
-      "lastAccessed": 1783574484415,
+      "accessCount": 252,
+      "lastAccessed": 1783585257644,
       "type": "file"
     },
     {
@@ -275,8 +275,8 @@
     },
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 55,
-      "lastAccessed": 1783344802307,
+      "accessCount": 58,
+      "lastAccessed": 1783585638231,
       "type": "file"
     },
     {
@@ -287,8 +287,8 @@
     },
     {
       "path": "app/(app)/admin/index.tsx",
-      "accessCount": 36,
-      "lastAccessed": 1783574595382,
+      "accessCount": 38,
+      "lastAccessed": 1783581960194,
       "type": "file"
     },
     {
@@ -319,6 +319,12 @@
       "path": "app/(app)/chat/index.tsx",
       "accessCount": 7,
       "lastAccessed": 1783056968162,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/SocietyThemeContext.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1783585625832,
       "type": "file"
     },
     {
@@ -364,6 +370,12 @@
       "type": "file"
     },
     {
+      "path": "src/lib/theme.ts",
+      "accessCount": 5,
+      "lastAccessed": 1783580953184,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/profile/bag.tsx",
       "accessCount": 4,
       "lastAccessed": 1783057160948,
@@ -373,12 +385,6 @@
       "path": "ios/titangolf/WatchBridge.swift",
       "accessCount": 4,
       "lastAccessed": 1783272633701,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/theme.ts",
-      "accessCount": 4,
-      "lastAccessed": 1783342022508,
       "type": "file"
     },
     {
@@ -449,8 +455,8 @@
     },
     {
       "path": "assets/logo_trans.png",
-      "accessCount": 1,
-      "lastAccessed": 1782972400940,
+      "accessCount": 2,
+      "lastAccessed": 1783582697461,
       "type": "file"
     },
     {
@@ -475,12 +481,6 @@
       "path": "supabase/functions/voice-command/index.ts",
       "accessCount": 1,
       "lastAccessed": 1782985776334,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/SocietyThemeContext.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1783056600063,
       "type": "file"
     },
     {

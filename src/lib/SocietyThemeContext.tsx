@@ -67,6 +67,7 @@ export interface SocietyTheme {
   localLogo:      any | null;
   societyName:    string;
   tagline:        string;
+  societyId:      string;
   loaded:         boolean;
   palette:        ThemePalette;
 }
@@ -78,6 +79,7 @@ const DEFAULT: SocietyTheme = {
   localLogo:      null,
   societyName:    'TITAN GOLF',
   tagline:        '',
+  societyId:      '00000000-0000-0000-0000-000000000001',
   loaded:         false,
   palette:        TITAN_PALETTE,
 };
@@ -104,7 +106,7 @@ async function fetchTheme(): Promise<SocietyTheme> {
     .eq('id', (member as any).society_id)
     .single();
 
-  if (!society) return { ...DEFAULT, loaded: true };
+  if (!society) return { ...DEFAULT, societyId: (member as any).society_id, loaded: true };
 
   const s = society as any;
   const name           = s.name            ?? 'TITAN GOLF';
@@ -118,6 +120,7 @@ async function fetchTheme(): Promise<SocietyTheme> {
     localLogo: getSocietyLogo(name),
     societyName: name,
     tagline:   s.tagline ?? '',
+    societyId: (member as any).society_id,
     loaded:    true,
     palette:   derivePalette(primaryColor, secondaryColor),
   };
