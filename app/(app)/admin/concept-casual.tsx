@@ -361,7 +361,7 @@ export default function ConceptCasualScreen() {
                 <Ionicons name="time-outline" size={13} color="rgba(255,255,255,0.5)" />
                 <Text style={s.teetimeItemText}>{nowTime()} Tee Time</Text>
               </View>
-              <TouchableOpacity style={s.startBtn} activeOpacity={0.8}>
+              <TouchableOpacity style={s.startBtn} activeOpacity={0.8} onPress={() => router.push('/(app)/admin/concept-score' as any)}>
                 <Text style={s.startBtnText}>Start Round</Text>
               </TouchableOpacity>
             </View>
@@ -793,7 +793,7 @@ export default function ConceptCasualScreen() {
           </View>
 
           {/* ── Main CTA ── */}
-          <TouchableOpacity style={s.ctaBtn} activeOpacity={0.85}>
+          <TouchableOpacity style={s.ctaBtn} activeOpacity={0.85} onPress={() => router.push('/(app)/admin/concept-score' as any)}>
             <Text style={s.ctaBtnText}>Start Round</Text>
             <Ionicons name="arrow-forward" size={18} color="#000" />
           </TouchableOpacity>

@@ -106,7 +106,7 @@ export default function ConceptSwindleScreen() {
             <TouchableOpacity
               key={g.id}
               style={[s.card, isLive && s.cardLive]}
-              onPress={() => {}}
+              onPress={() => router.push('/(app)/admin/concept-swindle-game' as any)}
               activeOpacity={0.88}
             >
               {/* Status + recurring */}
@@ -153,7 +153,7 @@ export default function ConceptSwindleScreen() {
                 <View style={s.enteredRow}>
                   <Ionicons name="checkmark-circle" size={16} color={GREEN} />
                   <Text style={s.enteredText}>You're in</Text>
-                  <TouchableOpacity style={s.scoreRoundBtn} activeOpacity={0.8}>
+                  <TouchableOpacity style={s.scoreRoundBtn} activeOpacity={0.8} onPress={() => router.push('/(app)/admin/concept-swindle-game' as any)}>
                     <Text style={s.scoreRoundText}>Score Round →</Text>
                   </TouchableOpacity>
                 </View>
@@ -177,7 +177,7 @@ export default function ConceptSwindleScreen() {
         {DONE_GAMES.map(g => {
           const pot = g.entry * g.players;
           return (
-            <TouchableOpacity key={g.id} style={s.doneCard} activeOpacity={0.85} onPress={() => {}}>
+            <TouchableOpacity key={g.id} style={s.doneCard} activeOpacity={0.85} onPress={() => router.push('/(app)/admin/concept-swindle-game' as any)}>
               <View style={{ flex: 1 }}>
                 <Text style={s.doneCardName}>{g.name}</Text>
                 <Text style={s.doneCardSub}>{g.course} · {g.date} · {g.players} players</Text>

@@ -29,12 +29,12 @@ const TILES: {
   area: string;
   route: string;
 }[] = [
-  { key: 'play',      label: 'Play',        sub: 'Casual round',                icon: 'golf-outline',       area: 'casual',  route: '/(app)/score' },
+  { key: 'play',      label: 'Play',        sub: 'Casual round',                icon: 'golf-outline',       area: 'casual',  route: '/(app)/admin/concept-casual' },
   { key: 'events',    label: 'Events',      sub: 'Tournaments & leagues',        icon: 'trophy-outline',     area: 'tour',    route: '/(app)/tour' },
-  { key: 'clubhouse', label: 'Clubhouse',   sub: 'Swindles, roll-ups & more',   icon: 'people-outline',     area: 'swindle', route: '/(app)/swindle' },
-  { key: 'caddie',    label: 'Caddie',      sub: 'GPS, yardages & course guide', icon: 'navigate-outline',  area: 'casual',  route: '/(app)/rangefinder' },
-  { key: 'practice',  label: 'Practice',    sub: 'Driving range & training',    icon: 'bar-chart-outline',  area: 'casual',  route: '/(app)/range' },
-  { key: 'locker',    label: 'Locker Room', sub: 'Stats, handicap & equipment', icon: 'shield-outline',     area: 'casual',  route: '/(app)/profile' },
+  { key: 'clubhouse', label: 'Clubhouse',   sub: 'Swindles, roll-ups & more',   icon: 'people-outline',     area: 'swindle', route: '/(app)/admin/concept-swindle' },
+  { key: 'caddie',    label: 'Caddie',      sub: 'GPS, yardages & course guide', icon: 'navigate-outline',  area: 'casual',  route: '/(app)/admin/concept-rangefinder' },
+  { key: 'practice',  label: 'Practice',    sub: 'Driving range & training',    icon: 'bar-chart-outline',  area: 'casual',  route: '/(app)/admin/concept-practice' },
+  { key: 'locker',    label: 'Locker Room', sub: 'Stats, handicap & equipment', icon: 'shield-outline',     area: 'casual',  route: '/(app)/admin/concept-locker' },
 ];
 
 function getGreeting(): string {
