@@ -92,7 +92,7 @@ export default function SoloRoundScreen() {
         setAvatarUrl(p.avatar_url ?? null);
         const hcp = p.handicap_index ?? 0;
         setPlayerHcp(hcp);
-        if (m.day) {
+        if (m.day?.slope_rating && m.day?.course_rating && m.day?.course_par) {
           setCourseHcp(calcCourseHandicap(hcp, m.day.slope_rating, m.day.course_rating, m.day.course_par));
         } else {
           setCourseHcp(Math.round(hcp));

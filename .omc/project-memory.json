@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -10",
+    "buildCommand": "cd \"/Users/davehunt/Desktop/titan-golf\" && npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -10",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -263,14 +263,14 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 257,
-      "lastAccessed": 1783594079042,
+      "accessCount": 260,
+      "lastAccessed": 1783605098953,
       "type": "file"
     },
     {
       "path": "app/(app)/games/new.tsx",
-      "accessCount": 67,
-      "lastAccessed": 1783593010556,
+      "accessCount": 68,
+      "lastAccessed": 1783662383571,
       "type": "file"
     },
     {
@@ -281,8 +281,8 @@
     },
     {
       "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 54,
-      "lastAccessed": 1783322703683,
+      "accessCount": 56,
+      "lastAccessed": 1783662468177,
       "type": "file"
     },
     {
@@ -328,6 +328,12 @@
       "type": "file"
     },
     {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 7,
+      "lastAccessed": 1783661400813,
+      "type": "file"
+    },
+    {
       "path": "assets/titan_golf_grip_cap.scad",
       "accessCount": 6,
       "lastAccessed": 1782972837028,
@@ -361,12 +367,6 @@
       "path": "ios/titangolf Watch App Watch App/WatchSessionManager.swift",
       "accessCount": 5,
       "lastAccessed": 1783272858412,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/scoring.ts",
-      "accessCount": 5,
-      "lastAccessed": 1783489593236,
       "type": "file"
     },
     {

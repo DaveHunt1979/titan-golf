@@ -4,6 +4,13 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../../../src/lib/supabase';
 import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 
+const HCP_ALLOWANCES = [
+  { value: 100, label: 'Full',    desc: '100%'    },
+  { value: 90,  label: '9/10',   desc: '90%'     },
+  { value: 75,  label: '¾',      desc: '75%'     },
+  { value: 0,   label: 'Scratch', desc: 'Off hcp' },
+] as const;
+
 const SPLITS = [
   { label: '50 / 30 / 20', value: [50, 30, 20] },
   { label: '60 / 40', value: [60, 40] },
@@ -40,6 +47,9 @@ export default function SwindleCreate() {
   const [isRecurring,   setIsRecurring]   = useState(false);
   const [recurringDay,  setRecurringDay]  = useState<string>('saturday');
   const [saving,        setSaving]        = useState(false);
+  const [hcpAllowance, setHcpAllowance] = useState(100);
+  const [slope,        setSlope]        = useState('113');
+  const [cRating,      setCRating]      = useState('');
 
   useEffect(() => {
     supabase.from('course_holes').select('course_name').then(({ data }) => {
@@ -86,6 +96,9 @@ export default function SwindleCreate() {
         is_recurring: isRecurring,
         recurring_day: isRecurring ? recurringDay : null,
         format,
+        hcp_allowance: hcpAllowance,
+        slope_rating:  parseInt(slope) || 113,
+        course_rating: cRating.trim() ? parseFloat(cRating) || null : null,
         twos_enabled: twosEnabled,
         twos_fee: twosEnabled && twosFee ? parseFloat(twosFee) || 0 : 0,
         ntp_hole: ntpEnabled ? ntpHole : null,
@@ -134,6 +147,27 @@ export default function SwindleCreate() {
           </View>
         </Field>
 
+        {/* Handicap allowance */}
+        <Field label="HANDICAP ALLOWANCE">
+          <View style={s.toggleRow}>
+            {HCP_ALLOWANCES.map(opt => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[s.toggleBtn, hcpAllowance === opt.value && s.toggleBtnActive]}
+                onPress={() => setHcpAllowance(opt.value)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.toggleText, hcpAllowance === opt.value && s.toggleTextActive]}>
+                  {opt.label}
+                </Text>
+                <Text style={[s.toggleSub, hcpAllowance === opt.value && s.toggleSubActive]}>
+                  {opt.desc}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Field>
+
         {/* Name */}
         <Field label="GAME NAME" hint="e.g. Tuesday Swindle">
           <TextInput style={s.input} value={name} onChangeText={setName} placeholder="Tuesday Swindle" placeholderTextColor={colors.textMuted} />
@@ -145,6 +179,34 @@ export default function SwindleCreate() {
             <Text style={course ? s.pickerBtnText : s.pickerBtnPlaceholder}>{course || 'Select course…'}</Text>
             <Text style={s.pickerArrow}>›</Text>
           </TouchableOpacity>
+        </Field>
+
+        {/* Slope & course rating */}
+        <Field label="SLOPE & RATING" hint="from scorecard — leave blank if unknown">
+          <View style={s.feeRow}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={s.slotLabel}>SLOPE</Text>
+              <TextInput
+                style={s.input}
+                value={slope}
+                onChangeText={setSlope}
+                keyboardType="number-pad"
+                placeholder="113"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={s.slotLabel}>COURSE RATING</Text>
+              <TextInput
+                style={s.input}
+                value={cRating}
+                onChangeText={setCRating}
+                keyboardType="decimal-pad"
+                placeholder="= par"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+          </View>
         </Field>
 
         {/* Entry fee */}
@@ -445,6 +507,7 @@ const s = StyleSheet.create({
   toggleKnob:         { width: 18, height: 18, borderRadius: 9, backgroundColor: colors.textMuted },
   toggleKnobOn:       { backgroundColor: colors.bg, marginLeft: 20 },
 
+  slotLabel:          { fontSize: 10, fontWeight: '700', color: colors.textMuted, letterSpacing: 1 },
   sideFeeLabel:       { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600', flex: 1 },
   sideFeeInput:       { width: 80 },
 

@@ -6,16 +6,17 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../../src/lib/supabase';
 import { scanPlayerScoresFromCamera, scanPlayerScoresFromLibrary, ScannedScore } from '../../../../src/lib/scanScorecard';
-import { calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { calcStrokesReceived, calcStablefordPoints, calcCourseHandicap } from '../../../../src/lib/scoring';
 import { colors, fonts, spacing, radius } from '../../../../src/lib/theme';
 
 type Step = 'player' | 'scan' | 'review' | 'saving';
 
 interface EnteredPlayer {
-  player_id: string;
+  player_id:    string;
   display_name: string;
-  handicap: number | null;
-  has_scores: boolean;
+  handicap:     number | null;
+  hcpIndex:     number | null;
+  has_scores:   boolean;
 }
 
 interface HoleInfo { hole_number: number; par: number; stroke_index: number; }
@@ -31,15 +32,23 @@ export default function SwindleScan() {
   const [scores,      setScores]     = useState<(number | null)[]>(Array(18).fill(null));
   const [scanning,    setScanning]   = useState(false);
   const [loading,     setLoading]    = useState(true);
+  const [slopeRating, setSlopeRating] = useState(113);
+  const [courseRating,setCourseRating]= useState<number | null>(null);
+  const [hcpAllowance,setHcpAllowance]= useState(100);
 
   useEffect(() => { load(); }, [gameId]);
 
   async function load() {
     const [{ data: gameData }, { data: entriesData }, { data: scoresData }] = await Promise.all([
-      supabase.from('swindle_games').select('course_name').eq('id', gameId).single(),
-      supabase.from('swindle_entries').select('player_id, handicap, players(display_name)').eq('game_id', gameId),
+      supabase.from('swindle_games').select('course_name, slope_rating, course_rating, hcp_allowance').eq('id', gameId).single(),
+      supabase.from('swindle_entries').select('player_id, handicap, players(display_name, handicap_index)').eq('game_id', gameId),
       supabase.from('swindle_scores').select('player_id').eq('game_id', gameId),
     ]);
+
+    const g = gameData as any;
+    if (g?.slope_rating)         setSlopeRating(g.slope_rating);
+    if (g?.course_rating != null) setCourseRating(g.course_rating);
+    if (g?.hcp_allowance != null) setHcpAllowance(g.hcp_allowance);
 
     const scoredPlayers = new Set((scoresData ?? []).map((s: any) => s.player_id));
 
@@ -47,6 +56,7 @@ export default function SwindleScan() {
       player_id:    e.player_id,
       display_name: e.players?.display_name ?? 'Unknown',
       handicap:     e.handicap != null ? Math.round(e.handicap) : null,
+      hcpIndex:     e.players?.handicap_index ?? null,
       has_scores:   scoredPlayers.has(e.player_id),
     })).sort((a, b) => a.display_name.localeCompare(b.display_name)));
 
@@ -58,6 +68,14 @@ export default function SwindleScan() {
     }
 
     setLoading(false);
+  }
+
+  function getPlayingHcp(player: EnteredPlayer | null): number {
+    if (!player) return 0;
+    const idx = player.hcpIndex ?? (player.handicap ?? 0);
+    const par = courseHoles.length > 0 ? courseHoles.reduce((s, h) => s + h.par, 0) : 72;
+    const ch  = calcCourseHandicap(idx, slopeRating, courseRating ?? par, par);
+    return Math.round(ch * (hcpAllowance / 100));
   }
 
   async function doScan(fromLibrary = false) {
@@ -89,7 +107,7 @@ export default function SwindleScan() {
         if (gross == null) return null;
         const holeNum  = i + 1;
         const holeInfo = courseHoles.find(h => h.hole_number === holeNum);
-        const shots    = holeInfo ? calcStrokesReceived(selected.handicap ?? 0, holeInfo.stroke_index) : 0;
+        const shots    = holeInfo ? calcStrokesReceived(getPlayingHcp(selected), holeInfo.stroke_index) : 0;
         const pts      = holeInfo ? calcStablefordPoints(gross, holeInfo.par, shots) : 0;
         return { game_id: gameId, player_id: selected.player_id, hole_number: holeNum, gross_score: gross, stableford_pts: pts };
       })
@@ -120,7 +138,7 @@ export default function SwindleScan() {
   const totalPts = scores.reduce<number>((sum, gross, i) => {
     if (gross == null) return sum;
     const holeInfo = courseHoles.find(h => h.hole_number === i + 1);
-    const shots    = holeInfo ? calcStrokesReceived(selected?.handicap ?? 0, holeInfo.stroke_index) : 0;
+    const shots    = holeInfo ? calcStrokesReceived(getPlayingHcp(selected), holeInfo.stroke_index) : 0;
     return sum + (holeInfo ? calcStablefordPoints(gross, holeInfo.par, shots) : 0);
   }, 0);
 
@@ -226,7 +244,7 @@ export default function SwindleScan() {
             const holeNum  = i + 1;
             const holeInfo = courseHoles.find(h => h.hole_number === holeNum);
             const gross    = scores[i];
-            const shots    = holeInfo ? calcStrokesReceived(selected?.handicap ?? 0, holeInfo.stroke_index) : 0;
+            const shots    = holeInfo ? calcStrokesReceived(getPlayingHcp(selected), holeInfo.stroke_index) : 0;
             const pts      = (gross != null && holeInfo) ? calcStablefordPoints(gross, holeInfo.par, shots) : null;
             const ptColor  = pts == null ? colors.textMuted : pts >= 4 ? colors.gold : pts === 3 ? '#4ade80' : pts === 2 ? colors.white : pts === 1 ? colors.textMuted : colors.red;
 
@@ -264,10 +282,10 @@ export default function SwindleScan() {
             <Text style={s.summaryLabel}>STABLEFORD</Text>
             <Text style={[s.summaryValue, { color: colors.gold }]}>{totalPts}pts</Text>
           </View>
-          {selected?.handicap != null && (
+          {selected && (
             <View style={s.summaryItem}>
               <Text style={s.summaryLabel}>HCP</Text>
-              <Text style={s.summaryValue}>{selected.handicap}</Text>
+              <Text style={s.summaryValue}>{getPlayingHcp(selected)}</Text>
             </View>
           )}
         </View>

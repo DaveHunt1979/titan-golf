@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../../src/lib/supabase';
-import { calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { calcStrokesReceived, calcStablefordPoints, calcCourseHandicap } from '../../../../src/lib/scoring';
 import { speakPressure } from '../../../../src/lib/caddie';
 import { colors, fonts, spacing, radius } from '../../../../src/lib/theme';
 
@@ -16,7 +16,10 @@ export default function SwindleScore() {
   const [courseHoles, setCourseHoles] = useState<HoleInfo[]>([]);
   const [saved,       setSaved]       = useState<SavedScore[]>([]);
   const [myId,        setMyId]        = useState<string | null>(null);
-  const [myHcp,       setMyHcp]       = useState(0);
+  const [hcpIndex,    setHcpIndex]    = useState(0);
+  const [slopeRating, setSlopeRating] = useState(113);
+  const [courseRating,setCourseRating]= useState<number | null>(null);
+  const [hcpAllowance,setHcpAllowance]= useState(100);
   const [selected,    setSelected]    = useState<number | null>(null);
   const [saving,      setSaving]      = useState(false);
   const [loading,     setLoading]     = useState(true);
@@ -25,7 +28,10 @@ export default function SwindleScore() {
   const nextHole   = (() => { for (let h = 1; h <= 18; h++) { if (!saved.find(s => s.hole_number === h)) return h; } return 19; })();
   const isComplete = nextHole > 18;
   const courseHole = courseHoles.find(h => h.hole_number === nextHole);
-  const shots      = courseHole ? calcStrokesReceived(myHcp, courseHole.stroke_index) : 0;
+  const coursePar  = courseHoles.length > 0 ? courseHoles.reduce((s, h) => s + h.par, 0) : 72;
+  const courseHcp  = calcCourseHandicap(hcpIndex, slopeRating, courseRating ?? coursePar, coursePar);
+  const playingHcp = Math.round(courseHcp * (hcpAllowance / 100));
+  const shots      = courseHole ? calcStrokesReceived(playingHcp, courseHole.stroke_index) : 0;
   const totalPts   = saved.reduce((s, h) => s + h.pts, 0);
   const totalGross = saved.reduce((s, h) => s + h.gross, 0);
 
@@ -37,11 +43,14 @@ export default function SwindleScore() {
     const { data: p } = await supabase.from('players').select('id,handicap_index').eq('auth_uid', user.id).maybeSingle();
     if (!p) return;
     setMyId(p.id);
-    setMyHcp(Math.round(p.handicap_index ?? 0));
+    setHcpIndex(p.handicap_index ?? 0);
 
     const { data: g } = await supabase.from('swindle_games').select('*').eq('id', gameId).single();
     if (!g) return;
     setGame(g);
+    if (g.slope_rating)         setSlopeRating(g.slope_rating);
+    if (g.course_rating != null) setCourseRating(g.course_rating);
+    if (g.hcp_allowance != null) setHcpAllowance(g.hcp_allowance);
 
     if (g.course_name) {
       const { data: holes } = await supabase
@@ -142,6 +151,13 @@ export default function SwindleScore() {
         }
       </View>
 
+      {/* Incomplete course card warning */}
+      {courseHoles.length > 0 && courseHoles.every(h => h.par === 4) && (
+        <View style={s.courseWarning}>
+          <Text style={s.courseWarningText}>⚠️ Course card not set up — scoring may be wrong. Ask your admin to add the scorecard.</Text>
+        </View>
+      )}
+
       {/* Progress dots */}
       <View style={s.dotsRow}>
         {Array.from({ length: 18 }, (_, i) => {
@@ -151,7 +167,7 @@ export default function SwindleScore() {
           let ptColor = colors.cardAlt;
           if (sc && isStroke) {
             const ch = courseHoles.find(h => h.hole_number === i + 1);
-            const net = ch ? sc.gross - calcStrokesReceived(myHcp, ch.stroke_index) : sc.gross;
+            const net = ch ? sc.gross - calcStrokesReceived(playingHcp, ch.stroke_index) : sc.gross;
             const rel = ch ? net - ch.par : 0;
             ptColor = rel < 0 ? 'rgba(212,175,55,0.8)' : rel === 0 ? 'rgba(74,222,128,0.8)' : rel === 1 ? colors.textSecondary : 'rgba(248,113,113,0.5)';
           } else if (sc) {
@@ -171,6 +187,8 @@ export default function SwindleScore() {
             {courseHole.yardage ? <><View style={s.metaSep}/><MetaItem label="YARDS" value={`${courseHole.yardage}`} /></> : null}
             <View style={s.metaSep}/>
             <MetaItem label="S.I." value={`${courseHole.stroke_index}`} />
+            <View style={s.metaSep}/>
+            <MetaItem label="HCP" value={`${playingHcp}`} />
             {shots > 0 ? <><View style={s.metaSep}/><MetaItem label="SHOT" value="✓" gold /></> : null}
           </View>
         ) : (
@@ -236,6 +254,8 @@ const s = StyleSheet.create({
   backText:        { color: colors.gold, fontSize: fonts.md, fontWeight: '600' },
   headerTitle:     { flex: 1, fontSize: fonts.md, fontWeight: '700', color: colors.white, textAlign: 'center' },
   headerPts:       { fontSize: fonts.md, fontWeight: '800', color: colors.gold },
+  courseWarning:     { marginHorizontal: spacing.md, marginBottom: spacing.sm, backgroundColor: 'rgba(245,158,11,0.12)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.4)', borderRadius: 8, padding: spacing.sm },
+  courseWarningText: { color: '#f59e0b', fontSize: fonts.xs, lineHeight: 18 },
   dotsRow:         { flexDirection: 'row', gap: 4, paddingHorizontal: spacing.md, marginBottom: spacing.md, flexWrap: 'wrap' },
   dot:             { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.cardAlt },
   dotActive:       { borderWidth: 2, borderColor: colors.gold, backgroundColor: 'transparent' },

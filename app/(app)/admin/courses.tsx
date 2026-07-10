@@ -11,7 +11,7 @@ import { searchUKClubs, getUKClub, clubLocation, type UKClub } from '../../../sr
 import { scanScorecardFromCamera, scanScorecardFromLibrary, type ScannedCourse } from '../../../src/lib/scanScorecard';
 import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 
-interface CourseRow { name: string; par: number; holeCount: number; }
+interface CourseRow { name: string; par: number; holeCount: number; incomplete: boolean; }
 interface HoleConfig { par: 3 | 4 | 5; si: string; teeYardages: Record<string, number>; }
 
 function defaultHoles(): HoleConfig[] {
@@ -41,15 +41,16 @@ export default function CoursesScreen() {
   const loadCourses = useCallback(async () => {
     const { data } = await supabase.from('course_holes').select('course_name, par');
     if (data) {
-      const map: Record<string, { totalPar: number; count: number }> = {};
+      const map: Record<string, { totalPar: number; count: number; allPar4: boolean }> = {};
       for (const row of data as any[]) {
-        if (!map[row.course_name]) map[row.course_name] = { totalPar: 0, count: 0 };
+        if (!map[row.course_name]) map[row.course_name] = { totalPar: 0, count: 0, allPar4: true };
         map[row.course_name].totalPar += row.par;
         map[row.course_name].count++;
+        if (row.par !== 4) map[row.course_name].allPar4 = false;
       }
       setCourses(
         Object.entries(map)
-          .map(([name, v]) => ({ name, par: v.totalPar, holeCount: v.count }))
+          .map(([name, v]) => ({ name, par: v.totalPar, holeCount: v.count, incomplete: v.allPar4 }))
           .sort((a, b) => a.name.localeCompare(b.name)),
       );
     }
@@ -422,7 +423,12 @@ export default function CoursesScreen() {
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={s.courseName}>{c.name}</Text>
-                    <Text style={s.courseMeta}>{c.holeCount} holes · Par {c.par}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={s.courseMeta}>{c.holeCount} holes · Par {c.par}</Text>
+                      {c.incomplete && (
+                        <Text style={s.incompleteTag}>⚠️ Card needed</Text>
+                      )}
+                    </View>
                   </View>
                   <Text style={s.arrow}>›</Text>
                 </TouchableOpacity>
@@ -668,7 +674,8 @@ const s = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   courseName: { fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  courseMeta: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+  courseMeta:    { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+  incompleteTag: { fontSize: fonts.xs, color: '#f59e0b', fontWeight: '600' },
   arrow:      { fontSize: 22, color: colors.textMuted },
 
   addRowBtn: {
