@@ -1,115 +1,45 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  TouchableOpacity,
-  RefreshControl,
-  Image,
-  TextInput,
-  Alert,
+  View, Text, ScrollView, StyleSheet, ActivityIndicator,
+  TouchableOpacity, RefreshControl, Image, TextInput,
+  Alert, Platform, ImageBackground,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter, Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { supabase } from '../../../src/lib/supabase';
-import { fonts, spacing, radius } from '../../../src/lib/theme';
-import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
+import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 import { matchLabel, getEffectiveWinner } from '../../../src/lib/scoring';
-import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
+import { getPlayerAvatar } from '../../../src/lib/assets';
 import type { Match, Team } from '../../../src/types';
 
-interface MatchWithTeams extends Match {
+const heroCourse = require('../../../assets/hero-course.jpeg');
+
+interface MatchWithDay extends Match {
   home_team: Pick<Team, 'name' | 'accent_color'> | null;
   away_team: Pick<Team, 'name' | 'accent_color'> | null;
+  day: { course_name: string; course_par: number } | null;
 }
+type ActiveDay = { id: string; course_name: string; join_code: string; day_date: string; player_count: number };
+
+const FORMAT_LABELS: Record<string, string> = {
+  stableford: 'Stableford', medal: 'Medal', singles: 'Singles Matchplay',
+  '4bbb': '4BBB Matchplay', skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf',
+  scramble: 'Scramble', greensomes: 'Greensomes', bbb: 'BBB',
+  foursomes: 'Foursomes', modified_stableford: 'Modified Stableford',
+  par_bogey: 'Par / Bogey', chacha: 'ChaChaCha',
+};
 
 export default function ScoreScreen() {
-  const colors = useDynamicColors();
-  const styles = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.bg },
-    header: {
-      paddingTop: 60,
-      paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      flexDirection: 'row',
-      alignItems: 'flex-end',
-    },
-    title: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 1, flex: 1 },
-    newGameBtn: {
-      backgroundColor: colors.gold,
-      borderRadius: radius.sm,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs + 2,
-    },
-    newGameBtnText: { fontSize: fonts.sm, fontWeight: '700', color: colors.bg, letterSpacing: 0.5 },
-    centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    scroll: { padding: spacing.md, paddingBottom: spacing.xxl },
-    section: { marginBottom: spacing.lg },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm, gap: spacing.xs },
-    sectionLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5 },
-    liveDot: { width: 7, height: 7, borderRadius: 4 },
-    card: {
-      backgroundColor: colors.card,
-      borderRadius: radius.md,
-      padding: spacing.md,
-      marginBottom: spacing.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    cardRow: { flexDirection: 'row', alignItems: 'center' },
-    teamSide: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-    teamRight: { justifyContent: 'flex-end' },
-    teamLogo: { width: 28, height: 28, borderRadius: 4 },
-    playerAv: { width: 28, height: 28, borderRadius: 14, overflow: 'hidden' },
-    pairAvatars: { flexDirection: 'row' },
-    pairAv: { width: 22, height: 22, borderRadius: 11, overflow: 'hidden' },
-    avFallback: { backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
-    avInitial: { fontSize: 11, fontWeight: '700', color: colors.white },
-    avInitialSm: { fontSize: 9, fontWeight: '700', color: colors.white },
-    teamName: { fontSize: fonts.md, fontWeight: '600', color: colors.textSecondary, flexShrink: 1 },
-    teamWon: { color: colors.white, fontWeight: '700' },
-    resultBadge: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-      borderRadius: radius.sm,
-      backgroundColor: colors.cardAlt,
-      minWidth: 70,
-      alignItems: 'center',
-    },
-    resultLive: { backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' },
-    resultComplete: { backgroundColor: colors.goldDim, borderWidth: 1, borderColor: colors.goldBorder },
-    resultText: { fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary },
-    resultTextLive: { color: colors.live },
-    matchType: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 6, textAlign: 'center' },
-    empty: { alignItems: 'center', paddingVertical: spacing.xxl },
-    emptyText: { fontSize: fonts.lg, color: colors.textSecondary, fontWeight: '600' },
-    emptySubtext: { fontSize: fonts.sm, color: colors.textMuted, marginTop: spacing.xs },
-    joinDayRow:   { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-    joinDayInput: { flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: 8, color: colors.white, fontSize: fonts.sm, fontWeight: '700', letterSpacing: 2 },
-    joinDayBtn:   { backgroundColor: colors.gold, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: 8, justifyContent: 'center' },
-    joinDayBtnOff:{ opacity: 0.4 },
-    joinDayBtnText: { color: colors.bg, fontSize: fonts.sm, fontWeight: '800' },
-    dayTile: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.xs, borderWidth: 1, borderColor: colors.goldBorder },
-    dayTileCourse: { fontSize: fonts.md, fontWeight: '700', color: colors.white },
-    dayTileSub: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
-    dayTileCode: { backgroundColor: colors.bg, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 4, marginLeft: spacing.sm },
-    dayTileCodeText: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 2 },
-  }), [colors]);
-
   const router = useRouter();
-  const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
-  const [matches, setMatches] = useState<MatchWithTeams[]>([]);
-  const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
+  const [myPlayerId, setMyPlayerId]       = useState<string | null>(null);
+  const [matches, setMatches]             = useState<MatchWithDay[]>([]);
+  const [playerNames, setPlayerNames]     = useState<Record<string, string>>({});
   const [playerAvatars, setPlayerAvatars] = useState<Record<string, string | null>>({});
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [dayCode, setDayCode] = useState('');
-  const [joiningDay, setJoiningDay] = useState(false);
-  const [activeDays, setActiveDays] = useState<{ id: string; course_name: string; join_code: string; day_date: string; player_count: number }[]>([]);
+  const [loading, setLoading]             = useState(true);
+  const [refreshing, setRefreshing]       = useState(false);
+  const [dayCode, setDayCode]             = useState('');
+  const [joiningDay, setJoiningDay]       = useState(false);
+  const [activeDays, setActiveDays]       = useState<ActiveDay[]>([]);
 
   async function joinGameDay() {
     const code = dayCode.trim().toUpperCase();
@@ -123,7 +53,6 @@ export default function ScoreScreen() {
   }
 
   async function loadMatches() {
-    // Resolve current player once
     let pid = myPlayerId;
     if (!pid) {
       const { data: { user } } = await supabase.auth.getUser();
@@ -133,16 +62,19 @@ export default function ScoreScreen() {
       }
     }
 
+    const today = new Date().toISOString().split('T')[0];
+
     const [{ data, error }, { data: daysData }] = await Promise.all([
       supabase
         .from('matches')
-        .select(`*, home_team:home_team_id(name, accent_color), away_team:away_team_id(name, accent_color)`)
-        .order('match_number', { ascending: true }),
+        .select('*,home_team:home_team_id(name,accent_color),away_team:away_team_id(name,accent_color),day:day_id(course_name,course_par)')
+        .order('created_at', { ascending: false }),
       supabase
         .from('competition_days')
-        .select('id, course_name, join_code, day_date, matches(home_player_ids, away_player_ids)')
-        .eq('day_date', new Date().toISOString().split('T')[0])
-        .order('day_date', { ascending: false }),
+        .select('id,course_name,join_code,day_date,matches(home_player_ids,away_player_ids)')
+        .gte('day_date', today)
+        .order('day_date', { ascending: true })
+        .limit(20),
     ]);
 
     if (daysData) {
@@ -159,8 +91,7 @@ export default function ScoreScreen() {
     }
 
     if (!error && data) {
-      // Only show matches the current player is actually in
-      const matchData = (data as unknown as MatchWithTeams[]).filter(m =>
+      const matchData = (data as unknown as MatchWithDay[]).filter(m =>
         !pid || m.home_player_ids.includes(pid) || m.away_player_ids.includes(pid)
       );
       setMatches(matchData);
@@ -170,10 +101,10 @@ export default function ScoreScreen() {
         const { data: players } = await supabase.from('players').select('id,display_name,avatar_url').in('id', allIds);
         if (players) {
           const names: Record<string, string> = {};
-          const avatars: Record<string, string | null> = {};
-          (players as any[]).forEach(p => { names[p.id] = p.display_name; avatars[p.id] = p.avatar_url ?? null; });
+          const avs: Record<string, string | null> = {};
+          (players as any[]).forEach(p => { names[p.id] = p.display_name; avs[p.id] = p.avatar_url ?? null; });
           setPlayerNames(names);
-          setPlayerAvatars(avatars);
+          setPlayerAvatars(avs);
         }
       }
     }
@@ -183,232 +114,387 @@ export default function ScoreScreen() {
 
   useEffect(() => {
     loadMatches();
-
     const sub = supabase
       .channel('matches-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, loadMatches)
       .subscribe();
-
     return () => { supabase.removeChannel(sub); };
   }, []);
 
-  function onRefresh() {
-    setRefreshing(true);
-    loadMatches();
-  }
-
-  const live = matches.filter(m => m.status === 'in_progress');
+  const live     = matches.filter(m => m.status === 'in_progress');
   const upcoming = matches.filter(m => m.status === 'upcoming');
   const complete = matches.filter(m => m.status === 'complete');
 
+  const dateStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       <StatusBar style="light" />
 
-      <View style={styles.header}>
-        <Text style={styles.title}>Matches</Text>
-        <TouchableOpacity
-          style={styles.newGameBtn}
-          onPress={() => router.push('/(app)/games/new' as any)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.newGameBtnText}>+ New Game</Text>
-        </TouchableOpacity>
-      </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadMatches(); }} tintColor={colors.gold} />}
+      >
+        {/* ── Hero ── */}
+        <ImageBackground source={heroCourse} style={s.hero} resizeMode="cover">
+          {/* Dark overlay */}
+          <View style={s.heroOverlay} />
+          {/* Bottom fade to black */}
+          <View style={s.heroFade} />
 
-      {/* Join Game Day banner */}
-      <View style={styles.joinDayRow}>
-        <TextInput
-          style={styles.joinDayInput}
-          placeholder="Game Day code…"
-          placeholderTextColor={colors.textMuted}
-          value={dayCode}
-          onChangeText={t => setDayCode(t.toUpperCase())}
-          autoCapitalize="characters"
-          maxLength={6}
-        />
-        <TouchableOpacity
-          style={[styles.joinDayBtn, (!dayCode || joiningDay) && styles.joinDayBtnOff]}
-          onPress={joinGameDay}
-          disabled={!dayCode || joiningDay}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.joinDayBtnText}>{joiningDay ? '…' : 'Join Day'}</Text>
-        </TouchableOpacity>
-      </View>
+          <View style={s.heroContent}>
+            <View style={s.heroTop}>
+              <Text style={s.heroLabel}>CASUAL PLAY</Text>
+              <Text style={s.heroDate}>{dateStr}</Text>
+            </View>
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.gold} size="large" />
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gold} />}
-          showsVerticalScrollIndicator={false}
-        >
+            <Text style={s.heroTitle}>Are we playing{'\n'}today?</Text>
+
+            <TouchableOpacity
+              style={s.heroBtn}
+              onPress={() => router.push('/(app)/games/new' as any)}
+              activeOpacity={0.88}
+            >
+              <Text style={s.heroBtnText}>⛳  Start New Round</Text>
+            </TouchableOpacity>
+          </View>
+        </ImageBackground>
+
+        {/* ── Body ── */}
+        <View style={s.body}>
+
+          {loading && (
+            <View style={s.centered}><ActivityIndicator color={colors.gold} /></View>
+          )}
+
+          {/* Group Days */}
           {activeDays.length > 0 && (
-            <Section label="GROUP DAYS" styles={styles}>
-              {activeDays.map(d => (
-                <TouchableOpacity
-                  key={d.id}
-                  style={styles.dayTile}
-                  onPress={() => router.push(`/(app)/score/day/${d.id}` as any)}
-                  activeOpacity={0.8}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.dayTileCourse}>{d.course_name}</Text>
-                    <Text style={styles.dayTileSub}>
-                      {new Date(d.day_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
-                      {d.player_count > 0 ? ` · ${d.player_count} players` : ''}
-                    </Text>
-                  </View>
-                  <View style={styles.dayTileCode}>
-                    <Text style={styles.dayTileCodeText}>{d.join_code}</Text>
-                  </View>
-                  <Text style={{ color: colors.gold, fontSize: 20, marginLeft: 4 }}>›</Text>
-                </TouchableOpacity>
-              ))}
-            </Section>
+            <>
+              <SectionHead label="GROUP DAYS" />
+              {activeDays.map(d => {
+                const isToday = d.day_date === new Date().toISOString().split('T')[0];
+                const label   = isToday
+                  ? 'Today'
+                  : new Date(d.day_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+                return (
+                  <TouchableOpacity
+                    key={d.id}
+                    style={s.dayTile}
+                    onPress={() => router.push(`/(app)/score/day/${d.id}` as any)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.dayTileCourse}>{d.course_name}</Text>
+                      <Text style={s.dayTileSub}>{label}{d.player_count > 0 ? ` · ${d.player_count} players` : ''}</Text>
+                    </View>
+                    <View style={s.dayCode}><Text style={s.dayCodeText}>{d.join_code}</Text></View>
+                    <Text style={s.chevron}>›</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </>
           )}
+
+          {/* Join a Day */}
+          <View style={s.joinCard}>
+            <Text style={s.joinCardTitle}>JOIN A GAME DAY</Text>
+            <Text style={s.joinCardSub}>Got a 6-digit code from a mate? Jump into their leaderboard.</Text>
+            <View style={s.joinRow}>
+              <TextInput
+                style={s.joinInput}
+                placeholder="Enter code…"
+                placeholderTextColor={colors.textMuted}
+                value={dayCode}
+                onChangeText={t => setDayCode(t.toUpperCase())}
+                autoCapitalize="characters"
+                maxLength={6}
+              />
+              <TouchableOpacity
+                style={[s.joinBtn, (!dayCode || joiningDay) && s.joinBtnOff]}
+                onPress={joinGameDay}
+                disabled={!dayCode || joiningDay}
+                activeOpacity={0.8}
+              >
+                <Text style={s.joinBtnText}>{joiningDay ? '…' : 'Join Day'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Live */}
           {live.length > 0 && (
-            <Section label="LIVE" labelColor={colors.live} styles={styles}>
-              {live.map(m => <MatchCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} styles={styles} colors={colors} />)}
-            </Section>
+            <>
+              <SectionHead label="LIVE NOW" live />
+              {live.map(m => <RoundCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} />)}
+            </>
           )}
+
+          {/* Upcoming */}
           {upcoming.length > 0 && (
-            <Section label="UPCOMING" styles={styles}>
-              {upcoming.map(m => <MatchCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} styles={styles} colors={colors} />)}
-            </Section>
+            <>
+              <SectionHead label="UPCOMING" />
+              {upcoming.map(m => <RoundCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} />)}
+            </>
           )}
+
+          {/* Recent rounds */}
           {complete.length > 0 && (
-            <Section label="COMPLETED" styles={styles}>
-              {complete.map(m => <MatchCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} styles={styles} colors={colors} />)}
-            </Section>
+            <>
+              <SectionHead label="RECENT ROUNDS" />
+              {complete.map(m => <RoundCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} />)}
+            </>
           )}
-          {matches.length === 0 && (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>No matches yet.</Text>
-              <Text style={styles.emptySubtext}>Check back once the draw is set.</Text>
+
+          {/* Empty rounds state */}
+          {!loading && matches.length === 0 && (
+            <View style={s.emptyRounds}>
+              <Text style={s.emptyRoundsText}>No rounds yet — hit Start New Round above to get going.</Text>
             </View>
           )}
-        </ScrollView>
-      )}
+
+          <View style={{ height: 40 }} />
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
-function Section({ label, labelColor, children, styles }: { label: string; labelColor?: string; children: React.ReactNode; styles: any }) {
+function SectionHead({ label, live }: { label: string; live?: boolean }) {
   return (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        {labelColor && <View style={[styles.liveDot, { backgroundColor: labelColor }]} />}
-        <Text style={[styles.sectionLabel, labelColor ? { color: labelColor } : {}]}>{label}</Text>
-      </View>
-      {children}
+    <View style={s.sectionHead}>
+      {live && <View style={s.liveDot} />}
+      <Text style={[s.sectionLabel, live && s.sectionLabelLive]}>{label}</Text>
     </View>
   );
 }
 
-function MatchCard({ match, playerNames, playerAvatars, styles, colors }: { match: MatchWithTeams; playerNames: Record<string, string>; playerAvatars: Record<string, string | null>; styles: any; colors: any }) {
-  const router = useRouter();
-  const isSolo = match.away_player_ids.length === 0;
-  const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
-  const winner = getEffectiveWinner(match.status, match.winner, match.holes_string ?? '..................');
-  const label = (isSolo || isStrokePlay)
-    ? (match.status === 'complete' ? (match.result_str ?? 'Complete')
+function RoundCard({ match, playerNames, playerAvatars }: {
+  match: MatchWithDay;
+  playerNames: Record<string, string>;
+  playerAvatars: Record<string, string | null>;
+}) {
+  const router   = useRouter();
+  const isSolo   = match.away_player_ids.length === 0;
+  const isStroke = match.round_format === 'stableford' || match.round_format === 'medal';
+  const winner   = getEffectiveWinner(match.status, match.winner, match.holes_string ?? '..................');
+
+  const resultStr = (isSolo || isStroke)
+    ? (match.status === 'complete'  ? (match.result_str ?? 'Complete')
       : match.status === 'upcoming' ? 'Upcoming'
       : (match.result_str ?? 'In Progress'))
     : matchLabel(match.status, match.winner, match.result_str, match.holes_string ?? '..................');
 
-  const homeWon = winner === 'home';
-  const awayWon = winner === 'away';
+  const homeWon   = winner === 'home';
+  const awayWon   = winner === 'away';
+  const fn        = (id: string) => (playerNames[id] ?? '?').split(' ')[0];
+  const homeLabel = match.home_team?.name ?? match.home_player_ids.map(fn).join(' & ');
+  const awayLabel = match.away_team?.name ?? match.away_player_ids.map(fn).join(' & ');
+  const fmtLabel  = FORMAT_LABELS[match.round_format ?? ''] ?? (match.round_format ?? 'Golf');
+  const isLive     = match.status === 'in_progress';
+  const isComplete = match.status === 'complete';
 
-  const firstName = (id: string) => (playerNames[id] ?? '?').split(' ')[0];
-  const hasTeam = match.home_team_id !== null;
-  const homeLogo = hasTeam && match.home_team ? teamLogos[match.home_team.name] : null;
-  const awayLogo = hasTeam && match.away_team ? teamLogos[match.away_team.name] : null;
-
-  const homeLabel = hasTeam
-    ? (match.home_team?.name ?? '—')
-    : match.home_player_ids.map(firstName).join(' & ');
-  const awayLabel = hasTeam
-    ? (match.away_team?.name ?? '—')
-    : match.away_player_ids.map(firstName).join(' & ');
-
-  function renderHomeVisual() {
-    if (hasTeam && homeLogo) return <Image source={homeLogo} style={styles.teamLogo} resizeMode="contain" />;
-    if (match.is_singles || isSolo) {
-      const raw = playerAvatars[match.home_player_ids[0]] ?? getPlayerAvatar(match.home_player_ids[0], 'normal');
-      return raw
-        ? <Image source={typeof raw === 'string' ? { uri: raw } : raw} style={styles.playerAv} />
-        : <View style={[styles.playerAv, styles.avFallback]}><Text style={styles.avInitial}>{homeLabel[0]}</Text></View>;
-    }
-    return (
-      <View style={styles.pairAvatars}>
-        {match.home_player_ids.map((id, i) => {
-          const raw = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
-          return raw
-            ? <Image key={id} source={typeof raw === 'string' ? { uri: raw } : raw} style={[styles.pairAv, { marginLeft: i > 0 ? -6 : 0 }]} />
-            : <View key={id} style={[styles.pairAv, styles.avFallback, { marginLeft: i > 0 ? -6 : 0 }]}><Text style={styles.avInitialSm}>{firstName(id)[0]}</Text></View>;
-        })}
-      </View>
-    );
-  }
-
-  function renderAwayVisual() {
-    if (hasTeam && awayLogo) return <Image source={awayLogo} style={styles.teamLogo} resizeMode="contain" />;
-    if (match.is_singles) {
-      const raw = playerAvatars[match.away_player_ids[0]] ?? getPlayerAvatar(match.away_player_ids[0], 'normal');
-      return raw
-        ? <Image source={typeof raw === 'string' ? { uri: raw } : raw} style={styles.playerAv} />
-        : <View style={[styles.playerAv, styles.avFallback]}><Text style={styles.avInitial}>{awayLabel[0]}</Text></View>;
-    }
-    return (
-      <View style={styles.pairAvatars}>
-        {match.away_player_ids.map((id, i) => {
-          const raw = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
-          return raw
-            ? <Image key={id} source={typeof raw === 'string' ? { uri: raw } : raw} style={[styles.pairAv, { marginLeft: i > 0 ? -6 : 0 }]} />
-            : <View key={id} style={[styles.pairAv, styles.avFallback, { marginLeft: i > 0 ? -6 : 0 }]}><Text style={styles.avInitialSm}>{firstName(id)[0]}</Text></View>;
-        })}
-      </View>
-    );
+  function av(id: string) {
+    const raw = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
+    return raw
+      ? <Image key={id} source={typeof raw === 'string' ? { uri: raw } : raw} style={s.avImg} />
+      : <View key={id} style={s.avFallback}><Text style={s.avInitial}>{fn(id)[0]}</Text></View>;
   }
 
   return (
-    <TouchableOpacity style={styles.card} onPress={() => {
-      router.push(`/(app)/score/${match.id}` as any);
-    }} activeOpacity={0.75}>
-      <View style={styles.cardRow}>
-        {/* Home side */}
-        <View style={styles.teamSide}>
-          {renderHomeVisual()}
-          <Text style={[styles.teamName, homeWon && styles.teamWon]} numberOfLines={1}>{homeLabel}</Text>
+    <TouchableOpacity
+      style={[s.card, isLive && s.cardLive]}
+      onPress={() => router.push(`/(app)/score/${match.id}` as any)}
+      activeOpacity={0.75}
+    >
+      {/* Top row: course + badge */}
+      <View style={s.cardTop}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.cardCourse} numberOfLines={1}>
+            {match.day?.course_name ?? 'Casual Round'}
+          </Text>
+          <Text style={s.cardFormat}>{fmtLabel}</Text>
         </View>
-
-        {/* Result badge */}
-        <View style={[
-          styles.resultBadge,
-          match.status === 'in_progress' && styles.resultLive,
-          match.status === 'complete' && styles.resultComplete,
-        ]}>
-          <Text style={[
-            styles.resultText,
-            match.status === 'in_progress' && styles.resultTextLive,
-          ]}>{label}</Text>
-        </View>
-
-        {/* Away side */}
-        <View style={[styles.teamSide, styles.teamRight]}>
-          <Text style={[styles.teamName, awayWon && styles.teamWon]} numberOfLines={1}>{awayLabel}</Text>
-          {renderAwayVisual()}
+        <View style={[s.badge, isLive && s.badgeLive, isComplete && s.badgeComplete]}>
+          {isLive && <View style={s.liveDotSm} />}
+          <Text style={[s.badgeText, isLive && s.badgeLiveText, isComplete && s.badgeCompleteText]}>
+            {resultStr}
+          </Text>
         </View>
       </View>
 
-      {match.is_singles && (
-        <Text style={styles.matchType}>Singles</Text>
+      {/* Players */}
+      {(isSolo || isStroke) ? (
+        <View style={s.playersRow}>
+          {match.home_player_ids.slice(0, 4).map((id, i) => (
+            <View key={id} style={[s.avWrap, i > 0 && s.avOverlap]}>{av(id)}</View>
+          ))}
+          <Text style={s.playersText} numberOfLines={1}>
+            {match.home_player_ids.map(fn).join(', ')}
+          </Text>
+        </View>
+      ) : (
+        <View style={s.matchupRow}>
+          <Text style={[s.matchSide, homeWon && s.matchWin]} numberOfLines={1}>{homeLabel}</Text>
+          <Text style={s.vsText}>vs</Text>
+          <Text style={[s.matchSide, s.matchSideR, awayWon && s.matchWin]} numberOfLines={1}>{awayLabel}</Text>
+        </View>
       )}
     </TouchableOpacity>
   );
 }
+
+const HERO_H = 340;
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
+
+  // Hero
+  hero: { height: HERO_H },
+  heroOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(7,11,16,0.42)',
+  },
+  heroFade: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 160,
+    backgroundColor: colors.bg,
+    opacity: 0.92,
+  },
+  heroContent: {
+    flex: 1,
+    paddingTop: Platform.OS === 'ios' ? 60 : 36,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+    justifyContent: 'flex-end',
+  },
+  heroTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  heroLabel: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 2 },
+  heroDate:  { fontSize: fonts.xs, color: 'rgba(255,255,255,0.55)', fontWeight: '600' },
+  heroTitle: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: colors.white,
+    lineHeight: 40,
+    marginBottom: spacing.lg,
+    letterSpacing: 0.3,
+  },
+  heroBtn: {
+    backgroundColor: colors.gold,
+    borderRadius: radius.lg,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  heroBtnText: { fontSize: fonts.lg, fontWeight: '900', color: colors.bg, letterSpacing: 1 },
+
+  // Body
+  body:    { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  centered:{ paddingVertical: spacing.xl, alignItems: 'center' },
+
+  // Section
+  sectionHead:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.lg, marginBottom: spacing.sm },
+  sectionLabel:     { fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted, letterSpacing: 1.5 },
+  sectionLabelLive: { color: '#22c55e' },
+  liveDot:          { width: 7, height: 7, borderRadius: 4, backgroundColor: '#22c55e' },
+
+  // Group day tile
+  dayTile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.goldBorder,
+  },
+  dayTileCourse: { fontSize: fonts.md, fontWeight: '700', color: colors.white, marginBottom: 2 },
+  dayTileSub:    { fontSize: fonts.xs, color: colors.textMuted },
+  dayCode: {
+    backgroundColor: 'rgba(212,175,55,0.1)',
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: colors.goldBorder,
+    marginLeft: spacing.sm,
+  },
+  dayCodeText: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 2 },
+  chevron:     { color: colors.gold, fontSize: 22, marginLeft: spacing.xs },
+
+  // Join card
+  joinCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  joinCardTitle: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 2, marginBottom: 4 },
+  joinCardSub:   { fontSize: fonts.xs, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: 18 },
+  joinRow:       { flexDirection: 'row', gap: spacing.sm },
+  joinInput: {
+    flex: 1,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    color: colors.white,
+    fontSize: fonts.sm,
+    fontWeight: '700',
+    letterSpacing: 3,
+  },
+  joinBtn:    { backgroundColor: colors.gold, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: 10, justifyContent: 'center' },
+  joinBtnOff: { opacity: 0.4 },
+  joinBtnText:{ color: colors.bg, fontSize: fonts.sm, fontWeight: '800' },
+
+  // Round card
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cardLive: { borderColor: 'rgba(34,197,94,0.3)' },
+  cardTop:  { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.sm, gap: spacing.sm },
+  cardCourse: { fontSize: fonts.md, fontWeight: '700', color: colors.white },
+  cardFormat: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+
+  badge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: spacing.sm, paddingVertical: 4,
+    borderRadius: radius.sm,
+    backgroundColor: colors.cardAlt,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  badgeLive:         { backgroundColor: 'rgba(34,197,94,0.1)', borderColor: 'rgba(34,197,94,0.35)' },
+  badgeComplete:     { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
+  badgeText:         { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted },
+  badgeLiveText:     { color: '#22c55e' },
+  badgeCompleteText: { color: colors.gold },
+  liveDotSm:         { width: 5, height: 5, borderRadius: 3, backgroundColor: '#22c55e' },
+
+  playersRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  avWrap:     { borderRadius: 14, overflow: 'hidden', borderWidth: 1.5, borderColor: colors.card },
+  avOverlap:  { marginLeft: -8 },
+  avImg:      { width: 28, height: 28, borderRadius: 14 },
+  avFallback: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
+  avInitial:  { fontSize: 10, fontWeight: '800', color: colors.white },
+  playersText:{ flex: 1, fontSize: fonts.sm, fontWeight: '600', color: colors.textSecondary, marginLeft: 4 },
+
+  matchupRow:  { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  matchSide:   { flex: 1, fontSize: fonts.sm, fontWeight: '600', color: colors.textSecondary },
+  matchSideR:  { textAlign: 'right' },
+  matchWin:    { color: colors.white, fontWeight: '700' },
+  vsText:      { fontSize: fonts.xs, fontWeight: '600', color: colors.textMuted },
+
+  emptyRounds: { paddingVertical: spacing.xl, alignItems: 'center' },
+  emptyRoundsText: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
+});

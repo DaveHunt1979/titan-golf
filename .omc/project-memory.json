@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1783579037479,
+  "lastScanned": 1783670754091,
   "projectRoot": "/Users/davehunt/Desktop/titan-golf",
   "techStack": {
     "languages": [
@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "cd \"/Users/davehunt/Desktop/titan-golf\" && npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"CourseMapView\\|TS2307\" | grep \"error\" | head -10",
+    "buildCommand": "cd \"/Users/davehunt/Desktop/titan-golf\" && npx tsc --noEmit --skipLibCheck 2>&1 | grep -E \"score/index|games/new\" | head -10",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -69,7 +69,7 @@
       "path": "app",
       "purpose": "Application code",
       "fileCount": 2,
-      "lastAccessed": 1783579037469,
+      "lastAccessed": 1783670754083,
       "keyFiles": [
         "_layout.tsx"
       ]
@@ -77,8 +77,8 @@
     "assets": {
       "path": "assets",
       "purpose": "Static assets",
-      "fileCount": 15,
-      "lastAccessed": 1783579037470,
+      "fileCount": 16,
+      "lastAccessed": 1783670754083,
       "keyFiles": [
         "Golf_Competition_Format_Library_App_Blueprint.docx",
         "TitanAppLogo.png",
@@ -90,20 +90,21 @@
     "concept": {
       "path": "concept",
       "purpose": null,
-      "fileCount": 4,
-      "lastAccessed": 1783579037471,
+      "fileCount": 7,
+      "lastAccessed": 1783670754084,
       "keyFiles": [
         "Casual Round Set Up.PNG",
         "Event Screen.PNG",
-        "MainScreen.PNG",
-        "Profile_Lockeroom.PNG"
+        "JUST Sans ExBold.otf",
+        "JUST Sans Regular.otf",
+        "MainScreen.PNG"
       ]
     },
     "csv": {
       "path": "csv",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1783579037471,
+      "lastAccessed": 1783670754084,
       "keyFiles": [
         "Supabase Snippet Untitled query.csv"
       ]
@@ -112,7 +113,7 @@
       "path": "dist",
       "purpose": "Distribution/build output",
       "fileCount": 1,
-      "lastAccessed": 1783579037471,
+      "lastAccessed": 1783670754084,
       "keyFiles": [
         "metadata.json"
       ]
@@ -121,7 +122,7 @@
       "path": "errors",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1783579037471,
+      "lastAccessed": 1783670754084,
       "keyFiles": [
         "Bad.png",
         "Good.png",
@@ -134,7 +135,7 @@
       "path": "ios",
       "purpose": null,
       "fileCount": 7,
-      "lastAccessed": 1783579037471,
+      "lastAccessed": 1783670754084,
       "keyFiles": [
         "Podfile",
         "Podfile.lock",
@@ -145,27 +146,23 @@
       "path": "mashie",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1783579037471,
+      "lastAccessed": 1783670754084,
       "keyFiles": []
     },
     "screenshots": {
       "path": "screenshots",
       "purpose": null,
-      "fileCount": 7,
-      "lastAccessed": 1783579037471,
+      "fileCount": 2,
+      "lastAccessed": 1783670754085,
       "keyFiles": [
-        "Screenshot 2026-07-09 at 06.14.49.png",
-        "Screenshot 2026-07-09 at 06.14.53.png",
-        "Screenshot 2026-07-09 at 06.14.58.png",
-        "Screenshot 2026-07-09 at 06.15.02.png",
-        "Screenshot 2026-07-09 at 06.15.07.png"
+        "Screenshot 2026-07-09 at 09.58.03.png"
       ]
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 1,
-      "lastAccessed": 1783579037471,
+      "lastAccessed": 1783670754085,
       "keyFiles": [
         "rename_player_assets.sh"
       ]
@@ -174,14 +171,14 @@
       "path": "src",
       "purpose": "Source code",
       "fileCount": 0,
-      "lastAccessed": 1783579037472,
+      "lastAccessed": 1783670754085,
       "keyFiles": []
     },
     "supabase": {
       "path": "supabase",
       "purpose": null,
-      "fileCount": 44,
-      "lastAccessed": 1783579037472,
+      "fileCount": 45,
+      "lastAccessed": 1783670754085,
       "keyFiles": [
         "add_admin_create_login.sql",
         "add_avatars_bucket.sql",
@@ -194,7 +191,7 @@
       "path": "web",
       "purpose": null,
       "fileCount": 12,
-      "lastAccessed": 1783579037472,
+      "lastAccessed": 1783670754085,
       "keyFiles": [
         "README.md",
         "eslint.config.mjs",
@@ -207,7 +204,7 @@
       "path": "dist/assets",
       "purpose": "Static assets",
       "fileCount": 106,
-      "lastAccessed": 1783579037472,
+      "lastAccessed": 1783670754085,
       "keyFiles": [
         "017bc6ba3fc25503e5eb5e53826d48a8",
         "034b95d9056dbaa6b07ba86af2c28ce4",
@@ -218,14 +215,14 @@
       "path": "ios/build",
       "purpose": "Build output",
       "fileCount": 0,
-      "lastAccessed": 1783579037472,
+      "lastAccessed": 1783670754085,
       "keyFiles": []
     },
     "src/components": {
       "path": "src/components",
       "purpose": "UI components",
       "fileCount": 5,
-      "lastAccessed": 1783579037472,
+      "lastAccessed": 1783670754086,
       "keyFiles": [
         "CaddieButton.tsx",
         "CourseMapView.tsx",
@@ -235,8 +232,8 @@
     "src/lib": {
       "path": "src/lib",
       "purpose": "Library code",
-      "fileCount": 17,
-      "lastAccessed": 1783579037472,
+      "fileCount": 18,
+      "lastAccessed": 1783670754086,
       "keyFiles": [
         "SocietyThemeContext.tsx",
         "assets.ts",
@@ -247,7 +244,7 @@
       "path": "src/types",
       "purpose": "Type definitions",
       "fileCount": 1,
-      "lastAccessed": 1783579037473,
+      "lastAccessed": 1783670754086,
       "keyFiles": [
         "index.ts"
       ]
@@ -256,27 +253,27 @@
       "path": "web/node_modules",
       "purpose": "Dependencies",
       "fileCount": 1,
-      "lastAccessed": 1783579037473,
+      "lastAccessed": 1783670754086,
       "keyFiles": []
     }
   },
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 260,
-      "lastAccessed": 1783605098953,
+      "accessCount": 261,
+      "lastAccessed": 1783670616702,
       "type": "file"
     },
     {
       "path": "app/(app)/games/new.tsx",
-      "accessCount": 68,
-      "lastAccessed": 1783662383571,
+      "accessCount": 75,
+      "lastAccessed": 1783677358554,
       "type": "file"
     },
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 58,
-      "lastAccessed": 1783585638231,
+      "accessCount": 59,
+      "lastAccessed": 1783671408788,
       "type": "file"
     },
     {
@@ -293,20 +290,20 @@
     },
     {
       "path": "app/(app)/score/index.tsx",
-      "accessCount": 28,
-      "lastAccessed": 1783403784885,
+      "accessCount": 33,
+      "lastAccessed": 1783677338677,
       "type": "file"
     },
     {
       "path": "app/(app)/score/[matchId].tsx",
-      "accessCount": 27,
-      "lastAccessed": 1783401937631,
+      "accessCount": 28,
+      "lastAccessed": 1783670786322,
       "type": "file"
     },
     {
       "path": "app/(app)/score/preview/[matchId].tsx",
-      "accessCount": 19,
-      "lastAccessed": 1783414121533,
+      "accessCount": 20,
+      "lastAccessed": 1783670646631,
       "type": "file"
     },
     {
@@ -316,21 +313,27 @@
       "type": "file"
     },
     {
+      "path": "src/lib/SocietyThemeContext.tsx",
+      "accessCount": 8,
+      "lastAccessed": 1783671408908,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/chat/index.tsx",
       "accessCount": 7,
       "lastAccessed": 1783056968162,
       "type": "file"
     },
     {
-      "path": "src/lib/SocietyThemeContext.tsx",
-      "accessCount": 7,
-      "lastAccessed": 1783585625832,
-      "type": "file"
-    },
-    {
       "path": "src/lib/scoring.ts",
       "accessCount": 7,
       "lastAccessed": 1783661400813,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/profile/bag.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1783665850808,
       "type": "file"
     },
     {
@@ -358,9 +361,9 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/profile/bag.tsx",
+      "path": "src/lib/theme.ts",
       "accessCount": 6,
-      "lastAccessed": 1783592004539,
+      "lastAccessed": 1783670765010,
       "type": "file"
     },
     {
@@ -373,12 +376,6 @@
       "path": "web/src/app/dashboard/page.tsx",
       "accessCount": 5,
       "lastAccessed": 1783492064533,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/theme.ts",
-      "accessCount": 5,
-      "lastAccessed": 1783580953184,
       "type": "file"
     },
     {

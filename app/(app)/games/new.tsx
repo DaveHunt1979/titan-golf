@@ -35,19 +35,32 @@ const MODES: { key: GameMode; label: string; sub: string; available: boolean }[]
 
 const MODE_SECTIONS = [
   {
-    label: 'TEAM MATCHPLAY', accent: '#D4AF37',
+    label: 'MATCHPLAY', accent: '#D4AF37',
     modes: [
-      { key: '4bbb'      as GameMode, label: '4BBB',       sub: 'Best ball pairs',    icon: '🤝' },
-      { key: 'singles'   as GameMode, label: 'Singles',    sub: 'Head to head',        icon: '⚔️' },
-      { key: 'foursomes' as GameMode, label: 'Foursomes',  sub: 'Alternate shot',      icon: '🔄' },
-      { key: 'greensome' as GameMode, label: 'Greensomes', sub: 'Best drive, alt.',    icon: '🌿' },
+      { key: '4bbb'      as GameMode, label: '4BBB',       sub: 'Best ball pairs',        icon: '🤝' },
+      { key: 'singles'   as GameMode, label: 'Singles',    sub: 'Head to head',            icon: '⚔️' },
+      { key: 'nassau'    as GameMode, label: 'Nassau',     sub: 'Front / Back / Overall',  icon: '💰' },
+      { key: 'foursomes' as GameMode, label: 'Foursomes',  sub: 'Alternate shot',          icon: '🔄' },
+      { key: 'greensome' as GameMode, label: 'Greensomes', sub: 'Best drive, alternate',   icon: '🌿' },
     ],
   },
   {
     label: 'INDIVIDUAL', accent: '#4ade80',
     modes: [
-      { key: 'stableford' as GameMode, label: 'Stableford', sub: 'Points per hole', icon: '⭐' },
-      { key: 'medal'      as GameMode, label: 'Medal',      sub: 'Stroke play',      icon: '🏅' },
+      { key: 'stableford'          as GameMode, label: 'Stableford',      sub: 'Points per hole',      icon: '⭐' },
+      { key: 'medal'               as GameMode, label: 'Medal',           sub: 'Stroke play',           icon: '🏅' },
+      { key: 'modified_stableford' as GameMode, label: 'Mod Stableford',  sub: 'Eagle +8 · Birdie +4', icon: '🎯' },
+      { key: 'par_bogey'           as GameMode, label: 'Par / Bogey',     sub: 'Win, halve or lose',   icon: '📊' },
+    ],
+  },
+  {
+    label: 'GROUP GAMES', accent: '#60a5fa',
+    modes: [
+      { key: 'skins'    as GameMode, label: 'Skins',      sub: 'Per-hole prize pot',      icon: '💎' },
+      { key: 'wolf'     as GameMode, label: 'Wolf',       sub: 'Rotating Wolf picks',     icon: '🐺' },
+      { key: 'scramble' as GameMode, label: 'Scramble',   sub: 'Team best ball',          icon: '🏌️' },
+      { key: 'bbb'      as GameMode, label: 'BBB',        sub: 'Bingo Bango Bongo',       icon: '🎰' },
+      { key: 'chacha'   as GameMode, label: 'ChaChaCha',  sub: 'Best 1 · 2 · 3 per hole', icon: '💃' },
     ],
   },
 ];
@@ -376,11 +389,16 @@ export default function NewGameScreen() {
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={styles.backText}>{step === 1 ? 'Cancel' : '‹ Back'}</Text>
         </TouchableOpacity>
-        <View style={styles.stepDots}>
-          {[1, 2, 3, 4].map(s => (
-            <View key={s} style={[styles.stepDot, s <= step && styles.stepDotActive]} />
-          ))}
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={styles.headerLabel}>NEW GAME</Text>
         </View>
+        <Text style={styles.headerStep}>{step} / 4</Text>
+      </View>
+
+      {/* Step progress bar */}
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { flex: step }]} />
+        {step < 4 && <View style={{ flex: 4 - step }} />}
       </View>
 
       <Text style={styles.stepTitle}>{stepTitle}</Text>
@@ -778,11 +796,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   backBtn: {},
-  backText: { fontSize: fonts.md, color: colors.gold, fontWeight: '600' },
-  stepDots: { flexDirection: 'row', gap: spacing.xs },
-  stepDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border },
-  stepDotActive: { backgroundColor: colors.gold, borderColor: colors.gold },
-  stepTitle: { fontSize: fonts.lg, fontWeight: '800', color: colors.white, paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm },
+  backText: { fontSize: fonts.md, color: colors.gold, fontWeight: '600', minWidth: 60 },
+  headerLabel: { fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted, letterSpacing: 2 },
+  headerStep: { fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted, letterSpacing: 1, minWidth: 60, textAlign: 'right' },
+  progressTrack: { height: 2, backgroundColor: colors.cardAlt, flexDirection: 'row' },
+  progressFill: { height: 2, backgroundColor: colors.gold },
+  stepTitle: { fontSize: fonts.xl, fontWeight: '900', color: colors.white, paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm, letterSpacing: 0.3 },
   scrollView: { flex: 1 },
   scroll: { padding: spacing.lg, paddingBottom: 120 },
 

@@ -104,14 +104,14 @@ function AppLayoutInner() {
         screenOptions={{
           headerShown: false,
           tabBarStyle: {
-            backgroundColor: palette.card,
-            borderTopColor: palette.border,
+            backgroundColor: '#0a0a0a',
+            borderTopColor: '#1c1c1c',
             borderTopWidth: 1,
             height: Platform.OS === 'ios' ? 88 : 64,
             paddingBottom: Platform.OS === 'ios' ? 28 : 8,
           },
-          tabBarActiveTintColor:   palette.accent,
-          tabBarInactiveTintColor: palette.textSecondary,
+          tabBarActiveTintColor:   '#D4AF37',
+          tabBarInactiveTintColor: '#4b5563',
           tabBarLabelStyle: {
             fontSize: fonts.xs, fontWeight: '600', letterSpacing: 0.5, marginTop: 2,
           },
@@ -173,6 +173,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="profile/bag"              options={{ href: null }} />
         <Tabs.Screen name="profile/rounds"           options={{ href: null }} />
         <Tabs.Screen name="profile/round/[matchId]"  options={{ href: null }} />
+        <Tabs.Screen name="profile/club/[id]"        options={{ href: null }} />
         <Tabs.Screen name="records/index"             options={{ href: null }} />
         <Tabs.Screen name="swindle/create"           options={{ href: null }} />
         <Tabs.Screen name="swindle/[gameId]"         options={{ href: null }} />
