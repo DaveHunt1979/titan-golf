@@ -1,12 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Animated, Easing, ScrollView, StyleSheet, Text,
+  ActivityIndicator, Animated, Easing, Image, ScrollView, StyleSheet, Text,
   TouchableOpacity, View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, radius, spacing } from '../../../src/lib/theme';
+
+// ─── TITAN design constants ──────────────────────────────────────────────────
+
+const GOLD  = '#D4AF37';
+const GREEN = '#4ade80';
+const RED   = '#f87171';
+const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -116,6 +126,11 @@ interface HcpEntry  { index: number; calculatedAt: string }
 
 export default function StatsScreen() {
   const router = useRouter();
+  const [fontsLoaded] = useFonts({
+    'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
   const [loading, setLoading]   = useState(true);
   const [rounds,  setRounds]    = useState(0);
   const [shots,   setShots]     = useState(0);
@@ -255,6 +270,14 @@ export default function StatsScreen() {
     setLoading(false);
   }
 
+  if (loading || !fontsLoaded) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={GOLD} size="large" />
+      </View>
+    );
+  }
+
   const totalDrives = drives.left + drives.centre + drives.right;
   const maxClubShots = clubs[0]?.shots ?? 1;
 
@@ -271,12 +294,22 @@ export default function StatsScreen() {
     <View style={ss.container}>
       <StatusBar style="light" />
 
+      {/* ── Header ── */}
       <View style={ss.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={ss.back}>← Back</Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={ss.headerBtn}
+        >
+          <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={ss.title}>My Stats</Text>
-        <View style={{ width: 56 }} />
+
+        <View style={ss.headerCenter}>
+          <Image source={titanLogo} style={ss.headerLogo} resizeMode="contain" />
+          <Text style={ss.headerSubtitle}>MY STATS</Text>
+        </View>
+
+        <View style={ss.headerBtn} />
       </View>
 
       <ScrollView contentContainerStyle={ss.scroll} showsVerticalScrollIndicator={false}>
@@ -306,10 +339,10 @@ export default function StatsScreen() {
               {/* Left rough */}
               <View style={[ss.fairwayZone, ss.roughZone]}>
                 <Text style={ss.zoneLabel}>LEFT</Text>
-                <Text style={[ss.zoneCount, { color: '#f87171' }]}>{drives.left}</Text>
+                <Text style={[ss.zoneCount, { color: RED }]}>{drives.left}</Text>
                 <View style={ss.dotGrid}>
                   {Array.from({ length: drives.left }).map((_, i) => (
-                    <FairwayDot key={i} color="#f87171" delay={i * 60} />
+                    <FairwayDot key={i} color={RED} delay={i * 60} />
                   ))}
                 </View>
               </View>
@@ -317,10 +350,10 @@ export default function StatsScreen() {
               {/* Centre fairway */}
               <View style={[ss.fairwayZone, ss.fairZone]}>
                 <Text style={ss.zoneLabel}>CENTRE</Text>
-                <Text style={[ss.zoneCount, { color: '#4ade80' }]}>{drives.centre}</Text>
+                <Text style={[ss.zoneCount, { color: GREEN }]}>{drives.centre}</Text>
                 <View style={ss.dotGrid}>
                   {Array.from({ length: drives.centre }).map((_, i) => (
-                    <FairwayDot key={i} color="#4ade80" delay={i * 60} />
+                    <FairwayDot key={i} color={GREEN} delay={i * 60} />
                   ))}
                 </View>
                 {totalDrives > 0 && (
@@ -389,21 +422,21 @@ export default function StatsScreen() {
             <Text style={ss.sectionLabel}>PUTTING  ·  {putts.total} holes</Text>
             <View style={ss.puttRow}>
               <View style={ss.puttCard}>
-                <Text style={[ss.puttVal, { color: '#D4AF37' }]}>{putts.one}</Text>
+                <Text style={[ss.puttVal, { color: GOLD }]}>{putts.one}</Text>
                 <Text style={ss.puttLbl}>1-PUTT</Text>
                 {putts.total > 0 && (
                   <Text style={ss.puttPct}>{Math.round((putts.one / putts.total) * 100)}%</Text>
                 )}
               </View>
               <View style={ss.puttCard}>
-                <Text style={[ss.puttVal, { color: '#4ade80' }]}>{putts.two}</Text>
+                <Text style={[ss.puttVal, { color: GREEN }]}>{putts.two}</Text>
                 <Text style={ss.puttLbl}>2-PUTT</Text>
                 {putts.total > 0 && (
                   <Text style={ss.puttPct}>{Math.round((putts.two / putts.total) * 100)}%</Text>
                 )}
               </View>
               <View style={ss.puttCard}>
-                <Text style={[ss.puttVal, { color: '#f87171' }]}>{putts.three}</Text>
+                <Text style={[ss.puttVal, { color: RED }]}>{putts.three}</Text>
                 <Text style={ss.puttLbl}>3-PUTT+</Text>
                 {putts.total > 0 && (
                   <Text style={ss.puttPct}>{Math.round((putts.three / putts.total) * 100)}%</Text>
@@ -438,8 +471,8 @@ export default function StatsScreen() {
               </View>
               <View style={[ss.hcpMetaItem, { alignItems: 'center' }]}>
                 {hcpHistory[hcpHistory.length - 1].index < hcpHistory[0].index
-                  ? <Text style={[ss.hcpDelta, { color: '#4ade80' }]}>▼ {(hcpHistory[0].index - hcpHistory[hcpHistory.length - 1].index).toFixed(1)}</Text>
-                  : <Text style={[ss.hcpDelta, { color: '#f87171' }]}>▲ {(hcpHistory[hcpHistory.length - 1].index - hcpHistory[0].index).toFixed(1)}</Text>
+                  ? <Text style={[ss.hcpDelta, { color: GREEN }]}>▼ {(hcpHistory[0].index - hcpHistory[hcpHistory.length - 1].index).toFixed(1)}</Text>
+                  : <Text style={[ss.hcpDelta, { color: RED }]}>▲ {(hcpHistory[hcpHistory.length - 1].index - hcpHistory[0].index).toFixed(1)}</Text>
                 }
                 <Text style={ss.hcpMetaLbl}>CHANGE</Text>
               </View>
@@ -508,7 +541,7 @@ function TrendChart({ data }: { data: HcpEntry[] }) {
                 left: cx - len / 2,
                 top: cy - 1,
                 width: len, height: 2,
-                backgroundColor: improving ? '#4ade80' : '#f87171',
+                backgroundColor: improving ? GREEN : RED,
                 transform: [{ rotate: `${angle}deg` }],
               }} />
             );
@@ -521,16 +554,16 @@ function TrendChart({ data }: { data: HcpEntry[] }) {
                 position: 'absolute',
                 left: p.x - 5, top: p.y - 5,
                 width: 10, height: 10, borderRadius: 5,
-                backgroundColor: isLast ? colors.gold : colors.bg,
-                borderWidth: 2, borderColor: colors.gold,
+                backgroundColor: isLast ? GOLD : '#000',
+                borderWidth: 2, borderColor: GOLD,
               }} />
             );
           })}
           {/* First and last labels */}
-          <Text style={{ position: 'absolute', left: points[0].x - 14, top: points[0].y + 8, fontSize: 9, color: colors.textMuted, fontWeight: '700' }}>
+          <Text style={{ position: 'absolute', left: points[0].x - 14, top: points[0].y + 8, fontSize: 9, color: '#555', fontFamily: FFB }}>
             {points[0].v.toFixed(1)}
           </Text>
-          <Text style={{ position: 'absolute', left: points[points.length - 1].x - 14, top: points[points.length - 1].y + 8, fontSize: 9, color: colors.gold, fontWeight: '700' }}>
+          <Text style={{ position: 'absolute', left: points[points.length - 1].x - 14, top: points[points.length - 1].y + 8, fontSize: 9, color: GOLD, fontFamily: FFB }}>
             {points[points.length - 1].v.toFixed(1)}
           </Text>
         </>
@@ -542,86 +575,92 @@ function TrendChart({ data }: { data: HcpEntry[] }) {
 // ─── styles ─────────────────────────────────────────────────────────────────
 
 const ss = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: '#000' },
 
+  // ── header ──
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  back:  { fontSize: fonts.sm, fontWeight: '600', color: colors.gold },
-  title: { fontSize: fonts.lg, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
+  headerBtn:  { width: 40, alignItems: 'flex-start' },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerLogo: { width: 28, height: 28 },
+  headerSubtitle: {
+    fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2.5, marginTop: 3,
+  },
 
-  scroll: { padding: spacing.lg },
+  scroll: { padding: 20 },
 
   // ── pills ──
-  pillRow:  { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+  pillRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   pill: {
-    flex: 1, backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    paddingVertical: spacing.md, alignItems: 'center',
+    flex: 1, backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingVertical: 14, alignItems: 'center',
   },
-  pillVal: { fontSize: fonts.xxl, fontWeight: '800', color: colors.gold },
-  pillLbl: { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginTop: 2 },
+  pillVal: { fontFamily: FFB, fontSize: 28, color: GOLD },
+  pillLbl: { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 2, marginTop: 3 },
 
   // ── section ──
   section: {
-    backgroundColor: colors.card, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.md, marginBottom: spacing.md,
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 16, marginBottom: 12,
   },
   sectionLabel: {
-    fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted,
-    letterSpacing: 2, textTransform: 'uppercase', marginBottom: spacing.md,
+    fontFamily: FF, fontSize: 10, color: '#555',
+    letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14,
   },
 
   // ── fairway ──
   fairwayWrap:  { flexDirection: 'row', gap: 6 },
   fairwayZone: {
-    flex: 1, borderRadius: radius.md, padding: spacing.sm, minHeight: 120,
+    flex: 1, borderRadius: 10, padding: 10, minHeight: 120,
+    borderWidth: 1,
   },
-  roughZone: { backgroundColor: 'rgba(139,69,19,0.12)', borderWidth: 1, borderColor: 'rgba(139,69,19,0.2)' },
-  fairZone:  { backgroundColor: 'rgba(74,222,128,0.06)', borderWidth: 1, borderColor: 'rgba(74,222,128,0.15)' },
-  zoneLabel: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 1.5, textTransform: 'uppercase' },
-  zoneCount: { fontSize: fonts.xl, fontWeight: '800', marginTop: 2 },
+  roughZone: { backgroundColor: 'rgba(139,69,19,0.10)', borderColor: 'rgba(139,69,19,0.18)' },
+  fairZone:  { backgroundColor: 'rgba(74,222,128,0.05)', borderColor: 'rgba(74,222,128,0.12)' },
+  zoneLabel: { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1.5, textTransform: 'uppercase' },
+  zoneCount: { fontFamily: FFB, fontSize: 22, marginTop: 2 },
   dotGrid:   { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 },
-  fairwayPct:{ fontSize: fonts.xs, fontWeight: '700', color: '#4ade80', marginTop: 4, opacity: 0.8 },
+  fairwayPct:{ fontFamily: FF, fontSize: 10, color: GREEN, marginTop: 4, opacity: 0.8 },
 
   // ── club usage ──
-  clubRow:   { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 10 },
-  clubShort: { fontSize: fonts.xs, fontWeight: '800', width: 28, letterSpacing: 0.3 },
-  clubCount: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, width: 40, textAlign: 'right' },
-  legend:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: spacing.sm },
+  clubRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  clubShort: { fontFamily: FFB, fontSize: 12, width: 28, letterSpacing: 0.3 },
+  clubCount: { fontFamily: FF, fontSize: 12, color: '#555', width: 40, textAlign: 'right' },
+  legend:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   legendItem:{ flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDot: { width: 6, height: 6, borderRadius: 3 },
-  legendLbl: { fontSize: 10, color: colors.textMuted, textTransform: 'capitalize' },
+  legendLbl: { fontFamily: FF, fontSize: 10, color: '#555', textTransform: 'capitalize' },
 
   // ── scoring ──
-  vBarRow: { flexDirection: 'row', gap: spacing.sm },
+  vBarRow: { flexDirection: 'row', gap: 10 },
   vBarCol: { flex: 1, alignItems: 'center', gap: 6 },
-  vBarCount: { fontSize: fonts.sm, fontWeight: '800' },
-  vBarLabel: { fontSize: 9, fontWeight: '700', color: colors.textMuted, textAlign: 'center', letterSpacing: 0.5 },
+  vBarCount: { fontFamily: FFB, fontSize: 14 },
+  vBarLabel: { fontFamily: FF, fontSize: 9, color: '#555', textAlign: 'center', letterSpacing: 0.5 },
 
   // ── putting ──
-  puttRow:  { flexDirection: 'row', gap: spacing.sm },
+  puttRow:  { flexDirection: 'row', gap: 10 },
   puttCard: {
-    flex: 1, backgroundColor: colors.cardAlt, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    paddingVertical: spacing.md, alignItems: 'center',
+    flex: 1, backgroundColor: '#1c1c1c', borderRadius: 10,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingVertical: 14, alignItems: 'center',
   },
-  puttVal: { fontSize: fonts.xxl, fontWeight: '800' },
-  puttLbl: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 1, marginTop: 2 },
-  puttPct: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+  puttVal: { fontFamily: FFB, fontSize: 26 },
+  puttLbl: { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1, marginTop: 2 },
+  puttPct: { fontFamily: FF, fontSize: 11, color: '#555', marginTop: 2 },
 
   // ── empty ──
   empty: { alignItems: 'center', paddingTop: 80 },
-  emptyTitle: { fontSize: fonts.md, fontWeight: '700', color: colors.textSecondary },
-  emptySub:   { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', marginTop: spacing.xs, paddingHorizontal: spacing.xl },
+  emptyTitle: { fontFamily: FFB, fontSize: 16, color: '#555', textAlign: 'center' },
+  emptySub:   { fontFamily: FF, fontSize: 13, color: '#444', textAlign: 'center', marginTop: 8, paddingHorizontal: 32 },
 
   // ── handicap trend ──
-  hcpMeta:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md },
+  hcpMeta:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
   hcpMetaItem: { flex: 1 },
-  hcpMetaVal:  { fontSize: fonts.xl, fontWeight: '800', color: colors.gold },
-  hcpMetaLbl:  { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 1, marginTop: 2 },
-  hcpDelta:    { fontSize: fonts.xl, fontWeight: '800' },
+  hcpMetaVal:  { fontFamily: FFB, fontSize: 24, color: GOLD },
+  hcpMetaLbl:  { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1, marginTop: 2 },
+  hcpDelta:    { fontFamily: FFB, fontSize: 22 },
 });

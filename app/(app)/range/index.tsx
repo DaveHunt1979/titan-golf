@@ -1,12 +1,18 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Image,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+const GOLD = '#D4AF37';
+const FF   = 'JUSTSans';
+const FFB  = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const CLUBS = ['Driver','3W','5W','3i','4i','5i','6i','7i','8i','9i','PW','GW','SW','LW'];
 
@@ -26,6 +32,11 @@ interface ClubAvg {
 
 export default function RangeHomeScreen() {
   const router = useRouter();
+  const [fontsLoaded] = useFonts({
+    [FF]:  require('../../../assets/fonts/JUSTSans.otf'),
+    [FFB]: require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [clubAvgs, setClubAvgs] = useState<ClubAvg[]>([]);
@@ -110,33 +121,48 @@ export default function RangeHomeScreen() {
     return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   }
 
+  if (!fontsLoaded) {
+    return (
+      <View style={s.container}>
+        <StatusBar style="light" />
+        <ActivityIndicator color={GOLD} style={{ flex: 1 }} />
+      </View>
+    );
+  }
+
+  const maxAvg = clubAvgs[0]?.avg || 1;
+
   return (
     <View style={s.container}>
       <StatusBar style="light" />
 
+      {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
-          <Text style={s.backText}>‹ Back</Text>
+        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={24} color={GOLD} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>DRIVING RANGE</Text>
-        <View style={{ minWidth: 60 }} />
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.logoImg} resizeMode="contain" />
+          <Text style={s.headerSubtitle}>DRIVING RANGE</Text>
+        </View>
+        <View style={s.headerSide} />
       </View>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Start session */}
+        {/* Start session card */}
         <TouchableOpacity style={s.startBtn} onPress={startSession} disabled={starting} activeOpacity={0.85}>
           {starting
-            ? <ActivityIndicator color={colors.bg} />
+            ? <ActivityIndicator color="#000" />
             : <>
-                <Text style={s.startBtnIcon}>🏌️</Text>
+                <Ionicons name="barbell-outline" size={32} color="#000" style={s.startIcon} />
                 <Text style={s.startBtnText}>Start Range Session</Text>
                 <Text style={s.startBtnSub}>Log shots, track distances, build your bag profile</Text>
               </>
           }
         </TouchableOpacity>
 
-        {/* Club distance averages */}
+        {/* Bag distances */}
         {clubAvgs.length > 0 && (
           <>
             <Text style={s.sectionLabel}>YOUR BAG · CARRY DISTANCES</Text>
@@ -144,11 +170,11 @@ export default function RangeHomeScreen() {
               {clubAvgs.map((c, i) => (
                 <View key={c.club} style={[s.bagRow, i < clubAvgs.length - 1 && s.bagRowBorder]}>
                   <Text style={s.bagClub}>{c.club}</Text>
-                  <View style={s.bagBar}>
-                    <View style={[s.bagBarFill, { width: `${Math.round((c.avg / (clubAvgs[0]?.avg || 1)) * 100)}%` }]} />
+                  <View style={s.bagBarTrack}>
+                    <View style={[s.bagBarFill, { width: `${Math.round((c.avg / maxAvg) * 100)}%` as any }]} />
                   </View>
-                  <Text style={s.bagAvg}>{c.avg} <Text style={s.bagYds}>yds</Text></Text>
-                  <Text style={s.bagMax}>↑{c.max}</Text>
+                  <Text style={s.bagAvg}>{c.avg}<Text style={s.bagYds}> yds</Text></Text>
+                  <Text style={s.bagMax}>{c.max}</Text>
                 </View>
               ))}
             </View>
@@ -169,24 +195,25 @@ export default function RangeHomeScreen() {
               >
                 <View style={s.sessionLeft}>
                   <Text style={s.sessionDate}>{formatDate(sess.created_at)}</Text>
-                  <Text style={s.sessionCount}>{sess.shot_count} shots logged</Text>
+                  <Text style={s.sessionCount}>{sess.shot_count} shots</Text>
                 </View>
-                <Text style={s.sessionArrow}>›</Text>
+                <Ionicons name="chevron-forward" size={20} color={GOLD} />
               </TouchableOpacity>
             ))}
             <Text style={s.longPressHint}>Long press a session to delete</Text>
           </>
         )}
 
+        {/* Empty state */}
         {!loading && sessions.length === 0 && (
           <View style={s.emptyState}>
-            <Text style={s.emptyIcon}>⛳</Text>
             <Text style={s.emptyTitle}>No sessions yet</Text>
             <Text style={s.emptySub}>Hit Start Range Session to begin tracking your distances</Text>
           </View>
         )}
 
-        {loading && <ActivityIndicator color={colors.gold} style={{ marginTop: spacing.xl }} />}
+        {/* Loading */}
+        {loading && <ActivityIndicator color={GOLD} style={{ marginTop: 32 }} />}
 
       </ScrollView>
     </View>
@@ -194,58 +221,157 @@ export default function RangeHomeScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: '#000' },
 
+  // Header
   header: {
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingTop: 56,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1c1c1c',
   },
-  backBtn:     { minWidth: 60 },
-  backText:    { fontSize: fonts.md, color: colors.gold, fontWeight: '600' },
-  headerTitle: { fontSize: fonts.sm, fontWeight: '800', color: colors.white, letterSpacing: 2 },
+  headerSide:   { width: 40, alignItems: 'flex-start' },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  logoImg:      { width: 80, height: 28 },
+  headerSubtitle: {
+    fontFamily: FF,
+    fontSize: 10,
+    color: '#555',
+    letterSpacing: 2,
+    marginTop: 2,
+  },
 
-  scroll: { padding: spacing.md, paddingBottom: 100 },
+  scroll: { padding: 16, paddingBottom: 100 },
 
+  // Start session button
   startBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.xl,
-    paddingVertical: spacing.xl, alignItems: 'center',
-    marginBottom: spacing.xl,
+    backgroundColor: GOLD,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 24,
   },
-  startBtnIcon: { fontSize: 40, marginBottom: spacing.sm },
-  startBtnText: { fontSize: fonts.lg, fontWeight: '900', color: colors.bg, letterSpacing: 1 },
-  startBtnSub:  { fontSize: fonts.xs, color: 'rgba(7,11,16,0.6)', marginTop: spacing.xs, textAlign: 'center', paddingHorizontal: spacing.lg },
+  startIcon:    { marginBottom: 6 },
+  startBtnText: {
+    fontFamily: FFB,
+    fontSize: 16,
+    color: '#000',
+    letterSpacing: 0.5,
+  },
+  startBtnSub: {
+    fontFamily: FF,
+    fontSize: 12,
+    color: 'rgba(0,0,0,0.55)',
+    marginTop: 4,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
 
-  sectionLabel: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 2, marginBottom: spacing.sm, marginTop: spacing.md },
+  // Section labels
+  sectionLabel: {
+    fontFamily: FF,
+    fontSize: 10,
+    color: '#555',
+    letterSpacing: 2,
+    marginBottom: 8,
+    marginTop: 12,
+  },
 
+  // Bag card
   bagCard: {
-    backgroundColor: colors.card, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border,
-    overflow: 'hidden', marginBottom: spacing.md,
+    backgroundColor: '#111',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1c1c1c',
+    overflow: 'hidden',
+    marginBottom: 8,
   },
-  bagRow:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
-  bagRowBorder:  { borderBottomWidth: 1, borderBottomColor: colors.border },
-  bagClub:       { width: 42, fontSize: fonts.sm, fontWeight: '800', color: colors.white },
-  bagBar:        { flex: 1, height: 6, backgroundColor: colors.cardAlt, borderRadius: 3, marginHorizontal: spacing.sm, overflow: 'hidden' },
-  bagBarFill:    { height: '100%', backgroundColor: colors.gold, borderRadius: 3 },
-  bagAvg:        { width: 70, fontSize: fonts.sm, fontWeight: '800', color: colors.gold, textAlign: 'right' },
-  bagYds:        { fontSize: fonts.xs, fontWeight: '600', color: colors.textMuted },
-  bagMax:        { width: 44, fontSize: fonts.xs, color: colors.textMuted, textAlign: 'right' },
+  bagRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10 },
+  bagRowBorder: { borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  bagClub: {
+    width: 44,
+    fontFamily: FFB,
+    fontSize: 13,
+    color: '#fff',
+  },
+  bagBarTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: '#1c1c1c',
+    borderRadius: 3,
+    marginHorizontal: 10,
+    overflow: 'hidden',
+  },
+  bagBarFill:   { height: '100%', backgroundColor: GOLD, borderRadius: 3 },
+  bagAvg: {
+    width: 68,
+    fontFamily: FFB,
+    fontSize: 13,
+    color: GOLD,
+    textAlign: 'right',
+  },
+  bagYds: {
+    fontFamily: FF,
+    fontSize: 11,
+    color: '#555',
+  },
+  bagMax: {
+    width: 40,
+    fontFamily: FF,
+    fontSize: 11,
+    color: '#555',
+    textAlign: 'right',
+  },
 
+  // Session cards
   sessionCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.md, marginBottom: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1c1c1c',
+    padding: 14,
+    marginBottom: 8,
   },
   sessionLeft:  { flex: 1 },
-  sessionDate:  { fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  sessionCount: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
-  sessionArrow: { fontSize: fonts.xl, color: colors.textMuted },
-  longPressHint: { fontSize: fonts.xs, color: colors.textMuted, textAlign: 'center', marginTop: spacing.sm, opacity: 0.5 },
+  sessionDate: {
+    fontFamily: FFB,
+    fontSize: 15,
+    color: '#fff',
+  },
+  sessionCount: {
+    fontFamily: FF,
+    fontSize: 12,
+    color: '#555',
+    marginTop: 2,
+  },
+  longPressHint: {
+    fontFamily: FF,
+    fontSize: 11,
+    color: '#555',
+    textAlign: 'center',
+    marginTop: 6,
+    opacity: 0.7,
+  },
 
-  emptyState: { alignItems: 'center', paddingVertical: spacing.xxl },
-  emptyIcon:  { fontSize: 48, marginBottom: spacing.md },
-  emptyTitle: { fontSize: fonts.lg, fontWeight: '800', color: colors.white, marginBottom: spacing.xs },
-  emptySub:   { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 22 },
+  // Empty state
+  emptyState: { alignItems: 'center', paddingVertical: 48 },
+  emptyTitle: {
+    fontFamily: FFB,
+    fontSize: 18,
+    color: '#fff',
+    marginBottom: 8,
+  },
+  emptySub: {
+    fontFamily: FF,
+    fontSize: 14,
+    color: '#555',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
 });

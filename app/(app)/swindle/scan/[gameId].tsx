@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, TextInput,
+  Alert, ActivityIndicator, TextInput, Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFonts } from 'expo-font';
+import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../../src/lib/supabase';
 import { scanPlayerScoresFromCamera, scanPlayerScoresFromLibrary, ScannedScore } from '../../../../src/lib/scanScorecard';
 import { calcStrokesReceived, calcStablefordPoints, calcCourseHandicap } from '../../../../src/lib/scoring';
-import { colors, fonts, spacing, radius } from '../../../../src/lib/theme';
+
+const GOLD   = '#D4AF37';
+const GREEN  = '#4ade80';
+const RED    = '#f87171';
+const PURPLE = '#a78bfa';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
 
 type Step = 'player' | 'scan' | 'review' | 'saving';
 
@@ -25,16 +33,28 @@ export default function SwindleScan() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
   const router     = useRouter();
 
-  const [step,        setStep]       = useState<Step>('player');
-  const [players,     setPlayers]    = useState<EnteredPlayer[]>([]);
-  const [selected,    setSelected]   = useState<EnteredPlayer | null>(null);
-  const [courseHoles, setCourseHoles]= useState<HoleInfo[]>([]);
-  const [scores,      setScores]     = useState<(number | null)[]>(Array(18).fill(null));
-  const [scanning,    setScanning]   = useState(false);
-  const [loading,     setLoading]    = useState(true);
+  const [step,        setStep]        = useState<Step>('player');
+  const [players,     setPlayers]     = useState<EnteredPlayer[]>([]);
+  const [selected,    setSelected]    = useState<EnteredPlayer | null>(null);
+  const [courseHoles, setCourseHoles] = useState<HoleInfo[]>([]);
+  const [scores,      setScores]      = useState<(number | null)[]>(Array(18).fill(null));
+  const [scanning,    setScanning]    = useState(false);
+  const [loading,     setLoading]     = useState(true);
   const [slopeRating, setSlopeRating] = useState(113);
   const [courseRating,setCourseRating]= useState<number | null>(null);
   const [hcpAllowance,setHcpAllowance]= useState(100);
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" />
+      <ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
 
   useEffect(() => { load(); }, [gameId]);
 
@@ -144,19 +164,16 @@ export default function SwindleScan() {
 
   const holesEntered = scores.filter(s => s !== null).length;
 
-  if (loading) {
-    return <View style={s.container}><ActivityIndicator color={colors.gold} style={{ marginTop: 80 }} /></View>;
-  }
-
   // ── Step: Select player ───────────────────────────────────────
   if (step === 'player') {
     return (
       <View style={s.container}>
+        <StatusBar style="light" />
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={{ top:10,bottom:10,left:10,right:10 }}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Text style={s.back}>← Back</Text>
           </TouchableOpacity>
-          <Text style={s.headerTitle}>Scan Scorecard</Text>
+          <Text style={s.headerTitle}>SCAN SCORECARD</Text>
           <View style={{ width: 60 }} />
         </View>
         <Text style={s.stepHint}>Step 1 of 3 — Who's scorecard is this?</Text>
@@ -168,13 +185,18 @@ export default function SwindleScan() {
               onPress={() => { setSelected(p); setStep('scan'); }}
               activeOpacity={0.8}
             >
-              <View style={{ flex: 1 }}>
-                <Text style={[s.playerName, p.has_scores && { color: colors.textMuted }]}>{p.display_name}</Text>
-                <Text style={s.playerHcp}>
-                  {p.handicap != null ? `HCP ${p.handicap}` : 'No handicap'}{p.has_scores ? ' · Already submitted' : ''}
-                </Text>
+              <View style={[s.playerRowInner, p.has_scores && s.playerRowInnerSelected]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.playerName, p.has_scores && { color: GOLD }]}>{p.display_name}</Text>
+                  <Text style={s.playerHcp}>
+                    {p.handicap != null ? `HCP ${p.handicap}` : 'No handicap'}{p.has_scores ? ' · Already submitted' : ''}
+                  </Text>
+                </View>
+                {p.has_scores
+                  ? <Text style={s.checkBadge}>✓</Text>
+                  : <Text style={s.arrow}>›</Text>
+                }
               </View>
-              <Text style={[s.arrow, p.has_scores && { color: colors.textMuted }]}>›</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -186,8 +208,9 @@ export default function SwindleScan() {
   if (step === 'scan') {
     return (
       <View style={s.container}>
+        <StatusBar style="light" />
         <View style={s.header}>
-          <TouchableOpacity onPress={() => setStep('player')} hitSlop={{ top:10,bottom:10,left:10,right:10 }}>
+          <TouchableOpacity onPress={() => setStep('player')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Text style={s.back}>← Back</Text>
           </TouchableOpacity>
           <Text style={s.headerTitle}>{selected?.display_name.split(' ')[0]}'s Card</Text>
@@ -202,18 +225,18 @@ export default function SwindleScan() {
 
           {scanning ? (
             <View style={s.scanningWrap}>
-              <ActivityIndicator color={colors.gold} size="large" />
+              <ActivityIndicator color={GOLD} size="large" />
               <Text style={s.scanningText}>Reading scores…</Text>
             </View>
           ) : (
             <View style={s.scanBtns}>
-              <TouchableOpacity style={s.scanBtn} onPress={() => doScan(false)} activeOpacity={0.8}>
+              <TouchableOpacity style={[s.scanBtn, s.scanBtnCamera]} onPress={() => doScan(false)} activeOpacity={0.8}>
                 <Text style={s.scanBtnIcon}>📷</Text>
-                <Text style={s.scanBtnText}>Take Photo</Text>
+                <Text style={[s.scanBtnText, { color: '#000' }]}>Take Photo</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.scanBtn, s.scanBtnAlt]} onPress={() => doScan(true)} activeOpacity={0.8}>
+              <TouchableOpacity style={s.scanBtn} onPress={() => doScan(true)} activeOpacity={0.8}>
                 <Text style={s.scanBtnIcon}>🖼️</Text>
-                <Text style={[s.scanBtnText, { color: colors.textSecondary }]}>Choose Photo</Text>
+                <Text style={s.scanBtnText}>Choose Photo</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -226,11 +249,22 @@ export default function SwindleScan() {
     );
   }
 
+  // ── Step: Saving ──────────────────────────────────────────────
+  if (step === 'saving') {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+        <StatusBar style="light" />
+        <ActivityIndicator color={GOLD} size="large" />
+      </View>
+    );
+  }
+
   // ── Step: Review / edit scores ────────────────────────────────
   return (
     <View style={s.container}>
+      <StatusBar style="light" />
       <View style={s.header}>
-        <TouchableOpacity onPress={() => setStep('scan')} hitSlop={{ top:10,bottom:10,left:10,right:10 }}>
+        <TouchableOpacity onPress={() => setStep('scan')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle}>{selected?.display_name.split(' ')[0]}'s Card</Text>
@@ -238,7 +272,15 @@ export default function SwindleScan() {
       </View>
       <Text style={s.stepHint}>Step 3 of 3 — Check scores, edit if needed, then submit</Text>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: 100 }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}>
+        {/* Score grid header */}
+        <View style={s.gridHeader}>
+          <Text style={s.gridHeaderText}>HOLE</Text>
+          <Text style={s.gridHeaderText}>PAR</Text>
+          <Text style={s.gridHeaderText}>GROSS</Text>
+          <Text style={s.gridHeaderText}>PTS</Text>
+        </View>
+
         <View style={s.grid}>
           {Array.from({ length: 18 }, (_, i) => {
             const holeNum  = i + 1;
@@ -246,7 +288,7 @@ export default function SwindleScan() {
             const gross    = scores[i];
             const shots    = holeInfo ? calcStrokesReceived(getPlayingHcp(selected), holeInfo.stroke_index) : 0;
             const pts      = (gross != null && holeInfo) ? calcStablefordPoints(gross, holeInfo.par, shots) : null;
-            const ptColor  = pts == null ? colors.textMuted : pts >= 4 ? colors.gold : pts === 3 ? '#4ade80' : pts === 2 ? colors.white : pts === 1 ? colors.textMuted : colors.red;
+            const ptColor  = pts == null ? '#555' : pts >= 4 ? GOLD : pts === 3 ? GREEN : pts === 2 ? '#fff' : pts === 1 ? '#555' : RED;
 
             return (
               <View key={holeNum} style={s.holeCell}>
@@ -264,7 +306,7 @@ export default function SwindleScan() {
                   keyboardType="number-pad"
                   maxLength={2}
                   placeholder="—"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor="#555"
                   selectTextOnFocus
                 />
                 {pts != null && <Text style={[s.holeCellPts, { color: ptColor }]}>{pts}pt{pts !== 1 ? 's' : ''}</Text>}
@@ -280,7 +322,7 @@ export default function SwindleScan() {
           </View>
           <View style={s.summaryItem}>
             <Text style={s.summaryLabel}>STABLEFORD</Text>
-            <Text style={[s.summaryValue, { color: colors.gold }]}>{totalPts}pts</Text>
+            <Text style={[s.summaryValue, { color: GOLD }]}>{totalPts}pts</Text>
           </View>
           {selected && (
             <View style={s.summaryItem}>
@@ -291,15 +333,12 @@ export default function SwindleScan() {
         </View>
 
         <TouchableOpacity
-          style={[s.submitBtn, (step === 'saving' || holesEntered === 0) && { opacity: 0.5 }]}
+          style={[s.submitBtn, holesEntered === 0 && { opacity: 0.5 }]}
           onPress={submitScores}
-          disabled={step === 'saving' || holesEntered === 0}
+          disabled={holesEntered === 0}
           activeOpacity={0.85}
         >
-          {step === 'saving'
-            ? <ActivityIndicator color={colors.bg} />
-            : <Text style={s.submitBtnText}>Submit {selected?.display_name.split(' ')[0]}'s Scores</Text>
-          }
+          <Text style={s.submitBtnText}>Submit {selected?.display_name.split(' ')[0]}'s Scores</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -307,46 +346,77 @@ export default function SwindleScan() {
 }
 
 const s = StyleSheet.create({
-  container:     { flex: 1, backgroundColor: colors.bg, paddingTop: 56 },
-  header:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, marginBottom: spacing.xs, gap: spacing.sm },
-  back:          { color: colors.gold, fontSize: fonts.md, fontWeight: '600' },
-  headerTitle:   { flex: 1, fontSize: fonts.md, fontWeight: '800', color: colors.white, textAlign: 'center' },
-  headerPts:     { fontSize: fonts.md, fontWeight: '800', color: colors.gold, minWidth: 60, textAlign: 'right' },
-  stepHint:      { fontSize: fonts.xs, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.md, paddingHorizontal: spacing.lg },
+  container:     { flex: 1, backgroundColor: '#000', paddingTop: 56 },
 
-  playerRow:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
-  playerRowDone: { opacity: 0.5 },
-  playerName:    { fontSize: fonts.md, fontWeight: '700', color: colors.white, marginBottom: 2 },
-  playerHcp:     { fontSize: fonts.xs, color: colors.textMuted },
-  arrow:         { fontSize: 22, color: colors.gold },
+  header:        {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
+    marginBottom: 8,
+  },
+  back:          { color: GOLD, fontSize: 15, fontFamily: FFB, width: 60 },
+  headerTitle:   { flex: 1, fontSize: 15, fontFamily: FFB, color: '#fff', textAlign: 'center' },
+  headerPts:     { fontSize: 15, fontFamily: FFB, color: GOLD, minWidth: 60, textAlign: 'right' },
+  stepHint:      { fontSize: 12, color: '#555', fontFamily: FF, textAlign: 'center', marginBottom: 16, paddingHorizontal: 24 },
 
-  scanArea:      { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.lg },
+  // Player list
+  playerRow:          { paddingHorizontal: 16, paddingVertical: 8 },
+  playerRowDone:      { opacity: 0.4 },
+  playerRowInner:     {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
+  },
+  playerRowInnerSelected: { borderLeftWidth: 3, borderLeftColor: GOLD },
+  playerName:    { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 2 },
+  playerHcp:     { fontSize: 12, fontFamily: FF, color: '#555' },
+  arrow:         { fontSize: 22, color: GOLD },
+  checkBadge:    { fontSize: 16, color: GOLD, fontFamily: FFB },
+
+  // Scan step
+  scanArea:      { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 20 },
   scanIcon:      { fontSize: 56 },
-  scanTitle:     { fontSize: fonts.xl, fontWeight: '800', color: colors.white, textAlign: 'center' },
-  scanSub:       { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
-  scanBtns:      { flexDirection: 'row', gap: spacing.md, width: '100%' },
-  scanBtn:       { flex: 1, backgroundColor: colors.gold, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', gap: spacing.xs },
-  scanBtnAlt:    { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  scanTitle:     { fontSize: 20, fontFamily: FFB, color: '#fff', textAlign: 'center' },
+  scanSub:       { fontSize: 14, fontFamily: FF, color: '#555', textAlign: 'center', lineHeight: 20 },
+  scanBtns:      { flexDirection: 'row', gap: 12, width: '100%' },
+  scanBtn:       {
+    flex: 1, backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
+    borderRadius: 12, paddingVertical: 20, alignItems: 'center', gap: 8,
+  },
+  scanBtnCamera: { borderColor: GOLD },
   scanBtnIcon:   { fontSize: 24 },
-  scanBtnText:   { fontSize: fonts.sm, fontWeight: '800', color: colors.bg },
-  scanningWrap:  { alignItems: 'center', gap: spacing.sm },
-  scanningText:  { color: colors.textMuted, fontSize: fonts.sm },
-  manualBtn:     { alignItems: 'center', paddingBottom: spacing.xl },
-  manualBtnText: { fontSize: fonts.sm, color: colors.textMuted, textDecorationLine: 'underline' },
+  scanBtnText:   { fontSize: 14, fontFamily: FFB, color: '#fff' },
+  scanningWrap:  { alignItems: 'center', gap: 12 },
+  scanningText:  { color: '#555', fontFamily: FF, fontSize: 14 },
+  manualBtn:     { alignItems: 'center', paddingBottom: 32 },
+  manualBtnText: { fontSize: 13, fontFamily: FF, color: '#555', textDecorationLine: 'underline' },
 
-  grid:          { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
-  holeCell:      { width: '30%', flexGrow: 1, backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.sm, alignItems: 'center', gap: 2 },
-  holeCellNum:   { fontSize: 10, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.5 },
-  holeCellPar:   { fontSize: 9, color: colors.textMuted },
-  holeCellInput: { fontSize: fonts.xxl, fontWeight: '800', color: colors.textMuted, textAlign: 'center', width: '100%', paddingVertical: 4 },
-  holeCellInputFilled: { color: colors.white },
-  holeCellPts:   { fontSize: fonts.xs, fontWeight: '700' },
+  // Review grid
+  gridHeader:    { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, paddingVertical: 8 },
+  gridHeaderText:{ fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  grid:          { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  holeCell:      {
+    width: '30%', flexGrow: 1,
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 8, alignItems: 'center', gap: 2,
+  },
+  holeCellNum:        { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 0.5 },
+  holeCellPar:        { fontSize: 9, fontFamily: FF, color: '#555' },
+  holeCellInput:      { fontSize: 24, fontFamily: FFB, color: '#555', textAlign: 'center', width: '100%', paddingVertical: 4, backgroundColor: '#1a1a1a', borderRadius: 6 },
+  holeCellInputFilled:{ color: '#fff' },
+  holeCellPts:        { fontSize: 11, fontFamily: FFB },
 
-  summary:       { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md, borderWidth: 1, borderColor: colors.border },
+  summary:       {
+    flexDirection: 'row', justifyContent: 'space-around',
+    backgroundColor: '#111', borderRadius: 12,
+    padding: 16, marginTop: 16,
+    borderWidth: 1, borderColor: '#1c1c1c',
+  },
   summaryItem:   { alignItems: 'center' },
-  summaryLabel:  { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 1 },
-  summaryValue:  { fontSize: fonts.lg, fontWeight: '800', color: colors.white, marginTop: 2 },
+  summaryLabel:  { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  summaryValue:  { fontSize: 20, fontFamily: FFB, color: '#fff', marginTop: 2 },
 
-  submitBtn:     { backgroundColor: colors.gold, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: spacing.lg },
-  submitBtnText: { color: colors.bg, fontSize: fonts.lg, fontWeight: '800' },
+  submitBtn:     { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 16 },
+  submitBtnText: { color: '#000', fontSize: 17, fontFamily: FFB },
 });

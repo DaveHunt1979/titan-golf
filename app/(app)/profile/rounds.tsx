@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, radius, spacing } from '../../../src/lib/theme';
+
+const GOLD  = '#D4AF37';
+const GREEN = '#4ade80';
+const RED   = '#f87171';
+const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 interface Round {
   matchId: string;
@@ -22,6 +30,11 @@ export default function RoundsScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [rounds,  setRounds]  = useState<Round[]>([]);
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
   useEffect(() => { load(); }, []);
 
@@ -117,11 +130,11 @@ export default function RoundsScreen() {
     setLoading(false);
   }
 
-  if (loading) {
+  if (loading || !fontsLoaded) {
     return (
-      <View style={[ss.container, ss.centered]}>
+      <View style={ss.loadingContainer}>
         <StatusBar style="light" />
-        <ActivityIndicator color={colors.gold} size="large" />
+        <ActivityIndicator color={GOLD} size="large" />
       </View>
     );
   }
@@ -130,12 +143,22 @@ export default function RoundsScreen() {
     <View style={ss.container}>
       <StatusBar style="light" />
 
+      {/* Header */}
       <View style={ss.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={ss.back}>← Back</Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={ss.headerSide}
+        >
+          <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={ss.title}>Round History</Text>
-        <View style={{ width: 56 }} />
+
+        <View style={ss.headerCenter}>
+          <Image source={titanLogo} style={ss.logo} resizeMode="contain" />
+          <Text style={ss.headerSubtitle}>ROUND HISTORY</Text>
+        </View>
+
+        <View style={[ss.headerSide, { alignItems: 'flex-end' }]} />
       </View>
 
       <ScrollView contentContainerStyle={ss.scroll} showsVerticalScrollIndicator={false}>
@@ -157,8 +180,9 @@ export default function RoundsScreen() {
                 onPress={() => router.push(`/(app)/profile/round/${r.matchId}` as any)}
                 activeOpacity={0.75}
               >
+                {/* Top row */}
                 <View style={ss.cardTop}>
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
                     <Text style={ss.courseName} numberOfLines={1}>{r.courseName}</Text>
                     <Text style={ss.date}>{formatDate(r.playDate)}</Text>
                   </View>
@@ -168,11 +192,12 @@ export default function RoundsScreen() {
                       <Text style={[ss.toPar, { color: toParColor(diff) }]}>{toParStr(diff)}</Text>
                     )}
                     {r.holesPlayed < 18 && (
-                      <Text style={ss.holesTag}>{r.holesPlayed}H</Text>
+                      <Text style={ss.holesTag}>NH</Text>
                     )}
                   </View>
                 </View>
 
+                {/* Stats chips */}
                 {(r.fairwaysTracked > 0 || r.puttsTracked > 0) && (
                   <View style={ss.chips}>
                     {r.fairwaysTracked > 0 && (
@@ -191,7 +216,11 @@ export default function RoundsScreen() {
                   </View>
                 )}
 
-                <Text style={ss.drillLink}>View hole-by-hole →</Text>
+                {/* View hole-by-hole row */}
+                <View style={ss.drillRow}>
+                  <Text style={ss.drillLink}>View hole-by-hole</Text>
+                  <Ionicons name="chevron-forward" size={14} color={GOLD} />
+                </View>
               </TouchableOpacity>
             );
           })
@@ -213,48 +242,134 @@ function toParStr(n: number) {
 }
 
 function toParColor(n: number) {
-  if (n < 0) return colors.green;
-  if (n > 5) return colors.red;
-  return colors.textSecondary;
+  if (n < 0) return GREEN;
+  if (n > 5) return RED;
+  return '#aaa';
 }
 
 const ss = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered:  { alignItems: 'center', justifyContent: 'center' },
+  loadingContainer: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#000' },
 
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 56,
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1c1c1c',
   },
-  back:  { fontSize: fonts.sm, fontWeight: '600', color: colors.gold },
-  title: { fontSize: fonts.lg, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
+  headerSide: {
+    width: 40,
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  logo: {
+    width: 28,
+    height: 28,
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontFamily: FF,
+    fontSize: 9,
+    color: GOLD,
+    letterSpacing: 2.5,
+  },
 
-  scroll: { padding: spacing.lg },
+  scroll: { padding: 20 },
 
   card: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.md, marginBottom: spacing.sm,
+    backgroundColor: '#111',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1c1c1c',
+    padding: 14,
+    marginBottom: 10,
   },
-  cardTop:    { flexDirection: 'row', alignItems: 'center' },
-  courseName: { fontSize: fonts.sm, fontWeight: '700', color: colors.white, marginBottom: 2 },
-  date:       { fontSize: fonts.xs, color: colors.textMuted },
-  scoreBox:   { alignItems: 'flex-end', gap: 2 },
-  gross:      { fontSize: fonts.xl, fontWeight: '800', color: colors.white },
-  toPar:      { fontSize: fonts.xs, fontWeight: '700' },
-  holesTag:   { fontSize: fonts.xs, color: colors.gold, fontWeight: '700' },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  courseName: {
+    fontFamily: FFB,
+    fontSize: 15,
+    color: '#fff',
+    marginBottom: 2,
+  },
+  date: {
+    fontFamily: FF,
+    fontSize: 12,
+    color: '#555',
+  },
+  scoreBox: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  gross: {
+    fontFamily: FFB,
+    fontSize: 28,
+    color: '#fff',
+  },
+  toPar: {
+    fontFamily: FF,
+    fontSize: 12,
+  },
+  holesTag: {
+    fontFamily: FF,
+    fontSize: 12,
+    color: GOLD,
+  },
 
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+  },
   chip: {
-    backgroundColor: colors.cardAlt, borderRadius: radius.sm,
-    borderWidth: 1, borderColor: colors.border,
-    paddingHorizontal: spacing.sm, paddingVertical: 3,
+    backgroundColor: '#1c1c1c',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  chipText:  { fontSize: 11, color: colors.textSecondary, fontWeight: '600' },
-  drillLink: { fontSize: fonts.xs, color: colors.gold, marginTop: spacing.sm, fontWeight: '600' },
+  chipText: {
+    fontFamily: FF,
+    fontSize: 11,
+    color: '#555',
+  },
 
-  empty:      { alignItems: 'center', paddingTop: 80 },
-  emptyTitle: { fontSize: fonts.md, fontWeight: '700', color: colors.textSecondary },
-  emptySub:   { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', marginTop: spacing.xs, paddingHorizontal: spacing.xl },
+  drillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 4,
+  },
+  drillLink: {
+    fontFamily: FF,
+    fontSize: 12,
+    color: GOLD,
+  },
+
+  empty: {
+    alignItems: 'center',
+    paddingTop: 80,
+  },
+  emptyTitle: {
+    fontFamily: FFB,
+    fontSize: 16,
+    color: '#555',
+  },
+  emptySub: {
+    fontFamily: FF,
+    fontSize: 13,
+    color: '#444',
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 32,
+  },
 });

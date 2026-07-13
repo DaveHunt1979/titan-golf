@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  TextInput, ActivityIndicator, Alert, Modal,
+  TextInput, ActivityIndicator, Alert, Modal, Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+const GOLD  = '#D4AF37';
+const GREEN = '#4ade80';
+const RED   = '#f87171';
+const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const CLUBS = ['Driver','3W','5W','3i','4i','5i','6i','7i','8i','9i','PW','GW','SW','LW'];
 const TARGETS = [50,75,100,125,150,175,200,225,250,275,300];
@@ -18,9 +26,9 @@ const SHAPES = [
   { key: 'slice',    label: '⟶⟶', tip: 'Slice' },
 ];
 const QUALITY = [
-  { key: 'poor',  label: '❌', tip: 'Poor' },
-  { key: 'ok',    label: '✓',  tip: 'OK' },
-  { key: 'flush', label: '🔥', tip: 'Flush' },
+  { key: 'poor',  label: 'POOR',  color: RED },
+  { key: 'ok',    label: 'OK',    color: '#aaa' },
+  { key: 'flush', label: 'FLUSH', color: GOLD },
 ];
 
 interface Shot {
@@ -35,6 +43,11 @@ interface Shot {
 export default function RangeSessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const router = useRouter();
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
   const [shots, setShots]       = useState<Shot[]>([]);
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -96,23 +109,31 @@ export default function RangeSessionScreen() {
   const avg = carries.length ? Math.round(carries.reduce((a, b) => a + b, 0) / carries.length) : null;
   const max = carries.length ? Math.max(...carries) : null;
 
-  if (loading) return (
-    <View style={s.centered}><ActivityIndicator color={colors.gold} size="large" /></View>
+  if (loading || !fontsLoaded) return (
+    <View style={s.centered}><ActivityIndicator color={GOLD} size="large" /></View>
   );
 
   return (
     <View style={s.container}>
       <StatusBar style="light" />
 
-      {/* ── Fixed top panel ─────────────────────────────────────── */}
+      {/* ── Header ─────────────────────────────────────────────────── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
-          <Text style={s.backText}>‹ Back</Text>
+        {/* Left: back chevron */}
+        <TouchableOpacity onPress={() => router.back()} style={s.headerLeft} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={24} color={GOLD} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>DRIVING RANGE</Text>
+
+        {/* Centre: logo + subtitle */}
+        <View style={s.headerCentre}>
+          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Text style={s.headerSub}>DRIVING RANGE</Text>
+        </View>
+
+        {/* Right: telescope + End pill */}
         <View style={s.headerRight}>
-          <TouchableOpacity style={s.binBtn} onPress={() => setShowTargets(true)} activeOpacity={0.8}>
-            <Text style={s.binIcon}>🔭</Text>
+          <TouchableOpacity onPress={() => setShowTargets(true)} activeOpacity={0.7} style={s.iconBtn}>
+            <Ionicons name="telescope-outline" size={22} color="#555" />
           </TouchableOpacity>
           <TouchableOpacity style={s.endBtn} onPress={endSession} activeOpacity={0.8}>
             <Text style={s.endBtnText}>End</Text>
@@ -120,7 +141,7 @@ export default function RangeSessionScreen() {
         </View>
       </View>
 
-      {/* Club selector */}
+      {/* ── Club selector strip ─────────────────────────────────────── */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.clubScroll} contentContainerStyle={s.clubRow}>
         {CLUBS.map(c => (
           <TouchableOpacity
@@ -134,7 +155,7 @@ export default function RangeSessionScreen() {
         ))}
       </ScrollView>
 
-      {/* Club stats banner */}
+      {/* ── Stats banner ───────────────────────────────────────────── */}
       {avg !== null && (
         <View style={s.statsBanner}>
           <View style={s.statItem}>
@@ -154,7 +175,7 @@ export default function RangeSessionScreen() {
         </View>
       )}
 
-      {/* ── Scrollable body: inputs + history ───────────────────── */}
+      {/* ── Scrollable body ─────────────────────────────────────────── */}
       <ScrollView
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
@@ -170,7 +191,7 @@ export default function RangeSessionScreen() {
             onChangeText={setCarry}
             keyboardType="number-pad"
             placeholder="e.g. 150"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor="#333"
             maxLength={3}
           />
         </View>
@@ -197,21 +218,23 @@ export default function RangeSessionScreen() {
         <View style={s.inputCard}>
           <Text style={s.inputLabel}>QUALITY</Text>
           <View style={s.qualRow}>
-            {QUALITY.map(q => (
-              <TouchableOpacity
-                key={q.key}
-                style={[s.qualBtn, quality === q.key && s.qualBtnOn]}
-                onPress={() => setQuality(q.key)}
-                activeOpacity={0.7}
-              >
-                <Text style={s.qualIcon}>{q.label}</Text>
-                <Text style={[s.qualTip, quality === q.key && s.qualTipOn]}>{q.tip}</Text>
-              </TouchableOpacity>
-            ))}
+            {QUALITY.map(q => {
+              const isOn = quality === q.key;
+              return (
+                <TouchableOpacity
+                  key={q.key}
+                  style={[s.qualBtn, isOn && s.qualBtnOn]}
+                  onPress={() => setQuality(q.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[s.qualLabel, isOn && { color: q.color }]}>{q.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
-        {/* Log button */}
+        {/* Log Shot button */}
         <TouchableOpacity
           style={[s.logBtn, saving && s.logBtnOff]}
           onPress={logShot}
@@ -219,30 +242,43 @@ export default function RangeSessionScreen() {
           activeOpacity={0.85}
         >
           {saving
-            ? <ActivityIndicator color={colors.bg} />
+            ? <ActivityIndicator color="#000" />
             : <Text style={s.logBtnText}>Log Shot · {club}{carry ? ` · ${carry} yds` : ''}</Text>
           }
         </TouchableOpacity>
 
         {/* Shot history */}
-
         {shots.length > 0 && (
           <>
             <Text style={s.historyLabel}>THIS SESSION · {shots.length} SHOTS</Text>
             {shots.map(shot => (
               <View key={shot.id} style={s.shotRow}>
+                {/* Club badge */}
                 <View style={s.shotClub}>
                   <Text style={s.shotClubText}>{shot.club}</Text>
                 </View>
+                {/* Details */}
                 <View style={s.shotDetails}>
                   {shot.carry && <Text style={s.shotCarry}>{shot.carry} yds</Text>}
                   <View style={s.shotMeta}>
-                    {shot.shape && <Text style={s.shotTag}>{SHAPES.find(sh => sh.key === shot.shape)?.tip ?? shot.shape}</Text>}
-                    {shot.quality && <Text style={[s.shotTag, shot.quality === 'flush' && s.shotTagFlush, shot.quality === 'poor' && s.shotTagPoor]}>{QUALITY.find(q => q.key === shot.quality)?.label} {QUALITY.find(q => q.key === shot.quality)?.tip}</Text>}
+                    {shot.shape && (
+                      <Text style={s.shotTag}>{SHAPES.find(sh => sh.key === shot.shape)?.tip ?? shot.shape}</Text>
+                    )}
+                    {shot.quality && (
+                      <Text style={[
+                        s.shotTag,
+                        shot.quality === 'flush' && { color: GOLD },
+                        shot.quality === 'poor'  && { color: RED },
+                        shot.quality === 'ok'    && { color: '#555' },
+                      ]}>
+                        {QUALITY.find(q => q.key === shot.quality)?.label}
+                      </Text>
+                    )}
                   </View>
                 </View>
+                {/* Delete */}
                 <TouchableOpacity onPress={() => deleteShot(shot.id)} style={s.deleteBtn} activeOpacity={0.7}>
-                  <Text style={s.deleteBtnText}>✕</Text>
+                  <Ionicons name="trash-outline" size={18} color="#333" />
                 </TouchableOpacity>
               </View>
             ))}
@@ -251,17 +287,17 @@ export default function RangeSessionScreen() {
 
         {shots.length === 0 && (
           <View style={s.emptyHint}>
-            <Text style={s.emptyHintText}>Select a club, enter your carry distance and log your first shot 🏌️</Text>
+            <Text style={s.emptyHintText}>Select a club, enter your carry distance and log your first shot</Text>
           </View>
         )}
 
       </ScrollView>
 
-      {/* Target distance picker modal */}
+      {/* ── Target distance modal ───────────────────────────────────── */}
       <Modal visible={showTargets} transparent animationType="slide" onRequestClose={() => setShowTargets(false)}>
         <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setShowTargets(false)}>
           <View style={s.modalSheet}>
-            <Text style={s.modalTitle}>🔭 RANGE FINDER</Text>
+            <Text style={s.modalTitle}>TARGET DISTANCE</Text>
             <Text style={s.modalSub}>Set your target distance then select a club</Text>
             <View style={s.targetsGrid}>
               {TARGETS.map(t => (
@@ -288,105 +324,190 @@ export default function RangeSessionScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered:  { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: '#000' },
+  centered:  { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' },
 
+  // Header
   header: {
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingTop: 56,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  backBtn:      { minWidth: 60 },
-  backText:     { fontSize: fonts.md, color: colors.gold, fontWeight: '600' },
-  headerTitle:  { fontSize: fonts.sm, fontWeight: '800', color: colors.white, letterSpacing: 2 },
-  headerRight:  { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  endBtn:       { backgroundColor: colors.cardAlt, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderWidth: 1, borderColor: colors.border },
-  endBtnText:   { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '700' },
-  binBtn:       { padding: spacing.xs },
-  binIcon:      { fontSize: 22 },
+  headerLeft:   { minWidth: 44, alignItems: 'flex-start' },
+  headerCentre: { alignItems: 'center' },
+  headerLogo:   { width: 28, height: 28 },
+  headerSub:    { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2.5, marginTop: 3 },
+  headerRight:  { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 80, justifyContent: 'flex-end' },
+  iconBtn:      { padding: 4 },
+  endBtn: {
+    backgroundColor: 'transparent',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#1c1c1c',
+  },
+  endBtnText: { fontFamily: FF, fontSize: 12, color: '#555' },
 
-  clubScroll: { borderBottomWidth: 1, borderBottomColor: colors.border },
-  clubRow:    { flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  clubChip:   { paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, borderRadius: radius.full, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border },
-  clubChipOn: { backgroundColor: colors.gold, borderColor: colors.gold },
-  clubChipText:    { fontSize: fonts.sm, fontWeight: '700', color: colors.textMuted },
-  clubChipTextOn:  { color: colors.bg },
+  // Club strip
+  clubScroll: {},
+  clubRow:    { flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingVertical: 10 },
+  clubChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#222',
+  },
+  clubChipOn:      { backgroundColor: GOLD, borderColor: GOLD },
+  clubChipText:    { fontFamily: FF, fontSize: 13, color: '#555' },
+  clubChipTextOn:  { fontFamily: FFB, color: '#000' },
 
+  // Stats banner
   statsBanner: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border,
-    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#1c1c1c',
+    paddingVertical: 12,
   },
-  statItem:   { alignItems: 'center', paddingHorizontal: spacing.xl },
-  statVal:    { fontSize: fonts.xl, fontWeight: '900', color: colors.gold },
-  statLbl:    { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginTop: 2 },
-  statDivider: { width: 1, height: 28, backgroundColor: colors.border },
+  statItem:    { alignItems: 'center', paddingHorizontal: 28 },
+  statVal:     { fontFamily: FFB, fontSize: 22, color: GOLD },
+  statLbl:     { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 2, marginTop: 2 },
+  statDivider: { width: 1, height: 28, backgroundColor: '#222' },
 
-  scroll: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: 40 },
+  // Scroll body
+  scroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40 },
 
+  // Input cards
   inputCard: {
-    backgroundColor: colors.card, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.md, marginBottom: spacing.sm,
-    marginHorizontal: spacing.md,
+    backgroundColor: '#111',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1c1c1c',
+    padding: 16,
+    marginBottom: 10,
   },
-  inputLabel: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 2, marginBottom: spacing.sm },
+  inputLabel: { fontFamily: FF, fontSize: 10, color: '#555', letterSpacing: 2, marginBottom: 10 },
   carryInput: {
-    fontSize: 48, fontWeight: '900', color: colors.white, textAlign: 'center',
-    paddingVertical: spacing.sm,
+    fontFamily: FFB,
+    fontSize: 48,
+    color: '#fff',
+    textAlign: 'center',
+    paddingVertical: 8,
   },
 
-  shapeRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.xs },
-  shapeBtn:    { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: radius.md, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border },
-  shapeBtnOn:  { backgroundColor: colors.goldDim, borderColor: colors.gold },
-  shapeIcon:   { fontSize: fonts.lg, color: colors.textSecondary, fontWeight: '700' },
-  shapeIconOn: { color: colors.gold },
-  shapeTip:    { fontSize: 9, color: colors.textSecondary, marginTop: 2, fontWeight: '700' },
-  shapeTipOn:  { color: colors.gold },
+  // Shape picker
+  shapeRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
+  shapeBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#222',
+  },
+  shapeBtnOn:  { backgroundColor: `${GOLD}15`, borderColor: `${GOLD}40` },
+  shapeIcon:   { fontFamily: FFB, fontSize: 16, color: '#444' },
+  shapeIconOn: { color: GOLD },
+  shapeTip:    { fontFamily: FF, fontSize: 10, color: '#444', marginTop: 3 },
+  shapeTipOn:  { color: GOLD },
 
-  qualRow: { flexDirection: 'row', gap: spacing.md, justifyContent: 'center' },
-  qualBtn:    { flex: 1, alignItems: 'center', paddingVertical: spacing.md, borderRadius: radius.md, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border },
-  qualBtnOn:  { backgroundColor: colors.goldDim, borderColor: colors.gold },
-  qualIcon:   { fontSize: fonts.xl },
-  qualTip:    { fontSize: fonts.xs, color: colors.textMuted, marginTop: 4, fontWeight: '600' },
-  qualTipOn:  { color: colors.white },
+  // Quality picker
+  qualRow: { flexDirection: 'row', gap: 10, justifyContent: 'center' },
+  qualBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#222',
+  },
+  qualBtnOn:  { backgroundColor: `${GOLD}15`, borderColor: `${GOLD}40` },
+  qualLabel:  { fontFamily: FFB, fontSize: 13, color: '#444' },
 
-  logBtn:    { backgroundColor: colors.gold, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', marginBottom: spacing.sm, marginHorizontal: spacing.md },
-  logBtnOff: { opacity: 0.5 },
-  logBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
+  // Log button
+  logBtn:     { backgroundColor: GOLD, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginBottom: 10 },
+  logBtnOff:  { opacity: 0.5 },
+  logBtnText: { fontFamily: FFB, fontSize: 16, color: '#000' },
 
-  historyLabel: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 2, marginBottom: spacing.sm },
+  // History
+  historyLabel: { fontFamily: FF, fontSize: 10, color: '#555', letterSpacing: 2, marginBottom: 10, marginTop: 6 },
 
   shotRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.sm, marginBottom: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1c1c1c',
+    padding: 10,
+    marginBottom: 6,
   },
-  shotClub:    { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center', marginRight: spacing.sm },
-  shotClubText: { fontSize: fonts.sm, fontWeight: '800', color: colors.gold },
-  shotDetails: { flex: 1 },
-  shotCarry:   { fontSize: fonts.md, fontWeight: '800', color: colors.white },
-  shotMeta:    { flexDirection: 'row', gap: spacing.xs, marginTop: 2 },
-  shotTag:     { fontSize: fonts.xs, color: colors.textMuted, backgroundColor: colors.cardAlt, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  shotTagFlush: { color: colors.gold },
-  shotTagPoor:  { color: colors.red },
-  deleteBtn:   { padding: spacing.sm },
-  deleteBtnText: { fontSize: fonts.sm, color: colors.textMuted },
+  shotClub: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#1c1c1c',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  shotClubText: { fontFamily: FFB, fontSize: 13, color: GOLD },
+  shotDetails:  { flex: 1 },
+  shotCarry:    { fontFamily: FFB, fontSize: 15, color: '#fff' },
+  shotMeta:     { flexDirection: 'row', gap: 6, marginTop: 3 },
+  shotTag: {
+    fontFamily: FF,
+    fontSize: 11,
+    color: '#555',
+    backgroundColor: '#1c1c1c',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  deleteBtn: { padding: 8 },
 
-  emptyHint: { alignItems: 'center', paddingVertical: spacing.xxl },
-  emptyHintText: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 22 },
+  // Empty
+  emptyHint:     { alignItems: 'center', paddingVertical: 40 },
+  emptyHintText: { fontFamily: FF, fontSize: 14, color: '#444', textAlign: 'center' },
 
-  modalOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalSheet:     { backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: 48, borderTopWidth: 1, borderTopColor: colors.border },
-  modalTitle:     { fontSize: fonts.sm, fontWeight: '900', color: colors.white, letterSpacing: 2, textAlign: 'center', marginBottom: spacing.xs },
-  modalSub:       { fontSize: fonts.xs, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.lg },
-  targetsGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center', marginBottom: spacing.lg },
-  targetBtn:      { width: 68, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: radius.md, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border },
-  targetBtnOn:    { backgroundColor: colors.goldDim, borderColor: colors.gold },
-  targetYds:      { fontSize: fonts.lg, fontWeight: '800', color: colors.white },
-  targetYdsOn:    { color: colors.gold },
-  targetLbl:      { fontSize: 9, color: colors.textMuted, fontWeight: '600', marginTop: 1 },
-  modalCancel:    { alignItems: 'center', paddingVertical: spacing.md },
-  modalCancelText: { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: '#111',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 48,
+    borderTopWidth: 1,
+    borderTopColor: '#1c1c1c',
+  },
+  modalTitle:  { fontFamily: FFB, fontSize: 12, color: '#fff', letterSpacing: 2, textAlign: 'center', marginBottom: 6 },
+  modalSub:    { fontFamily: FF, fontSize: 12, color: '#555', textAlign: 'center', marginBottom: 20 },
+  targetsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 20 },
+  targetBtn: {
+    width: 68,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#222',
+  },
+  targetBtnOn:    { backgroundColor: GOLD, borderColor: GOLD },
+  targetYds:      { fontFamily: FFB, fontSize: 18, color: '#fff' },
+  targetYdsOn:    { color: '#000' },
+  targetLbl:      { fontFamily: FF, fontSize: 10, color: '#555', marginTop: 1 },
+  modalCancel:    { alignItems: 'center', paddingVertical: 14 },
+  modalCancelText: { fontFamily: FF, fontSize: 14, color: GOLD },
 });

@@ -1,9 +1,17 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Share, StyleSheet, Alert, RefreshControl, Modal, FlatList } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Share, StyleSheet, Alert, RefreshControl, Modal, FlatList, ActivityIndicator, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFonts } from 'expo-font';
+import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
 import { calcStrokesReceived } from '../../../src/lib/scoring';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+const GOLD   = '#D4AF37';
+const GREEN  = '#4ade80';
+const RED    = '#f87171';
+const PURPLE = '#a78bfa';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
 
 type Game = {
   id: string; name: string; game_date: string; course_name: string | null;
@@ -23,6 +31,11 @@ type PlayerScore = { player_id: string; hole_number: number; gross_score: number
 export default function SwindleGame() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
   const router     = useRouter();
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
   const [game,         setGame]         = useState<Game | null>(null);
   const [entries,      setEntries]      = useState<Entry[]>([]);
@@ -182,8 +195,22 @@ export default function SwindleGame() {
     Share.share({ message: lines.join('\n') });
   }
 
-  if (loading || !game) {
-    return <View style={s.container}><Text style={s.loading}>Loading…</Text></View>;
+  if (loading || !fontsLoaded) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+        <StatusBar style="light" />
+        <ActivityIndicator color={GOLD} size="large" />
+      </View>
+    );
+  }
+
+  if (!game) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+        <StatusBar style="light" />
+        <ActivityIndicator color={GOLD} size="large" />
+      </View>
+    );
   }
 
   const isStroke = (game.format ?? 'stableford') === 'stroke';
@@ -213,49 +240,70 @@ export default function SwindleGame() {
   const ntpWinner  = game.ntp_winner_id ? entries.find(e => e.player_id === game.ntp_winner_id)?.display_name?.split(' ')[0] : null;
   const ldWinner   = game.ld_winner_id  ? entries.find(e => e.player_id === game.ld_winner_id)?.display_name?.split(' ')[0]  : null;
 
-  const statusColor = game.status === 'in_progress' ? colors.green : game.status === 'complete' ? colors.textMuted : colors.gold;
+  const statusBadgeColor =
+    game.status === 'complete'   ? GOLD   :
+    game.status === 'open'       ? PURPLE :
+    '#6b7280';
 
   return (
     <View style={s.container}>
+      <StatusBar style="light" />
+
+      {/* Header: three-column */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
           <Text style={s.backText}>← Back</Text>
         </TouchableOpacity>
-        <View style={s.headerActions}>
-          {game.status === 'complete'
-            ? <TouchableOpacity onPress={shareResults} style={s.shareBtn}>
-                <Text style={s.shareText}>Share Results</Text>
-              </TouchableOpacity>
-            : <TouchableOpacity onPress={shareCode} style={s.shareBtn}>
-                <Text style={s.shareText}>Share Code</Text>
-              </TouchableOpacity>
-          }
-        </View>
+        <Text style={s.headerTitle} numberOfLines={1}>{game.name}</Text>
+        <TouchableOpacity
+          onPress={game.status === 'complete' ? shareResults : shareCode}
+          style={s.shareIconBtn}
+          activeOpacity={0.7}
+        >
+          <Text style={s.shareIconText}>↑</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 48 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.gold} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); load(); }}
+            tintColor={GOLD}
+          />
+        }
       >
-        {/* Game info */}
+        {/* Game info card */}
         <View style={s.gameCard}>
           <View style={s.gameCardTop}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.gameName}>{game.name}</Text>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={s.gameName} numberOfLines={2}>{game.name}</Text>
               <Text style={s.gameSub}>
-                {game.course_name ?? 'No course'} · {new Date(game.game_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                {new Date(game.game_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
               </Text>
+              {game.course_name && (
+                <Text style={s.gameCourse}>{game.course_name}</Text>
+              )}
               <Text style={s.gameFormat}>{isStroke ? 'Stroke Play' : 'Stableford'}</Text>
             </View>
-            <View style={[s.statusBadge, { borderColor: statusColor }]}>
-              <Text style={[s.statusText, { color: statusColor }]}>{game.status.toUpperCase()}</Text>
+            {/* Status badge */}
+            <View style={[s.statusBadge, { backgroundColor: statusBadgeColor + '22', borderColor: statusBadgeColor }]}>
+              <Text style={[s.statusText, { color: statusBadgeColor }]}>
+                {game.status === 'in_progress' ? 'LIVE' : game.status.toUpperCase()}
+              </Text>
             </View>
           </View>
+
+          {/* Stat row */}
           <View style={s.statsRow}>
             <StatBox label="ENTRY" value={`${game.currency}${Number(game.entry_fee).toFixed(0)}`} />
+            <View style={s.statDivider} />
             <StatBox label="PLAYERS" value={`${entries.length}`} />
+            <View style={s.statDivider} />
             <StatBox label="POT" value={pot > 0 ? `${game.currency}${pot.toFixed(0)}` : '—'} gold />
+            <View style={s.statDivider} />
             <StatBox label="CODE" value={game.join_code} />
           </View>
         </View>
@@ -264,14 +312,23 @@ export default function SwindleGame() {
         {pot > 0 && (
           <View style={s.section}>
             <Text style={s.sectionLabel}>PRIZES</Text>
-            {game.prize_split.map((pct, i) => (
-              <View key={i} style={s.prizeRow}>
-                <Text style={s.prizePos}>{i + 1}{i === 0 ? 'ST' : i === 1 ? 'ND' : i === 2 ? 'RD' : 'TH'}</Text>
-                <Text style={s.prizePct}>{pct}%</Text>
-                <Text style={s.prizeAmount}>{game.currency}{prizes[i].toFixed(2)}</Text>
-                {entries[i] && <Text style={s.prizePlayer} numberOfLines={1}>{entries[i].display_name.split(' ')[0]}</Text>}
-              </View>
-            ))}
+            <View style={s.pillRow}>
+              {game.prize_split.map((pct, i) => (
+                <View key={i} style={s.prizePill}>
+                  <Text style={s.prizePillPos}>
+                    {i + 1}{i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th'}
+                  </Text>
+                  <Text style={s.prizePillAmt}>
+                    {game.currency}{prizes[i].toFixed(0)}
+                  </Text>
+                  {entries[i] && (
+                    <Text style={s.prizePillName} numberOfLines={1}>
+                      {entries[i].display_name.split(' ')[0]}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
@@ -279,23 +336,33 @@ export default function SwindleGame() {
         {game.twos_enabled && (
           <View style={s.section}>
             <View style={s.sectionHeaderRow}>
-              <Text style={s.sectionLabel}>🦅 TWO'S COMPETITION</Text>
-              {twosPot > 0 && <Text style={s.potBadge}>{game.currency}{twosPot.toFixed(0)}</Text>}
+              <Text style={s.sectionLabel}>TWO'S COMPETITION</Text>
+              {twosPot > 0 && (
+                <View style={s.potPill}>
+                  <Text style={s.potPillText}>{game.currency}{twosPot.toFixed(0)}</Text>
+                </View>
+              )}
             </View>
-            {twos.length === 0 ? (
-              <Text style={s.noEntries}>No two's scored yet — keep going!</Text>
-            ) : (
-              <>
-                {twos.map((t, i) => (
-                  <View key={i} style={s.prizeRow}>
-                    <Text style={s.prizePos}>H{t.hole_number}</Text>
-                    <Text style={[s.lbName, { flex: 1 }]}>{t.name}</Text>
-                    {twosEach > 0 && <Text style={s.prizeAmount}>{game.currency}{twosEach.toFixed(2)}</Text>}
-                  </View>
-                ))}
-                {uniqueTwos > 1 && <Text style={s.twosSub}>Split equally between {uniqueTwos} players</Text>}
-              </>
-            )}
+            <View style={s.card}>
+              {twos.length === 0 ? (
+                <Text style={s.noEntries}>No two's scored yet</Text>
+              ) : (
+                <>
+                  {twos.map((t, i) => (
+                    <View key={i} style={s.cardRow}>
+                      <Text style={s.cardRowLabel}>H{t.hole_number}</Text>
+                      <Text style={s.cardRowName}>{t.name}</Text>
+                      {twosEach > 0 && (
+                        <Text style={s.cardRowAmt}>{game.currency}{twosEach.toFixed(2)}</Text>
+                      )}
+                    </View>
+                  ))}
+                  {uniqueTwos > 1 && (
+                    <Text style={s.cardSub}>Split equally between {uniqueTwos} players</Text>
+                  )}
+                </>
+              )}
+            </View>
           </View>
         )}
 
@@ -303,24 +370,30 @@ export default function SwindleGame() {
         {game.ntp_hole && (
           <View style={s.section}>
             <View style={s.sectionHeaderRow}>
-              <Text style={s.sectionLabel}>📍 NEAREST THE PIN — HOLE {game.ntp_hole}</Text>
-              {ntpPot > 0 && <Text style={s.potBadge}>{game.currency}{ntpPot.toFixed(0)}</Text>}
+              <Text style={s.sectionLabel}>NEAREST THE PIN — HOLE {game.ntp_hole}</Text>
+              {ntpPot > 0 && (
+                <View style={s.potPill}>
+                  <Text style={s.potPillText}>{game.currency}{ntpPot.toFixed(0)}</Text>
+                </View>
+              )}
             </View>
-            {ntpWinner ? (
-              <View style={s.winnerRow}>
-                <Text style={s.winnerName}>{ntpWinner}</Text>
-                {ntpPot > 0 && <Text style={s.prizeAmount}>{game.currency}{ntpPot.toFixed(2)}</Text>}
-              </View>
-            ) : (
-              <View style={s.prizeRow}>
-                <Text style={s.noEntries}>No winner set yet</Text>
-                {isCreator && (
-                  <TouchableOpacity style={s.setWinnerBtn} onPress={() => setShowWinner('ntp')} activeOpacity={0.8}>
-                    <Text style={s.setWinnerText}>Set Winner</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
+            <View style={s.card}>
+              {ntpWinner ? (
+                <View style={s.cardRow}>
+                  <Text style={s.cardRowName}>{ntpWinner}</Text>
+                  {ntpPot > 0 && <Text style={s.cardRowAmt}>{game.currency}{ntpPot.toFixed(2)}</Text>}
+                </View>
+              ) : (
+                <View style={s.cardRow}>
+                  <Text style={s.noEntries}>TBD</Text>
+                  {isCreator && (
+                    <TouchableOpacity style={s.setWinnerBtn} onPress={() => setShowWinner('ntp')} activeOpacity={0.8}>
+                      <Text style={s.setWinnerText}>Set Winner</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
         )}
 
@@ -328,24 +401,30 @@ export default function SwindleGame() {
         {game.ld_hole && (
           <View style={s.section}>
             <View style={s.sectionHeaderRow}>
-              <Text style={s.sectionLabel}>💨 LONGEST DRIVE — HOLE {game.ld_hole}</Text>
-              {ldPot > 0 && <Text style={s.potBadge}>{game.currency}{ldPot.toFixed(0)}</Text>}
+              <Text style={s.sectionLabel}>LONGEST DRIVE — HOLE {game.ld_hole}</Text>
+              {ldPot > 0 && (
+                <View style={s.potPill}>
+                  <Text style={s.potPillText}>{game.currency}{ldPot.toFixed(0)}</Text>
+                </View>
+              )}
             </View>
-            {ldWinner ? (
-              <View style={s.winnerRow}>
-                <Text style={s.winnerName}>{ldWinner}</Text>
-                {ldPot > 0 && <Text style={s.prizeAmount}>{game.currency}{ldPot.toFixed(2)}</Text>}
-              </View>
-            ) : (
-              <View style={s.prizeRow}>
-                <Text style={s.noEntries}>No winner set yet</Text>
-                {isCreator && (
-                  <TouchableOpacity style={s.setWinnerBtn} onPress={() => setShowWinner('ld')} activeOpacity={0.8}>
-                    <Text style={s.setWinnerText}>Set Winner</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
+            <View style={s.card}>
+              {ldWinner ? (
+                <View style={s.cardRow}>
+                  <Text style={s.cardRowName}>{ldWinner}</Text>
+                  {ldPot > 0 && <Text style={s.cardRowAmt}>{game.currency}{ldPot.toFixed(2)}</Text>}
+                </View>
+              ) : (
+                <View style={s.cardRow}>
+                  <Text style={s.noEntries}>TBD</Text>
+                  {isCreator && (
+                    <TouchableOpacity style={s.setWinnerBtn} onPress={() => setShowWinner('ld')} activeOpacity={0.8}>
+                      <Text style={s.setWinnerText}>Set Winner</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
         )}
 
@@ -354,32 +433,45 @@ export default function SwindleGame() {
           <View style={s.lbHeader}>
             <Text style={s.sectionLabel}>LEADERBOARD</Text>
             {game.status === 'in_progress' && prizes.some(p => p > 0) && (
-              <View style={s.liveMoneyBadge}>
-                <Text style={s.liveMoneyText}>💰 LIVE MONEY</Text>
+              <View style={s.liveBadge}>
+                <Text style={s.liveBadgeText}>LIVE MONEY</Text>
               </View>
             )}
           </View>
-          {entries.length === 0 && <Text style={s.noEntries}>No players yet — share the code!</Text>}
+          {entries.length === 0 && (
+            <Text style={s.noEntries}>No players yet — share the code!</Text>
+          )}
           {entries.map((e, rank) => {
-            const prizeAmt = prizes[rank] ?? 0;
-            const isMe = e.player_id === myId;
-            const prizeColor = rank === 0 ? colors.gold : rank === 1 ? '#C0C0C0' : rank === 2 ? '#CD7F32' : colors.textMuted;
+            const prizeAmt  = prizes[rank] ?? 0;
+            const isMe      = e.player_id === myId;
+            const leftColor =
+              rank === 0 ? GOLD      :
+              rank === 1 ? '#9ca3af' :
+              rank === 2 ? '#cd7f32' : 'transparent';
+
             return (
-              <View key={e.player_id} style={[s.lbRow, isMe && s.lbRowMe]}>
-                <Text style={[s.lbRank, rank === 0 && { color: colors.gold }]}>{rank + 1}</Text>
+              <View
+                key={e.player_id}
+                style={[
+                  s.lbRow,
+                  { borderLeftColor: leftColor, borderLeftWidth: rank < 3 ? 3 : 0 },
+                  isMe && s.lbRowMe,
+                ]}
+              >
+                <Text style={s.lbRank}>{rank + 1}</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={[s.lbName, isMe && { color: colors.gold }]}>
+                  <Text style={s.lbName}>
                     {e.display_name.split(' ')[0]}{isMe ? ' (you)' : ''}
                   </Text>
-                  <Text style={s.lbSub}>{e.holes_played} hole{e.holes_played !== 1 ? 's' : ''} played</Text>
+                  <Text style={s.lbHoles}>{e.holes_played} hole{e.holes_played !== 1 ? 's' : ''}</Text>
                 </View>
                 {isStroke
                   ? <Text style={s.lbPts}>{e.net_total > 0 ? e.net_total : '—'}</Text>
                   : <Text style={s.lbPts}>{e.total_pts}pts</Text>
                 }
-                <Text style={[s.lbPrize, { color: prizeAmt > 0 ? prizeColor : colors.textMuted }]}>
-                  {prizeAmt > 0 ? `${game.currency}${prizeAmt.toFixed(0)}` : '—'}
-                </Text>
+                {prizeAmt > 0 && (
+                  <Text style={s.lbPrize}>{game.currency}{prizeAmt.toFixed(0)}</Text>
+                )}
               </View>
             );
           })}
@@ -388,17 +480,27 @@ export default function SwindleGame() {
         {/* Actions */}
         {!inGame && game.status === 'open' && (
           <TouchableOpacity style={s.joinBtn} onPress={join} disabled={joining} activeOpacity={0.85}>
-            <Text style={s.joinBtnText}>{joining ? 'Joining…' : `Join — ${game.currency}${Number(game.entry_fee).toFixed(0)} entry`}</Text>
+            <Text style={s.joinBtnText}>
+              {joining ? 'Joining…' : `I'm In — ${game.currency}${Number(game.entry_fee).toFixed(0)} entry`}
+            </Text>
           </TouchableOpacity>
         )}
         {inGame && game.status !== 'complete' && (
-          <TouchableOpacity style={s.scoreBtn} onPress={() => router.push(`/(app)/swindle/score/${game.id}` as any)} activeOpacity={0.85}>
-            <Text style={s.scoreBtnText}>⛳ Score My Round</Text>
+          <TouchableOpacity
+            style={s.scoreBtn}
+            onPress={() => router.push(`/(app)/swindle/score/${game.id}` as any)}
+            activeOpacity={0.85}
+          >
+            <Text style={s.scoreBtnText}>Score My Round</Text>
           </TouchableOpacity>
         )}
         {inGame && game.status !== 'complete' && (
-          <TouchableOpacity style={s.scanBtn2} onPress={() => router.push(`/(app)/swindle/scan/${game.id}` as any)} activeOpacity={0.85}>
-            <Text style={s.scanBtn2Text}>📋 Scan Paper Scorecard</Text>
+          <TouchableOpacity
+            style={s.scanBtn}
+            onPress={() => router.push(`/(app)/swindle/scan/${game.id}` as any)}
+            activeOpacity={0.85}
+          >
+            <Text style={s.scanBtnText}>Scan Paper Scorecard</Text>
           </TouchableOpacity>
         )}
         {isCreator && game.status !== 'complete' && (
@@ -418,23 +520,30 @@ export default function SwindleGame() {
         <View style={s.pickerOverlay}>
           <View style={s.pickerSheet}>
             <View style={s.pickerHeader}>
-              <Text style={s.pickerTitle}>{showWinner === 'ntp' ? 'NTP Winner' : 'LD Winner'}</Text>
-              <TouchableOpacity onPress={() => setShowWinner(null)}>
+              <Text style={s.pickerTitle}>
+                {showWinner === 'ntp' ? 'NTP Winner' : 'LD Winner'}
+              </Text>
+              <TouchableOpacity onPress={() => setShowWinner(null)} activeOpacity={0.7}>
                 <Text style={s.pickerClose}>✕</Text>
               </TouchableOpacity>
             </View>
             <FlatList
               data={entries}
               keyExtractor={e => e.player_id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={s.pickerItem}
-                  onPress={() => setWinner(showWinner!, item.player_id)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={s.pickerItemText}>{item.display_name}</Text>
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const isActive = item.player_id === (showWinner === 'ntp' ? game.ntp_winner_id : game.ld_winner_id);
+                return (
+                  <TouchableOpacity
+                    style={[s.pickerItem, isActive && s.pickerItemActive]}
+                    onPress={() => setWinner(showWinner!, item.player_id)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[s.pickerItemText, isActive && { color: GOLD }]}>
+                      {item.display_name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
             />
           </View>
         </View>
@@ -445,78 +554,111 @@ export default function SwindleGame() {
 
 function StatBox({ label, value, gold }: { label: string; value: string; gold?: boolean }) {
   return (
-    <View style={{ alignItems: 'center' }}>
+    <View style={{ alignItems: 'center', flex: 1 }}>
       <Text style={s.statLabel}>{label}</Text>
-      <Text style={[s.statValue, gold && { color: colors.gold }]}>{value}</Text>
+      <Text style={[s.statValue, gold && { color: GOLD }]}>{value}</Text>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  container:        { flex: 1, backgroundColor: colors.bg, paddingTop: 56 },
-  loading:          { color: colors.textMuted, textAlign: 'center', marginTop: 80 },
-  header:           { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, marginBottom: spacing.md },
-  backBtn:          { paddingVertical: spacing.xs },
-  backText:         { color: colors.gold, fontSize: fonts.md, fontWeight: '600' },
-  headerActions:    { flexDirection: 'row', gap: spacing.sm },
-  shareBtn:         { backgroundColor: colors.goldDim, borderWidth: 1, borderColor: colors.goldBorder, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  shareText:        { color: colors.gold, fontSize: fonts.sm, fontWeight: '700' },
-  gameCard:         { marginHorizontal: spacing.md, backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md },
-  gameCardTop:      { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.md },
-  gameName:         { fontSize: fonts.xl, fontWeight: '800', color: colors.white, marginBottom: 2 },
-  gameSub:          { fontSize: fonts.xs, color: colors.textMuted },
-  gameFormat:       { fontSize: fonts.xs, color: colors.gold, fontWeight: '700', marginTop: 2 },
-  statsRow:         { flexDirection: 'row', justifyContent: 'space-between' },
-  statLabel:        { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginBottom: 2 },
-  statValue:        { fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  statusBadge:      { borderWidth: 1, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 2 },
-  statusText:       { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  container:        { flex: 1, backgroundColor: '#000', paddingTop: 56 },
 
-  section:          { marginHorizontal: spacing.md, marginBottom: spacing.md },
-  sectionLabel:     { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5 },
-  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
-  potBadge:         { backgroundColor: colors.goldDim, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 2, borderWidth: 1, borderColor: colors.goldBorder },
+  // Header
+  header:           { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 },
+  backBtn:          { paddingVertical: 4, minWidth: 64 },
+  backText:         { color: GOLD, fontSize: 15, fontFamily: FFB },
+  headerTitle:      { flex: 1, color: '#fff', fontSize: 17, fontFamily: FFB, textAlign: 'center', marginHorizontal: 8 },
+  shareIconBtn:     { minWidth: 64, alignItems: 'flex-end', paddingVertical: 4 },
+  shareIconText:    { color: GOLD, fontSize: 20, fontFamily: FFB },
 
-  prizeRow:         { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
-  prizePos:         { width: 32, fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted },
-  prizePct:         { width: 40, fontSize: fonts.sm, color: colors.textSecondary },
-  prizeAmount:      { fontSize: fonts.lg, fontWeight: '700', color: colors.gold, flex: 1 },
-  prizePlayer:      { fontSize: fonts.sm, color: colors.textSecondary, maxWidth: 100 },
+  // Game card
+  gameCard:         { marginHorizontal: 16, backgroundColor: '#111', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#1c1c1c', marginBottom: 16 },
+  gameCardTop:      { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
+  gameName:         { fontSize: 20, fontFamily: FFB, color: '#fff', marginBottom: 4 },
+  gameSub:          { fontSize: 13, fontFamily: FF, color: '#888', marginBottom: 2 },
+  gameCourse:       { fontSize: 13, fontFamily: FFB, color: '#aaa', marginBottom: 2 },
+  gameFormat:       { fontSize: 12, fontFamily: FFB, color: GOLD, marginTop: 2 },
 
-  noEntries:        { color: colors.textMuted, fontSize: fonts.sm, paddingVertical: spacing.sm, flex: 1 },
-  twosSub:          { fontSize: fonts.xs, color: colors.textMuted, marginTop: 4 },
-  winnerRow:        { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
-  winnerName:       { fontSize: fonts.lg, fontWeight: '800', color: colors.white, flex: 1 },
-  setWinnerBtn:     { backgroundColor: colors.goldDim, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: 1, borderColor: colors.goldBorder },
-  setWinnerText:    { fontSize: fonts.xs, color: colors.gold, fontWeight: '700' },
+  // Status badge
+  statusBadge:      { borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' },
+  statusText:       { fontSize: 10, fontFamily: FFB, letterSpacing: 1 },
 
-  lbHeader:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
-  liveMoneyBadge:   { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 3, borderWidth: 1, borderColor: colors.goldBorder },
-  liveMoneyText:    { fontSize: 9, fontWeight: '800', color: colors.gold, letterSpacing: 1 },
-  lbRow:            { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
-  lbRowMe:          { backgroundColor: colors.goldDim, borderRadius: radius.md, paddingHorizontal: spacing.sm, marginHorizontal: -spacing.sm },
-  lbRank:           { width: 24, fontSize: fonts.md, fontWeight: '800', color: colors.textMuted, textAlign: 'center' },
-  lbName:           { fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  lbSub:            { fontSize: fonts.xs, color: colors.textMuted },
-  lbPts:            { fontSize: fonts.lg, fontWeight: '800', color: colors.white, minWidth: 52, textAlign: 'right' },
-  lbPrize:          { fontSize: fonts.md, fontWeight: '700', color: colors.textSecondary, minWidth: 40, textAlign: 'right' },
+  // Stats row
+  statsRow:         { flexDirection: 'row', alignItems: 'center' },
+  statDivider:      { width: 1, height: 28, backgroundColor: '#1c1c1c' },
+  statLabel:        { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1, marginBottom: 2, textAlign: 'center' },
+  statValue:        { fontSize: 15, fontFamily: FFB, color: '#fff', textAlign: 'center' },
 
-  joinBtn:          { marginHorizontal: spacing.md, backgroundColor: colors.gold, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginBottom: spacing.sm },
-  joinBtnText:      { color: colors.bg, fontSize: fonts.lg, fontWeight: '800' },
-  scoreBtn:         { marginHorizontal: spacing.md, backgroundColor: colors.green, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginBottom: spacing.sm },
-  scoreBtnText:     { color: colors.bg, fontSize: fonts.lg, fontWeight: '800' },
-  scanBtn2:         { marginHorizontal: spacing.md, backgroundColor: 'rgba(167,139,250,0.12)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.3)', borderRadius: radius.lg, paddingVertical: 14, alignItems: 'center', marginBottom: spacing.sm },
-  scanBtn2Text:     { color: '#a78bfa', fontSize: fonts.md, fontWeight: '700' },
-  completeBtn:      { marginHorizontal: spacing.md, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingVertical: 12, alignItems: 'center', marginBottom: spacing.sm },
-  completeBtnText:  { color: colors.textMuted, fontSize: fonts.sm, fontWeight: '700' },
-  shareResultsBtn:  { marginHorizontal: spacing.md, backgroundColor: '#25D366', borderRadius: radius.lg, paddingVertical: 14, alignItems: 'center', marginBottom: spacing.sm },
-  shareResultsBtnText: { color: colors.white, fontSize: fonts.md, fontWeight: '800' },
+  // Section
+  section:          { marginHorizontal: 16, marginBottom: 20 },
+  sectionLabel:     { fontSize: 11, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginBottom: 10 },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
 
-  pickerOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  pickerSheet:      { backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingBottom: 40, maxHeight: '60%' },
-  pickerHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  pickerTitle:      { fontSize: fonts.lg, fontWeight: '800', color: colors.white },
-  pickerClose:      { fontSize: fonts.lg, color: colors.textMuted, paddingHorizontal: spacing.sm },
-  pickerItem:       { paddingHorizontal: spacing.md, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
-  pickerItemText:   { fontSize: fonts.md, color: colors.white, fontWeight: '600' },
+  // Pot pill
+  potPill:          { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)' },
+  potPillText:      { fontSize: 12, fontFamily: FFB, color: GOLD },
+
+  // Prize pills
+  pillRow:          { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  prizePill:        { backgroundColor: 'rgba(212,175,55,0.10)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(212,175,55,0.25)', flexDirection: 'row', alignItems: 'center', gap: 6 },
+  prizePillPos:     { fontSize: 12, fontFamily: FFB, color: GOLD },
+  prizePillAmt:     { fontSize: 14, fontFamily: FFB, color: GOLD },
+  prizePillName:    { fontSize: 12, fontFamily: FF, color: '#aaa', maxWidth: 72 },
+
+  // Card (twos/ntp/ld)
+  card:             { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', paddingHorizontal: 14, paddingVertical: 4 },
+  cardRow:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
+  cardRowLabel:     { width: 36, fontSize: 12, fontFamily: FFB, color: '#555' },
+  cardRowName:      { flex: 1, fontSize: 15, fontFamily: FFB, color: '#fff' },
+  cardRowAmt:       { fontSize: 15, fontFamily: FFB, color: GOLD },
+  cardSub:          { fontSize: 11, fontFamily: FF, color: '#555', paddingVertical: 8 },
+
+  noEntries:        { fontSize: 13, fontFamily: FF, color: '#444', paddingVertical: 10 },
+
+  // Set winner button
+  setWinnerBtn:     { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)' },
+  setWinnerText:    { fontSize: 12, fontFamily: FFB, color: GOLD },
+
+  // Leaderboard
+  lbHeader:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  liveBadge:        { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)' },
+  liveBadgeText:    { fontSize: 9, fontFamily: FFB, color: GOLD, letterSpacing: 1 },
+  lbRow:            { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingLeft: 12, borderBottomWidth: 1, borderBottomColor: '#111' },
+  lbRowMe:          { backgroundColor: 'rgba(212,175,55,0.07)', borderRadius: 10 },
+  lbRank:           { width: 22, fontSize: 15, fontFamily: FFB, color: GOLD, textAlign: 'center' },
+  lbName:           { fontSize: 15, fontFamily: FFB, color: '#fff' },
+  lbHoles:          { fontSize: 11, fontFamily: FF, color: '#555' },
+  lbPts:            { fontSize: 16, fontFamily: FFB, color: GOLD, minWidth: 54, textAlign: 'right' },
+  lbPrize:          { fontSize: 13, fontFamily: FFB, color: GOLD, minWidth: 40, textAlign: 'right' },
+
+  // Join button (PURPLE)
+  joinBtn:          { marginHorizontal: 16, backgroundColor: PURPLE, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginBottom: 10 },
+  joinBtnText:      { color: '#fff', fontSize: 17, fontFamily: FFB },
+
+  // Score button (GOLD)
+  scoreBtn:         { marginHorizontal: 16, backgroundColor: GOLD, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginBottom: 10 },
+  scoreBtnText:     { color: '#000', fontSize: 17, fontFamily: FFB },
+
+  // Scan button
+  scanBtn:          { marginHorizontal: 16, backgroundColor: 'rgba(167,139,250,0.12)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.3)', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
+  scanBtnText:      { color: PURPLE, fontSize: 15, fontFamily: FFB },
+
+  // Complete button
+  completeBtn:      { marginHorizontal: 16, backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginBottom: 10 },
+  completeBtnText:  { color: '#555', fontSize: 14, fontFamily: FFB },
+
+  // Share results
+  shareResultsBtn:  { marginHorizontal: 16, backgroundColor: '#25D366', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
+  shareResultsBtnText: { color: '#fff', fontSize: 15, fontFamily: FFB },
+
+  // Winner picker modal
+  pickerOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  pickerSheet:      { backgroundColor: '#111', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40, maxHeight: '60%', borderTopWidth: 1, borderColor: '#1c1c1c' },
+  pickerHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  pickerTitle:      { fontSize: 17, fontFamily: FFB, color: '#fff' },
+  pickerClose:      { fontSize: 17, fontFamily: FF, color: '#555', paddingHorizontal: 8 },
+  pickerItem:       { paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
+  pickerItemActive: { backgroundColor: 'rgba(212,175,55,0.08)' },
+  pickerItemText:   { fontSize: 16, fontFamily: FFB, color: '#fff' },
 });

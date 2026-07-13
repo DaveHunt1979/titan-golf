@@ -1,17 +1,23 @@
 import { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Dimensions,
+  ScrollView, Image,
 } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 
-const GREEN = '#4ade80';
-const { height: SCREEN_H } = Dimensions.get('window');
+const GOLD    = '#D4AF37';
+const GREEN   = '#4ade80';
+const RED     = '#f87171';
+const OVERLAY = 'rgba(0,0,0,0.85)';
+const FF      = 'JUSTSans';
+const FFB     = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 type Target = 'front' | 'centre' | 'back';
 interface Pin { lat: number; lng: number }
@@ -41,19 +47,24 @@ export default function RangefinderScreen() {
   const { courseName: pCourse, holeNumber: pHole } = useLocalSearchParams<{ courseName?: string; holeNumber?: string }>();
   const router = useRouter();
 
+  const [fontsLoaded] = useFonts({
+    'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
   const [player, setPlayer] = useState<Pin | null>(null);
   const [gpsOk, setGpsOk]   = useState(false);
 
-  const [courses, setCourses]           = useState<string[]>([]);
-  const [selectedCourse, setSelected]   = useState<string | null>(pCourse ?? null);
-  const [holes, setHoles]               = useState<HoleRow[]>([]);
-  const [holeIdx, setHoleIdx]           = useState(pHole ? parseInt(pHole) - 1 : 0);
+  const [courses, setCourses]         = useState<string[]>([]);
+  const [selectedCourse, setSelected] = useState<string | null>(pCourse ?? null);
+  const [holes, setHoles]             = useState<HoleRow[]>([]);
+  const [holeIdx, setHoleIdx]         = useState(pHole ? parseInt(pHole) - 1 : 0);
 
   const [pins, setPins]           = useState<Pins>({ front: null, centre: null, back: null });
   const [activeTarget, setTarget] = useState<Target>('centre');
 
-  const [weather, setWeather]     = useState<Weather | null>(null);
-  const [elev, setElev]           = useState<ElevInfo | null>(null);
+  const [weather, setWeather]         = useState<Weather | null>(null);
+  const [elev, setElev]               = useState<ElevInfo | null>(null);
   const [elevLoading, setElevLoading] = useState(false);
 
   const weatherFetched = useRef(false);
@@ -100,7 +111,6 @@ export default function RangefinderScreen() {
     if (!hole) return;
     const centre = hole.green_lat && hole.green_lng
       ? { lat: hole.green_lat, lng: hole.green_lng } : null;
-    // Approximate front/back by ±15 yds (0.000137°) if not mapped yet
     const front = hole.front_lat && hole.front_lng
       ? { lat: hole.front_lat, lng: hole.front_lng }
       : centre ? { lat: centre.lat - 0.000137, lng: centre.lng } : null;
@@ -164,7 +174,6 @@ export default function RangefinderScreen() {
       .finally(() => setElevLoading(false));
   }, [pins.centre?.lat, pins.centre?.lng, player?.lat, player?.lng]);
 
-  // ── Derived distances ─────────────────────────────────────────────
   const distTo = (t: Target) => {
     const p = pins[t];
     return player && p ? haversineYards(player.lat, player.lng, p.lat, p.lng) : null;
@@ -179,30 +188,39 @@ export default function RangefinderScreen() {
     ? { latitude: centre.lat, longitude: centre.lng, latitudeDelta: 0.004, longitudeDelta: 0.004 }
     : undefined;
 
-  // ── Course selector screen ────────────────────────────────────────
-  if (!selectedCourse) {
+  // ── Course selector ───────────────────────────────────────────────
+  if (!selectedCourse || !fontsLoaded) {
     return (
-      <View style={s.container}>
+      <View style={s.root}>
         <StatusBar style="light" />
-        <View style={s.selectorHeader}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
-            <Text style={s.backText}>‹ Back</Text>
+
+        <View style={s.selHeader}>
+          <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={s.selectorTitle}>RANGEFINDER</Text>
-          <View style={{ width: 60 }} />
+          <View style={s.headerCenter}>
+            <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+            <Text style={s.headerSub}>RANGEFINDER</Text>
+          </View>
+          <View style={s.headerSide} />
         </View>
-        <ScrollView contentContainerStyle={s.selectorScroll}>
+
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60, gap: 8 }} showsVerticalScrollIndicator={false}>
           <Text style={s.sectionLabel}>SELECT COURSE</Text>
           {courses.map(c => (
             <TouchableOpacity
-              key={c} style={s.selectorCard}
+              key={c}
+              style={s.courseCard}
               onPress={() => { setSelected(c); setHoleIdx(0); }}
               activeOpacity={0.8}
             >
-              <Text style={s.selectorName}>{c}</Text>
-              <Text style={s.selectorArrow}>›</Text>
+              <Text style={s.courseName}>{c}</Text>
+              <Ionicons name="chevron-forward" size={18} color={GOLD} />
             </TouchableOpacity>
           ))}
+          {courses.length === 0 && (
+            <Text style={s.empty}>No courses available</Text>
+          )}
         </ScrollView>
       </View>
     );
@@ -210,7 +228,7 @@ export default function RangefinderScreen() {
 
   // ── Main rangefinder ──────────────────────────────────────────────
   return (
-    <View style={s.container}>
+    <View style={s.root}>
       <StatusBar style="light" />
 
       {/* Map — full screen background */}
@@ -231,8 +249,8 @@ export default function RangefinderScreen() {
               draggable anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}
               onDragEnd={e => setPins(p => ({ ...p, front: { lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude } }))}
             >
-              <View style={[s.pinMarker, { borderColor: '#22c55e' }]}>
-                <Text style={s.pinMarkerText}>F</Text>
+              <View style={[s.pinMarker, { borderColor: GREEN }]}>
+                <Text style={[s.pinMarkerText, { color: GREEN }]}>F</Text>
               </View>
             </Marker>
           )}
@@ -242,8 +260,8 @@ export default function RangefinderScreen() {
               draggable anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}
               onDragEnd={e => setPins(p => ({ ...p, centre: { lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude } }))}
             >
-              <View style={[s.pinMarker, { borderColor: colors.gold }]}>
-                <Text style={[s.pinMarkerText, { color: colors.gold }]}>C</Text>
+              <View style={[s.pinMarker, { borderColor: GOLD }]}>
+                <Text style={[s.pinMarkerText, { color: GOLD }]}>C</Text>
               </View>
             </Marker>
           )}
@@ -253,8 +271,8 @@ export default function RangefinderScreen() {
               draggable anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}
               onDragEnd={e => setPins(p => ({ ...p, back: { lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude } }))}
             >
-              <View style={[s.pinMarker, { borderColor: '#ef4444' }]}>
-                <Text style={[s.pinMarkerText, { color: '#ef4444' }]}>B</Text>
+              <View style={[s.pinMarker, { borderColor: RED }]}>
+                <Text style={[s.pinMarkerText, { color: RED }]}>B</Text>
               </View>
             </Marker>
           )}
@@ -275,17 +293,17 @@ export default function RangefinderScreen() {
       )}
 
       {/* Header overlay */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={{ minWidth: 44 }}>
-          <Text style={s.backText}>‹</Text>
+      <View style={s.mapHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setSelected(null)} activeOpacity={0.7} style={s.headerCenter}>
-          <Text style={s.headerHole}>
-            {hole ? `HOLE ${hole.hole_number} · PAR ${hole.par}` : 'SELECT HOLE'}
+          <Text style={s.mapHole}>
+            {hole ? `HOLE ${hole.hole_number}  ·  PAR ${hole.par}` : 'SELECT HOLE'}
           </Text>
-          <Text style={s.headerCourse}>{selectedCourse} ↕</Text>
+          <Text style={s.mapCourse}>{selectedCourse}  ↕</Text>
         </TouchableOpacity>
-        <View style={s.gpsChip}>
+        <View style={[s.gpsChip, s.headerSide, { justifyContent: 'flex-end' }]}>
           <View style={[s.gpsDot, { backgroundColor: gpsOk ? GREEN : '#f59e0b' }]} />
           <Text style={s.gpsText}>GPS</Text>
         </View>
@@ -298,8 +316,10 @@ export default function RangefinderScreen() {
           const active = activeTarget === t;
           return (
             <TouchableOpacity
-              key={t} style={[s.hudCol, active && s.hudColActive]}
-              onPress={() => setTarget(t)} activeOpacity={0.7}
+              key={t}
+              style={[s.hudCol, active && s.hudColActive]}
+              onPress={() => setTarget(t)}
+              activeOpacity={0.7}
             >
               <Text style={[s.hudLabel, active && { color: GREEN }]}>{t.toUpperCase()}</Text>
               <Text style={[s.hudNum, active && { color: GREEN }]}>
@@ -315,20 +335,18 @@ export default function RangefinderScreen() {
       <View style={s.infoStrip}>
         {weather ? (
           <>
-            <Text
-              style={[s.windArrow, { transform: [{ rotate: `${(weather.windDir + 180) % 360}deg` }] }]}
-            >↑</Text>
+            <Text style={[s.windArrow, { transform: [{ rotate: `${(weather.windDir + 180) % 360}deg` }] }]}>↑</Text>
             <Text style={s.infoText}>{cardinal(weather.windDir)} {weather.windSpeed} mph</Text>
             <View style={s.infoDot} />
             <Text style={s.infoText}>{weather.temp}°C</Text>
           </>
         ) : (
-          <Text style={s.infoText}>Fetching weather…</Text>
+          <Text style={s.infoText}>Acquiring weather…</Text>
         )}
         {elev !== null && (
           <>
             <View style={s.infoDot} />
-            <Text style={[s.infoText, { color: elev.diff > 0 ? '#f87171' : GREEN }]}>
+            <Text style={[s.infoText, { color: elev.diff > 0 ? RED : GREEN }]}>
               {elev.diff > 0 ? '▲' : '▼'} {Math.abs(elev.diff)}m · {elev.adjusted} adj
             </Text>
           </>
@@ -341,105 +359,104 @@ export default function RangefinderScreen() {
         )}
       </View>
 
-      {/* Bottom bar — hole nav + measure */}
+      {/* Bottom bar — hole nav + active distance */}
       <View style={s.bottomBar}>
         <TouchableOpacity
           style={[s.holeBtn, holeIdx === 0 && s.holeBtnOff]}
           onPress={() => setHoleIdx(i => Math.max(0, i - 1))}
-          disabled={holeIdx === 0} activeOpacity={0.7}
+          disabled={holeIdx === 0}
+          activeOpacity={0.7}
         >
-          <Text style={s.holeBtnText}>‹ H{holes[holeIdx - 1]?.hole_number ?? '—'}</Text>
+          <Ionicons name="chevron-back" size={16} color={holeIdx === 0 ? '#333' : GOLD} />
+          <Text style={[s.holeBtnText, holeIdx === 0 && { color: '#333' }]}>
+            H{holes[holeIdx - 1]?.hole_number ?? '—'}
+          </Text>
         </TouchableOpacity>
 
         <View style={s.measureBox}>
-          <Text style={s.measureDist}>
-            {dActive !== null ? `${dActive}` : '—'}
-          </Text>
+          <Text style={s.measureDist}>{dActive !== null ? `${dActive}` : '—'}</Text>
           <Text style={s.measureYds}>yds to {activeTarget}</Text>
         </View>
 
         <TouchableOpacity
-          style={[s.holeBtn, holeIdx >= holes.length - 1 && s.holeBtnOff]}
+          style={[s.holeBtn, s.holeBtnRight, holeIdx >= holes.length - 1 && s.holeBtnOff]}
           onPress={() => setHoleIdx(i => Math.min(holes.length - 1, i + 1))}
-          disabled={holeIdx >= holes.length - 1} activeOpacity={0.7}
+          disabled={holeIdx >= holes.length - 1}
+          activeOpacity={0.7}
         >
-          <Text style={s.holeBtnText}>H{holes[holeIdx + 1]?.hole_number ?? '—'} ›</Text>
+          <Text style={[s.holeBtnText, holeIdx >= holes.length - 1 && { color: '#333' }]}>
+            H{holes[holeIdx + 1]?.hole_number ?? '—'}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={holeIdx >= holes.length - 1 ? '#333' : GOLD} />
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-const OVERLAY = 'rgba(0,0,0,0.82)';
-
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  root: { flex: 1, backgroundColor: '#000' },
+
+  // ── Shared header ────────────────────────────────────────────────
+  headerSide:   { width: 40, alignItems: 'center' },
+  headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
+  headerLogo:   { width: 28, height: 28 },
+  headerSub:    { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2.5 },
 
   // ── Course selector ──────────────────────────────────────────────
-  selectorHeader: {
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: colors.bg,
-  },
-  selectorTitle: { fontSize: fonts.sm, fontWeight: '800', color: colors.white, letterSpacing: 2 },
-  selectorScroll: { padding: spacing.lg },
-  sectionLabel: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 2, marginBottom: spacing.sm },
-  selectorCard: {
+  selHeader: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.md, marginBottom: spacing.xs,
+    paddingTop: 56, paddingHorizontal: 16, paddingBottom: 12,
+    backgroundColor: '#000',
   },
-  selectorName: { flex: 1, fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  selectorArrow: { fontSize: fonts.xl, color: colors.textMuted },
+  sectionLabel: { fontFamily: FF, fontSize: 10, color: '#555', letterSpacing: 2, marginBottom: 4, marginTop: 4 },
+  courseCard:   { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 16, flexDirection: 'row', alignItems: 'center' },
+  courseName:   { fontFamily: FFB, fontSize: 15, color: '#fff', flex: 1 },
+  empty:        { fontFamily: FF, fontSize: 14, color: '#555', textAlign: 'center', paddingTop: 40 },
 
-  backText: { fontSize: fonts.xl, color: colors.gold, fontWeight: '600' },
-
-  // ── Header overlay ───────────────────────────────────────────────
-  header: {
-    paddingTop: 56, paddingHorizontal: spacing.md, paddingBottom: spacing.sm,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  // ── Map header overlay ───────────────────────────────────────────
+  mapHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingTop: 56, paddingHorizontal: 16, paddingBottom: 12,
     backgroundColor: OVERLAY,
   },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  headerHole: { fontSize: fonts.sm, fontWeight: '900', color: colors.white, letterSpacing: 1.5 },
-  headerCourse: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 1 },
-  gpsChip: { flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 44, justifyContent: 'flex-end' },
-  gpsDot: { width: 8, height: 8, borderRadius: 4 },
-  gpsText: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted },
+  mapHole:   { fontFamily: FFB, fontSize: 13, color: '#fff', letterSpacing: 1.5, textAlign: 'center' },
+  mapCourse: { fontFamily: FF, fontSize: 11, color: '#666', marginTop: 2, textAlign: 'center' },
+  gpsChip:   { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  gpsDot:    { width: 8, height: 8, borderRadius: 4 },
+  gpsText:   { fontFamily: FFB, fontSize: 10, color: '#555', letterSpacing: 1 },
 
   // ── Distance HUD ─────────────────────────────────────────────────
   hud: {
     flexDirection: 'row',
     backgroundColor: OVERLAY,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   hudCol: {
-    flex: 1, alignItems: 'center', paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    flex: 1, alignItems: 'center', paddingVertical: 8,
+    borderRadius: 12,
   },
   hudColActive: {
     backgroundColor: 'rgba(74,222,128,0.08)',
-    borderWidth: 1, borderColor: 'rgba(74,222,128,0.3)',
+    borderWidth: 1, borderColor: 'rgba(74,222,128,0.25)',
   },
-  hudLabel: { fontSize: 9, fontWeight: '800', color: '#555', letterSpacing: 1.5, marginBottom: 2 },
-  hudNum: { fontSize: 52, fontWeight: '900', color: '#555', lineHeight: 58 },
-  hudYds: { fontSize: fonts.xs, fontWeight: '700', color: '#555', marginTop: 1 },
+  hudLabel: { fontFamily: FF, fontSize: 9, color: '#444', letterSpacing: 2, marginBottom: 2 },
+  hudNum:   { fontFamily: FFB, fontSize: 52, color: '#444', lineHeight: 58 },
+  hudYds:   { fontFamily: FF, fontSize: 11, color: '#444', marginTop: 1, letterSpacing: 1 },
 
   // ── Info strip ───────────────────────────────────────────────────
   infoStrip: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: OVERLAY,
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 16, paddingVertical: 8,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)',
   },
-  windArrow: { fontSize: fonts.md, color: colors.white, fontWeight: '900' },
-  infoText: { fontSize: fonts.xs, fontWeight: '600', color: '#aaa' },
-  infoDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#444' },
+  windArrow: { fontFamily: FFB, fontSize: 14, color: '#fff' },
+  infoText:  { fontFamily: FF, fontSize: 11, color: '#888', letterSpacing: 0.5 },
+  infoDot:   { width: 3, height: 3, borderRadius: 2, backgroundColor: '#333' },
 
   // ── Pin markers on map ───────────────────────────────────────────
   pinMarker: {
@@ -447,21 +464,22 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.75)',
     borderWidth: 2, alignItems: 'center', justifyContent: 'center',
   },
-  pinMarkerText: { fontSize: fonts.xs, fontWeight: '900', color: '#22c55e' },
+  pinMarkerText: { fontFamily: FFB, fontSize: 11 },
 
   // ── Bottom bar ───────────────────────────────────────────────────
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: OVERLAY,
-    paddingHorizontal: spacing.md,
-    paddingBottom: 36, paddingTop: spacing.md,
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 16,
+    paddingBottom: 36, paddingTop: 12,
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)',
   },
-  holeBtn: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, minWidth: 60 },
-  holeBtnOff: { opacity: 0.25 },
-  holeBtnText: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold, textAlign: 'center' },
-  measureBox: { flex: 1, alignItems: 'center' },
-  measureDist: { fontSize: 38, fontWeight: '900', color: GREEN, lineHeight: 42 },
-  measureYds: { fontSize: fonts.xs, fontWeight: '600', color: '#888', marginTop: 1 },
+  holeBtn:      { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 8, paddingVertical: 4, minWidth: 60 },
+  holeBtnRight: { justifyContent: 'flex-end' },
+  holeBtnOff:   { opacity: 0.3 },
+  holeBtnText:  { fontFamily: FFB, fontSize: 13, color: GOLD },
+  measureBox:   { flex: 1, alignItems: 'center' },
+  measureDist:  { fontFamily: FFB, fontSize: 42, color: GREEN, lineHeight: 46 },
+  measureYds:   { fontFamily: FF, fontSize: 11, color: '#666', marginTop: 1, letterSpacing: 1 },
 });

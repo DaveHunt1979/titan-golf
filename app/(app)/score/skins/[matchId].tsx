@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../../src/lib/theme';
+
+const GOLD = '#D4AF37';
+const GREEN = '#4ade80';
+const RED = '#f87171';
+const FF = 'JUSTSans';
+const FFB = 'JUSTSans-ExBold';
+const titanLogo = require('../../../../assets/images/titan-logo.png');
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 interface Match { id: string; status: string; home_player_ids: string[]; day: { course_name: string } | null; }
@@ -39,7 +46,19 @@ export default function SkinsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
 
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
   useEffect(() => { load(); }, [matchId]);
+
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" />
+      <ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
 
   async function load() {
     const { data: m } = await supabase.from('matches').select('*,day:day_id(course_name)').eq('id', matchId).single();
@@ -101,38 +120,53 @@ export default function SkinsScreen() {
     return winners.length === 1 ? winners[0].id : 'carry';
   }
 
-  if (loading) return <View style={s.centered}><ActivityIndicator color={colors.gold} size="large" /></View>;
   if (!match || !hole) return null;
 
   return (
     <View style={s.container}>
       <StatusBar style="light" />
+
+      {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>← Back</Text></TouchableOpacity>
-        <Text style={s.title}>SKINS</Text>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+          <Text style={s.back}>← Back</Text>
+        </TouchableOpacity>
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+          <Text style={s.headerSub}>SKINS</Text>
+        </View>
         <View style={{ width: 60 }} />
       </View>
 
       {/* Skins tally */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tallyScroll}>
         <View style={s.tally}>
-          {players.map(id => (
-            <View key={id} style={s.tallyItem}>
-              <Text style={s.tallyName}>{names[id] ?? '?'}</Text>
-              <Text style={s.tallySkins}>{liveSkins[id] ?? 0}</Text>
-              <Text style={s.tallyLbl}>SKINS</Text>
-            </View>
-          ))}
+          {players.map(id => {
+            const count = liveSkins[id] ?? 0;
+            const isLeader = count > 0;
+            return (
+              <View key={id} style={[s.tallyItem, isLeader && s.tallyItemWinner]}>
+                <Text style={[s.tallyName, isLeader && s.tallyNameWinner]}>{names[id] ?? '?'}</Text>
+                <Text style={[s.tallySkins, isLeader && s.tallySkinsWinner]}>{count}</Text>
+                <View style={[s.tallyPill, isLeader && s.tallyPillWinner]}>
+                  <Text style={[s.tallyLbl, isLeader && s.tallyLblWinner]}>SKINS</Text>
+                </View>
+              </View>
+            );
+          })}
           {carryover > 0 && (
             <View style={[s.tallyItem, s.tallyCarry]}>
-              <Text style={s.tallyName}>CARRY</Text>
-              <Text style={s.tallySkins}>{carryover}</Text>
-              <Text style={s.tallyLbl}>HOLES</Text>
+              <Text style={[s.tallyName, { color: '#555' }]}>CARRY</Text>
+              <Text style={[s.tallySkins, { color: '#555' }]}>{carryover}</Text>
+              <View style={s.tallyPill}>
+                <Text style={s.tallyLbl}>HOLES</Text>
+              </View>
             </View>
           )}
         </View>
       </ScrollView>
 
+      {/* Hole card */}
       <View style={s.holeCard}>
         <Text style={s.holeNum}>Hole {hole.hole_number}</Text>
         <Text style={s.holeMeta}>Par {hole.par}  ·  SI {hole.stroke_index}</Text>
@@ -143,26 +177,49 @@ export default function SkinsScreen() {
         {players.map(pid => {
           const sc = getScore(pid);
           return (
-            <View key={pid} style={s.playerRow}>
+            <View key={pid} style={s.playerCard}>
               <Text style={s.playerName}>{names[pid] ?? '?'}</Text>
               <View style={s.stepper}>
-                <TouchableOpacity style={s.stepBtn} onPress={() => setPlayerScore(pid, sc - 1)} activeOpacity={0.7}><Text style={s.stepBtnTxt}>−</Text></TouchableOpacity>
-                <View style={[s.scoreDisp, sc < hole.par && s.birdie, sc === hole.par && s.par, sc > hole.par && s.bogey]}>
+                <TouchableOpacity style={s.stepBtn} onPress={() => setPlayerScore(pid, sc - 1)} activeOpacity={0.7}>
+                  <Text style={s.stepBtnTxt}>−</Text>
+                </TouchableOpacity>
+                <View style={[
+                  s.scoreDisp,
+                  sc < hole.par && s.birdie,
+                  sc === hole.par && s.par,
+                  sc > hole.par && s.bogey,
+                ]}>
                   <Text style={s.scoreTxt}>{sc}</Text>
                 </View>
-                <TouchableOpacity style={s.stepBtn} onPress={() => setPlayerScore(pid, sc + 1)} activeOpacity={0.7}><Text style={s.stepBtnTxt}>+</Text></TouchableOpacity>
+                <TouchableOpacity style={s.stepBtn} onPress={() => setPlayerScore(pid, sc + 1)} activeOpacity={0.7}>
+                  <Text style={s.stepBtnTxt}>+</Text>
+                </TouchableOpacity>
               </View>
             </View>
           );
         })}
       </ScrollView>
 
+      {/* Navigation */}
       <View style={s.nav}>
-        <TouchableOpacity style={[s.navBtn, holeIdx === 0 && s.dim]} onPress={async () => { await save(); setHoleIdx(Math.max(0, holeIdx - 1)); }} disabled={holeIdx === 0 || saving} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={[s.navBtn, holeIdx === 0 && s.dim]}
+          onPress={async () => { await save(); setHoleIdx(Math.max(0, holeIdx - 1)); }}
+          disabled={holeIdx === 0 || saving}
+          activeOpacity={0.7}
+        >
           <Text style={s.navTxt}>← Prev</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[s.navBtn, s.navPrimary, saving && s.dim]} onPress={next} disabled={saving} activeOpacity={0.8}>
-          {saving ? <ActivityIndicator color={colors.bg} size="small" /> : <Text style={[s.navTxt, { color: colors.bg }]}>{holeIdx === holes.length - 1 ? 'Finish →' : 'Next →'}</Text>}
+        <TouchableOpacity
+          style={[s.navBtn, s.navPrimary, saving && s.dim]}
+          onPress={next}
+          disabled={saving}
+          activeOpacity={0.8}
+        >
+          {saving
+            ? <ActivityIndicator color="#000" size="small" />
+            : <Text style={[s.navTxt, { color: '#000' }]}>{holeIdx === holes.length - 1 ? 'Finish →' : 'Next →'}</Text>
+          }
         </TouchableOpacity>
       </View>
     </View>
@@ -170,35 +227,48 @@ export default function SkinsScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered:  { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
-  header:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  back:      { fontSize: fonts.sm, fontWeight: '600', color: colors.gold },
-  title:     { fontSize: fonts.sm, fontWeight: '800', color: colors.white, letterSpacing: 2 },
-  tallyScroll: { maxHeight: 90, borderBottomWidth: 1, borderBottomColor: colors.border },
-  tally:     { flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, alignItems: 'center' },
-  tallyItem: { alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, minWidth: 70 },
-  tallyCarry:{ borderColor: colors.goldBorder, backgroundColor: colors.goldDim },
-  tallyName: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, marginBottom: 2 },
-  tallySkins:{ fontSize: fonts.xl, fontWeight: '900', color: colors.gold },
-  tallyLbl:  { fontSize: 8, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginTop: 1 },
-  holeCard:  { alignItems: 'center', paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  holeNum:   { fontSize: 28, fontWeight: '900', color: colors.white },
-  holeMeta:  { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600', marginTop: 2 },
-  playersWrap:{ padding: spacing.lg, gap: spacing.lg },
-  playerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  playerName:{ fontSize: fonts.md, fontWeight: '800', color: colors.white, flex: 1 },
-  stepper:   { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  stepBtn:   { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  stepBtnTxt:{ fontSize: 22, fontWeight: '300', color: colors.white },
-  scoreDisp: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 2, borderColor: colors.border },
-  birdie:    { borderColor: colors.green, backgroundColor: 'rgba(74,222,128,0.1)' },
-  par:       {},
-  bogey:     { borderColor: colors.red, backgroundColor: 'rgba(248,113,113,0.1)' },
-  scoreTxt:  { fontSize: 24, fontWeight: '900', color: colors.white },
-  nav:       { flexDirection: 'row', gap: spacing.md, padding: spacing.lg, paddingBottom: 40, borderTopWidth: 1, borderTopColor: colors.border },
-  navBtn:    { flex: 1, paddingVertical: spacing.md, borderRadius: radius.md, alignItems: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
-  navPrimary:{ backgroundColor: colors.gold, borderColor: colors.gold },
-  dim:       { opacity: 0.35 },
-  navTxt:    { fontSize: fonts.md, fontWeight: '800', color: colors.white },
+  container:       { flex: 1, backgroundColor: '#000' },
+  // Header
+  header:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  backBtn:         { width: 60 },
+  back:            { fontSize: 13, fontFamily: FFB, color: GOLD },
+  headerCenter:    { alignItems: 'center', gap: 4 },
+  logo:            { width: 28, height: 28 },
+  headerSub:       { fontSize: 9, fontFamily: FF, color: '#555', letterSpacing: 2 },
+  // Tally
+  tallyScroll:     { maxHeight: 100, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  tally:           { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 12, alignItems: 'center' },
+  tallyItem:       { alignItems: 'center', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', paddingHorizontal: 14, paddingVertical: 10, minWidth: 72 },
+  tallyItemWinner: { backgroundColor: 'rgba(212,175,55,0.08)', borderColor: GOLD },
+  tallyCarry:      { borderColor: '#333' },
+  tallyName:       { fontSize: 11, fontFamily: FF, color: '#555', marginBottom: 2 },
+  tallyNameWinner: { fontFamily: FFB, color: GOLD },
+  tallySkins:      { fontSize: 26, fontFamily: FFB, color: '#555' },
+  tallySkinsWinner:{ color: GOLD },
+  tallyPill:       { backgroundColor: '#1a1a1a', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginTop: 2 },
+  tallyPillWinner: { backgroundColor: GOLD },
+  tallyLbl:        { fontSize: 8, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  tallyLblWinner:  { color: '#000' },
+  // Hole card
+  holeCard:        { alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  holeNum:         { fontSize: 28, fontFamily: FFB, color: '#fff' },
+  holeMeta:        { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 3 },
+  // Players
+  playersWrap:     { padding: 20, gap: 12 },
+  playerCard:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', paddingHorizontal: 16, paddingVertical: 14 },
+  playerName:      { fontSize: 15, fontFamily: FFB, color: '#fff', flex: 1 },
+  stepper:         { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stepBtn:         { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#222', alignItems: 'center', justifyContent: 'center' },
+  stepBtnTxt:      { fontSize: 22, fontFamily: FF, color: '#fff' },
+  scoreDisp:       { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a1a', borderWidth: 2, borderColor: '#222' },
+  birdie:          { borderColor: GREEN, backgroundColor: 'rgba(74,222,128,0.1)' },
+  par:             {},
+  bogey:           { borderColor: RED, backgroundColor: 'rgba(248,113,113,0.1)' },
+  scoreTxt:        { fontSize: 24, fontFamily: FFB, color: '#fff' },
+  // Nav
+  nav:             { flexDirection: 'row', gap: 12, padding: 20, paddingBottom: 40, borderTopWidth: 1, borderTopColor: '#1c1c1c' },
+  navBtn:          { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#1c1c1c', backgroundColor: '#111' },
+  navPrimary:      { backgroundColor: GOLD, borderColor: GOLD },
+  dim:             { opacity: 0.35 },
+  navTxt:          { fontSize: 15, fontFamily: FFB, color: '#fff' },
 });

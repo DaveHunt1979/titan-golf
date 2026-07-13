@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../../src/lib/theme';
+
+const GOLD  = '#D4AF37';
+const GREEN = '#4ade80';
+const RED   = '#f87171';
+const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
+const titanLogo = require('../../../../assets/images/titan-logo.png');
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 interface Match { id: string; home_player_ids: string[]; day: { course_name: string } | null; }
@@ -27,6 +34,11 @@ export default function BBBScreen() {
   const [holeIdx, setHoleIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
   useEffect(() => { load(); }, [matchId]);
 
@@ -115,16 +127,28 @@ export default function BBBScreen() {
     (['bingo', 'bango', 'bongo'] as BBBPoint[]).forEach(p => { if (hd[p] && totals[hd[p]!] !== undefined) totals[hd[p]!]++; });
   });
 
-  if (loading) return <View style={s.centered}><ActivityIndicator color={colors.gold} size="large" /></View>;
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" />
+      <ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
   if (!match || !hole) return null;
 
   return (
     <View style={s.container}>
       <StatusBar style="light" />
+
+      {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>← Back</Text></TouchableOpacity>
-        <Text style={s.title}>BINGO BANGO BONGO</Text>
-        <View style={{ width: 60 }} />
+        <TouchableOpacity onPress={() => router.back()} style={s.headerLeft}>
+          <Text style={s.back}>← Back</Text>
+        </TouchableOpacity>
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+          <Text style={s.subtitle}>BINGO BANGO BONGO</Text>
+        </View>
+        <View style={s.headerRight} />
       </View>
 
       {/* Running totals */}
@@ -140,11 +164,13 @@ export default function BBBScreen() {
         </View>
       </ScrollView>
 
+      {/* Hole card */}
       <View style={s.holeCard}>
         <Text style={s.holeNum}>Hole {hole.hole_number}</Text>
         <Text style={s.holeMeta}>Par {hole.par}  ·  SI {hole.stroke_index}</Text>
       </View>
 
+      {/* Points sections */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.pointsWrap}>
         {(['bingo', 'bango', 'bongo'] as BBBPoint[]).map(point => {
           const info = BBB_LABELS[point];
@@ -177,12 +203,26 @@ export default function BBBScreen() {
         })}
       </ScrollView>
 
+      {/* Navigation */}
       <View style={s.nav}>
-        <TouchableOpacity style={[s.navBtn, holeIdx === 0 && s.dim]} onPress={async () => { await save(); setHoleIdx(Math.max(0, holeIdx - 1)); }} disabled={holeIdx === 0 || saving} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={[s.navBtn, holeIdx === 0 && s.dim]}
+          onPress={async () => { await save(); setHoleIdx(Math.max(0, holeIdx - 1)); }}
+          disabled={holeIdx === 0 || saving}
+          activeOpacity={0.7}
+        >
           <Text style={s.navTxt}>← Prev</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[s.navBtn, s.navPrimary, saving && s.dim]} onPress={next} disabled={saving} activeOpacity={0.8}>
-          {saving ? <ActivityIndicator color={colors.bg} size="small" /> : <Text style={[s.navTxt, { color: colors.bg }]}>{holeIdx === holes.length - 1 ? 'Finish →' : 'Next →'}</Text>}
+        <TouchableOpacity
+          style={[s.navBtn, s.navPrimary, saving && s.dim]}
+          onPress={next}
+          disabled={saving}
+          activeOpacity={0.8}
+        >
+          {saving
+            ? <ActivityIndicator color="#000" size="small" />
+            : <Text style={s.navTxtPrimary}>{holeIdx === holes.length - 1 ? 'Finish →' : 'Next →'}</Text>
+          }
         </TouchableOpacity>
       </View>
     </View>
@@ -190,34 +230,50 @@ export default function BBBScreen() {
 }
 
 const s = StyleSheet.create({
-  container:  { flex: 1, backgroundColor: colors.bg },
-  centered:   { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
-  header:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  back:       { fontSize: fonts.sm, fontWeight: '600', color: colors.gold },
-  title:      { fontSize: 10, fontWeight: '800', color: colors.white, letterSpacing: 1 },
-  totalsScroll:{ maxHeight: 80, borderBottomWidth: 1, borderBottomColor: colors.border },
-  totals:     { flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, alignItems: 'center' },
-  totalItem:  { alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, minWidth: 64 },
-  totalName:  { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, marginBottom: 2 },
-  totalPts:   { fontSize: fonts.xl, fontWeight: '900', color: colors.gold },
-  totalLbl:   { fontSize: 8, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginTop: 1 },
-  holeCard:   { alignItems: 'center', paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  holeNum:    { fontSize: 28, fontWeight: '900', color: colors.white },
-  holeMeta:   { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600', marginTop: 2 },
-  pointsWrap: { padding: spacing.lg, gap: spacing.lg },
-  pointSection:{ backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md },
-  pointHeader:{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
-  pointEmoji: { fontSize: 24 },
-  pointLabel: { fontSize: fonts.sm, fontWeight: '800', color: colors.gold },
-  pointSub:   { fontSize: fonts.xs, color: colors.textMuted, marginTop: 1 },
-  playerBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  playerBtn:  { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardAlt },
-  playerBtnOn:{ borderColor: colors.gold, backgroundColor: colors.goldDim },
-  playerBtnTxt:   { fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary },
-  playerBtnTxtOn: { color: colors.white },
-  nav:        { flexDirection: 'row', gap: spacing.md, padding: spacing.lg, paddingBottom: 40, borderTopWidth: 1, borderTopColor: colors.border },
-  navBtn:     { flex: 1, paddingVertical: spacing.md, borderRadius: radius.md, alignItems: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
-  navPrimary: { backgroundColor: colors.gold, borderColor: colors.gold },
-  dim:        { opacity: 0.35 },
-  navTxt:     { fontSize: fonts.md, fontWeight: '800', color: colors.white },
+  container:       { flex: 1, backgroundColor: '#000' },
+
+  // Header
+  header:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  headerLeft:      { width: 60, justifyContent: 'center' },
+  headerCenter:    { flex: 1, alignItems: 'center', gap: 4 },
+  headerRight:     { width: 60 },
+  back:            { fontSize: 14, fontFamily: FFB, color: GOLD },
+  logo:            { width: 28, height: 28 },
+  subtitle:        { fontSize: 9, fontFamily: FF, color: '#555', letterSpacing: 1.5 },
+
+  // Running totals
+  totalsScroll:    { maxHeight: 80, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  totals:          { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 10, alignItems: 'center' },
+  totalItem:       { alignItems: 'center', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', paddingHorizontal: 14, paddingVertical: 8, minWidth: 64 },
+  totalName:       { fontSize: 11, fontFamily: FFB, color: '#555', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 1.5 },
+  totalPts:        { fontSize: 22, fontFamily: FFB, color: GOLD },
+  totalLbl:        { fontSize: 8, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginTop: 1 },
+
+  // Hole card
+  holeCard:        { alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  holeNum:         { fontSize: 28, fontFamily: FFB, color: '#fff' },
+  holeMeta:        { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 2 },
+
+  // Points sections
+  pointsWrap:      { padding: 20, gap: 14 },
+  pointSection:    { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 16 },
+  pointHeader:     { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
+  pointEmoji:      { fontSize: 24 },
+  pointLabel:      { fontSize: 14, fontFamily: FFB, color: GOLD, letterSpacing: 1.5 },
+  pointSub:        { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 2 },
+
+  // Player buttons
+  playerBtns:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  playerBtn:       { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 99, borderWidth: 1, borderColor: '#222', backgroundColor: '#1a1a1a' },
+  playerBtnOn:     { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.15)' },
+  playerBtnTxt:    { fontSize: 14, fontFamily: FFB, color: '#888' },
+  playerBtnTxtOn:  { color: '#fff' },
+
+  // Nav
+  nav:             { flexDirection: 'row', gap: 12, padding: 20, paddingBottom: 40, borderTopWidth: 1, borderTopColor: '#1c1c1c' },
+  navBtn:          { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#1c1c1c', backgroundColor: '#111' },
+  navPrimary:      { backgroundColor: GOLD, borderColor: GOLD },
+  dim:             { opacity: 0.35 },
+  navTxt:          { fontSize: 15, fontFamily: FFB, color: '#fff' },
+  navTxtPrimary:   { fontSize: 15, fontFamily: FFB, color: '#000' },
 });

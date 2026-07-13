@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"grep -r \\\"TitanAppLogo\\\" /Users/davehunt/Desktop/titan-golf/src/lib/assets.ts 2>/dev/null || find /Users/davehunt/Desktop/titan-golf/src/lib -name \\\"assets*\\\" | xargs grep \\\"TitanAppLogo\\\"...",
+  "error": "Exit code 1",
+  "timestamp": "2026-07-13T17:41:34.156Z",
+  "retry_count": 1
+}

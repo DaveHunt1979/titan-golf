@@ -1,17 +1,40 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Share, StyleSheet, RefreshControl, ActivityIndicator, Platform } from 'react-native';
+import {
+  View, Text, ScrollView, TouchableOpacity, Share,
+  StyleSheet, RefreshControl, ActivityIndicator, Image,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../../src/lib/theme';
 
-type DayInfo = { id: string; join_code: string; course_name: string; course_par: number; day_date: string };
+const GOLD = '#D4AF37';
+const FF   = 'JUSTSans';
+const FFB  = 'JUSTSans-ExBold';
+const titanLogo = require('../../../../assets/TitanAppLogo.png');
+
+type DayInfo   = { id: string; join_code: string; course_name: string; course_par: number; day_date: string };
 type PlayerRow = { player_id: string; name: string; match_id: string; pts: number; holes: number; hcp: number };
-type GroupRow = { match_id: string; format: string; player_names: string[] };
+type GroupRow  = { match_id: string; format: string; player_names: string[] };
+
+function InitialAvatar({ name, size = 38 }: { name: string; size?: number }) {
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: `${GOLD}15`, borderWidth: 1.5, borderColor: `${GOLD}30`, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontFamily: FFB, fontSize: size * 0.38, color: GOLD }}>{(name || '?')[0].toUpperCase()}</Text>
+    </View>
+  );
+}
 
 export default function DayLobby() {
   const { dayId }  = useLocalSearchParams<{ dayId: string }>();
   const router     = useRouter();
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans':        require('../../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
   const [day,        setDay]        = useState<DayInfo | null>(null);
   const [players,    setPlayers]    = useState<PlayerRow[]>([]);
   const [groups,     setGroups]     = useState<GroupRow[]>([]);
@@ -48,10 +71,13 @@ export default function DayLobby() {
 
     const allPlayerIds = [...new Set((matches as any[]).flatMap(m => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]))];
 
-    const [{ data: playersData }, { data: holesData }, { data: courseHolesData }] = await Promise.all([
-      allPlayerIds.length ? supabase.from('players').select('id,display_name,handicap_index').in('id', allPlayerIds) : Promise.resolve({ data: [] }),
-      supabase.from('match_holes').select('match_id,player_id,stableford_pts,gross_score,hole_number').in('match_id', (matches as any[]).map(m => m.id)),
-      supabase.from('course_holes').select('hole_number,par,stroke_index').eq('course_name', dayData.course_name).order('hole_number'),
+    const [{ data: playersData }, { data: holesData }] = await Promise.all([
+      allPlayerIds.length
+        ? supabase.from('players').select('id,display_name,handicap_index').in('id', allPlayerIds)
+        : Promise.resolve({ data: [] }),
+      supabase.from('match_holes')
+        .select('match_id,player_id,stableford_pts,hole_number')
+        .in('match_id', (matches as any[]).map(m => m.id)),
     ]);
 
     const playerMap: Record<string, { name: string; hcp: number }> = {};
@@ -66,7 +92,6 @@ export default function DayLobby() {
       holesByPlayer[h.player_id].count += 1;
     }
 
-    // Determine which match each player belongs to
     const playerMatchMap: Record<string, string> = {};
     for (const m of (matches as any[])) {
       for (const id of [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]) {
@@ -107,29 +132,43 @@ export default function DayLobby() {
     Share.share({ message: `Join our game at ${day.course_name}!\nEnter code ${day.join_code} in Titan Golf → Score tab → Join Game Day` });
   }
 
-  if (loading || !day) {
-    return <View style={s.container}><ActivityIndicator color={colors.gold} style={{ marginTop: 80 }} /></View>;
+  if (loading || !fontsLoaded || !day) {
+    return <View style={s.loading}><ActivityIndicator color={GOLD} size="large" /></View>;
   }
 
-  const myMatch = myMatchId;
   const dateStr = new Date(day.day_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
-    <View style={s.container}>
+    <View style={s.root}>
       <StatusBar style="light" />
 
+      {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={s.backText}>‹ Back</Text></TouchableOpacity>
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={s.headerCourse}>{day.course_name}</Text>
-          <Text style={s.headerDate}>{dateStr}</Text>
+        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="chevron-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Text style={s.headerSub}>GAME DAY</Text>
         </View>
-        <TouchableOpacity style={s.shareBtn} onPress={shareCode}>
-          <Text style={s.shareBtnText}>📤 {day.join_code}</Text>
+        <TouchableOpacity style={s.codeBtn} onPress={shareCode} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="share-outline" size={13} color={GOLD} />
+          <Text style={s.codeBtnText}>{day.join_code}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Tabs */}
+      {/* Course info card */}
+      <View style={s.courseCard}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.courseName}>{day.course_name}</Text>
+          <Text style={s.courseDate}>{dateStr}</Text>
+        </View>
+        <View style={s.parChip}>
+          <Text style={s.parChipText}>Par {day.course_par}</Text>
+        </View>
+      </View>
+
+      {/* Tab bar */}
       <View style={s.tabBar}>
         {(['leaderboard', 'scores'] as const).map(t => (
           <TouchableOpacity
@@ -139,7 +178,7 @@ export default function DayLobby() {
             activeOpacity={0.7}
           >
             <Text style={[s.tabLabel, tab === t && s.tabLabelActive]}>
-              {t === 'leaderboard' ? `Leaderboard · ${players.length}` : `Groups · ${groups.length}`}
+              {t === 'leaderboard' ? `LEADERBOARD · ${players.length}` : `GROUPS · ${groups.length}`}
             </Text>
           </TouchableOpacity>
         ))}
@@ -147,73 +186,85 @@ export default function DayLobby() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: spacing.md, paddingBottom: 96 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.gold} />}
+        contentContainerStyle={{ padding: 16, paddingBottom: 110, gap: 8 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={GOLD} />}
         key={tab}
       >
         {tab === 'leaderboard' && (
-          <>
-            {players.length === 0 ? (
-              <Text style={s.empty}>No scores yet — get playing!</Text>
-            ) : (
-              players.map((p, rank) => {
-                const isMe = p.player_id === myId;
+          players.length === 0
+            ? <Text style={s.empty}>No scores yet — get playing!</Text>
+            : players.map((p, rank) => {
+                const isMe      = p.player_id === myId;
+                const isFirst   = rank === 0;
+                const rankColor = rank === 0 ? GOLD : rank === 1 ? '#C0C0C0' : rank === 2 ? '#CD7F32' : '#444';
                 return (
-                  <View key={p.player_id} style={[s.lbRow, isMe && s.lbRowMe]}>
-                    <Text style={[s.lbRank, rank === 0 && s.lbRankGold]}>{rank + 1}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[s.lbName, isMe && s.lbNameMe]}>{p.name.split(' ')[0]}{isMe ? ' (you)' : ''}</Text>
+                  <View key={p.player_id} style={[s.lbCard, isFirst && s.lbCardFirst, isMe && s.lbCardMe]}>
+                    <Text style={[s.lbRank, { color: rankColor }]}>{rank + 1}</Text>
+                    <InitialAvatar name={p.name} size={38} />
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={[s.lbName, isFirst && { color: GOLD }]}>{p.name.split(' ')[0]}</Text>
+                        {isMe && <View style={s.youBadge}><Text style={s.youBadgeText}>YOU</Text></View>}
+                      </View>
                       <Text style={s.lbSub}>{p.holes} holes · hcp {p.hcp.toFixed(0)}</Text>
                     </View>
-                    <Text style={[s.lbPts, rank === 0 && s.lbPtsGold]}>{p.pts}pts</Text>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={[s.lbPts, isFirst && { color: GOLD }]}>{p.pts}</Text>
+                      <Text style={s.lbPtsLabel}>pts</Text>
+                    </View>
                   </View>
                 );
               })
-            )}
-          </>
         )}
 
         {tab === 'scores' && (
-          <>
-            {groups.map((g, i) => (
-              <TouchableOpacity
-                key={g.match_id}
-                style={[s.groupCard, g.match_id === myMatch && s.groupCardMe]}
-                onPress={() => router.push(`/(app)/score/${g.match_id}` as any)}
-                activeOpacity={0.8}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          groups.length === 0
+            ? <Text style={s.empty}>No groups yet.</Text>
+            : groups.map((g, i) => (
+                <TouchableOpacity
+                  key={g.match_id}
+                  style={[s.groupCard, g.match_id === myMatchId && s.groupCardMe]}
+                  onPress={() => router.push(`/(app)/score/${g.match_id}` as any)}
+                  activeOpacity={0.8}
+                >
+                  {g.match_id === myMatchId && <View style={s.groupAccent} />}
                   <View style={{ flex: 1 }}>
-                    <Text style={s.groupNum}>GROUP {i + 1} · {g.format.toUpperCase()}</Text>
-                    <Text style={s.groupPlayers}>{g.player_names.join(', ')}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <Text style={s.groupNum}>GROUP {i + 1}</Text>
+                      <View style={s.formatChip}>
+                        <Text style={s.formatChipText}>{g.format.replace(/_/g, ' ').toUpperCase()}</Text>
+                      </View>
+                      {g.match_id === myMatchId && (
+                        <View style={s.yourGroupBadge}><Text style={s.yourGroupText}>YOUR GROUP</Text></View>
+                      )}
+                    </View>
+                    <Text style={s.groupPlayers}>{g.player_names.join(' · ')}</Text>
                   </View>
-                  {g.match_id === myMatch && <Text style={s.groupYou}>YOUR GROUP</Text>}
-                  <Text style={{ color: colors.gold, fontSize: 20, marginLeft: spacing.sm }}>›</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-            {groups.length === 0 && <Text style={s.empty}>No groups yet.</Text>}
-          </>
+                  <Ionicons name="chevron-forward" size={18} color={g.match_id === myMatchId ? GOLD : '#444'} />
+                </TouchableOpacity>
+              ))
         )}
       </ScrollView>
 
-      {/* Fixed bottom action */}
-      <View style={s.bottomBar}>
-        {myMatch ? (
+      {/* Footer action */}
+      <View style={s.footer}>
+        {myMatchId ? (
           <TouchableOpacity
-            style={s.scoreBtn}
-            onPress={() => router.push(`/(app)/score/${myMatch}` as any)}
+            style={s.actionBtn}
+            onPress={() => router.push(`/(app)/score/${myMatchId}` as any)}
             activeOpacity={0.85}
           >
-            <Text style={s.scoreBtnText}>⛳ Score My Group</Text>
+            <Text style={s.actionBtnText}>Score My Group</Text>
+            <Ionicons name="chevron-forward" size={20} color="#000" />
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={s.joinBtn}
+            style={s.actionBtn}
             onPress={() => router.push(`/(app)/games/new?existingDayId=${dayId}&course=${encodeURIComponent(day.course_name)}` as any)}
             activeOpacity={0.85}
           >
-            <Text style={s.joinBtnText}>+ Add My Group</Text>
+            <Ionicons name="add-circle-outline" size={20} color="#000" />
+            <Text style={s.actionBtnText}>Add My Group</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -222,65 +273,53 @@ export default function DayLobby() {
 }
 
 const s = StyleSheet.create({
-  container:     { flex: 1, backgroundColor: colors.bg },
-  header:        {
-    paddingTop: Platform.OS === 'ios' ? 56 : 32,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: spacing.sm,
-  },
-  backText:      { color: colors.gold, fontSize: fonts.md, fontWeight: '600', minWidth: 50 },
-  headerCourse:  { fontSize: fonts.md, fontWeight: '800', color: colors.white },
-  headerDate:    { fontSize: fonts.xs, color: colors.textMuted, marginTop: 1 },
-  shareBtn:      { backgroundColor: colors.goldDim, borderWidth: 1, borderColor: colors.goldBorder, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 5 },
-  shareBtnText:  { color: colors.gold, fontSize: fonts.xs, fontWeight: '800', letterSpacing: 2 },
+  root:    { flex: 1, backgroundColor: '#000' },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' },
 
-  tabBar:         {
-    flexDirection: 'row',
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-    paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: 0,
-    gap: spacing.sm,
-  },
-  tabItem:        {
-    flex: 1, paddingVertical: 10, alignItems: 'center',
-    borderBottomWidth: 3, borderBottomColor: 'transparent',
-  },
-  tabItemActive:  { borderBottomColor: colors.gold },
-  tabLabel:       { fontSize: fonts.sm, fontWeight: '700', color: colors.textMuted },
-  tabLabelActive: { color: colors.gold },
+  header:       { flexDirection: 'row', alignItems: 'center', paddingTop: 56, paddingHorizontal: 16, paddingBottom: 12 },
+  headerSide:   { width: 40, alignItems: 'center' },
+  headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
+  headerLogo:   { width: 28, height: 28 },
+  headerSub:    { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2.5 },
+  codeBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: `${GOLD}15`, borderWidth: 1, borderColor: `${GOLD}30`, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 },
+  codeBtnText:  { fontFamily: FFB, fontSize: 11, color: GOLD, letterSpacing: 1.5 },
 
-  empty:        { color: colors.textMuted, fontSize: fonts.sm, textAlign: 'center', paddingVertical: spacing.xl },
+  courseCard:  { marginHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 14 },
+  courseName:  { fontFamily: FFB, fontSize: 16, color: '#fff' },
+  courseDate:  { fontFamily: FF, fontSize: 12, color: '#555', marginTop: 2 },
+  parChip:     { backgroundColor: `${GOLD}15`, borderWidth: 1, borderColor: `${GOLD}30`, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+  parChipText: { fontFamily: FF, fontSize: 12, color: GOLD, letterSpacing: 1 },
 
-  lbRow:        { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
-  lbRowMe:      { backgroundColor: colors.goldDim, borderRadius: radius.md, paddingHorizontal: spacing.sm, marginHorizontal: -spacing.sm },
-  lbRank:       { width: 24, fontSize: fonts.md, fontWeight: '800', color: colors.textMuted, textAlign: 'center' },
-  lbRankGold:   { color: colors.gold },
-  lbName:       { fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  lbNameMe:     { color: colors.gold },
-  lbSub:        { fontSize: fonts.xs, color: colors.textMuted },
-  lbPts:        { fontSize: fonts.lg, fontWeight: '800', color: colors.white, minWidth: 52, textAlign: 'right' },
-  lbPtsGold:    { color: colors.gold },
+  tabBar:         { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#1c1c1c', marginHorizontal: 16, marginBottom: 4 },
+  tabItem:        { flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabItemActive:  { borderBottomColor: GOLD },
+  tabLabel:       { fontFamily: FF, fontSize: 10, color: '#444', letterSpacing: 1.5 },
+  tabLabelActive: { color: GOLD },
 
-  groupCard:    { backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.sm },
-  groupCardMe:  { borderColor: colors.gold, backgroundColor: colors.goldDim },
-  groupNum:     { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginBottom: 2 },
-  groupPlayers: { fontSize: fonts.md, fontWeight: '600', color: colors.white },
-  groupYou:     { fontSize: 9, fontWeight: '800', color: colors.gold, letterSpacing: 1 },
+  empty: { fontFamily: FF, fontSize: 14, color: '#444', textAlign: 'center', paddingVertical: 40 },
 
-  bottomBar:     {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    paddingHorizontal: spacing.md,
-    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
-    paddingTop: spacing.sm,
-    backgroundColor: colors.bg,
-    borderTopWidth: 1, borderTopColor: colors.border,
-  },
-  scoreBtn:     { backgroundColor: colors.green, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center' },
-  scoreBtnText: { color: colors.bg, fontSize: fonts.lg, fontWeight: '800' },
-  joinBtn:      { backgroundColor: colors.gold, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center' },
-  joinBtnText:  { color: colors.bg, fontSize: fonts.lg, fontWeight: '800' },
+  lbCard:      { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 14, flexDirection: 'row', alignItems: 'center' },
+  lbCardFirst: { borderColor: `${GOLD}30`, backgroundColor: `${GOLD}08` },
+  lbCardMe:    { borderColor: `${GOLD}50` },
+  lbRank:      { fontFamily: FFB, fontSize: 20, width: 32, textAlign: 'center', marginRight: 4 },
+  lbName:      { fontFamily: FFB, fontSize: 15, color: '#fff' },
+  lbSub:       { fontFamily: FF, fontSize: 11, color: '#555', marginTop: 2 },
+  lbPts:       { fontFamily: FFB, fontSize: 26, color: '#fff' },
+  lbPtsLabel:  { fontFamily: FF, fontSize: 10, color: '#444', textAlign: 'right', letterSpacing: 1 },
+  youBadge:    { backgroundColor: `${GOLD}20`, borderWidth: 1, borderColor: `${GOLD}40`, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+  youBadgeText:{ fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 1 },
+
+  groupCard:     { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 14, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
+  groupCardMe:   { borderColor: `${GOLD}40` },
+  groupAccent:   { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, backgroundColor: GOLD, borderTopLeftRadius: 14, borderBottomLeftRadius: 14 },
+  groupNum:      { fontFamily: FFB, fontSize: 11, color: '#555', letterSpacing: 1.5 },
+  groupPlayers:  { fontFamily: FF, fontSize: 14, color: '#ccc' },
+  formatChip:    { backgroundColor: '#1c1c1c', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+  formatChipText:{ fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1 },
+  yourGroupBadge:{ backgroundColor: `${GOLD}15`, borderWidth: 1, borderColor: `${GOLD}30`, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+  yourGroupText: { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 1 },
+
+  footer:        { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 36, backgroundColor: '#000', borderTopWidth: 1, borderTopColor: '#111' },
+  actionBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GOLD, borderRadius: 14, paddingVertical: 16 },
+  actionBtnText: { fontFamily: FFB, fontSize: 16, color: '#000' },
 });

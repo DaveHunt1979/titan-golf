@@ -9,7 +9,6 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../../src/lib/theme';
 import {
   calcHoles, matchLabel, calcCourseHandicap,
   calcStrokesReceived, calcStablefordPoints,

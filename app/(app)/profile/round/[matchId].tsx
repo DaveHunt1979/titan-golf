@@ -1,14 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, ScrollView, StyleSheet, Text,
+  ActivityIndicator, Image, ScrollView, StyleSheet, Text,
   TouchableOpacity, View, Dimensions,
 } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { colors, fonts, radius, spacing } from '../../../../src/lib/theme';
 import { speakDebrief } from '../../../../src/lib/caddie';
+
+// ─── TITAN design constants ───────────────────────────────────────────────────
+
+const GOLD  = '#D4AF37';
+const GREEN = '#4ade80';
+const RED   = '#f87171';
+const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
+
+const titanLogo = require('../../../../assets/images/titan-logo.png');
 
 const { width: SW } = Dimensions.get('window');
 
@@ -45,12 +55,12 @@ function fairwayIcon(dir: 'left' | 'centre' | 'right' | null) {
 }
 
 function scoreCellColor(pts: number | null) {
-  if (pts == null) return colors.textSecondary;
-  if (pts >= 4)    return '#D4AF37';
-  if (pts === 3)   return colors.green;
-  if (pts === 2)   return colors.white;
+  if (pts == null) return '#9ca3af';
+  if (pts >= 4)    return GOLD;
+  if (pts === 3)   return GREEN;
+  if (pts === 2)   return '#fff';
   if (pts === 1)   return '#f97316';
-  return colors.red ?? '#f87171';
+  return RED;
 }
 
 function ptsBadgeBg(pts: number) {
@@ -62,11 +72,11 @@ function ptsBadgeBg(pts: number) {
 }
 
 function ptsBadgeColor(pts: number) {
-  if (pts >= 4) return '#D4AF37';
-  if (pts === 3) return colors.green;
+  if (pts >= 4) return GOLD;
+  if (pts === 3) return GREEN;
   if (pts === 2) return '#3b82f6';
   if (pts === 1) return '#f97316';
-  return colors.red ?? '#f87171';
+  return RED;
 }
 
 function formatDate(d: string) {
@@ -75,9 +85,9 @@ function formatDate(d: string) {
 
 function toParStr(n: number) { return n === 0 ? 'E' : n > 0 ? `+${n}` : `${n}`; }
 function toParColor(n: number) {
-  if (n < 0) return colors.green;
-  if (n > 5) return colors.red ?? '#f87171';
-  return colors.textSecondary;
+  if (n < 0) return GREEN;
+  if (n > 5) return RED;
+  return '#9ca3af';
 }
 
 // ─── sub-components ───────────────────────────────────────────────────────────
@@ -97,6 +107,11 @@ function SumCard({ label, value, sub, subColor }: { label: string; value: string
 export default function RoundDetailScreen() {
   const router   = useRouter();
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans':        require('../../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
   const [loading,      setLoading]      = useState(true);
   const [courseName,   setCourseName]   = useState('Round');
@@ -278,11 +293,11 @@ export default function RoundDetailScreen() {
   const mapHoleRow    = holes.find(h => h.holeNumber === mapHole);
   const totalHoles    = holes.length || 18;
 
-  if (loading) {
+  if (loading || !fontsLoaded) {
     return (
-      <View style={[ss.container, ss.centered]}>
+      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
         <StatusBar style="light" />
-        <ActivityIndicator color={colors.gold} size="large" />
+        <ActivityIndicator color={GOLD} size="large" />
       </View>
     );
   }
@@ -343,7 +358,7 @@ export default function RoundDetailScreen() {
           {holes.map((h, i) => (
             <View key={h.holeNumber} style={[ss.row, i % 2 === 0 && ss.rowAlt]}>
               <Text style={[ss.cell, ss.holeNum]}>{h.holeNumber}</Text>
-              <Text style={[ss.cell, { width: 36, color: scoreCellColor(h.stablefordPts), fontWeight: '700' }]}>
+              <Text style={[ss.cell, { width: 36, color: scoreCellColor(h.stablefordPts), fontFamily: FFB }]}>
                 {h.gross ?? '—'}
               </Text>
               <View style={{ width: 36, alignItems: 'flex-start' }}>
@@ -353,9 +368,9 @@ export default function RoundDetailScreen() {
                     </View>
                   : <Text style={ss.cell}>—</Text>}
               </View>
-              <Text style={[ss.cell, { width: 32, fontSize: 14 }]}>{fairwayIcon(h.fairwayDirection)}</Text>
-              <Text style={[ss.cell, { width: 28 }]}>{h.putts ?? '—'}</Text>
-              <Text style={[ss.cell, { flex: 1, color: colors.textMuted, fontSize: fonts.xs }]} numberOfLines={1}>
+              <Text style={[ss.cell, ss.fairwayCell]}>{fairwayIcon(h.fairwayDirection)}</Text>
+              <Text style={[ss.cell, ss.puttsCell]}>{h.putts ?? '—'}</Text>
+              <Text style={[ss.cell, ss.clubsCell]} numberOfLines={1}>
                 {h.clubs.length > 0 ? h.clubs.join(' · ') : ''}
               </Text>
             </View>
@@ -374,7 +389,7 @@ export default function RoundDetailScreen() {
       {activeTab === 'shotmap' && (
         <View style={{ flex: 1 }}>
           {!hasGpsShots ? (
-            <View style={[ss.centered, { flex: 1, gap: spacing.sm }]}>
+            <View style={[ss.centered, { flex: 1, gap: 8 }]}>
               <Text style={{ fontSize: 36 }}>📍</Text>
               <Text style={ss.emptyTitle}>No shot locations yet</Text>
               <Text style={ss.emptySub}>GPS is captured automatically when you log a shot during a round via the voice caddie.</Text>
@@ -487,100 +502,104 @@ export default function RoundDetailScreen() {
 }
 
 const ss = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: '#000' },
   centered:  { alignItems: 'center', justifyContent: 'center' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  back:     { fontSize: fonts.sm, fontWeight: '600', color: colors.gold },
-  title:    { fontSize: fonts.md, fontWeight: '800', color: colors.white, maxWidth: 160, textAlign: 'center' },
-  subtitle: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+  back:     { fontSize: 14, fontFamily: FFB, color: GOLD },
+  title:    { fontSize: 15, fontFamily: FFB, color: '#fff', maxWidth: 160, textAlign: 'center' },
+  subtitle: { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 2 },
 
-  debriefBtn:     { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.goldBorder, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 6 },
+  debriefBtn:     { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
   debriefBtnBusy: { opacity: 0.5 },
-  debriefBtnText: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold },
+  debriefBtnText: { fontSize: 12, fontFamily: FFB, color: GOLD },
 
-  summaryRow: { flexDirection: 'row', gap: spacing.sm, padding: spacing.md, paddingBottom: 0 },
+  summaryRow: { flexDirection: 'row', gap: 8, padding: 16, paddingBottom: 0 },
   sumCard: {
-    flex: 1, backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    paddingVertical: spacing.sm, alignItems: 'center',
+    flex: 1, backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingVertical: 8, alignItems: 'center',
   },
-  sumVal: { fontSize: fonts.lg, fontWeight: '800', color: colors.gold },
-  sumLbl: { fontSize: 8, fontWeight: '800', color: colors.textMuted, letterSpacing: 1, marginTop: 1 },
-  sumSub: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 1 },
+  sumVal: { fontSize: 20, fontFamily: FFB, color: GOLD },
+  sumLbl: { fontSize: 8, fontFamily: FFB, color: '#555', letterSpacing: 1, marginTop: 1 },
+  sumSub: { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 1 },
 
   tabBar: {
-    flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border,
-    marginTop: spacing.md,
+    flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
+    marginTop: 16,
   },
   tab:        { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  tabOn:      { borderBottomWidth: 2, borderBottomColor: colors.gold },
-  tabText:    { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.2 },
-  tabTextOn:  { color: colors.gold },
+  tabOn:      { borderBottomWidth: 2, borderBottomColor: GOLD },
+  tabText:    { fontSize: 12, fontFamily: FFB, color: '#555', letterSpacing: 1.2 },
+  tabTextOn:  { color: GOLD },
 
-  scroll: { padding: spacing.md },
+  scroll: { padding: 16 },
 
   tableHead: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: spacing.sm, paddingVertical: 6,
-    borderBottomWidth: 1, borderBottomColor: colors.border, marginBottom: 2,
+    paddingHorizontal: 8, paddingVertical: 6,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c', marginBottom: 2,
   },
-  headCell: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 1 },
-  row:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.sm, paddingVertical: 8, borderRadius: radius.sm },
-  rowAlt: { backgroundColor: 'rgba(255,255,255,0.02)' },
-  cell:   { fontSize: fonts.sm, color: colors.textSecondary },
-  holeNum:{ width: 32, fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted },
-  ptsBadge: { borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
-  ptsText:  { fontSize: fonts.xs, fontWeight: '800' },
+  headCell: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  row:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 8, borderRadius: 4 },
+  rowAlt:    { backgroundColor: 'rgba(255,255,255,0.02)' },
+  cell:      { fontSize: 14, color: '#9ca3af' },
+  holeNum:   { width: 32, fontSize: 12, fontFamily: FFB, color: '#555' },
+  ptsBadge:  { borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
+  ptsText:   { fontSize: 12, fontFamily: FFB },
 
-  empty:     { alignItems: 'center', paddingTop: 60 },
-  emptyText: { fontSize: fonts.sm, color: colors.textMuted },
-  emptyTitle: { fontSize: fonts.lg, fontWeight: '700', color: colors.textSecondary },
-  emptySub:   { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', paddingHorizontal: spacing.xl },
+  fairwayCell: { width: 32, fontSize: 14, fontFamily: FF },
+  puttsCell:   { width: 28, fontFamily: FF, color: '#9ca3af' },
+  clubsCell:   { flex: 1, fontFamily: FF, color: '#555', fontSize: 11 },
+
+  empty:      { alignItems: 'center', paddingTop: 60 },
+  emptyText:  { fontSize: 14, fontFamily: FFB, color: '#555' },
+  emptyTitle: { fontSize: 20, fontFamily: FFB, color: '#444' },
+  emptySub:   { fontSize: 14, fontFamily: FF, color: '#555', textAlign: 'center', paddingHorizontal: 32 },
 
   // Shot map
   shotDot: {
     width: 24, height: 24, borderRadius: 12,
     backgroundColor: 'rgba(212,175,55,0.85)',
-    borderWidth: 1.5, borderColor: colors.white,
+    borderWidth: 1.5, borderColor: '#fff',
     alignItems: 'center', justifyContent: 'center',
   },
-  shotDotFirst: { backgroundColor: '#4ade80' },
-  shotDotLast:  { backgroundColor: colors.gold },
-  shotDotText:  { fontSize: 9, fontWeight: '800', color: colors.bg },
+  shotDotFirst: { backgroundColor: GREEN },
+  shotDotLast:  { backgroundColor: GOLD },
+  shotDotText:  { fontSize: 9, fontFamily: FFB, color: '#000' },
 
   pinMarker: { alignItems: 'center' },
   pinText:   { fontSize: 22 },
 
   mapOverlayTop: {
     position: 'absolute', top: 0, left: 0, right: 0,
-    backgroundColor: 'rgba(7,11,16,0.75)',
-    paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8,
     gap: 2,
   },
-  mapHoleLabel: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 1.5 },
-  mapHoleStats: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  mapShotCount: { fontSize: fonts.xs, color: colors.textMuted },
+  mapHoleLabel: { fontSize: 12, fontFamily: FFB, color: GOLD, letterSpacing: 1.5 },
+  mapHoleStats: { fontSize: 14, fontFamily: FFB, color: '#fff' },
+  mapShotCount: { fontSize: 12, fontFamily: FF, color: '#555' },
 
   holeNav: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(7,11,16,0.9)',
-    paddingVertical: spacing.sm, paddingHorizontal: spacing.sm,
-    borderTopWidth: 1, borderTopColor: colors.border,
+    paddingVertical: 8, paddingHorizontal: 8,
+    borderTopWidth: 1, borderTopColor: '#1c1c1c',
   },
   holeNavArrow:     { width: 36, alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
   holeNavArrowOff:  { opacity: 0.25 },
-  holeNavArrowText: { fontSize: 24, fontWeight: '300', color: colors.gold },
+  holeNavArrowText: { fontSize: 24, fontFamily: FF, color: GOLD },
 
-  holePills:    { flexDirection: 'row', gap: 6, paddingHorizontal: spacing.xs },
-  holePill:     { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  holePillOn:   { backgroundColor: colors.gold, borderColor: colors.gold },
-  holePillEmpty:{ opacity: 0.35 },
-  holePillText:     { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted },
-  holePillTextOn:   { color: colors.bg },
+  holePills:        { flexDirection: 'row', gap: 6, paddingHorizontal: 4 },
+  holePill:         { width: 32, height: 32, borderRadius: 16, backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center' },
+  holePillOn:       { backgroundColor: GOLD, borderColor: GOLD },
+  holePillEmpty:    { opacity: 0.35 },
+  holePillText:     { fontSize: 12, fontFamily: FFB, color: '#555' },
+  holePillTextOn:   { color: '#000' },
 });

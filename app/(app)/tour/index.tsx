@@ -6,13 +6,21 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../../src/lib/supabase';
 import { getStandings } from '../../../src/lib/scoring';
-import { fonts, spacing, radius } from '../../../src/lib/theme';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { teamLogos } from '../../../src/lib/assets';
 import type { Competition, CompetitionDay, Match, Team, Champion, Notification } from '../../../src/types';
+
+// ── TITAN constants ───────────────────────────────────────────────────
+const GOLD  = '#D4AF37';
+const GREEN = '#4ade80';
+const RED   = '#f87171';
+const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const STORAGE_KEY = 'tour_joined_competition_id';
 
@@ -67,6 +75,11 @@ export default function TourScreen() {
   const colors = useDynamicColors();
   const { palette, societyId: SOCIETY_ID } = useSocietyTheme();
 
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
   const router = useRouter();
   const pinRef = useRef<TextInput>(null);
 
@@ -88,201 +101,12 @@ export default function TourScreen() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [instagramUrl, setInstagramUrl] = useState<string | null>(null);
 
-  const styles = useMemo(() => {
-    const isDark  = luminance(palette.accent) > 160;
-    const aText   = isDark ? 'rgba(0,0,0,0.85)' : '#ffffff';
-    const aMuted  = isDark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)';
-    const aUnder  = isDark ? 'rgba(0,0,0,0.75)' : '#ffffff';
-    const aSep    = 'rgba(0,0,0,0.15)';
-
-    return StyleSheet.create({
-      container: { flex: 1, backgroundColor: colors.bg },
-      centered:  { flex: 1, alignItems: 'center', justifyContent: 'center' },
-
-      // ── Branded header ──────────────────────────────────────────────
-      accentHeader: {
-        backgroundColor: palette.accent,
-        paddingTop: Platform.OS === 'ios' ? 56 : 32,
-        paddingHorizontal: spacing.lg,
-        paddingBottom: 0,
-      },
-      headerTopRow: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: spacing.xs,
-      },
-      headerLabel:   { fontSize: fonts.xs, fontWeight: '800', letterSpacing: 2, color: aMuted },
-      headerTitle:   { fontSize: 28, fontWeight: '900', letterSpacing: 0.2, color: aText, marginBottom: spacing.xs },
-      liveBadge: {
-        alignSelf: 'flex-start', marginBottom: spacing.md,
-        backgroundColor: 'rgba(34,197,94,0.2)', paddingHorizontal: spacing.sm, paddingVertical: 2,
-        borderRadius: radius.sm, borderWidth: 1, borderColor: 'rgba(34,197,94,0.5)',
-      },
-      liveBadgeText: { fontSize: fonts.xs, color: '#22c55e', fontWeight: '700', letterSpacing: 1 },
-      leaveBtn:      { paddingVertical: 4, paddingLeft: spacing.sm },
-      leaveBtnText:  { fontSize: fonts.xs, fontWeight: '700', letterSpacing: 1, color: aMuted },
-
-      // ── Section grid ─────────────────────────────────────────────────
-      sectionGridScroll: { padding: spacing.md, paddingBottom: 48 },
-      sectionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-      sectionTile: {
-        width: '48%', backgroundColor: colors.card,
-        borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
-        padding: spacing.md, paddingVertical: 22,
-      },
-      sectionTileIcon:  { fontSize: 32, marginBottom: spacing.sm },
-      sectionTileLabel: { fontSize: 18, fontWeight: '900', color: colors.white, marginBottom: 4 },
-      sectionTileSub:   { fontSize: 12, color: colors.textMuted, lineHeight: 17, marginBottom: spacing.sm },
-      sectionTileArrow: { fontSize: 22, color: palette.accent, fontWeight: '300' },
-
-      // ── Section back button ──────────────────────────────────────────
-      sectionBack: {
-        flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-        paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
-        borderBottomWidth: 1, borderBottomColor: colors.border,
-        backgroundColor: colors.bg,
-      },
-      sectionBackText:  { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
-      sectionBackTitle: { fontSize: fonts.md, color: colors.white, fontWeight: '800' },
-
-      // ── Standings section headings ───────────────────────────────────
-      standingsSectionHeader: {
-        fontSize: fonts.xs, fontWeight: '800', letterSpacing: 1.5,
-        color: colors.textMuted, paddingVertical: spacing.sm,
-        marginTop: spacing.sm,
-      },
-
-      scroll: { padding: spacing.md, paddingBottom: 48 },
-
-      // ── Teams / standings ───────────────────────────────────────────
-      tableHeader: {
-        flexDirection: 'row', paddingVertical: spacing.xs,
-        paddingHorizontal: spacing.sm, marginBottom: spacing.xs,
-      },
-      th:       { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '700', letterSpacing: 1 },
-      row: {
-        flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
-        borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.sm,
-        marginBottom: spacing.xs, borderWidth: 1, borderColor: colors.border,
-      },
-      rowFirst:  { borderColor: colors.goldBorder, backgroundColor: colors.cardAlt },
-      cell:      { flex: 1, textAlign: 'center', fontSize: fonts.sm, color: colors.textSecondary, fontWeight: '500' },
-      cellTeam:  { flex: 4, textAlign: 'left' },
-      cellPts:   { flex: 1.5 },
-      pos:       { fontSize: fonts.sm, color: colors.textMuted, width: 18, textAlign: 'center' },
-      dot:       { width: 8, height: 8, borderRadius: 4 },
-      teamLogo:  { width: 28, height: 28 },
-      teamName:  { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-      pts:       { fontSize: fonts.md, fontWeight: '800', color: colors.gold },
-
-      // ── Scores tab ──────────────────────────────────────────────────
-      daySection: { marginBottom: spacing.lg },
-      dayHeaderWrap: {
-        flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
-        marginBottom: spacing.sm,
-      },
-      dayHeaderLeft: { flex: 1 },
-      dayNum: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 1.5, marginBottom: 2 },
-      dayCourseName: { fontSize: fonts.md, fontWeight: '700', color: colors.white },
-      dayDate: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 1 },
-      dayStatusBadge: {
-        paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.sm,
-        backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-        marginBottom: 2,
-      },
-      dayStatusBadgeLive: {
-        backgroundColor: 'rgba(34,197,94,0.1)', borderColor: 'rgba(34,197,94,0.35)',
-      },
-      dayStatusText: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },
-      dayStatusTextLive: { color: '#22c55e' },
-
-      matchRow: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: colors.card, borderRadius: radius.md,
-        paddingVertical: 10, paddingHorizontal: spacing.md,
-        marginBottom: 6, borderWidth: 1, borderColor: colors.border,
-      },
-      matchRowLive: { borderColor: 'rgba(34,197,94,0.35)' },
-      matchSide: { flex: 1 },
-      matchSideHome: { alignItems: 'flex-start' },
-      matchSideAway: { alignItems: 'flex-end' },
-      matchSideTeam: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-      matchSideTeamAway: { flexDirection: 'row-reverse' },
-      matchTeamDot: { width: 7, height: 7, borderRadius: 4 },
-      matchName: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-      matchMid: { alignItems: 'center', paddingHorizontal: spacing.sm, minWidth: 52 },
-      matchVs: { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '700' },
-      matchResult: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, textAlign: 'center' },
-      matchLiveDot: {
-        width: 7, height: 7, borderRadius: 4,
-        backgroundColor: '#22c55e', marginBottom: 2,
-      },
-      matchChevron: { fontSize: 18, color: colors.textMuted, marginLeft: spacing.xs },
-
-      // ── Kronos ──────────────────────────────────────────────────────
-      kronosRow: {
-        flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
-        borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.sm,
-        marginBottom: spacing.xs, borderWidth: 1, borderColor: colors.border,
-      },
-      kronosRowFirst: { borderColor: colors.goldBorder, backgroundColor: colors.cardAlt },
-
-      // ── Honours / Champions ─────────────────────────────────────────
-      champYear: { marginBottom: spacing.lg },
-      champYearLabel: {
-        fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted,
-        letterSpacing: 2, marginBottom: spacing.sm,
-      },
-      champCard: {
-        backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md,
-        marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.goldBorder,
-      },
-      champAward:  { fontSize: fonts.xs, color: colors.gold, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
-      champWinner: { fontSize: fonts.xl, fontWeight: '800', color: colors.white },
-      champDetail: { fontSize: fonts.sm, color: colors.textSecondary, marginTop: 4 },
-
-      noResults: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', padding: spacing.lg, lineHeight: 22 },
-
-      // ── Play Your Match banner ──────────────────────────────────────
-      playBanner: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: colors.gold, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
-        borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.15)',
-        gap: spacing.md,
-      },
-      playBannerLabel: { fontSize: 9, fontWeight: '800', color: 'rgba(0,0,0,0.5)', letterSpacing: 1.5, marginBottom: 2 },
-      playBannerTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
-      playBannerBtn:   { backgroundColor: colors.bg, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-      playBannerBtnText: { fontSize: fonts.sm, fontWeight: '800', color: colors.gold },
-
-      // ── PIN entry ───────────────────────────────────────────────────
-      pinScroll: { alignItems: 'center', paddingTop: 80, paddingHorizontal: spacing.lg, paddingBottom: 60 },
-      pinIcon:    { fontSize: 56, marginBottom: spacing.lg },
-      pinHeading: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, marginBottom: spacing.xs, textAlign: 'center' },
-      pinSub: {
-        fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center',
-        lineHeight: 20, marginBottom: spacing.xl,
-      },
-      pinBoxes: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
-      pinBox: {
-        width: 56, height: 68, borderRadius: radius.md,
-        backgroundColor: colors.card, borderWidth: 2, borderColor: colors.border,
-        alignItems: 'center', justifyContent: 'center',
-      },
-      pinBoxActive: { borderColor: colors.gold },
-      pinChar:      { fontSize: 32, fontWeight: '800', color: colors.white },
-      pinOverlay:   { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0 },
-      pinVerifying: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md },
-      pinVerifyingText: { fontSize: fonts.sm, color: colors.textMuted },
-      clearBtn:  { marginTop: spacing.md },
-      clearText: { fontSize: fonts.sm, color: colors.textMuted, textDecorationLine: 'underline' },
-
-      // ── No tournament ───────────────────────────────────────────────
-      noTourWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
-      noTourIcon:  { fontSize: 56, marginBottom: spacing.lg },
-      noTourTitle: { fontSize: fonts.xl, fontWeight: '800', color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'center' },
-      noTourSub:   { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
-    });
-  }, [colors, palette.accent]);
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" />
+      <ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
 
   // ── Data loading ────────────────────────────────────────────────────
 
@@ -419,7 +243,7 @@ export default function TourScreen() {
   const standings = getStandings((matches as any[]).filter((m: any) => m.home_team_id && m.away_team_id));
   const enriched  = standings.map(s => {
     const t = teams.find(t => t.id === s.teamId);
-    return { ...s, name: t?.name ?? '—', accent_color: t?.accent_color ?? colors.textMuted };
+    return { ...s, name: t?.name ?? '—', accent_color: t?.accent_color ?? '#555' };
   });
 
   function matchNames(m: Match): { home: string; away: string } {
@@ -437,8 +261,8 @@ export default function TourScreen() {
 
   function matchColors(m: Match): { home: string; away: string } {
     return {
-      home: teams.find(t => t.id === m.home_team_id)?.accent_color ?? colors.textMuted,
-      away: teams.find(t => t.id === m.away_team_id)?.accent_color ?? colors.textMuted,
+      home: teams.find(t => t.id === m.home_team_id)?.accent_color ?? '#555',
+      away: teams.find(t => t.id === m.away_team_id)?.accent_color ?? '#555',
     };
   }
 
@@ -453,22 +277,21 @@ export default function TourScreen() {
     : null;
   const myMatchActive = myMatch && (myMatch.status === 'upcoming' || myMatch.status === 'in_progress');
 
-  // ── Loading ─────────────────────────────────────────────────────────
-  if (loading) return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-      <View style={styles.centered}><ActivityIndicator color={colors.gold} size="large" /></View>
-    </View>
-  );
-
   // ── No active tournament ────────────────────────────────────────────
   if (!competition) return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, backgroundColor: '#000' }}>
       <StatusBar style="light" />
-      <View style={styles.noTourWrap}>
-        <Text style={styles.noTourIcon}>⛳</Text>
-        <Text style={styles.noTourTitle}>No Tournament Running</Text>
-        <Text style={styles.noTourSub}>
+      {/* TITAN header */}
+      <View style={st.titanHeader}>
+        <Image source={titanLogo} style={st.titanLogoImg} resizeMode="contain" />
+        <Text style={st.titanSubtitle}>THE TOUR</Text>
+      </View>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <Text style={{ fontSize: 56, marginBottom: 20 }}>⛳</Text>
+        <Text style={{ fontSize: 20, fontFamily: FFB, color: '#555', marginBottom: 8, textAlign: 'center' }}>
+          No Tournament Running
+        </Text>
+        <Text style={{ fontSize: 14, fontFamily: FF, color: '#444', textAlign: 'center', lineHeight: 20 }}>
           Ask your admin to create and activate{'\n'}a competition to unlock this tab.
         </Text>
       </View>
@@ -477,33 +300,43 @@ export default function TourScreen() {
 
   // ── PIN entry ───────────────────────────────────────────────────────
   if (joinedId !== competition.id) return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#000' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.pinScroll} keyboardShouldPersistTaps="handled">
-        <Text style={styles.pinIcon}>🏆</Text>
-        <Text style={styles.pinHeading}>Enter Tournament PIN</Text>
-        <Text style={styles.pinSub}>
+      {/* TITAN header */}
+      <View style={st.titanHeader}>
+        <Image source={titanLogo} style={st.titanLogoImg} resizeMode="contain" />
+        <Text style={st.titanSubtitle}>THE TOUR</Text>
+      </View>
+      <ScrollView
+        contentContainerStyle={{ alignItems: 'center', paddingTop: 60, paddingHorizontal: 24, paddingBottom: 60 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={{ fontSize: 56, marginBottom: 24 }}>🏆</Text>
+        <Text style={{ fontSize: 26, fontFamily: FFB, color: '#fff', marginBottom: 8, textAlign: 'center' }}>
+          Enter Tournament PIN
+        </Text>
+        <Text style={{ fontSize: 14, fontFamily: FF, color: '#555', textAlign: 'center', lineHeight: 20, marginBottom: 32 }}>
           A tournament is live.{'\n'}Enter the 4-digit PIN your admin shared with you.
         </Text>
 
-        <View style={{ position: 'relative', marginBottom: spacing.lg }}>
-          <View style={styles.pinBoxes}>
+        <View style={{ position: 'relative', marginBottom: 24 }}>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
             {Array.from({ length: 4 }).map((_, i) => (
               <View
                 key={i}
                 style={[
-                  styles.pinBox,
-                  pin.length === i && styles.pinBoxActive,
-                  pin[i] && { borderColor: colors.gold },
+                  st.pinBox,
+                  pin.length === i && st.pinBoxActive,
+                  pin[i] ? { borderColor: GOLD } : {},
                 ]}
               >
-                <Text style={styles.pinChar}>{pin[i] ?? ''}</Text>
+                <Text style={{ fontSize: 32, fontFamily: FFB, color: '#fff' }}>{pin[i] ?? ''}</Text>
               </View>
             ))}
           </View>
           <TextInput
             ref={pinRef}
-            style={styles.pinOverlay}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0 }}
             value={pin}
             onChangeText={v => setPin(v.replace(/\D/g, '').slice(0, 4))}
             keyboardType="number-pad"
@@ -514,18 +347,20 @@ export default function TourScreen() {
         </View>
 
         {verifying && (
-          <View style={styles.pinVerifying}>
-            <ActivityIndicator color={colors.gold} size="small" />
-            <Text style={styles.pinVerifyingText}>Checking PIN…</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+            <ActivityIndicator color={GOLD} size="small" />
+            <Text style={{ fontSize: 14, fontFamily: FF, color: '#555' }}>Checking PIN…</Text>
           </View>
         )}
 
         <TouchableOpacity
-          style={styles.clearBtn}
+          style={{ marginTop: 16 }}
           onPress={() => setPin('')}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={styles.clearText}>{pin.length > 0 ? 'Clear' : ' '}</Text>
+          <Text style={{ fontSize: 14, fontFamily: FF, color: '#555', textDecorationLine: 'underline' }}>
+            {pin.length > 0 ? 'Clear' : ' '}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -533,28 +368,47 @@ export default function TourScreen() {
 
   // ── Tournament hub ──────────────────────────────────────────────────
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, backgroundColor: '#000' }}>
       <StatusBar style="light" />
 
-      {/* Branded header */}
-      <View style={styles.accentHeader}>
-        <View style={styles.headerTopRow}>
-          <Text style={styles.headerLabel}>TOURNAMENT</Text>
-          <TouchableOpacity style={styles.leaveBtn} onPress={leaveTournament} activeOpacity={0.7}>
-            <Text style={styles.leaveBtnText}>LEAVE</Text>
+      {/* TITAN header — logo centred, leave button right */}
+      <View style={st.titanHeader}>
+        <View style={{ position: 'absolute', right: 16, bottom: 10 }}>
+          <TouchableOpacity onPress={leaveTournament} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={{ fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5 }}>LEAVE</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.headerTitle}>{competition.name}</Text>
-        <View style={styles.liveBadge}>
-          <Text style={styles.liveBadgeText}>● LIVE</Text>
+        <Image source={titanLogo} style={st.titanLogoImg} resizeMode="contain" />
+        <Text style={st.titanSubtitle}>THE TOUR</Text>
+      </View>
+
+      {/* Tournament name + LIVE badge */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' }}>
+        <Text style={{ fontSize: 22, fontFamily: FFB, color: '#fff', marginBottom: 6 }}>{competition.name}</Text>
+        <View style={{
+          alignSelf: 'flex-start',
+          backgroundColor: 'rgba(74,222,128,0.1)',
+          paddingHorizontal: 10, paddingVertical: 3,
+          borderRadius: 6, borderWidth: 1, borderColor: 'rgba(74,222,128,0.35)',
+        }}>
+          <Text style={{ fontSize: 10, fontFamily: FFB, color: GREEN, letterSpacing: 1 }}>● LIVE</Text>
         </View>
       </View>
 
       {/* Section back button — shown when inside a section */}
       {selectedSection !== null && (
-        <TouchableOpacity style={styles.sectionBack} onPress={() => setSelectedSection(null)} activeOpacity={0.7}>
-          <Text style={styles.sectionBackText}>‹ Back</Text>
-          <Text style={styles.sectionBackTitle}>
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row', alignItems: 'center', gap: 8,
+            paddingHorizontal: 16, paddingVertical: 10,
+            borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
+            backgroundColor: '#000',
+          }}
+          onPress={() => setSelectedSection(null)}
+          activeOpacity={0.7}
+        >
+          <Text style={{ fontSize: 14, fontFamily: FF, color: '#555' }}>‹ Back</Text>
+          <Text style={{ fontSize: 16, fontFamily: FFB, color: '#fff' }}>
             {selectedSection === 'matches' ? 'Matches' : selectedSection === 'standings' ? 'Standings' : selectedSection === 'info' ? 'Info Pack' : 'Live & Social'}
           </Text>
         </TouchableOpacity>
@@ -563,7 +417,12 @@ export default function TourScreen() {
       {/* Play Your Match banner */}
       {myMatchActive && (
         <TouchableOpacity
-          style={styles.playBanner}
+          style={{
+            flexDirection: 'row', alignItems: 'center',
+            backgroundColor: GOLD, paddingHorizontal: 16, paddingVertical: 10,
+            borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.15)',
+            gap: 12,
+          }}
           onPress={() => router.push(
             myMatch.status === 'in_progress'
               ? `/(app)/score/enter/${myMatch.id}` as any
@@ -572,16 +431,18 @@ export default function TourScreen() {
           activeOpacity={0.88}
         >
           <View style={{ flex: 1 }}>
-            <Text style={styles.playBannerLabel}>YOUR MATCH</Text>
-            <Text style={styles.playBannerTitle}>
+            <Text style={{ fontSize: 9, fontFamily: FFB, color: 'rgba(0,0,0,0.5)', letterSpacing: 1.5, marginBottom: 2 }}>
+              YOUR MATCH
+            </Text>
+            <Text style={{ fontSize: 15, fontFamily: FFB, color: '#000' }}>
               {(() => {
                 const names = matchNames(myMatch as Match);
                 return `${names.home} vs ${names.away}`;
               })()}
             </Text>
           </View>
-          <View style={styles.playBannerBtn}>
-            <Text style={styles.playBannerBtnText}>
+          <View style={{ backgroundColor: '#000', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 }}>
+            <Text style={{ fontSize: 13, fontFamily: FFB, color: GOLD }}>
               {myMatch.status === 'in_progress' ? '▶ Resume' : '⛳ Play'}
             </Text>
           </View>
@@ -592,34 +453,40 @@ export default function TourScreen() {
       {selectedSection === null && (
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={styles.sectionGridScroll}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.gold} />}
+          contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); load(); }}
+              tintColor={GOLD}
+            />
+          }
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.sectionGrid}>
-            <TouchableOpacity style={styles.sectionTile} onPress={() => setSelectedSection('matches')} activeOpacity={0.82}>
-              <Text style={styles.sectionTileIcon}>🏌️</Text>
-              <Text style={styles.sectionTileLabel}>Matches</Text>
-              <Text style={styles.sectionTileSub}>Results & fixtures</Text>
-              <Text style={styles.sectionTileArrow}>›</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            <TouchableOpacity style={st.sectionTile} onPress={() => setSelectedSection('matches')} activeOpacity={0.82}>
+              <Text style={st.sectionTileIcon}>🏌️</Text>
+              <Text style={st.sectionTileLabel}>Matches</Text>
+              <Text style={st.sectionTileSub}>Results & fixtures</Text>
+              <Text style={[st.sectionTileArrow, { color: palette.accent }]}>›</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.sectionTile} onPress={() => setSelectedSection('standings')} activeOpacity={0.82}>
-              <Text style={styles.sectionTileIcon}>📊</Text>
-              <Text style={styles.sectionTileLabel}>Standings</Text>
-              <Text style={styles.sectionTileSub}>Teams, points & honours</Text>
-              <Text style={styles.sectionTileArrow}>›</Text>
+            <TouchableOpacity style={st.sectionTile} onPress={() => setSelectedSection('standings')} activeOpacity={0.82}>
+              <Text style={st.sectionTileIcon}>📊</Text>
+              <Text style={st.sectionTileLabel}>Standings</Text>
+              <Text style={st.sectionTileSub}>Teams, points & honours</Text>
+              <Text style={[st.sectionTileArrow, { color: palette.accent }]}>›</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.sectionTile} onPress={() => setSelectedSection('info')} activeOpacity={0.82}>
-              <Text style={styles.sectionTileIcon}>📋</Text>
-              <Text style={styles.sectionTileLabel}>Info Pack</Text>
-              <Text style={styles.sectionTileSub}>Schedule & travel</Text>
-              <Text style={styles.sectionTileArrow}>›</Text>
+            <TouchableOpacity style={st.sectionTile} onPress={() => setSelectedSection('info')} activeOpacity={0.82}>
+              <Text style={st.sectionTileIcon}>📋</Text>
+              <Text style={st.sectionTileLabel}>Info Pack</Text>
+              <Text style={st.sectionTileSub}>Schedule & travel</Text>
+              <Text style={[st.sectionTileArrow, { color: palette.accent }]}>›</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.sectionTile} onPress={() => setSelectedSection('social')} activeOpacity={0.82}>
-              <Text style={styles.sectionTileIcon}>📸</Text>
-              <Text style={styles.sectionTileLabel}>Live & Social</Text>
-              <Text style={styles.sectionTileSub}>Feed & Instagram</Text>
-              <Text style={styles.sectionTileArrow}>›</Text>
+            <TouchableOpacity style={st.sectionTile} onPress={() => setSelectedSection('social')} activeOpacity={0.82}>
+              <Text style={st.sectionTileIcon}>📸</Text>
+              <Text style={st.sectionTileLabel}>Live & Social</Text>
+              <Text style={st.sectionTileSub}>Feed & Instagram</Text>
+              <Text style={[st.sectionTileArrow, { color: palette.accent }]}>›</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -628,8 +495,14 @@ export default function TourScreen() {
       {/* Content — shown when a section is selected */}
       <ScrollView
         style={{ flex: 1, display: selectedSection !== null && selectedSection !== 'social' ? 'flex' : 'none' }}
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.gold} />}
+        contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); load(); }}
+            tintColor={GOLD}
+          />
+        }
         showsVerticalScrollIndicator={false}
         key={selectedSection ?? 'grid'}
       >
@@ -637,79 +510,88 @@ export default function TourScreen() {
         {/* ── Standings (teams + kronos + honours combined) ── */}
         {selectedSection === 'standings' && (
           <View>
-            <Text style={styles.standingsSectionHeader}>TEAM STANDINGS</Text>
+            <Text style={st.sectionHeader}>TEAM STANDINGS</Text>
             <View>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.cell, styles.cellTeam, styles.th]}>TEAM</Text>
-              <Text style={[styles.cell, styles.th]}>P</Text>
-              <Text style={[styles.cell, styles.th]}>W</Text>
-              <Text style={[styles.cell, styles.th]}>H</Text>
-              <Text style={[styles.cell, styles.th]}>L</Text>
-              <Text style={[styles.cell, styles.cellPts, styles.th]}>PTS</Text>
-            </View>
-            {enriched.map((s, i) => (
-              <View key={s.teamId} style={[styles.row, i === 0 && styles.rowFirst]}>
-                <View style={[styles.cell, styles.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: spacing.xs }]}>
-                  <Text style={styles.pos}>{i + 1}</Text>
-                  {teamLogos[s.name]
-                    ? <Image source={teamLogos[s.name]} style={styles.teamLogo} resizeMode="contain" />
-                    : <View style={[styles.dot, { backgroundColor: s.accent_color }]} />
-                  }
-                  <Text style={styles.teamName}>{s.name}</Text>
-                </View>
-                <Text style={styles.cell}>{s.played}</Text>
-                <Text style={styles.cell}>{s.w}</Text>
-                <Text style={styles.cell}>{s.h}</Text>
-                <Text style={styles.cell}>{s.l}</Text>
-                <Text style={[styles.cell, styles.cellPts, styles.pts]}>{s.pts}</Text>
+              <View style={st.tableHeader}>
+                <Text style={[st.cell, st.cellTeam, st.th]}>TEAM</Text>
+                <Text style={[st.cell, st.th]}>P</Text>
+                <Text style={[st.cell, st.th]}>W</Text>
+                <Text style={[st.cell, st.th]}>H</Text>
+                <Text style={[st.cell, st.th]}>L</Text>
+                <Text style={[st.cell, st.cellPts, st.th]}>PTS</Text>
               </View>
-            ))}
-            {enriched.length === 0 && (
-              <Text style={styles.noResults}>No matches played yet.{'\n'}Results will appear here as games complete.</Text>
-            )}
-            </View>
-
-            <Text style={styles.standingsSectionHeader}>ORDER OF MERIT</Text>
-            <View>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.cell, styles.cellTeam, styles.th]}>PLAYER</Text>
-                <Text style={[styles.cell, styles.th]}>HLS</Text>
-                <Text style={[styles.cell, styles.cellPts, styles.th]}>PTS</Text>
-              </View>
-              {kronosRows.map((r, i) => (
-                <View key={r.playerId} style={[styles.row, i === 0 && styles.rowFirst]}>
-                  <View style={[styles.cell, styles.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: spacing.xs }]}>
-                    <Text style={styles.pos}>{i + 1}</Text>
-                    <Text style={styles.teamName}>{r.name}</Text>
+              {enriched.map((s, i) => (
+                <View key={s.teamId} style={[st.row, i === 0 && st.rowFirst]}>
+                  <View style={[st.cell, st.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                    <Text style={st.pos}>{i + 1}</Text>
+                    {teamLogos[s.name]
+                      ? <Image source={teamLogos[s.name]} style={{ width: 28, height: 28 }} resizeMode="contain" />
+                      : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: s.accent_color }} />
+                    }
+                    <Text style={st.teamName}>{s.name}</Text>
                   </View>
-                  <Text style={styles.cell}>{r.holes}</Text>
-                  <Text style={[styles.cell, styles.cellPts, styles.pts]}>{r.total}</Text>
+                  <Text style={st.cell}>{s.played}</Text>
+                  <Text style={st.cell}>{s.w}</Text>
+                  <Text style={st.cell}>{s.h}</Text>
+                  <Text style={st.cell}>{s.l}</Text>
+                  <Text style={[st.cell, st.cellPts, st.pts]}>{s.pts}</Text>
                 </View>
               ))}
-              {kronosRows.length === 0 && (
-                <Text style={styles.noResults}>No Stableford scores yet.</Text>
+              {enriched.length === 0 && (
+                <Text style={st.noResults}>No matches played yet.{'\n'}Results will appear here as games complete.</Text>
               )}
             </View>
 
-            <Text style={styles.standingsSectionHeader}>ROLL OF HONOUR</Text>
+            <Text style={st.sectionHeader}>ORDER OF MERIT</Text>
+            <View>
+              <View style={st.tableHeader}>
+                <Text style={[st.cell, st.cellTeam, st.th]}>PLAYER</Text>
+                <Text style={[st.cell, st.th]}>HLS</Text>
+                <Text style={[st.cell, st.cellPts, st.th]}>PTS</Text>
+              </View>
+              {kronosRows.map((r, i) => (
+                <View key={r.playerId} style={[st.row, i === 0 && st.rowFirst]}>
+                  <View style={[st.cell, st.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                    <Text style={st.pos}>{i + 1}</Text>
+                    <Text style={st.teamName}>{r.name}</Text>
+                  </View>
+                  <Text style={st.cell}>{r.holes}</Text>
+                  <Text style={[st.cell, st.cellPts, st.pts]}>{r.total}</Text>
+                </View>
+              ))}
+              {kronosRows.length === 0 && (
+                <Text style={st.noResults}>No Stableford scores yet.</Text>
+              )}
+            </View>
+
+            <Text style={st.sectionHeader}>ROLL OF HONOUR</Text>
             <View>
               {champYears.map(year => {
                 const yearChamps = champions.filter(c => c.year === year);
                 return (
-                  <View key={year} style={styles.champYear}>
-                    <Text style={styles.champYearLabel}>{year}</Text>
+                  <View key={year} style={{ marginBottom: 20 }}>
+                    <Text style={{
+                      fontSize: 10, fontFamily: FFB, color: '#555',
+                      letterSpacing: 2, marginBottom: 10,
+                    }}>
+                      {year}
+                    </Text>
                     {yearChamps.map(c => (
-                      <View key={c.id} style={styles.champCard}>
-                        <Text style={styles.champAward}>{c.award_name.toUpperCase()}</Text>
-                        <Text style={styles.champWinner}>{c.winner_name}</Text>
-                        {c.detail && <Text style={styles.champDetail}>{c.detail}</Text>}
+                      <View key={c.id} style={st.champCard}>
+                        <Text style={{ fontSize: 10, fontFamily: FFB, color: GOLD, letterSpacing: 1, marginBottom: 4 }}>
+                          {c.award_name.toUpperCase()}
+                        </Text>
+                        <Text style={{ fontSize: 18, fontFamily: FFB, color: '#fff' }}>{c.winner_name}</Text>
+                        {c.detail && (
+                          <Text style={{ fontSize: 13, fontFamily: FF, color: '#888', marginTop: 4 }}>{c.detail}</Text>
+                        )}
                       </View>
                     ))}
                   </View>
                 );
               })}
               {champYears.length === 0 && (
-                <Text style={styles.noResults}>No champions recorded yet.</Text>
+                <Text style={st.noResults}>No champions recorded yet.</Text>
               )}
             </View>
           </View>
@@ -719,7 +601,7 @@ export default function TourScreen() {
         {selectedSection === 'matches' && (
           <View>
             {days.length === 0 && (
-              <Text style={styles.noResults}>No days scheduled yet.</Text>
+              <Text style={st.noResults}>No days scheduled yet.</Text>
             )}
             {days.map(day => {
               const dayMatches = matches.filter(m => m.day_id === day.id);
@@ -729,15 +611,28 @@ export default function TourScreen() {
               const isDone   = complete === dayMatches.length && dayMatches.length > 0;
 
               return (
-                <View key={day.id} style={styles.daySection}>
-                  <View style={styles.dayHeaderWrap}>
-                    <View style={styles.dayHeaderLeft}>
-                      <Text style={styles.dayNum}>DAY {day.day_number}</Text>
-                      <Text style={styles.dayCourseName}>{day.course_name ?? 'TBC'}</Text>
-                      {day.play_date && <Text style={styles.dayDate}>{formatDate(day.play_date)}</Text>}
+                <View key={day.id} style={{ marginBottom: 20 }}>
+                  {/* Day header */}
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 10, fontFamily: FFB, color: GOLD, letterSpacing: 1.5, marginBottom: 2 }}>
+                        DAY {day.day_number}
+                      </Text>
+                      <Text style={{ fontSize: 15, fontFamily: FFB, color: '#fff' }}>{day.course_name ?? 'TBC'}</Text>
+                      {day.play_date && (
+                        <Text style={{ fontSize: 11, fontFamily: FF, color: '#555', marginTop: 1 }}>
+                          {formatDate(day.play_date)}
+                        </Text>
+                      )}
                     </View>
-                    <View style={[styles.dayStatusBadge, isLive && styles.dayStatusBadgeLive]}>
-                      <Text style={[styles.dayStatusText, isLive && styles.dayStatusTextLive]}>
+                    <View style={[
+                      st.dayStatusBadge,
+                      isLive && { backgroundColor: 'rgba(74,222,128,0.1)', borderColor: 'rgba(74,222,128,0.35)' },
+                    ]}>
+                      <Text style={[
+                        { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 0.5 },
+                        isLive && { color: GREEN },
+                      ]}>
                         {isDone ? 'COMPLETE' : isLive ? 'LIVE' : 'UPCOMING'}
                       </Text>
                     </View>
@@ -747,46 +642,59 @@ export default function TourScreen() {
                     const { home, away } = matchNames(m);
                     const mc = matchColors(m);
                     const isTeamMatch = !!(m.home_team_id && m.away_team_id);
+                    const isMatchLive = m.status === 'in_progress';
+                    const isComplete  = m.status === 'complete';
                     return (
                       <TouchableOpacity
                         key={m.id}
-                        style={[styles.matchRow, m.status === 'in_progress' && styles.matchRowLive]}
+                        style={[
+                          st.matchRow,
+                          isMatchLive && { borderColor: 'rgba(74,222,128,0.35)' },
+                        ]}
                         onPress={() => router.push(`/(app)/score/${m.id}` as any)}
                         activeOpacity={0.75}
                       >
                         {/* Home side */}
-                        <View style={[styles.matchSide, styles.matchSideHome]}>
-                          <View style={styles.matchSideTeam}>
-                            {isTeamMatch && <View style={[styles.matchTeamDot, { backgroundColor: mc.home }]} />}
-                            <Text style={styles.matchName} numberOfLines={1}>{home}</Text>
+                        <View style={{ flex: 1, alignItems: 'flex-start' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                            {isTeamMatch && (
+                              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: mc.home }} />
+                            )}
+                            <Text style={st.matchName} numberOfLines={1}>{home}</Text>
                           </View>
                         </View>
 
                         {/* Middle: vs / result / live */}
-                        <View style={styles.matchMid}>
-                          {m.status === 'in_progress' && <View style={styles.matchLiveDot} />}
-                          {m.status === 'complete' && m.result_str ? (
-                            <Text style={styles.matchResult}>{m.result_str}</Text>
+                        <View style={{ alignItems: 'center', paddingHorizontal: 10, minWidth: 52 }}>
+                          {isMatchLive && (
+                            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN, marginBottom: 2 }} />
+                          )}
+                          {isComplete && m.result_str ? (
+                            <Text style={{ fontSize: 11, fontFamily: FFB, color: GOLD, textAlign: 'center' }}>
+                              {m.result_str}
+                            </Text>
                           ) : (
-                            <Text style={styles.matchVs}>vs</Text>
+                            <Text style={{ fontSize: 10, fontFamily: FFB, color: '#555' }}>vs</Text>
                           )}
                         </View>
 
                         {/* Away side */}
-                        <View style={[styles.matchSide, styles.matchSideAway]}>
-                          <View style={[styles.matchSideTeam, styles.matchSideTeamAway]}>
-                            {isTeamMatch && <View style={[styles.matchTeamDot, { backgroundColor: mc.away }]} />}
-                            <Text style={styles.matchName} numberOfLines={1}>{away}</Text>
+                        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 5 }}>
+                            {isTeamMatch && (
+                              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: mc.away }} />
+                            )}
+                            <Text style={st.matchName} numberOfLines={1}>{away}</Text>
                           </View>
                         </View>
 
-                        <Text style={styles.matchChevron}>›</Text>
+                        <Text style={{ fontSize: 18, color: '#555', marginLeft: 6 }}>›</Text>
                       </TouchableOpacity>
                     );
                   })}
 
                   {dayMatches.length === 0 && (
-                    <Text style={[styles.noResults, { paddingVertical: spacing.sm }]}>No matches yet.</Text>
+                    <Text style={[st.noResults, { paddingVertical: 8 }]}>No matches yet.</Text>
                   )}
                 </View>
               );
@@ -806,7 +714,9 @@ export default function TourScreen() {
             {sections.length === 0 && (
               <View style={infoStyles.empty}>
                 <Text style={infoStyles.emptyTitle}>No info pack yet</Text>
-                <Text style={infoStyles.emptySub}>Society leaders can add the tour schedule, flights, accommodation and more.</Text>
+                <Text style={infoStyles.emptySub}>
+                  Society leaders can add the tour schedule, flights, accommodation and more.
+                </Text>
                 <TouchableOpacity style={infoStyles.emptyBtn} onPress={() => router.push('/(app)/admin/info' as any)} activeOpacity={0.8}>
                   <Text style={infoStyles.emptyBtnText}>Add Info Pack →</Text>
                 </TouchableOpacity>
@@ -822,22 +732,30 @@ export default function TourScreen() {
       {selectedSection === 'social' && (
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={styles.scroll}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.gold} />}
+          contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); load(); }}
+              tintColor={GOLD}
+            />
+          }
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.standingsSectionHeader}>LIVE FEED</Text>
+          <Text style={st.sectionHeader}>LIVE FEED</Text>
           {notifications.length === 0 && (
             <View style={infoStyles.empty}>
               <Text style={infoStyles.emptyTitle}>Nothing yet</Text>
-              <Text style={infoStyles.emptySub}>Birdies, match results and announcements will appear here.</Text>
+              <Text style={infoStyles.emptySub}>
+                Birdies, match results and announcements will appear here.
+              </Text>
             </View>
           )}
           {notifications.map(n => <TourFeedCard key={n.id} n={n} />)}
 
           {instagramUrl && (
             <>
-              <Text style={[styles.standingsSectionHeader, { marginTop: spacing.lg }]}>INSTAGRAM</Text>
+              <Text style={[st.sectionHeader, { marginTop: 20 }]}>INSTAGRAM</Text>
               <TourInstagramView
                 url={instagramUrl}
                 onGoAdmin={() => router.push('/(app)/admin' as any)}
@@ -849,6 +767,87 @@ export default function TourScreen() {
     </View>
   );
 }
+
+// ── Shared static styles ──────────────────────────────────────────────
+const st = StyleSheet.create({
+  // TITAN header
+  titanHeader: {
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 56 : 32,
+    paddingBottom: 10,
+    backgroundColor: '#000',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1c1c1c',
+  },
+  titanLogoImg: { width: 120, height: 36 },
+  titanSubtitle: { fontSize: 9, fontFamily: 'JUSTSans', color: '#555', letterSpacing: 2, marginTop: 2 },
+
+  // PIN
+  pinBox: {
+    width: 56, height: 68, borderRadius: 10,
+    backgroundColor: '#111', borderWidth: 2, borderColor: '#1c1c1c',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pinBoxActive: { borderColor: '#D4AF37' },
+
+  // Section grid tiles
+  sectionTile: {
+    width: '48%', backgroundColor: '#111',
+    borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 16, paddingVertical: 22,
+  },
+  sectionTileIcon:  { fontSize: 32, marginBottom: 8 },
+  sectionTileLabel: { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: '#fff', marginBottom: 4 },
+  sectionTileSub:   { fontSize: 12, fontFamily: 'JUSTSans', color: '#555', lineHeight: 17, marginBottom: 8 },
+  sectionTileArrow: { fontSize: 22, fontFamily: 'JUSTSans', fontWeight: '300' },
+
+  // Section headings
+  sectionHeader: {
+    fontSize: 10, fontFamily: 'JUSTSans-ExBold', letterSpacing: 1.5,
+    color: '#555', paddingVertical: 10, marginTop: 8,
+  },
+
+  // Table
+  tableHeader: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 8, marginBottom: 6 },
+  th:       { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#555', letterSpacing: 1 },
+  row: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#111',
+    borderRadius: 10, paddingVertical: 12, paddingHorizontal: 8,
+    marginBottom: 6, borderWidth: 1, borderColor: '#1c1c1c',
+  },
+  rowFirst:  { borderColor: 'rgba(212,175,55,0.35)', backgroundColor: '#111' },
+  cell:      { flex: 1, textAlign: 'center', fontSize: 13, fontFamily: 'JUSTSans', color: '#888' },
+  cellTeam:  { flex: 4, textAlign: 'left' },
+  cellPts:   { flex: 1.5 },
+  pos:       { fontSize: 13, fontFamily: 'JUSTSans', color: '#555', width: 18, textAlign: 'center' },
+  teamName:  { fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
+  pts:       { fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37' },
+
+  // Honours
+  champCard: {
+    backgroundColor: '#111', borderRadius: 10, padding: 14,
+    marginBottom: 8, borderWidth: 1, borderColor: 'rgba(212,175,55,0.25)',
+  },
+
+  // Day status badge
+  dayStatusBadge: {
+    paddingHorizontal: 10, paddingVertical: 3, borderRadius: 6,
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
+    marginBottom: 2,
+  },
+
+  // Match row
+  matchRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#111', borderRadius: 10,
+    paddingVertical: 10, paddingHorizontal: 14,
+    marginBottom: 6, borderWidth: 1, borderColor: '#1c1c1c',
+  },
+  matchName: { fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
+
+  // No results
+  noResults: { fontSize: 13, fontFamily: 'JUSTSans', color: '#555', textAlign: 'center', padding: 20, lineHeight: 22 },
+});
 
 // ── Info section renderer ─────────────────────────────────────────────
 function SectionView({ section }: { section: InfoSection }) {
@@ -876,7 +875,7 @@ function TextCard({ s }: { s: TextSection }) {
 }
 function ScheduleCard({ s }: { s: ScheduleSection }) {
   return (
-    <CardShell title={s.title} accent='#d4af37'>
+    <CardShell title={s.title} accent='#D4AF37'>
       {s.items.map((item, i) => (
         <View key={i} style={schedSt.row}>
           <View style={schedSt.timeCol}>
@@ -1012,73 +1011,73 @@ function TourInstagramView({ url, onGoAdmin }: { url: string | null; onGoAdmin: 
 
 // ── Info Pack / Live / Instagram styles ───────────────────────────────
 const infoStyles = StyleSheet.create({
-  heroBanner: { backgroundColor: '#1c1c1e', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(212,175,55,0.25)' },
-  heroLabel:  { fontSize: 10, fontWeight: '800', color: '#d4af37', letterSpacing: 2, marginBottom: 4 },
-  heroName:   { fontSize: 18, fontWeight: '800', color: '#ffffff' },
+  heroBanner: { backgroundColor: '#111', borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(212,175,55,0.25)' },
+  heroLabel:  { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37', letterSpacing: 2, marginBottom: 4 },
+  heroName:   { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: '#ffffff' },
   empty:      { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#6b7280', marginBottom: 8 },
-  emptySub:   { fontSize: 14, color: '#4b5563', textAlign: 'center', lineHeight: 20, marginBottom: 20 },
+  emptyTitle: { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: '#555', marginBottom: 8 },
+  emptySub:   { fontSize: 14, fontFamily: 'JUSTSans', color: '#444', textAlign: 'center', lineHeight: 20, marginBottom: 20 },
   emptyBtn:   { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(212,175,55,0.25)' },
-  emptyBtnText: { fontSize: 14, fontWeight: '700', color: '#d4af37' },
+  emptyBtnText: { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37' },
 });
 const cardSt = StyleSheet.create({
-  shell:  { backgroundColor: '#1c1c1e', borderRadius: 12, borderWidth: 1, borderColor: '#2c2c2e', padding: 16, marginBottom: 12 },
-  title:  { fontSize: 10, fontWeight: '800', color: '#6b7280', letterSpacing: 2, marginBottom: 12, textTransform: 'uppercase' },
-  body:   { fontSize: 14, color: '#9ca3af', lineHeight: 22 },
+  shell:  { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 16, marginBottom: 12 },
+  title:  { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#555', letterSpacing: 2, marginBottom: 12, textTransform: 'uppercase' },
+  body:   { fontSize: 14, fontFamily: 'JUSTSans', color: '#9ca3af', lineHeight: 22 },
 });
 const schedSt = StyleSheet.create({
   row:     { flexDirection: 'row', marginBottom: 0 },
   timeCol: { width: 52, alignItems: 'flex-end', marginRight: 12 },
-  time:    { fontSize: 14, fontWeight: '700', color: '#d4af37', lineHeight: 22 },
+  time:    { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37', lineHeight: 22 },
   line:    { width: 1, flex: 1, backgroundColor: 'rgba(212,175,55,0.2)', alignSelf: 'center', marginTop: 2, marginBottom: 2, minHeight: 20 },
   content: { flex: 1, paddingBottom: 12 },
-  label:   { fontSize: 14, fontWeight: '600', color: '#ffffff', lineHeight: 22 },
-  note:    { fontSize: 12, color: '#6b7280', marginTop: 1 },
+  label:   { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', lineHeight: 22 },
+  note:    { fontSize: 12, fontFamily: 'JUSTSans', color: '#555', marginTop: 1 },
 });
 const travelSt = StyleSheet.create({
   row:    { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
-  dot:    { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d4af37', marginTop: 6 },
-  label:  { fontSize: 14, fontWeight: '700', color: '#ffffff', marginBottom: 2 },
-  detail: { fontSize: 14, color: '#9ca3af' },
+  dot:    { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D4AF37', marginTop: 6 },
+  label:  { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 2 },
+  detail: { fontSize: 14, fontFamily: 'JUSTSans', color: '#9ca3af' },
 });
 const locSt = StyleSheet.create({
-  name:   { fontSize: 16, fontWeight: '700', color: '#ffffff', marginBottom: 6 },
-  detail: { fontSize: 14, color: '#9ca3af', lineHeight: 20 },
+  name:   { fontSize: 16, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 6 },
+  detail: { fontSize: 14, fontFamily: 'JUSTSans', color: '#9ca3af', lineHeight: 20 },
 });
 const contactSt = StyleSheet.create({
   row:       { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-  rowBorder: { borderBottomWidth: 1, borderBottomColor: '#2c2c2e' },
-  avatar:    { width: 36, height: 36, borderRadius: 18, backgroundColor: '#2c2c2e', alignItems: 'center', justifyContent: 'center' },
-  initial:   { fontSize: 16, fontWeight: '800', color: '#d4af37' },
-  name:      { fontSize: 14, fontWeight: '700', color: '#ffffff' },
-  role:      { fontSize: 12, color: '#6b7280' },
-  phone:     { fontSize: 12, color: '#9ca3af', fontWeight: '600' },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  avatar:    { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center' },
+  initial:   { fontSize: 16, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37' },
+  name:      { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#ffffff' },
+  role:      { fontSize: 12, fontFamily: 'JUSTSans', color: '#555' },
+  phone:     { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#9ca3af' },
 });
 const rulesSt = StyleSheet.create({
   row:      { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
   numBadge: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(212,175,55,0.1)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.2)', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  num:      { fontSize: 10, fontWeight: '800', color: '#d4af37' },
-  text:     { flex: 1, fontSize: 14, color: '#9ca3af', lineHeight: 22 },
+  num:      { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37' },
+  text:     { flex: 1, fontSize: 14, fontFamily: 'JUSTSans', color: '#9ca3af', lineHeight: 22 },
 });
 const feedSt = StyleSheet.create({
-  container: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#1c1c1e', borderRadius: 12, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: '#2c2c2e' },
-  dot:       { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d4af37', marginTop: 5 },
+  container: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#111', borderRadius: 14, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: '#1c1c1c' },
+  dot:       { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D4AF37', marginTop: 5 },
   top:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  label:     { fontSize: 14, fontWeight: '700', color: '#ffffff' },
-  time:      { fontSize: 12, color: '#6b7280' },
-  body:      { fontSize: 14, color: '#9ca3af' },
+  label:     { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#ffffff' },
+  time:      { fontSize: 12, fontFamily: 'JUSTSans', color: '#555' },
+  body:      { fontSize: 14, fontFamily: 'JUSTSans', color: '#9ca3af' },
 });
 const igSt = StyleSheet.create({
   centered:   { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#9ca3af', marginBottom: 8, textAlign: 'center' },
-  emptySub:   { fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 20, marginBottom: 20, paddingHorizontal: 16 },
+  emptyTitle: { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: '#555', marginBottom: 8, textAlign: 'center' },
+  emptySub:   { fontSize: 14, fontFamily: 'JUSTSans', color: '#444', textAlign: 'center', lineHeight: 20, marginBottom: 20, paddingHorizontal: 16 },
   emptyBtn:   { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(212,175,55,0.25)' },
-  emptyBtnText: { fontSize: 14, fontWeight: '700', color: '#d4af37' },
+  emptyBtnText: { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37' },
   iconWrap:   { width: 96, height: 96, borderRadius: 28, backgroundColor: '#833AB4', alignItems: 'center', justifyContent: 'center' },
   iconText:   { fontSize: 44 },
-  handle:     { fontSize: 20, fontWeight: '800', color: '#ffffff', marginBottom: 4 },
-  sub:        { fontSize: 14, color: '#6b7280' },
+  handle:     { fontSize: 20, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 4 },
+  sub:        { fontSize: 14, fontFamily: 'JUSTSans', color: '#555' },
   openBtn:    { backgroundColor: '#833AB4', borderRadius: 10, paddingVertical: 14, paddingHorizontal: 32 },
-  openBtnText:{ fontSize: 16, fontWeight: '800', color: '#ffffff', letterSpacing: 0.5 },
-  webLink:    { fontSize: 14, color: '#6b7280', textDecorationLine: 'underline' },
+  openBtnText:{ fontSize: 16, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', letterSpacing: 0.5 },
+  webLink:    { fontSize: 14, fontFamily: 'JUSTSans', color: '#555', textDecorationLine: 'underline' },
 });

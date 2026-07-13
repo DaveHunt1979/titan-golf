@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"^web/\" | grep -v \"CourseMapView\" | grep \"error\" | head -20",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep \"score/parbogey\" | head -20",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -260,8 +260,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 264,
-      "lastAccessed": 1783684043486,
+      "accessCount": 266,
+      "lastAccessed": 1783964540093,
       "type": "file"
     },
     {
@@ -272,8 +272,8 @@
     },
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 59,
-      "lastAccessed": 1783671408788,
+      "accessCount": 62,
+      "lastAccessed": 1783964787471,
       "type": "file"
     },
     {
@@ -289,15 +289,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/index.tsx",
-      "accessCount": 35,
-      "lastAccessed": 1783921480932,
+      "path": "app/(app)/score/[matchId].tsx",
+      "accessCount": 36,
+      "lastAccessed": 1783964517876,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/[matchId].tsx",
-      "accessCount": 33,
-      "lastAccessed": 1783923243465,
+      "path": "app/(app)/score/index.tsx",
+      "accessCount": 35,
+      "lastAccessed": 1783921480932,
       "type": "file"
     },
     {
@@ -313,6 +313,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/leaderboard/index.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1783964122304,
+      "type": "file"
+    },
+    {
       "path": "src/lib/SocietyThemeContext.tsx",
       "accessCount": 8,
       "lastAccessed": 1783671408908,
@@ -325,27 +331,27 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/profile/bag.tsx",
+      "accessCount": 8,
+      "lastAccessed": 1783964099739,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/chat/index.tsx",
       "accessCount": 7,
       "lastAccessed": 1783056968162,
       "type": "file"
     },
     {
-      "path": "app/(app)/profile/bag.tsx",
+      "path": "src/lib/theme.ts",
       "accessCount": 7,
-      "lastAccessed": 1783665850808,
+      "lastAccessed": 1783964062617,
       "type": "file"
     },
     {
       "path": "assets/titan_golf_grip_cap.scad",
       "accessCount": 6,
       "lastAccessed": 1782972837028,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/leaderboard/index.tsx",
-      "accessCount": 6,
-      "lastAccessed": 1783078701709,
       "type": "file"
     },
     {
@@ -358,12 +364,6 @@
       "path": "web/src/components/Navbar.tsx",
       "accessCount": 6,
       "lastAccessed": 1783490212175,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/theme.ts",
-      "accessCount": 6,
-      "lastAccessed": 1783670765010,
       "type": "file"
     },
     {

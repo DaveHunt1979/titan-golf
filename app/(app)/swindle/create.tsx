@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, Modal, FlatList } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, Modal, FlatList, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFonts } from 'expo-font';
+import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+const GOLD   = '#D4AF37';
+const PURPLE = '#a78bfa';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
 
 const HCP_ALLOWANCES = [
   { value: 100, label: 'Full',    desc: '100%'    },
@@ -26,6 +32,13 @@ function genCode() {
 
 export default function SwindleCreate() {
   const router = useRouter();
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: '#000' }}><StatusBar style="light" /></View>;
+
   const [name,          setName]          = useState('');
   const [course,        setCourse]        = useState('');
   const [courses,       setCourses]       = useState<string[]>([]);
@@ -122,11 +135,15 @@ export default function SwindleCreate() {
 
   return (
     <View style={s.container}>
+      <StatusBar style="light" />
+
+      {/* Header — three-column */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
           <Text style={s.backText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={s.title}>New Swindle</Text>
+        <Text style={s.title}>CREATE SWINDLE</Text>
+        <View style={s.headerSpacer} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.form}>
@@ -170,7 +187,7 @@ export default function SwindleCreate() {
 
         {/* Name */}
         <Field label="GAME NAME" hint="e.g. Tuesday Swindle">
-          <TextInput style={s.input} value={name} onChangeText={setName} placeholder="Tuesday Swindle" placeholderTextColor={colors.textMuted} />
+          <TextInput style={s.input} value={name} onChangeText={setName} placeholder="Tuesday Swindle" placeholderTextColor="#444" />
         </Field>
 
         {/* Course */}
@@ -192,7 +209,7 @@ export default function SwindleCreate() {
                 onChangeText={setSlope}
                 keyboardType="number-pad"
                 placeholder="113"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor="#444"
               />
             </View>
             <View style={{ flex: 1, gap: 4 }}>
@@ -203,7 +220,7 @@ export default function SwindleCreate() {
                 onChangeText={setCRating}
                 keyboardType="decimal-pad"
                 placeholder="= par"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor="#444"
               />
             </View>
           </View>
@@ -217,7 +234,7 @@ export default function SwindleCreate() {
                 <Text style={[s.currencyText, currency === c && s.currencyTextActive]}>{c}</Text>
               </TouchableOpacity>
             ))}
-            <TextInput style={[s.input, { flex: 1 }]} value={fee} onChangeText={setFee} keyboardType="decimal-pad" placeholder="5" placeholderTextColor={colors.textMuted} />
+            <TextInput style={[s.input, { flex: 1 }]} value={fee} onChangeText={setFee} keyboardType="decimal-pad" placeholder="5" placeholderTextColor="#444" />
           </View>
         </Field>
 
@@ -248,8 +265,21 @@ export default function SwindleCreate() {
               <Text style={[s.sidePotTitle, isRecurring && s.sidePotTitleActive]}>Weekly Roll-Up</Text>
               <Text style={s.sidePotDesc}>Players tap "I'm in" each week to enter — perfect for Saturday or Sunday morning swindles</Text>
             </View>
-            <View style={[s.toggle, isRecurring && s.toggleOn]}>
-              <View style={[s.toggleKnob, isRecurring && s.toggleKnobOn]} />
+            <View style={s.onOffRow}>
+              <TouchableOpacity
+                style={[s.onOffBtn, !isRecurring && s.onOffBtnActive]}
+                onPress={() => setIsRecurring(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.onOffText, !isRecurring && s.onOffTextActive]}>OFF</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.onOffBtn, isRecurring && s.onOffBtnActive]}
+                onPress={() => setIsRecurring(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.onOffText, isRecurring && s.onOffTextActive]}>ON</Text>
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
           {isRecurring && (
@@ -281,8 +311,21 @@ export default function SwindleCreate() {
               <Text style={[s.sidePotTitle, twosEnabled && s.sidePotTitleActive]}>Two's Pot</Text>
               <Text style={s.sidePotDesc}>Extra pot shared between anyone who scores 2 or lower on any hole</Text>
             </View>
-            <View style={[s.toggle, twosEnabled && s.toggleOn]}>
-              <View style={[s.toggleKnob, twosEnabled && s.toggleKnobOn]} />
+            <View style={s.onOffRow}>
+              <TouchableOpacity
+                style={[s.onOffBtn, !twosEnabled && s.onOffBtnActive]}
+                onPress={() => setTwosEnabled(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.onOffText, !twosEnabled && s.onOffTextActive]}>OFF</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.onOffBtn, twosEnabled && s.onOffBtnActive]}
+                onPress={() => setTwosEnabled(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.onOffText, twosEnabled && s.onOffTextActive]}>ON</Text>
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
           {twosEnabled && (
@@ -294,7 +337,7 @@ export default function SwindleCreate() {
                 onChangeText={setTwosFee}
                 keyboardType="decimal-pad"
                 placeholder={`${currency}2`}
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor="#444"
               />
             </View>
           )}
@@ -311,8 +354,21 @@ export default function SwindleCreate() {
               <Text style={[s.sidePotTitle, ntpEnabled && s.sidePotTitleActive]}>NTP Pot</Text>
               <Text style={s.sidePotDesc}>Side pot for the closest tee shot to the pin on a par 3</Text>
             </View>
-            <View style={[s.toggle, ntpEnabled && s.toggleOn]}>
-              <View style={[s.toggleKnob, ntpEnabled && s.toggleKnobOn]} />
+            <View style={s.onOffRow}>
+              <TouchableOpacity
+                style={[s.onOffBtn, !ntpEnabled && s.onOffBtnActive]}
+                onPress={() => setNtpEnabled(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.onOffText, !ntpEnabled && s.onOffTextActive]}>OFF</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.onOffBtn, ntpEnabled && s.onOffBtnActive]}
+                onPress={() => setNtpEnabled(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.onOffText, ntpEnabled && s.onOffTextActive]}>ON</Text>
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
           {ntpEnabled && (
@@ -344,7 +400,7 @@ export default function SwindleCreate() {
                   onChangeText={setNtpFee}
                   keyboardType="decimal-pad"
                   placeholder={`${currency}2`}
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor="#444"
                 />
               </View>
             </>
@@ -362,8 +418,21 @@ export default function SwindleCreate() {
               <Text style={[s.sidePotTitle, ldEnabled && s.sidePotTitleActive]}>Longest Drive Pot</Text>
               <Text style={s.sidePotDesc}>Side pot for the longest drive in the fairway on a par 5</Text>
             </View>
-            <View style={[s.toggle, ldEnabled && s.toggleOn]}>
-              <View style={[s.toggleKnob, ldEnabled && s.toggleKnobOn]} />
+            <View style={s.onOffRow}>
+              <TouchableOpacity
+                style={[s.onOffBtn, !ldEnabled && s.onOffBtnActive]}
+                onPress={() => setLdEnabled(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.onOffText, !ldEnabled && s.onOffTextActive]}>OFF</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.onOffBtn, ldEnabled && s.onOffBtnActive]}
+                onPress={() => setLdEnabled(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.onOffText, ldEnabled && s.onOffTextActive]}>ON</Text>
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
           {ldEnabled && (
@@ -395,7 +464,7 @@ export default function SwindleCreate() {
                   onChangeText={setLdFee}
                   keyboardType="decimal-pad"
                   placeholder={`${currency}2`}
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor="#444"
                 />
               </View>
             </>
@@ -403,7 +472,10 @@ export default function SwindleCreate() {
         </Field>
 
         <TouchableOpacity style={[s.createBtn, saving && s.createBtnDisabled]} onPress={create} disabled={saving} activeOpacity={0.85}>
-          <Text style={s.createBtnText}>{saving ? 'Creating…' : 'Create Swindle'}</Text>
+          {saving
+            ? <ActivityIndicator color="#000" />
+            : <Text style={s.createBtnText}>Create Swindle</Text>
+          }
         </TouchableOpacity>
       </ScrollView>
 
@@ -420,7 +492,7 @@ export default function SwindleCreate() {
             <TextInput
               style={s.pickerSearch}
               placeholder="Search courses…"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor="#444"
               value={courseSearch}
               onChangeText={setCourseSearch}
               autoFocus
@@ -435,7 +507,7 @@ export default function SwindleCreate() {
                   activeOpacity={0.8}
                 >
                   <Text style={[s.pickerItemText, course === item && s.pickerItemTextActive]}>{item}</Text>
-                  {course === item && <Text style={s.pickerTick}>✓</Text>}
+                  <Text style={s.pickerChevron}>{course === item ? '✓' : '›'}</Text>
                 </TouchableOpacity>
               )}
               ListEmptyComponent={<Text style={s.pickerEmpty}>No courses found</Text>}
@@ -460,80 +532,93 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 }
 
 const s = StyleSheet.create({
-  container:          { flex: 1, backgroundColor: colors.bg, paddingTop: 56 },
-  header:             { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, marginBottom: spacing.lg, gap: spacing.md },
-  backBtn:            { paddingVertical: spacing.xs },
-  backText:           { color: colors.gold, fontSize: fonts.md, fontWeight: '600' },
-  title:              { fontSize: fonts.xl, fontWeight: '800', color: colors.white },
-  form:               { padding: spacing.md, gap: spacing.lg, paddingBottom: 48 },
-  field:              { gap: spacing.sm },
-  fieldLabel:         { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5 },
-  fieldHint:          { fontWeight: '400', letterSpacing: 0 },
-  input:              { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 12, color: colors.white, fontSize: fonts.md },
-  feeRow:             { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
-  currencyBtn:        { width: 40, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
-  currencyBtnActive:  { borderColor: colors.gold, backgroundColor: colors.goldDim },
-  currencyText:       { color: colors.textMuted, fontSize: fonts.md, fontWeight: '700' },
-  currencyTextActive: { color: colors.gold },
-  splitOption:        { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm },
-  splitOptionActive:  { borderColor: colors.gold, backgroundColor: colors.goldDim },
-  splitText:          { color: colors.textSecondary, fontWeight: '700', fontSize: fonts.sm },
-  splitTextActive:    { color: colors.gold },
-  splitPills:         { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
-  pill:               { backgroundColor: colors.cardAlt, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 3 },
-  pillActive:         { backgroundColor: 'rgba(212,175,55,0.2)' },
-  pillText:           { fontSize: 10, fontWeight: '600', color: colors.textMuted },
-  pillTextActive:     { color: colors.gold },
-  createBtn:          { backgroundColor: colors.gold, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', marginTop: spacing.md },
-  createBtnDisabled:  { opacity: 0.6 },
-  createBtnText:      { color: colors.bg, fontSize: fonts.lg, fontWeight: '800', letterSpacing: 0.5 },
+  container:          { flex: 1, backgroundColor: '#000', paddingTop: 56 },
 
-  toggleRow:          { flexDirection: 'row', gap: spacing.sm },
-  toggleBtn:          { flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, alignItems: 'center' },
-  toggleBtnActive:    { borderColor: colors.gold, backgroundColor: colors.goldDim },
-  toggleText:         { fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary },
-  toggleTextActive:   { color: colors.gold },
-  toggleSub:          { fontSize: 10, color: colors.textMuted, marginTop: 2 },
+  // Header — three-column
+  header:             { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c', marginBottom: 8 },
+  backBtn:            { flex: 1 },
+  backText:           { color: GOLD, fontSize: 15, fontFamily: FFB },
+  title:              { fontFamily: FFB, fontSize: 16, color: '#fff', letterSpacing: 1.5, textAlign: 'center' },
+  headerSpacer:       { flex: 1 },
+
+  form:               { padding: 16, gap: 24, paddingBottom: 48 },
+  field:              { gap: 8 },
+  fieldLabel:         { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5 },
+  fieldHint:          { fontFamily: FF, letterSpacing: 0, color: '#555' },
+
+  input:              { backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: '#fff', fontSize: 15, fontFamily: FFB },
+
+  feeRow:             { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  currencyBtn:        { width: 40, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c', backgroundColor: '#111' },
+  currencyBtnActive:  { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.12)' },
+  currencyText:       { color: '#555', fontSize: 15, fontFamily: FFB },
+  currencyTextActive: { color: GOLD },
+
+  splitOption:        { backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 12, padding: 14, gap: 8 },
+  splitOptionActive:  { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.12)' },
+  splitText:          { color: '#555', fontFamily: FFB, fontSize: 14 },
+  splitTextActive:    { color: GOLD },
+  splitPills:         { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  pill:               { backgroundColor: '#1a1a1a', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  pillActive:         { backgroundColor: 'rgba(212,175,55,0.2)' },
+  pillText:           { fontSize: 10, fontFamily: FF, color: '#555' },
+  pillTextActive:     { color: GOLD, fontFamily: FFB },
+
+  createBtn:          { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
+  createBtnDisabled:  { opacity: 0.6 },
+  createBtnText:      { color: '#000', fontSize: 16, fontFamily: FFB, letterSpacing: 0.5 },
+
+  // Format / HCP allowance toggles
+  toggleRow:          { flexDirection: 'row', gap: 8 },
+  toggleBtn:          { flex: 1, backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 12, padding: 14, alignItems: 'center' },
+  toggleBtnActive:    { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.12)' },
+  toggleText:         { fontSize: 14, fontFamily: FFB, color: '#555' },
+  toggleTextActive:   { color: GOLD },
+  toggleSub:          { fontSize: 10, fontFamily: FF, color: '#555', marginTop: 2 },
   toggleSubActive:    { color: 'rgba(212,175,55,0.7)' },
 
-  sidePotCard:        { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, gap: spacing.md },
-  sidePotCardActive:  { borderColor: colors.gold, backgroundColor: colors.goldDim },
-  sidePotTitle:       { fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary, marginBottom: 2 },
-  sidePotTitleActive: { color: colors.gold },
-  sidePotDesc:        { fontSize: 11, color: colors.textMuted, lineHeight: 15 },
+  // Side-pot cards
+  sidePotCard:        { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 12, padding: 14, gap: 12 },
+  sidePotCardActive:  { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.12)' },
+  sidePotTitle:       { fontSize: 14, fontFamily: FFB, color: '#555', marginBottom: 2 },
+  sidePotTitleActive: { color: GOLD },
+  sidePotDesc:        { fontSize: 11, fontFamily: FF, color: '#555', lineHeight: 15 },
 
-  toggle:             { width: 44, height: 24, borderRadius: 12, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', paddingHorizontal: 2 },
-  toggleOn:           { backgroundColor: colors.gold, borderColor: colors.gold },
-  toggleKnob:         { width: 18, height: 18, borderRadius: 9, backgroundColor: colors.textMuted },
-  toggleKnobOn:       { backgroundColor: colors.bg, marginLeft: 20 },
+  // ON/OFF pill buttons
+  onOffRow:           { flexDirection: 'row', gap: 4 },
+  onOffBtn:           { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: '#1c1c1c', backgroundColor: '#111' },
+  onOffBtnActive:     { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.12)' },
+  onOffText:          { fontSize: 11, fontFamily: FF, color: '#555' },
+  onOffTextActive:    { fontFamily: FFB, color: GOLD },
 
-  slotLabel:          { fontSize: 10, fontWeight: '700', color: colors.textMuted, letterSpacing: 1 },
-  sideFeeLabel:       { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600', flex: 1 },
+  slotLabel:          { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  sideFeeLabel:       { fontSize: 12, fontFamily: FF, color: '#555', flex: 1 },
   sideFeeInput:       { width: 80 },
 
-  holePickLabel:      { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1 },
-  holePickRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  holePill:           { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  holePillActive:     { borderColor: colors.gold, backgroundColor: colors.goldDim },
-  holePillNum:        { fontSize: fonts.md, fontWeight: '800', color: colors.textSecondary },
-  holePillNumActive:  { color: colors.gold },
+  holePickLabel:      { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  holePickRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  holePill:           { width: 44, height: 44, borderRadius: 12, backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center' },
+  holePillActive:     { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.12)' },
+  holePillNum:        { fontSize: 15, fontFamily: FFB, color: '#555' },
+  holePillNumActive:  { color: GOLD },
 
+  // Course picker modal
   pickerBtn:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  pickerBtnText:      { color: colors.white, fontSize: fonts.md, flex: 1 },
-  pickerBtnPlaceholder: { color: colors.textMuted, fontSize: fonts.md, flex: 1 },
-  pickerArrow:        { color: colors.textMuted, fontSize: 20 },
+  pickerBtnText:      { color: '#fff', fontFamily: FFB, fontSize: 15, flex: 1 },
+  pickerBtnPlaceholder: { color: '#444', fontFamily: FF, fontSize: 15, flex: 1 },
+  pickerArrow:        { color: GOLD, fontSize: 20, fontFamily: FFB },
   pickerOverlay:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  pickerSheet:        { backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingBottom: 40, maxHeight: '75%' },
-  pickerHeader:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  pickerTitle:        { fontSize: fonts.lg, fontWeight: '800', color: colors.white },
-  pickerClose:        { fontSize: fonts.lg, color: colors.textMuted, paddingHorizontal: spacing.sm },
-  pickerSearch:       { margin: spacing.md, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10, color: colors.white, fontSize: fonts.md },
-  pickerItem:         { paddingHorizontal: spacing.md, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center' },
-  pickerItemActive:   { backgroundColor: colors.goldDim },
-  pickerItemText:     { flex: 1, fontSize: fonts.md, color: colors.textSecondary },
-  pickerItemTextActive: { color: colors.gold, fontWeight: '700' },
-  pickerTick:         { color: colors.gold, fontWeight: '800' },
-  pickerEmpty:        { color: colors.textMuted, textAlign: 'center', paddingVertical: spacing.xl, fontSize: fonts.sm },
-  pickerClear:        { alignItems: 'center', paddingVertical: spacing.md, marginTop: spacing.xs },
-  pickerClearText:    { color: colors.textMuted, fontSize: fonts.sm },
+  pickerSheet:        { backgroundColor: '#111', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40, maxHeight: '75%' },
+  pickerHeader:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  pickerTitle:        { fontSize: 16, fontFamily: FFB, color: '#fff' },
+  pickerClose:        { fontSize: 16, fontFamily: FF, color: '#555', paddingHorizontal: 8 },
+  pickerSearch:       { margin: 16, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, color: '#fff', fontFamily: FFB, fontSize: 15 },
+  pickerItem:         { paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c', flexDirection: 'row', alignItems: 'center' },
+  pickerItemActive:   { backgroundColor: 'rgba(212,175,55,0.1)' },
+  pickerItemText:     { flex: 1, fontSize: 15, fontFamily: FFB, color: '#fff' },
+  pickerItemTextActive: { color: GOLD },
+  pickerChevron:      { color: GOLD, fontFamily: FFB, fontSize: 16 },
+  pickerEmpty:        { color: '#555', fontFamily: FF, textAlign: 'center', paddingVertical: 32, fontSize: 14 },
+  pickerClear:        { alignItems: 'center', paddingVertical: 14, marginTop: 6 },
+  pickerClearText:    { color: '#555', fontFamily: FF, fontSize: 14 },
 });

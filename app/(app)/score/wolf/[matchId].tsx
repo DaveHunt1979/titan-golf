@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../../src/lib/theme';
+
+const GOLD  = '#D4AF37';
+const GREEN = '#4ade80';
+const RED   = '#f87171';
+const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
+const titanLogo = require('../../../../assets/images/titan-logo.png');
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 interface Match { id: string; home_player_ids: string[]; day: { course_name: string } | null; }
@@ -54,6 +61,18 @@ export default function WolfScreen() {
   const [phase, setPhase]       = useState<'pick' | 'score'>('pick');
   // Cumulative points
   const [cumPoints, setCumPoints] = useState<Record<string, number>>({});
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" />
+      <ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
 
   useEffect(() => { load(); }, [matchId]);
 
@@ -141,31 +160,38 @@ export default function WolfScreen() {
     }
   }
 
-  if (loading) return <View style={s.centered}><ActivityIndicator color={colors.gold} size="large" /></View>;
   if (!match || !hole || !wolfId) return null;
 
   return (
     <View style={s.container}>
       <StatusBar style="light" />
+
+      {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>← Back</Text></TouchableOpacity>
-        <Text style={s.title}>WOLF</Text>
-        <View style={{ width: 60 }} />
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+          <Text style={s.back}>← Back</Text>
+        </TouchableOpacity>
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Text style={s.headerSub}>WOLF</Text>
+        </View>
+        <View style={s.headerSpacer} />
       </View>
 
-      {/* Points tally */}
+      {/* Cumulative points tally */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tallyScroll}>
         <View style={s.tally}>
           {players.map(id => (
             <View key={id} style={[s.tallyItem, id === wolfId && s.tallyWolf]}>
-              <Text style={s.tallyName}>{names[id] ?? '?'}{id === wolfId ? ' 🐺' : ''}</Text>
-              <Text style={s.tallyPts}>{cumPoints[id] ?? 0}</Text>
+              <Text style={[s.tallyName, id === wolfId && { color: GOLD }]}>{names[id] ?? '?'}{id === wolfId ? ' 🐺' : ''}</Text>
+              <Text style={[s.tallyPts, { color: id === wolfId ? GOLD : '#fff' }]}>{cumPoints[id] ?? 0}</Text>
               <Text style={s.tallyLbl}>PTS</Text>
             </View>
           ))}
         </View>
       </ScrollView>
 
+      {/* Hole info card */}
       <View style={s.holeCard}>
         <Text style={s.holeNum}>Hole {hole.hole_number}</Text>
         <Text style={s.holeMeta}>Par {hole.par}  ·  SI {hole.stroke_index}</Text>
@@ -182,7 +208,12 @@ export default function WolfScreen() {
           </TouchableOpacity>
           <Text style={s.pickOr}>— or pick a partner —</Text>
           {players.filter(id => id !== wolfId).map(pid => (
-            <TouchableOpacity key={pid} style={[s.partnerBtn, partnerId === pid && s.partnerBtnOn]} onPress={() => pickPartner(pid)} activeOpacity={0.8}>
+            <TouchableOpacity
+              key={pid}
+              style={[s.partnerBtn, partnerId === pid && s.partnerBtnOn]}
+              onPress={() => pickPartner(pid)}
+              activeOpacity={0.8}
+            >
               <Text style={[s.partnerBtnTxt, partnerId === pid && s.partnerBtnTxtOn]}>{names[pid] ?? '?'}</Text>
             </TouchableOpacity>
           ))}
@@ -195,15 +226,20 @@ export default function WolfScreen() {
           }
           {players.map(pid => {
             const sc = getScore(pid);
+            const isWolf = pid === wolfId;
             return (
-              <View key={pid} style={s.playerRow}>
-                <Text style={s.playerName}>{names[pid] ?? '?'}{pid === wolfId ? ' 🐺' : ''}</Text>
+              <View key={pid} style={[s.playerRow, isWolf && s.playerRowWolf]}>
+                <Text style={[s.playerName, isWolf && { color: GOLD }]}>{names[pid] ?? '?'}{isWolf ? ' 🐺' : ''}</Text>
                 <View style={s.stepper}>
-                  <TouchableOpacity style={s.stepBtn} onPress={() => setPlayerScore(pid, sc - 1)} activeOpacity={0.7}><Text style={s.stepBtnTxt}>−</Text></TouchableOpacity>
-                  <View style={[s.scoreDisp, sc < hole.par && s.birdie, sc > hole.par && s.bogey]}>
-                    <Text style={s.scoreTxt}>{sc}</Text>
+                  <TouchableOpacity style={s.stepBtn} onPress={() => setPlayerScore(pid, sc - 1)} activeOpacity={0.7}>
+                    <Text style={s.stepBtnTxt}>−</Text>
+                  </TouchableOpacity>
+                  <View style={[s.scoreDisp, sc < hole.par && s.birdie, sc > hole.par && s.bogey, isWolf && sc <= hole.par && s.scoreDispWolf]}>
+                    <Text style={[s.scoreTxt, isWolf && { color: GOLD }]}>{sc}</Text>
                   </View>
-                  <TouchableOpacity style={s.stepBtn} onPress={() => setPlayerScore(pid, sc + 1)} activeOpacity={0.7}><Text style={s.stepBtnTxt}>+</Text></TouchableOpacity>
+                  <TouchableOpacity style={s.stepBtn} onPress={() => setPlayerScore(pid, sc + 1)} activeOpacity={0.7}>
+                    <Text style={s.stepBtnTxt}>+</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             );
@@ -217,7 +253,10 @@ export default function WolfScreen() {
       {phase === 'score' && (
         <View style={s.nav}>
           <TouchableOpacity style={[s.navBtn, saving && s.dim]} onPress={nextHole} disabled={saving} activeOpacity={0.8}>
-            {saving ? <ActivityIndicator color={colors.bg} size="small" /> : <Text style={[s.navTxt, { color: colors.bg }]}>{holeIdx === holes.length - 1 ? 'Finish →' : 'Next Hole →'}</Text>}
+            {saving
+              ? <ActivityIndicator color="#000" size="small" />
+              : <Text style={[s.navTxt, { color: '#000' }]}>{holeIdx === holes.length - 1 ? 'Finish →' : 'Next Hole →'}</Text>
+            }
           </TouchableOpacity>
         </View>
       )}
@@ -226,47 +265,52 @@ export default function WolfScreen() {
 }
 
 const s = StyleSheet.create({
-  container:  { flex: 1, backgroundColor: colors.bg },
-  centered:   { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
-  header:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  back:       { fontSize: fonts.sm, fontWeight: '600', color: colors.gold },
-  title:      { fontSize: fonts.sm, fontWeight: '800', color: colors.white, letterSpacing: 2 },
-  tallyScroll:{ maxHeight: 90, borderBottomWidth: 1, borderBottomColor: colors.border },
-  tally:      { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, alignItems: 'center' },
-  tallyItem:  { alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, minWidth: 64 },
-  tallyWolf:  { borderColor: colors.gold, backgroundColor: colors.goldDim },
-  tallyName:  { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, marginBottom: 2 },
-  tallyPts:   { fontSize: fonts.xl, fontWeight: '900', color: colors.gold },
-  tallyLbl:   { fontSize: 8, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginTop: 1 },
-  holeCard:   { alignItems: 'center', paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  holeNum:    { fontSize: 28, fontWeight: '900', color: colors.white },
-  holeMeta:   { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600', marginTop: 2 },
-  wolfBadge:  { marginTop: spacing.xs, backgroundColor: colors.goldDim, borderRadius: radius.full, borderWidth: 1, borderColor: colors.goldBorder, paddingHorizontal: spacing.md, paddingVertical: 3 },
-  wolfBadgeTxt:{ fontSize: fonts.xs, fontWeight: '800', color: colors.gold },
-  pickWrap:   { padding: spacing.lg, gap: spacing.md },
-  pickTitle:  { fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.sm },
-  loneBtn:    { backgroundColor: colors.goldDim, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.goldBorder, paddingVertical: spacing.md + 4, alignItems: 'center' },
-  loneBtnTxt: { fontSize: fonts.md, fontWeight: '800', color: colors.gold },
-  pickOr:     { fontSize: fonts.xs, color: colors.textMuted, textAlign: 'center', fontWeight: '600' },
-  partnerBtn: { backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingVertical: spacing.md, alignItems: 'center' },
-  partnerBtnOn:{ borderColor: colors.gold, backgroundColor: colors.goldDim },
-  partnerBtnTxt:  { fontSize: fonts.md, fontWeight: '700', color: colors.textSecondary },
-  partnerBtnTxtOn:{ color: colors.white },
-  scoresWrap: { padding: spacing.lg, gap: spacing.lg },
-  teamLabel:  { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, textAlign: 'center', marginBottom: spacing.sm },
-  playerRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  playerName: { fontSize: fonts.md, fontWeight: '800', color: colors.white, flex: 1 },
-  stepper:    { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  stepBtn:    { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  stepBtnTxt: { fontSize: 22, fontWeight: '300', color: colors.white },
-  scoreDisp:  { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 2, borderColor: colors.border },
-  birdie:     { borderColor: colors.green, backgroundColor: 'rgba(74,222,128,0.1)' },
-  bogey:      { borderColor: colors.red, backgroundColor: 'rgba(248,113,113,0.1)' },
-  scoreTxt:   { fontSize: 24, fontWeight: '900', color: colors.white },
-  changeBtn:  { alignItems: 'center', paddingVertical: spacing.sm },
-  changeBtnTxt:{ fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600' },
-  nav:        { padding: spacing.lg, paddingBottom: 40, borderTopWidth: 1, borderTopColor: colors.border },
-  navBtn:     { backgroundColor: colors.gold, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center' },
-  dim:        { opacity: 0.35 },
-  navTxt:     { fontSize: fonts.md, fontWeight: '800', color: colors.white },
+  container:       { flex: 1, backgroundColor: '#000' },
+  header:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  backBtn:         { minWidth: 60 },
+  back:            { fontSize: 14, fontFamily: FFB, color: GOLD },
+  headerCenter:    { alignItems: 'center', flex: 1 },
+  headerLogo:      { width: 28, height: 28, marginBottom: 3 },
+  headerSub:       { fontSize: 9, fontFamily: FF, color: '#555', letterSpacing: 1 },
+  headerSpacer:    { minWidth: 60 },
+  tallyScroll:     { maxHeight: 90, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  tally:           { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 10, alignItems: 'center' },
+  tallyItem:       { alignItems: 'center', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', paddingHorizontal: 14, paddingVertical: 8, minWidth: 64 },
+  tallyWolf:       { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.08)' },
+  tallyName:       { fontSize: 11, fontFamily: FFB, color: '#666', marginBottom: 2 },
+  tallyPts:        { fontSize: 22, fontFamily: FFB },
+  tallyLbl:        { fontSize: 8, fontFamily: FFB, color: '#555', letterSpacing: 1, marginTop: 1 },
+  holeCard:        { alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  holeNum:         { fontSize: 28, fontFamily: FFB, color: '#fff' },
+  holeMeta:        { fontSize: 11, fontFamily: FF, color: '#666', marginTop: 2 },
+  wolfBadge:       { marginTop: 8, backgroundColor: 'rgba(212,175,55,0.1)', borderRadius: 99, borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)', paddingHorizontal: 14, paddingVertical: 3 },
+  wolfBadgeTxt:    { fontSize: 11, fontFamily: FFB, color: GOLD },
+  pickWrap:        { padding: 20, gap: 12 },
+  pickTitle:       { fontSize: 14, fontFamily: FFB, color: '#888', textAlign: 'center', marginBottom: 8 },
+  loneBtn:         { backgroundColor: 'rgba(212,175,55,0.1)', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(212,175,55,0.3)', paddingVertical: 18, alignItems: 'center' },
+  loneBtnTxt:      { fontSize: 16, fontFamily: FFB, color: GOLD },
+  pickOr:          { fontSize: 11, fontFamily: FF, color: '#555', textAlign: 'center' },
+  partnerBtn:      { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', paddingVertical: 14, alignItems: 'center' },
+  partnerBtnOn:    { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.1)' },
+  partnerBtnTxt:   { fontSize: 16, fontFamily: FFB, color: '#888' },
+  partnerBtnTxtOn: { color: GOLD },
+  scoresWrap:      { padding: 20, gap: 16 },
+  teamLabel:       { fontSize: 11, fontFamily: FFB, color: GOLD, textAlign: 'center', marginBottom: 8 },
+  playerRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 16 },
+  playerRowWolf:   { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.06)' },
+  playerName:      { fontSize: 16, fontFamily: FFB, color: '#fff', flex: 1 },
+  stepper:         { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stepBtn:         { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#222', alignItems: 'center', justifyContent: 'center' },
+  stepBtnTxt:      { fontSize: 22, fontFamily: FF, color: '#fff' },
+  scoreDisp:       { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a1a', borderWidth: 2, borderColor: '#222' },
+  scoreDispWolf:   { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.12)' },
+  birdie:          { borderColor: GREEN, backgroundColor: 'rgba(74,222,128,0.1)' },
+  bogey:           { borderColor: RED, backgroundColor: 'rgba(248,113,113,0.1)' },
+  scoreTxt:        { fontSize: 24, fontFamily: FFB, color: '#fff' },
+  changeBtn:       { alignItems: 'center', paddingVertical: 10 },
+  changeBtnTxt:    { fontSize: 11, fontFamily: FF, color: '#555' },
+  nav:             { padding: 20, paddingBottom: 40, borderTopWidth: 1, borderTopColor: '#1c1c1c' },
+  navBtn:          { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  dim:             { opacity: 0.35 },
+  navTxt:          { fontSize: 16, fontFamily: FFB, color: '#fff' },
 });

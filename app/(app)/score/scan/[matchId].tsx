@@ -1,15 +1,22 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, TextInput, Alert, Platform,
+  ActivityIndicator, TextInput, Alert, Platform, Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../../src/lib/theme';
-import { useDynamicColors } from '../../../../src/lib/SocietyThemeContext';
 import { scanPlayerScoresFromCamera, scanPlayerScoresFromLibrary } from '../../../../src/lib/scanScorecard';
 import { calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+
+// ── TITAN Design Constants ──────────────────────────────────────────────────
+const GOLD  = '#D4AF37';
+const GREEN = '#4ade80';
+const RED   = '#f87171';
+const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
+const titanLogo = require('../../../../assets/images/titan-logo.png');
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 interface HoleScore  { hole: number; gross: number | null; }
@@ -19,11 +26,16 @@ type Step = 'scan' | 'review';
 export default function ScanMatchScorecardScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
-  const colors = useDynamicColors();
 
-  const [step, setStep]           = useState<Step>('scan');
-  const [scanning, setScanning]   = useState(false);
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
+  const [step, setStep]             = useState<Step>('scan');
+  const [scanning, setScanning]     = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading]       = useState(true);
 
   const [myPlayerId,  setMyPlayerId]  = useState<string | null>(null);
   const [myHandicap,  setMyHandicap]  = useState<number>(0);
@@ -38,13 +50,13 @@ export default function ScanMatchScorecardScreen() {
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) { setLoading(false); return; }
 
       const { data: p } = await supabase.from('players')
         .select('id, handicap_index')
         .eq('auth_uid', user.id)
         .single();
-      if (!p) return;
+      if (!p) { setLoading(false); return; }
 
       setMyPlayerId((p as any).id);
       setMyHandicap(Math.round((p as any).handicap_index ?? 0));
@@ -53,7 +65,7 @@ export default function ScanMatchScorecardScreen() {
         .select('round_format, day:day_id(course_name)')
         .eq('id', matchId)
         .single();
-      if (!m) return;
+      if (!m) { setLoading(false); return; }
 
       const cn = (m as any).day?.course_name ?? null;
       setCourseName(cn);
@@ -66,8 +78,17 @@ export default function ScanMatchScorecardScreen() {
           .order('hole_number');
         if (holes) setCourseHoles(holes as CourseHole[]);
       }
+      setLoading(false);
     })();
   }, [matchId]);
+
+  // Loading / font guard
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" />
+      <ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
 
   async function doScan(fromCamera: boolean) {
     setScanning(true);
@@ -121,17 +142,17 @@ export default function ScanMatchScorecardScreen() {
       const rows = scores
         .filter(s => s.gross !== null)
         .map(s => {
-          const ch  = courseHoles.find(h => h.hole_number === s.hole);
-          const par = ch?.par ?? 4;
-          const si  = ch?.stroke_index ?? s.hole;
+          const ch    = courseHoles.find(h => h.hole_number === s.hole);
+          const par   = ch?.par ?? 4;
+          const si    = ch?.stroke_index ?? s.hole;
           const shots = calcStrokesReceived(myHandicap, si);
           const pts   = calcStablefordPoints(s.gross, par, shots);
           return {
-            match_id:      matchId,
-            player_id:     myPlayerId,
-            hole_number:   s.hole,
-            gross_score:   s.gross,
-            net_score:     (s.gross ?? 0) - shots,
+            match_id:       matchId,
+            player_id:      myPlayerId,
+            hole_number:    s.hole,
+            gross_score:    s.gross,
+            net_score:      (s.gross ?? 0) - shots,
             stableford_pts: pts,
           };
         });
@@ -155,44 +176,52 @@ export default function ScanMatchScorecardScreen() {
     }
   }
 
-  const dyn = useDynamicColors();
-
   return (
-    <View style={[s.container, { backgroundColor: dyn.bg }]}>
+    <View style={s.container}>
       <StatusBar style="light" />
 
-      {/* Header */}
-      <View style={[s.header, { borderBottomColor: dyn.border }]}>
-        <TouchableOpacity onPress={() => step === 'review' ? setStep('scan') : router.back()} hitSlop={{ top:10,bottom:10,left:10,right:10 }}>
-          <Text style={[s.back, { color: dyn.textMuted }]}>‹ {step === 'review' ? 'Back' : 'Cancel'}</Text>
+      {/* ── Header ── */}
+      <View style={s.header}>
+        <TouchableOpacity
+          onPress={() => step === 'review' ? setStep('scan') : router.back()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={s.headerLeft}
+        >
+          <Text style={s.back}>‹ {step === 'review' ? 'Back' : 'Cancel'}</Text>
         </TouchableOpacity>
-        <Text style={[s.title, { color: dyn.white }]}>Scan Scorecard</Text>
-        <View style={{ width: 60 }} />
+
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.logoImg} resizeMode="contain" />
+          <Text style={s.headerSub}>SCAN SCORECARD</Text>
+        </View>
+
+        <View style={s.headerRight} />
       </View>
 
       {/* ── Step: Scan ── */}
       {step === 'scan' && (
         <View style={s.scanStep}>
           <Text style={s.scanIcon}>📋</Text>
-          <Text style={[s.scanHeading, { color: dyn.white }]}>Scan Your Paper Scorecard</Text>
-          <Text style={[s.scanSub, { color: dyn.textMuted }]}>
+          <Text style={s.scanHeading}>Scan Your Paper Scorecard</Text>
+          <Text style={s.scanSub}>
             Take a photo of your completed scorecard or choose one from your library. The AI will extract your gross scores.
           </Text>
+
           {scanning ? (
             <View style={s.scanningWrap}>
-              <ActivityIndicator color={dyn.gold} size="large" />
-              <Text style={[s.scanningText, { color: dyn.textMuted }]}>Reading your scorecard…</Text>
+              <ActivityIndicator color={GOLD} size="large" />
+              <Text style={s.scanningText}>Reading your scorecard…</Text>
             </View>
           ) : (
             <View style={s.scanBtns}>
-              <TouchableOpacity style={[s.scanBtn, { backgroundColor: dyn.gold }]} onPress={() => doScan(true)} activeOpacity={0.85}>
-                <Text style={[s.scanBtnText, { color: dyn.bg }]}>📷  Take Photo</Text>
+              <TouchableOpacity style={s.scanBtnCamera} onPress={() => doScan(true)} activeOpacity={0.85}>
+                <Text style={s.scanBtnCameraText}>📷  Take Photo</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.scanBtn, { backgroundColor: dyn.card, borderWidth: 1, borderColor: dyn.border }]} onPress={() => doScan(false)} activeOpacity={0.85}>
-                <Text style={[s.scanBtnText, { color: dyn.white }]}>🖼  Choose from Library</Text>
+              <TouchableOpacity style={s.scanBtnLib} onPress={() => doScan(false)} activeOpacity={0.85}>
+                <Text style={s.scanBtnLibText}>🖼  Choose from Library</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setStep('review')} activeOpacity={0.7} style={{ marginTop: spacing.sm }}>
-                <Text style={[s.manualLink, { color: dyn.textMuted }]}>Enter scores manually instead</Text>
+              <TouchableOpacity onPress={() => setStep('review')} activeOpacity={0.7} style={{ marginTop: 12 }}>
+                <Text style={s.manualLink}>Enter scores manually instead</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -204,41 +233,41 @@ export default function ScanMatchScorecardScreen() {
         <>
           <ScrollView contentContainerStyle={s.reviewScroll} showsVerticalScrollIndicator={false}>
             {courseName && (
-              <Text style={[s.courseName, { color: dyn.textMuted }]}>{courseName}</Text>
+              <Text style={s.courseName}>{courseName}</Text>
             )}
 
-            {/* Hole grid */}
-            <View style={[s.gridHeader, { backgroundColor: dyn.card, borderColor: dyn.border }]}>
-              <Text style={[s.gridHdr, { color: dyn.textMuted, flex: 1 }]}>HOLE</Text>
-              <Text style={[s.gridHdr, { color: dyn.textMuted, width: 36 }]}>PAR</Text>
-              <Text style={[s.gridHdr, { color: dyn.textMuted, width: 52 }]}>GROSS</Text>
-              <Text style={[s.gridHdr, { color: dyn.textMuted, width: 44 }]}>PTS</Text>
+            {/* Grid header */}
+            <View style={s.gridHeader}>
+              <Text style={[s.gridHdr, { flex: 1 }]}>HOLE</Text>
+              <Text style={[s.gridHdr, { width: 36 }]}>PAR</Text>
+              <Text style={[s.gridHdr, { width: 52 }]}>GROSS</Text>
+              <Text style={[s.gridHdr, { width: 44 }]}>PTS</Text>
             </View>
 
             {scores.map(({ hole, gross }) => {
-              const par = parForHole(hole);
-              const pts = stablefordForHole(hole, gross);
+              const par  = parForHole(hole);
+              const pts  = stablefordForHole(hole, gross);
               const diff = gross !== null ? gross - par : null;
-              const grossColor = diff === null ? dyn.textMuted
+              const grossColor = diff === null ? '#555'
                 : diff <= -2 ? '#f59e0b'
-                : diff === -1 ? '#22c55e'
-                : diff === 0  ? dyn.white
+                : diff === -1 ? GREEN
+                : diff === 0  ? '#fff'
                 : diff === 1  ? '#f97316'
-                : '#ef4444';
+                : RED;
               return (
-                <View key={hole} style={[s.gridRow, { borderBottomColor: dyn.border }]}>
-                  <Text style={[s.gridCell, { color: dyn.textSecondary, flex: 1 }]}>{hole}</Text>
-                  <Text style={[s.gridCell, { color: dyn.textMuted, width: 36 }]}>{par}</Text>
+                <View key={hole} style={s.gridRow}>
+                  <Text style={[s.gridCell, { flex: 1, color: '#aaa' }]}>{hole}</Text>
+                  <Text style={[s.gridCell, { width: 36, color: '#555' }]}>{par}</Text>
                   <TextInput
-                    style={[s.gridInput, { color: grossColor, borderColor: dyn.border, backgroundColor: dyn.card }]}
+                    style={[s.gridInput, { color: grossColor }]}
                     value={gross !== null ? String(gross) : ''}
                     onChangeText={v => updateScore(hole, v)}
                     keyboardType="number-pad"
                     maxLength={2}
                     placeholder="—"
-                    placeholderTextColor={dyn.textMuted}
+                    placeholderTextColor="#555"
                   />
-                  <Text style={[s.gridCell, { color: pts > 0 ? dyn.gold : dyn.textMuted, width: 44, fontWeight: '700' }]}>
+                  <Text style={[s.gridCell, { width: 44, color: pts > 0 ? GOLD : '#555', fontFamily: FFB }]}>
                     {gross !== null ? pts : '—'}
                   </Text>
                 </View>
@@ -246,34 +275,34 @@ export default function ScanMatchScorecardScreen() {
             })}
 
             {/* Totals */}
-            <View style={[s.totalsRow, { backgroundColor: dyn.cardAlt, borderColor: dyn.goldBorder }]}>
-              <Text style={[s.totalsLabel, { color: dyn.textSecondary, flex: 1 }]}>TOTAL</Text>
-              <Text style={[s.totalsVal, { color: dyn.textMuted, width: 36 }]}>{totalPar > 0 ? totalPar : '—'}</Text>
+            <View style={s.totalsRow}>
+              <Text style={[s.totalsLabel, { flex: 1 }]}>TOTAL</Text>
+              <Text style={[s.totalsVal, { width: 36, color: '#555' }]}>{totalPar > 0 ? totalPar : '—'}</Text>
               <View style={{ width: 52, alignItems: 'center' }}>
-                <Text style={[s.totalsVal, { color: dyn.white }]}>{totalGross > 0 ? totalGross : '—'}</Text>
+                <Text style={[s.totalsVal, { color: '#fff' }]}>{totalGross > 0 ? totalGross : '—'}</Text>
                 {toPar !== null && (
-                  <Text style={[s.toParLabel, { color: toPar <= 0 ? '#22c55e' : '#f97316' }]}>
+                  <Text style={[s.toParLabel, { color: toPar <= 0 ? GREEN : '#f97316' }]}>
                     {toPar > 0 ? `+${toPar}` : toPar === 0 ? 'E' : toPar}
                   </Text>
                 )}
               </View>
-              <Text style={[s.totalsVal, { color: dyn.gold, width: 44, fontWeight: '800' }]}>{totalPts}</Text>
+              <Text style={[s.totalsVal, { width: 44, color: GOLD, fontFamily: FFB }]}>{totalPts}</Text>
             </View>
 
             <View style={{ height: 120 }} />
           </ScrollView>
 
-          {/* Submit */}
-          <View style={[s.submitBar, { backgroundColor: dyn.bg, borderTopColor: dyn.border }]}>
+          {/* Submit bar */}
+          <View style={s.submitBar}>
             <TouchableOpacity
-              style={[s.submitBtn, { backgroundColor: dyn.gold }, submitting && { opacity: 0.6 }]}
+              style={[s.submitBtn, submitting && { opacity: 0.6 }]}
               onPress={submit}
               disabled={submitting}
               activeOpacity={0.85}
             >
               {submitting
-                ? <ActivityIndicator color={dyn.bg} />
-                : <Text style={[s.submitBtnText, { color: dyn.bg }]}>Save to Profile</Text>}
+                ? <ActivityIndicator color="#000" />
+                : <Text style={s.submitBtnText}>Save to Profile</Text>}
             </TouchableOpacity>
           </View>
         </>
@@ -283,58 +312,128 @@ export default function ScanMatchScorecardScreen() {
 }
 
 const s = StyleSheet.create({
-  container:   { flex: 1 },
+  // ── Layout ──
+  container: { flex: 1, backgroundColor: '#000' },
+
+  // ── Header ──
   header: {
     paddingTop: Platform.OS === 'ios' ? 56 : 32,
-    paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderBottomWidth: 1,
+    borderBottomColor: '#1c1c1c',
   },
-  back:  { fontSize: fonts.sm, fontWeight: '600' },
-  title: { fontSize: fonts.md, fontWeight: '800', letterSpacing: 0.5 },
+  headerLeft:   { width: 70 },
+  headerCenter: { flex: 1, alignItems: 'center', gap: 4 },
+  headerRight:  { width: 70 },
+  logoImg:      { width: 28, height: 28 },
+  headerSub:    { fontSize: 9, fontFamily: FF, color: '#555', letterSpacing: 1.5 },
+  back:         { fontSize: 15, fontFamily: FFB, color: GOLD },
 
-  // Scan step
-  scanStep:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
-  scanIcon:     { fontSize: 56, marginBottom: spacing.lg },
-  scanHeading:  { fontSize: fonts.xl, fontWeight: '800', textAlign: 'center', marginBottom: spacing.sm },
-  scanSub:      { fontSize: fonts.sm, textAlign: 'center', lineHeight: 22, marginBottom: spacing.xl },
-  scanningWrap: { alignItems: 'center', gap: spacing.md },
-  scanningText: { fontSize: fonts.sm },
-  scanBtns:     { width: '100%', gap: spacing.sm },
-  scanBtn:      { borderRadius: radius.md, paddingVertical: 14, alignItems: 'center' },
-  scanBtnText:  { fontSize: fonts.md, fontWeight: '700' },
-  manualLink:   { fontSize: fonts.sm, textDecorationLine: 'underline', textAlign: 'center' },
+  // ── Scan step ──
+  scanStep:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
+  scanIcon:     { fontSize: 56, marginBottom: 20 },
+  scanHeading:  { fontSize: 20, fontFamily: FFB, color: '#fff', textAlign: 'center', marginBottom: 10 },
+  scanSub:      { fontSize: 14, fontFamily: FF, color: '#555', textAlign: 'center', lineHeight: 22, marginBottom: 28 },
+  scanningWrap: { alignItems: 'center', gap: 14 },
+  scanningText: { fontSize: 14, fontFamily: FF, color: '#555' },
+  scanBtns:     { width: '100%', gap: 10 },
 
-  // Review step
-  reviewScroll: { padding: spacing.md, paddingBottom: 48 },
-  courseName:   { fontSize: fonts.xs, fontWeight: '700', letterSpacing: 1.5, marginBottom: spacing.md, textAlign: 'center' },
+  scanBtnCamera: {
+    backgroundColor: '#111',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: GOLD,
+  },
+  scanBtnCameraText: { fontSize: 15, fontFamily: FFB, color: GOLD },
+
+  scanBtnLib: {
+    backgroundColor: '#111',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#1c1c1c',
+  },
+  scanBtnLibText: { fontSize: 15, fontFamily: FFB, color: '#fff' },
+
+  manualLink: { fontSize: 13, fontFamily: FF, color: '#555', textDecorationLine: 'underline', textAlign: 'center' },
+
+  // ── Review step ──
+  reviewScroll: { padding: 16, paddingBottom: 48 },
+  courseName:   { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginBottom: 14, textAlign: 'center' },
+
   gridHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: spacing.xs, paddingHorizontal: spacing.sm,
-    borderRadius: radius.sm, borderWidth: 1, marginBottom: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#111',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1c1c1c',
+    marginBottom: 2,
   },
-  gridHdr:   { fontSize: 10, fontWeight: '800', letterSpacing: 1, textAlign: 'center' },
-  gridRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: spacing.sm, borderBottomWidth: 1 },
-  gridCell:  { fontSize: fonts.sm, textAlign: 'center' },
+  gridHdr:  { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1, textAlign: 'center' },
+  gridRow:  {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1c1c1c',
+  },
+  gridCell: { fontSize: 14, fontFamily: FF, textAlign: 'center' },
   gridInput: {
-    width: 52, height: 34, borderRadius: radius.sm, borderWidth: 1,
-    textAlign: 'center', fontSize: fonts.md, fontWeight: '700',
+    width: 52,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1c1c1c',
+    backgroundColor: '#1a1a1a',
+    textAlign: 'center',
+    fontSize: 15,
+    fontFamily: FFB,
+    color: '#fff',
   },
-  totalsRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: spacing.sm, paddingHorizontal: spacing.sm,
-    borderRadius: radius.md, borderWidth: 1, marginTop: spacing.sm,
-  },
-  totalsLabel: { fontSize: fonts.xs, fontWeight: '800', letterSpacing: 1 },
-  totalsVal:   { fontSize: fonts.md, fontWeight: '700', textAlign: 'center' },
-  toParLabel:  { fontSize: 10, fontWeight: '700' },
 
-  // Submit
-  submitBar: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    padding: spacing.md, paddingBottom: Platform.OS === 'ios' ? 32 : spacing.md,
-    borderTopWidth: 1,
+  totalsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    backgroundColor: '#111',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: GOLD,
+    marginTop: 10,
   },
-  submitBtn:     { borderRadius: radius.md, paddingVertical: 14, alignItems: 'center' },
-  submitBtnText: { fontSize: fonts.md, fontWeight: '800', letterSpacing: 0.5 },
+  totalsLabel: { fontSize: 10, fontFamily: FFB, color: '#aaa', letterSpacing: 1 },
+  totalsVal:   { fontSize: 15, fontFamily: FFB, textAlign: 'center' },
+  toParLabel:  { fontSize: 10, fontFamily: FFB },
+
+  // ── Submit ──
+  submitBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    backgroundColor: '#000',
+    borderTopWidth: 1,
+    borderTopColor: '#1c1c1c',
+  },
+  submitBtn: {
+    backgroundColor: GOLD,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  submitBtnText: { fontSize: 15, fontFamily: FFB, color: '#000', letterSpacing: 0.5 },
 });

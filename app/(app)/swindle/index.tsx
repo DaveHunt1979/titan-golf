@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator, Image } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+const GOLD   = '#D4AF37';
+const PURPLE = '#a78bfa';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
 
 type Game = {
   id: string;
@@ -27,6 +33,18 @@ export default function SwindleIndex() {
   const [joinCode, setJoinCode] = useState('');
   const [joining,  setJoining]  = useState(false);
   const [imInBusy, setImInBusy] = useState<string | null>(null);
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" />
+      <ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
 
   useEffect(() => { init(); }, []);
 
@@ -92,18 +110,24 @@ export default function SwindleIndex() {
 
   return (
     <View style={s.container}>
+      <StatusBar style="light" />
+
+      {/* Header: three-column */}
       <View style={s.header}>
-        <Text style={s.title}>Swindle</Text>
-        <TouchableOpacity style={s.createBtn} onPress={() => router.push('/(app)/swindle/create' as any)}>
-          <Text style={s.createBtnText}>+ Create</Text>
-        </TouchableOpacity>
+        <View style={s.headerSide} />
+        <View style={s.headerCenter}>
+          <Image source={require('../../../assets/images/titan-logo.png')} style={s.logo} />
+          <Text style={s.headerSub}>THE SWINDLE</Text>
+        </View>
+        <View style={s.headerSide} />
       </View>
 
+      {/* Join by code row */}
       <View style={s.joinRow}>
         <TextInput
           style={s.joinInput}
           placeholder="Enter join code…"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor="#444"
           value={joinCode}
           onChangeText={t => setJoinCode(t.toUpperCase())}
           autoCapitalize="characters"
@@ -135,7 +159,7 @@ export default function SwindleIndex() {
             {complete.map(g => <GameCard key={g.id} game={g} onPress={() => router.push(`/(app)/swindle/${g.id}` as any)} />)}
           </>
         )}
-        {!loading && games.length === 0 && (
+        {games.length === 0 && (
           <View style={s.empty}>
             <Text style={s.emptyEmoji}>🏌️</Text>
             <Text style={s.emptyTitle}>No swindles yet</Text>
@@ -151,13 +175,18 @@ function GameCard({ game, onPress, onImIn, imInBusy }: {
   game: Game; onPress: () => void; onImIn?: () => void; imInBusy?: boolean;
 }) {
   const pot = game.entry_fee * (game.entry_count ?? 0);
-  const statusColor = game.status === 'in_progress' ? colors.green : game.status === 'complete' ? colors.textMuted : colors.gold;
+  const isOpen = game.status === 'open' || game.status === 'in_progress';
+  const statusColor = game.status === 'in_progress' ? '#4ade80' : game.status === 'complete' ? '#555' : PURPLE;
   const statusLabel = game.status === 'in_progress' ? 'LIVE' : game.status === 'complete' ? 'DONE' : 'OPEN';
   const showImIn = game.status === 'open' && !game.am_entered && onImIn;
   const dayLabel = game.recurring_day ? game.recurring_day.charAt(0).toUpperCase() + game.recurring_day.slice(1) : null;
 
   return (
-    <TouchableOpacity style={s.card} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity
+      style={[s.card, isOpen && s.cardOpen]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
       <View style={s.cardTop}>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
@@ -174,12 +203,30 @@ function GameCard({ game, onPress, onImIn, imInBusy }: {
           <Text style={[s.statusText, { color: statusColor }]}>{statusLabel}</Text>
         </View>
       </View>
+
       <View style={s.cardStats}>
-        <Stat label="ENTRY" value={`${game.currency}${Number(game.entry_fee).toFixed(0)}`} />
-        <Stat label="PLAYERS" value={`${game.entry_count ?? 0}`} />
-        <Stat label="POT" value={pot > 0 ? `${game.currency}${pot.toFixed(0)}` : '—'} highlight />
-        <Stat label="CODE" value={game.join_code} />
+        {/* Entry fee */}
+        <View style={s.statBlock}>
+          <Text style={s.statLabel}>ENTRY</Text>
+          <Text style={[s.statValue, { color: GOLD }]}>{game.currency}{Number(game.entry_fee).toFixed(0)}</Text>
+        </View>
+        {/* Players pill */}
+        <View style={s.entryPill}>
+          <Text style={s.pillLabel}>Players: </Text>
+          <Text style={s.pillCount}>{game.entry_count ?? 0}</Text>
+        </View>
+        {/* Pot */}
+        <View style={s.statBlock}>
+          <Text style={s.statLabel}>POT</Text>
+          <Text style={[s.statValue, { color: GOLD }]}>{pot > 0 ? `${game.currency}${pot.toFixed(0)}` : '—'}</Text>
+        </View>
+        {/* Code */}
+        <View style={s.statBlock}>
+          <Text style={s.statLabel}>CODE</Text>
+          <Text style={s.statValue}>{game.join_code}</Text>
+        </View>
       </View>
+
       {showImIn && (
         <TouchableOpacity
           style={s.imInBtn}
@@ -190,52 +237,70 @@ function GameCard({ game, onPress, onImIn, imInBusy }: {
           <Text style={s.imInText}>{imInBusy ? '…' : "⛳ I'm in!"}</Text>
         </TouchableOpacity>
       )}
+
       {game.status === 'open' && game.am_entered && (
         <View style={s.enteredBadge}>
-          <Text style={s.enteredText}>✓ You're entered</Text>
+          <Text style={s.enteredText}>Entered ✓</Text>
         </View>
       )}
     </TouchableOpacity>
   );
 }
 
-function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <View style={{ alignItems: 'center' }}>
-      <Text style={s.statLabel}>{label}</Text>
-      <Text style={[s.statValue, highlight && { color: colors.gold }]}>{value}</Text>
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: colors.bg, paddingTop: 56 },
-  header:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, marginBottom: spacing.md },
-  title:        { flex: 1, fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 1 },
-  createBtn:    { backgroundColor: colors.gold, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full },
-  createBtnText:{ fontSize: fonts.sm, fontWeight: '800', color: colors.bg },
-  joinRow:      { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.lg },
-  joinInput:    { flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10, color: colors.white, fontSize: fonts.md, fontWeight: '700', letterSpacing: 2 },
-  joinBtn:      { backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.goldBorder, borderRadius: radius.md, paddingHorizontal: spacing.md, justifyContent: 'center' },
-  joinBtnText:  { color: colors.gold, fontWeight: '700', fontSize: fonts.sm },
-  sectionLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5, paddingHorizontal: spacing.md, marginTop: spacing.md, marginBottom: spacing.sm },
-  card:         { marginHorizontal: spacing.md, marginBottom: spacing.sm, backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: colors.border },
-  cardTop:      { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.md },
-  cardName:     { fontSize: fonts.lg, fontWeight: '700', color: colors.white, marginBottom: 2 },
-  cardSub:      { fontSize: fonts.xs, color: colors.textMuted },
-  statusBadge:  { borderWidth: 1, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 2 },
-  statusText:   { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  cardStats:    { flexDirection: 'row', justifyContent: 'space-between' },
-  statLabel:    { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginBottom: 2 },
-  statValue:    { fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  recurringBadge: { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: radius.full, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: colors.goldBorder },
-  recurringText:  { fontSize: 9, fontWeight: '700', color: colors.gold },
-  imInBtn:      { marginTop: spacing.sm, backgroundColor: colors.gold, borderRadius: radius.md, paddingVertical: 10, alignItems: 'center' },
-  imInText:     { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
-  enteredBadge: { marginTop: spacing.sm, backgroundColor: 'rgba(74,222,128,0.1)', borderRadius: radius.md, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(74,222,128,0.3)' },
-  enteredText:  { fontSize: fonts.sm, fontWeight: '700', color: colors.green },
-  empty:        { alignItems: 'center', paddingTop: 80, gap: spacing.sm },
-  emptyEmoji:   { fontSize: 48 },
-  emptyTitle:   { fontSize: fonts.lg, fontWeight: '700', color: colors.textPrimary },
-  emptySub:     { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', paddingHorizontal: spacing.xl },
+  container:     { flex: 1, backgroundColor: '#000', paddingTop: 56 },
+
+  // Header
+  header:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 },
+  headerSide:    { flex: 1 },
+  headerCenter:  { alignItems: 'center', gap: 4 },
+  logo:          { width: 28, height: 28 },
+  headerSub:     { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 2 },
+
+  // Join row
+  joinRow:       { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 20 },
+  joinInput:     { flex: 1, backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: '#fff', fontFamily: FFB, fontSize: 14, letterSpacing: 2 },
+  joinBtn:       { backgroundColor: GOLD, borderRadius: 10, paddingHorizontal: 18, justifyContent: 'center', alignItems: 'center' },
+  joinBtnText:   { fontFamily: FFB, color: '#000', fontSize: 14 },
+
+  // Section headers
+  sectionLabel:  { fontFamily: FFB, fontSize: 10, color: '#555', letterSpacing: 1.5, textTransform: 'uppercase', paddingHorizontal: 16, marginTop: 12, marginBottom: 8 },
+
+  // Game card
+  card:          { marginHorizontal: 16, marginBottom: 10, backgroundColor: '#111', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#1c1c1c' },
+  cardOpen:      { borderLeftWidth: 3, borderLeftColor: PURPLE },
+  cardTop:       { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
+  cardName:      { fontFamily: FFB, fontSize: 15, color: '#fff', marginBottom: 2 },
+  cardSub:       { fontFamily: FF, fontSize: 12, color: '#555' },
+  statusBadge:   { borderWidth: 1, borderRadius: 99, paddingHorizontal: 8, paddingVertical: 2 },
+  statusText:    { fontFamily: FFB, fontSize: 10, letterSpacing: 1 },
+
+  // Stats row
+  cardStats:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  statBlock:     { alignItems: 'center' },
+  statLabel:     { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1, marginBottom: 2 },
+  statValue:     { fontFamily: FFB, fontSize: 14, color: '#fff' },
+
+  // Entry count pill
+  entryPill:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1c1c1c', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  pillLabel:     { fontFamily: FF, fontSize: 11, color: '#555' },
+  pillCount:     { fontFamily: FFB, fontSize: 11, color: PURPLE },
+
+  // Recurring badge
+  recurringBadge: { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 99, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(212,175,55,0.25)' },
+  recurringText:  { fontFamily: FFB, fontSize: 9, color: GOLD },
+
+  // I'm in button
+  imInBtn:       { marginTop: 10, backgroundColor: PURPLE, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  imInText:      { fontFamily: FFB, fontSize: 14, color: '#fff' },
+
+  // Entered badge
+  enteredBadge:  { marginTop: 10, backgroundColor: 'rgba(167,139,250,0.15)', borderRadius: 10, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: PURPLE },
+  enteredText:   { fontFamily: FF, fontSize: 13, color: PURPLE },
+
+  // Empty state
+  empty:         { alignItems: 'center', paddingTop: 80, gap: 10 },
+  emptyEmoji:    { fontSize: 48 },
+  emptyTitle:    { fontFamily: FFB, fontSize: 16, color: '#555' },
+  emptySub:      { fontFamily: FF, fontSize: 13, color: '#444', textAlign: 'center', paddingHorizontal: 32 },
 });

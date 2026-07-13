@@ -2,8 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, radius, spacing } from '../../../src/lib/theme';
+
+// ── TITAN design constants ─────────────────────────────────────
+const GOLD = '#D4AF37';
+const GREEN = '#4ade80';
+const FF   = 'JUSTSans';
+const FFB  = 'JUSTSans-ExBold';
 
 type RecordType = 'best_gross_18' | 'best_stableford_18' | 'most_birdies_round' | 'most_eagles_round';
 
@@ -70,6 +76,11 @@ export default function RecordsScreen() {
   const [records, setRecords] = useState<Partial<Record<RecordType, RecordEntry>>>({});
   const [societyName, setSocietyName] = useState('Society');
   const [opened, setOpened] = useState(false);
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
   // Grand opening animation values
   const trophyScale  = useRef(new Animated.Value(0)).current;
@@ -186,6 +197,10 @@ export default function RecordsScreen() {
     });
   }
 
+  if (!opened || !fontsLoaded) {
+    return <View style={{ flex: 1, backgroundColor: '#000' }}><StatusBar style="light" /></View>;
+  }
+
   return (
     <View style={ss.container}>
       <StatusBar style="light" />
@@ -195,6 +210,7 @@ export default function RecordsScreen() {
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={ss.back}>← Back</Text>
         </TouchableOpacity>
+        <View style={{ flex: 1 }} />
         <View style={{ width: 56 }} />
       </View>
 
@@ -237,16 +253,16 @@ function formatDate(iso: string) {
 }
 
 const ss = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: '#000' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm,
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 8,
   },
-  back: { fontSize: fonts.sm, fontWeight: '600', color: colors.gold },
+  back: { fontSize: 14, fontFamily: FFB, color: GOLD },
 
   heroArea: {
-    alignItems: 'center', paddingTop: spacing.md, paddingBottom: spacing.xl,
+    alignItems: 'center', paddingTop: 12, paddingBottom: 24,
     position: 'relative',
   },
   glow: {
@@ -255,40 +271,40 @@ const ss = StyleSheet.create({
     backgroundColor: 'rgba(212,175,55,0.10)',
     top: -20,
   },
-  trophyEmoji: { fontSize: 72, lineHeight: 80, marginBottom: spacing.md },
+  trophyEmoji: { fontSize: 72, lineHeight: 80, marginBottom: 12 },
   wallTitle: {
-    fontSize: fonts.xl, fontWeight: '900', color: colors.gold,
+    fontSize: 22, fontFamily: FFB, color: GOLD,
     letterSpacing: 4, textTransform: 'uppercase',
   },
   societyName: {
-    fontSize: fonts.sm, color: colors.textMuted,
+    fontSize: 14, fontFamily: FF, color: '#555',
     letterSpacing: 2, textTransform: 'uppercase', marginTop: 4,
   },
   titleDivider: {
     width: 80, height: 2, borderRadius: 1,
-    backgroundColor: colors.gold, opacity: 0.35, marginTop: spacing.sm,
+    backgroundColor: GOLD, opacity: 0.35, marginTop: 12,
   },
 
-  scroll: { paddingHorizontal: spacing.lg },
+  scroll: { paddingHorizontal: 20 },
 
   card: {
-    backgroundColor: colors.card, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.md, marginBottom: spacing.md,
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 16, marginBottom: 16,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   cardIcon:   { fontSize: 22 },
-  cardLabel:  { fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted, letterSpacing: 1.5, textTransform: 'uppercase' },
+  cardLabel:  { fontSize: 11, fontFamily: FFB, color: '#555', letterSpacing: 1.5, textTransform: 'uppercase' },
 
-  valueRow:  { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.xs },
-  valueNum:  { fontSize: 48, fontWeight: '900', color: colors.gold, lineHeight: 52 },
-  valueUnit: { fontSize: fonts.sm, color: colors.textMuted, marginBottom: 8, fontWeight: '600' },
+  valueRow:  { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+  valueNum:  { fontSize: 48, fontFamily: FFB, color: GOLD, lineHeight: 52 },
+  valueUnit: { fontSize: 14, fontFamily: FF, color: '#555', marginBottom: 8 },
 
-  holderName:   { fontSize: fonts.lg, fontWeight: '800', color: colors.white, marginTop: 2 },
-  courseName:   { fontSize: fonts.xs, color: colors.textMuted, marginTop: 3 },
-  achievedDate: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2, opacity: 0.7 },
+  holderName:   { fontSize: 18, fontFamily: FFB, color: '#fff', marginTop: 2 },
+  courseName:   { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 3 },
+  achievedDate: { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 2, opacity: 0.7 },
 
-  vacant:    { paddingVertical: spacing.md, alignItems: 'center' },
-  vacantText:{ fontSize: fonts.md, fontWeight: '700', color: colors.textMuted },
-  vacantSub: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 4, opacity: 0.6 },
+  vacant:    { paddingVertical: 16, alignItems: 'center' },
+  vacantText:{ fontSize: 16, fontFamily: FFB, color: '#555' },
+  vacantSub: { fontSize: 11, fontFamily: FF, color: '#444', marginTop: 4 },
 });
