@@ -6,20 +6,19 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 import { matchLabel, getEffectiveWinner } from '../../../src/lib/scoring';
 import { getPlayerAvatar } from '../../../src/lib/assets';
 import type { Match, Team } from '../../../src/types';
 
+const GOLD   = '#D4AF37';
+const GREEN  = '#4ade80';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
 const heroCourse = require('../../../assets/hero-course.jpeg');
-
-interface MatchWithDay extends Match {
-  home_team: Pick<Team, 'name' | 'accent_color'> | null;
-  away_team: Pick<Team, 'name' | 'accent_color'> | null;
-  day: { course_name: string; course_par: number } | null;
-}
-type ActiveDay = { id: string; course_name: string; join_code: string; day_date: string; player_count: number };
+const titanLogo  = require('../../../assets/TitanAppLogo.png');
 
 const FORMAT_LABELS: Record<string, string> = {
   stableford: 'Stableford', medal: 'Medal', singles: 'Singles Matchplay',
@@ -29,8 +28,21 @@ const FORMAT_LABELS: Record<string, string> = {
   par_bogey: 'Par / Bogey', chacha: 'ChaChaCha',
 };
 
+interface MatchWithDay extends Match {
+  home_team: Pick<Team, 'name' | 'accent_color'> | null;
+  away_team: Pick<Team, 'name' | 'accent_color'> | null;
+  day: { course_name: string; course_par: number } | null;
+}
+type ActiveDay = { id: string; course_name: string; join_code: string; day_date: string; player_count: number };
+
 export default function ScoreScreen() {
   const router = useRouter();
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
   const [myPlayerId, setMyPlayerId]       = useState<string | null>(null);
   const [matches, setMatches]             = useState<MatchWithDay[]>([]);
   const [playerNames, setPlayerNames]     = useState<Record<string, string>>({});
@@ -127,35 +139,37 @@ export default function ScoreScreen() {
 
   const dateStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
+  if (!fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000000', alignItems: 'center', justifyContent: 'center' }}>
+      <ActivityIndicator color={GOLD} />
+    </View>
+  );
+
   return (
-    <View style={s.container}>
+    <View style={s.root}>
       <StatusBar style="light" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadMatches(); }} tintColor={colors.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadMatches(); }} tintColor={GOLD} />}
       >
         {/* ── Hero ── */}
         <ImageBackground source={heroCourse} style={s.hero} resizeMode="cover">
-          {/* Dark overlay */}
           <View style={s.heroOverlay} />
-          {/* Bottom fade to black */}
           <View style={s.heroFade} />
-
           <View style={s.heroContent}>
             <View style={s.heroTop}>
-              <Text style={s.heroLabel}>CASUAL PLAY</Text>
+              <Image source={titanLogo} style={s.heroLogo} resizeMode="contain" />
               <Text style={s.heroDate}>{dateStr}</Text>
             </View>
-
             <Text style={s.heroTitle}>Are we playing{'\n'}today?</Text>
-
             <TouchableOpacity
               style={s.heroBtn}
               onPress={() => router.push('/(app)/games/new' as any)}
               activeOpacity={0.88}
             >
-              <Text style={s.heroBtnText}>⛳  Start New Round</Text>
+              <Ionicons name="golf-outline" size={18} color="#000000" />
+              <Text style={s.heroBtnText}>Start New Round</Text>
             </TouchableOpacity>
           </View>
         </ImageBackground>
@@ -164,7 +178,7 @@ export default function ScoreScreen() {
         <View style={s.body}>
 
           {loading && (
-            <View style={s.centered}><ActivityIndicator color={colors.gold} /></View>
+            <View style={s.centered}><ActivityIndicator color={GOLD} /></View>
           )}
 
           {/* Group Days */}
@@ -173,7 +187,7 @@ export default function ScoreScreen() {
               <SectionHead label="GROUP DAYS" />
               {activeDays.map(d => {
                 const isToday = d.day_date === new Date().toISOString().split('T')[0];
-                const label   = isToday
+                const label = isToday
                   ? 'Today'
                   : new Date(d.day_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
                 return (
@@ -187,8 +201,8 @@ export default function ScoreScreen() {
                       <Text style={s.dayTileCourse}>{d.course_name}</Text>
                       <Text style={s.dayTileSub}>{label}{d.player_count > 0 ? ` · ${d.player_count} players` : ''}</Text>
                     </View>
-                    <View style={s.dayCode}><Text style={s.dayCodeText}>{d.join_code}</Text></View>
-                    <Text style={s.chevron}>›</Text>
+                    <View style={s.dayCodeBadge}><Text style={s.dayCodeText}>{d.join_code}</Text></View>
+                    <Ionicons name="chevron-forward" size={16} color={GOLD} />
                   </TouchableOpacity>
                 );
               })}
@@ -197,25 +211,28 @@ export default function ScoreScreen() {
 
           {/* Join a Day */}
           <View style={s.joinCard}>
-            <Text style={s.joinCardTitle}>JOIN A GAME DAY</Text>
+            <View style={s.joinCardHeader}>
+              <Ionicons name="people-outline" size={16} color={GOLD} />
+              <Text style={s.joinCardTitle}>JOIN A GAME DAY</Text>
+            </View>
             <Text style={s.joinCardSub}>Got a 6-digit code from a mate? Jump into their leaderboard.</Text>
             <View style={s.joinRow}>
               <TextInput
                 style={s.joinInput}
                 placeholder="Enter code…"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor="#4b5563"
                 value={dayCode}
                 onChangeText={t => setDayCode(t.toUpperCase())}
                 autoCapitalize="characters"
                 maxLength={6}
               />
               <TouchableOpacity
-                style={[s.joinBtn, (!dayCode || joiningDay) && s.joinBtnOff]}
+                style={[s.joinBtn, (!dayCode || joiningDay) && { opacity: 0.4 }]}
                 onPress={joinGameDay}
                 disabled={!dayCode || joiningDay}
                 activeOpacity={0.8}
               >
-                <Text style={s.joinBtnText}>{joiningDay ? '…' : 'Join Day'}</Text>
+                <Text style={s.joinBtnText}>{joiningDay ? '…' : 'Join'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -236,7 +253,7 @@ export default function ScoreScreen() {
             </>
           )}
 
-          {/* Recent rounds */}
+          {/* Recent */}
           {complete.length > 0 && (
             <>
               <SectionHead label="RECENT ROUNDS" />
@@ -244,10 +261,10 @@ export default function ScoreScreen() {
             </>
           )}
 
-          {/* Empty rounds state */}
           {!loading && matches.length === 0 && (
-            <View style={s.emptyRounds}>
-              <Text style={s.emptyRoundsText}>No rounds yet — hit Start New Round above to get going.</Text>
+            <View style={s.emptyState}>
+              <Ionicons name="golf-outline" size={40} color="#1c1c1c" />
+              <Text style={s.emptyStateText}>No rounds yet — hit Start New Round to get going.</Text>
             </View>
           )}
 
@@ -262,7 +279,7 @@ function SectionHead({ label, live }: { label: string; live?: boolean }) {
   return (
     <View style={s.sectionHead}>
       {live && <View style={s.liveDot} />}
-      <Text style={[s.sectionLabel, live && s.sectionLabelLive]}>{label}</Text>
+      <Text style={[s.sectionLabel, live && { color: GREEN }]}>{label}</Text>
     </View>
   );
 }
@@ -294,18 +311,22 @@ function RoundCard({ match, playerNames, playerAvatars }: {
 
   function av(id: string) {
     const raw = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
-    return raw
-      ? <Image key={id} source={typeof raw === 'string' ? { uri: raw } : raw} style={s.avImg} />
-      : <View key={id} style={s.avFallback}><Text style={s.avInitial}>{fn(id)[0]}</Text></View>;
+    if (raw) {
+      return <Image key={id} source={typeof raw === 'string' ? { uri: raw } : raw} style={s.avImg} />;
+    }
+    return (
+      <View key={id} style={s.avFallback}>
+        <Text style={s.avInitial}>{fn(id)[0]}</Text>
+      </View>
+    );
   }
 
   return (
     <TouchableOpacity
-      style={[s.card, isLive && s.cardLive]}
+      style={[s.card, isLive && s.cardLive, isComplete && s.cardComplete]}
       onPress={() => router.push(`/(app)/score/${match.id}` as any)}
       activeOpacity={0.75}
     >
-      {/* Top row: course + badge */}
       <View style={s.cardTop}>
         <View style={{ flex: 1 }}>
           <Text style={s.cardCourse} numberOfLines={1}>
@@ -315,13 +336,12 @@ function RoundCard({ match, playerNames, playerAvatars }: {
         </View>
         <View style={[s.badge, isLive && s.badgeLive, isComplete && s.badgeComplete]}>
           {isLive && <View style={s.liveDotSm} />}
-          <Text style={[s.badgeText, isLive && s.badgeLiveText, isComplete && s.badgeCompleteText]}>
+          <Text style={[s.badgeText, isLive && { color: GREEN }, isComplete && { color: GOLD }]}>
             {resultStr}
           </Text>
         </View>
       </View>
 
-      {/* Players */}
       {(isSolo || isStroke) ? (
         <View style={s.playersRow}>
           {match.home_player_ids.slice(0, 4).map((id, i) => (
@@ -345,156 +365,101 @@ function RoundCard({ match, playerNames, playerAvatars }: {
 const HERO_H = 340;
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: '#000000' },
 
-  // Hero
-  hero: { height: HERO_H },
-  heroOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(7,11,16,0.42)',
-  },
-  heroFade: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, height: 160,
-    backgroundColor: colors.bg,
-    opacity: 0.92,
-  },
+  hero:        { height: HERO_H },
+  heroOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(7,11,16,0.45)' },
+  heroFade:    { position: 'absolute', bottom: 0, left: 0, right: 0, height: 160, backgroundColor: '#000000', opacity: 0.92 },
   heroContent: {
     flex: 1,
     paddingTop: Platform.OS === 'ios' ? 60 : 36,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
     justifyContent: 'flex-end',
   },
-  heroTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
+  heroTop:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  heroLogo: { width: 32, height: 32 },
+  heroDate: { fontFamily: FF, fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.3 },
+  heroTitle:{ fontFamily: FF, fontSize: 34, color: '#ffffff', lineHeight: 40, marginBottom: 20, letterSpacing: -0.3 },
+  heroBtn:  {
+    backgroundColor: GOLD, borderRadius: 14,
+    paddingVertical: 16, flexDirection: 'row',
+    alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  heroLabel: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 2 },
-  heroDate:  { fontSize: fonts.xs, color: 'rgba(255,255,255,0.55)', fontWeight: '600' },
-  heroTitle: {
-    fontSize: 34,
-    fontWeight: '900',
-    color: colors.white,
-    lineHeight: 40,
-    marginBottom: spacing.lg,
-    letterSpacing: 0.3,
-  },
-  heroBtn: {
-    backgroundColor: colors.gold,
-    borderRadius: radius.lg,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  heroBtnText: { fontSize: fonts.lg, fontWeight: '900', color: colors.bg, letterSpacing: 1 },
+  heroBtnText: { fontFamily: FF, fontSize: 17, color: '#000000' },
 
-  // Body
-  body:    { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
-  centered:{ paddingVertical: spacing.xl, alignItems: 'center' },
+  body:    { paddingHorizontal: 16, paddingTop: 8 },
+  centered:{ paddingVertical: 32, alignItems: 'center' },
 
-  // Section
-  sectionHead:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.lg, marginBottom: spacing.sm },
-  sectionLabel:     { fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted, letterSpacing: 1.5 },
-  sectionLabelLive: { color: '#22c55e' },
-  liveDot:          { width: 7, height: 7, borderRadius: 4, backgroundColor: '#22c55e' },
+  sectionHead:  { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 20, marginBottom: 10 },
+  sectionLabel: { fontFamily: FF, fontSize: 9, color: '#4b5563', letterSpacing: 2 },
+  liveDot:      { width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN },
 
-  // Group day tile
   dayTile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.goldBorder,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#111111', borderRadius: 14,
+    padding: 14, marginBottom: 8,
+    borderWidth: 1, borderColor: `${GOLD}30`,
   },
-  dayTileCourse: { fontSize: fonts.md, fontWeight: '700', color: colors.white, marginBottom: 2 },
-  dayTileSub:    { fontSize: fonts.xs, color: colors.textMuted },
-  dayCode: {
-    backgroundColor: 'rgba(212,175,55,0.1)',
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: colors.goldBorder,
-    marginLeft: spacing.sm,
-  },
-  dayCodeText: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 2 },
-  chevron:     { color: colors.gold, fontSize: 22, marginLeft: spacing.xs },
+  dayTileCourse: { fontFamily: FFB, fontSize: 14, color: '#ffffff', marginBottom: 2 },
+  dayTileSub:    { fontFamily: FF, fontSize: 11, color: '#6b7280' },
+  dayCodeBadge:  { backgroundColor: `${GOLD}15`, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: `${GOLD}30`, marginRight: 8 },
+  dayCodeText:   { fontFamily: FF, fontSize: 11, color: GOLD, letterSpacing: 2 },
 
-  // Join card
   joinCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginTop: spacing.md,
+    backgroundColor: '#111111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 14, marginTop: 8,
   },
-  joinCardTitle: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 2, marginBottom: 4 },
-  joinCardSub:   { fontSize: fonts.xs, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: 18 },
-  joinRow:       { flexDirection: 'row', gap: spacing.sm },
+  joinCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 4 },
+  joinCardTitle:  { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2 },
+  joinCardSub:    { fontFamily: FF, fontSize: 12, color: '#6b7280', marginBottom: 12, lineHeight: 18 },
+  joinRow:        { flexDirection: 'row', gap: 8 },
   joinInput: {
-    flex: 1,
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    color: colors.white,
-    fontSize: fonts.sm,
-    fontWeight: '700',
-    letterSpacing: 3,
+    flex: 1, backgroundColor: '#0a0a0a',
+    borderWidth: 1, borderColor: '#1c1c1c',
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
+    fontFamily: FF, color: '#ffffff', fontSize: 16, letterSpacing: 4,
   },
-  joinBtn:    { backgroundColor: colors.gold, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: 10, justifyContent: 'center' },
-  joinBtnOff: { opacity: 0.4 },
-  joinBtnText:{ color: colors.bg, fontSize: fonts.sm, fontWeight: '800' },
+  joinBtn:    { backgroundColor: GOLD, borderRadius: 10, paddingHorizontal: 18, justifyContent: 'center' },
+  joinBtnText:{ fontFamily: FF, fontSize: 14, color: '#000000' },
 
-  // Round card
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: '#111111', borderRadius: 14,
+    padding: 14, marginBottom: 8,
+    borderWidth: 1, borderColor: '#1c1c1c',
   },
-  cardLive: { borderColor: 'rgba(34,197,94,0.3)' },
-  cardTop:  { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.sm, gap: spacing.sm },
-  cardCourse: { fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  cardFormat: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+  cardLive:     { borderColor: `${GREEN}30` },
+  cardComplete: { borderColor: '#1c1c1c' },
+  cardTop:    { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10, gap: 10 },
+  cardCourse: { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
+  cardFormat: { fontFamily: FF, fontSize: 11, color: '#6b7280', marginTop: 2 },
 
   badge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: spacing.sm, paddingVertical: 4,
-    borderRadius: radius.sm,
-    backgroundColor: colors.cardAlt,
-    borderWidth: 1, borderColor: colors.border,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 20, backgroundColor: '#1a1a1a',
+    borderWidth: 1, borderColor: '#222',
   },
-  badgeLive:         { backgroundColor: 'rgba(34,197,94,0.1)', borderColor: 'rgba(34,197,94,0.35)' },
-  badgeComplete:     { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
-  badgeText:         { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted },
-  badgeLiveText:     { color: '#22c55e' },
-  badgeCompleteText: { color: colors.gold },
-  liveDotSm:         { width: 5, height: 5, borderRadius: 3, backgroundColor: '#22c55e' },
+  badgeLive:     { backgroundColor: `${GREEN}10`, borderColor: `${GREEN}35` },
+  badgeComplete: { backgroundColor: `${GOLD}0d`, borderColor: `${GOLD}30` },
+  badgeText:     { fontFamily: FF, fontSize: 11, color: '#6b7280' },
+  liveDotSm:     { width: 5, height: 5, borderRadius: 3, backgroundColor: GREEN },
 
   playersRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  avWrap:     { borderRadius: 14, overflow: 'hidden', borderWidth: 1.5, borderColor: colors.card },
+  avWrap:     { borderRadius: 14, overflow: 'hidden', borderWidth: 1.5, borderColor: '#111111' },
   avOverlap:  { marginLeft: -8 },
   avImg:      { width: 28, height: 28, borderRadius: 14 },
-  avFallback: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
-  avInitial:  { fontSize: 10, fontWeight: '800', color: colors.white },
-  playersText:{ flex: 1, fontSize: fonts.sm, fontWeight: '600', color: colors.textSecondary, marginLeft: 4 },
+  avFallback: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' },
+  avInitial:  { fontFamily: FFB, fontSize: 10, color: '#ffffff' },
+  playersText:{ flex: 1, fontFamily: FF, fontSize: 13, color: '#9ca3af', marginLeft: 6 },
 
-  matchupRow:  { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  matchSide:   { flex: 1, fontSize: fonts.sm, fontWeight: '600', color: colors.textSecondary },
+  matchupRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  matchSide:   { flex: 1, fontFamily: FF, fontSize: 13, color: '#9ca3af' },
   matchSideR:  { textAlign: 'right' },
-  matchWin:    { color: colors.white, fontWeight: '700' },
-  vsText:      { fontSize: fonts.xs, fontWeight: '600', color: colors.textMuted },
+  matchWin:    { fontFamily: FFB, color: '#ffffff' },
+  vsText:      { fontFamily: FF, fontSize: 10, color: '#4b5563' },
 
-  emptyRounds: { paddingVertical: spacing.xl, alignItems: 'center' },
-  emptyRoundsText: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
+  emptyState:     { paddingVertical: 48, alignItems: 'center', gap: 12 },
+  emptyStateText: { fontFamily: FF, fontSize: 13, color: '#4b5563', textAlign: 'center', lineHeight: 20 },
 });

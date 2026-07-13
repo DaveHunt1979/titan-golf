@@ -14,7 +14,7 @@ import { getPlayerAvatar } from '../../../src/lib/assets';
 
 // ── Constants ─────────────────────────────────────────────────
 
-type GameMode  = '4bbb' | 'singles' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'wolf' | 'scramble' | 'greensome' | 'bbb' | 'foursomes' | 'modified_stableford' | 'par_bogey' | 'chacha';
+type GameMode  = '4bbb' | 'singles' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'wolf' | 'scramble' | 'greensome' | 'bbb' | 'foursomes' | 'modified_stableford' | 'par_bogey' | 'chacha' | 'team_stableford';
 type HolesMode = 'full18' | 'front9' | 'back9';
 
 interface Player     { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
@@ -40,12 +40,14 @@ const MODE_INFO: Record<GameMode, { label: string; sub: string; icon: keyof type
   'scramble':            { label: 'Scramble',          sub: 'Team best ball',               icon: 'golf-outline' },
   'bbb':                 { label: 'Bingo Bango Bongo', sub: 'First on green · closest · out', icon: 'grid-outline' },
   'chacha':              { label: 'ChaChaCha',         sub: 'Best 1 · 2 · 3 per hole',     icon: 'musical-notes-outline' },
+  'team_stableford':    { label: 'Team Stableford',   sub: 'Best N scores count per team', icon: 'people-circle-outline' },
 };
 
 const MODE_SECTIONS: { label: string; accent: string; modes: GameMode[] }[] = [
   { label: 'MATCHPLAY',    accent: GOLD,      modes: ['4bbb', 'singles', 'nassau', 'foursomes', 'greensome'] },
   { label: 'INDIVIDUAL',   accent: '#4ade80', modes: ['stableford', 'medal', 'modified_stableford', 'par_bogey'] },
   { label: 'GROUP GAMES',  accent: '#60a5fa', modes: ['skins', 'wolf', 'scramble', 'bbb', 'chacha'] },
+  { label: 'TEAM GAMES',   accent: '#f97316', modes: ['team_stableford'] },
 ];
 
 const HCP_ALLOWANCES: { pct: number; label: string }[] = [
@@ -152,10 +154,11 @@ function FormatSheet({
 
 function PlayerSheet({
   visible, players, pair1, pair2, pairStep, isSolo, atMax, takenIds,
-  onToggle, onNextPair, onClose,
+  teamLabels, onToggle, onNextPair, onClose,
 }: {
   visible: boolean; players: Player[]; pair1: string[]; pair2: string[];
   pairStep: 1 | 2; isSolo: boolean; atMax: boolean; takenIds: string[];
+  teamLabels?: boolean;
   onToggle: (id: string) => void; onNextPair: () => void; onClose: () => void;
 }) {
   const firstName = (id: string) => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '?';
@@ -168,7 +171,7 @@ function PlayerSheet({
         <View style={ps.handle} />
         <View style={ps.playerSheetHeader}>
           <Text style={ps.sheetTitle}>
-            {isSolo ? 'Add Players' : pairStep === 1 ? 'First Pair' : 'Second Pair'}
+            {isSolo ? 'Add Players' : pairStep === 1 ? (teamLabels ? 'Team A' : 'First Pair') : (teamLabels ? 'Team B' : 'Second Pair')}
           </Text>
           {!isSolo && pairStep === 2 && pair1.length > 0 && (
             <View style={ps.pair1Summary}>
@@ -218,7 +221,7 @@ function PlayerSheet({
             onPress={pair1.length > 0 ? onNextPair : undefined}
             activeOpacity={0.8}
           >
-            <Text style={ps.doneBtnText}>Pick Pair 2  →</Text>
+            <Text style={ps.doneBtnText}>{teamLabels ? 'Pick Team B  →' : 'Pick Pair 2  →'}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -337,6 +340,8 @@ export default function NewGameScreen() {
   const [ntpHole, setNtpHole]               = useState<number | null>(null);
   const [creating, setCreating]             = useState(false);
   const [takenPlayerIds, setTakenPlayerIds] = useState<string[]>([]);
+  const [teamSize, setTeamSize]             = useState<2 | 3 | 4>(2);
+  const [countingScores, setCounting]       = useState<number>(2);
 
   // Data
   const [players, setPlayers]           = useState<Player[]>([]);
@@ -351,6 +356,8 @@ export default function NewGameScreen() {
   const [showCourse, setShowCourse]   = useState(false);
   const [showHoles, setShowHoles]     = useState(false);
   const [showHcp, setShowHcp]         = useState(false);
+  const [showTeamSize, setShowTeamSize]   = useState(false);
+  const [showCounting, setShowCounting]   = useState(false);
 
   useFocusEffect(useCallback(() => {
     setMode('stableford');
@@ -359,8 +366,9 @@ export default function NewGameScreen() {
     setHcpAllowance(100); setSideGames([]); setSecondaryFormat(null);
     setHoles('full18'); setVoiceEnabled(true); setLdActive(false); setNpActive(false);
     setLdHole(null); setNtpHole(null); setCreating(false); setTakenPlayerIds([]);
+    setTeamSize(2); setCounting(2);
     setShowFormat(false); setShowPlayers(false); setShowCourse(false);
-    setShowHoles(false); setShowHcp(false);
+    setShowHoles(false); setShowHcp(false); setShowTeamSize(false); setShowCounting(false);
     if (existingDayId) {
       supabase.from('matches').select('home_player_ids, away_player_ids')
         .eq('day_id', existingDayId).neq('status', 'cancelled')
@@ -401,7 +409,10 @@ export default function NewGameScreen() {
   }, [societyId, societyLoading]);
 
   const isSolo = ['stableford', 'medal', 'skins', 'wolf', 'scramble', 'bbb', 'modified_stableford', 'par_bogey', 'chacha'].includes(mode);
-  const maxPer = (mode === 'singles' || mode === 'nassau') ? 1 : isSolo ? 4 : 2;
+  const maxPer = mode === 'team_stableford' ? teamSize
+               : (mode === 'singles' || mode === 'nassau') ? 1
+               : isSolo ? 4
+               : 2;
   const atMax  = isSolo && pair1.length >= maxPer;
 
   function togglePlayer(id: string) {
@@ -431,7 +442,7 @@ export default function NewGameScreen() {
   const formatLabel  = MODE_INFO[mode]?.label ?? 'Stableford';
   const holesLabel   = HOLES_OPTIONS.find(h => h.key === holesMode)?.label ?? 'Full 18';
   const hcpLabel     = HCP_ALLOWANCES.find(h => h.pct === hcpAllowance)?.label ?? '100%';
-  const canStart     = !!selectedCourse && pair1.length >= 1 && !creating;
+  const canStart     = !!selectedCourse && pair1.length >= 1 && (mode !== 'team_stableford' || pair2.length >= 1) && !creating;
   const selectedItem = courses.find(c => c.name === selectedCourse);
 
   async function createGame() {
@@ -463,6 +474,7 @@ export default function NewGameScreen() {
         ...(!voiceEnabled ? ['voice:off'] : []),
       ];
 
+      const isTeamStableford = mode === 'team_stableford';
       const { data: newMatch, error } = await supabase.from('matches').insert({
         competition_id: null,
         day_id: resolvedDayId,
@@ -478,6 +490,7 @@ export default function NewGameScreen() {
         hcp_allowance: hcpAllowance,
         side_games: sideGamesList,
         secondary_format: secondaryFormat,
+        ...(isTeamStableford ? { team_size: teamSize, counting_scores: countingScores } : {}),
       }).select().single();
 
       if (error || !newMatch) throw error ?? new Error('Could not create game');
@@ -495,7 +508,9 @@ export default function NewGameScreen() {
             text: "Let's Play",
             style: 'default',
             onPress: () => {
-              if (existingDayId) {
+              if (isTeamStableford) {
+                router.replace(`/(app)/score/teamstableford/${newMatch.id}` as any);
+              } else if (existingDayId) {
                 router.replace(`/(app)/score/day/${resolvedDayId}` as any);
               } else {
                 const params = dayCode ? `?dayId=${resolvedDayId}&dayCode=${dayCode}` : '';
@@ -597,6 +612,16 @@ export default function NewGameScreen() {
 
           {/* Format */}
           <SettingRow icon="trophy-outline" label="Format" value={formatLabel} onPress={() => setShowFormat(true)} />
+
+          {/* Team Stableford config */}
+          {mode === 'team_stableford' && (
+            <>
+              <View style={s.settingDivider} />
+              <SettingRow icon="people-outline" label="Team Size" value={`${teamSize} players per side`} onPress={() => setShowTeamSize(true)} />
+              <View style={s.settingDivider} />
+              <SettingRow icon="checkmark-circle-outline" label="Counting Scores" value={`Best ${countingScores} of ${teamSize}`} onPress={() => setShowCounting(true)} />
+            </>
+          )}
           <View style={s.settingDivider} />
 
           {/* Holes */}
@@ -766,6 +791,7 @@ export default function NewGameScreen() {
       <PlayerSheet
         visible={showPlayers} players={players} pair1={pair1} pair2={pair2}
         pairStep={pairStep} isSolo={isSolo} atMax={atMax} takenIds={takenPlayerIds}
+        teamLabels={mode === 'team_stableford'}
         onToggle={togglePlayer}
         onNextPair={() => setPairStep(2)}
         onClose={() => { setShowPlayers(false); setPairStep(1); }}
@@ -780,6 +806,32 @@ export default function NewGameScreen() {
         selected={hcpAllowance.toString() as any}
         onSelect={(v: any) => setHcpAllowance(parseInt(v, 10))}
         onClose={() => setShowHcp(false)}
+      />
+      <PickerSheet
+        visible={showTeamSize} title="Team Size"
+        options={[
+          { key: '2', label: '2 players per side' },
+          { key: '3', label: '3 players per side' },
+          { key: '4', label: '4 players per side' },
+        ]}
+        selected={teamSize.toString() as any}
+        onSelect={(v: any) => {
+          const n = parseInt(v, 10) as 2 | 3 | 4;
+          setTeamSize(n);
+          if (countingScores > n) setCounting(n);
+          setPair1([]); setPair2([]); setPairStep(1);
+        }}
+        onClose={() => setShowTeamSize(false)}
+      />
+      <PickerSheet
+        visible={showCounting} title="Counting Scores"
+        options={Array.from({ length: teamSize }, (_, i) => ({
+          key: String(i + 1),
+          label: i + 1 === teamSize ? `All ${teamSize} scores count` : `Best ${i + 1} of ${teamSize}`,
+        }))}
+        selected={countingScores.toString() as any}
+        onSelect={(v: any) => setCounting(parseInt(v, 10))}
+        onClose={() => setShowCounting(false)}
       />
 
     </View>

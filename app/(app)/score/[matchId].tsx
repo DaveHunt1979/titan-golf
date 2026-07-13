@@ -234,6 +234,7 @@ export default function MatchDetailScreen() {
           modified_stableford: `/(app)/score/modified/${matchId}`,
           par_bogey: `/(app)/score/parbogey/${matchId}`,
           chacha: `/(app)/score/chacha/${matchId}`,
+          team_stableford: `/(app)/score/teamstableford/${matchId}`,
         };
         if (specialRoutes[fmt]) router.push(specialRoutes[fmt] as any);
         else router.push(buildUrl(`/(app)/score/enter/${matchId}`, teeColor) as any);

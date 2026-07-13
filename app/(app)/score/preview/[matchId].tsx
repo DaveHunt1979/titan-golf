@@ -116,6 +116,8 @@ export default function MatchPreviewScreen() {
       skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf', scramble: 'Scramble',
       bbb: 'Best Ball Betterball', modified_stableford: 'Modified Stableford',
       par_bogey: 'Par / Bogey', chacha: 'Cha Cha Cha',
+      greensome: 'Greensomes', foursomes: 'Foursomes',
+      team_stableford: 'Team Stableford',
     };
     return map[match.round_format ?? ''] ?? (match.round_format ?? 'Matchplay');
   })();
