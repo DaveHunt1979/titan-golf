@@ -1,151 +1,369 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  Image, ActivityIndicator, Alert, TextInput, Animated,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  Image, ActivityIndicator, Alert, TextInput, Modal, FlatList,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useSociety } from '../../../src/lib/useSociety';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 import { getPlayerAvatar } from '../../../src/lib/assets';
+
+// ── Constants ─────────────────────────────────────────────────
 
 type GameMode  = '4bbb' | 'singles' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'wolf' | 'scramble' | 'greensome' | 'bbb' | 'foursomes' | 'modified_stableford' | 'par_bogey' | 'chacha';
 type HolesMode = 'full18' | 'front9' | 'back9';
+
 interface Player     { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
 interface CourseItem { name: string; par: number; }
 
-const MODES: { key: GameMode; label: string; sub: string; available: boolean }[] = [
-  { key: '4bbb',                label: '4BBB Matchplay',     sub: 'Two pairs · best ball',                       available: true },
-  { key: 'singles',             label: 'Singles',             sub: 'Head-to-head matchplay',                      available: true },
-  { key: 'stableford',          label: 'Stableford',          sub: '1–4 players · points per hole',               available: true },
-  { key: 'medal',               label: 'Medal',               sub: '1–4 players · total stroke play',             available: true },
-  { key: 'skins',               label: 'Skins',               sub: '2–4 players · per-hole prize · carryovers',  available: true },
-  { key: 'nassau',              label: 'Nassau',              sub: 'Front 9 / Back 9 / Overall · 3 bets',        available: true },
-  { key: 'wolf',                label: 'Wolf',                sub: '3–4 players · rotating Wolf picks partner',   available: true },
-  { key: 'scramble',            label: 'Scramble',            sub: '2–4 players · team best ball',               available: true },
-  { key: 'greensome',           label: 'Greensomes',          sub: 'Pairs · best tee shot then alternate',        available: true },
-  { key: 'bbb',                 label: 'Bingo Bango Bongo',   sub: 'First on green · closest · first out',       available: true },
-  { key: 'foursomes',           label: 'Foursomes',           sub: 'Alternate shot matchplay',                    available: true },
-  { key: 'modified_stableford', label: 'Modified Stableford', sub: 'Eagle +8 · Birdie +4 · Par +2 · Bogey 0',    available: true },
-  { key: 'par_bogey',           label: 'Par / Bogey',         sub: '1–4 players · win/halve/lose vs nett par',    available: true },
-  { key: 'chacha',              label: 'ChaChaCha',           sub: '4 players · best 1/2/3 Stableford per hole',  available: true },
+const GOLD  = '#D4AF37';
+const GREEN = '#22c55e';
+const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
+
+const MODE_INFO: Record<GameMode, { label: string; sub: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  '4bbb':                { label: '4BBB',             sub: 'Best ball pairs',              icon: 'people-outline' },
+  'singles':             { label: 'Singles',           sub: 'Head to head matchplay',       icon: 'person-outline' },
+  'nassau':              { label: 'Nassau',            sub: 'Front / Back / Overall',       icon: 'cash-outline' },
+  'foursomes':           { label: 'Foursomes',         sub: 'Alternate shot matchplay',     icon: 'swap-horizontal-outline' },
+  'greensome':           { label: 'Greensomes',        sub: 'Best drive, then alternate',   icon: 'leaf-outline' },
+  'stableford':          { label: 'Stableford',        sub: 'Points per hole',              icon: 'star-outline' },
+  'medal':               { label: 'Medal',             sub: 'Stroke play',                  icon: 'medal-outline' },
+  'modified_stableford': { label: 'Mod Stableford',    sub: 'Eagle +8 · Birdie +4',         icon: 'trophy-outline' },
+  'par_bogey':           { label: 'Par / Bogey',       sub: 'Win, halve or lose vs par',    icon: 'stats-chart-outline' },
+  'skins':               { label: 'Skins',             sub: 'Per-hole prize pot',           icon: 'diamond-outline' },
+  'wolf':                { label: 'Wolf',              sub: 'Rotating Wolf picks partner',  icon: 'paw-outline' },
+  'scramble':            { label: 'Scramble',          sub: 'Team best ball',               icon: 'golf-outline' },
+  'bbb':                 { label: 'Bingo Bango Bongo', sub: 'First on green · closest · out', icon: 'grid-outline' },
+  'chacha':              { label: 'ChaChaCha',         sub: 'Best 1 · 2 · 3 per hole',     icon: 'musical-notes-outline' },
+};
+
+const MODE_SECTIONS: { label: string; accent: string; modes: GameMode[] }[] = [
+  { label: 'MATCHPLAY',    accent: GOLD,      modes: ['4bbb', 'singles', 'nassau', 'foursomes', 'greensome'] },
+  { label: 'INDIVIDUAL',   accent: '#4ade80', modes: ['stableford', 'medal', 'modified_stableford', 'par_bogey'] },
+  { label: 'GROUP GAMES',  accent: '#60a5fa', modes: ['skins', 'wolf', 'scramble', 'bbb', 'chacha'] },
 ];
 
-const MODE_SECTIONS = [
-  {
-    label: 'MATCHPLAY', accent: '#D4AF37',
-    modes: [
-      { key: '4bbb'      as GameMode, label: '4BBB',       sub: 'Best ball pairs',        icon: '🤝' },
-      { key: 'singles'   as GameMode, label: 'Singles',    sub: 'Head to head',            icon: '⚔️' },
-      { key: 'nassau'    as GameMode, label: 'Nassau',     sub: 'Front / Back / Overall',  icon: '💰' },
-      { key: 'foursomes' as GameMode, label: 'Foursomes',  sub: 'Alternate shot',          icon: '🔄' },
-      { key: 'greensome' as GameMode, label: 'Greensomes', sub: 'Best drive, alternate',   icon: '🌿' },
-    ],
-  },
-  {
-    label: 'INDIVIDUAL', accent: '#4ade80',
-    modes: [
-      { key: 'stableford'          as GameMode, label: 'Stableford',      sub: 'Points per hole',      icon: '⭐' },
-      { key: 'medal'               as GameMode, label: 'Medal',           sub: 'Stroke play',           icon: '🏅' },
-      { key: 'modified_stableford' as GameMode, label: 'Mod Stableford',  sub: 'Eagle +8 · Birdie +4', icon: '🎯' },
-      { key: 'par_bogey'           as GameMode, label: 'Par / Bogey',     sub: 'Win, halve or lose',   icon: '📊' },
-    ],
-  },
-  {
-    label: 'GROUP GAMES', accent: '#60a5fa',
-    modes: [
-      { key: 'skins'    as GameMode, label: 'Skins',      sub: 'Per-hole prize pot',      icon: '💎' },
-      { key: 'wolf'     as GameMode, label: 'Wolf',       sub: 'Rotating Wolf picks',     icon: '🐺' },
-      { key: 'scramble' as GameMode, label: 'Scramble',   sub: 'Team best ball',          icon: '🏌️' },
-      { key: 'bbb'      as GameMode, label: 'BBB',        sub: 'Bingo Bango Bongo',       icon: '🎰' },
-      { key: 'chacha'   as GameMode, label: 'ChaChaCha',  sub: 'Best 1 · 2 · 3 per hole', icon: '💃' },
-    ],
-  },
+const HCP_ALLOWANCES: { pct: number; label: string }[] = [
+  { pct: 100, label: 'Full (100%)' },
+  { pct: 87,  label: '7/8 (87.5%)' },
+  { pct: 75,  label: '3/4 (75%)' },
+  { pct: 0,   label: 'Scratch' },
 ];
 
-const HCP_ALLOWANCES: { pct: number; label: string; sub: string }[] = [
-  { pct: 100, label: 'Full Handicap', sub: 'WHS course handicap · 100%' },
-  { pct: 87,  label: '7/8 Handicap', sub: '87.5% of course handicap' },
-  { pct: 75,  label: '3/4 Handicap', sub: '75% of course handicap' },
-  { pct: 0,   label: 'Off Scratch',  sub: 'No strokes — play level' },
+const HOLES_OPTIONS: { key: HolesMode; label: string }[] = [
+  { key: 'full18', label: 'Full 18' },
+  { key: 'front9', label: 'Front 9' },
+  { key: 'back9',  label: 'Back 9' },
 ];
 
-const SIDE_GAMES_ALL    = ['Stableford', 'Stroke Play', 'Closest to Pin', 'Longest Drive'];
-const SIDE_GAMES_STROKE = ['Closest to Pin', 'Longest Drive'];
+const heroCourse = require('../../../assets/hero-course.jpeg');
+const titanLogo  = require('../../../assets/TitanAppLogo.png');
 
-const HOLES: { key: HolesMode; label: string; sub: string }[] = [
-  { key: 'full18', label: 'Full 18', sub: 'All 18 holes' },
-  { key: 'front9', label: 'Front 9', sub: 'Holes 1–9' },
-  { key: 'back9',  label: 'Back 9',  sub: 'Holes 10–18' },
-];
-
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  const result: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size));
-  return result;
+function nowTime() {
+  return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
-function chunk2<T>(arr: readonly T[]): T[][] {
-  const result: T[][] = [];
-  for (let i = 0; i < arr.length; i += 2) result.push(arr.slice(i, i + 2) as T[]);
-  return result;
+
+// ── Picker sheet (generic) ────────────────────────────────────
+
+function PickerSheet<T extends string>({
+  visible, title, options, selected, onSelect, onClose,
+}: {
+  visible: boolean; title: string; options: { key: T; label: string }[];
+  selected: T; onSelect: (v: T) => void; onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={onClose} />
+      <View style={ps.sheet}>
+        <View style={ps.handle} />
+        <Text style={ps.sheetTitle}>{title}</Text>
+        {options.map(o => (
+          <TouchableOpacity key={o.key} style={ps.sheetRow} onPress={() => { onSelect(o.key); onClose(); }} activeOpacity={0.7}>
+            <Text style={[ps.sheetOpt, o.key === selected && ps.sheetOptOn]}>{o.label}</Text>
+            {o.key === selected && <Ionicons name="checkmark" size={18} color={GOLD} />}
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity style={ps.cancelBtn} onPress={onClose} activeOpacity={0.7}>
+          <Text style={ps.cancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
 }
+
+// ── Format picker sheet (sectioned) ──────────────────────────
+
+function FormatSheet({
+  visible, selected, onSelect, onClose,
+}: {
+  visible: boolean; selected: GameMode; onSelect: (v: GameMode) => void; onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={onClose} />
+      <View style={[ps.sheet, { maxHeight: '80%' }]}>
+        <View style={ps.handle} />
+        <Text style={ps.sheetTitle}>Choose Format</Text>
+        <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
+          {MODE_SECTIONS.map(section => (
+            <View key={section.label}>
+              <View style={ps.sectionHead}>
+                <View style={[ps.sectionDot, { backgroundColor: section.accent }]} />
+                <Text style={[ps.sectionLabel, { color: section.accent }]}>{section.label}</Text>
+              </View>
+              {section.modes.map(key => {
+                const info = MODE_INFO[key];
+                const sel  = key === selected;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={[ps.formatRow, sel && ps.formatRowOn]}
+                    onPress={() => { onSelect(key); onClose(); }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[ps.formatIconWrap, sel && { backgroundColor: `${GOLD}18`, borderColor: `${GOLD}40` }]}>
+                      <Ionicons name={info.icon} size={15} color={sel ? GOLD : '#6b7280'} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[ps.sheetOpt, sel && ps.sheetOptOn]}>{info.label}</Text>
+                      <Text style={ps.formatSub}>{info.sub}</Text>
+                    </View>
+                    {sel && <Ionicons name="checkmark-circle" size={20} color={GOLD} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
+        </ScrollView>
+        <TouchableOpacity style={ps.cancelBtn} onPress={onClose} activeOpacity={0.7}>
+          <Text style={ps.cancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Player picker sheet ───────────────────────────────────────
+
+function PlayerSheet({
+  visible, players, pair1, pair2, pairStep, isSolo, atMax, takenIds,
+  onToggle, onNextPair, onClose,
+}: {
+  visible: boolean; players: Player[]; pair1: string[]; pair2: string[];
+  pairStep: 1 | 2; isSolo: boolean; atMax: boolean; takenIds: string[];
+  onToggle: (id: string) => void; onNextPair: () => void; onClose: () => void;
+}) {
+  const firstName = (id: string) => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '?';
+  const activePair = pairStep === 1 ? pair1 : pair2;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={onClose} />
+      <View style={[ps.sheet, { maxHeight: '80%' }]}>
+        <View style={ps.handle} />
+        <View style={ps.playerSheetHeader}>
+          <Text style={ps.sheetTitle}>
+            {isSolo ? 'Add Players' : pairStep === 1 ? 'First Pair' : 'Second Pair'}
+          </Text>
+          {!isSolo && pairStep === 2 && pair1.length > 0 && (
+            <View style={ps.pair1Summary}>
+              <Text style={ps.pair1SummaryLabel}>PAIR 1: </Text>
+              <Text style={ps.pair1SummaryNames}>{pair1.map(firstName).join(' & ')}</Text>
+            </View>
+          )}
+        </View>
+        <FlatList
+          data={players}
+          keyExtractor={p => p.id}
+          style={{ flexGrow: 0 }}
+          renderItem={({ item }) => {
+            const inP1 = pair1.includes(item.id);
+            const inP2 = pair2.includes(item.id);
+            const inActive = pairStep === 1 ? inP1 : inP2;
+            const inOther  = pairStep === 1 ? inP2 : inP1;
+            const taken    = takenIds.includes(item.id);
+            const disabled = inOther || taken || (atMax && !inActive);
+            const av = item.avatar_url ?? getPlayerAvatar(item.id, 'normal');
+            return (
+              <TouchableOpacity
+                style={[ps.sheetRow, disabled && { opacity: 0.3 }]}
+                onPress={() => !disabled && onToggle(item.id)}
+                activeOpacity={0.7}
+              >
+                <View style={ps.playerRow}>
+                  <View style={ps.playerAvatar}>
+                    {av
+                      ? <Image source={typeof av === 'string' ? { uri: av } : av} style={ps.playerAvatarImg} />
+                      : <Text style={ps.playerAvatarLetter}>{item.display_name[0]}</Text>
+                    }
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[ps.sheetOpt, inActive && ps.sheetOptOn]}>{item.display_name}</Text>
+                    <Text style={ps.playerHcp}>HCP {item.handicap_index}</Text>
+                  </View>
+                  {inActive && <Ionicons name="checkmark-circle" size={22} color={GOLD} />}
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
+        {!isSolo && pairStep === 1 ? (
+          <TouchableOpacity
+            style={[ps.doneBtn, pair1.length === 0 && { opacity: 0.35 }]}
+            onPress={pair1.length > 0 ? onNextPair : undefined}
+            activeOpacity={0.8}
+          >
+            <Text style={ps.doneBtnText}>Pick Pair 2  →</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[ps.doneBtn, activePair.length === 0 && { opacity: 0.35 }]}
+            onPress={activePair.length > 0 ? onClose : undefined}
+            activeOpacity={0.8}
+          >
+            <Text style={ps.doneBtnText}>Done</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </Modal>
+  );
+}
+
+// ── Course picker sheet ───────────────────────────────────────
+
+function CourseSheet({
+  visible, courses, selected, onSelect, onClose,
+}: {
+  visible: boolean; courses: CourseItem[]; selected: string | null;
+  onSelect: (name: string) => void; onClose: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const filtered = courses.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={onClose} />
+      <View style={[ps.sheet, { maxHeight: '75%' }]}>
+        <View style={ps.handle} />
+        <Text style={ps.sheetTitle}>Select Course</Text>
+        <TextInput
+          style={ps.searchInput}
+          placeholder="Search courses…"
+          placeholderTextColor="#555"
+          value={search}
+          onChangeText={setSearch}
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+        />
+        <FlatList
+          data={filtered}
+          keyExtractor={c => c.name}
+          style={{ flexGrow: 0 }}
+          renderItem={({ item }) => {
+            const on = item.name === selected;
+            return (
+              <TouchableOpacity style={ps.sheetRow} onPress={() => { onSelect(item.name); onClose(); setSearch(''); }} activeOpacity={0.7}>
+                <Text style={[ps.sheetOpt, on && ps.sheetOptOn]}>{item.name}</Text>
+                <Text style={ps.courseParLabel}>Par {item.par}</Text>
+                {on && <Ionicons name="checkmark" size={16} color={GOLD} style={{ marginLeft: 6 }} />}
+              </TouchableOpacity>
+            );
+          }}
+        />
+        <TouchableOpacity style={ps.cancelBtn} onPress={() => { onClose(); setSearch(''); }} activeOpacity={0.7}>
+          <Text style={ps.cancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Setting row helper ────────────────────────────────────────
+
+function SettingRow({
+  icon, label, value, valueColor, onPress, children, last,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string; value?: string; valueColor?: string;
+  onPress?: () => void; children?: React.ReactNode; last?: boolean;
+}) {
+  return (
+    <TouchableOpacity style={s.settingRow} onPress={onPress} activeOpacity={onPress ? 0.7 : 1}>
+      <View style={s.settingLeft}>
+        <View style={s.settingIconWrap}>
+          <Ionicons name={icon} size={16} color={GOLD} />
+        </View>
+        <Text style={s.settingLabel}>{label}</Text>
+      </View>
+      <View style={s.settingRight}>
+        {value && <Text style={[s.settingValue, valueColor ? { color: valueColor } : undefined]}>{value}</Text>}
+        {children}
+        {onPress && <Ionicons name="chevron-forward" size={14} color="#444" />}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ── Main screen ───────────────────────────────────────────────
 
 export default function NewGameScreen() {
   const router = useRouter();
   const { societyId, loading: societyLoading } = useSociety();
   const { existingDayId, course: preselectedCourse } = useLocalSearchParams<{ existingDayId?: string; course?: string }>();
 
-  const [step, setStep]         = useState<1 | 2 | 3 | 4>(1);
-  const [pairStep, setPairStep] = useState<1 | 2>(1);
-  const [mode, setMode]         = useState<GameMode | null>(null);
+  const [fontsLoaded] = useFonts({
+    'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
+  // Game state
+  const [mode, setMode]         = useState<GameMode>('stableford');
   const [pair1, setPair1]       = useState<string[]>([]);
   const [pair2, setPair2]       = useState<string[]>([]);
+  const [pairStep, setPairStep] = useState<1 | 2>(1);
   const [selectedCourse, setSelectedCourse] = useState<string | null>(preselectedCourse ?? null);
   const [hcpAllowance, setHcpAllowance]     = useState<number>(100);
-  const [customHcp, setCustomHcp]           = useState<string>('');
   const [sideGames, setSideGames]           = useState<string[]>([]);
   const [secondaryFormat, setSecondaryFormat] = useState<string | null>(null);
   const [holesMode, setHoles]               = useState<HolesMode>('full18');
-  const [players, setPlayers]               = useState<Player[]>([]);
-  const [loadingPlayers, setLoadingPlayers] = useState(true);
-  const [courses, setCourses]               = useState<CourseItem[]>([]);
-  const [loadingCourses, setLoadingCourses] = useState(true);
-  const [courseSearch, setCourseSearch]     = useState('');
+  const [voiceEnabled, setVoiceEnabled]     = useState(true);
+  const [ldActive, setLdActive]             = useState(false);
+  const [npActive, setNpActive]             = useState(false);
+  const [ldHole, setLdHole]                 = useState<number | null>(null);
+  const [ntpHole, setNtpHole]               = useState<number | null>(null);
   const [creating, setCreating]             = useState(false);
-  const [courseHoleData, setCourseHoleData] = useState<{ hole_number: number; par: number }[]>([]);
-  const [coursePinsSet, setCoursePinsSet]   = useState<boolean | null>(null);
-  const [ldHole,  setLdHole]  = useState<number | null>(null);
-  const [ntpHole, setNtpHole] = useState<number | null>(null);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [takenPlayerIds, setTakenPlayerIds] = useState<string[]>([]);
 
-  // Reset game setup state each time screen is focused so old settings don't carry over
+  // Data
+  const [players, setPlayers]           = useState<Player[]>([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(true);
+  const [courses, setCourses]           = useState<CourseItem[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [courseHoleData, setCourseHoleData] = useState<{ hole_number: number; par: number }[]>([]);
+
+  // Pickers
+  const [showFormat, setShowFormat]   = useState(false);
+  const [showPlayers, setShowPlayers] = useState(false);
+  const [showCourse, setShowCourse]   = useState(false);
+  const [showHoles, setShowHoles]     = useState(false);
+  const [showHcp, setShowHcp]         = useState(false);
+
   useFocusEffect(useCallback(() => {
-    const isGroupDay = !!existingDayId;
-    setStep(isGroupDay ? 2 : 1);
-    setPairStep(1);
-    setMode(isGroupDay ? 'stableford' : null);
-    setPair1([]);
-    setPair2([]);
-    setSelectedCourse(isGroupDay && preselectedCourse ? preselectedCourse : null);
-    setHcpAllowance(100);
-    setCustomHcp('');
-    setSideGames([]);
-    setSecondaryFormat(null);
-    setHoles('full18');
-    setLdHole(null);
-    setNtpHole(null);
-    setCreating(false);
-    setVoiceEnabled(true);
-    setTakenPlayerIds([]);
+    setMode('stableford');
+    setPair1([]); setPair2([]); setPairStep(1);
+    setSelectedCourse(existingDayId && preselectedCourse ? preselectedCourse : null);
+    setHcpAllowance(100); setSideGames([]); setSecondaryFormat(null);
+    setHoles('full18'); setVoiceEnabled(true); setLdActive(false); setNpActive(false);
+    setLdHole(null); setNtpHole(null); setCreating(false); setTakenPlayerIds([]);
+    setShowFormat(false); setShowPlayers(false); setShowCourse(false);
+    setShowHoles(false); setShowHcp(false);
     if (existingDayId) {
-      supabase
-        .from('matches')
-        .select('home_player_ids, away_player_ids')
-        .eq('day_id', existingDayId)
-        .neq('status', 'cancelled')
+      supabase.from('matches').select('home_player_ids, away_player_ids')
+        .eq('day_id', existingDayId).neq('status', 'cancelled')
         .then(({ data }) => {
           if (data) {
             const ids = (data as any[]).flatMap(m => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]);
@@ -156,137 +374,78 @@ export default function NewGameScreen() {
   }, [existingDayId, preselectedCourse]));
 
   useEffect(() => {
-    if (!selectedCourse) { setCourseHoleData([]); setCoursePinsSet(null); return; }
-    supabase.from('course_holes').select('hole_number,par,green_lat').eq('course_name', selectedCourse).order('hole_number')
-      .then(({ data, error }) => {
-        if (error || !data) { setCoursePinsSet(false); return; }
-        setCourseHoleData(data as any[]);
-        setCoursePinsSet((data as any[]).some((h: any) => !!h.green_lat));
-      });
+    if (!selectedCourse) { setCourseHoleData([]); return; }
+    supabase.from('course_holes').select('hole_number,par').eq('course_name', selectedCourse).order('hole_number')
+      .then(({ data }) => { if (data) setCourseHoleData(data as any[]); });
   }, [selectedCourse]);
 
   useEffect(() => {
     if (societyLoading) return;
-
-    // Load courses (shared across all societies)
-    supabase
-      .from('course_holes')
-      .select('course_name, par')
-      .then(({ data }) => {
-        if (data) {
-          const map: Record<string, number> = {};
-          for (const row of data as any[]) {
-            map[row.course_name] = (map[row.course_name] ?? 0) + row.par;
-          }
-          setCourses(
-            Object.entries(map)
-              .map(([name, par]) => ({ name, par }))
-              .sort((a, b) => a.name.localeCompare(b.name)),
-          );
-        }
-        setLoadingCourses(false);
-      });
-
+    supabase.from('course_holes').select('course_name, par').then(({ data }) => {
+      if (data) {
+        const map: Record<string, number> = {};
+        for (const row of data as any[]) map[row.course_name] = (map[row.course_name] ?? 0) + row.par;
+        setCourses(Object.entries(map).map(([name, par]) => ({ name, par })).sort((a, b) => a.name.localeCompare(b.name)));
+      }
+      setLoadingCourses(false);
+    });
     if (!societyId) { setLoadingPlayers(false); return; }
-
-    // Load players in this society only
     (async () => {
-      const { data: members } = await supabase
-        .from('society_members')
-        .select('player_id')
-        .eq('society_id', societyId);
-
+      const { data: members } = await supabase.from('society_members').select('player_id').eq('society_id', societyId);
       if (!members || members.length === 0) { setLoadingPlayers(false); return; }
       const ids = (members as any[]).map(m => m.player_id);
-
-      const { data } = await supabase
-        .from('players')
-        .select('id, display_name, handicap_index, avatar_url')
-        .in('id', ids)
-        .order('display_name');
-
+      const { data } = await supabase.from('players').select('id, display_name, handicap_index, avatar_url').in('id', ids).order('display_name');
       if (data) setPlayers(data as Player[]);
       setLoadingPlayers(false);
     })();
   }, [societyId, societyLoading]);
 
-  const isSolo    = ['stableford', 'medal', 'skins', 'wolf', 'scramble', 'bbb', 'modified_stableford', 'par_bogey', 'chacha'].includes(mode ?? '');
-  const maxPer    = (mode === 'singles' || mode === 'nassau') ? 1 : isSolo ? 4 : 2;
-  const atMax     = isSolo && pair1.length >= maxPer;
-  const sideGamesList = isSolo ? SIDE_GAMES_STROKE : SIDE_GAMES_ALL;
-  const activePair    = pairStep === 1 ? pair1 : pair2;
-  const setActivePair = pairStep === 1 ? setPair1 : setPair2;
+  const isSolo = ['stableford', 'medal', 'skins', 'wolf', 'scramble', 'bbb', 'modified_stableford', 'par_bogey', 'chacha'].includes(mode);
+  const maxPer = (mode === 'singles' || mode === 'nassau') ? 1 : isSolo ? 4 : 2;
+  const atMax  = isSolo && pair1.length >= maxPer;
 
   function togglePlayer(id: string) {
     const inOther = pairStep === 1 ? pair2.includes(id) : pair1.includes(id);
     if (inOther) return;
-    setActivePair(prev =>
-      prev.includes(id) ? prev.filter(p => p !== id)
-        : prev.length < maxPer ? [...prev, id] : prev,
-    );
+    const set = pairStep === 1 ? setPair1 : setPair2;
+    set(prev => prev.includes(id) ? prev.filter(p => p !== id) : prev.length < maxPer ? [...prev, id] : prev);
   }
 
-  // Animated scale per mode card
-  const scaleAnims = useRef<Record<string, Animated.Value>>({}).current;
-  function getScaleAnim(key: string): Animated.Value {
-    if (!scaleAnims[key]) scaleAnims[key] = new Animated.Value(1);
-    return scaleAnims[key];
-  }
   function selectMode(key: GameMode) {
-    if (mode) Animated.spring(getScaleAnim(mode), { toValue: 1, useNativeDriver: true, friction: 8, tension: 120 }).start();
     setMode(key);
-    Animated.sequence([
-      Animated.spring(getScaleAnim(key), { toValue: 1.06, useNativeDriver: true, friction: 4, tension: 400 }),
-      Animated.spring(getScaleAnim(key), { toValue: 1,    useNativeDriver: true, friction: 8, tension: 200 }),
-    ]).start();
+    setPair1([]); setPair2([]); setPairStep(1);
   }
 
-  // When joining an existing day, course is pre-set — skip step 3
-  const skipCourse = !!existingDayId && !!preselectedCourse;
+  const firstName = (id: string) => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '?';
 
-  function goBack() {
-    if (step === 1) { router.back(); return; }
-    if (step === 2 && pairStep === 2) { setPairStep(1); return; }
-    if (step === 2) { setStep(1); return; }
-    if (step === 4 && skipCourse) { setStep(2); return; }
-    setStep(s => (s - 1) as any);
-  }
-
-  function goNext() {
-    if (step === 1) { setPair1([]); setPair2([]); setPairStep(1); setSideGames([]); setStep(2); return; }
-    if (step === 2 && pairStep === 1 && !isSolo) { setPairStep(2); return; }
-    if (step === 2 && skipCourse) { setStep(4); return; }
-    if (step === 2) { setCourseSearch(''); setStep(3); return; }
-    if (step === 3) { setStep(4); return; }
-    createGame();
-  }
-
-  const canNext = (() => {
-    if (step === 1) return mode !== null && MODES.find(m => m.key === mode)?.available === true;
-    if (step === 2) {
-      if (isSolo) return pair1.length >= 1;
-      const need = mode === 'singles' ? 1 : 2;
-      return pairStep === 1 ? pair1.length === need : pair2.length === need;
+  const playersLabel = (() => {
+    if (pair1.length === 0) return 'Add players';
+    if (isSolo) {
+      const n = pair1.map(firstName);
+      return n.length <= 2 ? n.join(', ') : `${n[0]} +${n.length - 1} more`;
     }
-    if (step === 3) return selectedCourse !== null;
-    return true;
+    const p1 = pair1.map(firstName).join(' & ');
+    return pair2.length === 0 ? `${p1}  ·  + pair 2` : `${p1}  vs  ${pair2.map(firstName).join(' & ')}`;
   })();
 
+  const formatLabel  = MODE_INFO[mode]?.label ?? 'Stableford';
+  const holesLabel   = HOLES_OPTIONS.find(h => h.key === holesMode)?.label ?? 'Full 18';
+  const hcpLabel     = HCP_ALLOWANCES.find(h => h.pct === hcpAllowance)?.label ?? '100%';
+  const canStart     = !!selectedCourse && pair1.length >= 1 && !creating;
+  const selectedItem = courses.find(c => c.name === selectedCourse);
+
   async function createGame() {
-    if (!mode || !selectedCourse || !societyId || creating) return;
+    if (!selectedCourse || !societyId || creating) return;
     setCreating(true);
     try {
       let resolvedDayId: string;
       let dayCode: string | null = null;
 
       if (existingDayId) {
-        // Joining an existing game day
-        const { data: dayData } = await supabase
-          .from('competition_days').select('id, join_code').eq('id', existingDayId).single();
+        const { data: dayData } = await supabase.from('competition_days').select('id, join_code').eq('id', existingDayId).single();
         if (!dayData) throw new Error('Game day not found');
         resolvedDayId = existingDayId;
       } else {
-        // Create a fresh standalone game day with a shareable code
         const { data: dayResult, error: dayErr } = await supabase.rpc('create_game_day_with_code', {
           p_society_id: societyId,
           p_course_name: selectedCourse,
@@ -298,6 +457,12 @@ export default function NewGameScreen() {
       }
 
       const matchNum = Math.floor(Date.now() / 1000) % 100000;
+      const sideGamesList = [
+        ...(ldActive && ldHole ? [`Longest Drive:${ldHole}`] : []),
+        ...(npActive && ntpHole ? [`Closest to Pin:${ntpHole}`] : []),
+        ...(!voiceEnabled ? ['voice:off'] : []),
+      ];
+
       const { data: newMatch, error } = await supabase.from('matches').insert({
         competition_id: null,
         day_id: resolvedDayId,
@@ -311,14 +476,7 @@ export default function NewGameScreen() {
         is_singles: mode === 'singles',
         round_format: (mode === '4bbb' || mode === 'singles') ? 'matchplay' : mode,
         hcp_allowance: hcpAllowance,
-        side_games: [
-          ...sideGames.map(g => {
-            if (g === 'Longest Drive' && ldHole) return `Longest Drive:${ldHole}`;
-            if (g === 'Closest to Pin' && ntpHole) return `Closest to Pin:${ntpHole}`;
-            return g;
-          }),
-          ...(!voiceEnabled ? ['voice:off'] : []),
-        ],
+        side_games: sideGamesList,
         secondary_format: secondaryFormat,
       }).select().single();
 
@@ -327,15 +485,11 @@ export default function NewGameScreen() {
       const codeMsg = dayCode ? `\nDay code: ${dayCode}` : '';
       Alert.alert(
         'Group added!',
-        `${pair1.map(id => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '').join(', ')} are on.${codeMsg}\n\nAdd another group to the same day?`,
+        `${pair1.map(id => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '').join(', ')} are on.${codeMsg}\n\nAdd another group?`,
         [
           {
             text: 'Add Another Group',
-            onPress: () => {
-              router.replace(
-                `/(app)/games/new?existingDayId=${resolvedDayId}&course=${encodeURIComponent(selectedCourse ?? '')}` as any
-              );
-            },
+            onPress: () => router.replace(`/(app)/games/new?existingDayId=${resolvedDayId}&course=${encodeURIComponent(selectedCourse ?? '')}` as any),
           },
           {
             text: "Let's Play",
@@ -357,589 +511,462 @@ export default function NewGameScreen() {
     }
   }
 
-  const firstName = (id: string) => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '?';
-
-  const stepTitle = (() => {
-    if (step === 1) return 'Choose Game Mode';
-    if (step === 2) {
-      if (isSolo) {
-        if (pair1.length === 0) return 'Who is playing today?';
-        if (atMax) return `${pair1.length} players selected — ready to go!`;
-        return `${pair1.length} player${pair1.length > 1 ? 's' : ''} selected — add more or tap Next`;
-      }
-      if (mode === 'singles') return pairStep === 1 ? 'Pick Player 1' : 'Pick Player 2';
-      return pairStep === 1 ? 'Pick Pair 1  ·  choose 2 players' : 'Pick Pair 2  ·  choose 2 players';
-    }
-    if (step === 3) return 'Course & Holes';
-    return 'Handicap Settings';
-  })();
-
-  const nextLabel = (() => {
-    if (step === 4) return 'Start Round';
-    if (step === 2 && pairStep === 1 && !isSolo) return mode === 'singles' ? 'Next' : 'Pick Pair 2 →';
-    return 'Next →';
-  })();
+  if (!fontsLoaded) {
+    return (
+      <View style={s.root}>
+        <StatusBar style="light" />
+        <View style={s.centered}><ActivityIndicator color={GOLD} size="large" /></View>
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
+    <View style={s.root}>
       <StatusBar style="light" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={styles.backText}>{step === 1 ? 'Cancel' : '‹ Back'}</Text>
+      {/* ── Header ────────────────────────────────────────────── */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="close-outline" size={28} color="#ffffff" />
         </TouchableOpacity>
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={styles.headerLabel}>NEW GAME</Text>
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
         </View>
-        <Text style={styles.headerStep}>{step} / 4</Text>
+        <View style={[s.headerSide, { alignItems: 'flex-end' }]} />
       </View>
 
-      {/* Step progress bar */}
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { flex: step }]} />
-        {step < 4 && <View style={{ flex: 4 - step }} />}
-      </View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
 
-      <Text style={styles.stepTitle}>{stepTitle}</Text>
+        {/* ── Page title ─────────────────────────────────────── */}
+        <Text style={s.pageTitle}>Casual Round</Text>
+        <Text style={s.pageSubtitle}>Set up a premium social round</Text>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll}>
+        {/* ── Course card ────────────────────────────────────── */}
+        <TouchableOpacity style={s.courseCard} onPress={() => setShowCourse(true)} activeOpacity={0.9}>
+          <Image source={heroCourse} style={s.courseHero} resizeMode="cover" />
+          <View style={s.courseOverlay} />
 
-        {/* ── Step 1 — Mode grid ─────────────────────────────── */}
-        {step === 1 && MODE_SECTIONS.map(section => (
-          <View key={section.label}>
-            <View style={styles.modeSectionHeader}>
-              <View style={[styles.modeSectionDot, { backgroundColor: section.accent }]} />
-              <Text style={[styles.modeSectionLabel, { color: section.accent }]}>{section.label}</Text>
-            </View>
-            {chunk2(section.modes).map((pair, ri) => (
-              <View key={ri} style={styles.modeRow}>
-                {pair.map(m => {
-                  const isSelected = mode === m.key;
-                  const scale = getScaleAnim(m.key);
-                  return (
-                    <Animated.View key={m.key} style={[styles.modeCardWrap, { transform: [{ scale }] }]}>
-                      <TouchableOpacity
-                        style={[styles.modeCard, isSelected && styles.modeCardOn, isSelected && { borderColor: section.accent }]}
-                        onPress={() => selectMode(m.key)}
-                        activeOpacity={0.75}
-                      >
-                        {isSelected && <View style={[styles.modeCardBar, { backgroundColor: section.accent }]} />}
-                        <Text style={styles.modeIcon}>{m.icon}</Text>
-                        <Text style={[styles.modeLabel, isSelected && { color: colors.white }]}>{m.label}</Text>
-                        <Text style={styles.modeSub}>{m.sub}</Text>
-                        {isSelected && (
-                          <View style={[styles.modeCheck, { backgroundColor: section.accent }]}>
-                            <Text style={styles.modeCheckText}>✓</Text>
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    </Animated.View>
-                  );
-                })}
-                {pair.length === 1 && <View style={styles.modeCardWrap} />}
-              </View>
-            ))}
+          <View style={s.todayBadge}>
+            <Text style={s.todayText}>TODAY</Text>
           </View>
-        ))}
 
-        {/* ── Step 2 — Players ───────────────────────────────── */}
-        {step === 2 && (
-          <>
-            {isSolo && pair1.length > 0 && (
-              <View style={styles.pairBanner}>
-                <Text style={styles.pairBannerLabel}>PLAYING TODAY</Text>
-                <View style={styles.pairBannerAvatars}>
-                  {pair1.map(id => {
-                    const player = players.find(p => p.id === id);
-                    const av = player?.avatar_url ?? getPlayerAvatar(id, 'normal');
-                    return (
-                      <View key={id} style={styles.bannerPlayer}>
-                        {av
-                          ? <Image source={typeof av === 'string' ? { uri: av } : av} style={styles.bannerAvatar} />
-                          : <View style={[styles.bannerAvatar, styles.avatarFallback]}><Text style={styles.avatarInitial}>{firstName(id)[0]}</Text></View>
-                        }
-                        <Text style={styles.bannerName}>{firstName(id)}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
+          <View style={s.courseInfo}>
+            <Text style={s.courseName}>{selectedCourse ?? 'Tap to select a course'}</Text>
+            {selectedItem && (
+              <View style={s.courseMetaRow}>
+                <Ionicons name="flag-outline" size={12} color="rgba(255,255,255,0.6)" />
+                <Text style={s.courseMeta}>Par {selectedItem.par}</Text>
               </View>
             )}
+            <View style={s.courseMetaRow}>
+              <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.6)" />
+              <Text style={s.courseMeta}>Tap to change course</Text>
+            </View>
+          </View>
 
-            {pairStep === 2 && pair1.length > 0 && (
-              <View style={styles.pairBanner}>
-                <Text style={styles.pairBannerLabel}>Pair 1</Text>
-                <View style={styles.pairBannerAvatars}>
-                  {pair1.map(id => {
-                    const player = players.find(p => p.id === id);
-                    const av = player?.avatar_url ?? getPlayerAvatar(id, 'normal');
-                    return (
-                      <View key={id} style={styles.bannerPlayer}>
-                        {av
-                          ? <Image source={typeof av === 'string' ? { uri: av } : av} style={styles.bannerAvatar} />
-                          : <View style={[styles.bannerAvatar, styles.avatarFallback]}><Text style={styles.avatarInitial}>{firstName(id)[0]}</Text></View>
-                        }
-                        <Text style={styles.bannerName}>{firstName(id)}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
+          <View style={s.teetimeRow}>
+            <View style={s.teetimeItem}>
+              <Ionicons name="flag-outline" size={13} color="rgba(255,255,255,0.5)" />
+              <Text style={s.teetimeText}>Hole 1 Start</Text>
+            </View>
+            <View style={s.teetimeDivider} />
+            <View style={s.teetimeItem}>
+              <Ionicons name="time-outline" size={13} color="rgba(255,255,255,0.5)" />
+              <Text style={s.teetimeText}>{nowTime()} Tee Time</Text>
+            </View>
+            <TouchableOpacity
+              style={[s.startBtn, !canStart && s.startBtnOff]}
+              onPress={canStart ? createGame : undefined}
+              disabled={!canStart || creating}
+              activeOpacity={0.85}
+            >
+              {creating
+                ? <ActivityIndicator color="#000" size="small" />
+                : <Text style={s.startBtnText}>Start Round</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
 
-            {loadingPlayers
-              ? <ActivityIndicator color={colors.gold} style={{ marginTop: 40 }} />
-              : chunkArray(players, 3).map((row, ri) => (
-                <View key={ri} style={styles.playerRow}>
-                  {row.map(p => {
-                    const avatar  = p.avatar_url ?? getPlayerAvatar(p.id, 'normal');
-                    const inP1     = pair1.includes(p.id);
-                    const inP2     = pair2.includes(p.id);
-                    const inActive = pairStep === 1 ? inP1 : inP2;
-                    const inOther  = pairStep === 1 ? inP2 : inP1;
-                    const alreadyTaken = takenPlayerIds.includes(p.id);
-                    const isDisabled = inOther || alreadyTaken || (atMax && !inActive);
-                    return (
-                      <TouchableOpacity
-                        key={p.id}
-                        style={[styles.playerTile, inActive && styles.playerTileOn, isDisabled && styles.playerTileDim]}
-                        onPress={() => togglePlayer(p.id)}
-                        disabled={isDisabled}
-                        activeOpacity={0.8}
-                      >
-                        <View style={[styles.avatarRing, inActive && styles.avatarRingOn]}>
-                          {avatar
-                            ? <Image source={typeof avatar === 'string' ? { uri: avatar } : avatar} style={styles.playerAvatar} />
-                            : <View style={[styles.playerAvatar, styles.avatarFallback]}><Text style={styles.avatarInitial}>{p.display_name[0]}</Text></View>
-                          }
-                          {inActive && (
-                            <View style={styles.checkBadge}><Text style={styles.checkBadgeText}>✓</Text></View>
-                          )}
-                        </View>
-                        <Text style={[styles.playerName, inActive && styles.playerNameOn]} numberOfLines={1}>
-                          {p.display_name.split(' ')[0]}
-                        </Text>
-                        <Text style={styles.playerHcp}>{p.handicap_index}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                  {row.length < 3 && Array.from({ length: 3 - row.length }, (_, i) => (
-                    <View key={`gap-${i}`} style={styles.playerTile} />
-                  ))}
-                </View>
-              ))
-            }
-          </>
-        )}
+        {/* ── Settings card ──────────────────────────────────── */}
+        <View style={s.settingsCard}>
 
-        {/* ── Step 3 — Course & Holes ────────────────────────── */}
-        {step === 3 && (
-          <>
-            {selectedCourse && coursePinsSet === false && (
-              <TouchableOpacity
-                style={styles.pinsNotice}
-                onPress={() => router.push('/(app)/admin/pins' as any)}
-                activeOpacity={0.8}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.pinsNoticeTitle}>⛳ No rangefinder pins set</Text>
-                  <Text style={styles.pinsNoticeSub}>Tap to drop green pins for this course — distances won't show without them</Text>
-                </View>
-                <Text style={{ color: colors.gold, fontSize: 20 }}>›</Text>
-              </TouchableOpacity>
-            )}
-            {loadingCourses
-              ? <ActivityIndicator color={colors.gold} style={{ marginTop: 40 }} />
-              : courses.length === 0
-                ? (
-                  <View style={styles.card}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cardLabel}>No courses configured</Text>
-                      <Text style={styles.cardSub}>Ask your admin to add courses under Admin → Manage Courses.</Text>
-                    </View>
-                  </View>
-                )
-                : <>
-                    <TextInput
-                      style={styles.courseSearch}
-                      placeholder="Search courses…"
-                      placeholderTextColor={colors.textMuted}
-                      value={courseSearch}
-                      onChangeText={setCourseSearch}
-                      autoCorrect={false}
-                      clearButtonMode="while-editing"
-                    />
-                    {courses
-                      .filter(c => c.name.toLowerCase().includes(courseSearch.toLowerCase()))
-                      .map(c => (
-                        <TouchableOpacity
-                          key={c.name}
-                          style={[styles.card, selectedCourse === c.name && styles.cardSelected]}
-                          onPress={() => setSelectedCourse(c.name)}
-                          activeOpacity={0.8}
-                        >
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.cardLabel, selectedCourse === c.name && styles.cardLabelSelected]}>{c.name}</Text>
-                            <Text style={styles.cardSub}>Par {c.par}</Text>
-                          </View>
-                          {selectedCourse === c.name && <Text style={styles.cardCheck}>✓</Text>}
-                        </TouchableOpacity>
-                      ))
-                    }
-                  </>
-            }
+          {/* Players */}
+          <SettingRow icon="people-outline" label="Players" value={playersLabel} valueColor={pair1.length === 0 ? GOLD : undefined} onPress={() => setShowPlayers(true)} />
+          <View style={s.settingDivider} />
 
-            <Text style={styles.sectionLabel}>HOLES TO PLAY</Text>
-            <View style={styles.holesRow}>
-              {HOLES.map(h => (
+          {/* Format */}
+          <SettingRow icon="trophy-outline" label="Format" value={formatLabel} onPress={() => setShowFormat(true)} />
+          <View style={s.settingDivider} />
+
+          {/* Holes */}
+          <SettingRow icon="golf-outline" label="Holes" value={holesLabel} onPress={() => setShowHoles(true)} />
+          <View style={s.settingDivider} />
+
+          {/* Handicap */}
+          <SettingRow icon="stats-chart-outline" label="Handicap" value={hcpLabel} onPress={() => setShowHcp(true)} />
+          <View style={s.settingDivider} />
+
+          {/* Chip & Birdie */}
+          <SettingRow icon="mic-outline" label="Chip & Birdie" value={voiceEnabled ? 'On' : 'Off'} valueColor={voiceEnabled ? GOLD : '#6b7280'} onPress={() => setVoiceEnabled(v => !v)}>
+            <View style={[s.toggle, voiceEnabled && s.toggleOn]}>
+              <View style={[s.toggleThumb, voiceEnabled && s.toggleThumbOn]} />
+            </View>
+          </SettingRow>
+
+        </View>
+
+        {/* ── Side Games ─────────────────────────────────────── */}
+        <Text style={s.sectionLabel}>SIDE GAMES</Text>
+        <View style={s.settingsCard}>
+
+          {/* Longest Drive */}
+          <SettingRow
+            icon="arrow-forward-circle-outline"
+            label="Longest Drive"
+            value={ldActive ? (ldHole ? `Hole ${ldHole}` : 'Pick hole') : 'Off'}
+            valueColor={ldActive ? GOLD : '#6b7280'}
+            onPress={() => setLdActive(v => !v)}
+          >
+            <View style={[s.toggle, ldActive && s.toggleOn]}>
+              <View style={[s.toggleThumb, ldActive && s.toggleThumbOn]} />
+            </View>
+          </SettingRow>
+
+          {ldActive && courseHoleData.filter(h => h.par === 5).length > 0 && (
+            <View style={s.holePicker}>
+              {courseHoleData.filter(h => h.par === 5).map(h => (
                 <TouchableOpacity
-                  key={h.key}
-                  style={[styles.holeBtn, holesMode === h.key && styles.holeBtnOn]}
-                  onPress={() => setHoles(h.key)}
-                  activeOpacity={0.8}
+                  key={h.hole_number}
+                  style={[s.holeBtn, ldHole === h.hole_number && s.holeBtnOn]}
+                  onPress={() => setLdHole(h.hole_number)}
                 >
-                  <Text style={[styles.holeBtnLabel, holesMode === h.key && styles.holeBtnLabelOn]}>{h.label}</Text>
-                  <Text style={styles.holeBtnSub}>{h.sub}</Text>
+                  <Text style={[s.holeBtnText, ldHole === h.hole_number && s.holeBtnTextOn]}>{h.hole_number}</Text>
+                  <Text style={s.holeBtnPar}>P5</Text>
                 </TouchableOpacity>
               ))}
             </View>
-          </>
-        )}
+          )}
 
-        {/* ── Step 4 — Settings ──────────────────────────────── */}
-        {step === 4 && (
-          <>
-            <Text style={styles.sectionLabel}>HANDICAP ALLOWANCE</Text>
-            {HCP_ALLOWANCES.map(h => (
-              <TouchableOpacity
-                key={h.pct}
-                style={[styles.card, hcpAllowance === h.pct && !customHcp && styles.cardSelected]}
-                onPress={() => { setHcpAllowance(h.pct); setCustomHcp(''); }}
-                activeOpacity={0.8}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.cardLabel, hcpAllowance === h.pct && !customHcp && styles.cardLabelSelected]}>{h.label}</Text>
-                  <Text style={styles.cardSub}>{h.sub}</Text>
-                </View>
-                {hcpAllowance === h.pct && !customHcp && <Text style={styles.cardCheck}>✓</Text>}
-              </TouchableOpacity>
-            ))}
+          <View style={s.settingDivider} />
 
-            <View style={[styles.card, !!customHcp && styles.cardSelected]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardLabel, !!customHcp && styles.cardLabelSelected]}>Custom %</Text>
-                <Text style={styles.cardSub}>Enter any allowance percentage</Text>
-              </View>
-              <TextInput
-                style={[styles.customHcpInput, !!customHcp && styles.customHcpInputOn]}
-                placeholder="e.g. 90"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="number-pad"
-                maxLength={3}
-                value={customHcp}
-                onChangeText={val => {
-                  setCustomHcp(val);
-                  const n = parseInt(val, 10);
-                  if (!isNaN(n) && n >= 0 && n <= 100) setHcpAllowance(n);
-                }}
-              />
+          {/* Nearest the Pin */}
+          <SettingRow
+            icon="golf-outline"
+            label="Nearest the Pin"
+            value={npActive ? (ntpHole ? `Hole ${ntpHole}` : 'Pick hole') : 'Off'}
+            valueColor={npActive ? GOLD : '#6b7280'}
+            onPress={() => setNpActive(v => !v)}
+          >
+            <View style={[s.toggle, npActive && s.toggleOn]}>
+              <View style={[s.toggleThumb, npActive && s.toggleThumbOn]} />
             </View>
+          </SettingRow>
 
-            <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>SIDE GAMES</Text>
-            <View style={styles.sideGamesGrid}>
-              {sideGamesList.map(g => {
-                const on = sideGames.includes(g);
-                return (
-                  <TouchableOpacity
-                    key={g}
-                    style={[styles.sideGameChip, on && styles.sideGameChipOn]}
-                    onPress={() => setSideGames(prev => on ? prev.filter(x => x !== g) : [...prev, g])}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.sideGameText, on && styles.sideGameTextOn]}>{g}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Longest Drive hole picker */}
-            {sideGames.includes('Longest Drive') && courseHoleData.filter(h => h.par === 5).length > 0 && (
-              <>
-                <Text style={styles.sectionLabel}>LONGEST DRIVE — PICK HOLE (PAR 5)</Text>
-                <View style={styles.holePickerRow}>
-                  {courseHoleData.filter(h => h.par === 5).map(h => (
-                    <TouchableOpacity
-                      key={h.hole_number}
-                      style={[styles.holePickerBtn, ldHole === h.hole_number && styles.holePickerBtnOn]}
-                      onPress={() => setLdHole(h.hole_number)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.holePickerNum, ldHole === h.hole_number && styles.holePickerNumOn]}>{h.hole_number}</Text>
-                      <Text style={styles.holePickerPar}>Par 5</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </>
-            )}
-
-            {/* Closest to Pin hole picker */}
-            {sideGames.includes('Closest to Pin') && courseHoleData.filter(h => h.par === 3).length > 0 && (
-              <>
-                <Text style={styles.sectionLabel}>NEAREST THE PIN — PICK HOLE (PAR 3)</Text>
-                <View style={styles.holePickerRow}>
-                  {courseHoleData.filter(h => h.par === 3).map(h => (
-                    <TouchableOpacity
-                      key={h.hole_number}
-                      style={[styles.holePickerBtn, ntpHole === h.hole_number && styles.holePickerBtnOn]}
-                      onPress={() => setNtpHole(h.hole_number)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.holePickerNum, ntpHole === h.hole_number && styles.holePickerNumOn]}>{h.hole_number}</Text>
-                      <Text style={styles.holePickerPar}>Par 3</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </>
-            )}
-
-            {/* 2nd Game — only for matchplay modes */}
-            {(mode === 'singles' || mode === '4bbb') && (
-              <>
-                <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>2ND GAME</Text>
-                <Text style={styles.cardSub}>Run a secondary scoring game alongside matchplay</Text>
-                <View style={styles.sideGamesGrid}>
-                  {(['Stableford', 'Stroke Play'] as const).map(g => {
-                    const key = g === 'Stableford' ? 'stableford' : 'stroke';
-                    const on = secondaryFormat === key;
-                    return (
-                      <TouchableOpacity
-                        key={g}
-                        style={[styles.sideGameChip, on && styles.sideGameChipOn]}
-                        onPress={() => setSecondaryFormat(on ? null : key)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[styles.sideGameText, on && styles.sideGameTextOn]}>{g}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </>
-            )}
-
-            {/* Voice caddie toggle */}
-            <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>CHIP & BIRDIE</Text>
-            <TouchableOpacity
-              style={[styles.voiceToggleRow]}
-              onPress={() => setVoiceEnabled(v => !v)}
-              activeOpacity={0.8}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.voiceToggleLabel}>AI Voice Caddie</Text>
-                <Text style={styles.voiceToggleSub}>
-                  {voiceEnabled ? 'On — Chip & Birdie will announce holes' : 'Off — no audio announcements'}
-                </Text>
-              </View>
-              <View style={[styles.voiceToggleSwitch, voiceEnabled && styles.voiceToggleSwitchOn]}>
-                <View style={[styles.voiceToggleThumb, voiceEnabled && styles.voiceToggleThumbOn]} />
-              </View>
-            </TouchableOpacity>
-
-            {/* Summary */}
-            <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>GAME SUMMARY</Text>
-            <View style={styles.summaryCard}>
-              {[
-                { k: 'Mode',   v: MODES.find(m => m.key === mode)?.label ?? '—' },
-                isSolo
-                  ? { k: pair1.length > 1 ? 'Players' : 'Player', v: pair1.map(firstName).join(', ') || '—' }
-                  : { k: 'Pair 1', v: pair1.map(firstName).join(' & ') },
-                ...(!isSolo ? [{ k: 'Pair 2', v: pair2.map(firstName).join(' & ') }] : []),
-                { k: 'Course',   v: selectedCourse ?? '—' },
-                { k: 'Holes',    v: HOLES.find(h => h.key === holesMode)?.label ?? '—' },
-                { k: 'Handicap', v: customHcp ? `Custom ${hcpAllowance}%` : (HCP_ALLOWANCES.find(h => h.pct === hcpAllowance)?.label ?? '—') },
-                ...sideGames.length > 0 ? [{ k: 'Side Games', v: sideGames.join(', ') }] : [],
-              ].map(row => (
-                <View key={row.k} style={styles.summaryRow}>
-                  <Text style={styles.summaryKey}>{row.k}</Text>
-                  <Text style={styles.summaryVal}>{row.v}</Text>
-                </View>
+          {npActive && courseHoleData.filter(h => h.par === 3).length > 0 && (
+            <View style={s.holePicker}>
+              {courseHoleData.filter(h => h.par === 3).map(h => (
+                <TouchableOpacity
+                  key={h.hole_number}
+                  style={[s.holeBtn, ntpHole === h.hole_number && s.holeBtnOn]}
+                  onPress={() => setNtpHole(h.hole_number)}
+                >
+                  <Text style={[s.holeBtnText, ntpHole === h.hole_number && s.holeBtnTextOn]}>{h.hole_number}</Text>
+                  <Text style={s.holeBtnPar}>P3</Text>
+                </TouchableOpacity>
               ))}
             </View>
-          </>
-        )}
+          )}
 
-      </ScrollView>
+        </View>
 
-      {/* Bottom CTA */}
-      <View style={styles.footer}>
+        {/* ── GPS & Course Features ───────────────────────────── */}
+        <Text style={s.sectionLabel}>GPS & COURSE FEATURES</Text>
+        <View style={s.featuresGrid}>
+          <View style={s.featuresRow}>
+            <View style={s.featureCard}>
+              <View style={[s.featureIcon, { backgroundColor: 'rgba(34,197,94,0.12)', borderColor: 'rgba(34,197,94,0.25)' }]}>
+                <Ionicons name="navigate-circle-outline" size={24} color={GREEN} />
+              </View>
+              <Text style={s.featureTitle}>Live Yardages</Text>
+              <Text style={s.featureSub}>Real-time{'\n'}distances</Text>
+            </View>
+            <View style={s.featureCard}>
+              <View style={[s.featureIcon, { backgroundColor: `${GOLD}12`, borderColor: `${GOLD}30` }]}>
+                <Ionicons name="map-outline" size={24} color={GOLD} />
+              </View>
+              <Text style={s.featureTitle}>Hole Maps</Text>
+              <Text style={s.featureSub}>Detailed view{'\n'}of every hole</Text>
+            </View>
+          </View>
+          <View style={s.featuresRow}>
+            <View style={s.featureCard}>
+              <View style={[s.featureIcon, { backgroundColor: 'rgba(99,102,241,0.12)', borderColor: 'rgba(99,102,241,0.25)' }]}>
+                <Ionicons name="analytics-outline" size={24} color="#818cf8" />
+              </View>
+              <Text style={s.featureTitle}>Shot Tracking</Text>
+              <Text style={s.featureSub}>Track every{'\n'}shot</Text>
+            </View>
+            <TouchableOpacity style={s.featureCard} onPress={() => router.push('/(app)/rangefinder' as any)} activeOpacity={0.8}>
+              <View style={[s.featureIcon, { backgroundColor: 'rgba(239,68,68,0.10)', borderColor: 'rgba(239,68,68,0.22)' }]}>
+                <Ionicons name="scan-outline" size={24} color="#f87171" />
+              </View>
+              <Text style={s.featureTitle}>Rangefinder</Text>
+              <Text style={s.featureSub}>GPS pin-point{'\n'}accuracy</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── Ready to Play ───────────────────────────────────── */}
+        <Text style={s.sectionLabel}>READY TO PLAY</Text>
+        <View style={s.readyCard}>
+          <View style={s.readyItem}>
+            <Ionicons name="people-outline" size={20} color={GOLD} />
+            <Text style={s.readyLabel}>PLAYERS</Text>
+            <Text style={[s.readyValue, pair1.length > 0 && { color: GREEN }]}>
+              {pair1.length > 0 ? pair1.length : '—'}
+            </Text>
+          </View>
+          <View style={s.readyDivider} />
+          <View style={s.readyItem}>
+            <Ionicons name="trophy-outline" size={20} color={GOLD} />
+            <Text style={s.readyLabel}>FORMAT</Text>
+            <Text style={[s.readyValue, { color: GREEN }]}>{MODE_INFO[mode]?.label}</Text>
+          </View>
+          <View style={s.readyDivider} />
+          <View style={s.readyItem}>
+            <Ionicons name="cloud-done-outline" size={20} color={GOLD} />
+            <Text style={s.readyLabel}>COURSE</Text>
+            <Text style={[s.readyValue, { color: selectedCourse ? GREEN : '#6b7280' }]}>
+              {selectedCourse ? 'Set' : 'Not set'}
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Main CTA ────────────────────────────────────────── */}
         <TouchableOpacity
-          style={[styles.nextBtn, (!canNext || creating) && styles.nextBtnOff]}
-          onPress={goNext}
-          disabled={!canNext || creating}
+          style={[s.ctaBtn, !canStart && s.ctaBtnOff]}
+          onPress={canStart ? createGame : undefined}
+          disabled={!canStart || creating}
           activeOpacity={0.85}
         >
           {creating
-            ? <ActivityIndicator color={colors.bg} />
-            : <Text style={styles.nextBtnText}>{nextLabel}</Text>
+            ? <ActivityIndicator color="#000" />
+            : <>
+                <Text style={s.ctaBtnText}>Start Round</Text>
+                <Ionicons name="arrow-forward" size={18} color="#000" />
+              </>
           }
         </TouchableOpacity>
-      </View>
+
+      </ScrollView>
+
+      {/* ── Pickers ───────────────────────────────────────────── */}
+      <FormatSheet visible={showFormat} selected={mode} onSelect={selectMode} onClose={() => setShowFormat(false)} />
+      <PlayerSheet
+        visible={showPlayers} players={players} pair1={pair1} pair2={pair2}
+        pairStep={pairStep} isSolo={isSolo} atMax={atMax} takenIds={takenPlayerIds}
+        onToggle={togglePlayer}
+        onNextPair={() => setPairStep(2)}
+        onClose={() => { setShowPlayers(false); setPairStep(1); }}
+      />
+      <CourseSheet visible={showCourse} courses={courses} selected={selectedCourse} onSelect={setSelectedCourse} onClose={() => setShowCourse(false)} />
+      <PickerSheet
+        visible={showHoles} title="Holes" options={HOLES_OPTIONS}
+        selected={holesMode} onSelect={setHoles} onClose={() => setShowHoles(false)}
+      />
+      <PickerSheet
+        visible={showHcp} title="Handicap Allowance" options={HCP_ALLOWANCES.map(h => ({ key: h.pct.toString() as any, label: h.label }))}
+        selected={hcpAllowance.toString() as any}
+        onSelect={(v: any) => setHcpAllowance(parseInt(v, 10))}
+        onClose={() => setShowHcp(false)}
+      />
+
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+// ── Styles ────────────────────────────────────────────────────
+
+const s = StyleSheet.create({
+  root:    { flex: 1, backgroundColor: '#000000' },
+  centered:{ flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scroll:  { paddingBottom: 48 },
+
   header: {
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
   },
-  backBtn: {},
-  backText: { fontSize: fonts.md, color: colors.gold, fontWeight: '600', minWidth: 60 },
-  headerLabel: { fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted, letterSpacing: 2 },
-  headerStep: { fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted, letterSpacing: 1, minWidth: 60, textAlign: 'right' },
-  progressTrack: { height: 2, backgroundColor: colors.cardAlt, flexDirection: 'row' },
-  progressFill: { height: 2, backgroundColor: colors.gold },
-  stepTitle: { fontSize: fonts.xl, fontWeight: '900', color: colors.white, paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm, letterSpacing: 0.3 },
-  scrollView: { flex: 1 },
-  scroll: { padding: spacing.lg, paddingBottom: 120 },
+  headerSide:   { width: 40 },
+  headerCenter: { alignItems: 'center' },
+  headerLogo:   { width: 36, height: 36 },
 
-  // ── Mode grid ───────────────────────────────────────────────
-  modeSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.lg, marginBottom: spacing.sm },
-  modeSectionDot:    { width: 7, height: 7, borderRadius: 3.5 },
-  modeSectionLabel:  { fontSize: fonts.xs, fontWeight: '800', letterSpacing: 1.8 },
-  modeRow:           { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  modeCardWrap:      { flex: 1 },
-  modeCard: {
-    backgroundColor: colors.card, borderRadius: radius.lg, padding: 14,
-    borderWidth: 1.5, borderColor: colors.border, alignItems: 'center',
-    minHeight: 106, overflow: 'hidden', position: 'relative',
+  pageTitle:    { fontFamily: FFB, fontSize: 36, color: '#ffffff', paddingHorizontal: 20, letterSpacing: -0.5, marginTop: 4 },
+  pageSubtitle: { fontFamily: FF, fontSize: 13, color: '#6b7280', paddingHorizontal: 20, marginTop: 4, marginBottom: 20 },
+
+  // Course card
+  courseCard: {
+    marginHorizontal: 16, borderRadius: 16,
+    overflow: 'hidden', marginBottom: 16,
+    backgroundColor: '#111',
   },
-  modeCardOn:        { backgroundColor: 'rgba(30,25,15,0.9)' },
-  modeCardBar:       { position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
-  modeIcon:          { fontSize: 32, marginBottom: 6, marginTop: 4 },
-  modeLabel:         { fontSize: 13, fontWeight: '700', color: colors.textSecondary, textAlign: 'center', marginBottom: 3 },
-  modeSub:           { fontSize: 10, color: colors.textMuted, textAlign: 'center', lineHeight: 13 },
-  modeCheck:         { position: 'absolute', top: 8, right: 8, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  modeCheckText:     { fontSize: 9, fontWeight: '900', color: colors.bg },
-
-  // ── Step 2+ cards ───────────────────────────────────────────
-  card: {
-    backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md,
-    marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border,
+  courseHero:    { width: '100%', height: 200 },
+  courseOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 200,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  todayBadge: {
+    position: 'absolute', top: 14, left: 14,
+    borderWidth: 1, borderColor: GOLD,
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+    backgroundColor: `${GOLD}15`,
+  },
+  todayText: { fontFamily: FF, fontSize: 10, color: GOLD, letterSpacing: 2 },
+  courseInfo: { position: 'absolute', bottom: 64, left: 16, right: 16 },
+  courseName: { fontFamily: FFB, fontSize: 20, color: '#ffffff', marginBottom: 6 },
+  courseMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 },
+  courseMeta:    { fontFamily: FF, fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  teetimeRow: {
     flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)',
+    gap: 8,
   },
-  cardSelected: { borderColor: colors.gold, backgroundColor: colors.goldDim },
-  cardDim: { opacity: 0.45 },
-  cardLabel: { fontSize: fonts.md, fontWeight: '700', color: colors.textSecondary },
-  cardLabelSelected: { color: colors.white },
-  cardSub: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
-  cardCheck: { fontSize: fonts.lg, color: colors.gold, fontWeight: '800', marginLeft: spacing.sm },
-  soonBadge: { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2, borderWidth: 1, borderColor: colors.goldBorder },
-  soonText: { fontSize: 9, color: colors.gold, fontWeight: '700', letterSpacing: 1 },
+  teetimeItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  teetimeText: { fontFamily: FF, fontSize: 12, color: 'rgba(255,255,255,0.55)' },
+  teetimeDivider: { width: 1, height: 14, backgroundColor: 'rgba(255,255,255,0.1)', marginHorizontal: 4 },
+  startBtn: {
+    marginLeft: 'auto', backgroundColor: GOLD,
+    borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8,
+  },
+  startBtnOff:  { opacity: 0.3 },
+  startBtnText: { fontFamily: FFB, fontSize: 13, color: '#000000' },
 
-  pairBanner: {
-    backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md,
-    borderWidth: 1, borderColor: colors.goldBorder, marginBottom: spacing.md,
+  // Settings
+  settingsCard: {
+    marginHorizontal: 16, marginBottom: 20,
+    backgroundColor: '#111111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden',
   },
-  pairBannerLabel: { fontSize: fonts.xs, color: colors.gold, fontWeight: '700', letterSpacing: 1, marginBottom: spacing.sm },
-  pairBannerAvatars: { flexDirection: 'row', gap: spacing.md },
-  bannerPlayer: { alignItems: 'center', gap: 4 },
-  bannerAvatar: { width: 44, height: 44, borderRadius: 22 },
-  bannerName: { fontSize: fonts.xs, color: colors.white, fontWeight: '600' },
+  settingRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 14, paddingVertical: 14,
+  },
+  settingLeft:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  settingRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  settingIconWrap: {
+    width: 32, height: 32, borderRadius: 8,
+    backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}20`,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  settingLabel:  { fontFamily: FF, fontSize: 15, color: '#ffffff' },
+  settingValue:  { fontFamily: FF, fontSize: 14, color: '#6b7280' },
+  settingDivider:{ height: 1, backgroundColor: '#1a1a1a', marginHorizontal: 14 },
 
-  playerRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
-  playerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  playerTile: { width: '30%', alignItems: 'center', paddingVertical: spacing.sm },
-  playerTileOn: {},
-  playerTileDim: { opacity: 0.3 },
-  avatarRing: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: 'transparent', overflow: 'hidden', position: 'relative' },
-  avatarRingOn: { borderColor: colors.gold },
-  playerAvatar: { width: 60, height: 60 },
-  avatarFallback: { backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { fontSize: fonts.xl, fontWeight: '800', color: colors.white },
-  checkBadge: {
-    position: 'absolute', bottom: 0, right: 0,
-    width: 20, height: 20, borderRadius: 10,
-    backgroundColor: colors.gold, alignItems: 'center', justifyContent: 'center',
-  },
-  checkBadgeText: { fontSize: 10, fontWeight: '900', color: colors.bg },
-  playerName: { fontSize: fonts.xs, color: colors.textSecondary, fontWeight: '600', marginTop: 4, textAlign: 'center' },
-  playerNameOn: { color: colors.white },
-  playerHcp: { fontSize: 9, color: colors.textMuted, marginTop: 1 },
+  toggle:        { width: 40, height: 24, borderRadius: 12, backgroundColor: '#2c2c2e', justifyContent: 'center', padding: 2 },
+  toggleOn:      { backgroundColor: `${GOLD}50` },
+  toggleThumb:   { width: 20, height: 20, borderRadius: 10, backgroundColor: '#6b7280' },
+  toggleThumbOn: { transform: [{ translateX: 16 }], backgroundColor: GOLD },
 
-  sectionLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5, marginTop: spacing.lg, marginBottom: spacing.sm },
-  courseSearch: {
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10,
-    color: colors.white, fontSize: fonts.md, marginBottom: spacing.sm,
+  sectionLabel: {
+    fontFamily: FF, fontSize: 10, color: GOLD,
+    letterSpacing: 2, paddingHorizontal: 16, marginBottom: 10,
   },
-  pinsNotice: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(212,175,55,0.08)', borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.goldBorder,
-    padding: spacing.md, marginTop: spacing.sm,
-  },
-  pinsNoticeTitle: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold, marginBottom: 2 },
-  pinsNoticeSub:   { fontSize: fonts.xs, color: colors.textMuted },
 
-  holesRow: { flexDirection: 'row', gap: spacing.sm },
+  // Hole picker
+  holePicker: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 14, paddingBottom: 12 },
   holeBtn: {
-    flex: 1, backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md,
-    alignItems: 'center', borderWidth: 1, borderColor: colors.border,
+    width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#2a2a2a',
   },
-  holeBtnOn: { borderColor: colors.gold, backgroundColor: colors.goldDim },
-  holeBtnLabel: { fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary },
-  holeBtnLabelOn: { color: colors.white },
-  holeBtnSub: { fontSize: 9, color: colors.textMuted, marginTop: 2, textAlign: 'center' },
+  holeBtnOn:     { borderColor: GOLD, backgroundColor: `${GOLD}15` },
+  holeBtnText:   { fontFamily: FFB, fontSize: 14, color: '#6b7280' },
+  holeBtnTextOn: { color: GOLD },
+  holeBtnPar:    { fontFamily: FF, fontSize: 8, color: '#444', marginTop: 1 },
 
-  summaryCard: {
-    backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md,
-    borderWidth: 1, borderColor: colors.border,
+  // Features
+  featuresGrid: { paddingHorizontal: 16, gap: 10, marginBottom: 20 },
+  featuresRow:  { flexDirection: 'row', gap: 10 },
+  featureCard: {
+    flex: 1, backgroundColor: '#111111',
+    borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 12, alignItems: 'center', gap: 8,
   },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.xs },
-  summaryKey: { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
-  summaryVal: { fontSize: fonts.sm, color: colors.white, fontWeight: '700', textAlign: 'right', flex: 1, marginLeft: spacing.md },
-
-  customHcpInput: {
-    width: 64, height: 36, borderRadius: radius.sm, borderWidth: 1,
-    borderColor: colors.border, backgroundColor: colors.cardAlt,
-    color: colors.textSecondary, fontSize: fonts.md, fontWeight: '700',
-    textAlign: 'center',
+  featureIcon: {
+    width: 46, height: 46, borderRadius: 23,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1,
   },
-  customHcpInputOn: { borderColor: colors.gold, color: colors.white },
+  featureTitle: { fontFamily: FF, fontSize: 12, color: '#ffffff', textAlign: 'center' },
+  featureSub:   { fontFamily: FF, fontSize: 10, color: '#6b7280', textAlign: 'center', lineHeight: 14 },
 
-  sideGamesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  sideGameChip: {
-    paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2,
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.card,
+  // Ready
+  readyCard: {
+    marginHorizontal: 16, marginBottom: 24,
+    backgroundColor: '#111111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 16,
   },
-  sideGameChipOn: { borderColor: colors.gold, backgroundColor: colors.goldDim },
-  sideGameText: { fontSize: fonts.sm, fontWeight: '600', color: colors.textSecondary },
-  sideGameTextOn: { color: colors.white },
+  readyItem:    { flex: 1, alignItems: 'center', gap: 5 },
+  readyDivider: { width: 1, height: 36, backgroundColor: '#1c1c1c' },
+  readyLabel:   { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 1.5 },
+  readyValue:   { fontFamily: FF, fontSize: 12, color: '#ffffff' },
 
-  holePickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
-  holePickerBtn: {
-    width: 52, alignItems: 'center', paddingVertical: spacing.sm,
-    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.card,
+  // CTA
+  ctaBtn: {
+    marginHorizontal: 16, marginBottom: 16,
+    backgroundColor: GOLD, borderRadius: 14,
+    paddingVertical: 18, flexDirection: 'row',
+    alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  holePickerBtnOn: { borderColor: colors.gold, backgroundColor: colors.goldDim },
-  holePickerNum: { fontSize: fonts.lg, fontWeight: '800', color: colors.textSecondary },
-  holePickerNumOn: { color: colors.white },
-  holePickerPar: { fontSize: 8, color: colors.textMuted, fontWeight: '600', marginTop: 1 },
-  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: spacing.lg, paddingBottom: 40, backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.border },
-  nextBtn: { backgroundColor: colors.gold, borderRadius: radius.lg, paddingVertical: spacing.md + 2, alignItems: 'center' },
-  nextBtnOff: { opacity: 0.35 },
-  nextBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
+  ctaBtnOff:  { opacity: 0.3 },
+  ctaBtnText: { fontFamily: FFB, fontSize: 17, color: '#000000' },
+});
 
-  voiceToggleRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
-  voiceToggleLabel: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  voiceToggleSub: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
-  voiceToggleSwitch: { width: 44, height: 24, borderRadius: 12, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', padding: 2 },
-  voiceToggleSwitchOn: { backgroundColor: colors.green, borderColor: colors.green },
-  voiceToggleThumb: { width: 18, height: 18, borderRadius: 9, backgroundColor: colors.textMuted },
-  voiceToggleThumbOn: { backgroundColor: colors.white, alignSelf: 'flex-end' },
+// ── Picker sheet styles ───────────────────────────────────────
+
+const ps = StyleSheet.create({
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+  sheet: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: '#111111', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingBottom: 34, paddingHorizontal: 16,
+  },
+  handle: {
+    width: 36, height: 4, borderRadius: 2, backgroundColor: '#333',
+    alignSelf: 'center', marginVertical: 12,
+  },
+  sheetTitle:  { fontFamily: FFB, fontSize: 18, color: '#ffffff', marginBottom: 8, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  sheetRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
+  sheetOpt:    { fontFamily: FF, fontSize: 16, color: '#6b7280' },
+  sheetOptOn:  { color: '#ffffff' },
+  cancelBtn:   { marginTop: 12, alignItems: 'center', paddingVertical: 14 },
+  cancelText:  { fontFamily: FF, fontSize: 16, color: '#6b7280' },
+  doneBtn:     { marginTop: 12, backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  doneBtnText: { fontFamily: FFB, fontSize: 16, color: '#000000' },
+  courseParLabel: { fontFamily: FF, fontSize: 12, color: '#6b7280' },
+  searchInput: {
+    backgroundColor: '#1a1a1a', borderRadius: 10, borderWidth: 1, borderColor: '#2a2a2a',
+    paddingHorizontal: 12, paddingVertical: 10, color: '#fff',
+    fontFamily: FF, fontSize: 15, marginBottom: 8,
+  },
+  playerSheetHeader: {},
+  pair1Summary: { flexDirection: 'row', paddingBottom: 6 },
+  pair1SummaryLabel: { fontFamily: FF, fontSize: 12, color: '#6b7280' },
+  pair1SummaryNames: { fontFamily: FFB, fontSize: 12, color: GOLD },
+  playerRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  playerAvatar: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: `${GOLD}18`, alignItems: 'center', justifyContent: 'center',
+  },
+  playerAvatarImg:    { width: 36, height: 36, borderRadius: 18 },
+  playerAvatarLetter: { fontFamily: FF, fontSize: 15, color: GOLD },
+  playerHcp:          { fontFamily: FF, fontSize: 11, color: '#6b7280' },
+  sectionHead:   { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, marginTop: 4 },
+  sectionDot:    { width: 5, height: 5, borderRadius: 2.5 },
+  sectionLabel:  { fontFamily: FF, fontSize: 9, fontWeight: '800', letterSpacing: 2 },
+  formatRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#1a1a1a', gap: 10 },
+  formatRowOn:   { backgroundColor: 'rgba(212,175,55,0.04)', borderRadius: 8 },
+  formatIconWrap:{ width: 28, height: 28, borderRadius: 7, backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}20`, alignItems: 'center', justifyContent: 'center' },
+  formatSub:     { fontFamily: FF, fontSize: 11, color: '#555', marginTop: 1 },
 });

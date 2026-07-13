@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "cd \"/Users/davehunt/Desktop/titan-golf\" && npx tsc --noEmit --skipLibCheck 2>&1 | grep -E \"score/index|games/new\" | head -10",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep \"preview/\\[matchId\\]\\|score/\\[matchId\\]\" | head -20",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -260,14 +260,14 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 261,
-      "lastAccessed": 1783670616702,
+      "accessCount": 264,
+      "lastAccessed": 1783684043486,
       "type": "file"
     },
     {
       "path": "app/(app)/games/new.tsx",
-      "accessCount": 75,
-      "lastAccessed": 1783677358554,
+      "accessCount": 89,
+      "lastAccessed": 1783684160849,
       "type": "file"
     },
     {
@@ -278,8 +278,8 @@
     },
     {
       "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 56,
-      "lastAccessed": 1783662468177,
+      "accessCount": 57,
+      "lastAccessed": 1783689289909,
       "type": "file"
     },
     {
@@ -290,20 +290,20 @@
     },
     {
       "path": "app/(app)/score/index.tsx",
-      "accessCount": 33,
-      "lastAccessed": 1783677338677,
+      "accessCount": 34,
+      "lastAccessed": 1783689261769,
       "type": "file"
     },
     {
       "path": "app/(app)/score/[matchId].tsx",
-      "accessCount": 28,
-      "lastAccessed": 1783670786322,
+      "accessCount": 31,
+      "lastAccessed": 1783687389315,
       "type": "file"
     },
     {
       "path": "app/(app)/score/preview/[matchId].tsx",
-      "accessCount": 20,
-      "lastAccessed": 1783670646631,
+      "accessCount": 23,
+      "lastAccessed": 1783688594944,
       "type": "file"
     },
     {
@@ -403,6 +403,12 @@
       "type": "file"
     },
     {
+      "path": "assets/logo_trans.png",
+      "accessCount": 3,
+      "lastAccessed": 1783681025605,
+      "type": "file"
+    },
+    {
       "path": "src/components/CaddieButton.tsx",
       "accessCount": 2,
       "lastAccessed": 1783068156240,
@@ -448,12 +454,6 @@
       "path": "ios/titangolf/WatchBridge.m",
       "accessCount": 2,
       "lastAccessed": 1783272649036,
-      "type": "file"
-    },
-    {
-      "path": "assets/logo_trans.png",
-      "accessCount": 2,
-      "lastAccessed": 1783582697461,
       "type": "file"
     },
     {

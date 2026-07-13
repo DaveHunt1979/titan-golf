@@ -1,27 +1,18 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Image,
-  TextInput,
-  ScrollView,
-  useWindowDimensions,
+  View, Text, TouchableOpacity, StyleSheet,
+  ActivityIndicator, Alert, Modal, Image,
+  TextInput, ScrollView, useWindowDimensions, Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { colors, fonts, spacing, radius } from '../../../../src/lib/theme';
 import {
-  calcHoles,
-  matchLabel,
-  calcCourseHandicap,
-  calcStrokesReceived,
-  calcStablefordPoints,
+  calcHoles, matchLabel, calcCourseHandicap,
+  calcStrokesReceived, calcStablefordPoints,
 } from '../../../../src/lib/scoring';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { speakHole, speakPressure } from '../../../../src/lib/caddie';
@@ -34,6 +25,50 @@ import { sendMatchToWatch, clearMatchFromWatch, onWatchScoreEntry, onWatchReques
 import CaddieButton from '../../../../src/components/CaddieButton';
 import type { VoiceCommandResult } from '../../../../src/lib/voiceCommand';
 
+// ── Design tokens ──────────────────────────────────────────────
+const GOLD   = '#D4AF37';
+const GREEN  = '#4ade80';
+const RED    = '#f87171';
+const BLUE   = '#3b82f6';
+const ORANGE = '#f97316';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
+const { width: W } = Dimensions.get('window');
+const titanLogo = require('../../../../assets/TitanAppLogo.png');
+
+const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: GREEN, par: BLUE, bogey: ORANGE, double: RED };
+
+function scoreVsPar(gross: number, par: number, shots: number): string {
+  const net = gross - shots;
+  const diff = net - par;
+  if (diff <= -2) return 'eagle';
+  if (diff === -1) return 'birdie';
+  if (diff === 0)  return 'par';
+  if (diff === 1)  return 'bogey';
+  return 'double';
+}
+
+function ptsColor(pts: number): string {
+  if (pts >= 4) return GOLD;
+  if (pts === 3) return GREEN;
+  if (pts === 2) return BLUE;
+  if (pts === 1) return ORANGE;
+  return RED;
+}
+
+function Avatar({ name, color, size = 36, source }: { name: string; color: string; size?: number; source?: any }) {
+  if (source) {
+    const imgSrc = typeof source === 'string' ? { uri: source } : source;
+    return <Image source={imgSrc} style={{ width: size, height: size, borderRadius: size / 2 }} />;
+  }
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: `${color}20`, borderWidth: 1.5, borderColor: `${color}60`, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontFamily: FF, fontSize: size * 0.4, color }}>{(name || '?').charAt(0).toUpperCase()}</Text>
+    </View>
+  );
+}
+
+// ── Interfaces ─────────────────────────────────────────────────
 interface MatchInfo {
   id: string;
   match_number: number;
@@ -77,6 +112,11 @@ export default function EnterScoresScreen() {
   const startHole = Math.max(1, Math.min(18, parseInt(startHoleParam ?? '1', 10) || 1));
   const router = useRouter();
 
+  const [fontsLoaded] = useFonts({
+    'JUSTSans':        require('../../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
   const [match, setMatch] = useState<MatchInfo | null>(null);
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
   const [compPlayers, setCompPlayers] = useState<CompPlayer[]>([]);
@@ -86,7 +126,6 @@ export default function EnterScoresScreen() {
   const [saving, setSaving] = useState(false);
   const [recordsBroken, setRecordsBroken] = useState<BrokenRecord[]>([]);
 
-  // Score entry modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [modalPlayerIdx, setModalPlayerIdx] = useState(0);
   const [holeScores, setHoleScores] = useState<Record<string, number>>({});
@@ -106,7 +145,8 @@ export default function EnterScoresScreen() {
   const [currentPage, setCurrentPage] = useState(0);
   const { width: screenWidth } = useWindowDimensions();
   const pagerRef = useRef<ScrollView>(null);
-  const gpsRef   = useRef<{ lat: number; lng: number } | null>(null);
+  const holeStripRef = useRef<ScrollView>(null);
+  const gpsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   // Passive GPS — used only for tagging shot locations
   useEffect(() => {
@@ -164,7 +204,6 @@ export default function EnterScoresScreen() {
         });
         setPlayerNames(names);
         setPlayerAvatars(avatars);
-        // For casual games competition_players may be empty — fall back to players.handicap_index
         const comp = compData as CompPlayer[] | null;
         setCompPlayers(comp && comp.length > 0 ? comp : fallback);
       }
@@ -311,7 +350,6 @@ export default function EnterScoresScreen() {
   // ── Derived values ──────────────────────────────────────────────
   const holesStr = (match?.holes_string ?? '..................').padEnd(18, '.').slice(0, 18);
   const holeChars = holesStr.split('');
-  // Hole sequence respects starting hole (e.g. start 10 → 10,11,...18,1,...9)
   const holeSequence = startHole > 1
     ? [...Array.from({ length: 19 - startHole }, (_, i) => startHole + i), ...Array.from({ length: startHole - 1 }, (_, i) => i + 1)]
     : Array.from({ length: 18 }, (_, i) => i + 1);
@@ -330,14 +368,12 @@ export default function EnterScoresScreen() {
     ? ((teeColor && courseHole.tee_yardages?.[teeColor]) || courseHole.yardage || null)
     : null;
 
-  // Parse side games: "Longest Drive:7" → { 7: 'Longest Drive' }
   const sideGameByHole = (match?.side_games ?? []).reduce((acc, sg) => {
     const [type, hole] = sg.split(':');
     if (hole) acc[parseInt(hole)] = type;
     return acc;
   }, {} as Record<number, string>);
   const currentSideGame = sideGameByHole[activeHole] ?? null;
-
 
   const [coachLoading, setCoachLoading] = useState(false);
   const voiceOff = match?.side_games?.includes('voice:off') ?? false;
@@ -358,13 +394,12 @@ export default function EnterScoresScreen() {
       })
     : [];
 
-  // Current player in the modal
   const modalPlayerId = allPlayerIds[modalPlayerIdx] ?? null;
   const isHomePlayer = modalPlayerId ? match?.home_player_ids.includes(modalPlayerId) : false;
   const modalPlayerName = modalPlayerId ? (playerNames[modalPlayerId] ?? '?') : '';
   const modalTeamColor = isHomePlayer
-    ? (match?.home_team?.accent_color ?? colors.gold)
-    : (match?.away_team?.accent_color ?? colors.textMuted);
+    ? (match?.home_team?.accent_color ?? GOLD)
+    : (match?.away_team?.accent_color ?? '#6366f1');
   const modalTeamName = isHomePlayer ? match?.home_team?.name : match?.away_team?.name;
   const modalPlayerAvatar = modalPlayerId
     ? (playerAvatars[modalPlayerId] ?? getPlayerAvatar(modalPlayerId, 'normal'))
@@ -491,7 +526,6 @@ export default function EnterScoresScreen() {
         else { Alert.alert('Round Complete', 'All 18 holes scored!', [{ text: 'Done', onPress: () => router.back() }]); }
       }
 
-      // Live Pressure commentary at key stableford moments (skip if match already done)
       if (!editingHole && !wasAlreadyComplete && [6, 9, 12, 15, 16, 17, 18].includes(activeHole)) {
         const updatedTotals = { ...playerTotals };
         for (const row of spRows) {
@@ -517,7 +551,6 @@ export default function EnterScoresScreen() {
     const awayNet = Math.min(...match.away_player_ids.map(getNetScore));
     const holeResult: 'h' | 'a' | 'f' = homeNet < awayNet ? 'h' : awayNet < homeNet ? 'a' : 'f';
 
-    // Clear existing match_holes rows for this hole then insert fresh
     const { error: delErr } = await supabase.from('match_holes').delete()
       .eq('match_id', matchId)
       .eq('hole_number', activeHole);
@@ -540,7 +573,6 @@ export default function EnterScoresScreen() {
     const { error: insErr } = await supabase.from('match_holes').insert(rows);
     if (insErr) console.error('match_holes insert error:', insErr);
 
-    // Save per-player hole stats (fairway + putts)
     const statRows = allPlayerIds
       .map(id => ({
         match_id: matchId,
@@ -555,7 +587,6 @@ export default function EnterScoresScreen() {
       await supabase.from('hole_stats').upsert(statRows, { onConflict: 'match_id,player_id,hole_number' });
     }
 
-    // Update holes_string and match status
     const chars = [...holeChars];
     chars[activeHole - 1] = holeResult;
     const newHolesStr = chars.join('');
@@ -586,7 +617,6 @@ export default function EnterScoresScreen() {
     setEditingHole(null);
 
     if (!editingHole) {
-      // Live score update at the turn and key back-9 milestones
       if (match.competition_id && newStatus !== 'complete' && [9, 12, 15].includes(activeHole)) {
         const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
         const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
@@ -600,14 +630,12 @@ export default function EnterScoresScreen() {
         sendMatchNotification(match.competition_id, `⛳ Match ${match.match_number}`, scoreBody);
       }
 
-      // Show side game result entry if this was a side game hole
       if (currentSideGame) {
         setSideGameResult('');
         setSideGameWinner(null);
         setSideGameModal({ type: currentSideGame, hole: activeHole });
       }
 
-      // Fire push notifications for birdies, eagles, HIOs
       if (match.competition_id) {
         for (const id of allPlayerIds) {
           const gross = scores[id];
@@ -646,9 +674,6 @@ export default function EnterScoresScreen() {
           [
             { text: 'Finish Now', style: 'cancel', onPress: () => router.back() },
             { text: `Continue ${secLabel}`, onPress: () => {
-                // Keep scoring mode active for the secondary game.
-                // Does NOT change Supabase — matchplay result is already saved.
-                // Resets local UI state so the screen accepts scores for remaining holes.
                 setMatch(prev => prev ? { ...prev, status: 'in_progress' } : prev);
               } },
           ]
@@ -658,7 +683,6 @@ export default function EnterScoresScreen() {
       }
     }
 
-    // Live Pressure commentary at key matchplay moments (skip if match already decided)
     if (!editingHole && !wasAlreadyComplete && [9, 12, 15].includes(activeHole)) {
       const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
       const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
@@ -716,34 +740,41 @@ export default function EnterScoresScreen() {
   }
 
   // ── Render ──────────────────────────────────────────────────────
-  if (loading) return (
-    <View style={styles.centered}>
-      <ActivityIndicator color={colors.gold} size="large" />
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' }}>
+      <ActivityIndicator color={GOLD} size="large" />
     </View>
   );
 
   if (!match) return (
-    <View style={styles.centered}>
-      <Text style={{ color: colors.textSecondary }}>Match not found.</Text>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' }}>
+      <Text style={{ fontFamily: FF, color: '#6b7280' }}>Match not found.</Text>
     </View>
   );
 
   const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
-  const label = isStrokePlay ? '' : matchLabel(match.status, match.winner, match.result_str, holesStr);
-  const homeColor = match.home_team?.accent_color ?? colors.gold;
+  const homeColor = match.home_team?.accent_color ?? GOLD;
+  const awayColor = match.away_team?.accent_color ?? '#6366f1';
+  const homeLabel = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+  const awayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+  const isMatchplay = match.round_format === 'matchplay';
 
   const sortedLeaders = [...allPlayerIds].sort((a, b) => (playerTotals[b] ?? 0) - (playerTotals[a] ?? 0));
   const leaderId = sortedLeaders[0];
   const leaderPts = leaderId ? (playerTotals[leaderId] ?? 0) : 0;
   const leaderName = leaderId ? (playerNames[leaderId] ?? '').split(' ')[0] : null;
-  const isMatchplay = match.round_format === 'matchplay';
   const leaderStatusText = leaderPts > 0 && (isStrokePlay || match.secondary_format)
     ? `${leaderName} leads · ${leaderPts}pts`
     : null;
-  const awayColor = match.away_team?.accent_color ?? colors.textMuted;
-  const homeLabel = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-  const awayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const { homeUp: liveHomeUp } = calcHoles(holesStr);
+  const holesLeft = holeChars.filter(c => c === '.').length;
+
+  const statusBannerText = isMatchplay
+    ? (liveHomeUp === 0 ? 'All Square' : liveHomeUp > 0 ? `${homeLabel}  ${Math.abs(liveHomeUp)} Up` : `${awayLabel}  ${Math.abs(liveHomeUp)} Up`)
+    : (leaderStatusText ?? `Hole ${currentHole}`);
+  const statusBannerColor = isMatchplay ? (liveHomeUp >= 0 ? homeColor : awayColor) : GOLD;
+  const statusBannerSub = isComplete ? 'Match complete' : holesLeft > 0 ? `${holesLeft} holes to play` : 'Last hole';
+
   const modalStatusText = editingHole
     ? `Editing Hole ${editingHole}`
     : isStrokePlay
@@ -751,82 +782,104 @@ export default function EnterScoresScreen() {
       : liveHomeUp === 0 ? 'All Square'
         : liveHomeUp > 0 ? `${homeLabel} lead ${Math.abs(liveHomeUp)}UP`
         : `${awayLabel} lead ${Math.abs(liveHomeUp)}UP`;
-  const HOLE_BG: Record<string, string> = { h: homeColor, a: awayColor, f: colors.grey };
+
+  const formatLabel = isMatchplay ? 'Matchplay' : match.round_format === 'stableford' ? 'Stableford' : 'Stroke Play';
 
   return (
-    <View style={styles.container}>
+    <View style={s.root}>
       <StatusBar style="light" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={styles.backText}>‹ Back</Text>
+      {/* ── Header ── */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={styles.headerSub}>
-          {match.day?.competition?.format === 'casual'
-            ? `Casual · ${match.day?.course_name} · Live Scoring`
-            : `Day ${match.day?.day_number} · Match ${match.match_number} · Live Scoring`}
-        </Text>
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Text style={s.headerSub} numberOfLines={1}>
+            {match.day?.course_name ? `${match.day.course_name} · ${formatLabel}` : formatLabel}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={s.headerSide}
+          onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${currentHole}` as any)}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="scan-outline" size={22} color={GOLD} />
+        </TouchableOpacity>
       </View>
 
-      {/* Hole progress dots — tap a played hole to edit it */}
-      <View style={styles.dotsRow}>
+      {/* ── Status banner ── */}
+      <View style={s.statusBanner}>
+        <Text style={[s.statusMain, { color: statusBannerColor }]}>{statusBannerText}</Text>
+        {match.secondary_format && match.round_format === 'matchplay' && leaderPts > 0 && (
+          <Text style={s.statusSecondary}>2nd Game: {leaderName} leads · {leaderPts}pts</Text>
+        )}
+        <Text style={s.statusSub}>{statusBannerSub}</Text>
+      </View>
+
+      {/* ── Hole strip ── */}
+      <ScrollView
+        ref={holeStripRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.holeStrip}
+        style={s.holeStripWrap}
+      >
         {Array.from({ length: 18 }, (_, i) => {
-          const c = holeChars[i] ?? '.';
-          const isActive = i + 1 === activeHole;
+          const h = i + 1;
+          const c = holeChars[h - 1] ?? '.';
+          const isActive = h === activeHole;
           const isPlayed = c !== '.';
-          const bg = isPlayed ? (HOLE_BG[c] ?? colors.grey) : colors.cardAlt;
-          if (isPlayed) {
-            return (
-              <TouchableOpacity
-                key={i}
-                style={[styles.dot, { backgroundColor: bg }, isActive && styles.dotActive]}
-                onPress={() => { setEditingHole(i + 1); openScoreModal(i + 1); }}
-                activeOpacity={0.7}
-              />
-            );
+          const isCurrent = h === currentHole;
+          const ch = courseHoles.find(x => x.hole_number === h);
+          let resultColor = 'transparent';
+          if (c === 'h') resultColor = homeColor;
+          else if (c === 'a') resultColor = awayColor;
+          else if (c === 'f') resultColor = '#4b5563';
+          else if (c === 'd') {
+            const bestPts = Math.max(0, ...allPlayerIds.map(id => holeData[id]?.[h]?.pts ?? 0));
+            resultColor = bestPts > 0 ? ptsColor(bestPts) : '#22c55e';
           }
           return (
-            <View key={i} style={[styles.dot, { backgroundColor: bg }, isActive && styles.dotActive]} />
+            <TouchableOpacity
+              key={h}
+              style={[
+                s.holeTile,
+                isActive && s.holeTileActive,
+                isPlayed && { backgroundColor: `${resultColor}22`, borderColor: `${resultColor}60` },
+              ]}
+              onPress={() => {
+                if (isPlayed) { setEditingHole(h); openScoreModal(h); }
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[s.holeTileNum, isActive && { color: GOLD }]}>{h}</Text>
+              <Text style={[s.holeTilePar, isActive && { color: `${GOLD}80` }]}>P{ch?.par ?? '?'}</Text>
+              {isPlayed && isStrokePlay && (() => {
+                const bestPts = Math.max(0, ...allPlayerIds.map(id => holeData[id]?.[h]?.pts ?? 0));
+                return bestPts > 0 ? <Text style={[s.holeTilePts, { color: ptsColor(bestPts) }]}>{bestPts}</Text> : null;
+              })()}
+              {isPlayed && !isStrokePlay && (
+                <Text style={[s.holeTilePts, { color: resultColor }]}>
+                  {c === 'h' ? 'H' : c === 'a' ? 'A' : '='}
+                </Text>
+              )}
+              {isCurrent && !isPlayed && (
+                <View style={[s.holeTileDot, { backgroundColor: GOLD, opacity: 0.6 }]} />
+              )}
+            </TouchableOpacity>
           );
         })}
+      </ScrollView>
+      <View style={s.halfLabels}>
+        <Text style={s.halfLabel}>FRONT 9</Text>
+        <Text style={s.halfLabel}>BACK 9</Text>
       </View>
-      <View style={styles.dotsLabelRow}>
-        {Array.from({ length: 18 }, (_, i) => (
-          <Text key={i} style={[styles.dotNum, i + 1 === currentHole && !isComplete && styles.dotNumActive]}>
-            {i + 1}
-          </Text>
-        ))}
-      </View>
-
-      {/* Matchplay primary status */}
-      {isMatchplay && (
-        <Text style={styles.liveStatus}>
-          {liveHomeUp === 0
-            ? 'All Square'
-            : liveHomeUp > 0
-              ? `${homeLabel} ${Math.abs(liveHomeUp)} Up`
-              : `${awayLabel} ${Math.abs(liveHomeUp)} Up`}
-        </Text>
-      )}
-
-      {/* Secondary Stableford actual score */}
-      {match.secondary_format && match.round_format === 'matchplay' && (
-        <Text style={styles.secondaryBadge}>
-          {leaderPts > 0
-            ? `2nd Game: ${leaderName} leads · ${leaderPts}pts`
-            : '2nd Game: All Square'}
-        </Text>
-      )}
-
-      {/* Stableford/medal primary status (non-matchplay games) */}
-      {!isMatchplay && leaderStatusText && (
-        <Text style={styles.liveStatus}>{leaderStatusText}</Text>
-      )}
 
       {!isComplete ? (
         <>
-          {/* Horizontal page swiper — Page 0: hole, Page 1: Front 9, Page 2: Back 9 */}
+          {/* ── Page swiper ── */}
           <ScrollView
             ref={pagerRef}
             horizontal
@@ -836,300 +889,224 @@ export default function EnterScoresScreen() {
             onScroll={e => setCurrentPage(Math.round(e.nativeEvent.contentOffset.x / screenWidth))}
             style={{ flex: 1 }}
           >
-          {/* Page 0: current hole info */}
-          <ScrollView
-            style={{ width: screenWidth }}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-          {/* Current hole card */}
-          <View style={styles.holeCard}>
-            <View style={styles.holeCardInner}>
+            {/* Page 0: current hole info */}
+            <ScrollView
+              style={{ width: screenWidth }}
+              contentContainerStyle={s.pageContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Hole card */}
+              <View style={s.holeCard}>
+                <View style={s.holeCardTop}>
+                  {/* Hole number block */}
+                  <View style={s.holeNumberBlock}>
+                    <Text style={s.holeWord}>HOLE</Text>
+                    <Text style={s.holeBig}>{activeHole}</Text>
+                    <View style={s.holeChips}>
+                      {courseHole && (
+                        <>
+                          <View style={s.holeChip}><Text style={s.holeChipText}>Par {courseHole.par}</Text></View>
+                          <View style={s.holeChip}><Text style={s.holeChipText}>SI {courseHole.stroke_index}</Text></View>
+                          {holeYardage ? <View style={s.holeChip}><Text style={s.holeChipText}>{holeYardage}y</Text></View> : null}
+                        </>
+                      )}
+                    </View>
+                  </View>
 
-              {/* Left: hole info */}
-              <View style={styles.holeCardLeft}>
-                <Text style={styles.holeLabelSmall}>HOLE</Text>
-                <Text style={styles.holeBig}>{currentHole}</Text>
-                {courseHole && (
-                  <>
-                    <Text style={styles.holeMetaChip}>Par {courseHole.par}  ·  SI {courseHole.stroke_index}</Text>
-                    {holeYardage ? <Text style={styles.holeMetaChip}>{holeYardage} yards</Text> : null}
-                  </>
-                )}
-                {!isComplete && (
-                  <TouchableOpacity style={styles.coachBtn} onPress={onCoachMe} disabled={coachLoading} activeOpacity={0.7}>
-                    <Text style={styles.coachBtnText}>{coachLoading ? '🎙 Asking...' : '🎙 Coach Me'}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+                  <View style={s.holeCardDivider} />
 
-              <View style={styles.holeCardDivider} />
-
-              {/* Right: mini leaderboard — sorted best score first */}
-              <View style={styles.holeCardRight}>
-                {(() => {
-                  const sorted = [...allPlayerIds].sort((a, b) => {
-                    const aVal = playerTotals[a] ?? 0;
-                    const bVal = playerTotals[b] ?? 0;
-                    if (match.round_format === 'medal') {
-                      if (aVal === 0 && bVal === 0) return 0;
-                      if (aVal === 0) return 1;
-                      if (bVal === 0) return -1;
-                      return aVal - bVal;
-                    }
-                    return bVal - aVal;
-                  });
-                  const topScore = playerTotals[sorted[0]] ?? 0;
-                  return sorted.map((id, rank) => {
-                    const isHome = match.home_player_ids.includes(id);
-                    const teamColor = isHome ? homeColor : awayColor;
-                    const avatar = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
-                    const firstName = (playerNames[id] ?? '?').split(' ')[0];
-                    const total = playerTotals[id] ?? 0;
-                    const scoreStr = total > 0
-                      ? (match.round_format === 'stableford' || match.secondary_format ? `${total}pts` : `${total}`)
-                      : '—';
-                    const isLeader = rank === 0 && topScore > 0;
-                    const isStablefordMode = match.round_format === 'stableford' || !!match.secondary_format;
-                    const nameColor = isStablefordMode ? (isLeader ? colors.white : colors.textMuted) : colors.white;
-                    const scoreColor = isStablefordMode ? (isLeader ? colors.gold : colors.textMuted) : teamColor;
-                    return (
-                      <View key={id} style={styles.lbRow}>
-                        <View style={[styles.lbAvatarWrap, { borderColor: isStablefordMode ? (isLeader ? colors.gold : colors.border) : teamColor, opacity: isStablefordMode && !isLeader ? 0.5 : 1 }]}>
-                          {avatar ? (
-                            <Image source={typeof avatar === 'string' ? { uri: avatar } : avatar} style={styles.lbAvatar} />
-                          ) : (
-                            <View style={[styles.lbAvatar, styles.lbAvatarFallback]}>
-                              <Text style={styles.lbAvatarInitial}>{firstName[0]}</Text>
-                            </View>
-                          )}
-                          {isLeader && (
-                            <Text style={styles.lbCrown}>👑</Text>
-                          )}
-                        </View>
-                        <Text style={[styles.lbName, { color: nameColor, fontWeight: isLeader ? '800' : '600' }]} numberOfLines={1}>{firstName}</Text>
-                        <Text style={[styles.lbScore, { color: scoreColor, fontWeight: isLeader ? '800' : '600' }]}>{scoreStr}</Text>
-                      </View>
-                    );
-                  });
-                })()}
-              </View>
-
-            </View>
-
-            {/* Gets a shot */}
-            {shotPlayerIds.length > 0 && (
-              <View style={styles.shotRow}>
-                <Text style={styles.shotLabel}>Gets a shot</Text>
-                <View style={styles.shotAvatars}>
-                  {shotPlayerIds.map(id => {
-                    const avatar = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
-                    const isHome = match.home_player_ids.includes(id);
-                    const teamColor = isHome ? homeColor : awayColor;
-                    return (
-                      <View key={id} style={[styles.shotAvatarWrap, { borderColor: teamColor }]}>
-                        {avatar ? (
-                          <Image source={typeof avatar === 'string' ? { uri: avatar } : avatar} style={styles.shotAvatar} />
-                        ) : (
-                          <View style={[styles.shotAvatar, styles.shotAvatarFallback]}>
-                            <Text style={styles.shotAvatarInitial}>{(playerNames[id] ?? '?')[0]}</Text>
+                  {/* Mini leaderboard */}
+                  <View style={s.leaderboard}>
+                    {(() => {
+                      const sorted = [...allPlayerIds].sort((a, b) => {
+                        const aVal = playerTotals[a] ?? 0;
+                        const bVal = playerTotals[b] ?? 0;
+                        if (match.round_format === 'medal') {
+                          if (aVal === 0 && bVal === 0) return 0;
+                          if (aVal === 0) return 1;
+                          if (bVal === 0) return -1;
+                          return aVal - bVal;
+                        }
+                        return bVal - aVal;
+                      });
+                      const topScore = playerTotals[sorted[0]] ?? 0;
+                      return sorted.map((id, rank) => {
+                        const isHome = match.home_player_ids.includes(id);
+                        const teamColor = isHome ? homeColor : awayColor;
+                        const src = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
+                        const firstName = (playerNames[id] ?? '?').split(' ')[0];
+                        const total = playerTotals[id] ?? 0;
+                        const isStablefordMode = isStrokePlay || !!match.secondary_format;
+                        const scoreStr = total > 0 ? (isStablefordMode ? `${total}pts` : `${total}`) : '—';
+                        const isLeader = rank === 0 && topScore > 0;
+                        return (
+                          <View key={id} style={s.lbRow}>
+                            <Avatar name={firstName} color={teamColor} size={32} source={src} />
+                            <Text style={[s.lbName, !isLeader && { opacity: 0.5 }]} numberOfLines={1}>{firstName}</Text>
+                            <Text style={[s.lbPts, { color: isLeader ? GOLD : '#6b7280' }]}>{scoreStr}</Text>
                           </View>
-                        )}
-                      </View>
-                    );
-                  })}
+                        );
+                      });
+                    })()}
+                  </View>
                 </View>
-              </View>
-            )}
 
-            <View style={styles.holeIconRow}>
-              <TouchableOpacity style={styles.holeIconBtn} onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${currentHole}` as any)} activeOpacity={0.7}>
-                <Text style={styles.holeIconEmoji}>🔭</Text>
-                <Text style={styles.holeIconLbl}>RANGE</Text>
-              </TouchableOpacity>
-              <View style={styles.holeIconSep} />
-              <TouchableOpacity style={styles.holeIconBtn} onPress={() => setShowShotLogger(true)} activeOpacity={0.7}>
-                <Text style={styles.holeIconEmoji}>🎯</Text>
-                <Text style={styles.holeIconLbl}>SHOTS</Text>
-              </TouchableOpacity>
-              <View style={styles.holeIconSep} />
-              <TouchableOpacity style={styles.holeIconBtn} onPress={() => setShowCaddieModal(true)} activeOpacity={0.7}>
-                <Text style={styles.holeIconEmoji}>🏌️</Text>
-                <Text style={styles.holeIconLbl}>CADDIE</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+                {/* Gets a shot */}
+                {shotPlayerIds.length > 0 && (
+                  <View style={s.shotRow}>
+                    <View style={s.shotBadge}>
+                      <Ionicons name="golf-outline" size={12} color={GOLD} />
+                      <Text style={s.shotText}>
+                        Gets a shot: {shotPlayerIds.map(id => (playerNames[id] ?? '?').split(' ')[0]).join(', ')}
+                      </Text>
+                    </View>
+                  </View>
+                )}
 
-          {/* Side game banner */}
-          {currentSideGame && (
-            <View style={styles.sideGameBanner}>
-              <Text style={styles.sideGameBannerIcon}>
-                {currentSideGame === 'Longest Drive' ? '🏌️' : '📍'}
-              </Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sideGameBannerTitle}>{currentSideGame.toUpperCase()}</Text>
-                <Text style={styles.sideGameBannerSub}>
-                  {currentSideGame === 'Longest Drive'
-                    ? 'Record your best drive in yards after scoring'
-                    : 'Record the closest distance after scoring'}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Voice caddie modal */}
-          <Modal visible={showCaddieModal} transparent animationType="slide" onRequestClose={() => setShowCaddieModal(false)}>
-            <TouchableOpacity style={styles.popupOverlay} activeOpacity={1} onPress={() => setShowCaddieModal(false)}>
-              <View style={styles.popupSheet} onStartShouldSetResponder={() => true}>
-                <View style={styles.popupHeader} />
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
-                  <Text style={styles.popupTitle}>🏌️ Voice Caddie</Text>
-                  <TouchableOpacity onPress={() => setShowCaddieModal(false)} style={styles.popupClose} activeOpacity={0.7}>
-                    <Text style={{ fontSize: fonts.lg, color: colors.textMuted }}>✕</Text>
+                {/* Quick actions */}
+                <View style={s.actionsRow}>
+                  <TouchableOpacity
+                    style={s.actionBtn}
+                    onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${currentHole}` as any)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="scan-outline" size={20} color={GOLD} />
+                    <Text style={s.actionLabel}>RANGE</Text>
+                  </TouchableOpacity>
+                  <View style={s.actionSep} />
+                  <TouchableOpacity style={s.actionBtn} onPress={() => setShowShotLogger(true)} activeOpacity={0.7}>
+                    <Ionicons name="analytics-outline" size={20} color={GOLD} />
+                    <Text style={s.actionLabel}>SHOTS</Text>
+                  </TouchableOpacity>
+                  <View style={s.actionSep} />
+                  <TouchableOpacity style={s.actionBtn} onPress={() => setShowCaddieModal(true)} activeOpacity={0.7}>
+                    <Ionicons name="mic-outline" size={20} color={GOLD} />
+                    <Text style={s.actionLabel}>CADDIE</Text>
                   </TouchableOpacity>
                 </View>
-                {courseHole && match && (
-                  <CaddieButton
-                    context={{
-                      playerName: myPlayerId ? (playerNames[myPlayerId] ?? 'Player') : 'Player',
-                      holeNumber: currentHole,
-                      par: courseHole.par,
-                      yardage: holeYardage,
-                      strokeIndex: courseHole.stroke_index,
-                      format: match.round_format,
-                      holesCompleted: holeChars.filter(c => c !== '.').length,
-                      runningScore: (() => {
-                        const up = holeChars.reduce((n, c) => n + (c === 'h' ? 1 : c === 'a' ? -1 : 0), 0);
-                        const left = holeChars.filter(c => c === '.').length;
-                        if (up === 0) return 'All Square';
-                        return `${Math.abs(up)}UP with ${left} to play`;
-                      })(),
-                    }}
-                    onAction={async (result: VoiceCommandResult) => {
-                      if (result.action?.type === 'log_shot' && result.action.club && myPlayerId) {
-                        await supabase.from('shots').insert({
-                          match_id: match.id,
-                          player_id: myPlayerId,
-                          hole_number: currentHole,
-                          club_short: result.action.club,
-                          distance_yards: result.action.distance ?? null,
-                          lat: gpsRef.current?.lat ?? null,
-                          lng: gpsRef.current?.lng ?? null,
-                        });
-                        setShowCaddieModal(false);
-                      }
-                    }}
-                  />
-                )}
               </View>
-            </TouchableOpacity>
-          </Modal>
+
+              {/* Side game banner */}
+              {currentSideGame && (
+                <View style={s.sideGameBanner}>
+                  <Ionicons name={currentSideGame === 'Longest Drive' ? 'flag-outline' : 'locate-outline'} size={28} color={GOLD} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.sideGameBannerTitle}>{currentSideGame.toUpperCase()}</Text>
+                    <Text style={s.sideGameBannerSub}>
+                      {currentSideGame === 'Longest Drive'
+                        ? 'Record your best drive in yards after scoring'
+                        : 'Record the closest distance after scoring'}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Undo / edit */}
+              {editingHole ? (
+                <TouchableOpacity style={s.undoBtn} onPress={() => setEditingHole(null)} disabled={saving} activeOpacity={0.7}>
+                  <Ionicons name="close-outline" size={16} color="#6b7280" />
+                  <Text style={s.undoBtnText}>Cancel edit · Hole {editingHole}</Text>
+                </TouchableOpacity>
+              ) : lastPlayedHole > 0 ? (
+                <TouchableOpacity style={s.undoBtn} onPress={undoHole} disabled={saving} activeOpacity={0.7}>
+                  <Ionicons name="arrow-undo-outline" size={16} color="#6b7280" />
+                  <Text style={s.undoBtnText}>Undo · Hole {lastPlayedHole}</Text>
+                </TouchableOpacity>
+              ) : null}
+
+              {/* Page dots */}
+              <View style={s.pageHint}>
+                <View style={[s.pageDot, currentPage === 0 && s.pageDotActive]} />
+                <View style={[s.pageDot, currentPage === 1 && s.pageDotActive]} />
+                <View style={[s.pageDot, currentPage === 2 && s.pageDotActive]} />
+              </View>
+            </ScrollView>
+
+            {/* Page 1: Front 9 scorecard */}
+            <Scorecard
+              startHole={1}
+              allPlayerIds={allPlayerIds}
+              playerNames={playerNames}
+              holeData={holeData}
+              courseHoles={courseHoles}
+              matchHomeIds={match.home_player_ids}
+              holeChars={holeChars}
+              homeColor={homeColor}
+              awayColor={awayColor}
+              isStrokePlay={isStrokePlay}
+              roundFormat={match.round_format}
+              secondaryFormat={match.secondary_format}
+              onUndo={undoHole}
+              lastPlayedHole={lastPlayedHole}
+              saving={saving}
+              screenWidth={screenWidth}
+            />
+
+            {/* Page 2: Back 9 scorecard */}
+            <Scorecard
+              startHole={10}
+              allPlayerIds={allPlayerIds}
+              playerNames={playerNames}
+              holeData={holeData}
+              courseHoles={courseHoles}
+              matchHomeIds={match.home_player_ids}
+              holeChars={holeChars}
+              homeColor={homeColor}
+              awayColor={awayColor}
+              isStrokePlay={isStrokePlay}
+              roundFormat={match.round_format}
+              secondaryFormat={match.secondary_format}
+              onUndo={undoHole}
+              lastPlayedHole={lastPlayedHole}
+              saving={saving}
+              screenWidth={screenWidth}
+            />
           </ScrollView>
 
-          {/* Page 1: Front 9 scorecard */}
-          <Scorecard
-            startHole={1}
-            allPlayerIds={allPlayerIds}
-            playerNames={playerNames}
-            holeData={holeData}
-            courseHoles={courseHoles}
-            matchHomeIds={match.home_player_ids}
-            holeChars={holeChars}
-            homeColor={homeColor}
-            awayColor={awayColor}
-            isStrokePlay={isStrokePlay}
-            roundFormat={match.round_format}
-            secondaryFormat={match.secondary_format}
-            onUndo={undoHole}
-            lastPlayedHole={lastPlayedHole}
-            saving={saving}
-            screenWidth={screenWidth}
-          />
-
-          {/* Page 2: Back 9 scorecard */}
-          <Scorecard
-            startHole={10}
-            allPlayerIds={allPlayerIds}
-            playerNames={playerNames}
-            holeData={holeData}
-            courseHoles={courseHoles}
-            matchHomeIds={match.home_player_ids}
-            holeChars={holeChars}
-            homeColor={homeColor}
-            awayColor={awayColor}
-            isStrokePlay={isStrokePlay}
-            roundFormat={match.round_format}
-            secondaryFormat={match.secondary_format}
-            onUndo={undoHole}
-            lastPlayedHole={lastPlayedHole}
-            saving={saving}
-            screenWidth={screenWidth}
-          />
-          </ScrollView>
-
-          {/* Pagination dots */}
-          <View style={styles.pageDots}>
-            {[0, 1, 2].map(i => (
-              <View key={i} style={[styles.pageDot, currentPage === i && styles.pageDotActive]} />
-            ))}
-          </View>
-
-          {/* Fixed footer */}
-          <View style={styles.actionFooter}>
+          {/* ── Enter score CTA ── */}
+          <View style={s.ctaWrap}>
             <TouchableOpacity
-              style={[styles.scoreHoleBtn, editingHole ? { backgroundColor: colors.gold } : null]}
+              style={[s.ctaBtn, saving && { opacity: 0.5 }]}
               onPress={() => openScoreModal()}
               disabled={saving}
               activeOpacity={0.85}
             >
-              <Text style={styles.scoreHoleBtnText}>
-                {editingHole ? `Save Edit — Hole ${editingHole}` : `Score Hole ${currentHole}`}
+              <Ionicons name="create-outline" size={20} color="#000000" />
+              <Text style={s.ctaText}>
+                {editingHole ? `Edit Score · Hole ${editingHole}` : `Enter Score · Hole ${currentHole}`}
               </Text>
             </TouchableOpacity>
-            {editingHole ? (
-              <TouchableOpacity style={styles.undoBtn} onPress={() => setEditingHole(null)} disabled={saving}>
-                <Text style={styles.undoText}>✕ Cancel Edit</Text>
-              </TouchableOpacity>
-            ) : lastPlayedHole > 0 ? (
-              <TouchableOpacity style={styles.undoBtn} onPress={undoHole} disabled={saving}>
-                <Text style={styles.undoText}>← Undo Hole {lastPlayedHole}</Text>
-              </TouchableOpacity>
-            ) : null}
           </View>
         </>
       ) : (
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
-
           {/* Winner announcement */}
-          <View style={styles.completeHero}>
-            <Text style={styles.completeStar}>★</Text>
-            <Text style={styles.completeTitle}>MATCH COMPLETE</Text>
-            <Text style={styles.completeResult}>{match.result_str ?? 'Done'}</Text>
-            <Text style={styles.completeWinner}>
+          <View style={s.completeHero}>
+            <Ionicons name="trophy" size={48} color={GOLD} style={{ marginBottom: 12 }} />
+            <Text style={s.completeTitle}>MATCH COMPLETE</Text>
+            <Text style={s.completeResult}>{match.result_str ?? 'Done'}</Text>
+            <Text style={s.completeWinner}>
               {match.winner === 'half'
                 ? 'Match Halved'
                 : `${match.winner === 'home' ? homeLabel : awayLabel} Win`}
             </Text>
           </View>
 
-          {/* Stableford final leaderboard — shown for stableford or secondary game */}
           {(match.round_format === 'stableford' || match.secondary_format) && allPlayerIds.length > 0 && (
-            <View style={styles.sideGameSummary}>
-              <Text style={styles.sideGameSummaryTitle}>
+            <View style={s.summaryCard}>
+              <Text style={s.summaryTitle}>
                 {match.secondary_format ? '2ND GAME · STABLEFORD FINAL' : 'STABLEFORD FINAL'}
               </Text>
               {[...allPlayerIds]
                 .sort((a, b) => (playerTotals[b] ?? 0) - (playerTotals[a] ?? 0))
                 .map((id, i) => (
-                  <View key={id} style={[styles.sideGameSummaryRow, { paddingVertical: 8 }]}>
-                    <Text style={[styles.sideGameSummaryIcon, { color: i === 0 ? colors.gold : colors.textMuted, fontWeight: '800', width: 24, textAlign: 'center' }]}>{i + 1}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.sideGameSummaryType, { color: i === 0 ? colors.white : colors.textMuted, fontWeight: i === 0 ? '800' : '600' }]}>
-                        {(playerNames[id] ?? '?').split(' ')[0]}
-                      </Text>
-                    </View>
-                    <Text style={{ color: i === 0 ? colors.gold : colors.textMuted, fontWeight: '800', fontSize: fonts.lg }}>
+                  <View key={id} style={s.summaryRow}>
+                    <Text style={[s.summaryRank, { color: i === 0 ? GOLD : '#6b7280' }]}>{i + 1}</Text>
+                    <Text style={[s.summaryName, { color: i === 0 ? '#ffffff' : '#6b7280' }]}>
+                      {(playerNames[id] ?? '?').split(' ')[0]}
+                    </Text>
+                    <Text style={[s.summaryScore, { color: i === 0 ? GOLD : '#6b7280' }]}>
                       {playerTotals[id] ?? 0}pts
                     </Text>
                   </View>
@@ -1137,19 +1114,18 @@ export default function EnterScoresScreen() {
             </View>
           )}
 
-          {/* Side game results */}
           {match.side_games && match.side_games.filter(sg => !sg.startsWith('voice')).length > 0 && (
-            <View style={styles.sideGameSummary}>
-              <Text style={styles.sideGameSummaryTitle}>SIDE GAMES</Text>
+            <View style={s.summaryCard}>
+              <Text style={s.summaryTitle}>SIDE GAMES</Text>
               {match.side_games.filter(sg => !sg.startsWith('voice')).map(sg => {
                 const type = sg.split(':')[0];
                 const result = (match as any).side_game_results?.[type];
                 return (
-                  <View key={sg} style={styles.sideGameSummaryRow}>
-                    <Text style={styles.sideGameSummaryIcon}>{type === 'Longest Drive' ? '🏌️' : '📍'}</Text>
+                  <View key={sg} style={s.summaryRow}>
+                    <Ionicons name={type === 'Longest Drive' ? 'flag-outline' : 'locate-outline'} size={20} color={GOLD} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.sideGameSummaryType}>{type}</Text>
-                      <Text style={styles.sideGameSummaryResult}>
+                      <Text style={s.summaryName}>{type}</Text>
+                      <Text style={{ fontFamily: FF, fontSize: 11, color: '#6b7280', marginTop: 2 }}>
                         {result ? `${result.player ? result.player + ' · ' : ''}${result.result}` : 'Not recorded'}
                       </Text>
                     </View>
@@ -1160,14 +1136,12 @@ export default function EnterScoresScreen() {
           )}
 
           {/* Scorecard pager */}
-          <View style={styles.completeScorecardWrap}>
+          <View style={{ height: 360, marginBottom: 8 }}>
             <ScrollView
-              horizontal
-              pagingEnabled
+              horizontal pagingEnabled
               showsHorizontalScrollIndicator={false}
               scrollEventThrottle={16}
               onScroll={e => setCurrentPage(Math.round(e.nativeEvent.contentOffset.x / screenWidth))}
-              style={{ flex: 1 }}
             >
               <Scorecard
                 startHole={1}
@@ -1206,16 +1180,15 @@ export default function EnterScoresScreen() {
                 screenWidth={screenWidth}
               />
             </ScrollView>
-            <View style={styles.pageDots}>
-              {[0, 1].map(i => (
-                <View key={i} style={[styles.pageDot, currentPage === i && styles.pageDotActive]} />
-              ))}
+            <View style={s.pageHint}>
+              <View style={[s.pageDot, currentPage === 0 && s.pageDotActive]} />
+              <View style={[s.pageDot, currentPage === 1 && s.pageDotActive]} />
             </View>
           </View>
 
           {lastPlayedHole > 0 && (
             <TouchableOpacity
-              style={styles.undoBtn}
+              style={s.undoBtn}
               onPress={() => Alert.alert(
                 'Correct Last Hole?',
                 `This will remove hole ${lastPlayedHole}'s score and reopen the match.`,
@@ -1226,230 +1199,200 @@ export default function EnterScoresScreen() {
               )}
               disabled={saving}
             >
-              <Text style={styles.undoText}>← Correct Hole {lastPlayedHole}</Text>
+              <Ionicons name="arrow-undo-outline" size={16} color="#6b7280" />
+              <Text style={s.undoBtnText}>Correct Hole {lastPlayedHole}</Text>
             </TouchableOpacity>
           )}
         </ScrollView>
       )}
 
       {saving && (
-        <View style={styles.savingIndicator}>
-          <ActivityIndicator color={colors.gold} size="small" />
+        <View style={s.savingIndicator}>
+          <ActivityIndicator color={GOLD} size="small" />
         </View>
       )}
 
-      {/* ── Score entry modal ───────────────────────────────────── */}
+      {/* ── Score entry sheet ── */}
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setModalVisible(false)} activeOpacity={0.7}>
-              <Text style={styles.modalCloseTxt}>✕</Text>
-            </TouchableOpacity>
-            <ScrollView
-              style={{ width: '100%' }}
-              contentContainerStyle={styles.modalScrollContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
+        <View style={sh.overlay}>
+          <View style={sh.sheet}>
+            <View style={sh.handle} />
 
-            {/* Progress dots */}
-            <View style={styles.modalProgress}>
-              {allPlayerIds.map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.progressDot,
-                    i < modalPlayerIdx && styles.progressDotDone,
-                    i === modalPlayerIdx && styles.progressDotActive,
-                  ]}
-                />
-              ))}
+            {/* Player header */}
+            <View style={sh.playerRow}>
+              <Avatar name={modalPlayerName} color={modalTeamColor} size={44} source={modalPlayerAvatar} />
+              <View style={{ flex: 1 }}>
+                <Text style={sh.playerName}>{modalPlayerName}</Text>
+                <Text style={sh.playerInfo}>
+                  {modalTeamName ? `${modalTeamName} · ` : ''}
+                  Hole {activeHole} · Par {courseHole?.par ?? '?'} · SI {courseHole?.stroke_index ?? '?'}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={22} color="#6b7280" />
+              </TouchableOpacity>
             </View>
 
-            {/* Live match status — compact, always one line */}
-            <View style={styles.modalStatusStrip}>
-              <Text style={styles.modalStatusText} numberOfLines={1}>{modalStatusText}</Text>
-            </View>
-
-            {/* Team label */}
-            <Text style={[styles.modalTeamLabel, { color: modalTeamColor }]}>
-              {modalTeamName?.toUpperCase()}
-            </Text>
-
-            {/* Player photo */}
-            <View style={[styles.modalAvatarWrap, { borderColor: modalTeamColor }]}>
-              {modalPlayerAvatar ? (
-                <Image source={typeof modalPlayerAvatar === 'string' ? { uri: modalPlayerAvatar } : modalPlayerAvatar} style={styles.modalAvatar} />
-              ) : (
-                <View style={[styles.modalAvatar, styles.modalAvatarFallback]}>
-                  <Text style={styles.modalAvatarInitial}>{modalPlayerName[0] ?? '?'}</Text>
-                </View>
-              )}
-            </View>
-
-            <Text style={styles.modalPlayerName}>{modalPlayerName}</Text>
-
+            {/* Gets a shot badge */}
             {modalPlayerGetsShot && (
-              <View style={styles.shotBadge}>
-                <Text style={styles.shotBadgeText}>★ Gets a shot on this hole</Text>
+              <View style={sh.shotBadge}>
+                <Ionicons name="golf-outline" size={12} color={GOLD} />
+                <Text style={sh.shotBadgeText}>Gets a shot on this hole</Text>
               </View>
             )}
 
-            {/* Score buttons 1–10 */}
-            <View style={styles.scoreGrid}>
-              {[1, 2, 3, 4, 5].map(n => (
-                <TouchableOpacity
-                  key={n}
-                  style={[styles.scoreBtn, selectedScore === n && { backgroundColor: modalTeamColor }]}
-                  onPress={() => setSelectedScore(n)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.scoreBtnText, selectedScore === n && styles.scoreBtnTextSelected]}>
-                    {n}
-                  </Text>
-                </TouchableOpacity>
+            {/* Progress + status */}
+            <View style={sh.progressRow}>
+              {allPlayerIds.map((_, i) => (
+                <View key={i} style={[sh.progressDot, i < modalPlayerIdx && sh.progressDotDone, i === modalPlayerIdx && sh.progressDotActive]} />
               ))}
             </View>
-            <View style={styles.scoreGrid}>
-              {[6, 7, 8, 9, 10].map(n => (
-                <TouchableOpacity
-                  key={n}
-                  style={[styles.scoreBtn, selectedScore === n && { backgroundColor: modalTeamColor }]}
-                  onPress={() => setSelectedScore(n)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.scoreBtnText, selectedScore === n && styles.scoreBtnTextSelected]}>
-                    {n}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View style={sh.statusStrip}>
+              <Text style={sh.statusStripText} numberOfLines={1}>{modalStatusText}</Text>
             </View>
 
-            {/* Fairway + Putts — only for the player scoring on this device */}
-            {modalPlayerId === myPlayerId && (
-              <>
-                {courseHole && courseHole.par >= 4 && (
-                  <View style={styles.statSection}>
-                    <Text style={styles.statSectionLabel}>FAIRWAY</Text>
-                    <View style={styles.statBtnRow}>
-                      <TouchableOpacity
-                        style={[styles.statBtn, selectedFairway === 'left' && styles.statBtnRed]}
-                        onPress={() => setSelectedFairway(selectedFairway === 'left' ? null : 'left')}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[styles.statBtnText, selectedFairway === 'left' && styles.statBtnTextSelected]}>◀ Left</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.statBtn, selectedFairway === 'centre' && styles.statBtnGreen]}
-                        onPress={() => setSelectedFairway(selectedFairway === 'centre' ? null : 'centre')}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[styles.statBtnText, selectedFairway === 'centre' && styles.statBtnTextSelected]}>● Centre</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.statBtn, selectedFairway === 'right' && { backgroundColor: 'rgba(249,115,22,0.25)', borderColor: '#f97316' }]}
-                        onPress={() => setSelectedFairway(selectedFairway === 'right' ? null : 'right')}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[styles.statBtnText, selectedFairway === 'right' && { color: '#f97316' }]}>Right ▶</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
+            {/* Scrollable score content */}
+            <ScrollView style={{ width: '100%' }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 32 }}>
+              {/* Score buttons */}
+              <Text style={sh.pickerLabel}>GROSS SCORE</Text>
+              <View style={sh.scoreGrid}>
+                {[1,2,3,4,5,6,7,8,9].map(n => {
+                  const on = selectedScore === n;
+                  const shots = modalPlayerId
+                    ? calcStrokesReceived(playerCourseHcp(modalPlayerId, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100), courseHole?.stroke_index ?? 18)
+                    : 0;
+                  const result = courseHole ? scoreVsPar(n, courseHole.par, shots) : 'par';
+                  const accent = SCORE_COLORS[result] ?? '#6b7280';
+                  const netDiff = n - (courseHole?.par ?? 4) - shots;
+                  const diffLabel = netDiff === 0 ? 'PAR' : netDiff < 0 ? String(netDiff) : `+${netDiff}`;
+                  return (
+                    <TouchableOpacity
+                      key={n}
+                      style={[sh.scoreBtn, on && { backgroundColor: `${accent}20`, borderColor: accent }]}
+                      onPress={() => setSelectedScore(n)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[sh.scoreBtnText, on && { color: accent }]}>{n}</Text>
+                      {on && <Text style={[sh.scoreDiff, { color: accent }]}>{diffLabel}</Text>}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
-                <View style={styles.statSection}>
-                  <Text style={styles.statSectionLabel}>PUTTS</Text>
-                  <View style={styles.statBtnRow}>
-                    {([1, 2, 3, 4] as const).map(n => (
+              {/* Fairway (myPlayerId only, par 4+) */}
+              {modalPlayerId === myPlayerId && courseHole && courseHole.par >= 4 && (
+                <>
+                  <Text style={sh.pickerLabel}>FAIRWAY</Text>
+                  <View style={sh.fairwayRow}>
+                    {(['left', 'centre', 'right'] as const).map(d => (
                       <TouchableOpacity
-                        key={n}
-                        style={[styles.statBtn, styles.statBtnPutt, selectedPutts === n && styles.statBtnGold]}
-                        onPress={() => setSelectedPutts(selectedPutts === n ? null : n)}
-                        activeOpacity={0.8}
+                        key={d}
+                        style={[sh.fairwayBtn, selectedFairway === d && sh.fairwayBtnOn]}
+                        onPress={() => setSelectedFairway(prev => prev === d ? null : d)}
+                        activeOpacity={0.7}
                       >
-                        <Text style={[styles.statBtnText, selectedPutts === n && styles.statBtnTextSelected]}>
-                          {n === 4 ? '3+' : n}
+                        <Text style={[sh.fairwayText, selectedFairway === d && sh.fairwayTextOn]}>
+                          {d === 'left' ? '◀ Left' : d === 'centre' ? '● Centre' : 'Right ▶'}
                         </Text>
                       </TouchableOpacity>
                     ))}
                   </View>
-                </View>
-              </>
-            )}
+                </>
+              )}
 
-            {/* Submit */}
-            <TouchableOpacity
-              style={[styles.submitBtn, !selectedScore && styles.submitBtnDisabled]}
-              onPress={submitPlayerScore}
-              disabled={!selectedScore}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.submitBtnText}>
-                {modalPlayerIdx < allPlayerIds.length - 1 ? 'Next Player' : 'Calculate Hole'}
-              </Text>
-            </TouchableOpacity>
+              {/* Putts (myPlayerId only) */}
+              {modalPlayerId === myPlayerId && (
+                <>
+                  <Text style={sh.pickerLabel}>PUTTS</Text>
+                  <View style={sh.puttsRow}>
+                    {([1, 2, 3, 4] as const).map(n => (
+                      <TouchableOpacity
+                        key={n}
+                        style={[sh.puttsBtn, selectedPutts === n && sh.puttsBtnOn]}
+                        onPress={() => setSelectedPutts(prev => prev === n ? null : n)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[sh.puttsText, selectedPutts === n && sh.puttsTextOn]}>{n === 4 ? '3+' : n}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
 
+              {/* Submit */}
+              <TouchableOpacity
+                style={[sh.submitBtn, !selectedScore && sh.submitBtnOff]}
+                onPress={submitPlayerScore}
+                disabled={!selectedScore}
+                activeOpacity={0.8}
+              >
+                <Text style={sh.submitText}>
+                  {modalPlayerIdx < allPlayerIds.length - 1 ? `Next Player →` : '✓ Save Hole'}
+                </Text>
+              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* Side game result modal */}
+      {/* ── Side game result modal ── */}
       <Modal visible={!!sideGameModal} transparent animationType="slide" onRequestClose={() => setSideGameModal(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.sideGameModalTitle}>
-              {sideGameModal?.type === 'Longest Drive' ? '🏌️ LONGEST DRIVE' : '📍 NEAREST THE PIN'}
+        <View style={sh.overlay}>
+          <View style={sh.sheet}>
+            <View style={sh.handle} />
+            <Text style={sh.sideGameTitle}>
+              {sideGameModal?.type === 'Longest Drive' ? 'LONGEST DRIVE' : 'NEAREST THE PIN'}
             </Text>
-            <Text style={styles.sideGameModalSub}>
-              Hole {sideGameModal?.hole} · {sideGameModal?.type === 'Longest Drive' ? 'Enter distance in yards' : 'Enter distance (e.g. 4ft 2in)'}
+            <Text style={sh.sideGameSub}>
+              Hole {sideGameModal?.hole} · {sideGameModal?.type === 'Longest Drive' ? 'Distance in yards' : 'Distance to pin'}
             </Text>
 
             <TextInput
-              style={styles.sideGameInput}
+              style={sh.sideGameInput}
               value={sideGameResult}
               onChangeText={setSideGameResult}
               placeholder={sideGameModal?.type === 'Longest Drive' ? 'e.g. 285 yards' : 'e.g. 4ft 2in'}
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor="#4b5563"
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType={sideGameModal?.type === 'Longest Drive' ? 'numeric' : 'default'}
             />
 
-            <Text style={styles.sideGameWinnerLabel}>WINNER (OPTIONAL)</Text>
-            <View style={styles.sideGameWinnerRow}>
+            <Text style={sh.pickerLabel}>WINNER (OPTIONAL)</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
               {allPlayerIds.map(id => (
                 <TouchableOpacity
                   key={id}
-                  style={[styles.sideGameWinnerBtn, sideGameWinner === id && styles.sideGameWinnerBtnOn]}
+                  style={[sh.winnerBtn, sideGameWinner === id && sh.winnerBtnOn]}
                   onPress={() => setSideGameWinner(prev => prev === id ? null : id)}
                   activeOpacity={0.8}
                 >
-                  <Text style={[styles.sideGameWinnerName, sideGameWinner === id && styles.sideGameWinnerNameOn]}>
+                  <Text style={[sh.winnerText, sideGameWinner === id && { color: '#ffffff' }]}>
                     {(playerNames[id] ?? '?').split(' ')[0]}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <TouchableOpacity style={styles.sideGameSaveBtn} onPress={saveSideGameResult} activeOpacity={0.85}>
-              <Text style={styles.sideGameSaveBtnText}>Save Result</Text>
+            <TouchableOpacity style={sh.submitBtn} onPress={saveSideGameResult} activeOpacity={0.85}>
+              <Text style={sh.submitText}>Save Result</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.sideGameSkipBtn} onPress={() => setSideGameModal(null)} activeOpacity={0.7}>
-              <Text style={styles.sideGameSkipText}>Skip</Text>
+            <TouchableOpacity style={{ paddingVertical: 12, alignItems: 'center' }} onPress={() => setSideGameModal(null)} activeOpacity={0.7}>
+              <Text style={{ fontFamily: FF, fontSize: 14, color: '#6b7280' }}>Skip</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* Shot tracker popup */}
+      {/* ── Shot tracker ── */}
       <Modal visible={showShotLogger} transparent animationType="slide" onRequestClose={() => setShowShotLogger(false)}>
-        <View style={styles.popupOverlay}>
-          <View style={[styles.popupSheet, { height: '75%' }]}>
-            <View style={styles.popupHeader}>
-              <Text style={styles.popupTitle}>🎯  SHOT TRACKER</Text>
-              <TouchableOpacity onPress={() => setShowShotLogger(false)} style={styles.popupClose} activeOpacity={0.7}>
-                <Text style={styles.popupCloseTxt}>✕</Text>
+        <View style={sh.overlay}>
+          <View style={[sh.sheet, { height: '75%' }]}>
+            <View style={sh.handle} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ fontFamily: FFB, fontSize: 16, color: '#ffffff', letterSpacing: 1 }}>SHOT TRACKER</Text>
+              <TouchableOpacity onPress={() => setShowShotLogger(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={22} color="#6b7280" />
               </TouchableOpacity>
             </View>
             <View style={{ flex: 1 }}>
@@ -1457,6 +1400,54 @@ export default function EnterScoresScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* ── Voice caddie ── */}
+      <Modal visible={showCaddieModal} transparent animationType="slide" onRequestClose={() => setShowCaddieModal(false)}>
+        <TouchableOpacity style={sh.overlay} activeOpacity={1} onPress={() => setShowCaddieModal(false)}>
+          <View style={[sh.sheet, { paddingBottom: 32 }]} onStartShouldSetResponder={() => true}>
+            <View style={sh.handle} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ fontFamily: FFB, fontSize: 16, color: '#ffffff', letterSpacing: 1 }}>VOICE CADDIE</Text>
+              <TouchableOpacity onPress={() => setShowCaddieModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={22} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+            {courseHole && match && (
+              <CaddieButton
+                context={{
+                  playerName: myPlayerId ? (playerNames[myPlayerId] ?? 'Player') : 'Player',
+                  holeNumber: currentHole,
+                  par: courseHole.par,
+                  yardage: holeYardage,
+                  strokeIndex: courseHole.stroke_index,
+                  format: match.round_format,
+                  holesCompleted: holeChars.filter(c => c !== '.').length,
+                  runningScore: (() => {
+                    const up = holeChars.reduce((n, c) => n + (c === 'h' ? 1 : c === 'a' ? -1 : 0), 0);
+                    const left = holeChars.filter(c => c === '.').length;
+                    if (up === 0) return 'All Square';
+                    return `${Math.abs(up)}UP with ${left} to play`;
+                  })(),
+                }}
+                onAction={async (result: VoiceCommandResult) => {
+                  if (result.action?.type === 'log_shot' && result.action.club && myPlayerId) {
+                    await supabase.from('shots').insert({
+                      match_id: match.id,
+                      player_id: myPlayerId,
+                      hole_number: currentHole,
+                      club_short: result.action.club,
+                      distance_yards: result.action.distance ?? null,
+                      lat: gpsRef.current?.lat ?? null,
+                      lng: gpsRef.current?.lng ?? null,
+                    });
+                    setShowCaddieModal(false);
+                  }
+                }}
+              />
+            )}
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       {recordsBroken.length > 0 && (
@@ -1469,6 +1460,7 @@ export default function EnterScoresScreen() {
   );
 }
 
+// ── Scorecard component ────────────────────────────────────────
 interface ScorecardProps {
   startHole: number;
   allPlayerIds: string[];
@@ -1490,407 +1482,364 @@ interface ScorecardProps {
 
 function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles, matchHomeIds, holeChars, homeColor, awayColor, isStrokePlay, roundFormat, secondaryFormat, onUndo, lastPlayedHole, saving, screenWidth }: ScorecardProps) {
   const holes = Array.from({ length: 9 }, (_, i) => startHole + i);
+  const title = startHole === 1 ? 'FRONT 9' : 'BACK 9';
+  const totalPar = holes.reduce((a, h) => {
+    const ch = courseHoles.find(c => c.hole_number === h);
+    return a + (ch?.par ?? 0);
+  }, 0);
+  const showPts = roundFormat === 'stableford' || !!secondaryFormat;
 
   return (
-    <ScrollView style={{ width: screenWidth }} contentContainerStyle={{ padding: spacing.md, paddingBottom: spacing.xl }} showsVerticalScrollIndicator={false}>
-      <View style={{ backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+    <ScrollView style={{ width: screenWidth }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+      <View style={sc.container}>
+        <Text style={sc.title}>{title}</Text>
 
-        {/* Hole numbers */}
-        <View style={{ flexDirection: 'row', backgroundColor: colors.cardAlt, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-          <View style={scStyles.labelCol}><Text style={scStyles.headerTxt}>HOLE</Text></View>
+        {/* Header row */}
+        <View style={sc.headerRow}>
+          <Text style={[sc.cell, sc.labelCell, { color: '#6b7280' }]}>PLAYER</Text>
           {holes.map(h => (
-            <View key={h} style={scStyles.dataCol}>
-              <Text style={[scStyles.headerTxt, holeChars[h - 1] !== '.' && { color: colors.white }]}>{h}</Text>
-            </View>
+            <Text key={h} style={[sc.cell, sc.holeCell, holeChars[h-1] !== '.' && { color: '#ffffff' }]}>{h}</Text>
           ))}
+          <Text style={[sc.cell, sc.totalCell, { color: '#6b7280' }]}>TOT</Text>
         </View>
 
         {/* Par row */}
         {courseHoles.length > 0 && (
-          <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border }}>
-            <View style={scStyles.labelCol}><Text style={scStyles.subTxt}>Par</Text></View>
+          <View style={[sc.row, { backgroundColor: '#0a0a0a' }]}>
+            <Text style={[sc.cell, sc.labelCell, { color: GOLD }]}>PAR</Text>
             {holes.map(h => {
               const ch = courseHoles.find(c => c.hole_number === h);
-              return <View key={h} style={scStyles.dataCol}><Text style={scStyles.subTxt}>{ch?.par ?? '—'}</Text></View>;
+              return <Text key={h} style={[sc.cell, sc.holeCell, { color: GOLD }]}>{ch?.par ?? '—'}</Text>;
             })}
+            <Text style={[sc.cell, sc.totalCell, { color: GOLD }]}>{totalPar || '—'}</Text>
+          </View>
+        )}
+
+        {/* SI row */}
+        {courseHoles.length > 0 && (
+          <View style={sc.row}>
+            <Text style={[sc.cell, sc.labelCell, { color: '#444' }]}>SI</Text>
+            {holes.map(h => {
+              const ch = courseHoles.find(c => c.hole_number === h);
+              return <Text key={h} style={[sc.cell, sc.holeCell, { color: '#444', fontSize: 9 }]}>{ch?.stroke_index ?? '—'}</Text>;
+            })}
+            <Text style={[sc.cell, sc.totalCell, { color: '#444' }]}>—</Text>
           </View>
         )}
 
         {/* Player rows */}
-        {allPlayerIds.map((id, idx) => {
+        {allPlayerIds.map((id, pi) => {
           const isHome = matchHomeIds.includes(id);
           const teamColor = isHome ? homeColor : awayColor;
           const firstName = (playerNames[id] ?? '?').split(' ')[0];
-          const isLastRow = idx === allPlayerIds.length - 1 && isStrokePlay;
+          let totalGross = 0;
+          let totalPts = 0;
           return (
-            <View key={id} style={[{ flexDirection: 'row' }, !isLastRow && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-              <View style={scStyles.labelCol}>
-                <Text style={[scStyles.nameTxt, { color: teamColor }]} numberOfLines={1}>{firstName}</Text>
+            <View key={id} style={[sc.row, pi % 2 === 0 && { backgroundColor: '#0d0d0d' }]}>
+              <View style={[sc.cell, sc.labelCell, { flexDirection: 'row', alignItems: 'center', gap: 5 }]}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: teamColor }} />
+                <Text style={{ fontFamily: FF, fontSize: 11, color: '#ffffff' }} numberOfLines={1}>{firstName}</Text>
               </View>
               {holes.map(h => {
                 const score = holeData[id]?.[h];
                 const gross = score?.gross;
                 const pts = score?.pts;
                 const played = holeChars[h - 1] !== '.';
-                let bg = 'transparent';
-                if (roundFormat === 'stableford' && gross && pts !== null && pts !== undefined) {
-                  if (pts >= 4) bg = 'rgba(212,175,55,0.25)';
-                  else if (pts >= 3) bg = 'rgba(74,222,128,0.18)';
-                  else if (pts <= 0) bg = 'rgba(248,113,113,0.12)';
-                }
-                const ptsColor = pts === null || pts === undefined ? colors.textMuted
-                  : pts >= 4 ? colors.gold
-                  : pts === 3 ? colors.green
-                  : pts === 2 ? colors.white
-                  : pts === 1 ? colors.textSecondary
-                  : colors.red;
-                const showPts = roundFormat === 'stableford' || !!secondaryFormat;
+                if (gross) totalGross += gross;
+                if (pts) totalPts += pts;
+                const cellColor = showPts && pts != null
+                  ? ptsColor(pts)
+                  : gross ? '#6b7280' : '#333';
                 return (
-                  <View key={h} style={[scStyles.dataCol, { backgroundColor: bg }]}>
-                    {showPts && gross ? (
+                  <View key={h} style={[sc.cell, sc.holeCell, { gap: 2 }]}>
+                    {gross ? (
                       <>
-                        <Text style={[scStyles.scoreTxt, { color: ptsColor }]}>{pts ?? '·'}</Text>
-                        <Text style={scStyles.grossSub}>{gross}</Text>
+                        <View style={[sc.scorePill, { borderColor: `${cellColor}50`, backgroundColor: `${cellColor}12` }]}>
+                          <Text style={[sc.scorePillText, { color: cellColor }]}>{gross}</Text>
+                        </View>
+                        {showPts && pts != null && (
+                          <Text style={[sc.ptsText, { color: ptsColor(pts) }]}>{pts}</Text>
+                        )}
                       </>
                     ) : (
-                      <Text style={[scStyles.scoreTxt, { color: gross ? colors.white : played ? colors.textMuted : 'transparent' }]}>
-                        {gross ?? (played ? '—' : '')}
+                      <Text style={{ fontFamily: FF, fontSize: 10, color: played ? '#444' : '#222', textAlign: 'center' }}>
+                        {played ? '—' : ''}
                       </Text>
                     )}
                   </View>
                 );
               })}
+              <Text style={[sc.cell, sc.totalCell, { color: totalGross > 0 ? '#ffffff' : '#333' }]}>
+                {showPts && totalPts > 0 ? `${totalPts}` : totalGross > 0 ? `${totalGross}` : '—'}
+              </Text>
             </View>
           );
         })}
 
-        {/* Matchplay hole result row */}
+        {/* Matchplay result row */}
         {!isStrokePlay && (
-          <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.cardAlt }}>
-            <View style={scStyles.labelCol}><Text style={scStyles.subTxt}>Result</Text></View>
+          <View style={[sc.row, { backgroundColor: '#0a0a0a', borderTopWidth: 1, borderTopColor: '#1a1a1a' }]}>
+            <Text style={[sc.cell, sc.labelCell, { color: '#6b7280' }]}>RESULT</Text>
             {holes.map(h => {
               const c = holeChars[h - 1];
-              const color = c === 'h' ? homeColor : c === 'a' ? awayColor : c === 'f' ? colors.textMuted : 'transparent';
+              const color = c === 'h' ? homeColor : c === 'a' ? awayColor : c === 'f' ? '#4b5563' : 'transparent';
               return (
-                <View key={h} style={scStyles.dataCol}>
-                  <Text style={[scStyles.resultTxt, { color }]}>
-                    {c === 'h' ? 'H' : c === 'a' ? 'A' : c === 'f' ? '=' : ''}
-                  </Text>
-                </View>
+                <Text key={h} style={[sc.cell, sc.holeCell, { color, fontFamily: FFB }]}>
+                  {c === 'h' ? 'H' : c === 'a' ? 'A' : c === 'f' ? '=' : ''}
+                </Text>
               );
             })}
+            <Text style={[sc.cell, sc.totalCell]} />
           </View>
         )}
+
+        <Text style={sc.swipeHint}>← Swipe to switch ·</Text>
       </View>
 
       {lastPlayedHole > 0 && (
-        <TouchableOpacity style={{ alignItems: 'center', paddingVertical: spacing.lg }} onPress={onUndo} disabled={saving} activeOpacity={0.7}>
-          <Text style={{ fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600', letterSpacing: 0.5 }}>← Edit Hole {lastPlayedHole}</Text>
+        <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 16, flexDirection: 'row', justifyContent: 'center', gap: 6 }} onPress={onUndo} disabled={saving} activeOpacity={0.7}>
+          <Ionicons name="arrow-undo-outline" size={14} color="#444" />
+          <Text style={{ fontFamily: FF, fontSize: 12, color: '#444' }}>Edit Hole {lastPlayedHole}</Text>
         </TouchableOpacity>
       )}
     </ScrollView>
   );
 }
 
-const scStyles = StyleSheet.create({
-  labelCol: { width: 52, justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 8 },
-  dataCol: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 7 },
-  headerTxt: { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },
-  subTxt: { fontSize: 10, color: colors.textMuted, fontWeight: '600' },
-  nameTxt: { fontSize: 10, fontWeight: '800' },
-  scoreTxt: { fontSize: 13, fontWeight: '700' },
-  ptsTxt: { fontSize: 7, fontWeight: '800', marginTop: 1 },
-  grossSub: { fontSize: 7, fontWeight: '600', color: colors.textMuted, marginTop: 1 },
-  resultTxt: { fontSize: 11, fontWeight: '800' },
-});
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+// ── Main styles ───────────────────────────────────────────────
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#000000' },
 
   header: {
-    paddingTop: 60,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    flexDirection: 'row', alignItems: 'center',
+    paddingTop: 56, paddingHorizontal: 16, paddingBottom: 8,
   },
-  backBtn: { marginBottom: spacing.xs },
-  backText: { fontSize: fonts.md, color: colors.gold, fontWeight: '600' },
-  headerSub: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 1 },
+  headerSide:   { width: 40 },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerLogo:   { width: 28, height: 28, marginBottom: 2 },
+  headerSub:    { fontFamily: FF, fontSize: 11, color: '#6b7280', letterSpacing: 0.5 },
 
-  liveStatus: {
-    textAlign: 'center',
-    fontSize: fonts.md,
-    fontWeight: '900',
-    color: colors.live,
-    paddingVertical: spacing.xs,
-  },
-  secondaryBadge: {
-    textAlign: 'center',
-    fontSize: fonts.xs,
-    fontWeight: '700',
-    color: colors.gold,
-    letterSpacing: 0.8,
-    paddingBottom: spacing.xs,
-  },
+  statusBanner: { alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16 },
+  statusMain:   { fontFamily: FF, fontSize: 22, letterSpacing: -0.3 },
+  statusSecondary: { fontFamily: FF, fontSize: 11, color: GOLD, marginTop: 2, letterSpacing: 0.5 },
+  statusSub:    { fontFamily: FF, fontSize: 12, color: '#6b7280', marginTop: 2 },
 
-  dotsRow: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: spacing.lg, gap: 3 },
-  dot: { flex: 1, height: 10, borderRadius: 2 },
-  dotActive: { borderWidth: 1.5, borderColor: colors.gold, backgroundColor: 'transparent' },
-  dotsLabelRow: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: 3, paddingBottom: spacing.lg, gap: 3 },
-  dotNum: { flex: 1, fontSize: 8, color: colors.textMuted, textAlign: 'center' },
-  dotNumActive: { color: colors.gold, fontWeight: '700' },
+  holeStripWrap: { maxHeight: 72 },
+  holeStrip:     { paddingHorizontal: 12, paddingVertical: 6, gap: 6, alignItems: 'center' },
+  holeTile: {
+    width: 42, height: 58, borderRadius: 10,
+    backgroundColor: '#111111', borderWidth: 1, borderColor: '#1c1c1c',
+    alignItems: 'center', justifyContent: 'center', gap: 2,
+  },
+  holeTileActive: { borderColor: GOLD, borderWidth: 1.5 },
+  holeTileNum:    { fontFamily: FF, fontSize: 14, color: '#ffffff' },
+  holeTilePar:    { fontFamily: FF, fontSize: 9, color: '#6b7280' },
+  holeTileDot:    { width: 6, height: 6, borderRadius: 3, marginTop: 1 },
+  holeTilePts:    { fontFamily: FFB, fontSize: 11, marginTop: 1 },
+
+  halfLabels: {
+    flexDirection: 'row', justifyContent: 'space-around',
+    paddingHorizontal: 12, paddingBottom: 4,
+  },
+  halfLabel: { fontFamily: FF, fontSize: 8, color: '#2a2a2a', letterSpacing: 1.5 },
+
+  pageContent: { padding: 16, paddingBottom: 24 },
 
   holeCard: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
+    backgroundColor: '#111111', borderRadius: 16,
+    borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden',
+    marginBottom: 12,
   },
-  holeCardInner: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+  holeCardTop:     { flexDirection: 'row', padding: 16, gap: 12 },
+  holeCardDivider: { width: 1, backgroundColor: '#1c1c1c' },
+  holeNumberBlock: { width: 110, alignItems: 'flex-start', justifyContent: 'center', gap: 6 },
+  holeWord:        { fontFamily: FF, fontSize: 10, color: '#6b7280', letterSpacing: 2 },
+  holeBig:         { fontFamily: FF, fontSize: 64, color: '#ffffff', lineHeight: 68, letterSpacing: -2 },
+  holeChips:       { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  holeChip: {
+    borderWidth: 1, borderColor: '#2c2c2c', borderRadius: 6,
+    paddingHorizontal: 6, paddingVertical: 2,
   },
-  holeCardLeft: { flex: 1 },
-  holeCardDivider: { width: 1, backgroundColor: colors.border, marginHorizontal: spacing.md },
-  holeCardRight: { flex: 1, justifyContent: 'center', gap: spacing.sm },
+  holeChipText: { fontFamily: FF, fontSize: 10, color: '#6b7280' },
 
-  holeLabelSmall: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 2, fontWeight: '700' },
-  holeBig: { fontSize: 56, fontWeight: '900', color: colors.white, lineHeight: 62 },
-  holeMetaChip: { fontSize: fonts.xs, color: colors.white, fontWeight: '700', marginTop: 3 },
+  leaderboard: { flex: 1, justifyContent: 'center', gap: 10 },
+  lbRow:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  lbName:      { flex: 1, fontFamily: FF, fontSize: 13, color: '#ffffff' },
+  lbPts:       { fontFamily: FFB, fontSize: 13 },
 
-  coachBtn: { marginTop: spacing.sm, alignSelf: 'flex-start', backgroundColor: colors.cardAlt, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, borderWidth: 1, borderColor: colors.border },
-  coachBtnText: { fontSize: fonts.xs, color: colors.textSecondary, fontWeight: '700', letterSpacing: 0.3 },
-
-  lbRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  lbAvatarWrap: { borderRadius: 14, borderWidth: 1.5, overflow: 'hidden' },
-  lbAvatar: { width: 26, height: 26 },
-  lbAvatarFallback: { backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
-  lbAvatarInitial: { fontSize: 10, fontWeight: '700', color: colors.white },
-  lbName: { flex: 1, fontSize: fonts.xs, color: colors.white, fontWeight: '700' },
-  lbScore: { fontSize: fonts.sm, fontWeight: '800' },
-  lbCrown: { position: 'absolute', top: -8, right: -8, fontSize: 10 },
-
-  shotRow: { alignItems: 'center', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, width: '100%', paddingHorizontal: spacing.lg },
-  shotLabel: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 1, marginBottom: spacing.xs },
-  shotAvatars: { flexDirection: 'row', gap: spacing.sm },
-  shotAvatarWrap: { borderRadius: 20, borderWidth: 2, overflow: 'hidden' },
-  shotAvatar: { width: 36, height: 36 },
-  shotAvatarFallback: { backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
-  shotAvatarInitial: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-
-  scrollContent: { paddingBottom: spacing.md },
-
-  actionFooter: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: 28,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.bg,
+  shotRow: {
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderTopWidth: 1, borderTopColor: '#1a1a1a',
   },
-  scoreHoleBtn: {
-    backgroundColor: colors.gold,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.lg + 2,
-    alignItems: 'center',
+  shotBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}25`,
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
+    alignSelf: 'flex-start',
   },
-  scoreHoleBtnText: { fontSize: fonts.xl, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
+  shotText: { fontFamily: FF, fontSize: 12, color: GOLD },
 
-  pageDots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingVertical: spacing.xs + 2 },
-  pageDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border },
-  pageDotActive: { backgroundColor: colors.gold, borderColor: colors.gold, width: 18, borderRadius: 3 },
-
-  undoBtn: { alignItems: 'center', paddingVertical: spacing.sm, marginTop: spacing.xs },
-  undoText: { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600', letterSpacing: 0.5 },
-
-  completeHero: { alignItems: 'center', paddingVertical: spacing.xl, paddingHorizontal: spacing.xl },
-  completeStar: { fontSize: 40, color: colors.gold, marginBottom: spacing.sm },
-  completeTitle: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 3, marginBottom: spacing.sm },
-  completeResult: { fontSize: 56, fontWeight: '900', color: colors.gold, letterSpacing: 2 },
-  completeWinner: { fontSize: fonts.lg, fontWeight: '600', color: colors.white, marginTop: spacing.xs },
-
-  sideGameSummary: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
+  actionsRow: {
+    flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#1a1a1a',
   },
-  sideGameSummaryTitle: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 2, marginBottom: spacing.sm },
-  sideGameSummaryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
-  sideGameSummaryIcon: { fontSize: 20 },
-  sideGameSummaryType: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  sideGameSummaryResult: { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600', marginTop: 2 },
+  actionBtn:   { flex: 1, alignItems: 'center', paddingVertical: 14, gap: 4 },
+  actionLabel: { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 1.5 },
+  actionSep:   { width: 1, backgroundColor: '#1a1a1a' },
 
-  completeScorecardWrap: { height: 340, marginBottom: spacing.sm },
+  sideGameBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: `${GOLD}0d`, borderRadius: 12,
+    borderWidth: 1.5, borderColor: `${GOLD}40`,
+    paddingHorizontal: 14, paddingVertical: 12,
+    marginBottom: 12,
+  },
+  sideGameBannerTitle: { fontFamily: FFB, fontSize: 13, color: GOLD, letterSpacing: 1 },
+  sideGameBannerSub:   { fontFamily: FF, fontSize: 11, color: '#6b7280', marginTop: 2 },
+
+  undoBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: '#111111', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c',
+    paddingVertical: 12, marginBottom: 12,
+  },
+  undoBtnText: { fontFamily: FF, fontSize: 13, color: '#6b7280' },
+
+  pageHint:       { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 8 },
+  pageDot:        { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2c2c2c' },
+  pageDotActive:  { backgroundColor: GOLD, width: 18 },
+
+  ctaWrap: { paddingHorizontal: 16, paddingBottom: 32, paddingTop: 8, backgroundColor: '#000000' },
+  ctaBtn: {
+    backgroundColor: GOLD, borderRadius: 14,
+    paddingVertical: 16, flexDirection: 'row',
+    alignItems: 'center', justifyContent: 'center', gap: 8,
+  },
+  ctaText: { fontFamily: FF, fontSize: 17, color: '#000000' },
+
+  completeHero: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 24 },
+  completeTitle: { fontFamily: FF, fontSize: 10, color: '#6b7280', letterSpacing: 3, marginBottom: 8 },
+  completeResult: { fontFamily: FFB, fontSize: 56, color: GOLD, letterSpacing: 2 },
+  completeWinner: { fontFamily: FF, fontSize: 18, color: '#ffffff', marginTop: 4 },
+
+  summaryCard: {
+    marginHorizontal: 16, marginBottom: 12,
+    backgroundColor: '#111111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c', padding: 14,
+  },
+  summaryTitle: { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 2, marginBottom: 12 },
+  summaryRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  summaryRank:  { fontFamily: FFB, fontSize: 14, width: 20, textAlign: 'center' },
+  summaryName:  { flex: 1, fontFamily: FF, fontSize: 14, color: '#ffffff' },
+  summaryScore: { fontFamily: FFB, fontSize: 16 },
 
   savingIndicator: {
     position: 'absolute',
-    bottom: 40,
-    alignSelf: 'center',
-    backgroundColor: colors.card,
-    borderRadius: radius.full,
-    padding: spacing.sm + 4,
-    borderWidth: 1,
-    borderColor: colors.border,
+    bottom: 40, alignSelf: 'center',
+    backgroundColor: '#111111',
+    borderRadius: 20, padding: 12,
+    borderWidth: 1, borderColor: '#1c1c1c',
   },
+});
 
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
+// ── Score sheet styles ────────────────────────────────────────
+const sh = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#111111',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 20, maxHeight: '92%',
   },
-  modalSheet: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    maxHeight: '90%',
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#333', alignSelf: 'center', marginVertical: 14 },
+
+  playerRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginBottom: 12, paddingBottom: 16,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  modalScrollContent: {
-    alignItems: 'center',
-    width: '100%',
-    paddingBottom: 48,
-  },
-
-  modalProgress: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
-  progressDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border },
-  progressDotDone: { backgroundColor: colors.grey },
-  progressDotActive: { backgroundColor: colors.gold, borderColor: colors.gold },
-
-  modalStatusStrip: {
-    backgroundColor: colors.cardAlt,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalStatusText: { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, textAlign: 'center', letterSpacing: 0.5 },
-  modalTeamLabel: { fontSize: fonts.xs, fontWeight: '700', letterSpacing: 2, marginBottom: spacing.md },
-
-  modalAvatarWrap: { borderRadius: 52, borderWidth: 3, overflow: 'hidden', marginBottom: spacing.sm },
-  modalAvatar: { width: 100, height: 100 },
-  modalAvatarFallback: { backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
-  modalAvatarInitial: { fontSize: 40, fontWeight: '800', color: colors.white },
-
-  modalPlayerName: { fontSize: fonts.xl, fontWeight: '800', color: colors.white, marginBottom: spacing.xs },
+  playerName: { fontFamily: FF, fontSize: 18, color: '#ffffff' },
+  playerInfo: { fontFamily: FF, fontSize: 11, color: '#6b7280', marginTop: 2 },
 
   shotBadge: {
-    backgroundColor: 'rgba(212,175,55,0.15)',
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.goldBorder,
-    marginBottom: spacing.md,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}30`,
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
+    alignSelf: 'flex-start', marginBottom: 10,
   },
-  shotBadgeText: { fontSize: fonts.xs, color: colors.gold, fontWeight: '700', letterSpacing: 0.5 },
+  shotBadgeText: { fontFamily: FF, fontSize: 12, color: GOLD },
 
-  scoreGrid: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, width: '100%' },
+  progressRow:   { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  progressDot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: '#1c1c1c', borderWidth: 1, borderColor: '#2c2c2c' },
+  progressDotDone:   { backgroundColor: '#333' },
+  progressDotActive: { backgroundColor: GOLD, borderColor: GOLD },
+
+  statusStrip: {
+    backgroundColor: '#1a1a1a', borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 4,
+    marginBottom: 4, borderWidth: 1, borderColor: '#2c2c2c', alignSelf: 'flex-start',
+  },
+  statusStripText: { fontFamily: FF, fontSize: 11, color: GOLD, letterSpacing: 0.5 },
+
+  pickerLabel: { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2, marginBottom: 10, marginTop: 16 },
+
+  scoreGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   scoreBtn: {
-    flex: 1,
-    height: 52,
-    borderRadius: radius.md,
-    backgroundColor: colors.cardAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  scoreBtnText: { fontSize: fonts.lg, fontWeight: '700', color: colors.textSecondary },
-  scoreBtnTextSelected: { color: colors.white },
-
-  statSection: { width: '100%', marginTop: spacing.md },
-  statSectionLabel: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 2, marginBottom: spacing.xs, textAlign: 'center' },
-  statBtnRow: { flexDirection: 'row', gap: spacing.sm, justifyContent: 'center' },
-  statBtn: {
-    flex: 1, height: 40, borderRadius: radius.md,
-    backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border,
+    width: 56, height: 56, borderRadius: 12,
+    backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#2c2c2c',
     alignItems: 'center', justifyContent: 'center',
   },
-  statBtnPutt: { flex: 0, width: 56 },
-  statBtnGreen: { backgroundColor: 'rgba(74,222,128,0.2)', borderColor: colors.green },
-  statBtnRed:   { backgroundColor: 'rgba(248,113,113,0.2)', borderColor: colors.red },
-  statBtnGold:  { backgroundColor: colors.goldDim, borderColor: colors.gold },
-  statBtnText:  { fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary },
-  statBtnTextSelected: { color: colors.white },
+  scoreBtnText: { fontFamily: FF, fontSize: 20, color: '#6b7280' },
+  scoreDiff:    { fontFamily: FF, fontSize: 8, marginTop: 1 },
+
+  fairwayRow: { flexDirection: 'row', gap: 8 },
+  fairwayBtn: {
+    flex: 1, paddingVertical: 10, borderRadius: 10,
+    backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#2c2c2c', alignItems: 'center',
+  },
+  fairwayBtnOn:  { backgroundColor: `${GOLD}15`, borderColor: GOLD },
+  fairwayText:   { fontFamily: FF, fontSize: 13, color: '#6b7280' },
+  fairwayTextOn: { color: GOLD },
+
+  puttsRow: { flexDirection: 'row', gap: 8 },
+  puttsBtn: {
+    flex: 1, paddingVertical: 10, borderRadius: 10,
+    backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#2c2c2c', alignItems: 'center',
+  },
+  puttsBtnOn:  { backgroundColor: `${BLUE}15`, borderColor: BLUE },
+  puttsText:   { fontFamily: FF, fontSize: 16, color: '#6b7280' },
+  puttsTextOn: { color: BLUE },
 
   submitBtn: {
-    marginTop: spacing.lg,
-    width: '100%',
-    backgroundColor: colors.gold,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
+    marginTop: 24, backgroundColor: GOLD, borderRadius: 14,
+    paddingVertical: 16, alignItems: 'center',
   },
-  submitBtnDisabled: { opacity: 0.35 },
-  submitBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
+  submitBtnOff: { opacity: 0.35 },
+  submitText:   { fontFamily: FF, fontSize: 16, color: '#000000' },
 
-  sideGameBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    backgroundColor: colors.goldDim, borderRadius: radius.md,
-    borderWidth: 1.5, borderColor: colors.gold,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
-    marginHorizontal: spacing.lg, marginBottom: spacing.sm,
-  },
-  sideGameBannerIcon: { fontSize: 28 },
-  sideGameBannerTitle: { fontSize: fonts.sm, fontWeight: '900', color: colors.gold, letterSpacing: 1 },
-  sideGameBannerSub: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
-
-  sideGameModalTitle: { fontSize: fonts.md, fontWeight: '900', color: colors.gold, letterSpacing: 1.5, marginBottom: spacing.xs },
-  sideGameModalSub: { fontSize: fonts.xs, color: colors.textMuted, marginBottom: spacing.lg, textAlign: 'center' },
+  sideGameTitle: { fontFamily: FFB, fontSize: 16, color: GOLD, letterSpacing: 1.5, marginBottom: 4 },
+  sideGameSub:   { fontFamily: FF, fontSize: 11, color: '#6b7280', marginBottom: 16 },
   sideGameInput: {
-    width: '100%', backgroundColor: colors.cardAlt, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 4,
-    fontSize: fonts.lg, fontWeight: '700', color: colors.white, textAlign: 'center',
-    marginBottom: spacing.lg,
+    width: '100%', backgroundColor: '#1a1a1a', borderRadius: 12,
+    borderWidth: 1, borderColor: '#2c2c2c',
+    paddingHorizontal: 14, paddingVertical: 14,
+    fontFamily: FF, fontSize: 18, color: '#ffffff', textAlign: 'center',
+    marginBottom: 16,
   },
-  sideGameWinnerLabel: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 2, alignSelf: 'flex-start', marginBottom: spacing.sm },
-  sideGameWinnerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, width: '100%', marginBottom: spacing.lg },
-  sideGameWinnerBtn: {
-    paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2,
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardAlt,
-  },
-  sideGameWinnerBtnOn: { borderColor: colors.gold, backgroundColor: colors.goldDim },
-  sideGameWinnerName: { fontSize: fonts.sm, fontWeight: '600', color: colors.textSecondary },
-  sideGameWinnerNameOn: { color: colors.white },
-  sideGameSaveBtn: {
-    width: '100%', backgroundColor: colors.gold, borderRadius: radius.lg,
-    paddingVertical: spacing.md, alignItems: 'center', marginBottom: spacing.sm,
-  },
-  sideGameSaveBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
-  sideGameSkipBtn: { paddingVertical: spacing.sm, alignItems: 'center' },
-  sideGameSkipText: { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
+  winnerBtn:    { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2c2c2c', backgroundColor: '#1a1a1a' },
+  winnerBtnOn:  { borderColor: GOLD, backgroundColor: `${GOLD}15` },
+  winnerText:   { fontFamily: FF, fontSize: 14, color: '#6b7280' },
+});
 
-  modalCloseBtn: { position: 'absolute', top: spacing.md, right: spacing.md, zIndex: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  modalCloseTxt: { fontSize: fonts.md, fontWeight: '600', color: colors.textMuted },
-
-  holeIconRow: { flexDirection: 'row', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, width: '100%', alignItems: 'center', justifyContent: 'center' },
-  holeIconBtn: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm },
-  holeIconEmoji: { fontSize: 22 },
-  holeIconLbl: { fontSize: 8, fontWeight: '800', color: colors.textMuted, letterSpacing: 1, marginTop: 3 },
-  holeIconSep: { width: 1, height: 32, backgroundColor: colors.border },
-
-  popupOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  popupSheet: { backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, maxHeight: '80%' },
-  popupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border },
-  popupTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.white, letterSpacing: 1 },
-  popupClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
-  popupCloseTxt: { fontSize: fonts.md, fontWeight: '600', color: colors.white },
+// ── Scorecard styles ──────────────────────────────────────────
+const sc = StyleSheet.create({
+  container:    { backgroundColor: '#111111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 12 },
+  title:        { fontFamily: FF, fontSize: 10, color: GOLD, letterSpacing: 2, padding: 12, paddingBottom: 4 },
+  headerRow:    { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1a1a1a', backgroundColor: '#0a0a0a' },
+  row:          { flexDirection: 'row', paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: '#141414' },
+  cell:         { alignItems: 'center', justifyContent: 'center' },
+  labelCell:    { width: 60, paddingLeft: 10, alignItems: 'flex-start' },
+  holeCell:     { flex: 1, fontFamily: FF, fontSize: 11, color: '#6b7280', textAlign: 'center' },
+  totalCell:    { width: 34, fontFamily: FFB, fontSize: 11, color: '#ffffff', textAlign: 'center' },
+  scorePill:    { borderWidth: 1, borderRadius: 5, paddingHorizontal: 4, paddingVertical: 1, minWidth: 20, alignItems: 'center' },
+  scorePillText: { fontFamily: FF, fontSize: 11 },
+  ptsText:      { fontFamily: FFB, fontSize: 9, textAlign: 'center' },
+  swipeHint:    { fontFamily: FF, fontSize: 10, color: '#1a1a1a', textAlign: 'center', padding: 10, letterSpacing: 1 },
 });

@@ -1,22 +1,46 @@
 import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  TouchableOpacity,
-  RefreshControl,
-  Image,
-  Alert,
-  useWindowDimensions,
+  View, Text, ScrollView, StyleSheet,
+  ActivityIndicator, TouchableOpacity,
+  RefreshControl, Image, Alert, useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 import { matchLabel, getEffectiveWinner, calcHoles } from '../../../src/lib/scoring';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
+
+const GOLD   = '#D4AF37';
+const GREEN  = '#4ade80';
+const RED    = '#f87171';
+const BLUE   = '#3b82f6';
+const ORANGE = '#f97316';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
+
+function ptsColor(pts: number): string {
+  if (pts >= 4) return GOLD;
+  if (pts === 3) return GREEN;
+  if (pts === 2) return BLUE;
+  if (pts === 1) return ORANGE;
+  return RED;
+}
+
+function Avatar({ name, color, size = 40, source }: { name: string; color: string; size?: number; source?: any }) {
+  if (source) {
+    const imgSrc = typeof source === 'string' ? { uri: source } : source;
+    return <Image source={imgSrc} style={{ width: size, height: size, borderRadius: size / 2 }} />;
+  }
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: `${color}20`, borderWidth: 1.5, borderColor: `${color}60`, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontFamily: FF, fontSize: size * 0.38, color }}>{(name || '?').charAt(0).toUpperCase()}</Text>
+    </View>
+  );
+}
 
 interface HoleResult { hole_number: number; score: 'h' | 'a' | 'f' | null; gross_score: number | null; stableford_pts: number | null; player_id: string; }
 interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; hole_name: string | null; }
@@ -42,15 +66,15 @@ interface MatchDetail {
   day: { course_name: string; course_par: number; day_number: number; competition: { format: string } | null } | null;
 }
 
-const HOLE_COLORS: Record<string, string> = {
-  h: colors.green,
-  a: colors.red,
-  f: colors.grey,
-};
-
 export default function MatchDetailScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
   const [match, setMatch] = useState<MatchDetail | null>(null);
   const [holeResults, setHoleResults] = useState<HoleResult[]>([]);
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
@@ -60,6 +84,7 @@ export default function MatchDetailScreen() {
   const [cardPage, setCardPage] = useState(0);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const { width: screenWidth } = useWindowDimensions();
+
   async function load() {
     const { data: matchData } = await supabase
       .from('matches')
@@ -112,12 +137,8 @@ export default function MatchDetailScreen() {
         text: 'Delete', style: 'destructive', onPress: () => {
           supabase.from('matches').delete().eq('id', matchId)
             .then(({ error }) => {
-              if (error) {
-                console.error('delete match error:', JSON.stringify(error));
-                Alert.alert('Error', error.message ?? 'Could not delete game');
-              } else {
-                router.back();
-              }
+              if (error) Alert.alert('Error', error.message ?? 'Could not delete game');
+              else router.back();
             });
         },
       },
@@ -125,555 +146,453 @@ export default function MatchDetailScreen() {
   }
 
   const playerName = (id: string) => players.find(p => p.id === id)?.display_name?.split(' ')[0] ?? '?';
-  const holesForPlayer = (pid: string) => holeResults.filter(h => h.player_id === pid);
   const grossForHole = (pid: string, hole: number) => holeResults.find(h => h.player_id === pid && h.hole_number === hole)?.gross_score ?? null;
   const stablefordForHole = (pid: string, hole: number) => holeResults.find(h => h.player_id === pid && h.hole_number === hole)?.stableford_pts ?? null;
 
-  function renderSideVisual(
-    playerIds: string[],
-    team: { name: string; accent_color: string } | null,
-    teamId: string | null,
-    color: string,
-  ) {
-    if (teamId && team) {
-      const logo = teamLogos[team.name];
-      if (logo) return <Image source={logo} style={styles.sideTeamLogo} resizeMode="contain" />;
-      return <View style={[styles.sideColorBar, { backgroundColor: color }]} />;
-    }
-    if (playerIds.length === 1) {
-      const raw = players.find(p => p.id === playerIds[0])?.avatar_url ?? getPlayerAvatar(playerIds[0], 'normal');
-      return raw
-        ? <Image source={typeof raw === 'string' ? { uri: raw } : raw} style={styles.sideAvatar} />
-        : <View style={[styles.sideAvatar, styles.sideAvatarFallback]}><Text style={styles.sideAvatarInitial}>{playerName(playerIds[0])[0]}</Text></View>;
-    }
-    return (
-      <View style={styles.sidePairRow}>
-        {playerIds.map((id, i) => {
-          const raw = players.find(p => p.id === id)?.avatar_url ?? getPlayerAvatar(id, 'normal');
-          return raw
-            ? <Image key={id} source={typeof raw === 'string' ? { uri: raw } : raw} style={[styles.sidePairAv, i > 0 && styles.sidePairOverlap]} />
-            : <View key={id} style={[styles.sidePairAv, styles.sideAvatarFallback, i > 0 && styles.sidePairOverlap]}><Text style={styles.sidePairInitial}>{playerName(id)[0]}</Text></View>;
-        })}
-      </View>
-    );
-  }
-
   const holesStr = match?.holes_string ?? '..................';
   const holeChars = holesStr.split('');
-
   const status = match?.status ?? 'upcoming';
   const label = match ? matchLabel(status, match.winner, match.result_str, holesStr) : '';
   const winner = match ? getEffectiveWinner(status, match.winner, holesStr) : null;
   const { homeUp } = calcHoles(holesStr);
-  const currentlyAhead = status === 'complete'
-    ? winner
-    : homeUp > 0 ? 'home' : homeUp < 0 ? 'away' : null;
-
-  const homeColor = match?.home_team?.accent_color ?? colors.textMuted;
-  const awayColor = match?.away_team?.accent_color ?? colors.textMuted;
-
+  const currentlyAhead = status === 'complete' ? winner : homeUp > 0 ? 'home' : homeUp < 0 ? 'away' : null;
+  const homeColor = match?.home_team?.accent_color ?? GOLD;
+  const awayColor = match?.away_team?.accent_color ?? '#6366f1';
   const isStrokePlay = match?.round_format === 'stableford' || match?.round_format === 'medal';
   const allPlayerIds = match ? [...match.home_player_ids, ...match.away_player_ids] : [];
   const playerTotals = allPlayerIds.reduce((acc, pid) => {
-    const pts = holeResults.filter(h => h.player_id === pid).reduce((s, h) => s + (h.stableford_pts ?? 0), 0);
-    acc[pid] = pts;
+    acc[pid] = holeResults.filter(h => h.player_id === pid).reduce((s, h) => s + (h.stableford_pts ?? 0), 0);
     return acc;
   }, {} as Record<string, number>);
   const sortedByPts = [...allPlayerIds].sort((a, b) => (playerTotals[b] ?? 0) - (playerTotals[a] ?? 0));
   const spLeaderId = sortedByPts[0];
   const spLeaderPts = spLeaderId ? (playerTotals[spLeaderId] ?? 0) : 0;
   const spLeaderName = spLeaderId ? playerName(spLeaderId) : null;
-  const spLabel = isStrokePlay && spLeaderPts > 0 ? `${spLeaderName} leads · ${spLeaderPts}pts` : isStrokePlay ? label : label;
+  const holesPlayed = holeChars.filter(c => c !== '.').length;
+  const holesLeft = 18 - holesPlayed;
 
-  if (loading) return (
-    <View style={styles.centered}>
-      <ActivityIndicator color={colors.gold} size="large" />
+  const statusText = isStrokePlay
+    ? (spLeaderPts > 0 ? `${spLeaderName} leads · ${spLeaderPts}pts` : 'Not started')
+    : (status === 'complete' ? label : homeUp === 0 ? 'All Square' : homeUp > 0 ? `${match?.home_team?.name ?? 'Home'}  ${homeUp} Up` : `${match?.away_team?.name ?? 'Away'}  ${Math.abs(homeUp)} Up`);
+  const statusColor = isStrokePlay ? GOLD : (currentlyAhead === 'home' ? homeColor : currentlyAhead === 'away' ? awayColor : '#ffffff');
+  const statusSub = status === 'complete' ? 'Match complete' : holesPlayed === 0 ? 'Not started' : `${holesLeft} holes to play`;
+
+  const formatLabel = (() => {
+    const f = match?.round_format ?? '';
+    const map: Record<string, string> = { stableford: 'Stableford', medal: 'Stroke Play', matchplay: 'Matchplay', skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf', scramble: 'Scramble', bbb: 'Best Ball', modified_stableford: 'Modified Stableford', par_bogey: 'Par/Bogey', chacha: 'Cha Cha Cha' };
+    return map[f] ?? f;
+  })();
+
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' }}>
+      <ActivityIndicator color={GOLD} size="large" />
     </View>
   );
 
   if (!match) return (
-    <View style={styles.centered}>
-      <Text style={styles.errorText}>Match not found.</Text>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' }}>
+      <Text style={{ fontFamily: FF, color: '#6b7280' }}>Match not found.</Text>
     </View>
   );
 
+  const isMember = myPlayerId && allPlayerIds.includes(myPlayerId);
+
+  async function handleEnterScores() {
+    const courseName = match!.day?.course_name ?? null;
+    const isSolo = match!.away_player_ids.length === 0 && match!.home_player_ids.length === 1;
+
+    let availableTees: string[] = [];
+    if (courseName) {
+      const { data: teeData } = await supabase
+        .from('course_holes')
+        .select('tee_yardages')
+        .eq('course_name', courseName)
+        .limit(1)
+        .single();
+      const ty = (teeData as any)?.tee_yardages ?? {};
+      availableTees = Object.keys(ty).filter(k => ty[k] > 0);
+    }
+
+    const navigate = (startHole: number) => {
+      const buildUrl = (base: string, teeColor?: string) => {
+        const params = new URLSearchParams();
+        if (startHole !== 1) params.set('startHole', String(startHole));
+        if (teeColor)        params.set('teeColor', teeColor);
+        const qs = params.toString();
+        return qs ? `${base}?${qs}` : base;
+      };
+
+      const goToScorer = (teeColor?: string) => {
+        if (isSolo) { router.push(buildUrl(`/(app)/score/solo/${matchId}`, teeColor) as any); return; }
+        const fmt = match?.round_format ?? '';
+        const specialRoutes: Record<string, string> = {
+          skins: `/(app)/score/skins/${matchId}`,
+          nassau: `/(app)/score/nassau/${matchId}`,
+          wolf: `/(app)/score/wolf/${matchId}`,
+          scramble: `/(app)/score/scramble/${matchId}`,
+          bbb: `/(app)/score/bbb/${matchId}`,
+          modified_stableford: `/(app)/score/modified/${matchId}`,
+          par_bogey: `/(app)/score/parbogey/${matchId}`,
+          chacha: `/(app)/score/chacha/${matchId}`,
+        };
+        if (specialRoutes[fmt]) router.push(specialRoutes[fmt] as any);
+        else router.push(buildUrl(`/(app)/score/enter/${matchId}`, teeColor) as any);
+      };
+
+      if (availableTees.length > 1) {
+        const TEE_LABELS: Record<string, string> = { black: '⚫ Black', white: '⚪ White', yellow: '🟡 Yellow', blue: '🔵 Blue', red: '🔴 Red', gold: '🟠 Gold' };
+        Alert.alert('Which Tees?', 'Select the tees you\'re playing from:', availableTees.map(t => ({ text: TEE_LABELS[t] ?? t, onPress: () => goToScorer(t) })));
+      } else {
+        goToScorer(availableTees[0]);
+      }
+    };
+
+    Alert.alert('Starting Hole', 'Which hole are you starting from?', [
+      { text: 'Hole 1 (Front 9)', onPress: () => navigate(1) },
+      { text: 'Hole 10 (Back 9)', onPress: () => navigate(10) },
+    ]);
+  }
+
   return (
-    <View style={styles.container}>
+    <View style={s.root}>
       <StatusBar style="light" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={styles.backText}>‹ Back</Text>
+      {/* ── Header ── */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={styles.headerSub}>
-          {match.day?.competition?.format === 'casual'
-            ? `Casual · ${match.day?.course_name}`
-            : `Day ${match.day?.day_number} · ${match.day?.course_name} · Match ${match.match_number}`}
-        </Text>
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Text style={s.headerSub} numberOfLines={1}>
+            {match.day?.course_name ? `${match.day.course_name} · ${formatLabel}` : formatLabel}
+          </Text>
+        </View>
+        <TouchableOpacity style={s.headerSide} onPress={() => { setRefreshing(true); load(); }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="refresh-outline" size={22} color="#6b7280" />
+        </TouchableOpacity>
       </View>
 
-      {status !== 'complete' && (
-        <TouchableOpacity
-          style={styles.enterScoresBtn}
-          onPress={async () => {
-            const courseName = match.day?.course_name ?? null;
-            const isSolo = match.away_player_ids.length === 0 && match.home_player_ids.length === 1;
+      {/* ── Status banner ── */}
+      <View style={s.statusBanner}>
+        {status === 'complete' && <Ionicons name="trophy" size={20} color={GOLD} style={{ marginBottom: 4 }} />}
+        {status === 'in_progress' && <View style={s.livePulse} />}
+        <Text style={[s.statusMain, { color: statusColor }]}>{statusText}</Text>
+        <Text style={s.statusSub}>{statusSub}</Text>
+      </View>
 
-            // Fetch available tees for this course (fast, single row)
-            let availableTees: string[] = [];
-            if (courseName) {
-              const { data: teeData } = await supabase
-                .from('course_holes')
-                .select('tee_yardages')
-                .eq('course_name', courseName)
-                .limit(1)
-                .single();
-              const ty = (teeData as any)?.tee_yardages ?? {};
-              availableTees = Object.keys(ty).filter(k => ty[k] > 0);
-            }
-
-            const navigate = (startHole: number) => {
-              const buildUrl = (base: string, teeColor?: string) => {
-                const params = new URLSearchParams();
-                if (startHole !== 1) params.set('startHole', String(startHole));
-                if (teeColor)        params.set('teeColor', teeColor);
-                const qs = params.toString();
-                return qs ? `${base}?${qs}` : base;
-              };
-
-              const goToScorer = (teeColor?: string) => {
-                if (isSolo) {
-                  router.push(buildUrl(`/(app)/score/solo/${matchId}`, teeColor) as any);
-                  return;
-                }
-                const fmt = match?.round_format ?? '';
-                const specialRoutes: Record<string, string> = {
-                  skins:               `/(app)/score/skins/${matchId}`,
-                  nassau:              `/(app)/score/nassau/${matchId}`,
-                  wolf:                `/(app)/score/wolf/${matchId}`,
-                  scramble:            `/(app)/score/scramble/${matchId}`,
-                  bbb:                 `/(app)/score/bbb/${matchId}`,
-                  modified_stableford: `/(app)/score/modified/${matchId}`,
-                  par_bogey:           `/(app)/score/parbogey/${matchId}`,
-                  chacha:              `/(app)/score/chacha/${matchId}`,
-                };
-                if (specialRoutes[fmt]) {
-                  router.push(specialRoutes[fmt] as any);
-                } else {
-                  router.push(buildUrl(`/(app)/score/enter/${matchId}`, teeColor) as any);
-                }
-              };
-
-              if (availableTees.length > 1) {
-                const TEE_LABELS: Record<string, string> = {
-                  black: '⚫ Black', white: '⚪ White', yellow: '🟡 Yellow',
-                  blue:  '🔵 Blue',  red:   '🔴 Red',   gold:   '🟠 Gold',
-                };
-                const teeButtons = availableTees.map(t => ({
-                  text: TEE_LABELS[t] ?? t.charAt(0).toUpperCase() + t.slice(1),
-                  onPress: () => goToScorer(t),
-                }));
-                Alert.alert('Which Tees?', 'Select the tees you\'re playing from:', teeButtons);
-              } else {
-                goToScorer(availableTees[0]);
-              }
-            };
-
-            Alert.alert('Starting Hole', 'Which hole are you starting from?', [
-              { text: 'Hole 1 (Front 9)', onPress: () => navigate(1) },
-              { text: 'Hole 10 (Back 9)', onPress: () => navigate(10) },
-            ]);
-          }}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.enterScoresBtnText}>Enter Scores</Text>
-        </TouchableOpacity>
-      )}
-
-      {status !== 'complete' && myPlayerId && (
-        [...(match?.home_player_ids ?? []), ...(match?.away_player_ids ?? [])].includes(myPlayerId)
-      ) && (
-        <TouchableOpacity
-          style={styles.scanScorecardBtn}
-          onPress={() => router.push(`/(app)/score/scan/${matchId}` as any)}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.scanScorecardBtnText}>📋 Scan Paper Scorecard</Text>
-        </TouchableOpacity>
-      )}
-
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.gold} />}>
-
-        {/* Match status card */}
-        <View style={styles.matchCard}>
-          <View style={styles.teamsRow}>
-
-            {/* Home side */}
-            <View style={styles.teamBlock}>
-              {renderSideVisual(match.home_player_ids, match.home_team, match.home_team_id, homeColor)}
-            </View>
-
-            {/* Status + arrow */}
-            <View style={styles.statusBlock}>
-              {!isStrokePlay && status === 'in_progress' && <View style={styles.liveDot} />}
-              {!isStrokePlay && currentlyAhead === 'home' && <Text style={[styles.winArrow, { color: homeColor }]}>◀</Text>}
-              {!isStrokePlay && (
-                <Text style={[styles.statusLabel,
-                  status === 'in_progress' && styles.statusLive,
-                  status === 'complete' && styles.statusComplete,
-                ]}>{label}</Text>
+      {/* ── Players row ── */}
+      <View style={s.playersRow}>
+        {allPlayerIds.map(id => {
+          const isHome = match.home_player_ids.includes(id);
+          const teamColor = isHome ? homeColor : awayColor;
+          const src = players.find(p => p.id === id)?.avatar_url ?? getPlayerAvatar(id, 'normal');
+          const firstName = playerName(id);
+          const total = playerTotals[id] ?? 0;
+          const isLeader = id === spLeaderId && spLeaderPts > 0;
+          return (
+            <View key={id} style={s.playerPill}>
+              <View style={[s.playerPillAvatar, isLeader && { borderColor: GOLD, borderWidth: 2 }]}>
+                <Avatar name={firstName} color={teamColor} size={44} source={src} />
+              </View>
+              <Text style={[s.playerPillName, { color: isLeader ? '#ffffff' : '#9ca3af' }]} numberOfLines={1}>{firstName}</Text>
+              {total > 0 && (
+                <Text style={[s.playerPillPts, { color: isLeader ? GOLD : '#6b7280' }]}>
+                  {isStrokePlay ? `${total}pts` : ''}
+                </Text>
               )}
-              {!isStrokePlay && currentlyAhead === 'away' && <Text style={[styles.winArrow, { color: awayColor }]}>▶</Text>}
             </View>
+          );
+        })}
+      </View>
 
-            {/* Away side */}
-            <View style={[styles.teamBlock, styles.teamBlockRight]}>
-              {renderSideVisual(match.away_player_ids, match.away_team, match.away_team_id, awayColor)}
+      {/* ── Hole result strip ── */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.holeStrip} style={s.holeStripWrap}>
+        {Array.from({ length: 18 }, (_, i) => {
+          const h = i + 1;
+          const c = holeChars[h - 1] ?? '.';
+          const isPlayed = c !== '.';
+          const ch = courseHoles.find(x => x.hole_number === h);
+          let resultColor = 'transparent';
+          if (c === 'h') resultColor = homeColor;
+          else if (c === 'a') resultColor = awayColor;
+          else if (c === 'f') resultColor = '#4b5563';
+          else if (c === 'd') {
+            const bestPts = Math.max(0, ...allPlayerIds.map(id => stablefordForHole(id, h) ?? 0));
+            resultColor = bestPts > 0 ? ptsColor(bestPts) : '#22c55e';
+          }
+          return (
+            <View
+              key={h}
+              style={[
+                s.holeTile,
+                isPlayed && { backgroundColor: `${resultColor}22`, borderColor: `${resultColor}60` },
+              ]}
+            >
+              <Text style={[s.holeTileNum, isPlayed && { color: resultColor }]}>{h}</Text>
+              <Text style={s.holeTilePar}>P{ch?.par ?? '?'}</Text>
+              {isPlayed && isStrokePlay && (() => {
+                const best = Math.max(0, ...allPlayerIds.map(id => stablefordForHole(id, h) ?? 0));
+                return best > 0 ? <Text style={[s.holeTilePts, { color: ptsColor(best) }]}>{best}</Text> : null;
+              })()}
+              {isPlayed && !isStrokePlay && (
+                <Text style={[s.holeTilePts, { color: resultColor }]}>
+                  {c === 'h' ? 'H' : c === 'a' ? 'A' : '='}
+                </Text>
+              )}
             </View>
+          );
+        })}
+      </ScrollView>
+      <View style={s.halfLabels}>
+        <Text style={s.halfLabel}>FRONT 9</Text>
+        <Text style={s.halfLabel}>BACK 9</Text>
+      </View>
 
-          </View>
-          {isStrokePlay && spLeaderPts > 0 && (
-            <Text style={styles.spLeaderRow}>{spLeaderName} leads · {spLeaderPts}pts</Text>
-          )}
-        </View>
-
-        {/* Side games + settings */}
-        {((match.side_games?.length > 0) || match.hcp_allowance !== 100) && (
-          <View style={styles.tagsRow}>
+      {/* ── Scrollable content ── */}
+      <ScrollView
+        contentContainerStyle={s.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={GOLD} />}
+      >
+        {/* Settings tags */}
+        {(match.side_games?.filter(g => !g.startsWith('voice')).length > 0 || match.hcp_allowance !== 100) && (
+          <View style={s.tagsRow}>
             {match.hcp_allowance !== 100 && (
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>{match.hcp_allowance === 0 ? 'Scratch' : `${match.hcp_allowance}% HCP`}</Text>
+              <View style={s.tag}>
+                <Ionicons name="person-outline" size={10} color="#6b7280" />
+                <Text style={s.tagText}>{match.hcp_allowance === 0 ? 'Scratch' : `${match.hcp_allowance}% HCP`}</Text>
               </View>
             )}
-            {match.side_games?.map(g => (
-              <View key={g} style={[styles.tag, styles.tagGold]}>
-                <Text style={[styles.tagText, styles.tagTextGold]}>{g}</Text>
+            {match.side_games?.filter(g => !g.startsWith('voice')).map(g => (
+              <View key={g} style={[s.tag, s.tagGold]}>
+                <Ionicons name={g.startsWith('Longest') ? 'flag-outline' : 'locate-outline'} size={10} color={GOLD} />
+                <Text style={[s.tagText, { color: GOLD }]}>{g.split(':')[0]}</Text>
               </View>
             ))}
           </View>
         )}
 
-        {/* Hole-by-hole matchplay grid */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>HOLE BY HOLE</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.holeGrid}>
-            {/* Header row */}
-            <View style={styles.holeRow}>
-              <Text style={[styles.holeCell, styles.holeLabelCell]}>HOLE</Text>
-              {Array.from({ length: 18 }, (_, i) => (
-                <Text key={i} style={[styles.holeCell, styles.holeNumCell]}>{i + 1}</Text>
-              ))}
-            </View>
-            {/* Par row */}
-            {courseHoles.length > 0 && (
-              <View style={styles.holeRow}>
-                <Text style={[styles.holeCell, styles.holeLabelCell, styles.parLabel]}>PAR</Text>
-                {courseHoles.map(h => (
-                  <Text key={h.hole_number} style={[styles.holeCell, styles.holeNumCell, styles.parLabel]}>{h.par}</Text>
-                ))}
-              </View>
-            )}
-            {/* Result row */}
-            <View style={styles.holeRow}>
-              <Text style={[styles.holeCell, styles.holeLabelCell]}>RESULT</Text>
-              {holeChars.map((c, i) => {
-                const holeNum = i + 1;
-                if (c === 'd') {
-                  // Stableford — show hole winner by pts
-                  const allIds = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
-                  const entries = allIds.map(pid => ({
-                    pid,
-                    pts: holeResults.find(h => h.player_id === pid && h.hole_number === holeNum)?.stableford_pts ?? 0,
-                    isHome: match.home_player_ids.includes(pid),
-                  }));
-                  const maxPts = Math.max(...entries.map(e => e.pts));
-                  const winners = entries.filter(e => e.pts === maxPts && maxPts > 0);
-                  const tied = winners.length > 1;
-                  const cellColor = tied ? colors.grey : winners[0]?.isHome ? homeColor : awayColor;
-                  const initial = tied ? '½' : playerName(winners[0]?.pid ?? '')[0] ?? '?';
+        {/* Scorecards per player */}
+        {courseHoles.length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>SCORECARDS</Text>
+            <ScrollView
+              horizontal pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={e => setCardPage(Math.round(e.nativeEvent.contentOffset.x / screenWidth))}
+              style={{ marginHorizontal: -16 }}
+            >
+              {[
+                ...match.home_player_ids.map(pid => ({ pid, color: homeColor })),
+                ...match.away_player_ids.map(pid => ({ pid, color: awayColor })),
+              ].map(({ pid, color }) => {
+                const name = playerName(pid);
+                const gross = (hole: number) => grossForHole(pid, hole);
+                const pts   = (hole: number) => stablefordForHole(pid, hole);
+                const front = courseHoles.filter(h => h.hole_number <= 9).sort((a, b) => a.hole_number - b.hole_number);
+                const back  = courseHoles.filter(h => h.hole_number >= 10).sort((a, b) => a.hole_number - b.hole_number);
+                const totGross = courseHoles.reduce((s, h) => s + (gross(h.hole_number) ?? 0), 0);
+                const totPts   = courseHoles.reduce((s, h) => s + (pts(h.hole_number) ?? 0), 0);
+                const frontPar = front.reduce((s, h) => s + h.par, 0);
+                const backPar  = back.reduce((s, h) => s + h.par, 0);
+                const hasScores = courseHoles.some(h => gross(h.hole_number) !== null);
+
+                const SL = 36; const SC = 26; const ST = 32;
+
+                const ScCell = ({ val, par: p }: { val: number | null; par: number | null }) => {
+                  const diff = val !== null && p !== null ? val - p : null;
+                  const bg = diff === null ? 'transparent' : diff < 0 ? `${GREEN}25` : diff === 0 ? '#1a1a1a' : `${RED}15`;
+                  const tc = diff === null ? '#333' : diff < 0 ? GREEN : diff === 0 ? '#9ca3af' : RED;
                   return (
-                    <View key={i} style={[styles.holeCell, styles.resultCell, maxPts > 0 && { backgroundColor: cellColor + '55' }]}>
-                      <Text style={[styles.resultChar, { color: maxPts > 0 ? cellColor : colors.textMuted }]}>{maxPts > 0 ? initial : ''}</Text>
+                    <View style={{ width: SC, height: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderRadius: 4 }}>
+                      <Text style={{ fontFamily: FF, fontSize: 11, color: val ? tc : '#2a2a2a' }}>{val ?? '·'}</Text>
                     </View>
                   );
-                }
+                };
+
+                const renderHalf = (holes: CourseHole[], outLabel: string, showTot: boolean) => (
+                  <View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: '#1a1a1a', backgroundColor: '#0a0a0a' }}>
+                      <Text style={{ width: SL, fontFamily: FF, fontSize: 8, color: '#6b7280', paddingLeft: 8 }}>HOLE</Text>
+                      {holes.map(h => <Text key={h.hole_number} style={{ width: SC, fontFamily: FF, fontSize: 10, color: gross(h.hole_number) ? '#ffffff' : '#444', textAlign: 'center' }}>{h.hole_number}</Text>)}
+                      <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{outLabel}</Text>
+                      {showTot && <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>TOT</Text>}
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}>
+                      <Text style={{ width: SL, fontFamily: FF, fontSize: 8, color: '#444', paddingLeft: 8 }}>PAR</Text>
+                      {holes.map(h => <Text key={h.hole_number} style={{ width: SC, fontFamily: FF, fontSize: 9, color: GOLD, textAlign: 'center' }}>{h.par}</Text>)}
+                      <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{holes.reduce((s, h) => s + h.par, 0)}</Text>
+                      {showTot && <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{frontPar + backPar}</Text>}
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 5 }}>
+                      <Text style={{ width: SL, fontFamily: FFB, fontSize: 9, color, paddingLeft: 8 }} numberOfLines={1}>{name}</Text>
+                      {holes.map(h => <ScCell key={h.hole_number} val={gross(h.hole_number)} par={h.par} />)}
+                      <Text style={{ width: ST, fontFamily: FFB, fontSize: 11, color: '#ffffff', textAlign: 'center' }}>
+                        {holes.reduce((s, h) => s + (gross(h.hole_number) ?? 0), 0) || '·'}
+                      </Text>
+                      {showTot && <Text style={{ width: ST, fontFamily: FFB, fontSize: 11, color: GOLD, textAlign: 'center' }}>{totGross || '·'}</Text>}
+                    </View>
+                    {isStrokePlay && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, backgroundColor: `${GOLD}06` }}>
+                        <Text style={{ width: SL, fontFamily: FF, fontSize: 8, color: '#6b7280', paddingLeft: 8 }}>PTS</Text>
+                        {holes.map(h => {
+                          const p = pts(h.hole_number);
+                          return <Text key={h.hole_number} style={{ width: SC, fontFamily: FFB, fontSize: 10, color: p ? ptsColor(p) : '#2a2a2a', textAlign: 'center' }}>{p ?? '·'}</Text>;
+                        })}
+                        <Text style={{ width: ST, fontFamily: FFB, fontSize: 11, color: GOLD, textAlign: 'center' }}>
+                          {holes.reduce((s, h) => s + (pts(h.hole_number) ?? 0), 0) || '·'}
+                        </Text>
+                        {showTot && <Text style={{ width: ST, fontFamily: FFB, fontSize: 11, color: GOLD, textAlign: 'center' }}>{totPts || '·'}</Text>}
+                      </View>
+                    )}
+                  </View>
+                );
+
                 return (
-                  <View key={i} style={[styles.holeCell, styles.resultCell, c !== '.' && { backgroundColor: HOLE_COLORS[c] ?? 'transparent' }]}>
-                    <Text style={styles.resultChar}>{c === '.' ? '' : c.toUpperCase()}</Text>
+                  <View key={pid} style={{ width: screenWidth, paddingHorizontal: 16 }}>
+                    <View style={s.scorecardCard}>
+                      <View style={s.scorecardHeader}>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
+                        <Text style={[s.scorecardName, { color }]}>{name}</Text>
+                        {hasScores && totGross > 0 && <Text style={s.scorecardTotal}>{totGross}</Text>}
+                        {hasScores && isStrokePlay && totPts > 0 && <Text style={s.scorecardPts}>{totPts} pts</Text>}
+                      </View>
+                      {renderHalf(front, 'OUT', false)}
+                      <View style={{ height: 1, backgroundColor: '#1c1c1c', marginVertical: 4 }} />
+                      {renderHalf(back, 'IN', true)}
+                    </View>
                   </View>
                 );
               })}
-            </View>
+            </ScrollView>
+            {allPlayerIds.length > 1 && (
+              <View style={s.pageDots}>
+                {allPlayerIds.map((_, i) => (
+                  <View key={i} style={[s.pageDot, cardPage === i && s.pageDotActive]} />
+                ))}
+              </View>
+            )}
           </View>
-          </ScrollView>
-        </View>
+        )}
 
-        {/* Player scorecards — horizontal pager */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>SCORECARDS</Text>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            scrollEventThrottle={16}
-            onScroll={e => setCardPage(Math.round(e.nativeEvent.contentOffset.x / screenWidth))}
-            style={{ marginHorizontal: -spacing.md }}
-          >
-            {[
-              ...match.home_player_ids.map(pid => ({ pid, color: homeColor })),
-              ...match.away_player_ids.map(pid => ({ pid, color: awayColor })),
-            ].map(({ pid, color }) => {
-              const name = players.find(p => p.id === pid)?.display_name?.split(' ')[0] ?? '—';
-              const gross = (hole: number) => grossForHole(pid, hole);
-              const pts   = (hole: number) => stablefordForHole(pid, hole);
-
-              const front = courseHoles.filter(h => h.hole_number <= 9).sort((a, b) => a.hole_number - b.hole_number);
-              const back  = courseHoles.filter(h => h.hole_number >= 10).sort((a, b) => a.hole_number - b.hole_number);
-
-              const frontPar   = front.reduce((s, h) => s + h.par, 0);
-              const backPar    = back.reduce((s, h) => s + h.par, 0);
-              const frontGross = front.reduce((s, h) => s + (gross(h.hole_number) ?? 0), 0);
-              const backGross  = back.reduce((s, h) => s + (gross(h.hole_number) ?? 0), 0);
-              const frontPts   = front.reduce((s, h) => s + (pts(h.hole_number) ?? 0), 0);
-              const backPts    = back.reduce((s, h) => s + (pts(h.hole_number) ?? 0), 0);
-              const totGross   = frontGross + backGross;
-              const totPts     = frontPts + backPts;
-              const hasScores  = courseHoles.some(h => gross(h.hole_number) !== null);
-
-              const SL = 32; const SC = 26; const ST = 30;
-
-              const ScCell = ({ val, par: p }: { val: number | null; par: number | null }) => {
-                const diff = val !== null && p !== null ? val - p : null;
-                return (
-                  <View style={[
-                    styles.scScoreCell, { width: SC },
-                    diff !== null && diff < 0 && styles.scBirdie,
-                    diff !== null && diff === 0 && styles.scPar,
-                    diff !== null && diff > 0 && styles.scBogey,
-                  ]}>
-                    <Text style={styles.scScoreText}>{val ?? '·'}</Text>
-                  </View>
-                );
-              };
-
-              const renderHalf = (holes: CourseHole[], outLabel: string, showTot: boolean) => (
-                <View>
-                  <View style={styles.scRow}>
-                    <Text style={[styles.scLabel, { width: SL }]}>HOLE</Text>
-                    {holes.map(h => <Text key={h.hole_number} style={[styles.scHoleNum, { width: SC }]}>{h.hole_number}</Text>)}
-                    <Text style={[styles.scTotLabel, { width: ST }]}>{outLabel}</Text>
-                    {showTot && <Text style={[styles.scTotLabel, { width: ST }]}>TOT</Text>}
-                  </View>
-                  <View style={styles.scRow}>
-                    <Text style={[styles.scLabel, { width: SL }]}>SI</Text>
-                    {holes.map(h => <Text key={h.hole_number} style={[styles.scMuted, { width: SC }]}>{h.stroke_index}</Text>)}
-                    <Text style={{ width: ST }} />
-                    {showTot && <Text style={{ width: ST }} />}
-                  </View>
-                  <View style={[styles.scRow, styles.scParRow]}>
-                    <Text style={[styles.scLabel, { width: SL }]}>PAR</Text>
-                    {holes.map(h => <Text key={h.hole_number} style={[styles.scParText, { width: SC }]}>{h.par}</Text>)}
-                    <Text style={[styles.scTot, { width: ST }]}>{holes.reduce((s, h) => s + h.par, 0)}</Text>
-                    {showTot && <Text style={[styles.scTot, { width: ST }]}>{frontPar + backPar}</Text>}
-                  </View>
-                  <View style={styles.scRow}>
-                    <Text style={[styles.scLabel, styles.scPlayerLabel, { width: SL, color }]} numberOfLines={1}>{name}</Text>
-                    {holes.map(h => <ScCell key={h.hole_number} val={gross(h.hole_number)} par={h.par} />)}
-                    <Text style={[styles.scTot, styles.scTotBold, { width: ST }]}>
-                      {holes.reduce((s, h) => s + (gross(h.hole_number) ?? 0), 0) || '·'}
-                    </Text>
-                    {showTot && <Text style={[styles.scTot, styles.scTotBold, { width: ST, color: colors.gold }]}>{totGross || '·'}</Text>}
-                  </View>
-                  <View style={[styles.scRow, styles.scPtsRow]}>
-                    <Text style={[styles.scLabel, { width: SL }]}>PTS</Text>
-                    {holes.map(h => <Text key={h.hole_number} style={[styles.scPtsCell, { width: SC }]}>{pts(h.hole_number) ?? '·'}</Text>)}
-                    <Text style={[styles.scTot, styles.scGold, { width: ST }]}>
-                      {holes.reduce((s, h) => s + (pts(h.hole_number) ?? 0), 0) || '·'}
-                    </Text>
-                    {showTot && <Text style={[styles.scTot, styles.scGold, { width: ST }]}>{totPts || '·'}</Text>}
-                  </View>
-                </View>
-              );
-
-              return (
-                <View key={pid} style={{ width: screenWidth, paddingHorizontal: spacing.md }}>
-                  <View style={styles.scorecardCard}>
-                    <View style={styles.scorecardHeader}>
-                      <View style={[styles.scorecardDot, { backgroundColor: color }]} />
-                      <Text style={styles.scorecardName}>{name}</Text>
-                      {hasScores && <Text style={styles.scorecardTotal}>{totGross}</Text>}
-                      {hasScores && totPts > 0 && <Text style={styles.scorecardStableford}>{totPts} pts</Text>}
-                    </View>
-                    {renderHalf(front, 'OUT', false)}
-                    <View style={styles.scDivider} />
-                    {renderHalf(back, 'IN', true)}
-                  </View>
-                </View>
-              );
-            })}
-          </ScrollView>
-          <View style={styles.cardPageDots}>
-            {[...match.home_player_ids, ...match.away_player_ids].map((_, i) => (
-              <View key={i} style={[styles.cardPageDot, cardPage === i && styles.cardPageDotActive]} />
-            ))}
-          </View>
-        </View>
-
-        {/* Delete game */}
-        <TouchableOpacity style={styles.deleteBtn} onPress={deleteMatch} activeOpacity={0.7}>
-          <Text style={styles.deleteBtnText}>Delete Game</Text>
+        {/* Delete */}
+        <TouchableOpacity style={s.deleteBtn} onPress={deleteMatch} activeOpacity={0.7}>
+          <Ionicons name="trash-outline" size={14} color="#4b5563" />
+          <Text style={s.deleteBtnText}>Delete Game</Text>
         </TouchableOpacity>
-
       </ScrollView>
+
+      {/* ── Bottom CTAs ── */}
+      {status !== 'complete' && (
+        <View style={s.ctaWrap}>
+          <TouchableOpacity style={s.ctaBtn} onPress={handleEnterScores} activeOpacity={0.85}>
+            <Ionicons name="create-outline" size={20} color="#000000" />
+            <Text style={s.ctaText}>Enter Scores</Text>
+          </TouchableOpacity>
+          {isMember && (
+            <TouchableOpacity
+              style={s.ctaSecondary}
+              onPress={() => router.push(`/(app)/score/scan/${matchId}` as any)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="scan-outline" size={16} color={GOLD} />
+              <Text style={s.ctaSecondaryText}>Scan Paper Scorecard</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </View>
   );
 }
 
-const CELL_W = 32;
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#000000' },
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
-  errorText: { color: colors.textSecondary, fontSize: fonts.md },
   header: {
-    paddingTop: 60,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    flexDirection: 'row', alignItems: 'center',
+    paddingTop: 56, paddingHorizontal: 16, paddingBottom: 8,
   },
-  backBtn: { marginBottom: spacing.xs },
-  backText: { fontSize: fonts.md, color: colors.gold, fontWeight: '600' },
-  headerSub: { fontSize: fonts.xs, color: colors.textMuted, letterSpacing: 1 },
-  scroll: { padding: spacing.md, paddingBottom: spacing.xxl },
+  headerSide:   { width: 40 },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerLogo:   { width: 28, height: 28, marginBottom: 2 },
+  headerSub:    { fontFamily: FF, fontSize: 11, color: '#6b7280', letterSpacing: 0.5 },
 
-  matchCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.md,
-  },
-  teamsRow: { flexDirection: 'row', alignItems: 'center' },
-  teamBlock: { flex: 1 },
-  teamBlockRight: { alignItems: 'flex-end' },
-  sideColorBar: { width: 28, height: 3, borderRadius: 2, marginBottom: 6 },
-  sideTeamLogo: { width: 48, height: 48, borderRadius: 6, marginBottom: 6 },
-  sideAvatar: { width: 48, height: 48, borderRadius: 24, overflow: 'hidden', marginBottom: 6 },
-  sideAvatarFallback: { backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
-  sideAvatarInitial: { fontSize: fonts.lg, fontWeight: '800', color: colors.white },
-  sidePairRow: { flexDirection: 'row', marginBottom: 6 },
-  sidePairAv: { width: 38, height: 38, borderRadius: 19, overflow: 'hidden' },
-  sidePairOverlap: { marginLeft: -10 },
-  sidePairInitial: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  teamLabel: { fontSize: fonts.md, fontWeight: '800', color: colors.textSecondary },
-  teamWinner: { color: colors.white },
-  playerNames: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
-  statusBlock: { alignItems: 'center', paddingHorizontal: spacing.sm },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.live, marginBottom: 4 },
-  winArrow: { fontSize: fonts.lg, fontWeight: '900', marginVertical: 2 },
-  statusLabel: { fontSize: fonts.xl, fontWeight: '900', color: colors.textSecondary, letterSpacing: 0.5 },
-  statusLabelSmall: { fontSize: fonts.xs, fontWeight: '700', letterSpacing: 0.5 },
-  spLeaderRow: { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, textAlign: 'right', paddingHorizontal: spacing.sm, paddingTop: spacing.xs, letterSpacing: 0.5 },
-  statusLive: { color: colors.live },
-  statusComplete: { color: colors.gold },
+  statusBanner: { alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16 },
+  livePulse:    { width: 8, height: 8, borderRadius: 4, backgroundColor: '#22c55e', marginBottom: 4 },
+  statusMain:   { fontFamily: FF, fontSize: 22, letterSpacing: -0.3, textAlign: 'center' },
+  statusSub:    { fontFamily: FF, fontSize: 12, color: '#6b7280', marginTop: 2 },
 
-  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.md },
-  tag: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.full, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border },
-  tagGold: { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
-  tagText: { fontSize: fonts.xs, fontWeight: '600', color: colors.textMuted },
-  tagTextGold: { color: colors.gold },
-  cardPageDots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingVertical: spacing.sm },
-  cardPageDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border },
-  cardPageDotActive: { backgroundColor: colors.gold, borderColor: colors.gold, width: 18 },
-  deleteBtn: { alignItems: 'center', paddingVertical: spacing.lg, marginTop: spacing.lg },
-  deleteBtnText: { fontSize: fonts.sm, fontWeight: '600', color: colors.live, letterSpacing: 0.5 },
-  section: { marginBottom: spacing.lg },
-  sectionTitle: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5, marginBottom: spacing.sm },
+  playersRow: {
+    flexDirection: 'row', justifyContent: 'center',
+    gap: 16, paddingHorizontal: 16, paddingVertical: 10,
+  },
+  playerPill:       { alignItems: 'center', gap: 4, minWidth: 52 },
+  playerPillAvatar: { borderRadius: 26, overflow: 'visible' },
+  playerPillName:   { fontFamily: FF, fontSize: 11, textAlign: 'center' },
+  playerPillPts:    { fontFamily: FFB, fontSize: 11, textAlign: 'center' },
 
-  holeGrid: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
+  holeStripWrap: { maxHeight: 72 },
+  holeStrip:     { paddingHorizontal: 12, paddingVertical: 6, gap: 6, alignItems: 'center' },
+  holeTile: {
+    width: 42, height: 58, borderRadius: 10,
+    backgroundColor: '#111111', borderWidth: 1, borderColor: '#1c1c1c',
+    alignItems: 'center', justifyContent: 'center', gap: 2,
   },
-  holeRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border },
-  holeCell: { width: CELL_W, height: 28, alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontSize: 9, color: colors.textMuted, fontWeight: '600' },
-  holeLabelCell: { width: 52, paddingLeft: spacing.xs, textAlign: 'left', fontSize: 9, color: colors.textMuted },
-  holeNumCell: { fontSize: 10, color: colors.textSecondary },
-  parLabel: { color: colors.textMuted },
-  resultCell: { alignItems: 'center', justifyContent: 'center', borderRadius: 0 },
-  resultChar: { fontSize: 10, fontWeight: '800', color: colors.white },
+  holeTileNum:  { fontFamily: FF, fontSize: 14, color: '#4b5563' },
+  holeTilePar:  { fontFamily: FF, fontSize: 9, color: '#333' },
+  holeTilePts:  { fontFamily: FFB, fontSize: 11, marginTop: 1 },
 
-  enterScoresBtn: {
-    marginHorizontal: spacing.md,
-    marginTop: spacing.md,
-    backgroundColor: colors.gold,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm + 4,
-    alignItems: 'center',
+  halfLabels: {
+    flexDirection: 'row', justifyContent: 'space-around',
+    paddingHorizontal: 12, paddingBottom: 4,
   },
-  enterScoresBtnText: {
-    fontSize: fonts.md,
-    fontWeight: '700',
-    color: colors.bg,
-    letterSpacing: 1,
-  },
-  scanScorecardBtn: {
-    marginHorizontal: spacing.md,
-    marginTop: spacing.sm,
-    backgroundColor: 'rgba(212,175,55,0.08)',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.goldBorder,
-    paddingVertical: spacing.sm + 2,
-    alignItems: 'center',
-  },
-  scanScorecardBtnText: {
-    fontSize: fonts.sm,
-    fontWeight: '700',
-    color: colors.gold,
-    letterSpacing: 0.5,
-  },
+  halfLabel: { fontFamily: FF, fontSize: 8, color: '#2a2a2a', letterSpacing: 1.5 },
+
+  scroll: { padding: 16, paddingBottom: 24 },
+
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  tag:     { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, backgroundColor: '#111111', borderWidth: 1, borderColor: '#1c1c1c' },
+  tagGold: { backgroundColor: `${GOLD}0d`, borderColor: `${GOLD}30` },
+  tagText: { fontFamily: FF, fontSize: 11, color: '#6b7280' },
+
+  section: { marginBottom: 16 },
+  sectionTitle: { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 2, marginBottom: 10 },
 
   scorecardCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-    paddingHorizontal: spacing.xs,
-    marginBottom: spacing.sm,
-    overflow: 'hidden',
+    backgroundColor: '#111111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden',
+    marginBottom: 8,
   },
-  scorecardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm, gap: spacing.xs, paddingHorizontal: spacing.xs },
-  scorecardDot: { width: 8, height: 8, borderRadius: 4 },
-  scorecardName: { flex: 1, fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  scorecardTotal: { fontSize: fonts.sm, fontWeight: '800', color: colors.gold },
-  scorecardStableford: { fontSize: fonts.xs, fontWeight: '600', color: colors.textMuted },
-  scDivider: { height: 1, backgroundColor: colors.border, marginVertical: 3 },
-  scRow: { flexDirection: 'row', alignItems: 'center' },
-  scParRow: { backgroundColor: 'rgba(255,255,255,0.03)', borderTopWidth: 1, borderTopColor: colors.border },
-  scPtsRow: { backgroundColor: 'rgba(212,175,55,0.05)' },
-  scLabel: { fontSize: 8, fontWeight: '700', color: colors.textMuted, textAlign: 'center', height: 20, textAlignVertical: 'center', lineHeight: 20 },
-  scPlayerLabel: { fontSize: 8, fontWeight: '800' },
-  scHoleNum: { fontSize: 9, fontWeight: '700', color: colors.textSecondary, textAlign: 'center', height: 20, lineHeight: 20 },
-  scMuted: { fontSize: 8, color: colors.textMuted, textAlign: 'center', height: 18, lineHeight: 18 },
-  scParText: { fontSize: 9, fontWeight: '600', color: colors.textMuted, textAlign: 'center', height: 20, lineHeight: 20 },
-  scTotLabel: { fontSize: 8, fontWeight: '700', color: colors.gold, textAlign: 'center', height: 20, lineHeight: 20 },
-  scTot: { fontSize: 9, fontWeight: '600', color: colors.textSecondary, textAlign: 'center', height: 20, lineHeight: 20 },
-  scTotBold: { fontWeight: '800', color: colors.white },
-  scGold: { color: colors.gold, fontWeight: '700' },
-  scScoreCell: { height: 24, alignItems: 'center', justifyContent: 'center', borderRadius: 2 },
-  scScoreText: { fontSize: 9, fontWeight: '800', color: colors.textSecondary },
-  scPtsCell: { fontSize: 8, fontWeight: '600', color: colors.gold, textAlign: 'center', height: 18, lineHeight: 18 },
-  scBirdie: { backgroundColor: 'rgba(74,222,128,0.25)', borderWidth: 1, borderColor: colors.green },
-  scPar: { backgroundColor: colors.cardAlt },
-  scBogey: { backgroundColor: 'rgba(248,113,113,0.15)' },
+  scorecardHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: '#1a1a1a',
+  },
+  scorecardName:  { flex: 1, fontFamily: FFB, fontSize: 14 },
+  scorecardTotal: { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
+  scorecardPts:   { fontFamily: FF, fontSize: 11, color: GOLD },
+
+  pageDots:    { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 8 },
+  pageDot:     { width: 6, height: 6, borderRadius: 3, backgroundColor: '#1c1c1c' },
+  pageDotActive: { backgroundColor: GOLD, width: 18 },
+
+  deleteBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 20, marginTop: 8 },
+  deleteBtnText: { fontFamily: FF, fontSize: 12, color: '#4b5563' },
+
+  ctaWrap: { paddingHorizontal: 16, paddingBottom: 32, paddingTop: 8, backgroundColor: '#000000', borderTopWidth: 1, borderTopColor: '#111111' },
+  ctaBtn: {
+    backgroundColor: GOLD, borderRadius: 14,
+    paddingVertical: 16, flexDirection: 'row',
+    alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginBottom: 10,
+  },
+  ctaText: { fontFamily: FF, fontSize: 17, color: '#000000' },
+  ctaSecondary: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 12, borderRadius: 14,
+    backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}30`,
+  },
+  ctaSecondaryText: { fontFamily: FF, fontSize: 14, color: GOLD },
 });
