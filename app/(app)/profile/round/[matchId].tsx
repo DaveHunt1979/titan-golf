@@ -18,7 +18,7 @@ const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
 
-const titanLogo = require('../../../../assets/images/titan-logo.png');
+const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 const { width: SW } = Dimensions.get('window');
 

@@ -344,7 +344,7 @@ const s = StyleSheet.create({
   headerRight:  { width: 70, alignItems: 'flex-end' },
   headerLogo:   { width: 28, height: 28, marginBottom: 2 },
   headerTitle:  { fontFamily: FFB, fontSize: 15, color: '#fff', letterSpacing: 0.5 },
-  headerSub:    { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1, textTransform: 'uppercase' },
+  headerSub:    { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1, textTransform: 'uppercase' },
   back:         { fontFamily: FFB, fontSize: 14, color: GOLD },
   addBtn:       { fontFamily: FFB, fontSize: 14, color: GOLD },
 

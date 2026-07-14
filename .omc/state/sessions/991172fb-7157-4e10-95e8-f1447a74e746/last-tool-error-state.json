@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"grep -n \\\"useFonts\\\" /Users/davehunt/Desktop/titan-golf/app/(app)/admin/swindle.tsx 2>/dev/null; grep -rn \\\"useFonts\\\" /Users/davehunt/Desktop/titan-golf/app/(app)/admin/ 2>/dev/null | hea...",
-  "error": "Exit code 1\n(eval):1: no matches found: /Users/davehunt/Desktop/titan-golf/app/(app)/admin/swindle.tsx",
-  "timestamp": "2026-07-14T05:18:49.545Z",
+  "tool_input_preview": "{\"command\":\"for f in /Users/davehunt/Desktop/titan-golf/app/\\\\(app\\\\)/score/*/\\\\[matchId\\\\].tsx; do echo \\\"=== $f ===\\\"; grep -n \\\"speakIntro\\\\|speakOutro\\\\|speakBack9\\\\|speakDebrief\\\\|speakPressure\\\\...",
+  "error": "Exit code 1\n=== /Users/davehunt/Desktop/titan-golf/app/(app)/score/bbb/[matchId].tsx ===\n=== /Users/davehunt/Desktop/titan-golf/app/(app)/score/chacha/[matchId].tsx ===\n=== /Users/davehunt/Desktop/titan-golf/app/(app)/score/enter/[matchId].tsx ===\n17:import { speakHole, speakPressure } from '../../../../src/lib/caddie';\n44:  if (diff === -1) return 'birdie';\n384:    await speakHole(currentHole, courseHole?.par ?? null, holeYardage, courseHole?.stroke_index ?? null, firstNames);\n537:        if (!...",
+  "timestamp": "2026-07-14T07:19:10.906Z",
   "retry_count": 1
 }

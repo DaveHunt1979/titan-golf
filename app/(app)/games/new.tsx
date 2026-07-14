@@ -14,7 +14,7 @@ import { getPlayerAvatar } from '../../../src/lib/assets';
 
 // ── Constants ─────────────────────────────────────────────────
 
-type GameMode  = '4bbb' | 'singles' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'wolf' | 'scramble' | 'greensome' | 'bbb' | 'foursomes' | 'modified_stableford' | 'par_bogey' | 'chacha' | 'team_stableford';
+type GameMode  = '4bbb' | 'singles' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble' | 'greensome' | 'foursomes' | 'modified_stableford' | 'par_bogey' | 'team_stableford';
 type HolesMode = 'full18' | 'front9' | 'back9';
 
 interface Player     { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
@@ -36,17 +36,14 @@ const MODE_INFO: Record<GameMode, { label: string; sub: string; icon: keyof type
   'modified_stableford': { label: 'Mod Stableford',    sub: 'Eagle +8 · Birdie +4',         icon: 'trophy-outline' },
   'par_bogey':           { label: 'Par / Bogey',       sub: 'Win, halve or lose vs par',    icon: 'stats-chart-outline' },
   'skins':               { label: 'Skins',             sub: 'Per-hole prize pot',           icon: 'diamond-outline' },
-  'wolf':                { label: 'Wolf',              sub: 'Rotating Wolf picks partner',  icon: 'paw-outline' },
   'scramble':            { label: 'Scramble',          sub: 'Team best ball',               icon: 'golf-outline' },
-  'bbb':                 { label: 'Bingo Bango Bongo', sub: 'First on green · closest · out', icon: 'grid-outline' },
-  'chacha':              { label: 'ChaChaCha',         sub: 'Best 1 · 2 · 3 per hole',     icon: 'musical-notes-outline' },
   'team_stableford':    { label: 'Team Stableford',   sub: 'Best N scores count per team', icon: 'people-circle-outline' },
 };
 
 const MODE_SECTIONS: { label: string; accent: string; modes: GameMode[] }[] = [
   { label: 'MATCHPLAY',    accent: GOLD,      modes: ['4bbb', 'singles', 'nassau', 'foursomes', 'greensome'] },
   { label: 'INDIVIDUAL',   accent: '#4ade80', modes: ['stableford', 'medal', 'modified_stableford', 'par_bogey'] },
-  { label: 'GROUP GAMES',  accent: '#60a5fa', modes: ['skins', 'wolf', 'scramble', 'bbb', 'chacha'] },
+  { label: 'GROUP GAMES',  accent: '#60a5fa', modes: ['skins', 'scramble'] },
   { label: 'TEAM GAMES',   accent: '#f97316', modes: ['team_stableford'] },
 ];
 
@@ -408,7 +405,7 @@ export default function NewGameScreen() {
     })();
   }, [societyId, societyLoading]);
 
-  const isSolo = ['stableford', 'medal', 'skins', 'wolf', 'scramble', 'bbb', 'modified_stableford', 'par_bogey', 'chacha'].includes(mode);
+  const isSolo = ['stableford', 'medal', 'skins', 'scramble', 'modified_stableford', 'par_bogey'].includes(mode);
   const maxPer = mode === 'team_stableford' ? teamSize
                : (mode === 'singles' || mode === 'nassau') ? 1
                : isSolo ? 4

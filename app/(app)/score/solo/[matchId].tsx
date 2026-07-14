@@ -181,6 +181,7 @@ export default function SoloRoundScreen() {
     return acc;
   }, {} as Record<number, string>);
   const currentSideGame = sideGameByHole[activeHole] ?? null;
+  const voiceOff = match?.side_games?.includes('voice:off') ?? false;
 
   const courseHole = courseHoles.find(h => h.hole_number === activeHole);
   const shots = courseHole ? calcStrokesReceived(courseHcp, courseHole.stroke_index) : 0;
@@ -329,7 +330,7 @@ export default function SoloRoundScreen() {
     if (!match || !playerName || loading || introPlayedRef.current) return;
     if (nextHole === 1) {
       introPlayedRef.current = true;
-      speakIntro([playerName.split(' ')[0]]);
+      if (!voiceOff) speakIntro([playerName.split(' ')[0]]);
     }
   }, [match, playerName, loading, nextHole]);
 
@@ -344,12 +345,12 @@ export default function SoloRoundScreen() {
         const ch = courseHoles.find(c => c.hole_number === h.hole_number);
         return s + (ch?.par ?? 0);
       }, 0);
-      speakBack9(playerName.split(' ')[0], match.round_format, frontPts, frontGross, frontGross - frontParSum);
+      if (!voiceOff) speakBack9(playerName.split(' ')[0], match.round_format, frontPts, frontGross, frontGross - frontParSum);
     }
   }, [match, playerName, loading, nextHole, savedScores, courseHoles]);
 
   async function onCoachMe() {
-    if (coachLoading) return;
+    if (coachLoading || voiceOff) return;
     setCoachLoading(true);
     await speakHole(nextHole, courseHole?.par ?? null, holeYardage, courseHole?.stroke_index ?? null, playerName ? [playerName.split(' ')[0]] : []);
     setCoachLoading(false);
@@ -705,7 +706,7 @@ export default function SoloRoundScreen() {
               )}
               <TouchableOpacity
                 style={s.endRoundBtn}
-                onPress={async () => { if (playerName) await speakOutro(playerName.split(' ')[0], finalScore); router.back(); }}
+                onPress={async () => { if (playerName && !voiceOff) await speakOutro(playerName.split(' ')[0], finalScore); router.back(); }}
                 activeOpacity={0.85}
               >
                 <Ionicons name="mic-outline" size={18} color="#000000" />

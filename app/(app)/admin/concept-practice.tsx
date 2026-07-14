@@ -204,7 +204,7 @@ const s = StyleSheet.create({
 
   // Title
   pageTitle: { fontFamily: FFB, fontSize: 34, color: '#ffffff', paddingHorizontal: 16, letterSpacing: -0.5, marginTop: 4 },
-  pageSub:   { fontFamily: FF, fontSize: 13, color: '#6b7280', paddingHorizontal: 16, marginTop: 4, marginBottom: 20 },
+  pageSub:   { fontFamily: FFB, fontSize: 13, color: '#fff', paddingHorizontal: 16, marginTop: 4, marginBottom: 20 },
 
   // Stats
   statsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginBottom: 16 },

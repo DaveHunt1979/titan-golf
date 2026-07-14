@@ -33,7 +33,7 @@ interface ClubAvg {
 export default function RangeHomeScreen() {
   const router = useRouter();
   const [fontsLoaded] = useFonts({
-    [FF]:  require('../../../assets/fonts/JUSTSans.otf'),
+    [FF]:  require('../../../assets/fonts/JUSTSans-Regular.otf'),
     [FFB]: require('../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 

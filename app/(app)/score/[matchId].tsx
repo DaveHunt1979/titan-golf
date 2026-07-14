@@ -268,8 +268,8 @@ export default function MatchDetailScreen() {
             {match.day?.course_name ? `${match.day.course_name} · ${formatLabel}` : formatLabel}
           </Text>
         </View>
-        <TouchableOpacity style={s.headerSide} onPress={() => { setRefreshing(true); load(); }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Ionicons name="refresh-outline" size={22} color="#6b7280" />
+        <TouchableOpacity style={s.headerSide} onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=1` as any)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="scan-outline" size={22} color={GOLD} />
         </TouchableOpacity>
       </View>
 

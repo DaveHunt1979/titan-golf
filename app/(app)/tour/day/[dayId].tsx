@@ -35,7 +35,7 @@ export default function TourDayScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [fontsLoaded] = useFonts({
-    [FF]: require('../../../../assets/fonts/JUSTSans.otf'),
+    [FF]: require('../../../../assets/fonts/JUSTSans-Regular.otf'),
     [FFB]: require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 

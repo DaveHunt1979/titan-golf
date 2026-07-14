@@ -16,7 +16,7 @@ const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/images/titan-logo.png');
+const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 interface HoleScore  { hole: number; gross: number | null; }

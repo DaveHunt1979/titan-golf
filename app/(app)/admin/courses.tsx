@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  TextInput, Alert, ActivityIndicator, Modal, Image,
+  TextInput, Alert, ActivityIndicator, Modal, Image, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -458,6 +458,7 @@ export default function CoursesScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setModal(false)}
       >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={s.modal}>
           {/* Modal header */}
           <View style={s.modalHeader}>
@@ -627,6 +628,7 @@ export default function CoursesScreen() {
             </ScrollView>
           )}
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

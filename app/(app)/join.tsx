@@ -282,9 +282,9 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
   sub: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 14,
-    color: '#555',
+    color: '#fff',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 32,

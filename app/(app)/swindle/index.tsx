@@ -116,7 +116,7 @@ export default function SwindleIndex() {
       <View style={s.header}>
         <View style={s.headerSide} />
         <View style={s.headerCenter}>
-          <Image source={require('../../../assets/images/titan-logo.png')} style={s.logo} />
+          <Image source={require('../../../assets/TitanAppLogo.png')} style={s.logo} />
           <Text style={s.headerSub}>THE SWINDLE</Text>
         </View>
         <View style={s.headerSide} />

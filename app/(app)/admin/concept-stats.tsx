@@ -525,7 +525,7 @@ const s = StyleSheet.create({
     paddingVertical: 18, alignItems: 'center',
   },
   summaryVal: { fontFamily: FF, fontSize: 28, color: GOLD },
-  summaryLbl: { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 1.5, marginTop: 4 },
+  summaryLbl: { fontFamily: 'JUSTSans-ExBold', fontSize: 9, color: '#fff', letterSpacing: 1.5, marginTop: 4 },
 
   // Empty
   emptyCard: {
@@ -535,7 +535,7 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: '#1c1c1c', marginBottom: 16,
   },
   emptyTitle: { fontFamily: FF, fontSize: 16, color: '#ffffff' },
-  emptySub:   { fontFamily: FF, fontSize: 12, color: '#6b7280', textAlign: 'center', lineHeight: 18 },
+  emptySub:   { fontFamily: 'JUSTSans-ExBold', fontSize: 12, color: '#fff', textAlign: 'center', lineHeight: 18 },
 
   // Section
   section: {
@@ -552,14 +552,14 @@ const s = StyleSheet.create({
   hcpMeta:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
   hcpMetaItem: { flex: 1 },
   hcpMetaVal:  { fontFamily: FF, fontSize: 26, color: '#ffffff' },
-  hcpMetaLbl:  { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 1.5, marginTop: 2 },
+  hcpMetaLbl:  { fontFamily: 'JUSTSans-ExBold', fontSize: 9, color: '#fff', letterSpacing: 1.5, marginTop: 2 },
   hcpDelta:    { fontFamily: FF, fontSize: 26 },
 
   // Scoring
   vBarRow: { flexDirection: 'row', gap: 8 },
   vBarCol: { flex: 1, alignItems: 'center', gap: 6 },
   vBarCount: { fontFamily: FF, fontSize: 16 },
-  vBarLabel: { fontFamily: FF, fontSize: 9, color: '#6b7280', textAlign: 'center', letterSpacing: 0.5 },
+  vBarLabel: { fontFamily: 'JUSTSans-ExBold', fontSize: 9, color: '#fff', textAlign: 'center', letterSpacing: 0.5 },
 
   // Drives
   fairwayWrap: { flexDirection: 'row', gap: 6 },
