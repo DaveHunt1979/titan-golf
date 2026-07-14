@@ -1,12 +1,20 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+const GOLD   = '#D4AF37';
+const GREEN  = '#4ade80';
+const RED    = '#f87171';
+const PURPLE = '#a78bfa';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const SWATCHES = [
   { label: 'Gold',    hex: '#D4AF37' },
@@ -48,8 +56,13 @@ type PlanTier = 'free' | 'society' | 'club';
 
 export default function CreateSocietyScreen() {
   const router = useRouter();
-  const [step, setStep] = useState(0);
 
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
+  const [step, setStep]               = useState(0);
   const [societyName, setSocietyName] = useState('');
   const [adminName, setAdminName]     = useState('');
   const [primaryColor, setPrimaryColor] = useState('#D4AF37');
@@ -57,8 +70,8 @@ export default function CreateSocietyScreen() {
   const [loading, setLoading]         = useState(false);
   const [result, setResult]           = useState<{ pin: string; name: string } | null>(null);
 
-  const slug         = toSlug(societyName);
-  const canProceed0  = societyName.trim().length > 1 && adminName.trim().length > 1;
+  const slug          = toSlug(societyName);
+  const canProceed0   = societyName.trim().length > 1 && adminName.trim().length > 1;
   const selectedSwatch = SWATCHES.find(s => s.hex === primaryColor);
 
   async function create() {
@@ -82,6 +95,12 @@ export default function CreateSocietyScreen() {
     setStep(3);
   }
 
+  if (!fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
+
   // ── Step 0: Details ──────────────────────────────────────────
   if (step === 0) {
     return (
@@ -92,35 +111,40 @@ export default function CreateSocietyScreen() {
         <StatusBar style="light" />
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} hitSlop={hit}>
-            <Text style={styles.back}>✕</Text>
+            <Text style={styles.back}>✕ Close</Text>
           </TouchableOpacity>
-          <Text style={styles.stepPill}>1 of 3</Text>
+          <View style={styles.headerCenter}>
+            <Image source={titanLogo} style={styles.logo} resizeMode="contain" />
+            <Text style={styles.headerTitle}>NEW SOCIETY</Text>
+            <Text style={styles.headerSub}>step 1 of 3</Text>
+          </View>
+          <View style={{ width: 70 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <Text style={styles.stepTitle}>Name your Society</Text>
           <Text style={styles.stepSub}>This is what your members will see when they join.</Text>
 
-          <Text style={styles.fieldLabel}>Society Name</Text>
+          <Text style={styles.fieldLabel}>SOCIETY NAME</Text>
           <TextInput
             style={styles.input}
             value={societyName}
             onChangeText={setSocietyName}
             placeholder="e.g. Titan Golf Society"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor="#444"
             autoFocus
           />
           {societyName.length > 1 && (
             <Text style={styles.hint}>Identifier: {slug}</Text>
           )}
 
-          <Text style={[styles.fieldLabel, { marginTop: spacing.xl }]}>Your Name</Text>
+          <Text style={[styles.fieldLabel, { marginTop: 24 }]}>YOUR NAME</Text>
           <TextInput
             style={styles.input}
             value={adminName}
             onChangeText={setAdminName}
             placeholder="e.g. Rick Jones"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor="#444"
           />
           <Text style={styles.hint}>You'll be the society owner and admin.</Text>
 
@@ -144,9 +168,14 @@ export default function CreateSocietyScreen() {
         <StatusBar style="light" />
         <View style={styles.header}>
           <TouchableOpacity onPress={() => setStep(0)} hitSlop={hit}>
-            <Text style={styles.back}>← Back</Text>
+            <Text style={styles.back}>‹ Back</Text>
           </TouchableOpacity>
-          <Text style={styles.stepPill}>2 of 3</Text>
+          <View style={styles.headerCenter}>
+            <Image source={titanLogo} style={styles.logo} resizeMode="contain" />
+            <Text style={styles.headerTitle}>NEW SOCIETY</Text>
+            <Text style={styles.headerSub}>step 2 of 3</Text>
+          </View>
+          <View style={{ width: 70 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll}>
@@ -186,9 +215,14 @@ export default function CreateSocietyScreen() {
         <StatusBar style="light" />
         <View style={styles.header}>
           <TouchableOpacity onPress={() => setStep(1)} hitSlop={hit}>
-            <Text style={styles.back}>← Back</Text>
+            <Text style={styles.back}>‹ Back</Text>
           </TouchableOpacity>
-          <Text style={styles.stepPill}>3 of 3</Text>
+          <View style={styles.headerCenter}>
+            <Image source={titanLogo} style={styles.logo} resizeMode="contain" />
+            <Text style={styles.headerTitle}>NEW SOCIETY</Text>
+            <Text style={styles.headerSub}>step 3 of 3</Text>
+          </View>
+          <View style={{ width: 70 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll}>
@@ -222,7 +256,7 @@ export default function CreateSocietyScreen() {
             activeOpacity={0.8}
           >
             {loading
-              ? <ActivityIndicator color={colors.bg} />
+              ? <ActivityIndicator color="#000" />
               : <Text style={styles.btnText}>Create Society</Text>
             }
           </TouchableOpacity>
@@ -268,84 +302,89 @@ export default function CreateSocietyScreen() {
 const hit = { top: 12, bottom: 12, left: 12, right: 12 };
 
 const styles = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: '#000' },
+
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingTop: Platform.OS === 'ios' ? 56 : 32,
+    paddingHorizontal: 20, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  back:        { fontSize: fonts.sm, fontWeight: '600', color: colors.gold },
-  stepPill: {
-    fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted,
-    letterSpacing: 1, textTransform: 'uppercase',
-  },
-  scroll:      { padding: spacing.lg, paddingBottom: 60 },
-  stepTitle:   { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, marginBottom: spacing.xs },
-  stepSub:     { fontSize: fonts.sm, color: colors.textMuted, lineHeight: 20, marginBottom: spacing.xl },
+  back: { fontSize: 13, fontFamily: FFB, color: GOLD, width: 70 },
+  headerCenter: { alignItems: 'center', gap: 2 },
+  logo: { width: 28, height: 28, marginBottom: 2 },
+  headerTitle: { fontSize: 12, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
+  headerSub: { fontSize: 9, fontFamily: FF, color: '#555' },
+
+  scroll: { padding: 20, paddingBottom: 60 },
+  stepTitle: { fontSize: 22, fontFamily: FFB, color: '#fff', marginBottom: 6 },
+  stepSub: { fontSize: 13, fontFamily: FF, color: '#555', lineHeight: 20, marginBottom: 24 },
+
   fieldLabel: {
-    fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted,
-    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: spacing.xs,
+    fontSize: 11, fontFamily: FFB, color: '#555',
+    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6,
   },
   input: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
-    fontSize: fonts.md, color: colors.white, marginBottom: spacing.xs,
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 6,
   },
-  hint:        { fontSize: fonts.xs, color: colors.textMuted, marginBottom: spacing.md },
+  hint: { fontSize: 11, fontFamily: FF, color: '#555', marginBottom: 16 },
+
   btn: {
-    backgroundColor: colors.gold, borderRadius: radius.md,
-    paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.xl,
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingVertical: 16, alignItems: 'center', marginTop: 24,
   },
   btnDisabled: { opacity: 0.4 },
-  btnText:     { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 0.5 },
+  btnText: { fontSize: 15, fontFamily: FFB, color: '#000', letterSpacing: 0.5 },
 
   previewBanner: {
-    borderRadius: radius.md, paddingVertical: spacing.lg,
-    alignItems: 'center', marginBottom: spacing.xl,
+    borderRadius: 12, paddingVertical: 20,
+    alignItems: 'center', marginBottom: 24,
   },
-  previewName: { fontSize: fonts.xl, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
+  previewName: { fontSize: 18, fontFamily: FFB, color: '#fff', letterSpacing: 0.5 },
 
   swatchGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md,
-    justifyContent: 'center', marginBottom: spacing.sm,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 16,
+    justifyContent: 'center', marginBottom: 10,
   },
   swatch: {
     width: 60, height: 60, borderRadius: 30,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 3, borderColor: 'transparent',
   },
-  swatchOn:    { borderColor: colors.white },
-  swatchTick:  { fontSize: 24, color: colors.white, fontWeight: '800' },
-  swatchLabel: { textAlign: 'center', fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary, marginBottom: spacing.lg, minHeight: 20 },
+  swatchOn:   { borderColor: '#fff' },
+  swatchTick: { fontSize: 24, color: '#fff', fontFamily: FFB },
+  swatchLabel: { textAlign: 'center', fontSize: 13, fontFamily: FFB, color: '#888', marginBottom: 20, minHeight: 20 },
 
   planCard: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.md, marginBottom: spacing.md,
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 16, marginBottom: 12,
   },
-  planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
-  planName:  { fontSize: fonts.lg, fontWeight: '800', color: colors.white },
-  planPrice: { fontSize: fonts.sm, fontWeight: '600', color: colors.textMuted },
-  planFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: 4 },
-  planTick:    { fontSize: fonts.sm, color: colors.textMuted, width: 18 },
-  planFeature: { fontSize: fonts.sm, color: colors.textSecondary },
+  planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  planName:  { fontSize: 17, fontFamily: FFB, color: '#fff' },
+  planPrice: { fontSize: 13, fontFamily: FF, color: '#555' },
+  planFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  planTick:    { fontSize: 13, fontFamily: FFB, color: '#555', width: 18 },
+  planFeature: { fontSize: 13, fontFamily: FF, color: '#888' },
 
   successScroll: { alignItems: 'center', paddingTop: 80 },
   successBadge: {
     width: 100, height: 100, borderRadius: 50, borderWidth: 2,
-    alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 20,
   },
-  successTitle: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, marginBottom: spacing.xs, textAlign: 'center' },
+  successTitle: { fontSize: 22, fontFamily: FFB, color: '#fff', marginBottom: 6, textAlign: 'center' },
   successSub: {
-    fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center',
-    lineHeight: 20, marginBottom: spacing.xl, paddingHorizontal: spacing.lg,
+    fontSize: 13, fontFamily: FF, color: '#555', textAlign: 'center',
+    lineHeight: 20, marginBottom: 24, paddingHorizontal: 20,
   },
   pinCard: {
-    backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 2,
-    padding: spacing.xl, alignItems: 'center', marginBottom: spacing.xl, width: '100%',
+    backgroundColor: '#111', borderRadius: 14, borderWidth: 2,
+    padding: 24, alignItems: 'center', marginBottom: 24, width: '100%',
   },
-  pinLabel:  { fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted, letterSpacing: 3, marginBottom: spacing.sm },
-  pinNumber: { fontSize: 56, fontWeight: '900', letterSpacing: 6, marginBottom: spacing.xs },
-  pinHint:   { fontSize: fonts.xs, color: colors.textMuted },
+  pinLabel:  { fontSize: 11, fontFamily: FFB, color: '#555', letterSpacing: 3, marginBottom: 10 },
+  pinNumber: { fontSize: 56, fontFamily: FFB, letterSpacing: 6, marginBottom: 6 },
+  pinHint:   { fontSize: 11, fontFamily: FF, color: '#555' },
 });

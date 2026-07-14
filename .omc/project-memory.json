@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -E \"admin/info|admin/membership|admin/pins\" | head -40",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -E \"admin/swindle|admin/transfers|admin/build|admin/create-society\" | head -30",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
