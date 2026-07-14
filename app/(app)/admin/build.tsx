@@ -3,13 +3,21 @@ import { useFocusEffect } from 'expo-router';
 import {
   View, Text, ScrollView, StyleSheet, TextInput,
   TouchableOpacity, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert, Switch,
+  ActivityIndicator, Alert, Switch, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+const GOLD   = '#D4AF37';
+const GREEN  = '#4ade80';
+const RED    = '#f87171';
+const PURPLE = '#a78bfa';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 type FormatId = 'team_matchplay' | 'ryder_cup' | 'stableford' | 'medal' | 'knockout';
 type DayFormatId = 'four_bbb' | 'foursomes' | 'greensomes' | 'singles' | 'stableford' | 'medal' | 'scramble';
@@ -73,20 +81,20 @@ const COMP_FORMATS: CompFormat[] = [
 ];
 
 const DAY_FORMATS: Array<{ id: DayFormatId; label: string; sub: string }> = [
-  { id: 'four_bbb', label: '4BBB', sub: 'Best ball pairs' },
-  { id: 'foursomes', label: 'Foursomes', sub: 'Alternate shot' },
+  { id: 'four_bbb',   label: '4BBB',       sub: 'Best ball pairs' },
+  { id: 'foursomes',  label: 'Foursomes',  sub: 'Alternate shot' },
   { id: 'greensomes', label: 'Greensomes', sub: 'Pick best drive' },
-  { id: 'singles', label: 'Singles', sub: '1v1 matchplay' },
+  { id: 'singles',    label: 'Singles',    sub: '1v1 matchplay' },
   { id: 'stableford', label: 'Stableford', sub: 'Points per hole' },
-  { id: 'medal', label: 'Medal', sub: 'Stroke play' },
-  { id: 'scramble', label: 'Scramble', sub: 'Team scramble' },
+  { id: 'medal',      label: 'Medal',      sub: 'Stroke play' },
+  { id: 'scramble',   label: 'Scramble',   sub: 'Team scramble' },
 ];
 
 const HCP_OPTIONS = [
   { pct: 100, label: 'Full' },
-  { pct: 87, label: '7/8' },
-  { pct: 75, label: '3/4' },
-  { pct: 0, label: 'Scratch' },
+  { pct: 87,  label: '7/8' },
+  { pct: 75,  label: '3/4' },
+  { pct: 0,   label: 'Scratch' },
 ];
 
 interface DayConfig {
@@ -100,16 +108,20 @@ const STEPS = ['Format', 'Details', 'Days', 'Review'];
 export default function BuildTournamentScreen() {
   const router = useRouter();
   const { societyId } = useAdminSociety();
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
   const [step, setStep] = useState(0);
-
   const [selectedFormat, setSelectedFormat] = useState<FormatId | null>(null);
-  const [name, setName] = useState('');
-  const [year, setYear] = useState(String(new Date().getFullYear() + 1));
-  const [days, setDays] = useState<DayConfig[]>([]);
+  const [name, setName]                     = useState('');
+  const [year, setYear]                     = useState(String(new Date().getFullYear() + 1));
+  const [days, setDays]                     = useState<DayConfig[]>([]);
   const [includeInKronos, setIncludeInKronos] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating]             = useState(false);
 
-  // Reset all state each time the screen is focused so old tournament settings don't bleed through
   useFocusEffect(useCallback(() => {
     setStep(0);
     setSelectedFormat(null);
@@ -126,7 +138,6 @@ export default function BuildTournamentScreen() {
     if (!f.available) return;
     setSelectedFormat(f.id);
     setIncludeInKronos(f.id === 'team_matchplay');
-    // Smart defaults: last day is singles for multi-team tour
     const builtDays: DayConfig[] = Array.from({ length: f.defaultDays }, (_, i) => {
       const isLastDay = i === f.defaultDays - 1;
       const isTour = f.id === 'team_matchplay';
@@ -230,6 +241,12 @@ export default function BuildTournamentScreen() {
     true,
   ][step] ?? true;
 
+  if (!fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -237,12 +254,16 @@ export default function BuildTournamentScreen() {
     >
       <StatusBar style="light" />
 
-      {/* Header */}
+      {/* Header — three-column */}
       <View style={styles.header}>
         <TouchableOpacity onPress={back} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={styles.backText}>{step === 0 ? '✕ Cancel' : '‹ Back'}</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Build Tournament</Text>
+        <View style={styles.headerCenter}>
+          <Image source={titanLogo} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.headerTitle}>BUILD TOURNAMENT</Text>
+          <Text style={styles.headerSub}>step {step + 1} of {STEPS.length}</Text>
+        </View>
         {/* Step dots */}
         <View style={styles.stepDots}>
           {STEPS.map((_, i) => (
@@ -253,7 +274,7 @@ export default function BuildTournamentScreen() {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* ── Step 0: Format ── */}
+        {/* Step 0: Format */}
         {step === 0 && (
           <View>
             <Text style={styles.stepTitle}>Choose Format</Text>
@@ -270,7 +291,7 @@ export default function BuildTournamentScreen() {
                 activeOpacity={f.available ? 0.75 : 1}
               >
                 <View style={styles.formatRow}>
-                  <Text style={[styles.formatLabel, !f.available && { color: colors.textMuted }]}>
+                  <Text style={[styles.formatLabel, !f.available && { color: '#555' }]}>
                     {f.label}
                   </Text>
                   {!f.available && (
@@ -280,7 +301,7 @@ export default function BuildTournamentScreen() {
                     <Text style={styles.tick}>✓</Text>
                   )}
                 </View>
-                <Text style={[styles.formatSub, !f.available && { color: colors.textMuted }]}>
+                <Text style={[styles.formatSub, !f.available && { color: '#444' }]}>
                   {f.sub}
                 </Text>
               </TouchableOpacity>
@@ -288,7 +309,7 @@ export default function BuildTournamentScreen() {
           </View>
         )}
 
-        {/* ── Step 1: Details ── */}
+        {/* Step 1: Details */}
         {step === 1 && (
           <View>
             <Text style={styles.stepTitle}>Competition Details</Text>
@@ -300,7 +321,7 @@ export default function BuildTournamentScreen() {
               value={name}
               onChangeText={setName}
               placeholder="e.g. Titan Tour 2028"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor="#444"
               autoCapitalize="words"
             />
 
@@ -310,7 +331,7 @@ export default function BuildTournamentScreen() {
               value={year}
               onChangeText={setYear}
               placeholder="2028"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor="#444"
               keyboardType="number-pad"
               maxLength={4}
             />
@@ -343,14 +364,14 @@ export default function BuildTournamentScreen() {
               <Switch
                 value={includeInKronos}
                 onValueChange={setIncludeInKronos}
-                trackColor={{ false: colors.border, true: colors.goldBorder }}
-                thumbColor={includeInKronos ? colors.gold : colors.textMuted}
+                trackColor={{ false: '#1c1c1c', true: `${GOLD}66` }}
+                thumbColor={includeInKronos ? GOLD : '#555'}
               />
             </View>
           </View>
         )}
 
-        {/* ── Step 2: Day Setup ── */}
+        {/* Step 2: Day Setup */}
         {step === 2 && (
           <View>
             <Text style={styles.stepTitle}>Day Setup</Text>
@@ -365,13 +386,13 @@ export default function BuildTournamentScreen() {
                   value={day.courseName}
                   onChangeText={v => updateDay(i, { courseName: v })}
                   placeholder="e.g. West Cliffs"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor="#444"
                   autoCapitalize="words"
                 />
 
                 <Text style={styles.fieldLabel}>FORMAT</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.xs }}>
-                  <View style={{ flexDirection: 'row', gap: spacing.xs, paddingRight: spacing.md }}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', gap: 8, paddingRight: 16 }}>
                     {DAY_FORMATS.map(f => (
                       <TouchableOpacity
                         key={f.id}
@@ -410,7 +431,7 @@ export default function BuildTournamentScreen() {
           </View>
         )}
 
-        {/* ── Step 3: Review + Create ── */}
+        {/* Step 3: Review + Create */}
         {step === 3 && (
           <View>
             <Text style={styles.stepTitle}>Ready to Launch</Text>
@@ -446,7 +467,7 @@ export default function BuildTournamentScreen() {
               activeOpacity={0.85}
             >
               {creating
-                ? <ActivityIndicator color={colors.bg} />
+                ? <ActivityIndicator color="#000" />
                 : <Text style={styles.createBtnText}>Create Tournament</Text>
               }
             </TouchableOpacity>
@@ -455,7 +476,6 @@ export default function BuildTournamentScreen() {
 
       </ScrollView>
 
-      {/* Next button (steps 0–2) */}
       {step < 3 && (
         <View style={styles.footer}>
           <TouchableOpacity
@@ -483,117 +503,123 @@ function ReviewRow({ label, value, last }: { label: string; value: string; last?
 
 const reviewStyles = StyleSheet.create({
   row: {
-    flexDirection: 'row', paddingVertical: 10, paddingHorizontal: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 16,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
   rowLast: { borderBottomWidth: 0 },
-  key: { width: 72, fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
-  val: { flex: 1, fontSize: fonts.sm, color: colors.white, fontWeight: '600' },
+  key: { width: 72, fontSize: 13, fontFamily: 'JUSTSans', color: '#555' },
+  val: { flex: 1, fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
 });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: '#000' },
+
   header: {
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingTop: Platform.OS === 'ios' ? 56 : 32,
+    paddingHorizontal: 20, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  backText: { fontSize: fonts.sm, color: colors.gold, fontWeight: '600', width: 80 },
-  headerTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
+  backText: { fontSize: 13, fontFamily: FFB, color: GOLD, width: 80 },
+  headerCenter: { alignItems: 'center', gap: 2 },
+  logo: { width: 28, height: 28, marginBottom: 2 },
+  headerTitle: { fontSize: 12, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
+  headerSub: { fontSize: 9, fontFamily: FF, color: '#555' },
   stepDots: { flexDirection: 'row', gap: 6, width: 80, justifyContent: 'flex-end' },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
-  dotOn: { backgroundColor: colors.gold },
-  scroll: { padding: spacing.lg, paddingBottom: 48 },
-  stepTitle: { fontSize: fonts.xl, fontWeight: '800', color: colors.white, marginBottom: 6 },
-  stepSub: { fontSize: fonts.sm, color: colors.textSecondary, marginBottom: spacing.lg, lineHeight: 20 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#1c1c1c' },
+  dotOn: { backgroundColor: GOLD },
+
+  scroll: { padding: 20, paddingBottom: 48 },
+  stepTitle: { fontSize: 20, fontFamily: FFB, color: '#fff', marginBottom: 6 },
+  stepSub: { fontSize: 13, fontFamily: FF, color: '#888', marginBottom: 20, lineHeight: 20 },
 
   // Format cards
   formatCard: {
-    backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1,
-    borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm,
+    backgroundColor: '#111', borderRadius: 14, borderWidth: 1,
+    borderColor: '#1c1c1c', padding: 16, marginBottom: 10,
   },
-  formatCardOn: { borderColor: colors.gold, backgroundColor: colors.cardAlt },
+  formatCardOn: { borderColor: GOLD, backgroundColor: '#1a1500' },
   formatCardOff: { opacity: 0.4 },
   formatRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  formatLabel: { flex: 1, fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  formatSub: { fontSize: fonts.sm, color: colors.textSecondary, lineHeight: 18 },
-  comingSoon: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1 },
-  tick: { fontSize: fonts.md, color: colors.gold, fontWeight: '800' },
+  formatLabel: { flex: 1, fontSize: 15, fontFamily: FFB, color: '#fff' },
+  formatSub: { fontSize: 13, fontFamily: FF, color: '#888', lineHeight: 18 },
+  comingSoon: { fontSize: 11, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  tick: { fontSize: 15, fontFamily: FFB, color: GOLD },
 
   // Fields
   fieldLabel: {
-    fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted,
-    letterSpacing: 1.5, marginBottom: spacing.xs, marginTop: spacing.md,
+    fontSize: 11, fontFamily: FFB, color: '#555',
+    letterSpacing: 1.5, marginBottom: 6, marginTop: 16,
   },
   input: {
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 12,
-    fontSize: fonts.md, color: colors.white,
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12,
+    fontSize: 15, fontFamily: FFB, color: '#fff',
   },
 
   // Stepper
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xs },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 6 },
   stepperBtn: {
-    width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.card,
-    borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center',
+    width: 44, height: 44, borderRadius: 12, backgroundColor: '#111',
+    borderWidth: 1, borderColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center',
   },
   stepperBtnOff: { opacity: 0.35 },
-  stepperBtnText: { fontSize: fonts.xl, color: colors.gold, fontWeight: '700' },
-  stepperValue: { fontSize: fonts.lg, fontWeight: '700', color: colors.white, minWidth: 88, textAlign: 'center' },
+  stepperBtnText: { fontSize: 20, fontFamily: FFB, color: GOLD },
+  stepperValue: { fontSize: 17, fontFamily: FFB, color: '#fff', minWidth: 88, textAlign: 'center' },
 
   // Day cards
   dayCard: {
-    backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1,
-    borderColor: colors.border, padding: spacing.md, marginBottom: spacing.md,
+    backgroundColor: '#111', borderRadius: 14, borderWidth: 1,
+    borderColor: '#1c1c1c', padding: 16, marginBottom: 16,
   },
-  dayLabel: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 2, marginBottom: 4 },
+  dayLabel: { fontSize: 11, fontFamily: FFB, color: GOLD, letterSpacing: 2, marginBottom: 4 },
 
   // Format chips (horizontal scroll)
   chip: {
-    paddingHorizontal: spacing.md, paddingVertical: 8, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardAlt,
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c', backgroundColor: '#1a1a1a',
     alignItems: 'center', minWidth: 80,
   },
-  chipOn: { backgroundColor: colors.gold, borderColor: colors.gold },
-  chipText: { fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary },
-  chipTextOn: { color: colors.bg },
-  chipSub: { fontSize: 10, color: colors.textMuted, marginTop: 2 },
+  chipOn: { backgroundColor: GOLD, borderColor: GOLD },
+  chipText: { fontSize: 13, fontFamily: FFB, color: '#888' },
+  chipTextOn: { color: '#000' },
+  chipSub: { fontSize: 10, fontFamily: FF, color: '#555', marginTop: 2 },
 
   // HCP chips
-  hcpRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
+  hcpRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
   hcpChip: {
-    flex: 1, paddingVertical: 10, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardAlt,
+    flex: 1, paddingVertical: 10, borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c', backgroundColor: '#1a1a1a',
     alignItems: 'center',
   },
-  hcpChipOn: { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
-  hcpText: { fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary },
-  hcpTextOn: { color: colors.gold },
+  hcpChipOn: { backgroundColor: `${GOLD}18`, borderColor: `${GOLD}55` },
+  hcpText: { fontSize: 13, fontFamily: FFB, color: '#888' },
+  hcpTextOn: { color: GOLD },
 
   // Kronos toggle
   toggleRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1,
-    borderColor: colors.border, padding: spacing.md, marginTop: spacing.xs,
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    backgroundColor: '#111', borderRadius: 12, borderWidth: 1,
+    borderColor: '#1c1c1c', padding: 16, marginTop: 6,
   },
-  toggleLabel: { fontSize: fonts.sm, fontWeight: '700', color: colors.white, marginBottom: 2 },
-  toggleSub: { fontSize: fonts.xs, color: colors.textSecondary, lineHeight: 16 },
+  toggleLabel: { fontSize: 13, fontFamily: FFB, color: '#fff', marginBottom: 2 },
+  toggleSub: { fontSize: 11, fontFamily: FF, color: '#888', lineHeight: 16 },
 
   // Review
   reviewCard: {
-    backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1,
-    borderColor: colors.border, overflow: 'hidden', marginBottom: spacing.md,
+    backgroundColor: '#111', borderRadius: 12, borderWidth: 1,
+    borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 16,
   },
-  reviewNote: { fontSize: fonts.sm, color: colors.textMuted, lineHeight: 20, marginBottom: spacing.lg },
+  reviewNote: { fontSize: 13, fontFamily: FF, color: '#555', lineHeight: 20, marginBottom: 20 },
   createBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.md,
-    paddingVertical: spacing.md, alignItems: 'center',
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingVertical: 16, alignItems: 'center',
   },
-  createBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 0.5 },
+  createBtnText: { fontSize: 15, fontFamily: FFB, color: '#000', letterSpacing: 0.5 },
 
   // Footer
-  footer: { padding: spacing.md, paddingBottom: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
-  nextBtn: { backgroundColor: colors.gold, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center' },
+  footer: { padding: 16, paddingBottom: 20, borderTopWidth: 1, borderTopColor: '#1c1c1c' },
+  nextBtn: { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   nextBtnOff: { opacity: 0.35 },
-  nextBtnText: { fontSize: fonts.md, fontWeight: '700', color: colors.bg },
+  nextBtnText: { fontSize: 15, fontFamily: FFB, color: '#000' },
 });
