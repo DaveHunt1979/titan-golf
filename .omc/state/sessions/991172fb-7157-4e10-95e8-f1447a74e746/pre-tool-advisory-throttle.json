@@ -2,125 +2,61 @@
   "version": 1,
   "entries": {
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1783964787383,
+      "last_emitted_at_ms": 1784006207133,
       "message": "Verify changes work after editing. Test functionality before marking complete."
     },
-    "2272823fe6445f6991383fb65405700377f6a6f5ffbf51e7e78648d07f210b3e": {
-      "last_emitted_at_ms": 1783964615909,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite camera/index.tsx and chat/index.tsx to TITAN style"
+    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
+      "last_emitted_at_ms": 1784006159034,
+      "message": "Read multiple files in parallel when possible for faster analysis."
+    },
+    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
+      "last_emitted_at_ms": 1784006143253,
+      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
+    },
+    "43e2449b57e5c2d891829d6c3dce6dc4bb912cba0d7771d04fba8f1e5bc3336a": {
+      "last_emitted_at_ms": 1784006043903,
+      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite admin/swindle.tsx, admin/transfers.tsx, admin/build.tsx, admin/create-society.tsx to TITAN style"
+    },
+    "a246cbcb8c8299e4a8759b05a95e89ef37a1d6803ecc349c8b9054b0338b830e": {
+      "last_emitted_at_ms": 1784006034835,
+      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite admin/info.tsx, admin/membership.tsx, admin/pins.tsx to TITAN style"
+    },
+    "da3dc6b22b036e39a72c100c97089d88be3e2ea508225f6620fab9a56f310c33": {
+      "last_emitted_at_ms": 1784006026225,
+      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite admin/courses.tsx and admin/branding.tsx to TITAN style"
+    },
+    "b9f32ae9a80d6bbd5de5e130b49552bee0c1a78e7133b59ca6b7b50a25168c24": {
+      "last_emitted_at_ms": 1784006018505,
+      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite admin/teams.tsx and admin/tournaments.tsx to TITAN style"
+    },
+    "e29156c1f8b12a1a3ea361ffe68b14a9e3d9886917587e368fc912a06abd6cea": {
+      "last_emitted_at_ms": 1784006010402,
+      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite admin/index.tsx and admin/players.tsx to TITAN style"
+    },
+    "c1b97e20c0bb82f95e55220dca3a6af5a884d1968e54757e169f95aa185c62d5": {
+      "last_emitted_at_ms": 1784005885668,
+      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite auth screens to TITAN style"
+    },
+    "178853596d1285ca3a9ede8ab8a13da8fb87655a5c2e5b645c2ec79f1e65dc1b": {
+      "last_emitted_at_ms": 1784005875790,
+      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite feed/index.tsx and profile/bag.tsx JUSTSans fonts"
+    },
+    "bf192f88a3cd0a3d50f98b2699d998467857442de894b3e2bb90b99dffc88c6a": {
+      "last_emitted_at_ms": 1784005865293,
+      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite chat/index.tsx to TITAN style"
+    },
+    "5d86fb5b060a8b3db74bf9cfdbf440d8832c40ba91ebcfeca8a6308f51f13146": {
+      "last_emitted_at_ms": 1784005856862,
+      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite camera/index.tsx to TITAN style"
     },
     "53f5587cb83b8e37da1c7c21b21c681b976b6850f1fdab1e872987f66ff80f12": {
-      "last_emitted_at_ms": 1783964607652,
+      "last_emitted_at_ms": 1784005849681,
       "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite watch/index.tsx to TITAN style"
     },
     "6cd5b0c56adb8e5a5cbbd8712f631c91b5780895547dc6d973431dc6b24780e1": {
-      "last_emitted_at_ms": 1783964600421,
+      "last_emitted_at_ms": 1784005841562,
       "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite spectate/[matchId].tsx to TITAN style"
-    },
-    "6dba72c3d5305c9bad78268e52e53a9e5bfa1dc9de24a680f6c14c313204e4a3": {
-      "last_emitted_at_ms": 1783964591419,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite tour/index.tsx to TITAN style"
-    },
-    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1783964533158,
-      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
-    },
-    "2e8dca2fc0b707ab67b60d654186308a76307a3a99735d5df1e192bbf219944b": {
-      "last_emitted_at_ms": 1783964493839,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite score/scan/[matchId].tsx to TITAN style"
-    },
-    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1783964487560,
-      "message": "Read multiple files in parallel when possible for faster analysis."
-    },
-    "7710e0faab52ea2d062944167bc1b1b02acdf85d5f82f9511a7498489cb9954e": {
-      "last_emitted_at_ms": 1783964484531,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite score/modified/[matchId].tsx and score/wolf/[matchId].tsx to TITAN style"
-    },
-    "c4d1d70c574daf9ef91048b0430e0c292b0ca0ba15336c32c37d706ac7236998": {
-      "last_emitted_at_ms": 1783964475736,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite score/skins/[matchId].tsx to TITAN style"
-    },
-    "d8e3aea02704420d648ad64068e4e29832cc6da50476456f3cdf7617c0418e19": {
-      "last_emitted_at_ms": 1783964468677,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite score/parbogey/[matchId].tsx to TITAN style"
-    },
-    "80244387de27cb5b3890660aaf6bd5a02f69018241cf0e31673b49be401553b5": {
-      "last_emitted_at_ms": 1783964461875,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite score/scramble/[matchId].tsx to TITAN style"
-    },
-    "ac2fbb2a802319acdd523b05a1966e03ff65031152cd5c35d1419c982775fadd": {
-      "last_emitted_at_ms": 1783964455569,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite score/chacha/[matchId].tsx to TITAN style"
-    },
-    "fdfddf87a67107c35ee90cfec8e1d2f2ed4706893aac26363671b2a94184ae7f": {
-      "last_emitted_at_ms": 1783964449149,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite score/nassau/[matchId].tsx to TITAN style"
-    },
-    "691266c03cfb4a56f92a3b967246a80288631e3ca942e683227812e5f568dc62": {
-      "last_emitted_at_ms": 1783964442551,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite score/bbb/[matchId].tsx to TITAN style"
-    },
-    "47c388ed1fb2c51663245dbb457ea52ed089720cfb6ab06c649a530c5af843e2": {
-      "last_emitted_at_ms": 1783964383558,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite swindle/scan/[gameId].tsx to TITAN style"
-    },
-    "309228bf36af7555c707ed7667d7601d24934dcbbd7cdf02480fc4de10962b86": {
-      "last_emitted_at_ms": 1783964373407,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite swindle/score/[gameId].tsx to TITAN style"
-    },
-    "d3ec67a78be49c9140262356a4d5a5ec182fc7f55994ea3e6fe5ecf5694a94d8": {
-      "last_emitted_at_ms": 1783964361783,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite swindle/[gameId].tsx to TITAN style"
-    },
-    "afecd4528a4a3f131002b1091153a0e7ad39eee524b819f3f1271637eda3b338": {
-      "last_emitted_at_ms": 1783964349478,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite swindle/create.tsx to TITAN style"
-    },
-    "f68e2a11b3a2ac801cbd78ec5f3d8e74f5f8a574dfa798e511a1916219511bd5": {
-      "last_emitted_at_ms": 1783964338014,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite swindle/index.tsx to TITAN style"
-    },
-    "5a53fb73d9fd2cba25c1feb09b4216de7df914fe6f10f68c53b9360550f47252": {
-      "last_emitted_at_ms": 1783964261868,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite profile/round/[matchId].tsx to TITAN style"
-    },
-    "749734f418171521be07e6e250726d8ca71fd2fd49a2549efd7f2468e7c89561": {
-      "last_emitted_at_ms": 1783964245034,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite profile/handicap.tsx to TITAN style"
-    },
-    "ffd45fa7d55a2bb289e749495def45e655ac2d08857cf1459f65f77bfaa54a48": {
-      "last_emitted_at_ms": 1783964233593,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite records/index.tsx to TITAN style"
-    },
-    "728cf1aaf0078e724c36bc21b9226b2405d622d7b64f83e340c00bfb517d93ea": {
-      "last_emitted_at_ms": 1783964223153,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Rewrite join.tsx to TITAN style"
-    },
-    "45e34364ef2253822e28b2b8e8dbe5785232a6769ed305d857d393f609dbb946": {
-      "last_emitted_at_ms": 1783964055386,
-      "message": "Spawning agent: unknown (inherit) | Task: Rewrite leaderboard/index.tsx to TITAN style keeping dynamic colors"
-    },
-    "17fa9a00f265556e1544cd7e136b5590a948aadab1a02bd85f32c17f090a6c9f": {
-      "last_emitted_at_ms": 1783964037781,
-      "message": "Spawning agent: unknown (inherit) | Task: Rewrite profile/stats.tsx to TITAN style"
-    },
-    "a96c5dfb884240e3299811e586350908609122fb62dd1e79ba0713408ef86a1f": {
-      "last_emitted_at_ms": 1783964022514,
-      "message": "Spawning agent: unknown (inherit) | Task: Rewrite profile/rounds.tsx to TITAN style"
-    },
-    "f1770fe7c315858c516fa719bedce0de356684dd56c24b4896e26e6987f1d246": {
-      "last_emitted_at_ms": 1783964011517,
-      "message": "Spawning agent: unknown (inherit) | Task: Rewrite range/[sessionId].tsx to TITAN style"
-    },
-    "6ce5d288bc1ed3e36689689e8b6b8750ba5ba8f6351a49710ef8c672328902f5": {
-      "last_emitted_at_ms": 1783963813923,
-      "message": "Spawning agent: unknown (inherit) | Task: Rewrite tour/day/[dayId].tsx to TITAN premium style"
-    },
-    "b84699db131043bb80424ece9d02d5b3de062e354020cce4886aa99145785fe4": {
-      "last_emitted_at_ms": 1783963799987,
-      "message": "Spawning agent: unknown (inherit) | Task: Rewrite range/index.tsx to TITAN premium style"
     }
   },
-  "updated_at": "2026-07-13T17:46:27.383Z"
+  "updated_at": "2026-07-14T05:16:47.133Z"
 }

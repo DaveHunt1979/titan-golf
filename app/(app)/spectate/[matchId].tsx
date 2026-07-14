@@ -5,10 +5,17 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { matchLabel, getEffectiveWinner, calcHoles } from '../../../src/lib/scoring';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
+
+const GOLD  = '#D4AF37';
+const GREEN = '#4ade80';
+const RED   = '#f87171';
+const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 interface MatchDetail {
   id: string;
@@ -28,7 +35,7 @@ interface MatchDetail {
   day: { course_name: string | null; day_number: number; competition_id: string } | null;
 }
 
-interface Player    { id: string; display_name: string; avatar_url?: string | null; }
+interface Player     { id: string; display_name: string; avatar_url?: string | null; }
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 
 function SideAvatar({ playerIds, team, teamId, size, getFirstName, getAvatar }: {
@@ -48,8 +55,8 @@ function SideAvatar({ playerIds, team, teamId, size, getFirstName, getAvatar }: 
     const raw = getAvatar(playerIds[0]) ?? getPlayerAvatar(playerIds[0], 'normal');
     return raw
       ? <Image source={typeof raw === 'string' ? { uri: raw } : raw} style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden' }} />
-      : <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: size * 0.38, fontWeight: '800', color: colors.gold }}>{getFirstName(playerIds[0])[0]}</Text>
+      : <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#1c1c1e', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: size * 0.38, fontFamily: FFB, color: GOLD }}>{getFirstName(playerIds[0])[0]}</Text>
         </View>;
   }
   const avSize = Math.round(size * 0.72);
@@ -59,8 +66,8 @@ function SideAvatar({ playerIds, team, teamId, size, getFirstName, getAvatar }: 
         const raw = getAvatar(id) ?? getPlayerAvatar(id, 'normal');
         return raw
           ? <Image key={id} source={typeof raw === 'string' ? { uri: raw } : raw} style={{ width: avSize, height: avSize, borderRadius: avSize / 2, marginLeft: i > 0 ? -avSize * 0.28 : 0, overflow: 'hidden' }} />
-          : <View key={id} style={{ width: avSize, height: avSize, borderRadius: avSize / 2, backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center', marginLeft: i > 0 ? -avSize * 0.28 : 0 }}>
-              <Text style={{ fontSize: avSize * 0.38, fontWeight: '800', color: colors.gold }}>{getFirstName(id)[0]}</Text>
+          : <View key={id} style={{ width: avSize, height: avSize, borderRadius: avSize / 2, backgroundColor: '#1c1c1e', alignItems: 'center', justifyContent: 'center', marginLeft: i > 0 ? -avSize * 0.28 : 0 }}>
+              <Text style={{ fontSize: avSize * 0.38, fontFamily: FFB, color: GOLD }}>{getFirstName(id)[0]}</Text>
             </View>;
       })}
     </View>
@@ -70,12 +77,17 @@ function SideAvatar({ playerIds, team, teamId, size, getFirstName, getAvatar }: 
 export default function SpectateScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
-  const [match, setMatch]         = useState<MatchDetail | null>(null);
-  const [compName, setCompName]   = useState('');
-  const [players, setPlayers]     = useState<Player[]>([]);
+  const [match, setMatch]             = useState<MatchDetail | null>(null);
+  const [compName, setCompName]       = useState('');
+  const [players, setPlayers]         = useState<Player[]>([]);
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
-  const [loading, setLoading]     = useState(true);
+  const [loading, setLoading]         = useState(true);
   const pulse = useRef(new Animated.Value(1)).current;
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
   useEffect(() => {
     const anim = Animated.loop(
@@ -98,7 +110,7 @@ export default function SpectateScreen() {
     if (!matchData) { setLoading(false); return; }
     setMatch(matchData as unknown as MatchDetail);
 
-    const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
+    const allIds    = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
     const courseName = (matchData as any).day?.course_name;
     const compId     = (matchData as any).day?.competition_id;
 
@@ -130,27 +142,33 @@ export default function SpectateScreen() {
     return () => { supabase.removeChannel(sub); };
   }, [matchId, load]);
 
-  if (loading) return (
-    <View style={s.centered}><StatusBar style="light" /><ActivityIndicator color={colors.gold} size="large" /></View>
-  );
-  if (!match) return (
-    <View style={s.centered}><StatusBar style="light" /><Text style={{ color: colors.textMuted }}>Match not found.</Text></View>
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    </View>
   );
 
-  const holesStr     = match.holes_string ?? '..................';
-  const holeChars    = holesStr.split('');
-  const { homeUp }   = calcHoles(holesStr);
-  const holesPlayed  = holeChars.filter(c => c !== '.').length;
-  const currentHole  = Math.min(holesPlayed + 1, 18);
-  const status       = match.status;
-  const winner       = getEffectiveWinner(status, match.winner, holesStr);
+  if (!match) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" />
+      <Text style={{ color: '#555', fontFamily: FF }}>Match not found.</Text>
+    </View>
+  );
+
+  const holesStr    = match.holes_string ?? '..................';
+  const holeChars   = holesStr.split('');
+  const { homeUp }  = calcHoles(holesStr);
+  const holesPlayed = holeChars.filter(c => c !== '.').length;
+  const currentHole = Math.min(holesPlayed + 1, 18);
+  const status      = match.status;
+  const winner      = getEffectiveWinner(status, match.winner, holesStr);
   const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
-  const label        = isStrokePlay
+  const label       = isStrokePlay
     ? (status === 'complete' ? (match.result_str ?? 'Complete') : status === 'upcoming' ? 'Upcoming' : (match.result_str ?? 'In Progress'))
     : matchLabel(status, match.winner, match.result_str, holesStr);
-  const aheadSide    = status === 'complete' ? winner : homeUp > 0 ? 'home' : homeUp < 0 ? 'away' : null;
+  const aheadSide   = status === 'complete' ? winner : homeUp > 0 ? 'home' : homeUp < 0 ? 'away' : null;
 
-  const homeColor = match.home_team?.accent_color ?? colors.gold;
+  const homeColor = match.home_team?.accent_color ?? GOLD;
   const awayColor = match.away_team?.accent_color ?? '#6366f1';
 
   const firstName  = (id: string) => (players.find(p => p.id === id)?.display_name ?? '?').split(' ')[0];
@@ -158,49 +176,57 @@ export default function SpectateScreen() {
   const homeLabel  = match.home_team?.name ?? match.home_player_ids.map(firstName).join(' & ');
   const awayLabel  = match.away_team?.name ?? match.away_player_ids.map(firstName).join(' & ');
   const aheadLabel = aheadSide === 'home' ? homeLabel : aheadSide === 'away' ? awayLabel : null;
-  const aheadColor = aheadSide === 'home' ? homeColor : aheadSide === 'away' ? awayColor : colors.textMuted;
+  const aheadColor = aheadSide === 'home' ? homeColor : aheadSide === 'away' ? awayColor : '#555';
   const currentCourseHole = courseHoles.find(h => h.hole_number === currentHole);
 
   return (
     <View style={s.container}>
       <StatusBar style="light" />
 
-      {/* Header */}
+      {/* Header — three-column */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Text style={s.back}>‹ Back</Text>
+        {/* Left: Back */}
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={s.headerLeft}>
+          <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
+
+        {/* Centre: Logo + SPECTATE */}
         <View style={s.headerCenter}>
-          <Text style={s.headerComp} numberOfLines={1}>{compName || 'Match'}</Text>
-          <Text style={s.headerDay} numberOfLines={1}>
-            Day {match.day?.day_number}{match.day?.course_name ? ` · ${match.day.course_name}` : ''}
-          </Text>
+          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Text style={s.headerSub}>SPECTATE</Text>
         </View>
-        {status === 'in_progress' && (
-          <Animated.View style={[s.livePill, { opacity: pulse }]}>
-            <Text style={s.livePillText}>● LIVE</Text>
-          </Animated.View>
-        )}
-        {status === 'complete' && (
-          <View style={s.finalPill}>
-            <Text style={s.finalPillText}>FINAL</Text>
-          </View>
-        )}
+
+        {/* Right: spacer */}
+        <View style={s.headerRight} />
       </View>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* ── Hero match card ── */}
+        {/* ── Match header card ── */}
         <View style={s.heroCard}>
-          <Text style={s.matchNum}>MATCH {match.match_number}</Text>
+          {/* Status pill */}
+          <View style={s.pillRow}>
+            <Text style={s.matchNum}>MATCH {match.match_number}</Text>
+            {status === 'in_progress' && (
+              <View style={s.livePill}>
+                <Animated.View style={[s.liveDot, { opacity: pulse }]} />
+                <Text style={s.livePillText}>LIVE</Text>
+              </View>
+            )}
+            {status === 'complete' && (
+              <View style={s.completePill}>
+                <Text style={s.completePillText}>COMPLETE</Text>
+              </View>
+            )}
+          </View>
 
           <View style={s.heroRow}>
             {/* Home */}
             <View style={s.heroSide}>
-              <View style={[s.avatarRing, { borderColor: aheadSide === 'home' ? homeColor : colors.border }]}>
+              <View style={[s.avatarRing, { borderColor: aheadSide === 'home' ? homeColor : '#1c1c1c' }]}>
                 <SideAvatar playerIds={match.home_player_ids} team={match.home_team} teamId={match.home_team_id} size={58} getFirstName={firstName} getAvatar={getAvatar} />
               </View>
-              <Text style={[s.sideName, aheadSide === 'home' && { color: colors.white }]} numberOfLines={2}>{homeLabel}</Text>
+              <Text style={[s.sideName, aheadSide === 'home' && { color: '#fff' }]} numberOfLines={2}>{homeLabel}</Text>
               {match.home_team && (
                 <Text style={s.sidePlayers} numberOfLines={1}>{match.home_player_ids.map(firstName).join(' & ')}</Text>
               )}
@@ -210,9 +236,9 @@ export default function SpectateScreen() {
             <View style={s.heroCenter}>
               <Text style={[
                 s.statusText,
-                status === 'in_progress' && { color: colors.live },
-                status === 'complete'    && { color: colors.gold },
-                status === 'upcoming'   && { color: colors.textMuted },
+                status === 'in_progress' && { color: GREEN },
+                status === 'complete'    && { color: GOLD },
+                status === 'upcoming'   && { color: '#555' },
               ]}>{label}</Text>
               {status === 'in_progress' && (
                 <Text style={s.thruText}>
@@ -223,10 +249,10 @@ export default function SpectateScreen() {
 
             {/* Away */}
             <View style={[s.heroSide, s.heroSideRight]}>
-              <View style={[s.avatarRing, { borderColor: aheadSide === 'away' ? awayColor : colors.border }]}>
+              <View style={[s.avatarRing, { borderColor: aheadSide === 'away' ? awayColor : '#1c1c1c' }]}>
                 <SideAvatar playerIds={match.away_player_ids} team={match.away_team} teamId={match.away_team_id} size={58} getFirstName={firstName} getAvatar={getAvatar} />
               </View>
-              <Text style={[s.sideName, s.sideNameRight, aheadSide === 'away' && { color: colors.white }]} numberOfLines={2}>{awayLabel}</Text>
+              <Text style={[s.sideName, s.sideNameRight, aheadSide === 'away' && { color: '#fff' }]} numberOfLines={2}>{awayLabel}</Text>
               {match.away_team && (
                 <Text style={[s.sidePlayers, { textAlign: 'right' }]} numberOfLines={1}>{match.away_player_ids.map(firstName).join(' & ')}</Text>
               )}
@@ -256,7 +282,7 @@ export default function SpectateScreen() {
             <View style={s.nowRow}>
               <Text style={s.nowHole}>Hole {currentHole}</Text>
               {currentCourseHole && (
-                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
                   <MetaChip label="PAR" value={String(currentCourseHole.par)} />
                   <MetaChip label="SI"  value={String(currentCourseHole.stroke_index)} />
                 </View>
@@ -290,7 +316,7 @@ export default function SpectateScreen() {
           <View style={s.legend}>
             <LegendDot color={homeColor} label={homeLabel} />
             <LegendDot color={awayColor} label={awayLabel} />
-            <LegendDot color={colors.gold} label="Halved" />
+            <LegendDot color={GOLD}      label="Halved" />
           </View>
         </View>
 
@@ -314,7 +340,7 @@ function NineGrid({ chars, offset, label, currentHole, homeColor, awayColor }: {
         {chars.map((c, i) => {
           const hNum      = i + offset + 1;
           const isCurrent = hNum === currentHole;
-          const bg        = c === 'h' ? homeColor : c === 'a' ? awayColor : c === 'f' ? colors.gold : undefined;
+          const bg        = c === 'h' ? homeColor : c === 'a' ? awayColor : c === 'f' ? GOLD : undefined;
           return (
             <View key={i} style={[g.cell, bg ? { backgroundColor: bg } : g.cellEmpty, isCurrent && g.cellCurrent]}>
               <Text style={[g.num, bg && g.numFilled]}>{hNum}</Text>
@@ -342,110 +368,118 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
-      <Text style={{ fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600' }} numberOfLines={1}>{label}</Text>
+      <Text style={{ fontSize: 11, fontFamily: FF, color: '#555' }} numberOfLines={1}>{label}</Text>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered:  { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: '#000' },
 
+  /* Header */
   header: {
     flexDirection: 'row', alignItems: 'center',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-    gap: spacing.sm,
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  back:         { fontSize: fonts.sm, color: colors.gold, fontWeight: '600' },
-  headerCenter: { flex: 1 },
-  headerComp:   { fontSize: fonts.sm, fontWeight: '800', color: colors.white },
-  headerDay:    { fontSize: fonts.xs, color: colors.textMuted, marginTop: 1 },
+  headerLeft: { flex: 1, alignItems: 'flex-start' },
+  back:       { fontSize: 14, fontFamily: FFB, color: GOLD },
+  headerCenter: { alignItems: 'center' },
+  headerLogo:   { width: 28, height: 28 },
+  headerSub:    { fontSize: 9, fontFamily: FF, color: '#555', marginTop: 2, letterSpacing: 1.5 },
+  headerRight:  { flex: 1 },
+
+  scroll: { padding: 16, paddingBottom: 48 },
+
+  /* Match header card */
+  heroCard: {
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 20, marginBottom: 12,
+  },
+  pillRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  matchNum: { fontSize: 11, fontFamily: FFB, color: '#555', letterSpacing: 1.5 },
 
   livePill: {
-    backgroundColor: 'rgba(239,68,68,0.12)', borderRadius: radius.full,
-    borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)',
-    paddingHorizontal: spacing.sm, paddingVertical: 3,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(74,222,128,0.10)', borderRadius: 999,
+    borderWidth: 1, borderColor: 'rgba(74,222,128,0.3)',
+    paddingHorizontal: 10, paddingVertical: 3,
   },
-  livePillText: { fontSize: fonts.xs, fontWeight: '800', color: colors.live, letterSpacing: 1 },
-  finalPill: {
-    backgroundColor: colors.goldDim, borderRadius: radius.full,
-    borderWidth: 1, borderColor: colors.goldBorder,
-    paddingHorizontal: spacing.sm, paddingVertical: 3,
+  liveDot:     { width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN },
+  livePillText: { fontSize: 11, fontFamily: FFB, color: GREEN, letterSpacing: 1 },
+
+  completePill: {
+    backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 999,
+    borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)',
+    paddingHorizontal: 10, paddingVertical: 3,
   },
-  finalPillText: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 1 },
+  completePillText: { fontSize: 11, fontFamily: FFB, color: GOLD, letterSpacing: 1 },
 
-  scroll: { padding: spacing.md, paddingBottom: 48 },
-
-  heroCard: {
-    backgroundColor: colors.card, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.lg, marginBottom: spacing.md,
-  },
-  matchNum: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5, marginBottom: spacing.md },
-  heroRow:  { flexDirection: 'row', alignItems: 'flex-start' },
-
+  heroRow:       { flexDirection: 'row', alignItems: 'flex-start' },
   heroSide:      { flex: 1, alignItems: 'flex-start' },
   heroSideRight: { alignItems: 'flex-end' },
-  avatarRing: { borderRadius: 36, borderWidth: 2, padding: 2, marginBottom: spacing.sm },
-  sideName:      { fontSize: fonts.md, fontWeight: '800', color: colors.textSecondary, lineHeight: 20 },
+  avatarRing:    { borderRadius: 36, borderWidth: 2, padding: 2, marginBottom: 8 },
+  sideName:      { fontSize: 15, fontFamily: FFB, color: '#888', lineHeight: 20 },
   sideNameRight: { textAlign: 'right' },
-  sidePlayers:   { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+  sidePlayers:   { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 2 },
 
-  heroCenter: { alignItems: 'center', paddingHorizontal: spacing.xs, paddingTop: 8, minWidth: 72 },
-  statusText: { fontSize: fonts.xxl, fontWeight: '900', textAlign: 'center', letterSpacing: 0.5 },
-  thruText:   { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5, marginTop: 4 },
+  heroCenter: { alignItems: 'center', paddingHorizontal: 8, paddingTop: 8, minWidth: 72 },
+  statusText: { fontSize: 22, fontFamily: FFB, textAlign: 'center', letterSpacing: 0.5 },
+  thruText:   { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginTop: 4 },
 
   leaderBanner: {
-    marginTop: spacing.md, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    paddingVertical: spacing.sm, alignItems: 'center',
+    marginTop: 12, borderRadius: 8,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingVertical: 8, alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.02)',
   },
-  leaderText: { fontSize: fonts.sm, fontWeight: '800', color: colors.textMuted, letterSpacing: 1 },
+  leaderText: { fontSize: 13, fontFamily: FFB, color: '#555', letterSpacing: 1 },
 
+  /* Now playing */
   nowCard: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.goldBorder,
-    padding: spacing.md, marginBottom: spacing.md,
+    backgroundColor: '#111', borderRadius: 10,
+    borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)',
+    padding: 14, marginBottom: 12,
   },
-  nowLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, letterSpacing: 2, marginBottom: spacing.xs },
+  nowLabel: { fontSize: 11, fontFamily: FFB, color: GOLD, letterSpacing: 2, marginBottom: 6 },
   nowRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  nowHole:  { fontSize: fonts.xl, fontWeight: '800', color: colors.white },
+  nowHole:  { fontSize: 20, fontFamily: FFB, color: '#fff' },
 
+  /* Grid card */
   gridCard: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.md, marginBottom: spacing.md,
+    backgroundColor: '#111', borderRadius: 10,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 14, marginBottom: 12,
   },
-  gridTitle:   { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 2, marginBottom: spacing.md },
-  gridDivider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.sm },
-  legend:      { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md, flexWrap: 'wrap' },
+  gridTitle:   { fontSize: 11, fontFamily: FFB, color: '#555', letterSpacing: 2, marginBottom: 14 },
+  gridDivider: { height: 1, backgroundColor: '#1c1c1c', marginVertical: 8 },
+  legend:      { flexDirection: 'row', gap: 14, marginTop: 12, flexWrap: 'wrap' },
 });
 
 const g = StyleSheet.create({
   wrap:  { marginBottom: 2 },
-  label: { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5, marginBottom: spacing.xs },
+  label: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginBottom: 6 },
   row:   { flexDirection: 'row', gap: 3 },
   cell: {
     flex: 1, aspectRatio: 0.72,
     borderRadius: 4, alignItems: 'center', justifyContent: 'center',
   },
-  cellEmpty:   { borderWidth: 1, borderColor: colors.border },
-  cellCurrent: { borderWidth: 2, borderColor: colors.gold },
-  num:         { fontSize: 8,  fontWeight: '700', color: colors.textMuted },
+  cellEmpty:   { borderWidth: 1, borderColor: '#1c1c1c' },
+  cellCurrent: { borderWidth: 2, borderColor: GOLD },
+  num:         { fontSize: 8,  fontFamily: FFB, color: '#555' },
   numFilled:   { color: 'rgba(255,255,255,0.7)' },
-  char:        { fontSize: 9,  fontWeight: '900', color: colors.textMuted, marginTop: 1 },
-  charFilled:  { color: colors.white },
+  char:        { fontSize: 9,  fontFamily: FFB, color: '#555', marginTop: 1 },
+  charFilled:  { color: '#fff' },
 });
 
 const mc = StyleSheet.create({
   chip: {
-    backgroundColor: colors.cardAlt, borderRadius: radius.sm,
-    borderWidth: 1, borderColor: colors.border,
-    paddingHorizontal: spacing.sm, paddingVertical: 4,
+    backgroundColor: '#1a1a1a', borderRadius: 6,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingHorizontal: 10, paddingVertical: 4,
     alignItems: 'center', minWidth: 44,
   },
-  label: { fontSize: 8, fontWeight: '700', color: colors.textMuted, letterSpacing: 1 },
-  value: { fontSize: fonts.md, fontWeight: '800', color: colors.white },
+  label: { fontSize: 8, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  value: { fontSize: 15, fontFamily: FFB, color: '#fff' },
 });

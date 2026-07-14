@@ -2,7 +2,6 @@ import { type ReactNode, useEffect, useState, useRef } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Platform, View, TouchableOpacity, Image, StyleSheet, Animated } from 'react-native';
 import { supabase } from '../../src/lib/supabase';
-import { colors, fonts, spacing } from '../../src/lib/theme';
 import { registerForPushNotifications } from '../../src/lib/notifications';
 import { resolveAvatar, titanLogo } from '../../src/lib/assets';
 import { SocietyThemeProvider, useSocietyTheme } from '../../src/lib/SocietyThemeContext';
@@ -12,7 +11,7 @@ function TabIcon({ focused, children }: { focused: boolean; children: ReactNode 
   return (
     <View style={{
       alignItems: 'center', justifyContent: 'center',
-      paddingTop: Platform.OS === 'ios' ? spacing.xs : 0,
+      paddingTop: Platform.OS === 'ios' ? 4 : 0,
     }}>
       {children}
       {focused && (
@@ -113,7 +112,7 @@ function AppLayoutInner() {
           tabBarActiveTintColor:   '#D4AF37',
           tabBarInactiveTintColor: '#4b5563',
           tabBarLabelStyle: {
-            fontSize: fonts.xs, fontWeight: '600', letterSpacing: 0.5, marginTop: 2,
+            fontSize: 10, fontWeight: '600', letterSpacing: 0.5, marginTop: 2,
           },
         }}
       >
@@ -215,17 +214,17 @@ const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 64;
 
 const fab = StyleSheet.create({
   btn: {
-    position: 'absolute', bottom: TAB_BAR_HEIGHT + spacing.md, right: spacing.md,
+    position: 'absolute', bottom: TAB_BAR_HEIGHT + 16, right: 16,
     width: 48, height: 48, borderRadius: 24, borderWidth: 2,
-    borderColor: colors.gold, zIndex: 100,
+    borderColor: '#D4AF37', zIndex: 100,
   },
   avatar:         { width: 44, height: 44, borderRadius: 22 },
-  avatarFallback: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
+  avatarFallback: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
   camIcon:        { alignItems: 'center', justifyContent: 'center' },
-  camBody:        { width: 20, height: 14, borderRadius: 3, borderWidth: 2, borderColor: colors.gold },
-  camLens:        { position: 'absolute', width: 7, height: 7, borderRadius: 4, borderWidth: 2, borderColor: colors.gold },
-  camBadge:       { position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: 8, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
-  camBadgeInner:  { width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: colors.gold },
+  camBody:        { width: 20, height: 14, borderRadius: 3, borderWidth: 2, borderColor: '#D4AF37' },
+  camLens:        { position: 'absolute', width: 7, height: 7, borderRadius: 4, borderWidth: 2, borderColor: '#D4AF37' },
+  camBadge:       { position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: 8, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
+  camBadgeInner:  { width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: '#D4AF37' },
 });
 
 const splash = StyleSheet.create({

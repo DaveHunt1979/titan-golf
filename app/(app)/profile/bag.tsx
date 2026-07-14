@@ -5,8 +5,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { fonts, spacing, radius } from '../../../src/lib/theme';
+import { spacing, radius } from '../../../src/lib/theme';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { scanNfcTagId, isNfcSupported, formatTagId } from '../../../src/lib/nfc';
 
@@ -180,6 +181,10 @@ export default function BagScreen() {
   const router  = useRouter();
   const colors  = useDynamicColors();
   const styles  = useMemo(() => makeStyles(colors), [colors]);
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
   const [clubs,       setClubs]       = useState<Club[]>([]);
   const [playerId,    setPlayerId]    = useState<string | null>(null);
@@ -477,8 +482,8 @@ function makeStyles(c: ReturnType<typeof useDynamicColors>) {
       paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
       borderBottomWidth: 1, borderBottomColor: c.border,
     },
-    back:  { fontSize: fonts.sm, color: c.gold, fontWeight: '600', width: 48 },
-    title: { fontSize: fonts.md, fontWeight: '800', color: c.white, letterSpacing: 0.5 },
+    back:  { fontSize: 12, fontFamily: 'JUSTSans', color: c.gold, width: 48 },
+    title: { fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: c.white, letterSpacing: 0.5 },
     scroll: { padding: spacing.md, paddingBottom: 60 },
 
     pills: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
@@ -486,18 +491,18 @@ function makeStyles(c: ReturnType<typeof useDynamicColors>) {
       flex: 1, borderWidth: 1, borderRadius: radius.md, padding: spacing.md,
       alignItems: 'center',
     },
-    pillNum:   { fontSize: fonts.xxl, fontWeight: '800' },
-    pillLabel: { fontSize: fonts.xs, color: c.textMuted, marginTop: 2 },
+    pillNum:   { fontSize: 28, fontFamily: 'JUSTSans-ExBold' },
+    pillLabel: { fontSize: 10, fontFamily: 'JUSTSans', color: c.textMuted, marginTop: 2 },
 
     nfcWarning: {
       backgroundColor: c.card, borderRadius: radius.md, padding: spacing.md,
       borderWidth: 1, borderColor: c.border, marginBottom: spacing.lg,
     },
-    nfcWarningText: { fontSize: fonts.xs, color: c.textSecondary, lineHeight: 17 },
+    nfcWarningText: { fontSize: 10, fontFamily: 'JUSTSans', color: c.textSecondary, lineHeight: 17 },
 
     section:      { marginBottom: spacing.lg },
     sectionLabel: {
-      fontSize: fonts.xs, fontWeight: '800', color: c.textMuted,
+      fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.textMuted,
       letterSpacing: 2, marginBottom: spacing.sm,
     },
 
@@ -513,25 +518,25 @@ function makeStyles(c: ReturnType<typeof useDynamicColors>) {
       borderWidth: 1.5, borderColor: c.gold,
       alignItems: 'center', justifyContent: 'center',
     },
-    bagToggleText: { fontSize: fonts.xs, fontWeight: '800', color: c.gold },
+    bagToggleText: { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.gold },
 
     clubInfo:       { flex: 1 },
-    clubName:       { fontSize: fonts.sm, fontWeight: '700', color: c.white, marginBottom: 1 },
-    brandLabel:     { fontSize: 10, color: c.gold, fontWeight: '600', marginBottom: 1 },
-    setBrandLabel:  { fontSize: 10, color: c.textMuted, fontStyle: 'italic', marginBottom: 1 },
+    clubName:       { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: c.white, marginBottom: 1 },
+    brandLabel:     { fontSize: 10, fontFamily: 'JUSTSans', color: c.gold, marginBottom: 1 },
+    setBrandLabel:  { fontSize: 10, fontFamily: 'JUSTSans', color: c.textMuted, fontStyle: 'italic', marginBottom: 1 },
     tagId:          { fontSize: 10, color: c.green, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', marginTop: 1 },
 
     scanningPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.sm },
-    scanningText: { fontSize: fonts.xs, color: c.green },
+    scanningText: { fontSize: 10, fontFamily: 'JUSTSans', color: c.green },
 
     assignBtn:    { backgroundColor: c.goldDim, borderRadius: radius.sm, paddingVertical: 6, paddingHorizontal: spacing.sm, borderWidth: 1, borderColor: c.goldBorder },
     assignBtnDim: { opacity: 0.4 },
-    assignBtnText:{ fontSize: fonts.xs, fontWeight: '700', color: c.gold },
+    assignBtnText:{ fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.gold },
 
     removeBtn:    { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(248,113,113,0.12)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)' },
-    removeBtnText:{ fontSize: fonts.xs, fontWeight: '800', color: c.red },
+    removeBtnText:{ fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.red },
 
-    footer: { fontSize: fonts.xs, color: c.textMuted, textAlign: 'center', lineHeight: 18, marginTop: spacing.md },
+    footer: { fontSize: 10, fontFamily: 'JUSTSans', color: c.textMuted, textAlign: 'center', lineHeight: 18, marginTop: spacing.md },
 
     // Modal
     modal: { flex: 1, backgroundColor: c.bg },
@@ -540,16 +545,16 @@ function makeStyles(c: ReturnType<typeof useDynamicColors>) {
       paddingTop: 20, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
       borderBottomWidth: 1, borderBottomColor: c.border,
     },
-    modalTitle:  { fontSize: fonts.md, fontWeight: '800', color: c.white },
-    modalBack:   { fontSize: fonts.sm, color: c.gold, fontWeight: '600', width: 64 },
-    modalCancel: { fontSize: fonts.sm, color: c.gold, fontWeight: '600', width: 64, textAlign: 'right' },
+    modalTitle:  { fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: c.white },
+    modalBack:   { fontSize: 12, fontFamily: 'JUSTSans', color: c.gold, width: 64 },
+    modalCancel: { fontSize: 12, fontFamily: 'JUSTSans', color: c.gold, width: 64, textAlign: 'right' },
 
     pickerRow: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingVertical: spacing.md, paddingHorizontal: spacing.lg,
     },
-    pickerRowText: { fontSize: fonts.sm, color: c.white, fontWeight: '500' },
-    pickerChevron: { fontSize: fonts.md, color: c.textMuted },
+    pickerRowText: { fontSize: 12, fontFamily: 'JUSTSans', color: c.white },
+    pickerChevron: { fontSize: 15, fontFamily: 'JUSTSans', color: c.textMuted },
     separator:     { height: 1, backgroundColor: c.border, marginHorizontal: spacing.lg },
   });
 }

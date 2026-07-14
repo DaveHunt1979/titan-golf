@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep \"score/parbogey\" | head -20",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -E \"admin/info|admin/membership|admin/pins\" | head -40",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -284,8 +284,8 @@
     },
     {
       "path": "app/(app)/admin/index.tsx",
-      "accessCount": 46,
-      "lastAccessed": 1783596849891,
+      "accessCount": 48,
+      "lastAccessed": 1784006118730,
       "type": "file"
     },
     {
@@ -307,6 +307,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/profile/bag.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1784006008525,
+      "type": "file"
+    },
+    {
       "path": "src/lib/caddie.ts",
       "accessCount": 10,
       "lastAccessed": 1783413915583,
@@ -319,6 +325,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/chat/index.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1784005915683,
+      "type": "file"
+    },
+    {
       "path": "src/lib/SocietyThemeContext.tsx",
       "accessCount": 8,
       "lastAccessed": 1783671408908,
@@ -328,18 +340,6 @@
       "path": "src/lib/scoring.ts",
       "accessCount": 8,
       "lastAccessed": 1783922698952,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/profile/bag.tsx",
-      "accessCount": 8,
-      "lastAccessed": 1783964099739,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/chat/index.tsx",
-      "accessCount": 7,
-      "lastAccessed": 1783056968162,
       "type": "file"
     },
     {
@@ -385,6 +385,18 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/watch/index.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1784005921831,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/pins.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1784006233226,
+      "type": "file"
+    },
+    {
       "path": "src/lib/watch.ts",
       "accessCount": 3,
       "lastAccessed": 1783272826573,
@@ -409,6 +421,12 @@
       "type": "file"
     },
     {
+      "path": "app/(auth)/join.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1784005971802,
+      "type": "file"
+    },
+    {
       "path": "src/components/CaddieButton.tsx",
       "accessCount": 2,
       "lastAccessed": 1783068156240,
@@ -421,21 +439,9 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/pins.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1783077931135,
-      "type": "file"
-    },
-    {
       "path": "web/src/app/layout.tsx",
       "accessCount": 2,
       "lastAccessed": 1783261336907,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/watch/index.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1783272614305,
       "type": "file"
     },
     {
@@ -490,12 +496,6 @@
       "path": "supabase/add_club_brand.sql",
       "accessCount": 1,
       "lastAccessed": 1783057063453,
-      "type": "file"
-    },
-    {
-      "path": "app/(auth)/join.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1783057164251,
       "type": "file"
     },
     {

@@ -1,14 +1,22 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, TextInput, Alert,
+  ActivityIndicator, TextInput, Alert, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
-import { fonts, spacing, radius } from '../../../src/lib/theme';
-import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
+
+// ── TITAN constants ───────────────────────────────────────────
+const GOLD   = '#D4AF37';
+const GREEN  = '#4ade80';
+const RED    = '#f87171';
+const PURPLE = '#a78bfa';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 interface Player {
   id: string;
@@ -18,59 +26,24 @@ interface Player {
 }
 
 const AREAS = [
-  { key: 'casual',  label: 'Casual',  color: '#4ade80' },
-  { key: 'tour',    label: 'Tour',    color: '#D4AF37' },
-  { key: 'swindle', label: 'Swindle', color: '#a78bfa' },
+  { key: 'casual',  label: 'Casual',  color: GREEN  },
+  { key: 'tour',    label: 'Tour',    color: GOLD   },
+  { key: 'swindle', label: 'Swindle', color: PURPLE },
 ] as const;
 
 export default function MembershipScreen() {
-  const colors = useDynamicColors();
   const router = useRouter();
   const { societyId, loading: societyLoading } = useAdminSociety();
 
-  const styles = useMemo(() => StyleSheet.create({
-    container:   { flex: 1, backgroundColor: colors.bg },
-    centered:    { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    header:      {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-      borderBottomWidth: 1, borderBottomColor: colors.border,
-    },
-    back:        { fontSize: fonts.sm, color: colors.gold, fontWeight: '600' },
-    headerTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
-    searchBar:   {
-      flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-      backgroundColor: colors.card, borderRadius: radius.md,
-      borderWidth: 1, borderColor: colors.border,
-      paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-      margin: spacing.md, marginBottom: 0,
-    },
-    searchInput: { flex: 1, fontSize: fonts.sm, color: colors.white, padding: 0 },
-    scroll:      { padding: spacing.md, paddingBottom: 48 },
-    playerCard:  {
-      backgroundColor: colors.card, borderRadius: radius.md,
-      borderWidth: 1, borderColor: colors.border,
-      padding: spacing.md, marginBottom: spacing.sm,
-    },
-    playerName:  { fontSize: fonts.md, fontWeight: '800', color: colors.white, marginBottom: 4 },
-    playerHcp:   { fontSize: fonts.xs, color: colors.textMuted, marginBottom: spacing.sm },
-    chips:       { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
-    chip:        {
-      paddingHorizontal: spacing.sm, paddingVertical: 5,
-      borderRadius: 99, borderWidth: 1.5, borderColor: '#374151',
-      backgroundColor: 'transparent',
-    },
-    chipOn:      { borderColor: 'transparent' },
-    chipText:    { fontSize: fonts.xs, fontWeight: '700', color: '#6b7280', letterSpacing: 0.5 },
-    empty:       { alignItems: 'center', paddingVertical: spacing.xxl },
-    emptyText:   { fontSize: fonts.md, color: colors.textMuted, textAlign: 'center' },
-    count:       { fontSize: fonts.xs, color: colors.textMuted, marginBottom: spacing.md, textAlign: 'center' },
-  }), [colors]);
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
-  const [players, setPlayers]   = useState<Player[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [search, setSearch]     = useState('');
-  const [saving, setSaving]     = useState<string | null>(null);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch]   = useState('');
+  const [saving, setSaving]   = useState<string | null>(null);
 
   async function load() {
     if (!societyId) return;
@@ -124,35 +97,42 @@ export default function MembershipScreen() {
     [players, search]
   );
 
-  if (loading || societyLoading) {
-    return (
-      <View style={[styles.container, styles.centered]}>
-        <StatusBar style="light" />
-        <ActivityIndicator color={colors.gold} size="large" />
-      </View>
-    );
-  }
+  if (loading || societyLoading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top:10,bottom:10,left:10,right:10 }}>
-          <Text style={styles.back}>← Back</Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={styles.headerSide}
+        >
+          <Text style={styles.back}>‹ Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Player Access</Text>
-        <View style={{ width: 48 }} />
+        <View style={styles.headerCenter}>
+          <Image source={titanLogo} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.headerTitle}>Player Access</Text>
+          <Text style={styles.headerSub}>Membership tiers</Text>
+        </View>
+        <View style={styles.headerSide} />
       </View>
 
+      {/* Search bar */}
       <View style={styles.searchBar}>
-        <Text style={{ fontSize: 14, color: colors.textMuted }}>🔍</Text>
+        <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
           style={styles.searchInput}
           value={search}
           onChangeText={setSearch}
           placeholder="Search players…"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor="#444"
           autoCorrect={false}
         />
       </View>
@@ -174,19 +154,26 @@ export default function MembershipScreen() {
             )}
             <View style={styles.chips}>
               {AREAS.map(area => {
-                const on = player.membership_types.includes(area.key);
+                const on   = player.membership_types.includes(area.key);
                 const busy = saving === player.id + area.key;
                 return (
                   <TouchableOpacity
                     key={area.key}
-                    style={[styles.chip, on && styles.chipOn, on && { backgroundColor: area.color + '22', borderColor: area.color }]}
+                    style={[
+                      styles.chip,
+                      on
+                        ? { backgroundColor: area.color + '22', borderColor: area.color }
+                        : { backgroundColor: '#333', borderColor: '#333' },
+                    ]}
                     onPress={() => toggleArea(player, area.key)}
                     disabled={!!saving}
                     activeOpacity={0.7}
                   >
                     {busy
-                      ? <ActivityIndicator size="small" color={on ? area.color : colors.textMuted} style={{ width: 40 }} />
-                      : <Text style={[styles.chipText, on && { color: area.color }]}>{on ? '✓ ' : ''}{area.label}</Text>
+                      ? <ActivityIndicator size="small" color={on ? area.color : '#666'} style={{ width: 48 }} />
+                      : <Text style={[styles.chipText, { color: on ? area.color : '#888' }]}>
+                          {on ? '✓ ' : ''}{area.label}
+                        </Text>
                     }
                   </TouchableOpacity>
                 );
@@ -198,3 +185,50 @@ export default function MembershipScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
+
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
+  },
+  headerSide:   { width: 72 },
+  back:         { fontSize: 15, fontFamily: FFB, color: GOLD },
+  headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
+  logo:         { width: 24, height: 24, marginBottom: 2 },
+  headerTitle:  { fontSize: 15, fontFamily: FFB, color: '#fff' },
+  headerSub:    { fontSize: 9, fontFamily: FF, color: '#555' },
+
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingHorizontal: 14, paddingVertical: 10,
+    margin: 16, marginBottom: 0,
+  },
+  searchIcon:  { fontSize: 14, color: '#555' },
+  searchInput: { flex: 1, fontSize: 13, fontFamily: FF, color: '#fff', padding: 0 },
+
+  scroll:  { padding: 16, paddingBottom: 48 },
+  count:   { fontSize: 11, fontFamily: FF, color: '#555', marginBottom: 12, textAlign: 'center' },
+
+  empty:     { alignItems: 'center', paddingVertical: 48 },
+  emptyText: { fontSize: 15, fontFamily: FF, color: '#555', textAlign: 'center' },
+
+  playerCard: {
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 14, marginBottom: 10,
+  },
+  playerName: { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 2 },
+  playerHcp:  { fontSize: 11, fontFamily: FF, color: '#555', marginBottom: 10 },
+
+  chips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  chip: {
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 99, borderWidth: 1.5,
+  },
+  chipText: { fontSize: 11, fontFamily: FFB, letterSpacing: 0.5 },
+});

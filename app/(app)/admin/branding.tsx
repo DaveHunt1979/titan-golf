@@ -6,14 +6,19 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { uploadImage } from '../../../src/lib/uploadImage';
-import { fonts, spacing, radius } from '../../../src/lib/theme';
-import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
-import { derivePalette } from '../../../src/lib/SocietyThemeContext';
-import { titanLogo } from '../../../src/lib/assets';
+import { useDynamicColors, derivePalette } from '../../../src/lib/SocietyThemeContext';
+
+const GOLD = '#D4AF37';
+const GREEN = '#4ade80';
+const RED = '#f87171';
+const FF  = 'JUSTSans';
+const FFB = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const BG_SWATCHES = [
   { label: 'Midnight',   hex: '#0A0A1A' },
@@ -69,17 +74,16 @@ function SplashPreview({ name, logoUri, primary, secondary }: {
         style={[prev.logo, { transform: [{ scale }] }]}
         resizeMode="contain"
       />
-      <Text style={[prev.name, { color: palette.text }]} numberOfLines={1}>
+      <Text style={[prev.name, { color: palette.text, fontFamily: FFB }]} numberOfLines={1}>
         {name || 'Your Society'}
       </Text>
-      <Text style={[prev.sub, { color: palette.accent }]}>Loading…</Text>
+      <Text style={[prev.sub, { color: palette.accent, fontFamily: FF }]}>Loading…</Text>
     </View>
   );
 }
 
 export default function SocietyBrandingScreen() {
   const router  = useRouter();
-  const colors  = useDynamicColors();
   const { societyId, loading: societyLoading } = useAdminSociety();
 
   const [name,           setName]           = useState('');
@@ -93,7 +97,10 @@ export default function SocietyBrandingScreen() {
   const [loading,        setLoading]        = useState(true);
   const [saving,         setSaving]         = useState(false);
 
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
   useEffect(() => {
     if (secondaryHex !== secondaryColor) setSecondaryHex(secondaryColor);
@@ -173,116 +180,130 @@ export default function SocietyBrandingScreen() {
 
   const displayUri = logoLocalUri ?? logoUrl;
 
-  if (loading || societyLoading) {
-    return (
-      <View style={[styles.container, styles.centered]}>
-        <StatusBar style="light" />
-        <ActivityIndicator color={colors.gold} size="large" />
-      </View>
-    );
-  }
+  if (loading || societyLoading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="light" />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={hit}>
-          <Text style={styles.back}>← Back</Text>
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={hit} style={s.headerLeft}>
+          <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Society Branding</Text>
-        <TouchableOpacity onPress={save} disabled={saving} hitSlop={hit}>
-          <Text style={[styles.saveBtn, saving && { opacity: 0.4 }]}>
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Text style={s.headerTitle}>Society Branding</Text>
+          <Text style={s.headerSub}>admin</Text>
+        </View>
+        <TouchableOpacity onPress={save} disabled={saving} hitSlop={hit} style={s.headerRight}>
+          <Text style={[s.saveBtn, saving && { opacity: 0.4 }]}>
             {saving ? 'Saving…' : 'Save'}
           </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
         {/* Splash Preview */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>LOADING SCREEN PREVIEW</Text>
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>LOADING SCREEN PREVIEW</Text>
           <SplashPreview
             name={name}
             logoUri={displayUri}
             primary={primaryColor}
             secondary={secondaryColor}
           />
-          <Text style={styles.hint}>This is exactly what members see when they open the app.</Text>
+          <Text style={s.hint}>This is exactly what members see when they open the app.</Text>
         </View>
 
         {/* Logo */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>SOCIETY LOGO</Text>
-          <View style={styles.logoRow}>
-            <TouchableOpacity onPress={pickLogo} activeOpacity={0.8}>
-              <View style={[styles.logoCircle, { borderColor: primaryColor }]}>
-                {displayUri
-                  ? <Image source={{ uri: displayUri }} style={styles.logoImg} />
-                  : <View style={[styles.logoPlaceholder, { backgroundColor: primaryColor + '22' }]}>
-                      <Text style={styles.logoPlaceholderIcon}>⛳</Text>
-                    </View>
-                }
-              </View>
-            </TouchableOpacity>
-            <View style={{ flex: 1 }}>
-              <TouchableOpacity
-                style={[styles.uploadBtn, { borderColor: primaryColor }]}
-                onPress={pickLogo} activeOpacity={0.8}
-              >
-                <Text style={[styles.uploadBtnText, { color: primaryColor }]}>
-                  {displayUri ? 'Change Logo' : 'Upload Logo'}
-                </Text>
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>SOCIETY LOGO</Text>
+          <View style={s.logoCard}>
+            <View style={s.logoRow}>
+              <TouchableOpacity onPress={pickLogo} activeOpacity={0.8}>
+                <View style={[s.logoCircle, { borderColor: primaryColor }]}>
+                  {displayUri
+                    ? <Image source={{ uri: displayUri }} style={s.logoImg} />
+                    : <View style={[s.logoPlaceholder, { backgroundColor: primaryColor + '22' }]}>
+                        <Text style={s.logoPlaceholderIcon}>⛳</Text>
+                      </View>
+                  }
+                </View>
               </TouchableOpacity>
-              <Text style={styles.hint}>Square PNG or JPEG · max 10 MB{'\n'}Used in the splash screen and app header.</Text>
+              <View style={{ flex: 1 }}>
+                <TouchableOpacity
+                  style={s.uploadBtn}
+                  onPress={pickLogo} activeOpacity={0.8}
+                >
+                  <Text style={s.uploadBtnText}>
+                    {displayUri ? 'Change Logo' : 'Upload Logo'}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={s.hint}>Square PNG or JPEG · max 10 MB{'\n'}Used in the splash screen and app header.</Text>
+              </View>
             </View>
           </View>
         </View>
 
         {/* Name */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>SOCIETY NAME</Text>
-          <View style={styles.card}>
-            <TextInput style={styles.input} value={name} onChangeText={setName}
-              placeholderTextColor={colors.textMuted} placeholder="e.g. Titan Golf Society" />
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>SOCIETY NAME</Text>
+          <View style={s.inputCard}>
+            <TextInput
+              style={s.input}
+              value={name}
+              onChangeText={setName}
+              placeholderTextColor="#444"
+              placeholder="e.g. Titan Golf Society"
+            />
           </View>
         </View>
 
         {/* Tagline */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>TAGLINE</Text>
-          <View style={styles.card}>
-            <TextInput style={styles.input} value={tagline} onChangeText={setTagline}
-              placeholderTextColor={colors.textMuted} placeholder="e.g. Tour life. No excuses."
-              maxLength={60} />
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>TAGLINE</Text>
+          <View style={s.inputCard}>
+            <TextInput
+              style={s.input}
+              value={tagline}
+              onChangeText={setTagline}
+              placeholderTextColor="#444"
+              placeholder="e.g. Tour life. No excuses."
+              maxLength={60}
+            />
           </View>
-          <Text style={styles.hint}>Shown on the home screen · max 60 characters</Text>
+          <Text style={s.hint}>Shown on the home screen · max 60 characters</Text>
         </View>
 
-        {/* Primary Colour */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>BACKGROUND COLOUR</Text>
-          <Text style={styles.hint2}>Choose a dark colour — this becomes the app background.</Text>
+        {/* Background Colour */}
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>BACKGROUND COLOUR</Text>
+          <Text style={s.hint2}>Choose a dark colour — this becomes the app background.</Text>
           <ColorSwatches swatches={BG_SWATCHES} selected={primaryColor} onSelect={setPrimaryColor} />
           <HexInput label="Custom hex" value={primaryHex} onChange={applyPrimaryHex} accent={primaryColor} />
         </View>
 
-        {/* Secondary Colour */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>ACCENT COLOUR</Text>
-          <Text style={styles.hint2}>Icons, highlights, active tabs — choose a light or vibrant colour.</Text>
+        {/* Accent Colour */}
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>ACCENT COLOUR</Text>
+          <Text style={s.hint2}>Icons, highlights, active tabs — choose a light or vibrant colour.</Text>
           <ColorSwatches swatches={ACCENT_SWATCHES} selected={secondaryColor} onSelect={setSecondaryColor} />
           <HexInput label="Custom hex" value={secondaryHex} onChange={applySecondaryHex} accent={secondaryColor} />
         </View>
 
         <TouchableOpacity
-          style={[styles.saveButton, { backgroundColor: primaryColor }, saving && { opacity: 0.5 }]}
+          style={[s.saveButton, saving && { opacity: 0.5 }]}
           onPress={save} disabled={saving} activeOpacity={0.8}
         >
           {saving
-            ? <ActivityIndicator color="#ffffff" />
-            : <Text style={styles.saveButtonText}>Save Branding</Text>
+            ? <ActivityIndicator color="#000" />
+            : <Text style={s.saveButtonText}>Save Branding</Text>
           }
         </TouchableOpacity>
 
@@ -300,16 +321,19 @@ function ColorSwatches({ swatches, selected, onSelect }: {
   return (
     <View style={sw.wrap}>
       <View style={sw.grid}>
-        {swatches.map(s => (
-          <TouchableOpacity
-            key={s.hex}
-            style={[sw.swatch, { backgroundColor: s.hex }, selected.toLowerCase() === s.hex.toLowerCase() && sw.swatchOn]}
-            onPress={() => onSelect(s.hex)}
-            activeOpacity={0.8}
-          >
-            {selected.toLowerCase() === s.hex.toLowerCase() && <Text style={sw.tick}>✓</Text>}
-          </TouchableOpacity>
-        ))}
+        {swatches.map(s => {
+          const isOn = selected.toLowerCase() === s.hex.toLowerCase();
+          return (
+            <TouchableOpacity
+              key={s.hex}
+              style={[sw.swatch, { backgroundColor: s.hex }, isOn && sw.swatchOn]}
+              onPress={() => onSelect(s.hex)}
+              activeOpacity={0.8}
+            >
+              {isOn && <Text style={sw.tick}>✓</Text>}
+            </TouchableOpacity>
+          );
+        })}
       </View>
       {selectedSwatch && <Text style={sw.label}>{selectedSwatch.label}</Text>}
     </View>
@@ -324,14 +348,14 @@ function HexInput({ label, value, onChange, accent }: {
     <View style={hi.row}>
       <View style={[hi.preview, { backgroundColor: valid ? value : '#444' }]} />
       <TextInput
-        style={[hi.input, { borderColor: valid ? accent : '#f87171' }]}
+        style={[hi.input, { borderColor: valid ? GOLD : RED }]}
         value={value}
         onChangeText={onChange}
         autoCapitalize="none"
         autoCorrect={false}
         maxLength={7}
         placeholder="#000000"
-        placeholderTextColor="#556677"
+        placeholderTextColor="#444"
       />
     </View>
   );
@@ -339,78 +363,103 @@ function HexInput({ label, value, onChange, accent }: {
 
 const hit = { top: 12, bottom: 12, left: 12, right: 12 };
 
-function makeStyles(c: ReturnType<typeof useDynamicColors>) {
-  return StyleSheet.create({
-    container:  { flex: 1, backgroundColor: c.bg },
-    centered:   { alignItems: 'center', justifyContent: 'center' },
-    header: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-      borderBottomWidth: 1, borderBottomColor: c.border,
-    },
-    back:        { fontSize: fonts.sm, color: c.gold, fontWeight: '600' },
-    headerTitle: { fontSize: fonts.md, fontWeight: '800', color: c.white, letterSpacing: 0.5 },
-    saveBtn:     { fontSize: fonts.sm, fontWeight: '700', color: c.gold },
-    scroll:      { padding: spacing.lg, paddingBottom: 60 },
-    section:     { marginBottom: spacing.xl },
-    sectionLabel: {
-      fontSize: fonts.xs, fontWeight: '800', color: c.textMuted,
-      letterSpacing: 2, marginBottom: spacing.xs, textTransform: 'uppercase',
-    },
-    hint:  { fontSize: fonts.xs, color: c.textMuted, marginTop: spacing.xs, lineHeight: 17 },
-    hint2: { fontSize: fonts.xs, color: c.textSecondary, marginBottom: spacing.sm },
-    card: {
-      backgroundColor: c.card, borderRadius: radius.md,
-      borderWidth: 1, borderColor: c.border,
-    },
-    input: {
-      paddingHorizontal: spacing.md, paddingVertical: spacing.md,
-      fontSize: fonts.md, color: c.white,
-    },
-    logoRow:     { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
-    logoCircle: {
-      width: 88, height: 88, borderRadius: 44,
-      borderWidth: 3, overflow: 'hidden',
-    },
-    logoImg:             { width: '100%', height: '100%' },
-    logoPlaceholder:     { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    logoPlaceholderIcon: { fontSize: 36 },
-    uploadBtn: {
-      borderWidth: 1.5, borderRadius: radius.md, borderStyle: 'dashed',
-      paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
-      alignItems: 'center', marginBottom: spacing.xs,
-    },
-    uploadBtnText: { fontSize: fonts.sm, fontWeight: '700' },
-    saveButton: {
-      borderRadius: radius.md, paddingVertical: spacing.md,
-      alignItems: 'center', marginTop: spacing.md,
-    },
-    saveButtonText: { fontSize: fonts.md, fontWeight: '800', color: '#ffffff', letterSpacing: 0.5 },
-  });
-}
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
+
+  // Header
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
+  },
+  headerLeft:   { flex: 1, alignItems: 'flex-start' },
+  headerCenter: { flex: 2, alignItems: 'center' },
+  headerRight:  { flex: 1, alignItems: 'flex-end' },
+  headerLogo:   { width: 24, height: 24, marginBottom: 2 },
+  back:         { fontSize: 14, color: GOLD, fontFamily: FFB },
+  headerTitle:  { fontSize: 15, color: '#fff', fontFamily: FFB, letterSpacing: 0.5 },
+  headerSub:    { fontSize: 9, color: '#555', fontFamily: FF },
+  saveBtn:      { fontSize: 14, fontFamily: FFB, color: GOLD },
+
+  scroll:   { padding: 20, paddingBottom: 60 },
+  section:  { marginBottom: 28 },
+
+  sectionLabel: {
+    fontSize: 10, fontFamily: FFB, color: '#555',
+    letterSpacing: 2, marginBottom: 8,
+  },
+  hint:  { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 8, lineHeight: 17 },
+  hint2: { fontSize: 12, fontFamily: FF, color: '#666', marginBottom: 12 },
+
+  // Logo card
+  logoCard: {
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 16,
+  },
+  logoRow:             { flexDirection: 'row', gap: 16, alignItems: 'center' },
+  logoCircle: {
+    width: 88, height: 88, borderRadius: 44,
+    borderWidth: 3, overflow: 'hidden',
+  },
+  logoImg:             { width: '100%', height: '100%' },
+  logoPlaceholder:     { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  logoPlaceholderIcon: { fontSize: 36 },
+  uploadBtn: {
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingVertical: 10, paddingHorizontal: 16,
+    alignItems: 'center', marginBottom: 8,
+  },
+  uploadBtnText: { fontSize: 14, fontFamily: FFB, color: '#000' },
+
+  // Inputs
+  inputCard: {
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c',
+  },
+  input: {
+    paddingHorizontal: 14, paddingVertical: 14,
+    fontSize: 15, fontFamily: FFB, color: '#fff',
+  },
+
+  // Save button
+  saveButton: {
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingVertical: 16, alignItems: 'center', marginTop: 8,
+  },
+  saveButtonText: { fontSize: 15, fontFamily: FFB, color: '#000', letterSpacing: 0.5 },
+});
 
 const prev = StyleSheet.create({
   box: {
-    borderRadius: radius.lg, height: 200,
-    alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    borderRadius: 16, height: 200,
+    alignItems: 'center', justifyContent: 'center', gap: 10,
     overflow: 'hidden',
   },
   logo: { width: 80, height: 80 },
-  name: { fontSize: fonts.lg, fontWeight: '800', letterSpacing: 1 },
-  sub:  { fontSize: fonts.xs, fontWeight: '600', letterSpacing: 2 },
+  name: { fontSize: 18, fontWeight: '800', letterSpacing: 1 },
+  sub:  { fontSize: 11, fontWeight: '600', letterSpacing: 2 },
 });
 
 const sw = StyleSheet.create({
-  wrap:     { marginBottom: spacing.sm },
-  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.xs },
-  swatch:   { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
-  swatchOn: { borderColor: '#ffffff', transform: [{ scale: 1.12 }] },
+  wrap:     { marginBottom: 10 },
+  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 },
+  swatch: {
+    width: 44, height: 44, borderRadius: 22,
+    borderWidth: 2, borderColor: 'transparent',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  swatchOn: { borderWidth: 3, borderColor: GOLD, transform: [{ scale: 1.12 }] },
   tick:     { color: '#ffffff', fontSize: 16, fontWeight: '800' },
-  label:    { fontSize: fonts.xs, color: '#8899aa', minHeight: 16 },
+  label:    { fontSize: 11, fontFamily: FF, color: '#888', minHeight: 16 },
 });
 
 const hi = StyleSheet.create({
-  row:     { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+  row:     { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
   preview: { width: 32, height: 32, borderRadius: 8 },
-  input:   { flex: 1, backgroundColor: '#0d1520', borderWidth: 1.5, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, fontSize: fonts.md, color: '#ffffff', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
+  input: {
+    flex: 1, backgroundColor: '#111', borderWidth: 1.5, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 10,
+    fontSize: 15, fontFamily: FFB, color: '#fff',
+  },
 });

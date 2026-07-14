@@ -1,15 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  TextInput, Alert, ActivityIndicator, Modal,
+  TextInput, Alert, ActivityIndicator, Modal, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { searchUKClubs, getUKClub, clubLocation, type UKClub } from '../../../src/lib/ukgolf';
 import { scanScorecardFromCamera, scanScorecardFromLibrary, type ScannedCourse } from '../../../src/lib/scanScorecard';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+const GOLD = '#D4AF37';
+const GREEN = '#4ade80';
+const RED = '#f87171';
+const FF  = 'JUSTSans';
+const FFB = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 interface CourseRow { name: string; par: number; holeCount: number; incomplete: boolean; }
 interface HoleConfig { par: 3 | 4 | 5; si: string; teeYardages: Record<string, number>; }
@@ -37,6 +44,11 @@ export default function CoursesScreen() {
   const [pendingLng, setPendingLng]   = useState<number | null>(null);
   const [scanning, setScanning]       = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
   const loadCourses = useCallback(async () => {
     const { data } = await supabase.from('course_holes').select('course_name, par');
@@ -137,8 +149,6 @@ export default function CoursesScreen() {
   }
 
   function buildCombinedHoles(a: HoleConfig[], b: HoleConfig[]): HoleConfig[] {
-    // Rank each loop's holes by SI difficulty, then interleave:
-    // A's hardest (SI 1) → combined SI 1, B's hardest → combined SI 2, etc.
     const rank = (arr: HoleConfig[]) => {
       const sorted = arr.map((h, i) => ({ i, si: parseInt(h.si, 10) || i + 1 }))
         .sort((x, y) => x.si - y.si);
@@ -166,12 +176,10 @@ export default function CoursesScreen() {
         configs:   scannedToHoleConfig(c.holes),
       }));
 
-      // Individual 9-hole courses
       for (const c of named) {
         toSave.push({ name: c.fullName, holeConfigs: c.configs });
       }
 
-      // All pairwise combinations
       for (let i = 0; i < named.length; i++) {
         for (let j = i + 1; j < named.length; j++) {
           const a = named[i];
@@ -238,7 +246,6 @@ export default function CoursesScreen() {
         return;
       }
 
-      // Multiple named courses — offer save-all or pick one
       const prefix = courseName.trim();
       const courseList = scannedCourses.map(c => c.name ?? 'Unnamed').join(', ');
       const comboCount = (scannedCourses.length * (scannedCourses.length - 1)) / 2;
@@ -350,25 +357,27 @@ export default function CoursesScreen() {
   const back9Par  = holes.slice(9).reduce((s, h) => s + h.par, 0);
   const totalPar  = front9Par + back9Par;
 
-  if (loading || societyLoading) {
-    return (
-      <View style={[s.container, s.centered]}>
-        <StatusBar style="light" />
-        <ActivityIndicator color={colors.gold} size="large" />
-      </View>
-    );
-  }
+  if (loading || societyLoading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
 
   return (
     <View style={s.container}>
       <StatusBar style="light" />
 
+      {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={hit}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={hit} style={s.headerLeft}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Courses</Text>
-        <TouchableOpacity onPress={openNew} hitSlop={hit}>
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Text style={s.headerTitle}>Courses</Text>
+          <Text style={s.headerSub}>admin</Text>
+        </View>
+        <TouchableOpacity onPress={openNew} hitSlop={hit} style={s.headerRight}>
           <Text style={s.addBtn}>+ Add</Text>
         </TouchableOpacity>
       </View>
@@ -379,7 +388,7 @@ export default function CoursesScreen() {
           <TextInput
             style={s.courseSearchInput}
             placeholder="Search courses…"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor="#444"
             value={searchQuery}
             onChangeText={setSearchQuery}
             clearButtonMode="while-editing"
@@ -450,20 +459,26 @@ export default function CoursesScreen() {
         onRequestClose={() => setModal(false)}
       >
         <View style={s.modal}>
+          {/* Modal header */}
           <View style={s.modalHeader}>
             <TouchableOpacity
               onPress={() => step === 'holes' && !editingName ? setStep('name') : setModal(false)}
               hitSlop={hit}
+              style={s.modalHeaderLeft}
             >
               <Text style={s.modalCancel}>
                 {step === 'holes' && !editingName ? '‹ Back' : 'Cancel'}
               </Text>
             </TouchableOpacity>
-            <Text style={s.modalTitle} numberOfLines={1}>
-              {editingName ?? (step === 'name' ? 'New Course' : courseName.trim() || 'New Course')}
-            </Text>
+            <View style={s.modalHeaderCenter}>
+              <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+              <Text style={s.modalTitle} numberOfLines={1}>
+                {editingName ?? (step === 'name' ? 'New Course' : courseName.trim() || 'New Course')}
+              </Text>
+              <Text style={s.headerSub}>courses</Text>
+            </View>
             {step === 'holes' ? (
-              <TouchableOpacity onPress={save} disabled={saving} hitSlop={hit}>
+              <TouchableOpacity onPress={save} disabled={saving} hitSlop={hit} style={s.modalHeaderRight}>
                 <Text style={[s.modalSave, saving && { opacity: 0.4 }]}>
                   {saving ? 'Saving…' : 'Save'}
                 </Text>
@@ -475,6 +490,7 @@ export default function CoursesScreen() {
                   setStep('holes');
                 }}
                 hitSlop={hit}
+                style={s.modalHeaderRight}
               >
                 <Text style={s.modalSave}>Next →</Text>
               </TouchableOpacity>
@@ -490,7 +506,7 @@ export default function CoursesScreen() {
                   value={courseName}
                   onChangeText={setCourseName}
                   placeholder="e.g. West Cliffs"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor="#444"
                   autoCapitalize="words"
                 />
               </View>
@@ -498,14 +514,14 @@ export default function CoursesScreen() {
                 Type a name and tap Next, or search the UK Golf database to import the course name.
               </Text>
 
-              <Text style={[s.sectionLabel, { marginTop: spacing.xl }]}>SEARCH UK GOLF COURSES</Text>
+              <Text style={[s.sectionLabel, { marginTop: 24 }]}>SEARCH UK GOLF COURSES</Text>
               <View style={s.searchRow}>
                 <TextInput
                   style={s.searchInput}
                   value={gbQuery}
                   onChangeText={v => { setGbQuery(v); setGbError(''); setGbResults([]); }}
                   placeholder="e.g. Princes, Wentworth…"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor="#444"
                   autoCapitalize="words"
                   returnKeyType="search"
                   onSubmitEditing={runSearch}
@@ -517,7 +533,7 @@ export default function CoursesScreen() {
                   activeOpacity={0.8}
                 >
                   {gbSearching
-                    ? <ActivityIndicator color={colors.bg} size="small" />
+                    ? <ActivityIndicator color="#000" size="small" />
                     : <Text style={s.searchBtnText}>Search</Text>
                   }
                 </TouchableOpacity>
@@ -557,7 +573,7 @@ export default function CoursesScreen() {
                 activeOpacity={0.8}
               >
                 {scanning
-                  ? <ActivityIndicator color={colors.gold} size="small" />
+                  ? <ActivityIndicator color={GOLD} size="small" />
                   : <Text style={s.scanBtnText}>📷  Scan Scorecard</Text>
                 }
               </TouchableOpacity>
@@ -577,7 +593,7 @@ export default function CoursesScreen() {
                 <View style={s.parDivider} />
                 <View style={s.parItem}>
                   <Text style={s.parLabel}>TOTAL</Text>
-                  <Text style={[s.parValue, { color: colors.gold }]}>{totalPar}</Text>
+                  <Text style={[s.parValue, { color: GOLD }]}>{totalPar}</Text>
                 </View>
               </View>
 
@@ -593,7 +609,7 @@ export default function CoursesScreen() {
                 <HoleRow key={i} index={i} hole={h} onPar={setPar} onSI={setSI} />
               ))}
 
-              <Text style={[s.nineLabel, { marginTop: spacing.md }]}>BACK 9</Text>
+              <Text style={[s.nineLabel, { marginTop: 16 }]}>BACK 9</Text>
               {holes.slice(9).map((h, i) => (
                 <HoleRow key={i + 9} index={i + 9} hole={h} onPar={setPar} onSI={setSI} />
               ))}
@@ -651,170 +667,189 @@ function HoleRow({ index, hole, onPar, onSI }: {
 const hit = { top: 12, bottom: 12, left: 12, right: 12 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered:  { alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#000' },
 
+  // Header
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: 'row', alignItems: 'center',
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  back:        { fontSize: fonts.sm, color: colors.gold, fontWeight: '600' },
-  headerTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
-  addBtn:      { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
-  searchWrap:        { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
-  courseSearchInput: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10, color: colors.white, fontSize: fonts.md },
-  scroll:      { padding: spacing.lg, paddingBottom: 60 },
+  headerLeft:   { flex: 1, alignItems: 'flex-start' },
+  headerCenter: { flex: 2, alignItems: 'center' },
+  headerRight:  { flex: 1, alignItems: 'flex-end' },
+  headerLogo:   { width: 24, height: 24, marginBottom: 2 },
+  back:         { fontSize: 14, color: GOLD, fontFamily: FFB },
+  headerTitle:  { fontSize: 15, color: '#fff', fontFamily: FFB, letterSpacing: 0.5 },
+  headerSub:    { fontSize: 9, color: '#555', fontFamily: FF },
+  addBtn:       { fontSize: 14, color: GOLD, fontFamily: FFB },
+
+  searchWrap:        { paddingHorizontal: 20, paddingBottom: 10 },
+  courseSearchInput: {
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+    color: '#fff', fontSize: 15, fontFamily: FFB,
+  },
+  scroll: { padding: 20, paddingBottom: 60 },
 
   courseRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    paddingVertical: spacing.md, paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingVertical: 14, paddingHorizontal: 16,
+    marginBottom: 10,
   },
-  courseName: { fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  courseMeta:    { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
-  incompleteTag: { fontSize: fonts.xs, color: '#f59e0b', fontWeight: '600' },
-  arrow:      { fontSize: 22, color: colors.textMuted },
+  courseName:    { fontSize: 15, fontFamily: FFB, color: '#fff' },
+  courseMeta:    { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 2 },
+  incompleteTag: { fontSize: 12, color: '#f59e0b', fontFamily: FFB },
+  arrow:         { fontSize: 22, color: '#555' },
 
   addRowBtn: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.goldBorder, borderStyle: 'dashed',
-    paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.sm,
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: GOLD, borderStyle: 'dashed',
+    paddingVertical: 14, alignItems: 'center', marginTop: 8,
   },
-  addRowBtnText: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
+  addRowBtnText: { fontSize: 14, fontFamily: FFB, color: GOLD },
 
   empty:      { alignItems: 'center', paddingTop: 80 },
-  emptyIcon:  { fontSize: 52, marginBottom: spacing.md },
-  emptyTitle: { fontSize: fonts.xl, fontWeight: '800', color: colors.white, marginBottom: spacing.xs },
+  emptyIcon:  { fontSize: 52, marginBottom: 16 },
+  emptyTitle: { fontSize: 20, fontFamily: FFB, color: '#fff', marginBottom: 8 },
   emptyHint: {
-    fontSize: fonts.sm, color: colors.textMuted,
-    textAlign: 'center', marginBottom: spacing.xl,
-    paddingHorizontal: spacing.xl, lineHeight: 20,
+    fontSize: 14, fontFamily: FF, color: '#555',
+    textAlign: 'center', marginBottom: 24,
+    paddingHorizontal: 24, lineHeight: 20,
   },
   emptyBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.md,
-    paddingVertical: spacing.md, paddingHorizontal: spacing.xl,
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingVertical: 14, paddingHorizontal: 24,
   },
-  emptyBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
+  emptyBtnText: { fontSize: 15, fontFamily: FFB, color: '#000' },
 
   // Modal
-  modal: { flex: 1, backgroundColor: colors.bg },
+  modal: { flex: 1, backgroundColor: '#000' },
   modalHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: 'row', alignItems: 'center',
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  modalCancel: { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600', minWidth: 60 },
-  modalTitle:  { fontSize: fonts.md, fontWeight: '800', color: colors.white, flex: 1, textAlign: 'center', marginHorizontal: spacing.sm },
-  modalSave:   { fontSize: fonts.sm, color: colors.gold, fontWeight: '700', minWidth: 60, textAlign: 'right' },
+  modalHeaderLeft:   { flex: 1, alignItems: 'flex-start' },
+  modalHeaderCenter: { flex: 2, alignItems: 'center' },
+  modalHeaderRight:  { flex: 1, alignItems: 'flex-end' },
+  modalCancel: { fontSize: 14, fontFamily: FF, color: '#555' },
+  modalTitle:  { fontSize: 15, fontFamily: FFB, color: '#fff', letterSpacing: 0.5 },
+  modalSave:   { fontSize: 14, fontFamily: FFB, color: GOLD },
 
   // Name step
-  namePad:   { padding: spacing.lg },
+  namePad:   { padding: 20 },
   sectionLabel: {
-    fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted,
-    letterSpacing: 2, marginBottom: spacing.sm,
+    fontSize: 10, fontFamily: FFB, color: '#555',
+    letterSpacing: 2, marginBottom: 8,
   },
-  nameCard:  { backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
-  nameInput: { paddingHorizontal: spacing.md, paddingVertical: spacing.md, fontSize: fonts.md, color: colors.white },
-  nameHint:  { fontSize: fonts.xs, color: colors.textMuted, marginTop: spacing.sm, lineHeight: 18 },
+  nameCard:  {
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c',
+  },
+  nameInput: {
+    paddingHorizontal: 14, paddingVertical: 14,
+    fontSize: 15, fontFamily: FFB, color: '#fff',
+  },
+  nameHint:  { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 8, lineHeight: 18 },
 
   // Holes step
-  holesPad: { padding: spacing.lg, paddingBottom: 80 },
+  holesPad: { padding: 20, paddingBottom: 80 },
 
   scanBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.goldDim,
-    borderRadius: radius.md,
+    backgroundColor: 'rgba(212,175,55,0.1)',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.goldBorder,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.sm,
+    borderColor: 'rgba(212,175,55,0.3)',
+    paddingVertical: 14,
+    marginBottom: 10,
     minHeight: 44,
   },
-  scanBtnText: { fontSize: fonts.sm, fontWeight: '800', color: colors.gold },
-  scanHint: { fontSize: fonts.xs, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.md },
+  scanBtnText: { fontSize: 14, fontFamily: FFB, color: GOLD },
+  scanHint: { fontSize: 12, fontFamily: FF, color: '#555', textAlign: 'center', marginBottom: 14 },
 
   parSummary: {
-    flexDirection: 'row', backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, padding: spacing.md,
-    marginBottom: spacing.md, alignItems: 'center',
+    flexDirection: 'row', backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c', padding: 14,
+    marginBottom: 16, alignItems: 'center',
   },
   parItem:    { flex: 1, alignItems: 'center' },
-  parLabel:   { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '700', letterSpacing: 1 },
-  parValue:   { fontSize: fonts.xl, fontWeight: '800', color: colors.white, marginTop: 2 },
-  parDivider: { width: 1, height: 32, backgroundColor: colors.border },
+  parLabel:   { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  parValue:   { fontSize: 20, fontFamily: FFB, color: '#fff', marginTop: 2 },
+  parDivider: { width: 1, height: 32, backgroundColor: '#1c1c1c' },
 
-  holeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs, paddingHorizontal: 4 },
-  holeHeaderText: { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5 },
+  holeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingHorizontal: 4 },
+  holeHeaderText: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1.5 },
 
   nineLabel: {
-    fontSize: fonts.xs, fontWeight: '800', color: colors.gold,
-    letterSpacing: 2, marginBottom: spacing.xs,
+    fontSize: 10, fontFamily: FFB, color: GOLD,
+    letterSpacing: 2, marginBottom: 6,
   },
 
   holeRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.card, borderRadius: radius.sm,
-    borderWidth: 1, borderColor: colors.border,
-    paddingVertical: spacing.xs + 2, paddingHorizontal: spacing.sm,
-    marginBottom: 4, gap: spacing.sm,
+    backgroundColor: '#111', borderRadius: 10,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingVertical: 6, paddingHorizontal: 10,
+    marginBottom: 4, gap: 8,
   },
-  holeNum:   { width: 28, fontSize: fonts.sm, fontWeight: '700', color: colors.textMuted, textAlign: 'right' },
+  holeNum:   { width: 28, fontSize: 14, fontFamily: FFB, color: '#555', textAlign: 'right' },
   parChips:  { flex: 1, flexDirection: 'row', gap: 4 },
   parChip: {
-    flex: 1, height: 30, borderRadius: radius.sm,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardAlt,
+    flex: 1, height: 30, borderRadius: 8,
+    borderWidth: 1, borderColor: '#1c1c1c', backgroundColor: '#1a1a1a',
     alignItems: 'center', justifyContent: 'center',
   },
-  parChipOn:     { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
-  parChipText:   { fontSize: fonts.sm, fontWeight: '700', color: colors.textMuted },
-  parChipTextOn: { color: colors.gold },
+  parChipOn:     { backgroundColor: 'rgba(212,175,55,0.15)', borderColor: 'rgba(212,175,55,0.4)' },
+  parChipText:   { fontSize: 14, fontFamily: FFB, color: '#555' },
+  parChipTextOn: { color: GOLD },
 
   siInput: {
-    width: 40, height: 30, borderRadius: radius.sm,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardAlt,
-    color: colors.white, fontSize: fonts.sm, fontWeight: '700',
+    width: 40, height: 30, borderRadius: 8,
+    borderWidth: 1, borderColor: '#1c1c1c', backgroundColor: '#1a1a1a',
+    color: '#fff', fontSize: 14, fontFamily: FFB,
     textAlign: 'center',
   },
 
   deleteBtn: {
-    marginTop: spacing.xl,
+    marginTop: 24,
     backgroundColor: 'rgba(248,113,113,0.08)',
-    borderRadius: radius.md, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)',
-    paddingVertical: spacing.md, alignItems: 'center',
+    borderRadius: 12, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)',
+    paddingVertical: 14, alignItems: 'center',
   },
-  deleteBtnText: { fontSize: fonts.sm, fontWeight: '800', color: colors.red },
+  deleteBtnText: { fontSize: 14, fontFamily: FFB, color: RED },
 
-  // Golfbert search
-  searchRow: { flexDirection: 'row', gap: spacing.sm },
+  // UK Golf search
+  searchRow: { flexDirection: 'row', gap: 10 },
   searchInput: {
-    flex: 1, backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    fontSize: fonts.md, color: colors.white,
+    flex: 1, backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingHorizontal: 14, paddingVertical: 10,
+    fontSize: 15, fontFamily: FFB, color: '#fff',
   },
   searchBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.md,
-    paddingHorizontal: spacing.md, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center',
     minWidth: 76,
   },
-  searchBtnText: { fontSize: fonts.sm, fontWeight: '800', color: colors.bg },
-  gbError: { fontSize: fonts.xs, color: colors.red, marginTop: spacing.sm },
+  searchBtnText: { fontSize: 14, fontFamily: FFB, color: '#000' },
+  gbError: { fontSize: 12, fontFamily: FF, color: RED, marginTop: 8 },
   resultsList: {
-    marginTop: spacing.sm, backgroundColor: colors.card,
-    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+    marginTop: 10, backgroundColor: '#111',
+    borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c',
     overflow: 'hidden',
   },
   resultRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingVertical: 12, paddingHorizontal: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  resultName:   { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  resultMeta:   { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
-  resultImport: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold, marginLeft: spacing.sm },
+  resultName:   { fontSize: 14, fontFamily: FFB, color: '#fff' },
+  resultMeta:   { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 2 },
+  resultImport: { fontSize: 14, fontFamily: FFB, color: GOLD, marginLeft: 10 },
 });

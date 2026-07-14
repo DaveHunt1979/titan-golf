@@ -5,8 +5,12 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../src/lib/theme';
+
+const GOLD = '#D4AF37';
+const FF   = 'JUSTSans';
+const FFB  = 'JUSTSans-ExBold';
 
 interface Society {
   id: string;
@@ -28,6 +32,12 @@ export default function JoinScreen() {
   const [password, setPassword] = useState('');
   const [handicap, setHandicap] = useState('');
 
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: '#000' }}><StatusBar style="light" /></View>;
+
   async function onPinChange(text: string) {
     const digits = text.replace(/\D/g, '').slice(0, 6);
     setPin(digits);
@@ -47,9 +57,9 @@ export default function JoinScreen() {
   }
 
   async function join() {
-    if (!name.trim())       { Alert.alert('Required', 'Please enter your name.'); return; }
-    if (!email.trim())      { Alert.alert('Required', 'Please enter your email.'); return; }
-    if (password.length < 6){ Alert.alert('Password too short', 'Minimum 6 characters.'); return; }
+    if (!name.trim())        { Alert.alert('Required', 'Please enter your name.'); return; }
+    if (!email.trim())       { Alert.alert('Required', 'Please enter your email.'); return; }
+    if (password.length < 6) { Alert.alert('Password too short', 'Minimum 6 characters.'); return; }
 
     setStep('creating');
     try {
@@ -80,7 +90,7 @@ export default function JoinScreen() {
     return (
       <View style={[s.container, s.centered]}>
         <StatusBar style="light" />
-        <ActivityIndicator color={colors.gold} size="large" />
+        <ActivityIndicator color={GOLD} size="large" />
         <Text style={s.creatingText}>Joining society…</Text>
       </View>
     );
@@ -135,7 +145,7 @@ export default function JoinScreen() {
                 style={s.hiddenInput}
               />
             </TouchableOpacity>
-            {looking && <ActivityIndicator color={colors.gold} style={{ marginTop: spacing.lg }} />}
+            {looking && <ActivityIndicator color={GOLD} style={{ marginTop: 24 }} />}
           </>
         )}
 
@@ -184,7 +194,7 @@ function Field({ label, value, onChange, placeholder, keyboardType, autoCapitali
       <Text style={s.fieldLabel}>{label}</Text>
       <TextInput
         style={s.fieldInput} value={value} onChangeText={onChange}
-        placeholder={placeholder} placeholderTextColor={colors.textMuted}
+        placeholder={placeholder} placeholderTextColor="#444"
         keyboardType={keyboardType} autoCapitalize={autoCapitalize ?? 'words'}
         autoFocus={autoFocus} secureTextEntry={secure}
       />
@@ -193,58 +203,58 @@ function Field({ label, value, onChange, placeholder, keyboardType, autoCapitali
 }
 
 function Div() {
-  return <View style={{ height: 1, backgroundColor: colors.border, marginHorizontal: spacing.md }} />;
+  return <View style={{ height: 1, backgroundColor: '#1c1c1c', marginHorizontal: 16 }} />;
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: '#000' },
   centered:  { alignItems: 'center', justifyContent: 'center' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 56, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
+    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
   },
-  back:  { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
-  title: { fontSize: fonts.lg, fontWeight: '800', color: colors.white },
+  back:  { fontSize: 14, fontFamily: FF, color: GOLD },
+  title: { fontSize: 18, fontFamily: FFB, color: '#fff' },
 
-  scroll:   { padding: spacing.lg, paddingBottom: 80 },
-  subtitle: { fontSize: fonts.sm, color: colors.textSecondary, marginBottom: spacing.xl, textAlign: 'center' },
+  scroll:   { padding: 20, paddingBottom: 80 },
+  subtitle: { fontSize: 14, fontFamily: FF, color: '#555', marginBottom: 32, textAlign: 'center' },
 
   pinArea:  { alignItems: 'center', position: 'relative' },
-  pinBoxes: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  pinBoxes: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   pinBox: {
-    width: 44, height: 56, borderRadius: radius.md,
-    backgroundColor: colors.card, borderWidth: 2, borderColor: colors.border,
+    width: 44, height: 56, borderRadius: 12,
+    backgroundColor: '#111', borderWidth: 2, borderColor: '#1c1c1c',
     alignItems: 'center', justifyContent: 'center',
   },
-  pinBoxActive: { borderColor: colors.gold },
-  pinBoxFilled: { borderColor: colors.goldBorder, backgroundColor: colors.goldDim },
-  pinDigit:     { fontSize: fonts.xl, fontWeight: '800', color: colors.white },
+  pinBoxActive: { borderColor: GOLD },
+  pinBoxFilled: { borderColor: GOLD + '88', backgroundColor: GOLD + '18' },
+  pinDigit:     { fontSize: 22, fontFamily: FFB, color: '#fff' },
   hiddenInput:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0 },
 
   societyCard: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, padding: spacing.md, marginBottom: spacing.lg,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, padding: 16, marginBottom: 24,
   },
   societyDot:     { width: 14, height: 14, borderRadius: 7 },
-  societyName:    { fontSize: fonts.md, fontWeight: '800', color: colors.white },
-  societyCaption: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+  societyName:    { fontSize: 16, fontFamily: FFB, color: '#fff' },
+  societyCaption: { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 2 },
 
   sectionLabel: {
-    fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted,
-    letterSpacing: 2, marginBottom: spacing.xs,
+    fontSize: 10, fontFamily: FFB, color: '#555',
+    letterSpacing: 1.5, marginBottom: 8,
   },
   card: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, overflow: 'hidden', marginBottom: spacing.md,
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 16,
   },
-  fieldRow:   { paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
-  fieldLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginBottom: 4 },
-  fieldInput: { fontSize: fonts.md, color: colors.white },
+  fieldRow:   { paddingHorizontal: 16, paddingVertical: 14 },
+  fieldLabel: { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginBottom: 4 },
+  fieldInput: { fontSize: 16, fontFamily: FFB, color: '#fff' },
 
-  joinBtn:     { backgroundColor: colors.gold, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center' },
-  joinBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
+  joinBtn:     { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
+  joinBtnText: { fontSize: 16, fontFamily: FFB, color: '#000' },
 
-  creatingText: { fontSize: fonts.md, color: colors.textSecondary, marginTop: spacing.lg },
+  creatingText: { fontSize: 16, fontFamily: FF, color: '#555', marginTop: 24 },
 });

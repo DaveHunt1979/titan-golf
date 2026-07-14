@@ -5,9 +5,13 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../src/lib/theme';
-import { titanLogo } from '../../src/lib/assets';
+
+const GOLD = '#D4AF37';
+const FF   = 'JUSTSans';
+const FFB  = 'JUSTSans-ExBold';
+const titanLogo = require('../../assets/TitanAppLogo.png');
 
 const SOCIETY_COLORS = [
   '#D4AF37', '#1e3a8a', '#166534', '#7c3aed',
@@ -34,6 +38,12 @@ export default function CreateSocietyScreen() {
   const [plan, setPlan]               = useState('free');
   const [pin, setPin]                 = useState('');
 
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: '#000' }}><StatusBar style="light" /></View>;
+
   function slugify(name: string) {
     return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   }
@@ -44,8 +54,8 @@ export default function CreateSocietyScreen() {
       if (!ownerName.trim())   { Alert.alert('Required', 'Please enter your name.'); return; }
       setStep(1);
     } else if (step === 1) {
-      if (!email.trim())        { Alert.alert('Required', 'Please enter your email.'); return; }
-      if (password.length < 6)  { Alert.alert('Password too short', 'Minimum 6 characters.'); return; }
+      if (!email.trim())       { Alert.alert('Required', 'Please enter your email.'); return; }
+      if (password.length < 6) { Alert.alert('Password too short', 'Minimum 6 characters.'); return; }
       setStep(2);
     } else if (step === 2) {
       setStep(3);
@@ -88,7 +98,7 @@ export default function CreateSocietyScreen() {
     return (
       <View style={[s.container, s.centered]}>
         <StatusBar style="light" />
-        <ActivityIndicator color={colors.gold} size="large" />
+        <ActivityIndicator color={GOLD} size="large" />
         <Text style={s.creatingText}>Building your society…</Text>
       </View>
     );
@@ -98,7 +108,7 @@ export default function CreateSocietyScreen() {
     return (
       <View style={[s.container, s.centered]}>
         <StatusBar style="light" />
-        <Image source={titanLogo} style={{ width: 100, height: 100, marginBottom: spacing.lg }} resizeMode="contain" />
+        <Image source={titanLogo} style={{ width: 120, height: 36, marginBottom: 32 }} resizeMode="contain" />
         <Text style={s.successTitle}>{societyName}</Text>
         <Text style={s.successSub}>Your society is live!</Text>
         <View style={s.pinCard}>
@@ -114,10 +124,10 @@ export default function CreateSocietyScreen() {
   }
 
   const STEPS = [
-    { title: 'Your Society',    sub: "What's your society called?" },
-    { title: 'Admin Account',   sub: 'Create your admin login' },
-    { title: 'Society Branding',sub: 'Pick your society colour' },
-    { title: 'Choose a Plan',   sub: 'You can change this any time' },
+    { title: 'Your Society',     sub: "What's your society called?" },
+    { title: 'Admin Account',    sub: 'Create your admin login' },
+    { title: 'Society Branding', sub: 'Pick your society colour' },
+    { title: 'Choose a Plan',    sub: 'You can change this any time' },
   ];
 
   return (
@@ -187,7 +197,7 @@ export default function CreateSocietyScreen() {
         )}
 
         {step === 3 && (
-          <View style={{ gap: spacing.sm }}>
+          <View style={{ gap: 12 }}>
             {PLANS.map(p => (
               <TouchableOpacity
                 key={p.id}
@@ -196,13 +206,13 @@ export default function CreateSocietyScreen() {
                 activeOpacity={0.8}
               >
                 <View style={s.planRow}>
-                  <Text style={[s.planName, plan === p.id && { color: colors.gold }]}>{p.label}</Text>
-                  <Text style={[s.planPrice, plan === p.id && { color: colors.gold }]}>{p.price}</Text>
+                  <Text style={[s.planName, plan === p.id && { color: GOLD }]}>{p.label}</Text>
+                  <Text style={[s.planPrice, plan === p.id && { color: GOLD }]}>{p.price}</Text>
                 </View>
                 <Text style={s.planSub}>{p.sub}</Text>
                 {plan === p.id && (
                   <View style={s.planCheck}>
-                    <Text style={{ color: colors.bg, fontSize: 10, fontWeight: '800' }}>✓</Text>
+                    <Text style={{ color: '#000', fontSize: 10, fontFamily: FFB }}>✓</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -228,7 +238,7 @@ function Field({ label, value, onChange, placeholder, keyboardType, autoCapitali
       <Text style={s.fieldLabel}>{label}</Text>
       <TextInput
         style={s.fieldInput} value={value} onChangeText={onChange}
-        placeholder={placeholder} placeholderTextColor={colors.textMuted}
+        placeholder={placeholder} placeholderTextColor="#444"
         keyboardType={keyboardType} autoCapitalize={autoCapitalize ?? 'words'}
         autoFocus={autoFocus} secureTextEntry={secure}
       />
@@ -237,86 +247,85 @@ function Field({ label, value, onChange, placeholder, keyboardType, autoCapitali
 }
 
 function Div() {
-  return <View style={{ height: 1, backgroundColor: colors.border, marginHorizontal: spacing.md }} />;
+  return <View style={{ height: 1, backgroundColor: '#1c1c1c', marginHorizontal: 16 }} />;
 }
 
 const s = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: colors.bg },
-  centered:     { alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#000' },
+  centered:  { alignItems: 'center', justifyContent: 'center' },
+
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 56, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
+    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
   },
-  back:   { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
-  dots:   { flexDirection: 'row', gap: 6 },
-  dot:    { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
-  dotOn:  { backgroundColor: colors.gold },
-  scroll: { padding: spacing.lg, paddingBottom: 80 },
+  back:  { fontSize: 14, fontFamily: FF, color: GOLD },
+  dots:  { flexDirection: 'row', gap: 6 },
+  dot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: '#1c1c1c' },
+  dotOn: { backgroundColor: GOLD },
 
-  stepLabel: { fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted, letterSpacing: 2, textTransform: 'uppercase' },
-  stepTitle: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, marginTop: spacing.xs, marginBottom: spacing.xs },
-  stepSub:   { fontSize: fonts.sm, color: colors.textSecondary, marginBottom: spacing.lg },
+  scroll: { padding: 20, paddingBottom: 80 },
+
+  stepLabel: { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5, textTransform: 'uppercase' },
+  stepTitle: { fontSize: 28, fontFamily: FFB, color: '#fff', marginTop: 6, marginBottom: 6 },
+  stepSub:   { fontSize: 14, fontFamily: FF, color: '#555', marginBottom: 24 },
 
   card: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, overflow: 'hidden', marginBottom: spacing.md,
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 16,
   },
-  fieldRow:   { paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
-  fieldLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginBottom: 4 },
-  fieldInput: { fontSize: fonts.md, color: colors.white },
-  slugPreview: { fontSize: fonts.xs, color: colors.textMuted, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  fieldRow:    { paddingHorizontal: 16, paddingVertical: 14 },
+  fieldLabel:  { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginBottom: 4 },
+  fieldInput:  { fontSize: 16, fontFamily: FFB, color: '#fff' },
+  slugPreview: { fontSize: 12, fontFamily: FF, color: '#555', paddingHorizontal: 16, paddingBottom: 12 },
 
   colorGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm,
-    justifyContent: 'center', padding: spacing.md,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 12,
+    justifyContent: 'center', padding: 16,
   },
   swatch:   { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: 'transparent' },
-  swatchOn: { borderColor: colors.white, transform: [{ scale: 1.1 }] },
+  swatchOn: { borderColor: '#fff', transform: [{ scale: 1.1 }] },
   colorPreview: {
-    margin: spacing.md, marginTop: 0, borderRadius: radius.md,
-    borderWidth: 1, padding: spacing.md,
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    margin: 16, marginTop: 0, borderRadius: 12,
+    borderWidth: 1, padding: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
   },
   colorDot:  { width: 12, height: 12, borderRadius: 6 },
-  colorName: { fontSize: fonts.md, fontWeight: '700' },
+  colorName: { fontSize: 16, fontFamily: FFB },
 
   planCard: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.md, position: 'relative',
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 16, position: 'relative',
   },
-  planOn:    { borderColor: colors.goldBorder, backgroundColor: colors.goldDim },
+  planOn:    { borderColor: GOLD + '88', backgroundColor: GOLD + '18' },
   planRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  planName:  { fontSize: fonts.md, fontWeight: '800', color: colors.white },
-  planPrice: { fontSize: fonts.sm, fontWeight: '700', color: colors.textSecondary },
-  planSub:   { fontSize: fonts.xs, color: colors.textMuted },
+  planName:  { fontSize: 16, fontFamily: FFB, color: '#fff' },
+  planPrice: { fontSize: 14, fontFamily: FF, color: '#555' },
+  planSub:   { fontSize: 12, fontFamily: FF, color: '#444' },
   planCheck: {
-    position: 'absolute', top: spacing.sm, right: spacing.sm,
+    position: 'absolute', top: 12, right: 12,
     width: 18, height: 18, borderRadius: 9,
-    backgroundColor: colors.gold, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: GOLD, alignItems: 'center', justifyContent: 'center',
   },
 
-  nextBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.md,
-    paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.lg,
-  },
-  nextBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
+  nextBtn:     { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 24 },
+  nextBtnText: { fontSize: 16, fontFamily: FFB, color: '#000' },
 
-  creatingText: { fontSize: fonts.md, color: colors.textSecondary, marginTop: spacing.lg },
+  creatingText: { fontSize: 16, fontFamily: FF, color: '#555', marginTop: 24 },
 
-  successTitle: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, textAlign: 'center' },
-  successSub:   { fontSize: fonts.sm, color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.xl },
+  successTitle: { fontSize: 28, fontFamily: FFB, color: '#fff', textAlign: 'center' },
+  successSub:   { fontSize: 14, fontFamily: FF, color: '#555', marginTop: 6, marginBottom: 40 },
   pinCard: {
-    backgroundColor: colors.card, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.goldBorder,
-    padding: spacing.xl, alignItems: 'center', marginHorizontal: spacing.xl,
+    backgroundColor: '#111', borderRadius: 16,
+    borderWidth: 1, borderColor: GOLD + '55',
+    padding: 32, alignItems: 'center', marginHorizontal: 32,
   },
-  pinLabel:  { fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted, letterSpacing: 2 },
-  pinNumber: { fontSize: 48, fontWeight: '800', color: colors.gold, letterSpacing: 8, marginVertical: spacing.md },
-  pinHint:   { fontSize: fonts.xs, color: colors.textSecondary, textAlign: 'center' },
+  pinLabel:  { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5 },
+  pinNumber: { fontSize: 48, fontFamily: FFB, color: GOLD, letterSpacing: 8, marginVertical: 16 },
+  pinHint:   { fontSize: 12, fontFamily: FF, color: '#555', textAlign: 'center' },
   enterBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.md,
-    paddingVertical: spacing.md, paddingHorizontal: spacing.xxl, marginTop: spacing.xl,
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingVertical: 16, paddingHorizontal: 48, marginTop: 32,
   },
-  enterBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
+  enterBtnText: { fontSize: 16, fontFamily: FFB, color: '#000' },
 });

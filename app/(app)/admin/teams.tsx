@@ -6,11 +6,18 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { uploadImage } from '../../../src/lib/uploadImage';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+const GOLD = '#D4AF37';
+const GREEN = '#4ade80';
+const RED = '#f87171';
+const FF  = 'JUSTSans';
+const FFB = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const SWATCHES = [
   '#D4AF37', '#1B3A5C', '#2D6A4F', '#9B2335',
@@ -45,6 +52,11 @@ export default function TeamsScreen() {
   const [edit, setEdit]       = useState<EditState>(BLANK);
   const [saving, setSaving]   = useState(false);
 
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
   const loadTeams = useCallback(async () => {
     if (!societyId) return;
     const { data } = await supabase
@@ -59,6 +71,12 @@ export default function TeamsScreen() {
   useEffect(() => {
     if (!societyLoading) loadTeams();
   }, [societyLoading, loadTeams]);
+
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex:1, backgroundColor:'#000', alignItems:'center', justifyContent:'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
 
   function openNew() {
     setEdit(BLANK);
@@ -150,27 +168,23 @@ export default function TeamsScreen() {
     );
   }
 
-  if (loading || societyLoading) {
-    return (
-      <View style={[s.container, s.centered]}>
-        <StatusBar style="light" />
-        <ActivityIndicator color={colors.gold} size="large" />
-      </View>
-    );
-  }
-
   const displayUri = edit.localUri ?? edit.logoUrl;
 
   return (
     <View style={s.container}>
       <StatusBar style="light" />
 
+      {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={hit}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={hit} style={s.headerLeft}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Teams</Text>
-        <TouchableOpacity onPress={openNew} hitSlop={hit}>
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.headerLogo} />
+          <Text style={s.headerTitle}>TEAMS</Text>
+          <Text style={s.headerSub}>admin</Text>
+        </View>
+        <TouchableOpacity onPress={openNew} hitSlop={hit} style={s.headerRight}>
           <Text style={s.addBtn}>+ Add</Text>
         </TouchableOpacity>
       </View>
@@ -196,7 +210,8 @@ export default function TeamsScreen() {
                 onPress={() => openEdit(team)}
                 activeOpacity={0.7}
               >
-                <View style={[s.teamBar, { backgroundColor: team.accent_color }]} />
+                {/* Accent dot */}
+                <View style={[s.accentDot, { backgroundColor: team.accent_color }]} />
                 {team.logo_url
                   ? <Image source={{ uri: team.logo_url }} style={s.teamLogo} />
                   : (
@@ -263,16 +278,14 @@ export default function TeamsScreen() {
             {/* Name */}
             <View style={s.section}>
               <Text style={s.sectionLabel}>TEAM NAME</Text>
-              <View style={s.card}>
-                <TextInput
-                  style={s.input}
-                  value={edit.name}
-                  onChangeText={v => setEdit(e => ({ ...e, name: v }))}
-                  placeholder="e.g. The Elite"
-                  placeholderTextColor={colors.textMuted}
-                  autoFocus={!edit.id}
-                />
-              </View>
+              <TextInput
+                style={s.input}
+                value={edit.name}
+                onChangeText={v => setEdit(e => ({ ...e, name: v }))}
+                placeholder="e.g. The Elite"
+                placeholderTextColor="#444"
+                autoFocus={!edit.id}
+              />
             </View>
 
             {/* Colour */}
@@ -282,7 +295,11 @@ export default function TeamsScreen() {
                 {SWATCHES.map(hex => (
                   <TouchableOpacity
                     key={hex}
-                    style={[s.swatch, { backgroundColor: hex }, edit.color === hex && s.swatchOn]}
+                    style={[
+                      s.swatch,
+                      { backgroundColor: hex },
+                      edit.color === hex && s.swatchOn,
+                    ]}
                     onPress={() => setEdit(e => ({ ...e, color: hex }))}
                     activeOpacity={0.8}
                   >
@@ -314,105 +331,111 @@ export default function TeamsScreen() {
 const hit = { top: 12, bottom: 12, left: 12, right: 12 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered:  { alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#000' },
 
+  // Header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  back:        { fontSize: fonts.sm, color: colors.gold, fontWeight: '600' },
-  headerTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
-  addBtn:      { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
+  headerLeft:   { width: 70, alignItems: 'flex-start' },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerRight:  { width: 70, alignItems: 'flex-end' },
+  headerLogo:   { width: 28, height: 28, marginBottom: 2 },
+  headerTitle:  { fontFamily: FFB, fontSize: 15, color: '#fff', letterSpacing: 0.5 },
+  headerSub:    { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1, textTransform: 'uppercase' },
+  back:         { fontFamily: FFB, fontSize: 14, color: GOLD },
+  addBtn:       { fontFamily: FFB, fontSize: 14, color: GOLD },
 
-  scroll: { padding: spacing.lg, paddingBottom: 60 },
+  scroll: { padding: 20, paddingBottom: 60 },
 
+  // Team row cards
   teamRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    paddingVertical: spacing.md, paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingVertical: 14, paddingHorizontal: 14,
+    marginBottom: 10,
   },
-  teamBar:            { width: 4, height: 44, borderRadius: 2 },
-  teamLogo:           { width: 48, height: 48, borderRadius: radius.sm },
-  teamLogoFallback:   { width: 48, height: 48, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
-  teamLogoFallbackText: { fontSize: 22 },
-  teamName:           { flex: 1, fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  teamArrow:          { fontSize: 22, color: colors.textMuted },
+  accentDot:              { width: 10, height: 10, borderRadius: 5 },
+  teamLogo:               { width: 48, height: 48, borderRadius: 8 },
+  teamLogoFallback:       { width: 48, height: 48, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  teamLogoFallbackText:   { fontSize: 22 },
+  teamName:               { flex: 1, fontFamily: FFB, fontSize: 16, color: '#fff' },
+  teamArrow:              { fontSize: 22, color: '#555' },
 
   addRowBtn: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.goldBorder, borderStyle: 'dashed',
-    paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.sm,
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: GOLD, borderStyle: 'dashed',
+    paddingVertical: 14, alignItems: 'center', marginTop: 8,
   },
-  addRowBtnText: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
+  addRowBtnText: { fontFamily: FFB, fontSize: 14, color: GOLD },
 
   empty:      { alignItems: 'center', paddingTop: 80 },
-  emptyIcon:  { fontSize: 52, marginBottom: spacing.md },
-  emptyTitle: { fontSize: fonts.xl, fontWeight: '800', color: colors.white, marginBottom: spacing.xs },
+  emptyIcon:  { fontSize: 52, marginBottom: 12 },
+  emptyTitle: { fontFamily: FFB, fontSize: 20, color: '#fff', marginBottom: 6 },
   emptyHint: {
-    fontSize: fonts.sm, color: colors.textMuted,
-    textAlign: 'center', marginBottom: spacing.xl,
-    paddingHorizontal: spacing.xl, lineHeight: 20,
+    fontFamily: FF, fontSize: 14, color: '#555',
+    textAlign: 'center', marginBottom: 28,
+    paddingHorizontal: 24, lineHeight: 20,
   },
   emptyBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.md,
-    paddingVertical: spacing.md, paddingHorizontal: spacing.xl,
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingVertical: 14, paddingHorizontal: 28,
   },
-  emptyBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
+  emptyBtnText: { fontFamily: FFB, fontSize: 16, color: '#000' },
 
   // Modal
-  modal: { flex: 1, backgroundColor: colors.bg },
+  modal: { flex: 1, backgroundColor: '#000' },
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  modalCancel: { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
-  modalTitle:  { fontSize: fonts.md, fontWeight: '800', color: colors.white },
-  modalSave:   { fontSize: fonts.sm, color: colors.gold, fontWeight: '700' },
-  modalScroll: { padding: spacing.lg, paddingBottom: 60 },
+  modalCancel: { fontFamily: FF, fontSize: 14, color: '#555' },
+  modalTitle:  { fontFamily: FFB, fontSize: 16, color: '#fff' },
+  modalSave:   { fontFamily: FFB, fontSize: 14, color: GOLD },
+  modalScroll: { padding: 20, paddingBottom: 60 },
 
-  logoArea:        { alignItems: 'center', marginBottom: spacing.xl },
+  logoArea:         { alignItems: 'center', marginBottom: 28 },
   logoCircle: {
     width: 110, height: 110, borderRadius: 55,
-    borderWidth: 3, overflow: 'hidden', marginBottom: spacing.sm,
+    borderWidth: 3, overflow: 'hidden', marginBottom: 10,
   },
-  logoImg:         { width: '100%', height: '100%' },
-  logoFallback:    { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  logoImg:          { width: '100%', height: '100%' },
+  logoFallback:     { flex: 1, alignItems: 'center', justifyContent: 'center' },
   logoFallbackIcon: { fontSize: 44 },
-  logoTapHint:     { fontSize: fonts.sm, fontWeight: '700', marginBottom: spacing.xs },
-  logoSubHint:     { fontSize: fonts.xs, color: colors.textMuted },
+  logoTapHint:      { fontFamily: FFB, fontSize: 14, marginBottom: 4 },
+  logoSubHint:      { fontFamily: FF, fontSize: 11, color: '#555' },
 
-  section: { marginBottom: spacing.lg },
+  section:      { marginBottom: 24 },
   sectionLabel: {
-    fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted,
-    letterSpacing: 2, marginBottom: spacing.sm, textTransform: 'uppercase',
+    fontFamily: FFB, fontSize: 10, color: '#555',
+    letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase',
   },
-  card: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-  },
+
   input: {
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
-    fontSize: fonts.md, color: colors.white,
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingHorizontal: 16, paddingVertical: 14,
+    fontFamily: FFB, fontSize: 16, color: '#fff',
   },
-  swatchGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+
+  swatchGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   swatch: {
     width: 48, height: 48, borderRadius: 24,
     borderWidth: 2, borderColor: 'transparent',
     alignItems: 'center', justifyContent: 'center',
   },
-  swatchOn:    { borderColor: colors.white, transform: [{ scale: 1.12 }] },
-  swatchTick:  { color: colors.white, fontSize: 18, fontWeight: '800' },
+  swatchOn:   { borderColor: '#fff', transform: [{ scale: 1.12 }] },
+  swatchTick: { color: '#fff', fontSize: 18, fontFamily: FFB },
 
   deleteBtn: {
-    marginTop: spacing.md,
+    marginTop: 12,
     backgroundColor: 'rgba(248,113,113,0.08)',
-    borderRadius: radius.md, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)',
-    paddingVertical: spacing.md, alignItems: 'center',
+    borderRadius: 12, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)',
+    paddingVertical: 14, alignItems: 'center',
   },
-  deleteBtnText: { fontSize: fonts.sm, fontWeight: '800', color: colors.red },
+  deleteBtnText: { fontFamily: FFB, fontSize: 14, color: RED },
 });

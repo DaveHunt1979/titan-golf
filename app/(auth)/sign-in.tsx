@@ -5,15 +5,25 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../src/lib/theme';
-import { titanLogo } from '../../src/lib/assets';
+
+const GOLD = '#D4AF37';
+const FF   = 'JUSTSans';
+const FFB  = 'JUSTSans-ExBold';
+const titanLogo = require('../../assets/TitanAppLogo.png');
 
 export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: '#000' }}><StatusBar style="light" /></View>;
 
   async function signIn() {
     if (!email.trim() || !password.trim()) {
@@ -36,28 +46,31 @@ export default function SignInScreen() {
       <View style={s.inner}>
         <View style={s.logoArea}>
           <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+          <View style={s.divider} />
           <Text style={s.appName}>TITAN GOLF</Text>
           <Text style={s.tagline}>The society scoring platform</Text>
         </View>
         <View style={s.form}>
-          <Text style={s.label}>Email</Text>
+          <Text style={s.label}>EMAIL</Text>
           <TextInput
             style={s.input} value={email} onChangeText={setEmail}
-            placeholder="your@email.com" placeholderTextColor={colors.textMuted}
+            placeholder="your@email.com" placeholderTextColor="#444"
             keyboardType="email-address" autoCapitalize="none" autoCorrect={false}
             returnKeyType="next"
           />
-          <Text style={[s.label, { marginTop: spacing.md }]}>Password</Text>
+          <Text style={[s.label, { marginTop: 20 }]}>PASSWORD</Text>
           <TextInput
             style={s.input} value={password} onChangeText={setPassword}
-            placeholder="••••••••" placeholderTextColor={colors.textMuted}
+            placeholder="••••••••" placeholderTextColor="#444"
             secureTextEntry returnKeyType="done" onSubmitEditing={signIn}
           />
           <TouchableOpacity
             style={[s.button, loading && s.buttonDisabled]}
             onPress={signIn} disabled={loading} activeOpacity={0.8}
           >
-            {loading ? <ActivityIndicator color={colors.bg} /> : <Text style={s.buttonText}>Sign In</Text>}
+            {loading
+              ? <ActivityIndicator color="#000" />
+              : <Text style={s.buttonText}>Sign In</Text>}
           </TouchableOpacity>
         </View>
       </View>
@@ -66,25 +79,29 @@ export default function SignInScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  back:      { position: 'absolute', top: 56, left: spacing.xl, zIndex: 10 },
-  backText:  { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
-  inner:     { flex: 1, paddingHorizontal: spacing.xl, justifyContent: 'center' },
-  logoArea:  { alignItems: 'center', marginBottom: spacing.xxl },
-  logo:      { width: 120, height: 120, marginBottom: spacing.md },
-  appName:   { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 4 },
-  tagline:   { fontSize: fonts.sm, color: colors.textSecondary, marginTop: spacing.xs, letterSpacing: 1 },
+  container:      { flex: 1, backgroundColor: '#000' },
+  back:           { position: 'absolute', top: 56, left: 24, zIndex: 10 },
+  backText:       { fontSize: 14, color: GOLD, fontFamily: FF },
+  inner:          { flex: 1, paddingHorizontal: 24, justifyContent: 'center' },
+  logoArea:       { alignItems: 'center', marginBottom: 40 },
+  logo:           { width: 120, height: 36, marginBottom: 16 },
+  divider:        { width: 60, height: 1, backgroundColor: GOLD, marginBottom: 20 },
+  appName:        { fontSize: 28, fontFamily: FFB, color: '#fff', letterSpacing: 4 },
+  tagline:        { fontSize: 13, fontFamily: FF, color: '#555', marginTop: 6, letterSpacing: 1 },
   form: {
-    backgroundColor: colors.card, borderRadius: radius.lg,
-    padding: spacing.lg, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: '#111', borderRadius: 12,
+    padding: 20, borderWidth: 1, borderColor: '#1c1c1c',
   },
-  label:          { fontSize: fonts.sm, color: colors.textSecondary, marginBottom: spacing.xs, letterSpacing: 0.5 },
+  label: {
+    fontSize: 10, fontFamily: FFB, color: '#555',
+    letterSpacing: 1.5, marginBottom: 8,
+  },
   input: {
-    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.md, paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 4, fontSize: fonts.md, color: colors.white,
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
+    borderRadius: 12, paddingHorizontal: 16,
+    paddingVertical: 14, fontSize: 16, fontFamily: FFB, color: '#fff',
   },
-  button:         { backgroundColor: colors.gold, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.lg },
+  button:         { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 24 },
   buttonDisabled: { opacity: 0.6 },
-  buttonText:     { fontSize: fonts.md, fontWeight: '700', color: colors.bg, letterSpacing: 1 },
+  buttonText:     { fontSize: 16, fontFamily: FFB, color: '#000', letterSpacing: 1 },
 });

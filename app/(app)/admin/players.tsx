@@ -7,9 +7,16 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+const GOLD = '#D4AF37';
+const GREEN = '#4ade80';
+const RED = '#f87171';
+const FF  = 'JUSTSans';
+const FFB = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const COMMITTEE_ROLES = [
   'Captain', 'Vice Captain', 'Secretary', 'Treasurer',
@@ -28,7 +35,14 @@ interface Member {
   };
 }
 
+const hit = { top: 12, bottom: 12, left: 12, right: 12 };
+
 export default function PlayersScreen() {
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
   const router = useRouter();
   const { societyId } = useAdminSociety();
   const [members, setMembers]   = useState<Member[]>([]);
@@ -208,44 +222,52 @@ export default function PlayersScreen() {
   const roleOrder = { owner: 0, admin: 1, member: 2 } as Record<string, number>;
   const sorted = [...members].sort((a, b) => (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9));
 
+  if (loading || !fontsLoaded) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+        <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="light" />
 
+      {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={hit}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
-        <Text style={s.title}>Players</Text>
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Text style={s.headerSub}>PLAYERS</Text>
+        </View>
         <TouchableOpacity onPress={() => setShowAdd(true)} hitSlop={hit}>
           <Text style={s.addBtn}>+ Add</Text>
         </TouchableOpacity>
       </View>
 
-      {loading ? (
-        <View style={s.centered}><ActivityIndicator color={colors.gold} size="large" /></View>
-      ) : (
-        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={s.count}>{members.length} member{members.length !== 1 ? 's' : ''}</Text>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        <Text style={s.count}>{members.length} member{members.length !== 1 ? 's' : ''}</Text>
 
-          {sorted.map((m, i) => (
-            <TouchableOpacity
-              key={m.player.id}
-              onPress={() => openRoleModal(m)}
-              activeOpacity={0.7}
-            >
-              <MemberRow member={m} isLast={i === sorted.length - 1} />
-            </TouchableOpacity>
-          ))}
+        {sorted.map((m, i) => (
+          <TouchableOpacity
+            key={m.player.id}
+            onPress={() => openRoleModal(m)}
+            activeOpacity={0.7}
+          >
+            <MemberRow member={m} isLast={i === sorted.length - 1} />
+          </TouchableOpacity>
+        ))}
 
-          {members.length === 0 && (
-            <View style={s.empty}>
-              <Text style={s.emptyTitle}>No players yet</Text>
-              <Text style={s.emptySub}>Add players manually or share your society PIN.</Text>
-            </View>
-          )}
-        </ScrollView>
-      )}
+        {members.length === 0 && (
+          <View style={s.empty}>
+            <Text style={s.emptyTitle}>No players yet</Text>
+            <Text style={s.emptySub}>Add players manually or share your society PIN.</Text>
+          </View>
+        )}
+      </ScrollView>
 
       {/* Add Player Modal */}
       <Modal visible={showAdd} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAdd(false)}>
@@ -262,19 +284,19 @@ export default function PlayersScreen() {
           <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
             <Text style={s.fieldLabel}>Display Name *</Text>
             <TextInput style={s.input} value={newName} onChangeText={setNewName}
-              placeholder="e.g. John Smith" placeholderTextColor={colors.textMuted} autoFocus />
+              placeholder="e.g. John Smith" placeholderTextColor="#444" autoFocus />
             <Text style={s.fieldLabel}>Email (optional)</Text>
             <TextInput style={s.input} value={newEmail} onChangeText={setNewEmail}
-              placeholder="john@example.com" placeholderTextColor={colors.textMuted}
+              placeholder="john@example.com" placeholderTextColor="#444"
               keyboardType="email-address" autoCapitalize="none" />
             <Text style={s.fieldLabel}>Handicap Index (optional)</Text>
             <TextInput style={s.input} value={newHcp} onChangeText={setNewHcp}
-              placeholder="e.g. 14.2" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad" />
+              placeholder="e.g. 14.2" placeholderTextColor="#444" keyboardType="decimal-pad" />
             <Text style={s.hint}>
               This player won't have an app login until they sign up and use the society PIN.
             </Text>
             <TouchableOpacity style={[s.saveBtn, saving && { opacity: 0.5 }]} onPress={addPlayer} disabled={saving} activeOpacity={0.8}>
-              {saving ? <ActivityIndicator color={colors.bg} /> : <Text style={s.saveBtnText}>Add Player</Text>}
+              {saving ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>Add Player</Text>}
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -307,7 +329,7 @@ export default function PlayersScreen() {
                 )}
                 <View style={s.photoOverlay}>
                   {photoUploading
-                    ? <ActivityIndicator color={colors.white} size="small" />
+                    ? <ActivityIndicator color="#fff" size="small" />
                     : <Text style={s.photoOverlayText}>📷</Text>}
                 </View>
               </TouchableOpacity>
@@ -324,7 +346,7 @@ export default function PlayersScreen() {
               value={editEmail}
               onChangeText={setEditEmail}
               placeholder="player@example.com"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor="#444"
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -335,15 +357,15 @@ export default function PlayersScreen() {
               value={editHcp}
               onChangeText={setEditHcp}
               placeholder="e.g. 14.2"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor="#444"
               keyboardType="decimal-pad"
             />
 
             {/* Committee Role */}
-            <Text style={[s.sectionLabel, { marginTop: spacing.xl }]}>COMMITTEE ROLE</Text>
+            <Text style={[s.sectionLabel, { marginTop: 28 }]}>COMMITTEE ROLE</Text>
             <Text style={s.sectionHint}>Displayed on their profile — e.g. Treasurer, Food & Beverage</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.sm }}>
-              <View style={{ flexDirection: 'row', gap: spacing.sm, paddingVertical: 4 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+              <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 4 }}>
                 {COMMITTEE_ROLES.map(r => (
                   <TouchableOpacity
                     key={r}
@@ -361,13 +383,13 @@ export default function PlayersScreen() {
               value={editCommittee}
               onChangeText={setEditCommittee}
               placeholder="Or type a custom role…"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor="#444"
             />
 
             {/* App Permission Role — owner only, can't change another owner */}
             {myRole === 'owner' && selected?.role !== 'owner' && (
               <>
-                <Text style={[s.sectionLabel, { marginTop: spacing.xl }]}>APP PERMISSION</Text>
+                <Text style={[s.sectionLabel, { marginTop: 28 }]}>APP PERMISSION</Text>
                 <Text style={s.sectionHint}>Admins can manage players and settings</Text>
                 <View style={s.permRow}>
                   {['member', 'admin'].map(r => (
@@ -386,9 +408,9 @@ export default function PlayersScreen() {
               </>
             )}
 
-            <TouchableOpacity style={[s.saveBtn, { marginTop: spacing.xl }, roleSaving && { opacity: 0.5 }]}
+            <TouchableOpacity style={[s.saveBtn, { marginTop: 28 }, roleSaving && { opacity: 0.5 }]}
               onPress={saveRoles} disabled={roleSaving} activeOpacity={0.8}>
-              {roleSaving ? <ActivityIndicator color={colors.bg} /> : <Text style={s.saveBtnText}>Save Changes</Text>}
+              {roleSaving ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>Save Changes</Text>}
             </TouchableOpacity>
 
             {selected?.role !== 'owner' && (
@@ -405,8 +427,9 @@ export default function PlayersScreen() {
 
 function MemberRow({ member, isLast }: { member: Member; isLast: boolean }) {
   const { player, role, committee_role } = member;
-  const initial    = player.display_name[0]?.toUpperCase() ?? '?';
-  const roleColor  = role === 'owner' ? colors.gold : role === 'admin' ? '#6B3FA0' : colors.textMuted;
+  const initial = player.display_name[0]?.toUpperCase() ?? '?';
+  const isOwner = role === 'owner';
+  const isAdmin = role === 'admin';
 
   return (
     <View style={[s.memberRow, !isLast && s.memberRowBorder]}>
@@ -429,114 +452,126 @@ function MemberRow({ member, isLast }: { member: Member; isLast: boolean }) {
         {player.handicap_index != null && (
           <Text style={s.hcp}>HCP {player.handicap_index}</Text>
         )}
-        <View style={[s.roleBadge, { backgroundColor: roleColor + '22', borderColor: roleColor }]}>
-          <Text style={[s.roleText, { color: roleColor }]}>{role}</Text>
+        <View style={[
+          s.roleBadge,
+          isOwner || isAdmin
+            ? { backgroundColor: GOLD + '22', borderColor: GOLD }
+            : { backgroundColor: '#1c1c1c', borderColor: '#333' },
+        ]}>
+          <Text style={[
+            s.roleText,
+            { color: isOwner || isAdmin ? GOLD : '#555' },
+          ]}>{role}</Text>
         </View>
       </View>
     </View>
   );
 }
 
-const hit = { top: 12, bottom: 12, left: 12, right: 12 };
-
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: '#000' },
   centered:  { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  back:   { fontSize: fonts.sm, fontWeight: '600', color: colors.gold },
-  title:  { fontSize: fonts.md, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
-  addBtn: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
-  scroll: { padding: spacing.lg, paddingBottom: 60 },
-  count:  { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: spacing.md },
+  headerCenter: { alignItems: 'center' },
+  headerLogo:   { width: 36, height: 36 },
+  headerSub:    { fontFamily: FFB, fontSize: 10, color: GOLD, letterSpacing: 2, marginTop: 2 },
+  back:         { fontFamily: FFB, fontSize: 14, color: GOLD },
+  addBtn:       { fontFamily: FFB, fontSize: 14, color: GOLD },
 
-  memberRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
-  memberRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  scroll: { padding: 20, paddingBottom: 60 },
+  count:  { fontFamily: FFB, fontSize: 10, color: '#555', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16 },
+
+  memberRow:       { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14,
+                     backgroundColor: '#111', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c',
+                     paddingHorizontal: 14, marginBottom: 8 },
+  memberRowBorder: {},
   avatar: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: colors.goldDim, borderWidth: 1, borderColor: colors.goldBorder,
+    backgroundColor: GOLD + '22', borderWidth: 1, borderColor: GOLD,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText:    { fontSize: fonts.md, fontWeight: '800', color: colors.gold },
-  memberName:    { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  memberEmail:   { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
-  committeeRole: { fontSize: fonts.xs, color: colors.gold, fontStyle: 'italic', marginTop: 2 },
-  hcp:           { fontSize: fonts.xs, fontWeight: '700', color: colors.textSecondary },
+  avatarText:    { fontFamily: FFB, fontSize: 16, color: GOLD },
+  memberName:    { fontFamily: FFB, fontSize: 15, color: '#fff' },
+  memberEmail:   { fontFamily: FF, fontSize: 12, color: '#555', marginTop: 2 },
+  committeeRole: { fontFamily: FF, fontSize: 12, color: GOLD, fontStyle: 'italic', marginTop: 2 },
+  hcp:           { fontFamily: FF, fontSize: 12, color: '#555' },
   roleBadge:     { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, borderWidth: 1 },
-  roleText:      { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  roleText:      { fontFamily: FFB, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
 
   empty:      { alignItems: 'center', paddingVertical: 60 },
-  emptyTitle: { fontSize: fonts.lg, fontWeight: '700', color: colors.textSecondary, marginBottom: spacing.xs },
-  emptySub:   { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { fontFamily: FFB, fontSize: 18, color: '#555', marginBottom: 8 },
+  emptySub:   { fontFamily: FF, fontSize: 14, color: '#555', textAlign: 'center', lineHeight: 20 },
 
-  modalContainer: { flex: 1, backgroundColor: colors.bg },
+  modalContainer: { flex: 1, backgroundColor: '#000' },
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  modalTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.white },
+  modalTitle: { fontFamily: FFB, fontSize: 16, color: '#fff' },
 
   sectionLabel: {
-    fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted,
-    letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4,
+    fontFamily: FFB, fontSize: 10, color: '#555',
+    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4,
   },
-  sectionHint: { fontSize: fonts.xs, color: colors.textMuted, marginBottom: spacing.md },
+  sectionHint: { fontFamily: FF, fontSize: 12, color: '#555', marginBottom: 14 },
 
   chip: {
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderRadius: radius.full, backgroundColor: colors.cardAlt,
-    borderWidth: 1, borderColor: colors.border,
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 20, backgroundColor: '#111',
+    borderWidth: 1, borderColor: '#1c1c1c',
   },
-  chipOn:      { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
-  chipText:    { fontSize: fonts.xs, fontWeight: '600', color: colors.textMuted },
-  chipTextOn:  { color: colors.gold },
+  chipOn:      { backgroundColor: GOLD + '22', borderColor: GOLD + '55' },
+  chipText:    { fontFamily: FF, fontSize: 12, color: '#555' },
+  chipTextOn:  { color: GOLD },
 
-  permRow:     { flexDirection: 'row', gap: spacing.sm },
+  permRow:     { flexDirection: 'row', gap: 10 },
   permChip: {
-    flex: 1, paddingVertical: spacing.md, borderRadius: radius.md,
-    backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border,
+    flex: 1, paddingVertical: 14, borderRadius: 12,
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
     alignItems: 'center',
   },
-  permChipOn:     { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
-  permChipText:   { fontSize: fonts.sm, fontWeight: '700', color: colors.textMuted },
-  permChipTextOn: { color: colors.gold },
+  permChipOn:     { backgroundColor: GOLD + '22', borderColor: GOLD + '55' },
+  permChipText:   { fontFamily: FFB, fontSize: 14, color: '#555' },
+  permChipTextOn: { color: GOLD },
 
   fieldLabel: {
-    fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted,
-    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: spacing.xs, marginTop: spacing.md,
+    fontFamily: FFB, fontSize: 10, color: '#555',
+    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6, marginTop: 14,
   },
   input: {
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
-    fontSize: fonts.md, color: colors.white,
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingHorizontal: 16, paddingVertical: 14,
+    fontFamily: FF, fontSize: 15, color: '#fff',
   },
-  hint:    { fontSize: fonts.xs, color: colors.textMuted, lineHeight: 18, marginTop: spacing.lg },
-  saveBtn: { backgroundColor: colors.gold, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.xl },
-  saveBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
+  hint:    { fontFamily: FF, fontSize: 12, color: '#555', lineHeight: 18, marginTop: 16 },
+  saveBtn: { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 28 },
+  saveBtnText: { fontFamily: FFB, fontSize: 16, color: '#000' },
 
-  avatarSection: { alignItems: 'center', marginBottom: spacing.xl },
+  avatarSection: { alignItems: 'center', marginBottom: 28 },
   avatarLarge: {
     width: 80, height: 80, borderRadius: 40,
-    backgroundColor: colors.goldDim, borderWidth: 2, borderColor: colors.goldBorder,
+    backgroundColor: GOLD + '22', borderWidth: 2, borderColor: GOLD,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarLargeText: { fontSize: 28, fontWeight: '800', color: colors.gold },
+  avatarLargeText: { fontFamily: FFB, fontSize: 28, color: GOLD },
   photoOverlay: {
     position: 'absolute', bottom: 0, right: 0,
     width: 26, height: 26, borderRadius: 13,
-    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: '#000', borderWidth: 1, borderColor: '#1c1c1c',
     alignItems: 'center', justifyContent: 'center',
   },
   photoOverlayText: { fontSize: 14 },
 
   deleteBtn: {
-    marginTop: spacing.lg, paddingVertical: spacing.md, borderRadius: radius.md,
-    borderWidth: 1, borderColor: '#ef4444', alignItems: 'center',
+    marginTop: 16, paddingVertical: 14, borderRadius: 12,
+    borderWidth: 1, borderColor: RED, alignItems: 'center',
   },
-  deleteBtnText: { fontSize: fonts.sm, fontWeight: '700', color: '#ef4444' },
+  deleteBtnText: { fontFamily: FFB, fontSize: 14, color: RED },
 });

@@ -1,16 +1,24 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, ActivityIndicator,
   TouchableOpacity, RefreshControl, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { matchLabel, getEffectiveWinner, calcHoles } from '../../../src/lib/scoring';
-import { fonts, spacing, radius } from '../../../src/lib/theme';
-import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
 
+// ── TITAN constants ───────────────────────────────────────────
+const GOLD  = '#D4AF37';
+const GREEN = '#4ade80';
+const RED   = '#f87171';
+const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
+
+// ── Types ─────────────────────────────────────────────────────
 interface CompDay { day_number: number; course_name: string | null; }
 interface MatchRow {
   id: string;
@@ -30,41 +38,26 @@ interface MatchRow {
 }
 interface Player { id: string; display_name: string; avatar_url?: string | null; }
 
+// ── Screen ────────────────────────────────────────────────────
 export default function WatchScreen() {
-  const colors = useDynamicColors();
-  const s = useMemo(() => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.bg },
-    centered:  { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    header: {
-      paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg,
-      borderBottomWidth: 1, borderBottomColor: colors.border,
-      flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
-    },
-    headerSub:   { fontSize: fonts.xs, fontWeight: '700', color: colors.gold, letterSpacing: 2, marginBottom: 4 },
-    headerTitle: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
-    liveCountPill: {
-      flexDirection: 'row', alignItems: 'center', gap: 5,
-      backgroundColor: 'rgba(239,68,68,0.12)', borderRadius: radius.full,
-      borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)',
-      paddingHorizontal: spacing.sm, paddingVertical: 5,
-      marginBottom: 2,
-    },
-    liveDot:       { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.live },
-    liveCountText: { fontSize: fonts.xs, fontWeight: '800', color: colors.live, letterSpacing: 1 },
-    scroll: { padding: spacing.md, paddingBottom: 48 },
-    empty: { alignItems: 'center', paddingTop: 80 },
-    emptyIcon:  { fontSize: 52, marginBottom: spacing.md },
-    emptyTitle: { fontSize: fonts.xl, fontWeight: '800', color: colors.textSecondary, marginBottom: spacing.xs },
-    emptySub:   { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20, paddingHorizontal: spacing.xl },
-  }), [colors]);
-
   const router = useRouter();
-  const [compName, setCompName]   = useState('');
-  const [compId, setCompId]       = useState<string | null>(null);
-  const [matches, setMatches]     = useState<MatchRow[]>([]);
-  const [players, setPlayers]     = useState<Player[]>([]);
-  const [loading, setLoading]     = useState(true);
+  const [compName, setCompName]     = useState('');
+  const [compId, setCompId]         = useState<string | null>(null);
+  const [matches, setMatches]       = useState<MatchRow[]>([]);
+  const [players, setPlayers]       = useState<Player[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
 
   const load = useCallback(async () => {
     const { data: comp } = await supabase
@@ -112,10 +105,10 @@ export default function WatchScreen() {
     return () => { supabase.removeChannel(sub); };
   }, [load]);
 
-  const firstName  = (id: string) => (players.find(p => p.id === id)?.display_name ?? '?').split(' ')[0];
-  const getAvatar  = (id: string) => players.find(p => p.id === id)?.avatar_url ?? null;
-  const live       = matches.filter(m => m.status === 'in_progress');
-  const upcoming   = matches.filter(m => m.status === 'upcoming');
+  const firstName = (id: string) => (players.find(p => p.id === id)?.display_name ?? '?').split(' ')[0];
+  const getAvatar = (id: string) => players.find(p => p.id === id)?.avatar_url ?? null;
+  const live      = matches.filter(m => m.status === 'in_progress');
+  const upcoming  = matches.filter(m => m.status === 'upcoming');
 
   return (
     <View style={s.container}>
@@ -123,73 +116,88 @@ export default function WatchScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <View>
-          <Text style={s.headerSub}>LIVE BOARD</Text>
-          <Text style={s.headerTitle} numberOfLines={1}>{compName || 'No active competition'}</Text>
+        <TouchableOpacity onPress={() => router.back()} style={s.headerBack}>
+          <Text style={s.headerBackText}>‹ Back</Text>
+        </TouchableOpacity>
+        <View style={s.headerCentre}>
+          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Text style={s.headerSub}>APPLE WATCH</Text>
         </View>
-        {live.length > 0 && (
-          <View style={s.liveCountPill}>
-            <View style={s.liveDot} />
-            <Text style={s.liveCountText}>{live.length} LIVE</Text>
-          </View>
-        )}
+        <View style={s.headerSpacer} />
       </View>
 
-      {loading ? (
-        <View style={s.centered}><ActivityIndicator color={colors.gold} size="large" /></View>
-      ) : (
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={s.scroll}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.gold} />}
-          showsVerticalScrollIndicator={false}
-        >
-          {matches.length === 0 && (
-            <View style={s.empty}>
-              <Text style={s.emptyIcon}>⛳</Text>
-              <Text style={s.emptyTitle}>{compName ? 'No matches yet' : 'No active competition'}</Text>
-              <Text style={s.emptySub}>
-                {compName
-                  ? 'Matches will appear here once the draw is generated.'
-                  : 'Check back once a tournament is underway.'}
-              </Text>
-            </View>
-          )}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={s.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={GOLD} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {matches.length === 0 && (
+          <View style={s.empty}>
+            <Text style={s.emptyIcon}>⛳</Text>
+            <Text style={s.emptyTitle}>{compName ? 'No matches yet' : 'No active competition'}</Text>
+            <Text style={s.emptySub}>
+              {compName
+                ? 'Matches will appear here once the draw is generated.'
+                : 'Check back once a tournament is underway.'}
+            </Text>
+          </View>
+        )}
 
-          {live.length > 0 && (
-            <>
-              <SectionLabel label="LIVE NOW" color={colors.live} dot />
-              {live.map(m => (
-                <MatchCard key={m.id} match={m} firstName={firstName} getAvatar={getAvatar} onWatch={() => router.push(`/(app)/spectate/${m.id}` as any)} />
-              ))}
-            </>
-          )}
+        {live.length > 0 && (
+          <>
+            <SectionLabel label="LIVE NOW" color={RED} dot />
+            {live.map(m => (
+              <MatchCard key={m.id} match={m} firstName={firstName} getAvatar={getAvatar} onWatch={() => router.push(`/(app)/spectate/${m.id}` as any)} />
+            ))}
+          </>
+        )}
 
-          {upcoming.length > 0 && (
-            <>
-              <SectionLabel label="UP NEXT" />
-              {upcoming.map(m => (
-                <MatchCard key={m.id} match={m} firstName={firstName} getAvatar={getAvatar} onWatch={() => router.push(`/(app)/spectate/${m.id}` as any)} />
-              ))}
-            </>
-          )}
-        </ScrollView>
-      )}
+        {upcoming.length > 0 && (
+          <>
+            <SectionLabel label="UP NEXT" />
+            {upcoming.map(m => (
+              <MatchCard key={m.id} match={m} firstName={firstName} getAvatar={getAvatar} onWatch={() => router.push(`/(app)/spectate/${m.id}` as any)} />
+            ))}
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
+  header: {
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 16,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
+    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
+  },
+  headerBack:     { flex: 1, alignItems: 'flex-start' },
+  headerBackText: { fontFamily: FFB, fontSize: 15, color: GOLD },
+  headerCentre:   { alignItems: 'center', gap: 4 },
+  headerLogo:     { width: 28, height: 28 },
+  headerSub:      { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1 },
+  headerSpacer:   { flex: 1 },
+  scroll:  { padding: 16, paddingBottom: 48 },
+  empty:   { alignItems: 'center', paddingTop: 80 },
+  emptyIcon:  { fontSize: 52, marginBottom: 12 },
+  emptyTitle: { fontFamily: FFB, fontSize: 18, color: '#555', marginBottom: 6 },
+  emptySub:   { fontFamily: FF, fontSize: 14, color: '#3a3a3a', textAlign: 'center', lineHeight: 20, paddingHorizontal: 24 },
+});
+
 // ── Section label ─────────────────────────────────────────────
 function SectionLabel({ label, color, dot }: { label: string; color?: string; dot?: boolean }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm, marginTop: spacing.xs }}>
-      {dot && <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: color ?? sl.text.color }} />}
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, marginTop: 4 }}>
+      {dot && <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: color ?? '#6b7280' }} />}
       <Text style={[sl.text, color ? { color } : {}]}>{label}</Text>
     </View>
   );
 }
 const sl = StyleSheet.create({
-  text: { fontSize: fonts.xs, fontWeight: '800', color: '#6b7280', letterSpacing: 2 },
+  text: { fontFamily: FFB, fontSize: 11, color: '#6b7280', letterSpacing: 2 },
 });
 
 // ── Match card ────────────────────────────────────────────────
@@ -208,13 +216,13 @@ function MatchCard({ match, firstName, getAvatar, onWatch }: {
   const label       = matchLabel(status, match.winner, match.result_str, holesStr);
   const aheadSide   = status === 'complete' ? winner : homeUp > 0 ? 'home' : homeUp < 0 ? 'away' : null;
 
-  const homeColor  = match.home_team?.accent_color ?? '#d4af37';
-  const awayColor  = match.away_team?.accent_color ?? '#6366f1';
-  const homeLabel  = match.home_team?.name ?? match.home_player_ids.map(firstName).join(' & ');
-  const awayLabel  = match.away_team?.name ?? match.away_player_ids.map(firstName).join(' & ');
-  const isLive     = status === 'in_progress';
+  const homeColor = match.home_team?.accent_color ?? GOLD;
+  const awayColor = match.away_team?.accent_color ?? '#6366f1';
+  const homeLabel = match.home_team?.name ?? match.home_player_ids.map(firstName).join(' & ');
+  const awayLabel = match.away_team?.name ?? match.away_player_ids.map(firstName).join(' & ');
+  const isLive    = status === 'in_progress';
 
-  function renderSide(playerIds: string[], team: { name: string } | null, teamId: string | null, label: string) {
+  function renderSide(playerIds: string[], team: { name: string } | null, teamId: string | null, sideLabel: string) {
     if (teamId && team) {
       const logo = teamLogos[team.name];
       if (logo) return <Image source={logo} style={mc.logo} resizeMode="contain" />;
@@ -223,7 +231,7 @@ function MatchCard({ match, firstName, getAvatar, onWatch }: {
       const raw = getAvatar(playerIds[0]) ?? getPlayerAvatar(playerIds[0], 'normal');
       return raw
         ? <Image source={typeof raw === 'string' ? { uri: raw } : raw} style={mc.avatar} />
-        : <View style={[mc.avatar, mc.avatarFallback]}><Text style={mc.avatarInitial}>{label[0]}</Text></View>;
+        : <View style={[mc.avatar, mc.avatarFallback]}><Text style={mc.avatarInitial}>{sideLabel[0]}</Text></View>;
     }
     return (
       <View style={mc.pairRow}>
@@ -262,16 +270,9 @@ function MatchCard({ match, firstName, getAvatar, onWatch }: {
 
         {/* Status */}
         <View style={mc.centre}>
-          <Text style={[
-            mc.statusLabel,
-            isLive && { color: '#ef4444' },
-          ]}>{label}</Text>
-          {isLive && holesPlayed > 0 && (
-            <Text style={mc.thru}>THRU {holesPlayed}</Text>
-          )}
-          {isLive && holesPlayed === 0 && (
-            <Text style={mc.thru}>TEE OFF</Text>
-          )}
+          <Text style={[mc.statusLabel, isLive && { color: RED }]}>{label}</Text>
+          {isLive && holesPlayed > 0 && <Text style={mc.thru}>THRU {holesPlayed}</Text>}
+          {isLive && holesPlayed === 0 && <Text style={mc.thru}>TEE OFF</Text>}
         </View>
 
         {/* Away */}
@@ -288,7 +289,7 @@ function MatchCard({ match, firstName, getAvatar, onWatch }: {
         <View style={mc.strip}>
           {holeChars.map((c, i) => {
             const isCurrent = i + 1 === holesPlayed + 1 && holesPlayed < 18;
-            const bg = c === 'h' ? homeColor : c === 'a' ? awayColor : c === 'f' ? '#d4af37' : undefined;
+            const bg = c === 'h' ? homeColor : c === 'a' ? awayColor : c === 'f' ? GOLD : undefined;
             return (
               <View
                 key={i}
@@ -322,38 +323,39 @@ function MatchCard({ match, firstName, getAvatar, onWatch }: {
 
 const mc = StyleSheet.create({
   card: {
-    backgroundColor: '#1c1c1e', borderRadius: radius.lg,
-    borderWidth: 1, borderColor: '#2c2c2e',
-    padding: spacing.md, marginBottom: spacing.md,
+    backgroundColor: '#111',
+    borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 16, marginBottom: 16,
   },
-  cardLive: { borderColor: 'rgba(239,68,68,0.3)' },
-  topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, gap: spacing.sm },
-  matchNum: { fontSize: fonts.xs, fontWeight: '700', color: '#6b7280', letterSpacing: 1 },
-  dayTag: { fontSize: fonts.xs, color: '#6b7280', flex: 1 },
-  watchLink: { fontSize: fonts.xs, fontWeight: '700', color: '#ef4444', letterSpacing: 0.3 },
-  teamsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
-  side: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  cardLive: { borderColor: 'rgba(248,113,113,0.3)' },
+  topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 8 },
+  matchNum:  { fontFamily: FFB, fontSize: 11, color: '#6b7280', letterSpacing: 1 },
+  dayTag:    { fontFamily: FF, fontSize: 11, color: '#6b7280', flex: 1 },
+  watchLink: { fontFamily: FFB, fontSize: 11, color: RED, letterSpacing: 0.3 },
+  teamsRow:  { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  side:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   sideRight: { justifyContent: 'flex-end' },
-  logo:   { width: 32, height: 32, borderRadius: 6 },
-  avatar: { width: 32, height: 32, borderRadius: 16, overflow: 'hidden' },
-  avatarFallback: { backgroundColor: '#2c2c2e', alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { fontSize: fonts.sm, fontWeight: '800', color: '#d4af37' },
-  pairRow: { flexDirection: 'row' },
-  pairAv:  { width: 26, height: 26, borderRadius: 13, overflow: 'hidden' },
-  pairOverlap: { marginLeft: -8 },
-  pairInitial: { fontSize: 10, fontWeight: '700', color: '#d4af37' },
-  sideName: { flex: 1, fontSize: fonts.md, fontWeight: '800', color: '#9ca3af' },
+  logo:      { width: 32, height: 32, borderRadius: 6 },
+  avatar:    { width: 32, height: 32, borderRadius: 16, overflow: 'hidden' },
+  avatarFallback: { backgroundColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center' },
+  avatarInitial:  { fontFamily: FFB, fontSize: 13, color: GOLD },
+  pairRow:    { flexDirection: 'row' },
+  pairAv:     { width: 26, height: 26, borderRadius: 13, overflow: 'hidden' },
+  pairOverlap:{ marginLeft: -8 },
+  pairInitial:{ fontFamily: FFB, fontSize: 10, color: GOLD },
+  sideName:      { flex: 1, fontFamily: FFB, fontSize: 14, color: '#9ca3af' },
   sideNameRight: { textAlign: 'right' },
-  centre: { alignItems: 'center', paddingHorizontal: spacing.xs, minWidth: 68 },
-  statusLabel: { fontSize: fonts.xl, fontWeight: '900', color: '#9ca3af', textAlign: 'center', letterSpacing: 0.5 },
-  thru: { fontSize: 9, fontWeight: '700', color: '#6b7280', letterSpacing: 1.5, marginTop: 2 },
-  strip: { flexDirection: 'row', gap: 3, marginBottom: spacing.sm },
-  dot: { flex: 1, height: 6, borderRadius: 3 },
-  dotEmpty: { backgroundColor: '#2c2c2e' },
-  dotCurrent: { backgroundColor: '#d4af37', opacity: 0.5 },
+  centre:      { alignItems: 'center', paddingHorizontal: 6, minWidth: 68 },
+  statusLabel: { fontFamily: FFB, fontSize: 18, color: '#9ca3af', textAlign: 'center', letterSpacing: 0.5 },
+  thru:        { fontFamily: FFB, fontSize: 9, color: '#6b7280', letterSpacing: 1.5, marginTop: 2 },
+  strip:    { flexDirection: 'row', gap: 3, marginBottom: 10 },
+  dot:      { flex: 1, height: 6, borderRadius: 3 },
+  dotEmpty: { backgroundColor: '#1c1c1c' },
+  dotCurrent: { backgroundColor: GOLD, opacity: 0.5 },
   leaderStrip: {
-    paddingLeft: spacing.sm, paddingVertical: 4,
-    borderRadius: radius.sm, backgroundColor: 'rgba(255,255,255,0.02)',
+    paddingLeft: 8, paddingVertical: 4,
+    borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.02)',
   },
-  leaderText: { fontSize: fonts.xs, fontWeight: '700', color: '#6b7280', letterSpacing: 0.5 },
+  leaderText: { fontFamily: FFB, fontSize: 11, color: '#6b7280', letterSpacing: 0.5 },
 });

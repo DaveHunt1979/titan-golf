@@ -1,14 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Image, ActivityIndicator, ScrollView, Modal, Animated,
+  Image, ActivityIndicator, ScrollView, Modal, Animated, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 import { teamLogos, getPlayerAvatar } from '../../../src/lib/assets';
+
+const GOLD   = '#D4AF37';
+const GREEN  = '#4ade80';
+const RED    = '#f87171';
+const PURPLE = '#a78bfa';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 interface Team { id: string; name: string; accent_color: string; logo_url: string | null; logo_key: string | null; }
 interface Player {
@@ -25,6 +33,11 @@ function getTeamLogo(team: Team) {
 export default function TransferWindowScreen() {
   const router = useRouter();
   const { societyId } = useAdminSociety();
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
   const [teams, setTeams]           = useState<Team[]>([]);
   const [players, setPlayers]       = useState<Player[]>([]);
@@ -71,7 +84,6 @@ export default function TransferWindowScreen() {
     const cpPlayerIds = cpRows.map(cp => cp.player_id) as string[];
     const freeAgentIds = memberIds.filter(id => !cpPlayerIds.includes(id));
 
-    // Load competition players
     if (cpPlayerIds.length > 0) {
       const { data: playersData } = await supabase.from('players')
         .select('id,display_name,handicap_index,avatar_url').in('id', cpPlayerIds);
@@ -90,7 +102,6 @@ export default function TransferWindowScreen() {
       }
     }
 
-    // Load free agents (society members not in this competition)
     if (freeAgentIds.length > 0) {
       const { data: faData } = await supabase.from('players')
         .select('id,display_name,handicap_index,avatar_url').in('id', freeAgentIds);
@@ -162,7 +173,6 @@ export default function TransferWindowScreen() {
     ]).start();
 
     if (isDraft) {
-      // Insert new competition_players row
       const { data: newCp } = await supabase.from('competition_players').insert({
         competition_id: compId,
         player_id: selectedPlayer.id,
@@ -197,70 +207,77 @@ export default function TransferWindowScreen() {
   const playersByTeam = teams.map(t => ({ team: t, members: players.filter(p => p.team_id === t.id) }));
   const unassigned = players.filter(p => !p.team_id);
 
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
+      {/* Header — three-column */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={styles.backText}>‹ Back</Text>
+          <Text style={styles.backText}>‹ Admin</Text>
         </TouchableOpacity>
-        <View style={styles.headerTitleRow}>
-          <Text style={styles.headerTitle}>TRANSFER WINDOW</Text>
-          <View style={styles.liveBadge}><Text style={styles.liveBadgeText}>OPEN</Text></View>
+        <View style={styles.headerCenter}>
+          <Image source={titanLogo} style={styles.logo} resizeMode="contain" />
+          <View style={styles.headerTitleRow}>
+            <Text style={styles.headerTitle}>TRANSFERS</Text>
+            <View style={styles.liveBadge}><Text style={styles.liveBadgeText}>OPEN</Text></View>
+          </View>
+          <Text style={styles.headerSub}>tap a player to move, release, or draft</Text>
         </View>
-        <Text style={styles.headerSub}>Tap a player to move, release, or draft them</Text>
+        <View style={{ width: 70 }} />
       </View>
 
-      {loading ? (
-        <ActivityIndicator color={colors.gold} style={{ marginTop: 60 }} />
-      ) : (
-        <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll}>
 
-          {/* ── Free Agents — draft section ── */}
-          {freeAgents.length > 0 && (
-            <View style={[styles.teamSection, styles.draftSection]}>
-              <View style={[styles.teamHeader, styles.draftHeader]}>
-                <Text style={styles.draftIcon}>⚡</Text>
-                <Text style={[styles.teamName, { color: colors.gold }]}>FREE AGENTS</Text>
-                <Text style={styles.teamCount}>{freeAgents.length} available</Text>
-              </View>
-              {freeAgents.map(player => (
-                <PlayerRow
-                  key={player.id}
-                  player={player}
-                  teamColor={colors.gold}
-                  actionLabel="DRAFT"
-                  onPress={() => openDraft(player)}
-                />
-              ))}
+        {/* Free Agents */}
+        {freeAgents.length > 0 && (
+          <View style={[styles.teamSection, styles.draftSection]}>
+            <View style={[styles.teamHeader, styles.draftHeader]}>
+              <Text style={styles.draftIcon}>⚡</Text>
+              <Text style={[styles.teamName, { color: GOLD }]}>FREE AGENTS</Text>
+              <Text style={styles.teamCount}>{freeAgents.length} available</Text>
             </View>
-          )}
+            {freeAgents.map(player => (
+              <PlayerRow
+                key={player.id}
+                player={player}
+                teamColor={GOLD}
+                actionLabel="DRAFT"
+                onPress={() => openDraft(player)}
+              />
+            ))}
+          </View>
+        )}
 
-          {/* ── Teams ── */}
-          {playersByTeam.map(({ team, members }) => (
-            <View key={team.id} style={styles.teamSection}>
-              <TeamHeader team={team} count={members.length} />
-              {members.map(player => (
-                <PlayerRow key={player.id} player={player} teamColor={team.accent_color} onPress={() => openTransfer(player)} />
-              ))}
-              {members.length === 0 && <Text style={styles.emptyTeam}>No players assigned</Text>}
-            </View>
-          ))}
+        {/* Teams */}
+        {playersByTeam.map(({ team, members }) => (
+          <View key={team.id} style={styles.teamSection}>
+            <TeamHeader team={team} count={members.length} />
+            {members.map(player => (
+              <PlayerRow key={player.id} player={player} teamColor={team.accent_color} onPress={() => openTransfer(player)} />
+            ))}
+            {members.length === 0 && <Text style={styles.emptyTeam}>No players assigned</Text>}
+          </View>
+        ))}
 
-          {unassigned.length > 0 && (
-            <View style={styles.teamSection}>
-              <View style={styles.teamHeader}>
-                <Text style={[styles.teamName, { color: colors.textMuted }]}>UNASSIGNED</Text>
-                <Text style={styles.teamCount}>{unassigned.length}</Text>
-              </View>
-              {unassigned.map(player => (
-                <PlayerRow key={player.id} player={player} teamColor={colors.textMuted} onPress={() => openTransfer(player)} />
-              ))}
+        {unassigned.length > 0 && (
+          <View style={styles.teamSection}>
+            <View style={styles.teamHeader}>
+              <Text style={[styles.teamName, { color: '#555' }]}>UNASSIGNED</Text>
+              <Text style={styles.teamCount}>{unassigned.length}</Text>
             </View>
-          )}
-        </ScrollView>
-      )}
+            {unassigned.map(player => (
+              <PlayerRow key={player.id} player={player} teamColor="#555" onPress={() => openTransfer(player)} />
+            ))}
+          </View>
+        )}
+      </ScrollView>
 
       {/* Transfer / Draft Modal */}
       <Modal visible={!!selectedPlayer} transparent animationType="slide" onRequestClose={() => setSelectedPlayer(null)}>
@@ -273,7 +290,7 @@ export default function TransferWindowScreen() {
                 <Text style={styles.modalSub}>
                   {selectedPlayer.display_name.split(' ')[0]}
                   {isDraft ? ' is a free agent — pick their team' : (
-                    <> is currently in <Text style={{ color: colors.gold }}>{currentTeam?.name ?? 'No Team'}</Text></>
+                    <> is currently in <Text style={{ color: GOLD, fontFamily: FFB }}>{currentTeam?.name ?? 'No Team'}</Text></>
                   )}
                 </Text>
 
@@ -321,7 +338,6 @@ export default function TransferWindowScreen() {
                 </Text>
 
                 <View style={styles.swapRow}>
-                  {/* From logo — hidden for draft */}
                   {!isDraft && (
                     <Animated.View style={[styles.swapLogoWrap, { transform: [{ translateX: oldLogoX }], opacity: oldLogoOp }]}>
                       {currentTeam ? (() => {
@@ -336,12 +352,14 @@ export default function TransferWindowScreen() {
                     </Animated.View>
                   )}
 
-                  {/* Player avatar */}
-                  <Animated.View style={[styles.swapPlayerWrap, { transform: [{ scale: playerScale }] }]}>
-                    <PlayerAvatar player={selectedPlayer} size={80} ring />
-                  </Animated.View>
+                  {/* GOLD transfer arrow in the middle */}
+                  <View style={styles.transferArrowWrap}>
+                    <Animated.View style={[styles.swapPlayerWrap, { transform: [{ scale: playerScale }] }]}>
+                      <PlayerAvatar player={selectedPlayer} size={80} ring />
+                    </Animated.View>
+                    <Text style={styles.transferArrow}>→</Text>
+                  </View>
 
-                  {/* To logo */}
                   <Animated.View style={[styles.swapLogoWrap, { transform: [{ translateX: newLogoX }], opacity: newLogoOp }]}>
                     {targetTeam === 'dropout' ? (
                       <>
@@ -375,7 +393,7 @@ export default function TransferWindowScreen() {
                   onPress={confirmAction} disabled={saving} activeOpacity={0.85}
                 >
                   {saving
-                    ? <ActivityIndicator color={colors.bg} />
+                    ? <ActivityIndicator color="#000" />
                     : <Text style={styles.confirmBtnText}>
                         {isDraft ? 'Confirm Signing' : targetTeam === 'dropout' ? 'Confirm Release' : 'Confirm Transfer'}
                       </Text>
@@ -464,8 +482,8 @@ function PlayerAvatar({ player, size, ring }: { player: Player; size: number; ri
     <View style={[styles.avatarRing, ring && styles.avatarRingGold, { width: size + 4, height: size + 4, borderRadius: (size + 4) / 2 }]}>
       {avatar
         ? <Image source={typeof avatar === 'string' ? { uri: avatar } : avatar} style={{ width: size, height: size, borderRadius: size / 2 }} />
-        : <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: size * 0.4, fontWeight: '800', color: colors.white }}>{player.display_name[0]}</Text>
+        : <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: size * 0.4, fontFamily: FFB, color: '#fff' }}>{player.display_name[0]}</Text>
           </View>
       }
     </View>
@@ -473,124 +491,132 @@ function PlayerAvatar({ player, size, ring }: { player: Player; size: number; ri
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: '#000' },
+
   header: {
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingTop: Platform.OS === 'ios' ? 56 : 32,
+    paddingHorizontal: 20, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  backBtn: { marginBottom: spacing.sm },
-  backText: { fontSize: fonts.md, color: colors.gold, fontWeight: '600' },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 4 },
-  headerTitle: { fontSize: fonts.xl, fontWeight: '900', color: colors.white, letterSpacing: 2 },
-  liveBadge: { backgroundColor: colors.green, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 3 },
-  liveBadgeText: { fontSize: 9, fontWeight: '900', color: colors.white, letterSpacing: 1.5 },
-  headerSub: { fontSize: fonts.xs, color: colors.textMuted },
-  scroll: { padding: spacing.lg, paddingBottom: 60 },
+  backBtn: { width: 70 },
+  backText: { fontSize: 15, fontFamily: FFB, color: GOLD },
+  headerCenter: { alignItems: 'center', gap: 2 },
+  logo: { width: 28, height: 28, marginBottom: 2 },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerTitle: { fontSize: 14, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
+  liveBadge: { backgroundColor: GREEN, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
+  liveBadgeText: { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
+  headerSub: { fontSize: 9, fontFamily: FF, color: '#555' },
+
+  scroll: { padding: 20, paddingBottom: 60 },
 
   teamSection: {
-    marginBottom: spacing.xl, backgroundColor: colors.card,
-    borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+    marginBottom: 20, backgroundColor: '#111',
+    borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden',
   },
-  draftSection: { borderColor: colors.goldBorder },
+  draftSection: { borderColor: `${GOLD}44` },
   teamHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.cardAlt,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c', backgroundColor: '#1a1a1a',
   },
-  draftHeader: { backgroundColor: colors.goldDim },
+  draftHeader: { backgroundColor: `${GOLD}11` },
   draftIcon: { fontSize: 18 },
   teamHeaderLogo: { width: 32, height: 32 },
   teamHeaderLogoFallback: { width: 32, height: 32, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  teamHeaderInitial: { fontSize: fonts.md, fontWeight: '900' },
-  teamName: { flex: 1, fontSize: fonts.sm, fontWeight: '800', letterSpacing: 1 },
-  teamCount: { fontSize: fonts.xs, color: colors.textMuted, fontWeight: '600' },
-  emptyTeam: { fontSize: fonts.sm, color: colors.textMuted, padding: spacing.md, textAlign: 'center', fontStyle: 'italic' },
+  teamHeaderInitial: { fontSize: 14, fontFamily: FFB },
+  teamName: { flex: 1, fontSize: 13, fontFamily: FFB, letterSpacing: 1 },
+  teamCount: { fontSize: 11, fontFamily: FF, color: '#555' },
+  emptyTeam: { fontSize: 13, fontFamily: FF, color: '#555', padding: 16, textAlign: 'center', fontStyle: 'italic' },
 
   playerRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.sm,
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c', gap: 12,
   },
   playerRowAvatarWrap: { borderRadius: 22, borderWidth: 1.5, overflow: 'hidden' },
   playerRowAvatar: { width: 40, height: 40 },
-  playerRowAvatarFallback: { backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
-  playerRowInitial: { fontSize: fonts.md, fontWeight: '700', color: colors.white },
+  playerRowAvatarFallback: { backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' },
+  playerRowInitial: { fontSize: 14, fontFamily: FFB, color: '#fff' },
   playerRowInfo: { flex: 1 },
-  playerRowName: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  playerRowHcp: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 1 },
+  playerRowName: { fontSize: 13, fontFamily: FFB, color: '#fff' },
+  playerRowHcp: { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 1 },
   transferChip: {
-    backgroundColor: colors.cardAlt, borderRadius: radius.full,
-    paddingHorizontal: spacing.sm, paddingVertical: 3,
-    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: '#1a1a1a', borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 3,
+    borderWidth: 1, borderColor: '#1c1c1c',
   },
-  draftChip: { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
-  transferChipText: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 1 },
-  draftChipText: { color: colors.gold },
+  draftChip: { backgroundColor: `${GOLD}18`, borderColor: `${GOLD}55` },
+  transferChipText: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  draftChipText: { color: GOLD },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
   modalSheet: {
-    backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
-    paddingTop: spacing.xl, paddingBottom: 48, paddingHorizontal: spacing.lg,
-    borderTopWidth: 1, borderTopColor: colors.border, alignItems: 'center', minHeight: 500,
+    backgroundColor: '#111', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingTop: 28, paddingBottom: 48, paddingHorizontal: 24,
+    borderTopWidth: 1, borderTopColor: '#1c1c1c', alignItems: 'center', minHeight: 500,
   },
-  modalHeading: { fontSize: fonts.sm, fontWeight: '900', color: colors.gold, letterSpacing: 2, marginBottom: spacing.xs },
-  modalSub: { fontSize: fonts.sm, color: colors.textMuted, marginBottom: spacing.lg, textAlign: 'center' },
-  playerPreviewRow: { alignItems: 'center', marginBottom: spacing.lg },
-  playerPreviewName: { fontSize: fonts.lg, fontWeight: '800', color: colors.white, marginTop: spacing.sm },
-  playerPreviewHcp: { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
-  pickLabel: { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 2, alignSelf: 'flex-start', marginBottom: spacing.sm },
-  teamGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, width: '100%', marginBottom: spacing.md },
+  modalHeading: { fontSize: 13, fontFamily: FFB, color: GOLD, letterSpacing: 2, marginBottom: 6 },
+  modalSub: { fontSize: 13, fontFamily: FF, color: '#555', marginBottom: 20, textAlign: 'center' },
+  playerPreviewRow: { alignItems: 'center', marginBottom: 20 },
+  playerPreviewName: { fontSize: 17, fontFamily: FFB, color: '#fff', marginTop: 10 },
+  playerPreviewHcp: { fontSize: 13, fontFamily: FF, color: '#555' },
+  pickLabel: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 2, alignSelf: 'flex-start', marginBottom: 10 },
+  teamGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, width: '100%', marginBottom: 16 },
   teamTile: {
-    width: '30%', alignItems: 'center', padding: spacing.sm,
-    backgroundColor: colors.cardAlt, borderRadius: radius.md, borderWidth: 1.5, gap: 4,
+    width: '30%', alignItems: 'center', padding: 10,
+    backgroundColor: '#1a1a1a', borderRadius: 12, borderWidth: 1.5, gap: 4,
   },
   teamTileLogo: { width: 44, height: 44 },
   teamTileLogoFallback: { width: 44, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  teamTileInitial: { fontSize: fonts.xl, fontWeight: '900' },
-  teamTileName: { fontSize: 9, fontWeight: '700', color: colors.textSecondary, textAlign: 'center', letterSpacing: 0.5 },
+  teamTileInitial: { fontSize: 18, fontFamily: FFB },
+  teamTileName: { fontSize: 9, fontFamily: FFB, color: '#888', textAlign: 'center', letterSpacing: 0.5 },
   dropoutBtn: {
-    width: '100%', paddingVertical: spacing.sm + 2, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.red + '55', backgroundColor: 'rgba(248,113,113,0.08)',
-    alignItems: 'center', marginBottom: spacing.sm,
+    width: '100%', paddingVertical: 12, borderRadius: 12,
+    borderWidth: 1, borderColor: `${RED}55`, backgroundColor: 'rgba(248,113,113,0.08)',
+    alignItems: 'center', marginBottom: 10,
   },
-  dropoutBtnText: { fontSize: fonts.sm, fontWeight: '700', color: colors.red },
-  cancelBtn: { paddingVertical: spacing.sm, alignItems: 'center', marginTop: spacing.xs },
-  cancelBtnText: { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600' },
+  dropoutBtnText: { fontSize: 13, fontFamily: FFB, color: RED },
+  cancelBtn: { paddingVertical: 10, alignItems: 'center', marginTop: 6 },
+  cancelBtnText: { fontSize: 13, fontFamily: FF, color: '#555' },
 
   swapRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    width: '100%', marginVertical: spacing.xl, overflow: 'hidden',
+    width: '100%', marginVertical: 24, overflow: 'hidden',
   },
+  transferArrowWrap: { alignItems: 'center', gap: 4 },
+  transferArrow: { fontSize: 22, fontFamily: FFB, color: GOLD },
   swapLogoWrap: { width: 90, alignItems: 'center', gap: 6 },
   swapLogo: { width: 64, height: 64 },
   swapLogoFallback: { width: 64, height: 64, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  swapLogoInitial: { fontSize: 28, fontWeight: '900' },
-  swapTeamLabel: { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5, textAlign: 'center' },
+  swapLogoInitial: { fontSize: 28, fontFamily: FFB },
+  swapTeamLabel: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 0.5, textAlign: 'center' },
   swapPlayerWrap: { alignItems: 'center' },
   releasedBadge: {
     width: 64, height: 64, borderRadius: 12,
-    backgroundColor: 'rgba(248,113,113,0.15)', borderWidth: 1.5, borderColor: colors.red + '55',
+    backgroundColor: 'rgba(248,113,113,0.15)', borderWidth: 1.5, borderColor: `${RED}55`,
     alignItems: 'center', justifyContent: 'center',
   },
-  releasedBadgeText: { fontSize: 9, fontWeight: '900', color: colors.red, letterSpacing: 1 },
-  confirmPlayerName: { fontSize: fonts.xl, fontWeight: '900', color: colors.white, marginBottom: 4 },
-  confirmArrow: { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600', marginBottom: spacing.xl },
+  releasedBadgeText: { fontSize: 9, fontFamily: FFB, color: RED, letterSpacing: 1 },
+  confirmPlayerName: { fontSize: 18, fontFamily: FFB, color: '#fff', marginBottom: 4 },
+  confirmArrow: { fontSize: 13, fontFamily: FF, color: '#555', marginBottom: 24 },
   confirmBtn: {
-    width: '100%', backgroundColor: colors.gold, borderRadius: radius.lg,
-    paddingVertical: spacing.md, alignItems: 'center', marginBottom: spacing.sm,
+    width: '100%', backgroundColor: GOLD, borderRadius: 12,
+    paddingVertical: 16, alignItems: 'center', marginBottom: 10,
   },
   confirmBtnDisabled: { opacity: 0.6 },
-  confirmBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
+  confirmBtnText: { fontSize: 15, fontFamily: FFB, color: '#000', letterSpacing: 1 },
 
-  doneWrap: { alignItems: 'center', paddingTop: spacing.xl },
-  doneTick: { fontSize: 64, color: colors.gold, marginBottom: spacing.md },
-  doneTitle: { fontSize: fonts.lg, fontWeight: '900', color: colors.white, letterSpacing: 2, marginBottom: spacing.sm },
-  doneSub: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20, marginBottom: spacing.xl },
+  doneWrap: { alignItems: 'center', paddingTop: 28 },
+  doneTick: { fontSize: 64, color: GOLD, marginBottom: 16 },
+  doneTitle: { fontSize: 17, fontFamily: FFB, color: '#fff', letterSpacing: 2, marginBottom: 10 },
+  doneSub: { fontSize: 13, fontFamily: FF, color: '#555', textAlign: 'center', lineHeight: 20, marginBottom: 28 },
   doneBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.lg,
-    paddingVertical: spacing.md, paddingHorizontal: spacing.xxl, alignItems: 'center',
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingVertical: 16, paddingHorizontal: 40, alignItems: 'center',
   },
-  doneBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
+  doneBtnText: { fontSize: 15, fontFamily: FFB, color: '#000', letterSpacing: 1 },
   avatarRing: { borderWidth: 2, borderColor: 'transparent', overflow: 'hidden' },
-  avatarRingGold: { borderColor: colors.gold },
+  avatarRingGold: { borderColor: GOLD },
 });

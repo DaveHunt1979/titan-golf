@@ -1,13 +1,21 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Alert, Platform,
+  ActivityIndicator, RefreshControl, Alert, Platform, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+const GOLD   = '#D4AF37';
+const GREEN  = '#4ade80';
+const RED    = '#f87171';
+const PURPLE = '#a78bfa';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 interface SwindleGame {
   id: string;
@@ -38,17 +46,20 @@ function formatDate(d: string) {
 
 export default function SwindleAdminScreen() {
   const router = useRouter();
-  useDynamicColors(); // ensure theme context is available
+  useDynamicColors();
 
-  const [loading, setLoading]     = useState(true);
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
+  const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tab, setTab]             = useState<'games' | 'money'>('games');
-  const [games, setGames]         = useState<SwindleGame[]>([]);
-  const [moneyList, setMoneyList] = useState<MoneyEntry[]>([]);
+  const [tab, setTab]               = useState<'games' | 'money'>('games');
+  const [games, setGames]           = useState<SwindleGame[]>([]);
+  const [moneyList, setMoneyList]   = useState<MoneyEntry[]>([]);
 
   const load = useCallback(async () => {
-
-    // Load all swindle games for this society
     const { data: gamesData } = await supabase
       .from('swindle_games')
       .select(`
@@ -63,11 +74,10 @@ export default function SwindleAdminScreen() {
 
     const built: SwindleGame[] = (gamesData as any[]).map(g => {
       const entries: any[] = g.swindle_entries ?? [];
-      const scores: any[] = g.swindle_scores ?? [];
+      const scores: any[]  = g.swindle_scores ?? [];
       const entryCount = entries.length;
       const pot = entryCount * (g.entry_fee ?? 0);
 
-      // Sum stableford pts per player
       const totals: Record<string, { name: string; pts: number }> = {};
       for (const e of entries) {
         totals[e.player_id] = { name: e.players?.display_name ?? 'Unknown', pts: 0 };
@@ -92,12 +102,10 @@ export default function SwindleAdminScreen() {
 
     setGames(built);
 
-    // Build season money list from complete games
     const earningsMap: Record<string, MoneyEntry> = {};
     for (const g of built) {
       if (g.status !== 'complete') continue;
       g.topPlayers.forEach((p, rank) => {
-        const id = Object.keys({}).find(() => false) ?? `${p.name}-${rank}`; // approximate key
         const key = p.name;
         if (!earningsMap[key]) earningsMap[key] = { player_id: key, name: p.name, games: 0, earnings: 0, wins: 0 };
         earningsMap[key].earnings += p.payout;
@@ -106,11 +114,7 @@ export default function SwindleAdminScreen() {
       });
     }
 
-    setMoneyList(
-      Object.values(earningsMap)
-        .sort((a, b) => b.earnings - a.earnings)
-    );
-
+    setMoneyList(Object.values(earningsMap).sort((a, b) => b.earnings - a.earnings));
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -136,12 +140,11 @@ export default function SwindleAdminScreen() {
   }
 
   const statusColor = (s: string) =>
-    s === 'complete' ? '#22c55e' : s === 'in_progress' ? colors.gold : '#6b7280';
+    s === 'complete' ? GREEN : s === 'in_progress' ? GOLD : '#6b7280';
 
-  if (loading) return (
-    <View style={s.container}>
-      <StatusBar style="light" />
-      <View style={s.center}><ActivityIndicator color="#a78bfa" size="large" /></View>
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
     </View>
   );
 
@@ -149,12 +152,17 @@ export default function SwindleAdminScreen() {
     <View style={s.container}>
       <StatusBar style="light" />
 
+      {/* Header — three-column */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={s.back}>‹ Admin</Text>
         </TouchableOpacity>
-        <Text style={s.title}>Swindle Manager</Text>
-        <View style={{ width: 60 }} />
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+          <Text style={s.title}>SWINDLE</Text>
+          <Text style={s.subtitle}>manager</Text>
+        </View>
+        <View style={{ width: 70 }} />
       </View>
 
       {/* Tab bar */}
@@ -175,7 +183,7 @@ export default function SwindleAdminScreen() {
 
       <ScrollView
         contentContainerStyle={s.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#a78bfa" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={PURPLE} />}
         showsVerticalScrollIndicator={false}
       >
         {tab === 'games' && (
@@ -185,66 +193,66 @@ export default function SwindleAdminScreen() {
             )}
             {games.map(g => (
               <View key={g.id} style={s.gameCard}>
-                <View style={s.gameCardHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.gameName}>{g.name}</Text>
-                    <Text style={s.gameMeta}>{formatDate(g.game_date)}{g.course_name ? ` · ${g.course_name}` : ''}</Text>
+                {/* Purple left accent */}
+                <View style={s.purpleAccent} />
+                <View style={{ flex: 1 }}>
+                  <View style={s.gameCardHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.gameName}>{g.name}</Text>
+                      <Text style={s.gameMeta}>{formatDate(g.game_date)}{g.course_name ? ` · ${g.course_name}` : ''}</Text>
+                    </View>
+                    <View style={[s.statusChip, { borderColor: statusColor(g.status) }]}>
+                      <Text style={[s.statusText, { color: statusColor(g.status) }]}>{g.status.toUpperCase()}</Text>
+                    </View>
                   </View>
-                  <View style={[s.statusChip, { borderColor: statusColor(g.status) }]}>
-                    <Text style={[s.statusText, { color: statusColor(g.status) }]}>{g.status.toUpperCase()}</Text>
+
+                  <View style={s.potRow}>
+                    <View style={s.potCell}>
+                      <Text style={s.potNum}>{g.entryCount}</Text>
+                      <Text style={s.potLbl}>ENTRIES</Text>
+                    </View>
+                    <View style={s.potCell}>
+                      <Text style={s.potNum}>{g.currency}{g.pot.toFixed(2)}</Text>
+                      <Text style={s.potLbl}>POT</Text>
+                    </View>
+                    <View style={s.potCell}>
+                      <Text style={s.potNum}>{g.entry_fee}{g.currency}</Text>
+                      <Text style={s.potLbl}>ENTRY</Text>
+                    </View>
+                    <View style={s.potCell}>
+                      <Text style={s.potNum}>{(g.prize_split ?? []).join('/')}%</Text>
+                      <Text style={s.potLbl}>SPLIT</Text>
+                    </View>
                   </View>
+
+                  {g.topPlayers.length > 0 && (
+                    <View style={s.resultsBlock}>
+                      {g.topPlayers.map((p, i) => (
+                        <View key={i} style={s.resultRow}>
+                          <Text style={s.resultPos}>{i + 1}</Text>
+                          <Text style={s.resultName}>{p.name}</Text>
+                          <Text style={s.resultPts}>{p.pts}pts</Text>
+                          <Text style={s.resultPayout}>{g.currency}{p.payout.toFixed(2)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {g.status !== 'complete' && (
+                    <View style={s.gameActions}>
+                      <TouchableOpacity style={s.actionBtn} onPress={() => markComplete(g.id)} activeOpacity={0.8}>
+                        <Text style={s.actionBtnText}>Mark Complete</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[s.actionBtn, s.actionBtnDanger]}
+                        onPress={() => deleteGame(g.id, g.name)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[s.actionBtnText, { color: RED }]}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
-
-                <View style={s.potRow}>
-                  <View style={s.potCell}>
-                    <Text style={s.potNum}>{g.entryCount}</Text>
-                    <Text style={s.potLbl}>ENTRIES</Text>
-                  </View>
-                  <View style={s.potCell}>
-                    <Text style={s.potNum}>{g.currency}{g.pot.toFixed(2)}</Text>
-                    <Text style={s.potLbl}>POT</Text>
-                  </View>
-                  <View style={s.potCell}>
-                    <Text style={s.potNum}>{g.entry_fee}{g.currency}</Text>
-                    <Text style={s.potLbl}>ENTRY</Text>
-                  </View>
-                  <View style={s.potCell}>
-                    <Text style={s.potNum}>{(g.prize_split ?? []).join('/')}%</Text>
-                    <Text style={s.potLbl}>SPLIT</Text>
-                  </View>
-                </View>
-
-                {g.topPlayers.length > 0 && (
-                  <View style={s.resultsBlock}>
-                    {g.topPlayers.map((p, i) => (
-                      <View key={i} style={s.resultRow}>
-                        <Text style={s.resultPos}>{i + 1}</Text>
-                        <Text style={s.resultName}>{p.name}</Text>
-                        <Text style={s.resultPts}>{p.pts}pts</Text>
-                        <Text style={s.resultPayout}>{g.currency}{p.payout.toFixed(2)}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {g.status !== 'complete' && (
-                  <View style={s.gameActions}>
-                    <TouchableOpacity
-                      style={s.actionBtn}
-                      onPress={() => markComplete(g.id)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={s.actionBtnText}>Mark Complete</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[s.actionBtn, s.actionBtnDanger]}
-                      onPress={() => deleteGame(g.id, g.name)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[s.actionBtnText, { color: '#ef4444' }]}>Delete</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
               </View>
             ))}
           </>
@@ -276,96 +284,105 @@ export default function SwindleAdminScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  center:    { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#000' },
+
   header: {
     paddingTop: Platform.OS === 'ios' ? 56 : 32,
-    paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1c1c1c',
   },
-  back:  { fontSize: fonts.sm, fontWeight: '600', color: colors.textMuted },
-  title: { fontSize: fonts.md, fontWeight: '800', color: colors.white },
+  back: { fontSize: 15, fontFamily: FFB, color: GOLD, width: 70 },
+  headerCenter: { alignItems: 'center', gap: 2 },
+  logo: { width: 28, height: 28, marginBottom: 2 },
+  title: { fontSize: 14, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
+  subtitle: { fontSize: 9, fontFamily: FF, color: '#555' },
 
   tabBar: {
     flexDirection: 'row',
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
+    paddingHorizontal: 16, paddingVertical: 10, gap: 8,
   },
   tabItem: {
-    paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2,
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.card,
+    paddingHorizontal: 16, paddingVertical: 7,
+    borderRadius: 20, borderWidth: 1, borderColor: '#1c1c1c',
+    backgroundColor: '#111',
   },
-  tabItemActive: { borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.12)' },
-  tabLabel:      { fontSize: fonts.sm, fontWeight: '700', color: colors.textMuted },
-  tabLabelActive: { color: '#a78bfa' },
+  tabItemActive: { borderColor: PURPLE, backgroundColor: 'rgba(167,139,250,0.12)' },
+  tabLabel:      { fontSize: 13, fontFamily: FFB, color: '#555' },
+  tabLabelActive: { color: PURPLE },
 
-  scroll: { padding: spacing.md },
-  empty:  { color: colors.textMuted, textAlign: 'center', paddingVertical: spacing.xl, fontSize: fonts.sm },
+  scroll: { padding: 16 },
+  empty:  { fontFamily: FF, color: '#555', textAlign: 'center', paddingVertical: 40, fontSize: 13 },
 
   gameCard: {
-    backgroundColor: colors.card, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border,
-    marginBottom: spacing.sm, overflow: 'hidden',
+    flexDirection: 'row',
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    marginBottom: 12, overflow: 'hidden',
   },
+  purpleAccent: { width: 4, backgroundColor: PURPLE },
   gameCardHeader: {
     flexDirection: 'row', alignItems: 'flex-start',
-    padding: spacing.md, gap: spacing.sm,
+    padding: 16, gap: 10,
   },
-  gameName: { fontSize: fonts.md, fontWeight: '800', color: colors.white, marginBottom: 3 },
-  gameMeta: { fontSize: fonts.xs, color: colors.textMuted },
+  gameName: { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 3 },
+  gameMeta: { fontSize: 11, fontFamily: FF, color: '#555' },
   statusChip: {
-    borderRadius: radius.sm, borderWidth: 1,
-    paddingHorizontal: spacing.xs + 2, paddingVertical: 2,
+    borderRadius: 6, borderWidth: 1,
+    paddingHorizontal: 6, paddingVertical: 2,
   },
-  statusText: { fontSize: 9, fontWeight: '800', letterSpacing: 1 },
+  statusText: { fontSize: 9, fontFamily: FFB, letterSpacing: 1 },
 
   potRow: {
     flexDirection: 'row',
-    borderTopWidth: 1, borderTopColor: colors.border,
-    paddingVertical: spacing.sm,
+    borderTopWidth: 1, borderTopColor: '#1c1c1c',
+    paddingVertical: 10,
   },
-  potCell:  { flex: 1, alignItems: 'center' },
-  potNum:   { fontSize: fonts.md, fontWeight: '800', color: '#a78bfa' },
-  potLbl:   { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginTop: 2 },
+  potCell: { flex: 1, alignItems: 'center' },
+  potNum:  { fontSize: 14, fontFamily: FFB, color: PURPLE },
+  potLbl:  { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1, marginTop: 2 },
 
   resultsBlock: {
-    borderTopWidth: 1, borderTopColor: colors.border,
-    padding: spacing.sm,
+    borderTopWidth: 1, borderTopColor: '#1c1c1c',
+    padding: 10,
   },
   resultRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 6, gap: spacing.sm,
+    paddingVertical: 6, gap: 10,
   },
-  resultPos:    { width: 20, fontSize: fonts.sm, fontWeight: '800', color: colors.textMuted, textAlign: 'center' },
-  resultName:   { flex: 1, fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  resultPts:    { fontSize: fonts.sm, color: colors.textMuted, width: 50, textAlign: 'right' },
-  resultPayout: { fontSize: fonts.sm, fontWeight: '800', color: '#a78bfa', width: 56, textAlign: 'right' },
+  resultPos:    { width: 20, fontSize: 13, fontFamily: FFB, color: '#555', textAlign: 'center' },
+  resultName:   { flex: 1, fontSize: 13, fontFamily: FFB, color: '#fff' },
+  resultPts:    { fontSize: 13, fontFamily: FF, color: '#555', width: 50, textAlign: 'right' },
+  resultPayout: { fontSize: 13, fontFamily: FFB, color: PURPLE, width: 56, textAlign: 'right' },
 
   gameActions: {
-    flexDirection: 'row', gap: spacing.sm,
-    borderTopWidth: 1, borderTopColor: colors.border,
-    padding: spacing.sm,
+    flexDirection: 'row', gap: 10,
+    borderTopWidth: 1, borderTopColor: '#1c1c1c',
+    padding: 10,
   },
   actionBtn: {
-    flex: 1, borderRadius: radius.md, borderWidth: 1,
-    borderColor: colors.border, paddingVertical: spacing.xs + 2,
-    alignItems: 'center',
+    flex: 1, borderRadius: 12, borderWidth: 1,
+    borderColor: '#1c1c1c', paddingVertical: 8,
+    alignItems: 'center', backgroundColor: '#111',
   },
-  actionBtnDanger: { borderColor: '#ef444455' },
-  actionBtnText: { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
+  actionBtnDanger: { borderColor: '#f8717155' },
+  actionBtnText: { fontSize: 13, fontFamily: FFB, color: '#fff' },
 
-  moneySubtitle: { fontSize: fonts.xs, color: colors.textMuted, marginBottom: spacing.md },
+  moneySubtitle: { fontSize: 11, fontFamily: FF, color: '#555', marginBottom: 16 },
   moneyRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    padding: spacing.md, marginBottom: spacing.xs, gap: spacing.sm,
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 16, marginBottom: 8, gap: 12,
   },
-  moneyRowFirst: { borderColor: '#a78bfa55', backgroundColor: 'rgba(167,139,250,0.08)' },
-  moneyPos:      { width: 24, fontSize: fonts.md, fontWeight: '800', color: colors.textMuted, textAlign: 'center' },
-  moneyName:     { fontSize: fonts.md, fontWeight: '800', color: colors.white, marginBottom: 2 },
-  moneyDetail:   { fontSize: fonts.xs, color: colors.textMuted },
-  moneyEarnings: { fontSize: fonts.xl, fontWeight: '900', color: '#a78bfa' },
+  moneyRowFirst: { borderColor: `${PURPLE}55`, backgroundColor: 'rgba(167,139,250,0.08)' },
+  moneyPos:      { width: 24, fontSize: 15, fontFamily: FFB, color: '#555', textAlign: 'center' },
+  moneyName:     { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 2 },
+  moneyDetail:   { fontSize: 11, fontFamily: FF, color: '#555' },
+  moneyEarnings: { fontSize: 18, fontFamily: FFB, color: PURPLE },
 });

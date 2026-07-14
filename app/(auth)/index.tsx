@@ -1,11 +1,21 @@
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { titanLogo } from '../../src/lib/assets';
-import { colors, fonts, spacing, radius } from '../../src/lib/theme';
+import { useFonts } from 'expo-font';
+
+const GOLD = '#D4AF37';
+const FF   = 'JUSTSans';
+const FFB  = 'JUSTSans-ExBold';
+const titanLogo = require('../../assets/TitanAppLogo.png');
 
 export default function LandingScreen() {
   const router = useRouter();
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: '#000' }}><StatusBar style="light" /></View>;
 
   return (
     <View style={s.container}>
@@ -13,6 +23,7 @@ export default function LandingScreen() {
 
       <View style={s.hero}>
         <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+        <View style={s.divider} />
         <Text style={s.appName}>TITAN GOLF</Text>
         <Text style={s.tagline}>The society scoring platform</Text>
       </View>
@@ -43,7 +54,7 @@ export default function LandingScreen() {
         >
           <Text style={s.linkText}>
             Already have an account?{'  '}
-            <Text style={{ color: colors.gold }}>Sign in</Text>
+            <Text style={{ color: GOLD, fontFamily: FF }}>Sign in</Text>
           </Text>
         </TouchableOpacity>
       </View>
@@ -54,32 +65,33 @@ export default function LandingScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: spacing.xl },
+  container: { flex: 1, backgroundColor: '#000', paddingHorizontal: 24 },
 
-  hero:    { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
-  logo:    { width: 180, height: 180 },
-  appName: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 4 },
-  tagline: { fontSize: fonts.sm, color: colors.textSecondary, letterSpacing: 1 },
+  hero:    { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  logo:    { width: 120, height: 36 },
+  divider: { width: 60, height: 1, backgroundColor: GOLD },
+  appName: { fontSize: 28, fontFamily: FFB, color: '#fff', letterSpacing: 4 },
+  tagline: { fontSize: 13, fontFamily: FF, color: '#555', letterSpacing: 1 },
 
-  actions: { paddingBottom: spacing.xxl, gap: spacing.md },
+  actions: { paddingBottom: 40, gap: 12 },
 
   primary: {
-    backgroundColor: colors.gold, borderRadius: radius.lg,
-    paddingVertical: spacing.md + 4, alignItems: 'center',
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingVertical: 18, alignItems: 'center',
   },
-  primaryText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
-  primarySub:  { fontSize: fonts.xs, color: colors.bg, opacity: 0.65, marginTop: 2 },
+  primaryText: { fontSize: 16, fontFamily: FFB, color: '#000' },
+  primarySub:  { fontSize: 12, fontFamily: FF, color: '#000', opacity: 0.65, marginTop: 2 },
 
   secondary: {
-    backgroundColor: colors.card, borderRadius: radius.lg,
-    paddingVertical: spacing.md + 4, alignItems: 'center',
-    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: '#111', borderRadius: 12,
+    paddingVertical: 18, alignItems: 'center',
+    borderWidth: 1, borderColor: '#1c1c1c',
   },
-  secondaryText: { fontSize: fonts.md, fontWeight: '800', color: colors.white },
-  secondarySub:  { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+  secondaryText: { fontSize: 16, fontFamily: FFB, color: '#fff' },
+  secondarySub:  { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 2 },
 
-  link:     { alignItems: 'center', paddingVertical: spacing.sm },
-  linkText: { fontSize: fonts.sm, color: colors.textSecondary },
+  link:     { alignItems: 'center', paddingVertical: 8 },
+  linkText: { fontSize: 14, fontFamily: FF, color: '#555' },
 
-  footer: { textAlign: 'center', fontSize: fonts.xs, color: colors.textMuted, paddingBottom: spacing.md },
+  footer: { textAlign: 'center', fontSize: 12, fontFamily: FF, color: '#444', paddingBottom: 16 },
 });

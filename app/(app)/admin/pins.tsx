@@ -1,14 +1,23 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, ActivityIndicator, Alert,
+  ScrollView, ActivityIndicator, Alert, Image,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+// ── TITAN constants ───────────────────────────────────────────
+const GOLD   = '#D4AF37';
+const GREEN  = '#4ade80';
+const RED    = '#f87171';
+const PURPLE = '#a78bfa';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 type PinType = 'front' | 'centre' | 'back';
 
@@ -24,23 +33,28 @@ interface CourseHole {
 interface PinSet { lat: number; lng: number }
 
 const PIN_CONFIG: Record<PinType, { label: string; color: string; col: { lat: string; lng: string } }> = {
-  front:  { label: 'FRONT',  color: '#22c55e', col: { lat: 'front_lat',  lng: 'front_lng'  } },
-  centre: { label: 'CENTRE', color: colors.gold, col: { lat: 'green_lat',  lng: 'green_lng'  } },
-  back:   { label: 'BACK',   color: '#ef4444', col: { lat: 'back_lat',   lng: 'back_lng'   } },
+  front:  { label: 'FRONT',  color: GREEN, col: { lat: 'front_lat', lng: 'front_lng' } },
+  centre: { label: 'CENTRE', color: GOLD,  col: { lat: 'green_lat', lng: 'green_lng' } },
+  back:   { label: 'BACK',   color: RED,   col: { lat: 'back_lat',  lng: 'back_lng'  } },
 };
 
 export default function PinsScreen() {
   const router = useRouter();
 
-  const [courses, setCourses]             = useState<string[]>([]);
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
+  const [courses, setCourses]               = useState<string[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
-  const [holes, setHoles]                 = useState<CourseHole[]>([]);
-  const [selectedHole, setSelectedHole]   = useState<number | null>(null);
-  const [activePinType, setActivePinType] = useState<PinType>('centre');
-  const [pending, setPending]             = useState<Partial<Record<PinType, PinSet>>>({});
+  const [holes, setHoles]                   = useState<CourseHole[]>([]);
+  const [selectedHole, setSelectedHole]     = useState<number | null>(null);
+  const [activePinType, setActivePinType]   = useState<PinType>('centre');
+  const [pending, setPending]               = useState<Partial<Record<PinType, PinSet>>>({});
   const [deviceLocation, setDeviceLocation] = useState<PinSet | null>(null);
-  const [saving, setSaving]               = useState(false);
-  const [loading, setLoading]             = useState(true);
+  const [saving, setSaving]                 = useState(false);
+  const [loading, setLoading]               = useState(true);
 
   useEffect(() => {
     loadCourses();
@@ -99,11 +113,15 @@ export default function PinsScreen() {
     setPending(p => ({ ...p, [activePinType]: { lat, lng } }));
   }
 
-  if (loading) {
-    return <View style={s.centered}><ActivityIndicator color={colors.gold} size="large" /></View>;
+  if (loading || !fontsLoaded) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+        <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+      </View>
+    );
   }
 
-  // ── Map view ────────────────────────────────────────────────────
+  // ── Map view ──────────────────────────────────────────────────
   if (selectedCourse && selectedHole !== null) {
     const hole = holes.find(h => h.hole_number === selectedHole);
 
@@ -113,7 +131,6 @@ export default function PinsScreen() {
       back:   hole?.back_lat   ? { lat: hole.back_lat,   lng: hole.back_lng!   } : null,
     };
 
-    // Visible pins = pending overrides existing
     const visiblePins: Record<PinType, PinSet | null> = {
       front:  pending.front  ?? existingPins.front,
       centre: pending.centre ?? existingPins.centre,
@@ -148,7 +165,7 @@ export default function PinsScreen() {
         <View style={s.pinTypeRow}>
           {(Object.entries(PIN_CONFIG) as [PinType, typeof PIN_CONFIG[PinType]][]).map(([type, cfg]) => {
             const isActive = activePinType === type;
-            const isSet = !!(visiblePins[type]);
+            const isSet    = !!(visiblePins[type]);
             return (
               <TouchableOpacity
                 key={type}
@@ -181,7 +198,10 @@ export default function PinsScreen() {
                 draggable
                 anchor={{ x: 0.5, y: 0.5 }}
                 tracksViewChanges={false}
-                onDragEnd={e => setPending(p => ({ ...p, [type]: { lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude } }))}
+                onDragEnd={e => setPending(p => ({
+                  ...p,
+                  [type]: { lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude },
+                }))}
               >
                 <View style={[s.mapPin, { borderColor: cfg.color, opacity: isPending ? 1 : 0.7 }]}>
                   <Text style={[s.mapPinText, { color: cfg.color }]}>{type[0].toUpperCase()}</Text>
@@ -205,7 +225,7 @@ export default function PinsScreen() {
             activeOpacity={0.85}
           >
             {saving
-              ? <ActivityIndicator color={colors.bg} />
+              ? <ActivityIndicator color="#000" />
               : <Text style={s.saveBtnText}>
                   Save {Object.keys(pending).map(t => PIN_CONFIG[t as PinType].label).join(' + ')} Pin{Object.keys(pending).length > 1 ? 's' : ''}
                 </Text>
@@ -216,17 +236,21 @@ export default function PinsScreen() {
     );
   }
 
-  // ── Hole list ───────────────────────────────────────────────────
+  // ── Hole list ─────────────────────────────────────────────────
   if (selectedCourse) {
     return (
       <View style={s.container}>
         <StatusBar style="light" />
         <View style={s.header}>
-          <TouchableOpacity onPress={() => setSelectedCourse(null)}>
+          <TouchableOpacity onPress={() => setSelectedCourse(null)} style={s.headerSide}>
             <Text style={s.backText}>‹ Back</Text>
           </TouchableOpacity>
-          <Text style={s.title}>{selectedCourse}</Text>
-          <Text style={s.subtitle}>Tap a hole to set front, centre and back pins</Text>
+          <View style={s.headerCenter}>
+            <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+            <Text style={s.title}>{selectedCourse}</Text>
+            <Text style={s.subtitle}>Tap a hole to set front, centre and back pins</Text>
+          </View>
+          <View style={s.headerSide} />
         </View>
         <ScrollView contentContainerStyle={s.scroll}>
           {holes.map(h => {
@@ -244,7 +268,7 @@ export default function PinsScreen() {
                 </View>
                 <Text style={s.holePar}>Par {h.par}</Text>
                 <View style={s.pinDots}>
-                  {([['front', hasF, '#22c55e'], ['centre', hasC, colors.gold], ['back', hasB, '#ef4444']] as [string, boolean, string][]).map(([label, set, clr]) => (
+                  {([['front', hasF, GREEN], ['centre', hasC, GOLD], ['back', hasB, RED]] as [string, boolean, string][]).map(([label, set, clr]) => (
                     <View key={label} style={s.pinDotWrap}>
                       <View style={[s.pinDot, { backgroundColor: set ? clr : '#333' }]} />
                       <Text style={[s.pinDotLabel, { color: set ? clr : '#444' }]}>{label[0].toUpperCase()}</Text>
@@ -260,21 +284,26 @@ export default function PinsScreen() {
     );
   }
 
-  // ── Course list ─────────────────────────────────────────────────
+  // ── Course list ───────────────────────────────────────────────
   return (
     <View style={s.container}>
       <StatusBar style="light" />
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.back()} style={s.headerSide}>
           <Text style={s.backText}>‹ Back</Text>
         </TouchableOpacity>
-        <Text style={s.title}>Course Pins</Text>
-        <Text style={s.subtitle}>Set front, centre and back pins per hole for the rangefinder</Text>
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+          <Text style={s.title}>Course Pins</Text>
+          <Text style={s.subtitle}>Set front, centre and back pins per hole for the rangefinder</Text>
+        </View>
+        <View style={s.headerSide} />
       </View>
       <ScrollView contentContainerStyle={s.scroll}>
         {courses.map(c => (
           <TouchableOpacity
-            key={c} style={s.courseRow}
+            key={c}
+            style={s.courseRow}
             onPress={() => { setSelectedCourse(c); loadHoles(c); }}
             activeOpacity={0.75}
           >
@@ -288,66 +317,70 @@ export default function PinsScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered:  { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: '#000' },
 
   header: {
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
+    flexDirection: 'row', alignItems: 'center',
   },
-  title:    { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 1, marginTop: spacing.xs },
-  subtitle: { fontSize: fonts.sm, color: colors.textMuted, marginTop: spacing.xs },
-  backText: { fontSize: fonts.md, color: colors.gold, fontWeight: '600' },
-  scroll:   { padding: spacing.md, paddingBottom: 60 },
+  headerSide:   { width: 72 },
+  headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
+  logo:         { width: 24, height: 24, marginBottom: 2 },
+  title:        { fontSize: 15, fontFamily: FFB, color: '#fff' },
+  subtitle:     { fontSize: 9, fontFamily: FF, color: '#555' },
+  backText:     { fontSize: 15, fontFamily: FFB, color: GOLD },
+
+  scroll: { padding: 16, paddingBottom: 60 },
 
   courseRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.card, borderRadius: radius.md,
-    padding: spacing.md, marginBottom: spacing.sm,
-    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: '#111', borderRadius: 14,
+    padding: 14, marginBottom: 10,
+    borderWidth: 1, borderColor: '#1c1c1c',
   },
-  courseName: { flex: 1, fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  chevron:    { fontSize: fonts.lg, color: colors.textMuted },
+  courseName: { flex: 1, fontSize: 15, fontFamily: FFB, color: '#fff' },
+  chevron:    { fontSize: 18, fontFamily: FF, color: '#555' },
 
   holeRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.card, borderRadius: radius.md,
-    padding: spacing.md, marginBottom: spacing.sm,
-    borderWidth: 1, borderColor: colors.border, gap: spacing.sm,
+    backgroundColor: '#111', borderRadius: 14,
+    padding: 14, marginBottom: 10,
+    borderWidth: 1, borderColor: '#1c1c1c', gap: 10,
   },
-  holeRowComplete: { borderColor: colors.goldBorder },
+  holeRowComplete: { borderColor: 'rgba(212,175,55,0.4)' },
   holeNum: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center',
   },
-  holeNumText: { fontSize: fonts.md, fontWeight: '800', color: colors.white },
-  holePar:     { fontSize: fonts.sm, color: colors.textMuted, fontWeight: '600', width: 44 },
-  pinDots:     { flex: 1, flexDirection: 'row', gap: spacing.sm, justifyContent: 'center' },
+  holeNumText: { fontSize: 14, fontFamily: FFB, color: '#fff' },
+  holePar:     { fontSize: 13, fontFamily: FF, color: '#555', width: 44 },
+  pinDots:     { flex: 1, flexDirection: 'row', gap: 12, justifyContent: 'center' },
   pinDotWrap:  { alignItems: 'center', gap: 2 },
   pinDot:      { width: 10, height: 10, borderRadius: 5 },
-  pinDotLabel: { fontSize: 8, fontWeight: '800' },
+  pinDotLabel: { fontSize: 8, fontFamily: FFB },
 
   mapHeader: {
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm,
-    backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border,
-    flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md,
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 12,
+    backgroundColor: '#000', borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
+    flexDirection: 'row', alignItems: 'flex-start', gap: 14,
   },
   mapHeaderCenter: { flex: 1 },
-  mapTitle: { fontSize: fonts.lg, fontWeight: '800', color: colors.white },
-  mapSub:   { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+  mapTitle: { fontSize: 15, fontFamily: FFB, color: '#fff' },
+  mapSub:   { fontSize: 9, fontFamily: FF, color: '#555', marginTop: 2 },
 
   pinTypeRow: {
-    flexDirection: 'row', gap: spacing.sm, padding: spacing.sm,
-    backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: 'row', gap: 10, padding: 10,
+    backgroundColor: '#000', borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
   pinTypeBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: spacing.xs, paddingVertical: spacing.sm, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
+    gap: 6, paddingVertical: 10, borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c', backgroundColor: '#111',
   },
   pinTypeDot:   { width: 10, height: 10, borderRadius: 5 },
-  pinTypeLabel: { fontSize: fonts.xs, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.5 },
-  pinTypeCheck: { fontSize: fonts.xs, fontWeight: '900' },
+  pinTypeLabel: { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 0.5 },
+  pinTypeCheck: { fontSize: 10, fontFamily: FFB },
 
   mapFull: { flex: 1 },
   mapPin: {
@@ -355,17 +388,17 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.8)', borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  mapPinText: { fontSize: fonts.sm, fontWeight: '900' },
+  mapPinText: { fontSize: 13, fontFamily: FFB },
 
   mapFooter: {
-    backgroundColor: colors.bg, padding: spacing.lg, paddingBottom: 40,
-    borderTopWidth: 1, borderTopColor: colors.border,
+    backgroundColor: '#000', padding: 20, paddingBottom: 40,
+    borderTopWidth: 1, borderTopColor: '#1c1c1c',
   },
-  coordText: { fontSize: fonts.xs, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.sm },
+  coordText: { fontSize: 11, fontFamily: FF, color: '#555', textAlign: 'center', marginBottom: 10 },
   saveBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.lg,
-    paddingVertical: spacing.md, alignItems: 'center',
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center',
   },
   saveBtnOff:  { opacity: 0.35 },
-  saveBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg, letterSpacing: 0.5 },
+  saveBtnText: { fontSize: 14, fontFamily: FFB, color: '#000', letterSpacing: 0.5 },
 });

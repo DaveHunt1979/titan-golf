@@ -4,10 +4,14 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import { useFonts } from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+const GOLD  = '#D4AF37';
+const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
 
 interface Message {
   id: string;
@@ -28,6 +32,11 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const flatRef = useRef<FlatList>(null);
   const subRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
   // Mark all messages as read whenever this screen is visible
   useFocusEffect(
@@ -91,6 +100,12 @@ export default function ChatScreen() {
     return () => { if (subRef.current) supabase.removeChannel(subRef.current); };
   }, []);
 
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
+
   async function sendMessage() {
     if (!text.trim() || !me || !societyId || sending) return;
     const content = text.trim();
@@ -124,7 +139,7 @@ export default function ChatScreen() {
                 : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{name[0]}</Text></View>)
             : <View style={ss.avatarSpacer} />
         )}
-        <View style={[ss.bubble, isMe && ss.bubbleMe]}>
+        <View style={[ss.bubble, isMe ? ss.bubbleMe : ss.bubbleThem]}>
           {!isMe && showAvatar && <Text style={ss.senderName}>{name}</Text>}
           <Text style={[ss.msgText, isMe && ss.msgTextMe]}>{item.content}</Text>
           <Text style={[ss.time, isMe && ss.timeMe]}>{formatTime(item.created_at)}</Text>
@@ -143,147 +158,168 @@ export default function ChatScreen() {
   return (
     <View style={ss.container}>
       <StatusBar style="light" />
+
+      {/* Header: three-column */}
       <View style={ss.header}>
-        <Text style={ss.title}>Chat</Text>
-        <Text style={ss.sub}>Society Group · {loading ? '…' : messages.length === 0 ? 'No messages yet' : 'Live'}</Text>
+        <View style={ss.headerLeft} />
+        <View style={ss.headerCenter}>
+          <Text style={ss.headerTitle}>Chat</Text>
+          <Text style={ss.headerSub}>Society Group · {messages.length === 0 ? 'No messages yet' : 'Live'}</Text>
+        </View>
+        <View style={ss.headerRight} />
       </View>
 
-      {loading ? (
-        <View style={ss.centered}><ActivityIndicator color={colors.gold} size="large" /></View>
-      ) : (
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={0}
-        >
-          <FlatList
-            ref={flatRef}
-            data={messages}
-            keyExtractor={m => m.id}
-            renderItem={renderMessage}
-            inverted
-            contentContainerStyle={ss.list}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={ss.empty}>
-                <Text style={ss.emptyIcon}>💬</Text>
-                <Text style={ss.emptyTitle}>No messages yet</Text>
-                <Text style={ss.emptySub}>Start the chat — say something!</Text>
-              </View>
-            }
-          />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
+        <FlatList
+          ref={flatRef}
+          data={messages}
+          keyExtractor={m => m.id}
+          renderItem={renderMessage}
+          inverted
+          contentContainerStyle={ss.list}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={ss.empty}>
+              <Text style={ss.emptyIcon}>💬</Text>
+              <Text style={ss.emptyTitle}>No messages yet</Text>
+              <Text style={ss.emptySub}>Start the chat — say something!</Text>
+            </View>
+          }
+        />
 
-          <View style={ss.inputRow}>
-            {me?.avatar_url
-              ? <Image source={{ uri: me.avatar_url }} style={ss.inputAvatar} />
-              : <View style={[ss.inputAvatar, ss.avatarFallback]}>
-                  <Text style={ss.avatarInitial}>{(me?.display_name ?? '?')[0]}</Text>
-                </View>
-            }
-            <TextInput
-              style={ss.input}
-              value={text}
-              onChangeText={setText}
-              placeholder="Message the boys..."
-              placeholderTextColor={colors.textMuted}
-              multiline
-              maxLength={500}
-            />
-            <TouchableOpacity
-              style={[ss.sendBtn, (!text.trim() || sending) && ss.sendBtnDisabled]}
-              onPress={sendMessage}
-              disabled={!text.trim() || sending}
-              activeOpacity={0.8}
-            >
-              <Text style={ss.sendIcon}>▶</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      )}
+        <View style={ss.inputRow}>
+          {me?.avatar_url
+            ? <Image source={{ uri: me.avatar_url }} style={ss.inputAvatar} />
+            : <View style={[ss.inputAvatar, ss.avatarFallback]}>
+                <Text style={ss.avatarInitial}>{(me?.display_name ?? '?')[0]}</Text>
+              </View>
+          }
+          <TextInput
+            style={ss.input}
+            value={text}
+            onChangeText={setText}
+            placeholder="Message the boys..."
+            placeholderTextColor="#555"
+            multiline
+            maxLength={500}
+          />
+          <TouchableOpacity
+            style={[ss.sendBtn, (!text.trim() || sending) && ss.sendBtnDisabled]}
+            onPress={sendMessage}
+            disabled={!text.trim() || sending}
+            activeOpacity={0.8}
+          >
+            <Text style={ss.sendIcon}>▶</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const ss = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered:  { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#000' },
+
+  // Header
   header: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
     paddingTop: 60,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#1c1c1c',
   },
-  title: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
-  sub:   { fontSize: fonts.xs, color: colors.textMuted, marginTop: 2 },
+  headerLeft:   { flex: 1 },
+  headerCenter: { flex: 2, alignItems: 'center' },
+  headerRight:  { flex: 1 },
+  headerTitle: {
+    fontSize: 20,
+    fontFamily: FFB,
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  headerSub: {
+    fontSize: 11,
+    fontFamily: FF,
+    color: '#555',
+    marginTop: 2,
+  },
 
-  list: { padding: spacing.md, paddingBottom: spacing.sm },
+  list: { padding: 12, paddingBottom: 8 },
 
-  row:   { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 6, gap: spacing.sm },
+  row:   { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 6, gap: 8 },
   rowMe: { flexDirection: 'row-reverse' },
 
-  avatar:        { width: 30, height: 30, borderRadius: 15, overflow: 'hidden' },
-  avatarSpacer:  { width: 30 },
-  avatarFallback:{ backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { fontSize: fonts.xs, fontWeight: '800', color: colors.gold },
+  avatar:         { width: 30, height: 30, borderRadius: 15, overflow: 'hidden' },
+  avatarSpacer:   { width: 30 },
+  avatarFallback: { backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' },
+  avatarInitial:  { fontSize: 12, fontFamily: FFB, color: GOLD },
 
   bubble: {
     maxWidth: '74%',
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    borderBottomLeftRadius: 4,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+  },
+  bubbleThem: {
+    backgroundColor: '#111',
+    borderColor: '#1c1c1c',
+    borderBottomLeftRadius: 4,
   },
   bubbleMe: {
-    backgroundColor: colors.gold,
-    borderBottomLeftRadius: radius.lg,
+    backgroundColor: 'rgba(212,175,55,0.15)',
+    borderColor: GOLD,
+    borderBottomLeftRadius: 16,
     borderBottomRightRadius: 4,
-    borderColor: 'transparent',
   },
 
-  senderName: { fontSize: 10, fontWeight: '800', color: colors.gold, marginBottom: 2, letterSpacing: 0.3 },
-  msgText:    { fontSize: fonts.sm, color: colors.white, lineHeight: 18 },
-  msgTextMe:  { color: colors.bg },
-  time:       { fontSize: 9, color: colors.textMuted, marginTop: 3, alignSelf: 'flex-end' },
-  timeMe:     { color: 'rgba(0,0,0,0.35)' },
+  senderName: { fontSize: 11, fontFamily: FFB, color: '#555', marginBottom: 2, letterSpacing: 0.3 },
+  msgText:    { fontSize: 14, fontFamily: FF,  color: '#fff', lineHeight: 18 },
+  msgTextMe:  { fontFamily: FFB, color: '#fff' },
+  time:       { fontSize: 10, fontFamily: FF, color: '#555', marginTop: 3, alignSelf: 'flex-end' },
+  timeMe:     { color: '#555' },
 
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: spacing.md,
-    paddingBottom: Platform.OS === 'ios' ? 32 : spacing.md,
+    padding: 12,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 12,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.card,
-    gap: spacing.sm,
+    borderTopColor: '#1c1c1c',
+    backgroundColor: '#111',
+    gap: 8,
   },
   inputAvatar: { width: 32, height: 32, borderRadius: 16, overflow: 'hidden', marginBottom: 2 },
   input: {
     flex: 1,
-    backgroundColor: colors.cardAlt,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    color: colors.white,
-    fontSize: fonts.sm,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: '#fff',
+    fontFamily: FF,
+    fontSize: 14,
     maxHeight: 100,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#1c1c1c',
   },
   sendBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: colors.gold,
+    backgroundColor: GOLD,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 2,
   },
   sendBtnDisabled: { opacity: 0.35 },
-  sendIcon: { fontSize: 13, color: colors.bg, fontWeight: '900', marginLeft: 2 },
+  sendIcon: { fontSize: 13, fontFamily: FFB, color: '#000', marginLeft: 2 },
 
-  empty:     { flex: 1, alignItems: 'center', paddingTop: 80 },
-  emptyIcon: { fontSize: 48, marginBottom: spacing.md },
-  emptyTitle:{ fontSize: fonts.lg, fontWeight: '700', color: colors.textSecondary },
-  emptySub:  { fontSize: fonts.sm, color: colors.textMuted, marginTop: spacing.xs },
+  empty:      { flex: 1, alignItems: 'center', paddingTop: 80 },
+  emptyIcon:  { fontSize: 48, marginBottom: 12 },
+  emptyTitle: { fontSize: 18, fontFamily: FFB, color: '#555' },
+  emptySub:   { fontSize: 14, fontFamily: FF,  color: '#444', marginTop: 4 },
 });

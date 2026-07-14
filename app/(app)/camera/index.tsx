@@ -9,9 +9,17 @@ import * as Sharing from 'expo-sharing';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 import { getPlayerAvatar } from '../../../src/lib/assets';
+
+// ── TITAN design tokens ───────────────────────────────────────
+const GOLD  = '#D4AF37';
+const GREEN = '#4ade80';
+const RED   = '#f87171';
+const FF    = 'JUSTSans';
+const FFB   = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 type Mode = 'picture' | 'video';
 type Flash = 'off' | 'on' | 'auto';
@@ -60,6 +68,16 @@ export default function CameraScreen() {
   const [info, setInfo] = useState<PlayerInfo>({
     name: '', avatarUrl: null, playerId: null, tournament: null, hole: null,
   });
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
+  // Font loading guard
+  if (!fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000' }}><StatusBar style="light" /></View>
+  );
 
   // Unlock screen rotation on this screen only
   useFocusEffect(useCallback(() => {
@@ -232,7 +250,7 @@ export default function CameraScreen() {
         <TouchableOpacity style={s.permBtn} onPress={requestCamPerm}>
           <Text style={s.permBtnText}>Allow Camera</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: spacing.md }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16 }}>
           <Text style={s.closeText}>Close</Text>
         </TouchableOpacity>
       </View>
@@ -260,7 +278,7 @@ export default function CameraScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={s.previewBtnPrimary} onPress={shareMedia}>
               <Text style={s.previewBtnIcon}>⬆</Text>
-              <Text style={[s.previewBtnLabel, { color: colors.bg }]}>Share</Text>
+              <Text style={[s.previewBtnLabel, { color: '#000' }]}>Share</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -404,25 +422,29 @@ export default function CameraScreen() {
   );
 }
 
-const BANNER_HEIGHT = 72;
+const BANNER_HEIGHT   = 72;
 const CONTROLS_HEIGHT = 140;
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  centered:  { alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
+  centered:  { alignItems: 'center', justifyContent: 'center', padding: 24 },
 
-  // Permission gate
-  permTitle:   { fontSize: fonts.xl, fontWeight: '800', color: colors.white, marginBottom: spacing.sm, textAlign: 'center' },
-  permSub:     { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.xl, lineHeight: 20 },
-  permBtn:     { backgroundColor: colors.gold, borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.xl },
-  permBtnText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
-  closeText:   { fontSize: fonts.sm, color: colors.textMuted, textDecorationLine: 'underline' },
+  // ── Permission gate
+  permTitle:   { fontSize: 22, fontFamily: FFB, color: '#555', marginBottom: 8, textAlign: 'center' },
+  permSub:     { fontSize: 14, fontFamily: FF, color: '#444', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  permBtn:     { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 24 },
+  permBtnText: { fontSize: 15, fontFamily: FFB, color: '#000' },
+  closeText:   { fontSize: 14, fontFamily: FF, color: '#444', textDecorationLine: 'underline' },
 
-  // Close button overlay
-  closeBtn:     { position: 'absolute', top: 56, left: spacing.lg, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 20, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  closeBtnText: { fontSize: 16, color: colors.white, fontWeight: '700' },
+  // ── Close button overlay
+  closeBtn:     {
+    position: 'absolute', top: 56, left: 16, zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 20,
+    width: 36, height: 36, alignItems: 'center', justifyContent: 'center',
+  },
+  closeBtnText: { fontSize: 16, fontFamily: FFB, color: '#fff' },
 
-  // Banner
+  // ── Banner
   banner: {
     position: 'absolute',
     bottom: CONTROLS_HEIGHT,
@@ -432,50 +454,52 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 16,
   },
   bannerLandscape: {
     bottom: 0, right: 120, top: 'auto' as any,
     height: 60,
   },
-  bannerLeft:      { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
-  bannerAvatar:    { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: colors.gold },
-  bannerAvatarFallback: { backgroundColor: colors.goldDim, alignItems: 'center', justifyContent: 'center' },
-  bannerInitial:   { fontSize: fonts.lg, fontWeight: '800', color: colors.gold },
-  bannerName:      { fontSize: fonts.md, fontWeight: '800', color: colors.white },
-  bannerSub:       { fontSize: fonts.xs, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
-  bannerHoleChip:  { alignItems: 'center', backgroundColor: colors.gold, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 4, minWidth: 44 },
-  bannerHoleLabel: { fontSize: 8, fontWeight: '800', color: colors.bg, letterSpacing: 1 },
-  bannerHoleNum:   { fontSize: fonts.xl, fontWeight: '900', color: colors.bg, lineHeight: 24 },
+  bannerLeft:      { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  bannerAvatar:    { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: GOLD },
+  bannerAvatarFallback: { backgroundColor: 'rgba(212,175,55,0.25)', alignItems: 'center', justifyContent: 'center' },
+  bannerInitial:   { fontSize: 18, fontFamily: FFB, color: GOLD },
+  bannerName:      { fontSize: 15, fontFamily: FFB, color: '#fff' },
+  bannerSub:       { fontSize: 11, fontFamily: FF, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  bannerHoleChip:  {
+    alignItems: 'center', backgroundColor: GOLD,
+    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, minWidth: 44,
+  },
+  bannerHoleLabel: { fontSize: 8, fontFamily: FFB, color: '#000', letterSpacing: 1 },
+  bannerHoleNum:   { fontSize: 22, fontFamily: FFB, color: '#000', lineHeight: 24 },
 
-  // Slide-up menu
+  // ── Slide-up menu
   menuBackdrop: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 5,
   },
   menuPanel: {
     position: 'absolute', bottom: CONTROLS_HEIGHT, left: 0, right: 0,
     backgroundColor: 'rgba(10,10,10,0.92)',
-    borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg,
-    padding: spacing.lg, paddingBottom: spacing.md,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 16, paddingBottom: 12,
     zIndex: 10,
-    gap: spacing.md,
+    gap: 12,
   },
   menuTitle: {
-    fontSize: 9, fontWeight: '800', color: colors.textMuted,
+    fontSize: 9, fontFamily: FFB, color: 'rgba(255,255,255,0.4)',
     letterSpacing: 2, textAlign: 'center',
   },
-
   modeToggle: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 14, padding: 3, gap: 3,
   },
-  modeBtn:       { flex: 1, paddingVertical: spacing.sm, borderRadius: 11, alignItems: 'center' },
+  modeBtn:       { flex: 1, paddingVertical: 10, borderRadius: 11, alignItems: 'center' },
   modeBtnOn:     { backgroundColor: 'rgba(255,255,255,0.18)' },
-  modeBtnText:   { fontSize: fonts.sm, fontWeight: '700', color: 'rgba(255,255,255,0.4)' },
-  modeBtnTextOn: { color: colors.white },
+  modeBtnText:   { fontSize: 14, fontFamily: FF, color: 'rgba(255,255,255,0.4)' },
+  modeBtnTextOn: { fontFamily: FFB, color: '#fff' },
 
-  // Main controls bar
+  // ── Main controls bar
   controls: {
     position: 'absolute',
     bottom: 0, left: 0, right: 0,
@@ -493,15 +517,15 @@ const s = StyleSheet.create({
     paddingBottom: 0,
   },
 
-  captureRow:          { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
-  captureRowLandscape: { flexDirection: 'column', gap: spacing.lg },
+  captureRow:          { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  captureRowLandscape: { flexDirection: 'column', gap: 16 },
 
   captureBtn: {
     width: 72, height: 72, borderRadius: 36,
-    borderWidth: 3, borderColor: colors.white,
+    borderWidth: 3, borderColor: '#fff',
     alignItems: 'center', justifyContent: 'center',
   },
-  captureBtnInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.white },
+  captureBtnInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#fff' },
   captureBtnVideo: { backgroundColor: '#ef4444' },
   captureBtnStop:  { width: 26, height: 26, borderRadius: 4, backgroundColor: '#ef4444' },
   recordingRing: {
@@ -510,36 +534,40 @@ const s = StyleSheet.create({
   },
 
   sideBtn:      { alignItems: 'center', width: 44 },
-  sideBtnIcon:  { fontSize: 20, color: colors.white },
-  sideBtnLabel: { fontSize: 8, fontWeight: '800', color: 'rgba(255,255,255,0.55)', letterSpacing: 0.8, marginTop: 3 },
+  sideBtnIcon:  { fontSize: 20, color: '#fff' },
+  sideBtnLabel: { fontSize: 8, fontFamily: FFB, color: 'rgba(255,255,255,0.55)', letterSpacing: 0.8, marginTop: 3 },
 
   burgerIcon:     { gap: 4, alignItems: 'center', height: 20, justifyContent: 'center' },
   burgerIconOpen: { opacity: 0.5 },
-  burgerLine:     { width: 18, height: 2, backgroundColor: colors.white, borderRadius: 1 },
+  burgerLine:     { width: 18, height: 2, backgroundColor: '#fff', borderRadius: 1 },
 
-  recTimer: { fontSize: fonts.xs, fontWeight: '800', color: '#ef4444', letterSpacing: 1, marginBottom: spacing.xs },
+  recTimer: { fontSize: 11, fontFamily: FFB, color: '#ef4444', letterSpacing: 1, marginBottom: 4 },
 
-  // Preview
+  // ── Preview
   previewOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     justifyContent: 'space-between',
     paddingTop: 56,
     paddingBottom: Platform.OS === 'ios' ? 48 : 28,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 16,
   },
-  previewClose:      { alignSelf: 'flex-start', backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
-  previewCloseText:  { fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  previewActions:    { flexDirection: 'row', gap: spacing.md, justifyContent: 'center' },
+  previewClose:     {
+    alignSelf: 'flex-start', backgroundColor: '#111',
+    borderRadius: 20, borderWidth: 1, borderColor: '#1c1c1c',
+    paddingHorizontal: 14, paddingVertical: 7,
+  },
+  previewCloseText: { fontSize: 14, fontFamily: FFB, color: '#fff' },
+  previewActions:   { flexDirection: 'row', gap: 12, justifyContent: 'center' },
   previewBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
-    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: radius.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
-    paddingVertical: spacing.md,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c',
+    paddingVertical: 14,
   },
   previewBtnPrimary: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
-    backgroundColor: colors.gold, borderRadius: radius.md,
-    paddingVertical: spacing.md,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingVertical: 14,
   },
   previewBtnIcon:  { fontSize: 20 },
-  previewBtnLabel: { fontSize: fonts.md, fontWeight: '800', color: colors.white },
+  previewBtnLabel: { fontSize: 15, fontFamily: FFB, color: '#fff' },
 });

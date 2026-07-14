@@ -2,16 +2,25 @@ import { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput,
   TouchableOpacity, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
 import type {
   InfoSection, SectionType, ScheduleItem, TravelItem, ContactItem,
   TextSection, ScheduleSection, TravelSection, LocationSection, ContactsSection, RulesSection,
 } from '../feed/index';
+
+// ── TITAN constants ───────────────────────────────────────────
+const GOLD   = '#D4AF37';
+const GREEN  = '#4ade80';
+const RED    = '#f87171';
+const PURPLE = '#a78bfa';
+const FF     = 'JUSTSans';
+const FFB    = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 // ── Section defaults ──────────────────────────────────────────
 function newSection(type: SectionType): InfoSection {
@@ -27,24 +36,29 @@ function newSection(type: SectionType): InfoSection {
 }
 
 const SECTION_TYPES: Array<{ id: SectionType; label: string; sub: string }> = [
-  { id: 'schedule', label: 'Schedule',      sub: 'Timetable with times'      },
-  { id: 'travel',   label: 'Travel',        sub: 'Flights & transfers'        },
-  { id: 'location', label: 'Location',      sub: 'Hotel or venue details'     },
-  { id: 'contacts', label: 'Contacts',      sub: 'Key people & numbers'       },
-  { id: 'text',     label: 'Text',          sub: 'Note or announcement'       },
-  { id: 'rules',    label: 'Rules',         sub: 'Numbered list of rules'     },
+  { id: 'schedule', label: 'Schedule', sub: 'Timetable with times'    },
+  { id: 'travel',   label: 'Travel',   sub: 'Flights & transfers'      },
+  { id: 'location', label: 'Location', sub: 'Hotel or venue details'   },
+  { id: 'contacts', label: 'Contacts', sub: 'Key people & numbers'     },
+  { id: 'text',     label: 'Text',     sub: 'Note or announcement'     },
+  { id: 'rules',    label: 'Rules',    sub: 'Numbered list of rules'   },
 ];
 
 // ── Main screen ───────────────────────────────────────────────
 export default function InfoEditorScreen() {
   const router = useRouter();
-  const [compId, setCompId] = useState<string | null>(null);
-  const [compName, setCompName] = useState('');
-  const [sections, setSections] = useState<InfoSection[]>([]);
+  const [compId, setCompId]       = useState<string | null>(null);
+  const [compName, setCompName]   = useState('');
+  const [sections, setSections]   = useState<InfoSection[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState(false);
+
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
 
   useEffect(() => {
     (async () => {
@@ -139,17 +153,16 @@ export default function InfoEditorScreen() {
     }
   }
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.gold} size="large" />
-      </View>
-    );
-  }
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
 
   if (!compId) {
     return (
       <View style={styles.centered}>
+        <StatusBar style="light" />
         <Text style={styles.noComp}>No active competition found.</Text>
         <Text style={styles.noCompSub}>Build a tournament first from Society Tools.</Text>
       </View>
@@ -160,25 +173,29 @@ export default function InfoEditorScreen() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="light" />
 
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.headerSide}>
           <Text style={styles.back}>‹ Back</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>
+          <Image source={titanLogo} style={styles.logo} resizeMode="contain" />
           <Text style={styles.headerTitle}>Info Pack</Text>
           <Text style={styles.headerSub}>{compName}</Text>
         </View>
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-          onPress={save}
-          disabled={saving}
-          activeOpacity={0.8}
-        >
-          {saving
-            ? <ActivityIndicator color={colors.bg} size="small" />
-            : <Text style={styles.saveBtnText}>Save</Text>
-          }
-        </TouchableOpacity>
+        <View style={styles.headerSide}>
+          <TouchableOpacity
+            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+            onPress={save}
+            disabled={saving}
+            activeOpacity={0.8}
+          >
+            {saving
+              ? <ActivityIndicator color="#000" size="small" />
+              : <Text style={styles.saveBtnText}>Save</Text>
+            }
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -358,7 +375,7 @@ function SectionCard(p: SectionCardProps) {
                 <View key={i} style={sc.itemRow}>
                   <View style={{ flex: 1, gap: 4 }}>
                     <Inp value={item.name} onChange={v => p.onUpdateItem(i, { name: v })} placeholder="Name" />
-                    <View style={{ flexDirection: 'row', gap: spacing.xs }}>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
                       <Inp value={item.role ?? ''} onChange={v => p.onUpdateItem(i, { role: v })} placeholder="Role" style={{ flex: 1 }} small />
                       <Inp value={item.phone ?? ''} onChange={v => p.onUpdateItem(i, { phone: v })} placeholder="Phone" style={{ flex: 1 }} small keyboardType="phone-pad" />
                     </View>
@@ -419,7 +436,7 @@ function Inp({
       value={value}
       onChangeText={onChange}
       placeholder={placeholder}
-      placeholderTextColor={colors.textMuted}
+      placeholderTextColor="#444"
       multiline={multiline}
       keyboardType={keyboardType}
       autoCapitalize="sentences"
@@ -437,84 +454,113 @@ function AddItemBtn({ label, onPress }: { label: string; onPress: () => void }) 
 
 // ── Styles ────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  noComp: { fontSize: fonts.lg, fontWeight: '700', color: colors.textSecondary, marginBottom: spacing.xs },
-  noCompSub: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center' },
+  container:    { flex: 1, backgroundColor: '#000' },
+  centered:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: '#000' },
+  noComp:       { fontSize: 16, fontFamily: FFB, color: '#888', marginBottom: 8 },
+  noCompSub:    { fontSize: 13, fontFamily: FF, color: '#555', textAlign: 'center' },
+
   header: {
-    paddingTop: 60, paddingHorizontal: spacing.lg, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
     flexDirection: 'row', alignItems: 'center',
   },
-  back: { fontSize: fonts.sm, color: colors.gold, fontWeight: '600', width: 56 },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.white },
-  headerSub: { fontSize: fonts.xs, color: colors.textMuted, marginTop: 1 },
+  headerSide:   { width: 72 },
+  back:         { fontSize: 15, fontFamily: FFB, color: GOLD },
+  headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
+  logo:         { width: 24, height: 24, marginBottom: 2 },
+  headerTitle:  { fontSize: 15, fontFamily: FFB, color: '#fff' },
+  headerSub:    { fontSize: 9, fontFamily: FF, color: '#555' },
+
   saveBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.sm,
-    paddingHorizontal: spacing.md, paddingVertical: 6, minWidth: 56, alignItems: 'center',
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 6, minWidth: 56, alignItems: 'center',
+    alignSelf: 'flex-end',
   },
-  saveBtnText: { fontSize: fonts.sm, fontWeight: '800', color: colors.bg },
-  scroll: { padding: spacing.md, paddingBottom: 48 },
-  emptyHint: { alignItems: 'center', paddingVertical: spacing.xl, paddingHorizontal: spacing.lg },
-  emptyHintText: { fontSize: fonts.md, fontWeight: '600', color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'center' },
-  emptyHintSub: { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
+  saveBtnText: { fontSize: 13, fontFamily: FFB, color: '#000' },
+
+  scroll:       { padding: 16, paddingBottom: 48 },
+
+  emptyHint:    { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24 },
+  emptyHintText: { fontSize: 15, fontFamily: FFB, color: '#666', marginBottom: 8, textAlign: 'center' },
+  emptyHintSub: { fontSize: 13, fontFamily: FF, color: '#444', textAlign: 'center', lineHeight: 20 },
+
   addBtn: {
-    borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed',
-    borderRadius: radius.md, paddingVertical: spacing.md,
-    alignItems: 'center', marginTop: spacing.sm,
+    borderWidth: 1, borderColor: '#2a2a2a', borderStyle: 'dashed',
+    borderRadius: 14, paddingVertical: 14,
+    alignItems: 'center', marginTop: 8,
   },
-  addBtnText: { fontSize: fonts.sm, fontWeight: '700', color: colors.gold },
+  addBtnText: { fontSize: 13, fontFamily: FF, color: '#555' },
+
   pickerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end' },
   pickerBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },
   pickerSheet: {
-    backgroundColor: colors.card, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
-    padding: spacing.lg, paddingBottom: 40, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: '#111', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: '#1c1c1c',
   },
-  pickerTitle: { fontSize: fonts.md, fontWeight: '800', color: colors.white, marginBottom: spacing.md },
+  pickerTitle: { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 16 },
   pickerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  pickerLabel: { fontSize: fonts.md, fontWeight: '700', color: colors.white },
-  pickerSub: { fontSize: fonts.xs, color: colors.textMuted },
-  pickerCancel: { alignItems: 'center', marginTop: spacing.md },
-  pickerCancelText: { fontSize: fonts.sm, fontWeight: '600', color: colors.textMuted },
+  pickerLabel:      { fontSize: 15, fontFamily: FFB, color: '#fff' },
+  pickerSub:        { fontSize: 11, fontFamily: FF, color: '#555' },
+  pickerCancel:     { alignItems: 'center', marginTop: 16 },
+  pickerCancelText: { fontSize: 13, fontFamily: FF, color: '#555' },
 });
 
 const sc = StyleSheet.create({
   container: {
-    backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1,
-    borderColor: colors.border, marginBottom: spacing.sm, overflow: 'hidden',
+    backgroundColor: '#111', borderRadius: 14, borderWidth: 1,
+    borderColor: '#1c1c1c', marginBottom: 10, overflow: 'hidden',
   },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: spacing.md,
+    padding: 14,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  typeBadge: { backgroundColor: colors.goldDim, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: colors.goldBorder },
-  typeLabel: { fontSize: 9, fontWeight: '800', color: colors.gold, letterSpacing: 1 },
-  sectionTitle: { flex: 1, fontSize: fonts.sm, fontWeight: '700', color: colors.white },
-  arrow: { fontSize: fonts.md, color: colors.textSecondary, fontWeight: '700', padding: 2 },
-  arrowOff: { color: colors.border },
-  chevron: { fontSize: fonts.md, color: colors.textMuted, width: 16, textAlign: 'center' },
-  editor: { padding: spacing.md, paddingTop: 0, borderTopWidth: 1, borderTopColor: colors.border },
-  fieldLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5, marginTop: spacing.md, marginBottom: spacing.xs },
+  headerLeft:  { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+
+  typeBadge: {
+    backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 6,
+    paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)',
+  },
+  typeLabel:    { fontSize: 9, fontFamily: FFB, color: GOLD, letterSpacing: 1 },
+  sectionTitle: { flex: 1, fontSize: 13, fontFamily: FFB, color: '#fff' },
+
+  arrow:    { fontSize: 15, color: '#666', fontFamily: FFB, padding: 2 },
+  arrowOff: { color: '#222' },
+  chevron:  { fontSize: 15, color: '#555', width: 16, textAlign: 'center' },
+
+  editor: { padding: 14, paddingTop: 0, borderTopWidth: 1, borderTopColor: '#1c1c1c' },
+
+  fieldLabel: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginTop: 14, marginBottom: 6 },
+
   input: {
-    backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 10,
-    fontSize: fonts.sm, color: colors.white,
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
+    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 13, fontFamily: FFB, color: '#fff',
   },
-  inputSmall: { paddingVertical: 7, fontSize: fonts.xs },
+  inputSmall: { paddingVertical: 7, fontSize: 11 },
   inputMulti: { minHeight: 80, textAlignVertical: 'top' },
-  itemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs, marginBottom: spacing.xs },
+
+  itemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 6 },
   timeField: { width: 58 },
-  ruleNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.goldDim, borderWidth: 1, borderColor: colors.goldBorder, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
-  ruleNumText: { fontSize: 10, fontWeight: '800', color: colors.gold },
-  removeItem: { fontSize: 20, color: colors.textMuted, lineHeight: 22, paddingTop: 8 },
-  addItemBtn: { marginTop: spacing.xs, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, borderStyle: 'dashed' },
-  addItemBtnText: { fontSize: fonts.xs, fontWeight: '700', color: colors.gold },
-  deleteBtn: { marginTop: spacing.lg, paddingVertical: spacing.sm, alignItems: 'center' },
-  deleteBtnText: { fontSize: fonts.xs, fontWeight: '700', color: colors.live, letterSpacing: 0.5 },
+
+  ruleNum: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: 'rgba(212,175,55,0.12)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)',
+    alignItems: 'center', justifyContent: 'center', marginTop: 8,
+  },
+  ruleNumText: { fontSize: 10, fontFamily: FFB, color: GOLD },
+
+  removeItem: { fontSize: 20, color: '#555', lineHeight: 22, paddingTop: 8 },
+
+  addItemBtn: {
+    marginTop: 6, paddingVertical: 8, alignItems: 'center',
+    borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 12, borderStyle: 'dashed',
+  },
+  addItemBtnText: { fontSize: 11, fontFamily: FF, color: '#555' },
+
+  deleteBtn:     { marginTop: 20, paddingVertical: 10, alignItems: 'center' },
+  deleteBtnText: { fontSize: 11, fontFamily: FFB, color: RED, letterSpacing: 0.5 },
 });

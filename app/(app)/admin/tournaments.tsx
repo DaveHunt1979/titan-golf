@@ -1,10 +1,20 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Share, Alert } from 'react-native';
+import {
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  RefreshControl, Share, Alert, Image, ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
-import { colors, fonts, spacing, radius } from '../../../src/lib/theme';
+
+const GOLD = '#D4AF37';
+const GREEN = '#4ade80';
+const RED = '#f87171';
+const FF  = 'JUSTSans';
+const FFB = 'JUSTSans-ExBold';
+const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 type Competition = {
   id: string;
@@ -33,6 +43,11 @@ export default function AdminTournaments() {
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [fontsLoaded] = useFonts({
+    'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
+  });
+
   const load = useCallback(async () => {
     if (!societyId) return;
     const [{ data: compsData }, { data: champsData }] = await Promise.all([
@@ -55,6 +70,12 @@ export default function AdminTournaments() {
 
   useEffect(() => { if (!societyLoading) load(); }, [societyLoading, load]);
 
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex:1, backgroundColor:'#000', alignItems:'center', justifyContent:'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
+
   function sharePin(comp: Competition) {
     const pin = String(comp.pin ?? '').replace(/[^0-9]/g, '');
     if (!pin) { Alert.alert('No PIN', 'This competition has no PIN set.'); return; }
@@ -66,26 +87,33 @@ export default function AdminTournaments() {
   const completed = comps.filter(c => c.status === 'complete');
   const draft     = comps.filter(c => c.status === 'draft');
 
-  if (loading || societyLoading) {
-    return <View style={s.container}><Text style={s.loading}>Loading…</Text></View>;
-  }
-
   return (
     <View style={s.container}>
       <StatusBar style="light" />
 
+      {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={hit} style={s.headerLeft}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Tournaments</Text>
-        <View style={{ width: 40 }} />
+        <View style={s.headerCenter}>
+          <Image source={titanLogo} style={s.headerLogo} />
+          <Text style={s.headerTitle}>TOURNAMENTS</Text>
+          <Text style={s.headerSub}>admin</Text>
+        </View>
+        <View style={s.headerRight} />
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 48 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.gold} />}
+        contentContainerStyle={s.scroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); load(); }}
+            tintColor={GOLD}
+          />
+        }
       >
         {/* Champions wall */}
         {champions.length > 0 && (
@@ -95,8 +123,8 @@ export default function AdminTournaments() {
               const years = [...new Set(champions.map(c => c.year))].sort((a, b) => b - a);
               return years.map(year => {
                 const yearChamps = champions.filter(c => c.year === year);
-                const tour    = yearChamps.find(c => c.award_name.toLowerCase().includes('tour') || c.award_name.toLowerCase().includes('champion'));
-                const kronos  = yearChamps.find(c => c.award_name.toLowerCase().includes('kronos'));
+                const tour   = yearChamps.find(c => c.award_name.toLowerCase().includes('tour') || c.award_name.toLowerCase().includes('champion'));
+                const kronos = yearChamps.find(c => c.award_name.toLowerCase().includes('kronos'));
                 return (
                   <View key={year} style={s.champCard}>
                     <Text style={s.champYear}>{year}</Text>
@@ -109,14 +137,17 @@ export default function AdminTournaments() {
                         </View>
                       )}
                       {kronos && (
-                        <View style={[s.champRow, { borderTopWidth: tour ? 1 : 0, borderTopColor: colors.border, marginTop: tour ? spacing.sm : 0, paddingTop: tour ? spacing.sm : 0 }]}>
+                        <View style={[
+                          s.champRow,
+                          { borderTopWidth: tour ? 1 : 0, borderTopColor: '#1c1c1c', marginTop: tour ? 10 : 0, paddingTop: tour ? 10 : 0 },
+                        ]}>
                           <Text style={s.champAward}>⚡ {kronos.award_name}</Text>
                           <Text style={s.champName}>{kronos.winner_name}</Text>
                           {kronos.detail && <Text style={s.champDetail}>{kronos.detail}</Text>}
                         </View>
                       )}
                       {yearChamps.filter(c => c !== tour && c !== kronos).map((ch, i) => (
-                        <View key={i} style={[s.champRow, { borderTopWidth: 1, borderTopColor: colors.border, marginTop: spacing.sm, paddingTop: spacing.sm }]}>
+                        <View key={i} style={[s.champRow, { borderTopWidth: 1, borderTopColor: '#1c1c1c', marginTop: 10, paddingTop: 10 }]}>
                           <Text style={s.champAward}>🎖 {ch.award_name}</Text>
                           <Text style={s.champName}>{ch.winner_name}</Text>
                           {ch.detail && <Text style={s.champDetail}>{ch.detail}</Text>}
@@ -167,8 +198,12 @@ export default function AdminTournaments() {
 }
 
 function CompCard({ comp, onSharePin }: { comp: Competition; onSharePin: () => void }) {
-  const statusColor = comp.status === 'active' ? colors.green : comp.status === 'complete' ? colors.textMuted : colors.gold;
-  const statusLabel = comp.status === 'active' ? 'LIVE' : comp.status === 'complete' ? 'DONE' : 'DRAFT';
+  const statusColor =
+    comp.status === 'active'   ? GREEN :
+    comp.status === 'complete' ? GOLD  : '#555';
+  const statusLabel =
+    comp.status === 'active'   ? 'LIVE'     :
+    comp.status === 'complete' ? 'COMPLETE' : 'UPCOMING';
   const pin = String(comp.pin ?? '').replace(/[^0-9]/g, '');
   const courses = (comp.days ?? []).map((d: any) => d.course_name).filter(Boolean);
   const uniqueCourses = [...new Set(courses)];
@@ -178,12 +213,15 @@ function CompCard({ comp, onSharePin }: { comp: Competition; onSharePin: () => v
       <View style={s.compCardTop}>
         <View style={{ flex: 1 }}>
           <Text style={s.compName}>{comp.name}</Text>
+          <Text style={s.compFormat}>{comp.format}</Text>
           {uniqueCourses.length > 0 && (
-            <Text style={s.compMeta}>{uniqueCourses.slice(0, 2).join(' · ')}{uniqueCourses.length > 2 ? ` +${uniqueCourses.length - 2}` : ''}</Text>
+            <Text style={s.compMeta}>
+              {uniqueCourses.slice(0, 2).join(' · ')}{uniqueCourses.length > 2 ? ` +${uniqueCourses.length - 2}` : ''}
+            </Text>
           )}
           <Text style={s.compMeta}>{formatDate(comp.created_at)}</Text>
         </View>
-        <View style={[s.statusBadge, { borderColor: statusColor }]}>
+        <View style={[s.statusBadge, { borderColor: statusColor, backgroundColor: statusColor + '1A' }]}>
           <Text style={[s.statusText, { color: statusColor }]}>{statusLabel}</Text>
         </View>
       </View>
@@ -210,34 +248,78 @@ function formatDate(iso: string) {
   } catch { return iso; }
 }
 
+const hit = { top: 12, bottom: 12, left: 12, right: 12 };
+
 const s = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: colors.bg, paddingTop: 56 },
-  loading:      { color: colors.textMuted, textAlign: 'center', marginTop: 80 },
-  header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, marginBottom: spacing.md },
-  back:         { color: colors.gold, fontSize: fonts.md, fontWeight: '600' },
-  headerTitle:  { fontSize: fonts.xl, fontWeight: '800', color: colors.white },
-  section:      { paddingHorizontal: spacing.md, marginBottom: spacing.lg },
-  sectionLabel: { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1.5, marginBottom: spacing.sm },
-  champCard:    { backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.goldBorder, padding: spacing.md, marginBottom: spacing.sm },
-  champYear:    { fontSize: fonts.xs, fontWeight: '800', color: colors.gold, letterSpacing: 2, marginBottom: spacing.sm },
-  champInner:   {},
-  champRow:     {},
-  champAward:   { fontSize: fonts.xs, fontWeight: '700', color: colors.textMuted, letterSpacing: 1 },
-  champName:    { fontSize: fonts.lg, fontWeight: '800', color: colors.white, marginTop: 2 },
-  champDetail:  { fontSize: fonts.xs, color: colors.textSecondary, marginTop: 2 },
-  compCard:     { backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm },
-  compCardTop:  { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.md },
-  compName:     { fontSize: fonts.md, fontWeight: '700', color: colors.white, marginBottom: 2 },
-  compMeta:     { fontSize: fonts.xs, color: colors.textMuted },
-  statusBadge:  { borderWidth: 1, borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 2 },
-  statusText:   { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  pinRow:       { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.cardAlt, borderRadius: radius.md, padding: spacing.sm },
-  pinLabel:     { fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 1 },
-  pinValue:     { fontSize: fonts.lg, fontWeight: '800', color: colors.gold, letterSpacing: 4, marginTop: 2 },
-  shareBtn:     { backgroundColor: colors.goldDim, borderWidth: 1, borderColor: colors.goldBorder, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  shareBtnText: { color: colors.gold, fontSize: fonts.xs, fontWeight: '700' },
-  empty:        { alignItems: 'center', paddingTop: 80, gap: spacing.sm },
-  emptyEmoji:   { fontSize: 48 },
-  emptyTitle:   { fontSize: fonts.lg, fontWeight: '700', color: colors.white },
-  emptySub:     { fontSize: fonts.sm, color: colors.textMuted, textAlign: 'center', paddingHorizontal: spacing.xl },
+  container: { flex: 1, backgroundColor: '#000' },
+
+  // Header
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
+  },
+  headerLeft:   { width: 70, alignItems: 'flex-start' },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerRight:  { width: 70 },
+  headerLogo:   { width: 28, height: 28, marginBottom: 2 },
+  headerTitle:  { fontFamily: FFB, fontSize: 15, color: '#fff', letterSpacing: 0.5 },
+  headerSub:    { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1, textTransform: 'uppercase' },
+  back:         { fontFamily: FFB, fontSize: 14, color: GOLD },
+
+  scroll: { padding: 20, paddingBottom: 48 },
+
+  section:      { marginBottom: 28 },
+  sectionLabel: {
+    fontFamily: FFB, fontSize: 10, color: '#555',
+    letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase',
+  },
+
+  // Champions
+  champCard: {
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: GOLD + '44',
+    padding: 16, marginBottom: 10,
+  },
+  champYear:   { fontFamily: FFB, fontSize: 10, color: GOLD, letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' },
+  champInner:  {},
+  champRow:    {},
+  champAward:  { fontFamily: FFB, fontSize: 10, color: '#555', letterSpacing: 1, textTransform: 'uppercase' },
+  champName:   { fontFamily: FFB, fontSize: 18, color: '#fff', marginTop: 2 },
+  champDetail: { fontFamily: FF, fontSize: 11, color: '#777', marginTop: 2 },
+
+  // Competition cards
+  compCard: {
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 16, marginBottom: 10,
+  },
+  compCardTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14 },
+  compName:    { fontFamily: FFB, fontSize: 16, color: '#fff', marginBottom: 2 },
+  compFormat:  { fontFamily: FF, fontSize: 13, color: '#555', marginBottom: 2 },
+  compMeta:    { fontFamily: FF, fontSize: 11, color: '#555' },
+
+  statusBadge: {
+    borderWidth: 1, borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 3,
+  },
+  statusText: { fontFamily: FFB, fontSize: 10, letterSpacing: 1 },
+
+  pinRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#0a0a0a', borderRadius: 10,
+    padding: 12,
+  },
+  pinLabel: { fontFamily: FFB, fontSize: 9, color: '#555', letterSpacing: 1, textTransform: 'uppercase' },
+  pinValue: { fontFamily: FFB, fontSize: 20, color: GOLD, letterSpacing: 4, marginTop: 2 },
+  shareBtn: {
+    backgroundColor: GOLD + '1A', borderWidth: 1, borderColor: GOLD + '44',
+    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6,
+  },
+  shareBtnText: { fontFamily: FFB, color: GOLD, fontSize: 11 },
+
+  empty:      { alignItems: 'center', paddingTop: 80, gap: 10 },
+  emptyEmoji: { fontSize: 48 },
+  emptyTitle: { fontFamily: FFB, fontSize: 18, color: '#fff' },
+  emptySub:   { fontFamily: FF, fontSize: 14, color: '#555', textAlign: 'center', paddingHorizontal: 28 },
 });

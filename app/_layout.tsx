@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
-import { colors, fonts, spacing } from '../src/lib/theme';
+const FFB = 'JUSTSans-ExBold';
 import { titanLogo } from '../src/lib/assets';
 
 type Gate = 'booting' | 'open';
@@ -84,7 +84,7 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: '#000' }}>
       <Slot />
     </View>
   );
@@ -93,11 +93,11 @@ export default function RootLayout() {
 const ss = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: '#000',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.md,
+    gap: 16,
   },
   logo:  { width: 140, height: 140 },
-  title: { fontSize: fonts.xxl, fontWeight: '800', color: colors.white, letterSpacing: 4 },
+  title: { fontSize: 28, fontFamily: FFB, color: '#fff', letterSpacing: 4 },
 });
