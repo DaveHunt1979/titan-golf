@@ -6,6 +6,9 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 
@@ -58,6 +61,7 @@ export default function SwindleAdminScreen() {
   const [tab, setTab]               = useState<'games' | 'money'>('games');
   const [games, setGames]           = useState<SwindleGame[]>([]);
   const [moneyList, setMoneyList]   = useState<MoneyEntry[]>([]);
+  const [downloading, setDownloading] = useState(false);
 
   const load = useCallback(async () => {
     const { data: gamesData } = await supabase
@@ -139,6 +143,92 @@ export default function SwindleAdminScreen() {
     ]);
   }
 
+  async function exportCSV() {
+    setDownloading(true);
+    try {
+      // Fetch all hole scores
+      const { data: allScores } = await supabase
+        .from('swindle_scores')
+        .select('game_id, player_id, hole_number, stableford_pts');
+
+      // Fetch all entries with player names so we can resolve player_id -> display_name
+      const { data: allEntries } = await supabase
+        .from('swindle_entries')
+        .select('game_id, player_id, players(display_name)');
+
+      // Build player name lookup: player_id -> display_name
+      const playerNames: Record<string, string> = {};
+      for (const e of (allEntries ?? []) as any[]) {
+        playerNames[e.player_id] = e.players?.display_name ?? e.player_id;
+      }
+
+      // Group scores: game_id -> player_id -> hole_number -> pts
+      const scoreMap: Record<string, Record<string, Record<number, number>>> = {};
+      for (const row of (allScores ?? []) as any[]) {
+        if (!scoreMap[row.game_id]) scoreMap[row.game_id] = {};
+        if (!scoreMap[row.game_id][row.player_id]) scoreMap[row.game_id][row.player_id] = {};
+        scoreMap[row.game_id][row.player_id][row.hole_number] = row.stableford_pts ?? 0;
+      }
+
+      const lines: string[] = [];
+      const exportDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      lines.push('TITAN GOLF - SWINDLE RESULTS');
+      lines.push(`Exported: ${exportDate}`);
+      lines.push('');
+
+      for (const g of games) {
+        lines.push(`=== ${g.name} - ${formatDate(g.game_date)}${g.course_name ? ` - ${g.course_name}` : ''} ===`);
+        lines.push('Pos,Player,Front 9,Back 9,Total,Eagles,Birdies,Pars,Blobs,Entry Fee,Prize');
+
+        const gamePlayers = scoreMap[g.id] ?? {};
+        const playerScores: { name: string; front9: number; back9: number; total: number; eagles: number; birdies: number; pars: number; blobs: number }[] = [];
+
+        for (const [playerId, holeMap] of Object.entries(gamePlayers)) {
+          const name = playerNames[playerId] ?? playerId;
+          let front9 = 0, back9 = 0, eagles = 0, birdies = 0, pars = 0, blobs = 0;
+          for (let h = 1; h <= 18; h++) {
+            const pts = holeMap[h] ?? 0;
+            if (h <= 9) front9 += pts; else back9 += pts;
+            if (pts >= 4) eagles++;
+            else if (pts === 3) birdies++;
+            else if (pts === 2) pars++;
+            else if (pts === 0) blobs++;
+          }
+          playerScores.push({ name, front9, back9, total: front9 + back9, eagles, birdies, pars, blobs });
+        }
+
+        playerScores.sort((a, b) => b.total - a.total);
+
+        const split: number[] = g.prize_split ?? [50, 30, 20];
+        playerScores.forEach((p, i) => {
+          const prize = Math.round(g.pot * (split[i] ?? 0) / 100 * 100) / 100;
+          const entryFee = `${g.currency}${Number(g.entry_fee).toFixed(2)}`;
+          const prizeStr = prize > 0 ? `${g.currency}${prize.toFixed(2)}` : '';
+          lines.push(`${i + 1},${p.name},${p.front9},${p.back9},${p.total},${p.eagles},${p.birdies},${p.pars},${p.blobs},${entryFee},${prizeStr}`);
+        });
+
+        lines.push('');
+      }
+
+      // Determine currency from first game (fallback to £)
+      const currency = games[0]?.currency ?? '£';
+      lines.push('=== SEASON MONEY LIST ===');
+      lines.push('Pos,Player,Total Winnings,Wins,Games');
+      moneyList.forEach((m, i) => {
+        lines.push(`${i + 1},${m.name},${currency}${m.earnings.toFixed(2)},${m.wins},${m.games}`);
+      });
+
+      const csv = lines.join('\n');
+      const path = (FileSystem.documentDirectory ?? '') + 'swindle-results.csv';
+      await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
+      await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Export Swindle Results' });
+    } catch (e) {
+      Alert.alert('Export failed', String(e));
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   const statusColor = (s: string) =>
     s === 'complete' ? GREEN : s === 'in_progress' ? GOLD : '#6b7280';
 
@@ -162,7 +252,15 @@ export default function SwindleAdminScreen() {
           <Text style={s.title}>SWINDLE</Text>
           <Text style={s.subtitle}>manager</Text>
         </View>
-        <View style={{ width: 70 }} />
+        <TouchableOpacity
+          onPress={exportCSV}
+          disabled={downloading}
+          style={{ width: 70, alignItems: 'flex-end' }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="download-outline" size={22} color={PURPLE} />
+          {downloading && <ActivityIndicator size="small" color={PURPLE} style={{ marginTop: 4 }} />}
+        </TouchableOpacity>
       </View>
 
       {/* Tab bar */}

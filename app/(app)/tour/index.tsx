@@ -101,6 +101,18 @@ export default function TourScreen() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [instagramUrl, setInstagramUrl] = useState<string | null>(null);
 
+  useEffect(() => {
+    load();
+    const sub = supabase.channel('tour-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(sub); };
+  }, []);
+
+  useEffect(() => {
+    if (pin.length === 4) verifyPin(pin);
+  }, [pin]);
+
   if (loading || !fontsLoaded) return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
@@ -196,18 +208,6 @@ export default function TourScreen() {
     setRefreshing(false);
   }
 
-  useEffect(() => {
-    load();
-    const sub = supabase.channel('tour-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, load)
-      .subscribe();
-    return () => { supabase.removeChannel(sub); };
-  }, []);
-
-  useEffect(() => {
-    if (pin.length === 4) verifyPin(pin);
-  }, [pin]);
-
   async function verifyPin(p: string) {
     setVerifying(true);
     const { data } = await supabase
@@ -281,18 +281,17 @@ export default function TourScreen() {
   if (!competition) return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <StatusBar style="light" />
-      {/* TITAN header */}
       <View style={st.titanHeader}>
         <Image source={titanLogo} style={st.titanLogoImg} resizeMode="contain" />
         <Text style={st.titanSubtitle}>THE TOUR</Text>
       </View>
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-        <Text style={{ fontSize: 56, marginBottom: 20 }}>⛳</Text>
-        <Text style={{ fontSize: 20, fontFamily: FFB, color: '#fff', marginBottom: 8, textAlign: 'center' }}>
-          No Tournament Running
+        <Text style={{ fontSize: 56, marginBottom: 20 }}>🏆</Text>
+        <Text style={{ fontSize: 28, fontFamily: FFB, color: '#fff', marginBottom: 10, textAlign: 'center' }}>
+          Coming Soon
         </Text>
-        <Text style={{ fontSize: 14, fontFamily: FFB, color: '#444', textAlign: 'center', lineHeight: 20 }}>
-          Ask your admin to create and activate{'\n'}a competition to unlock this tab.
+        <Text style={{ fontSize: 14, fontFamily: FF, color: '#555', textAlign: 'center', lineHeight: 22 }}>
+          No tournament is running right now.{'\n'}Check back when your next event is live.
         </Text>
       </View>
     </View>

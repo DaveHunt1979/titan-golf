@@ -1,34 +1,26 @@
 {
   "version": 1,
   "entries": {
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1784101303096,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1784097605696,
+      "last_emitted_at_ms": 1784101068672,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1784097602281,
+      "last_emitted_at_ms": 1784100874175,
       "message": "Read multiple files in parallel when possible for faster analysis."
     },
-    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1784096977438,
-      "message": "Verify changes work after editing. Test functionality before marking complete."
+    "808cb04420bcb368ab4716038ddd950b51198d0402b6cf8e965d66ca42ebccbe": {
+      "last_emitted_at_ms": 1784098026310,
+      "message": "[SLOP WARNING] Detected fallback/workaround language in this tool input. Do not make potential slop: avoid ad-hoc fallback layers, workaround shims, or environment-specific patches unless explicitly justified. For architecture concerns, consult the architect for a concrete design first. If this seems environment-specific, ask the user to confirm constraints before proceeding.\n\nVerify changes work after editing. Test functionality before marking complete."
     },
-    "8a0425d64fcf6b0e31a4eaf3b991cd0601ff955cfc417fd3405f8273074dc382": {
-      "last_emitted_at_ms": 1784096597944,
-      "message": "Spawning agent: oh-my-claudecode:executor (inherit) | Task: Wire useDynamicColors into score/index and games/new"
-    },
-    "f0af8688f50367542b5bab9e3df7ff6a4d5cc76a1465c1c76439529dc9ba2ea0": {
-      "last_emitted_at_ms": 1784096293014,
-      "message": "Spawning agent: oh-my-claudecode:executor (inherit) | Task: Implement offline queue for golf score entry"
-    },
-    "24229599a0a2646bdd1f2e83669da32f7b417143440fc4d68407c0105b3b9f71": {
-      "last_emitted_at_ms": 1784095184645,
-      "message": "Spawning agent: unknown (inherit) | Task: Diagnose game start pause/delay in games/new.tsx"
-    },
-    "ead15d70c4c98c40cc16b3692d71443b65f716c7b5830263acec0522575e4a7d": {
-      "last_emitted_at_ms": 1784094796365,
-      "message": "Spawning agent: unknown (inherit) [BACKGROUND] | Task: Build admin/groups.tsx screen for player groups management"
+    "473ecf7649b176fe7d9b16d7636b9d52aa86b7c2c03aadcaff89ed9fe5ee6352": {
+      "last_emitted_at_ms": 1784097961302,
+      "message": "Spawning agent: oh-my-claudecode:executor (inherit) | Task: Fix swindle hooks violations and add CSV export"
     }
   },
-  "updated_at": "2026-07-15T06:40:05.696Z"
+  "updated_at": "2026-07-15T07:41:43.096Z"
 }

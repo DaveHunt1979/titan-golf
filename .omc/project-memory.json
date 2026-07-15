@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -E \"score/index|games/new|admin/index\" | head -20",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep \"_layout\\|index.tsx\" | grep -v \"web/\" | head -10",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -277,15 +277,27 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/profile/index.tsx",
-      "accessCount": 6,
-      "lastAccessed": 1784095554247,
+      "path": "app/(app)/index.tsx",
+      "accessCount": 13,
+      "lastAccessed": 1784101081983,
       "type": "file"
     },
     {
-      "path": "app/(app)/index.tsx",
-      "accessCount": 5,
-      "lastAccessed": 1784095552836,
+      "path": "app/(app)/admin/swindle.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1784098158875,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 10,
+      "lastAccessed": 1784101077594,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/profile/index.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1784095554247,
       "type": "file"
     },
     {
@@ -296,8 +308,38 @@
     },
     {
       "path": "app/(app)/admin/index.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1784097864035,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1784100740477,
+      "type": "file"
+    },
+    {
+      "path": "app.json",
       "accessCount": 4,
-      "lastAccessed": 1784096579152,
+      "lastAccessed": 1784101303156,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/swindle/index.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1784097975942,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/swindle/score/[gameId].tsx",
+      "accessCount": 3,
+      "lastAccessed": 1784097990937,
+      "type": "file"
+    },
+    {
+      "path": "web/src/app/rounds/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1784098058357,
       "type": "file"
     },
     {
@@ -316,6 +358,18 @@
       "path": "src/lib/assets.ts",
       "accessCount": 1,
       "lastAccessed": 1784096457274,
+      "type": "file"
+    },
+    {
+      "path": "web/src/app/stats/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1784097966339,
+      "type": "file"
+    },
+    {
+      "path": "web/src/app/dashboard/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1784097966913,
       "type": "file"
     }
   ],

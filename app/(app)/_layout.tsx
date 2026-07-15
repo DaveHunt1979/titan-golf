@@ -1,9 +1,10 @@
 import { type ReactNode, useEffect, useState, useRef } from 'react';
 import { Tabs, useRouter } from 'expo-router';
-import { Platform, View, TouchableOpacity, Image, StyleSheet, Animated } from 'react-native';
+import { Platform, View, TouchableOpacity, StyleSheet, Animated, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
 import { registerForPushNotifications } from '../../src/lib/notifications';
-import { resolveAvatar, titanLogo } from '../../src/lib/assets';
+import { titanLogo } from '../../src/lib/assets';
 import { SocietyThemeProvider, useSocietyTheme } from '../../src/lib/SocietyThemeContext';
 
 function TabIcon({ focused, children }: { focused: boolean; children: ReactNode }) {
@@ -121,6 +122,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="tour/index"     options={{ href: null }} />
         <Tabs.Screen name="swindle/index"  options={{ href: null }} />
         <Tabs.Screen name="leaderboard/index" options={{ href: null }} />
+        <Tabs.Screen name="leaderboard"       options={{ href: null }} />
         <Tabs.Screen name="watch/index"    options={{ href: null }} />
         <Tabs.Screen name="chat/index"     options={{ href: null }} />
         <Tabs.Screen name="feed/index"     options={{ href: null }} />
@@ -180,29 +182,18 @@ function AppLayoutInner() {
         <Tabs.Screen name="swindle/score/[gameId]"   options={{ href: null }} />
         <Tabs.Screen name="swindle/scan/[gameId]"    options={{ href: null }} />
         <Tabs.Screen name="admin/membership"         options={{ href: null }} />
+        <Tabs.Screen name="admin/groups"             options={{ href: null }} />
         <Tabs.Screen name="join" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>
 
-      {/* Floating camera button — player avatar in corner */}
+
+      {/* Persistent camera FAB — accessible during gameplay */}
       <TouchableOpacity
         style={fab.btn}
         onPress={() => router.push('/(app)/camera' as any)}
         activeOpacity={0.85}
       >
-        {(() => {
-          const src = resolveAvatar(playerId ?? '', avatarUrl);
-          return src
-            ? <Image source={src} style={fab.avatar} />
-            : <View style={fab.avatarFallback}>
-                <View style={fab.camIcon}>
-                  <View style={fab.camBody} />
-                  <View style={fab.camLens} />
-                </View>
-              </View>;
-        })()}
-        <View style={fab.camBadge}>
-          <View style={fab.camBadgeInner} />
-        </View>
+        <Ionicons name="camera" size={22} color="#D4AF37" />
       </TouchableOpacity>
 
       {showSplash && <SplashOverlay onDone={() => setShowSplash(false)} />}
@@ -214,17 +205,12 @@ const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 64;
 
 const fab = StyleSheet.create({
   btn: {
-    position: 'absolute', bottom: TAB_BAR_HEIGHT + 16, right: 16,
-    width: 48, height: 48, borderRadius: 24, borderWidth: 2,
-    borderColor: '#D4AF37', zIndex: 100,
+    position: 'absolute', bottom: TAB_BAR_HEIGHT + 12, right: 16,
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#111', borderWidth: 1.5, borderColor: '#D4AF37',
+    alignItems: 'center', justifyContent: 'center',
+    zIndex: 100,
   },
-  avatar:         { width: 44, height: 44, borderRadius: 22 },
-  avatarFallback: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
-  camIcon:        { alignItems: 'center', justifyContent: 'center' },
-  camBody:        { width: 20, height: 14, borderRadius: 3, borderWidth: 2, borderColor: '#D4AF37' },
-  camLens:        { position: 'absolute', width: 7, height: 7, borderRadius: 4, borderWidth: 2, borderColor: '#D4AF37' },
-  camBadge:       { position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: 8, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
-  camBadgeInner:  { width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: '#D4AF37' },
 });
 
 const splash = StyleSheet.create({

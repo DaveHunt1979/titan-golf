@@ -39,14 +39,14 @@ export default function SwindleIndex() {
     'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
+  useEffect(() => { init(); }, []);
+
   if (loading || !fontsLoaded) return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
       <ActivityIndicator color={GOLD} size="large" />
     </View>
   );
-
-  useEffect(() => { init(); }, []);
 
   async function init() {
     const { data: { user } } = await supabase.auth.getUser();

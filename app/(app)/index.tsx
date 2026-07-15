@@ -86,29 +86,13 @@ export default function HomeScreen() {
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    const [
-      { data: comp },
-      { count: casual },
-      { count: tourCount },
-      { data: swindleData },
-    ] = await Promise.all([
-      supabase.from('competitions').select('id,name').eq('status', 'active').neq('format', 'casual').limit(1).single(),
-      supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'in_progress').is('competition_id', null),
-      supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'in_progress').not('competition_id', 'is', null),
-      supabase.from('swindle_games').select('name,swindle_entries(count)').eq('status', 'open').order('created_at', { ascending: false }).limit(1).single(),
-    ]);
-
-    setCasualCount(casual ?? 0);
-    setTourName((comp as any)?.name ?? null);
-    setTourLive(tourCount ?? 0);
-    setSwindleName((swindleData as any)?.name ?? null);
-    setSwindleCount((swindleData as any)?.swindle_entries?.[0]?.count ?? 0);
-
+    // Get player row first so we can filter matches to this player only
+    let pid: string | null = null;
     if (user) {
-      const { data: playerRow } = await supabase
-        .from('players').select('id, display_name, avatar_url').eq('auth_uid', user.id).single();
-      if (playerRow) {
-        const p = playerRow as any;
+      const { data: pr } = await supabase.from('players').select('id, display_name, avatar_url').eq('auth_uid', user.id).single();
+      if (pr) {
+        const p = pr as any;
+        pid = p.id;
         setPlayerId(p.id);
         setPlayerName(p.display_name ?? '');
         setAvatarUrl(p.avatar_url ?? null);
@@ -125,6 +109,28 @@ export default function HomeScreen() {
         setMemberTypes(priv ? ['casual', 'tour', 'swindle'] : ((sm as any)?.membership_types ?? []));
       }
     }
+
+    const casualQuery = pid
+      ? supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'in_progress').is('competition_id', null).contains('home_player_ids', [pid])
+      : supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'in_progress').is('competition_id', null).eq('id', 'none');
+
+    const [
+      { data: comp },
+      { count: casual },
+      { count: tourCount },
+      { data: swindleData },
+    ] = await Promise.all([
+      supabase.from('competitions').select('id,name').eq('status', 'active').neq('format', 'casual').limit(1).single(),
+      casualQuery,
+      supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'in_progress').not('competition_id', 'is', null),
+      supabase.from('swindle_games').select('name,swindle_entries(count)').eq('status', 'open').order('created_at', { ascending: false }).limit(1).single(),
+    ]);
+
+    setCasualCount(casual ?? 0);
+    setTourName((comp as any)?.name ?? null);
+    setTourLive(tourCount ?? 0);
+    setSwindleName((swindleData as any)?.name ?? null);
+    setSwindleCount((swindleData as any)?.swindle_entries?.[0]?.count ?? 0);
 
     setLoading(false);
     setRefreshing(false);

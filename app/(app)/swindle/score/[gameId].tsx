@@ -37,6 +37,8 @@ export default function SwindleScore() {
     'JUSTSans-ExBold': require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
+  useEffect(() => { init(); }, [gameId]);
+
   if (loading || !fontsLoaded) return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
@@ -54,8 +56,6 @@ export default function SwindleScore() {
   const shots      = courseHole ? calcStrokesReceived(playingHcp, courseHole.stroke_index) : 0;
   const totalPts   = saved.reduce((s, h) => s + h.pts, 0);
   const totalGross = saved.reduce((s, h) => s + h.gross, 0);
-
-  useEffect(() => { init(); }, [gameId]);
 
   async function init() {
     const { data: { user } } = await supabase.auth.getUser();
