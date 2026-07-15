@@ -53,47 +53,43 @@ export default function WatchScreen() {
     'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
-  if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
-    </View>
-  );
-
   const load = useCallback(async () => {
-    const { data: comp } = await supabase
-      .from('competitions')
-      .select('id, name')
-      .eq('status', 'active')
-      .neq('format', 'casual')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    try {
+      const { data: comp } = await supabase
+        .from('competitions')
+        .select('id, name')
+        .eq('status', 'active')
+        .neq('format', 'casual')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (!comp) { setLoading(false); setRefreshing(false); return; }
-    setCompName(comp.name);
-    setCompId(comp.id);
+      if (!comp) return;
+      setCompName(comp.name);
+      setCompId(comp.id);
 
-    const { data: matchData } = await supabase
-      .from('matches')
-      .select('*, home_team:home_team_id(name,accent_color), away_team:away_team_id(name,accent_color), day:day_id(day_number,course_name)')
-      .eq('competition_id', comp.id)
-      .neq('status', 'complete')
-      .order('match_number');
+      const { data: matchData } = await supabase
+        .from('matches')
+        .select('*, home_team:home_team_id(name,accent_color), away_team:away_team_id(name,accent_color), day:day_id(day_number,course_name)')
+        .eq('competition_id', comp.id)
+        .neq('status', 'complete')
+        .order('match_number');
 
-    const ms = (matchData ?? []) as unknown as MatchRow[];
-    setMatches(ms.sort((a, b) => {
-      const order = { in_progress: 0, upcoming: 1, complete: 2 };
-      return (order[a.status] ?? 2) - (order[b.status] ?? 2);
-    }));
+      const ms = (matchData ?? []) as unknown as MatchRow[];
+      setMatches(ms.sort((a, b) => {
+        const order = { in_progress: 0, upcoming: 1, complete: 2 };
+        return (order[a.status] ?? 2) - (order[b.status] ?? 2);
+      }));
 
-    const allIds = [...new Set(ms.flatMap(m => [...m.home_player_ids, ...m.away_player_ids]))];
-    if (allIds.length > 0) {
-      const { data: pd } = await supabase.from('players').select('id,display_name,avatar_url').in('id', allIds);
-      if (pd) setPlayers(pd);
+      const allIds = [...new Set(ms.flatMap(m => [...m.home_player_ids, ...m.away_player_ids]))];
+      if (allIds.length > 0) {
+        const { data: pd } = await supabase.from('players').select('id,display_name,avatar_url').in('id', allIds);
+        if (pd) setPlayers(pd);
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    setLoading(false);
-    setRefreshing(false);
   }, []);
 
   useEffect(() => {
@@ -104,6 +100,12 @@ export default function WatchScreen() {
       .subscribe();
     return () => { supabase.removeChannel(sub); };
   }, [load]);
+
+  if (loading || !fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    </View>
+  );
 
   const firstName = (id: string) => (players.find(p => p.id === id)?.display_name ?? '?').split(' ')[0];
   const getAvatar = (id: string) => players.find(p => p.id === id)?.avatar_url ?? null;

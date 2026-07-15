@@ -1,7 +1,10 @@
 import { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { colors } from './theme';
 import { getSocietyLogo } from './assets';
+
+const societyKey = (uid: string) => `active_society_id:${uid}`;
 
 export interface ThemePalette {
   bg:            string;
@@ -12,6 +15,10 @@ export interface ThemePalette {
   text:          string;
   textSecondary: string;
   textMuted:     string;
+  cardText:      string;  // text colour on card-background elements
+  iconBoxBg:     string;  // tile/list icon box background
+  iconBoxBorder: string;  // tile/list icon box border
+  iconBoxIcon:   string;  // icon colour inside icon boxes
 }
 
 function hexLuminance(hex: string): number {
@@ -39,6 +46,10 @@ export const TITAN_PALETTE: ThemePalette = {
   text:          colors.white,
   textSecondary: colors.textSecondary,
   textMuted:     colors.textMuted,
+  cardText:      colors.white,
+  iconBoxBg:     'rgba(212,175,55,0.08)',
+  iconBoxBorder: 'rgba(212,175,55,0.25)',
+  iconBoxIcon:   colors.gold,
 };
 
 export function derivePalette(primaryColor: string, secondaryColor: string): ThemePalette {
@@ -47,13 +58,17 @@ export function derivePalette(primaryColor: string, secondaryColor: string): The
     const accent = secondaryColor || '#ffffff';
     return {
       bg:            primaryColor,
-      card:          lightenHex(primaryColor, 0.06),
-      border:        'rgba(255,255,255,0.09)',
-      goldBorder:    'rgba(255,255,255,0.22)',
+      card:          lightenHex(primaryColor, 0.05),
+      border:        'rgba(255,255,255,0.18)',
+      goldBorder:    'rgba(255,255,255,0.35)',
       accent,
       text:          '#ffffff',
       textSecondary: 'rgba(255,255,255,0.68)',
       textMuted:     'rgba(255,255,255,0.38)',
+      cardText:      '#ffffff',
+      iconBoxBg:     primaryColor,
+      iconBoxBorder: 'rgba(255,255,255,0.65)',
+      iconBoxIcon:   '#ffffff',
     };
   }
   // Light/vibrant primary = accent colour (e.g. Titan gold)
@@ -86,6 +101,10 @@ const DEFAULT: SocietyTheme = {
 
 const Ctx = createContext<SocietyTheme>(DEFAULT);
 
+const SOCIETY_COLOR_DEFAULTS: Record<string, { primary: string; secondary: string }> = {
+  'mashie golf': { primary: '#000035', secondary: '#ffffff' },
+};
+
 async function fetchTheme(): Promise<SocietyTheme> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ...DEFAULT, loaded: true };
@@ -94,24 +113,44 @@ async function fetchTheme(): Promise<SocietyTheme> {
     .from('players').select('id').eq('auth_uid', user.id).maybeSingle();
   if (!player) return { ...DEFAULT, loaded: true };
 
-  const { data: member } = await supabase
-    .from('society_members').select('society_id')
-    .eq('player_id', (player as any).id)
-    .order('society_id').limit(1).maybeSingle();
-  if (!member) return { ...DEFAULT, loaded: true };
+  const pid = (player as any).id;
+
+  const KEY = societyKey(user.id);
+
+  // Use cached society if the player is still a member of it
+  let societyId: string | null = await AsyncStorage.getItem(KEY);
+  if (societyId) {
+    const { data: check } = await supabase
+      .from('society_members').select('society_id')
+      .eq('player_id', pid).eq('society_id', societyId).maybeSingle();
+    if (!check) societyId = null;
+  }
+
+  // Fall back: fetch all memberships, prefer non-default society
+  if (!societyId) {
+    const { data: members } = await supabase
+      .from('society_members').select('society_id')
+      .eq('player_id', pid);
+    if (!members?.length) return { ...DEFAULT, loaded: true };
+    // Prefer any society that isn't the Titan default (00000000-...-0001)
+    const nonDefault = members.find((m: any) => m.society_id !== DEFAULT.societyId);
+    societyId = (nonDefault ?? members[0] as any).society_id;
+    await AsyncStorage.setItem(KEY, societyId!);
+  }
 
   const { data: society } = await supabase
     .from('societies')
     .select('name,tagline,primary_color,secondary_color,logo_url')
-    .eq('id', (member as any).society_id)
+    .eq('id', societyId!)
     .single();
 
-  if (!society) return { ...DEFAULT, societyId: (member as any).society_id, loaded: true };
+  if (!society) return { ...DEFAULT, societyId: societyId!, loaded: true };
 
   const s = society as any;
-  const name           = s.name            ?? 'TITAN GOLF';
-  const primaryColor   = s.primary_color   ?? colors.gold;
-  const secondaryColor = s.secondary_color ?? '#1B3A5C';
+  const name        = s.name ?? 'TITAN GOLF';
+  const societyDefs = SOCIETY_COLOR_DEFAULTS[name.toLowerCase()];
+  const primaryColor   = s.primary_color   ?? societyDefs?.primary   ?? colors.gold;
+  const secondaryColor = s.secondary_color ?? societyDefs?.secondary ?? '#1B3A5C';
 
   return {
     primaryColor,
@@ -120,7 +159,7 @@ async function fetchTheme(): Promise<SocietyTheme> {
     localLogo: getSocietyLogo(name),
     societyName: name,
     tagline:   s.tagline ?? '',
-    societyId: (member as any).society_id,
+    societyId: societyId!,
     loaded:    true,
     palette:   derivePalette(primaryColor, secondaryColor),
   };
@@ -173,6 +212,10 @@ export function useDynamicColors() {
     textPrimary:   palette.text,
     textSecondary: palette.textSecondary,
     textMuted:     palette.textMuted,
+    cardText:      palette.cardText,
+    iconBoxBg:     palette.iconBoxBg,
+    iconBoxBorder: palette.iconBoxBorder,
+    iconBoxIcon:   palette.iconBoxIcon,
     green:         colors.green,
     red:           colors.red,
     grey:          colors.grey,

@@ -110,7 +110,7 @@ function AppLayoutInner() {
             height: Platform.OS === 'ios' ? 88 : 64,
             paddingBottom: Platform.OS === 'ios' ? 28 : 8,
           },
-          tabBarActiveTintColor:   '#D4AF37',
+          tabBarActiveTintColor:   palette.accent,
           tabBarInactiveTintColor: '#4b5563',
           tabBarLabelStyle: {
             fontSize: 10, fontWeight: '600', letterSpacing: 0.5, marginTop: 2,
@@ -121,8 +121,6 @@ function AppLayoutInner() {
         <Tabs.Screen name="score/index"    options={{ href: null }} />
         <Tabs.Screen name="tour/index"     options={{ href: null }} />
         <Tabs.Screen name="swindle/index"  options={{ href: null }} />
-        <Tabs.Screen name="leaderboard/index" options={{ href: null }} />
-        <Tabs.Screen name="leaderboard"       options={{ href: null }} />
         <Tabs.Screen name="watch/index"    options={{ href: null }} />
         <Tabs.Screen name="chat/index"     options={{ href: null }} />
         <Tabs.Screen name="feed/index"     options={{ href: null }} />
@@ -189,11 +187,11 @@ function AppLayoutInner() {
 
       {/* Persistent camera FAB — accessible during gameplay */}
       <TouchableOpacity
-        style={fab.btn}
+        style={[fab.btn, { borderColor: palette.accent }]}
         onPress={() => router.push('/(app)/camera' as any)}
         activeOpacity={0.85}
       >
-        <Ionicons name="camera" size={22} color="#D4AF37" />
+        <Ionicons name="camera" size={22} color={palette.accent} />
       </TouchableOpacity>
 
       {showSplash && <SplashOverlay onDone={() => setShowSplash(false)} />}

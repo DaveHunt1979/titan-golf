@@ -8,11 +8,12 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../src/lib/assets';
 
-const GOLD = '#D4AF37';
+const GOLD = '#D4AF37'; // StyleSheet fallback
 const FF   = 'JUSTSans';
 const FFB  = 'JUSTSans-ExBold';
-const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const CLUBS = ['Driver','3W','5W','3i','4i','5i','6i','7i','8i','9i','PW','GW','SW','LW'];
 
@@ -32,6 +33,8 @@ interface ClubAvg {
 
 export default function RangeHomeScreen() {
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [fontsLoaded] = useFonts({
     [FF]:  require('../../../assets/fonts/JUSTSans-Regular.otf'),
     [FFB]: require('../../../assets/fonts/JUSTSans-ExBold.otf'),
@@ -123,9 +126,9 @@ export default function RangeHomeScreen() {
 
   if (!fontsLoaded) {
     return (
-      <View style={s.container}>
+      <View style={[s.container, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
-        <ActivityIndicator color={GOLD} style={{ flex: 1 }} />
+        <ActivityIndicator color={dc.gold} style={{ flex: 1 }} />
       </View>
     );
   }
@@ -133,16 +136,16 @@ export default function RangeHomeScreen() {
   const maxAvg = clubAvgs[0]?.avg || 1;
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.headerSide} activeOpacity={0.7}>
-          <Ionicons name="chevron-back" size={24} color={GOLD} />
+          <Ionicons name="chevron-back" size={24} color={dc.gold} />
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.logoImg} resizeMode="contain" />
+          <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.logoImg} resizeMode="contain" />
           <Text style={s.headerSubtitle}>DRIVING RANGE</Text>
         </View>
         <View style={s.headerSide} />

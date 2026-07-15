@@ -375,14 +375,32 @@ export default function SwindleAdminScreen() {
           </>
         )}
 
-        <View style={{ height: 48 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* + FAB — create new swindle */}
+      <TouchableOpacity
+        style={s.fab}
+        onPress={() => router.push('/(app)/swindle/create' as any)}
+        activeOpacity={0.85}
+      >
+        <Text style={s.fabIcon}>+</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
+  fab: {
+    position: 'absolute', bottom: 32, right: 20,
+    width: 60, height: 60, borderRadius: 30,
+    backgroundColor: PURPLE,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: PURPLE, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  fabIcon: { fontSize: 32, color: '#fff', lineHeight: 36 },
 
   header: {
     paddingTop: Platform.OS === 'ios' ? 56 : 32,

@@ -19,6 +19,8 @@ import { PLAY_SVG, EVENT_SVG, CLUBHOUSE_SVG, CADDIE_SVG, PRACTICE_SVG, LOCKER_SV
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const GOLD = '#D4AF37';
+const FF   = 'JUSTSans';
+const FFB  = 'JUSTSans-ExBold';
 
 // ── Tile definitions (matches concept grid) ───────────────────
 const TILES: {
@@ -227,7 +229,6 @@ export default function ConceptPreviewScreen() {
 
 // ── Styles ────────────────────────────────────────────────────
 const TILE_W = Math.floor((SCREEN_W - 16 * 2 - 10) / 2);
-const FF = 'JUSTSans';
 
 const s = StyleSheet.create({
   root:     { flex: 1, backgroundColor: '#000000' },

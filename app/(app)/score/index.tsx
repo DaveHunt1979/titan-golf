@@ -9,7 +9,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { matchLabel, getEffectiveWinner } from '../../../src/lib/scoring';
 import { getPlayerAvatar } from '../../../src/lib/assets';
 import type { Match, Team } from '../../../src/types';
@@ -49,6 +49,7 @@ export default function ScoreScreen() {
   const BG     = dc.bg;
   const CARD   = dc.card;
   const BORDER = dc.border;
+  const { localLogo, logoUrl } = useSocietyTheme();
 
   const [myPlayerId, setMyPlayerId]       = useState<string | null>(null);
   const [matches, setMatches]             = useState<MatchWithDay[]>([]);
@@ -270,7 +271,7 @@ export default function ScoreScreen() {
           <View style={s.heroFade} />
           <View style={s.heroContent}>
             <View style={s.heroTop}>
-              <Image source={titanLogo} style={s.heroLogo} resizeMode="contain" />
+              <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.heroLogo} resizeMode="contain" />
               <Text style={s.heroDate}>{dateStr}</Text>
             </View>
             <Text style={s.heroTitle}>Are we playing{'\n'}today?</Text>

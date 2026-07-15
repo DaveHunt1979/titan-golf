@@ -346,40 +346,117 @@ export default function RoundDetailScreen() {
       {/* ── Scorecard tab ─────────────────────────────────────────────── */}
       {activeTab === 'scorecard' && (
         <ScrollView contentContainerStyle={ss.scroll} showsVerticalScrollIndicator={false}>
-          <View style={ss.tableHead}>
-            <Text style={[ss.headCell, { width: 32 }]}>H</Text>
-            <Text style={[ss.headCell, { width: 36 }]}>SCORE</Text>
-            <Text style={[ss.headCell, { width: 36 }]}>PTS</Text>
-            <Text style={[ss.headCell, { width: 32 }]}>FWY</Text>
-            <Text style={[ss.headCell, { width: 28 }]}>P</Text>
-            <Text style={[ss.headCell, { flex: 1 }]}>CLUBS</Text>
-          </View>
-
-          {holes.map((h, i) => (
-            <View key={h.holeNumber} style={[ss.row, i % 2 === 0 && ss.rowAlt]}>
-              <Text style={[ss.cell, ss.holeNum]}>{h.holeNumber}</Text>
-              <Text style={[ss.cell, { width: 36, color: scoreCellColor(h.stablefordPts), fontFamily: FFB }]}>
-                {h.gross ?? '—'}
-              </Text>
-              <View style={{ width: 36, alignItems: 'flex-start' }}>
-                {h.stablefordPts != null
-                  ? <View style={[ss.ptsBadge, { backgroundColor: ptsBadgeBg(h.stablefordPts) }]}>
-                      <Text style={[ss.ptsText, { color: ptsBadgeColor(h.stablefordPts) }]}>{h.stablefordPts}</Text>
-                    </View>
-                  : <Text style={ss.cell}>—</Text>}
-              </View>
-              <Text style={[ss.cell, ss.fairwayCell]}>{fairwayIcon(h.fairwayDirection)}</Text>
-              <Text style={[ss.cell, ss.puttsCell]}>{h.putts ?? '—'}</Text>
-              <Text style={[ss.cell, ss.clubsCell]} numberOfLines={1}>
-                {h.clubs.length > 0 ? h.clubs.join(' · ') : ''}
-              </Text>
-            </View>
-          ))}
-
-          {holes.length === 0 && (
+          {holes.length === 0 ? (
             <View style={ss.empty}>
               <Text style={ss.emptyText}>No hole data recorded</Text>
             </View>
+          ) : (
+            <>
+              {([{ start: 1, label: 'FRONT 9' }, { start: 10, label: 'BACK 9' }] as const).map(({ start, label }) => {
+                const nineHoles = Array.from({ length: 9 }, (_, i) => {
+                  const n = start + i;
+                  const played = holes.find(h => h.holeNumber === n);
+                  return {
+                    holeNumber: n,
+                    par: played?.par ?? courseGeo[n]?.par ?? null,
+                    gross: played?.gross ?? null,
+                    stablefordPts: played?.stablefordPts ?? null,
+                    putts: played?.putts ?? null,
+                    fairwayDirection: played?.fairwayDirection ?? null,
+                  };
+                });
+                const ninePar   = nineHoles.reduce((s, h) => s + (h.par ?? 0), 0);
+                const nineGross = nineHoles.reduce((s, h) => s + (h.gross ?? 0), 0);
+                const ninePts   = nineHoles.reduce((s, h) => s + (h.stablefordPts ?? 0), 0);
+                const ninePutts = nineHoles.reduce((s, h) => s + (h.putts ?? 0), 0);
+                const hasAny    = nineHoles.some(h => h.gross != null);
+                return (
+                  <View key={label} style={ss.nineBlock}>
+                    {/* Column headers */}
+                    <View style={[ss.scRow, ss.scHeadRow]}>
+                      <Text style={[ss.scHead, { width: 38 }]}>{label}</Text>
+                      <Text style={[ss.scHead, { width: 38 }]}>PAR</Text>
+                      <Text style={[ss.scHead, { flex: 1 }]}>SCORE</Text>
+                      <Text style={[ss.scHead, { flex: 1 }]}>PTS</Text>
+                      <Text style={[ss.scHead, { width: 52 }]}>PUTTS</Text>
+                    </View>
+
+                    {nineHoles.map((h, idx) => {
+                      const diff = h.gross != null && h.par != null ? h.gross - h.par : null;
+                      const isEagle  = diff != null && diff <= -2;
+                      const isBirdie = diff === -1;
+                      const isBogey  = diff === 1;
+                      const isDouble = diff != null && diff >= 2;
+                      return (
+                        <View key={h.holeNumber} style={[ss.scRow, idx % 2 === 1 && ss.scRowAlt]}>
+                          <Text style={[ss.scCell, { width: 38, color: GOLD, fontFamily: FFB }]}>{h.holeNumber}</Text>
+                          <Text style={[ss.scCell, { width: 38, color: '#6b7280' }]}>{h.par ?? '—'}</Text>
+                          <View style={{ flex: 1, alignItems: 'center' }}>
+                            {h.gross != null ? (
+                              <View style={[
+                                ss.scoreBox,
+                                isEagle  && ss.eagleBox,
+                                isBirdie && ss.birdieBox,
+                                isBogey  && ss.bogeyBox,
+                                isDouble && ss.doubleBox,
+                              ]}>
+                                <Text style={[ss.scoreBoxText, (isEagle || isBirdie) && { color: '#000' }]}>
+                                  {h.gross}
+                                </Text>
+                              </View>
+                            ) : <Text style={ss.scEmpty}>—</Text>}
+                          </View>
+                          <View style={{ flex: 1, alignItems: 'center' }}>
+                            {h.stablefordPts != null ? (
+                              <View style={[ss.ptsBadge, { backgroundColor: ptsBadgeBg(h.stablefordPts) }]}>
+                                <Text style={[ss.ptsText, { color: ptsBadgeColor(h.stablefordPts) }]}>{h.stablefordPts}</Text>
+                              </View>
+                            ) : <Text style={ss.scEmpty}>—</Text>}
+                          </View>
+                          <Text style={[ss.scCell, { width: 52, color: h.putts != null ? '#fff' : '#444' }]}>
+                            {h.putts ?? '—'}
+                          </Text>
+                        </View>
+                      );
+                    })}
+
+                    {/* Nine total */}
+                    {hasAny && (
+                      <View style={[ss.scRow, ss.nineTotalRow]}>
+                        <Text style={[ss.nineTotalLabel, { width: 38 }]}>TOT</Text>
+                        <Text style={[ss.nineTotalVal, { width: 38 }]}>{ninePar || '—'}</Text>
+                        <Text style={[ss.nineTotalVal, { flex: 1, color: GOLD, textAlign: 'center' }]}>{nineGross || '—'}</Text>
+                        <Text style={[ss.nineTotalVal, { flex: 1, color: GREEN, textAlign: 'center' }]}>{ninePts}pts</Text>
+                        <Text style={[ss.nineTotalVal, { width: 52 }]}>{ninePutts || '—'}</Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+
+              {/* Grand total */}
+              <View style={ss.grandTotal}>
+                <View style={ss.grandRow}>
+                  <Text style={ss.grandLabel}>GROSS</Text>
+                  <Text style={ss.grandValue}>{totalGross}</Text>
+                  {toPar != null && <Text style={[ss.grandToPar, { color: toParColor(toPar) }]}>{toParStr(toPar)}</Text>}
+                </View>
+                <View style={ss.grandDivider} />
+                <View style={ss.grandRow}>
+                  <Text style={ss.grandLabel}>STABLEFORD</Text>
+                  <Text style={[ss.grandValue, { color: GREEN }]}>{totalPts} pts</Text>
+                </View>
+                {puttsTracked > 0 && (
+                  <>
+                    <View style={ss.grandDivider} />
+                    <View style={ss.grandRow}>
+                      <Text style={ss.grandLabel}>PUTTS</Text>
+                      <Text style={ss.grandValue}>{totalPutts}</Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            </>
           )}
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -537,24 +614,41 @@ const ss = StyleSheet.create({
   tabText:    { fontSize: 12, fontFamily: FFB, color: '#fff', letterSpacing: 1.2 },
   tabTextOn:  { color: GOLD },
 
-  scroll: { padding: 16 },
+  scroll: { padding: 16, gap: 16 },
 
-  tableHead: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 8, paddingVertical: 6,
-    borderBottomWidth: 1, borderBottomColor: '#1c1c1c', marginBottom: 2,
+  // PGA-style scorecard
+  nineBlock: { borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 0 },
+
+  scRow:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11, backgroundColor: '#111' },
+  scRowAlt:  { backgroundColor: '#0d0d0d' },
+  scHeadRow: { backgroundColor: '#1a1610', paddingVertical: 9 },
+  scHead:    { fontSize: 9, fontFamily: FFB, color: GOLD, letterSpacing: 1.5, textAlign: 'center' },
+  scCell:   { fontSize: 14, fontFamily: FFB, color: '#fff', textAlign: 'center' },
+  scEmpty:  { fontSize: 13, color: '#444', fontFamily: FFB },
+
+  scoreBox: {
+    width: 34, height: 34, borderRadius: 4,
+    alignItems: 'center', justifyContent: 'center',
   },
-  headCell: { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
-  row:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 8, borderRadius: 4 },
-  rowAlt:    { backgroundColor: 'rgba(255,255,255,0.02)' },
-  cell:      { fontSize: 14, color: '#fff' },
-  holeNum:   { width: 32, fontSize: 12, fontFamily: FFB, color: '#fff' },
-  ptsBadge:  { borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
-  ptsText:   { fontSize: 12, fontFamily: FFB },
+  scoreBoxText: { fontSize: 14, fontFamily: FFB, color: '#fff' },
+  eagleBox:  { backgroundColor: GOLD, borderRadius: 17 },
+  birdieBox: { backgroundColor: GREEN, borderRadius: 17 },
+  bogeyBox:  { borderWidth: 1.5, borderColor: '#f97316' },
+  doubleBox: { borderWidth: 2, borderColor: RED },
 
-  fairwayCell: { width: 32, fontSize: 14, fontFamily: FFB },
-  puttsCell:   { width: 28, fontFamily: FFB, color: '#fff' },
-  clubsCell:   { flex: 1, fontFamily: FFB, color: '#fff', fontSize: 11 },
+  ptsBadge: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 4, minWidth: 30, alignItems: 'center' },
+  ptsText:  { fontSize: 13, fontFamily: FFB },
+
+  nineTotalRow:   { backgroundColor: '#1a1610', borderTopWidth: 1, borderTopColor: '#2a2218' },
+  nineTotalLabel: { fontSize: 9, fontFamily: FFB, color: GOLD, letterSpacing: 1 },
+  nineTotalVal:   { fontSize: 14, fontFamily: FFB, color: '#fff' },
+
+  grandTotal: { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 16, gap: 10 },
+  grandRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  grandLabel: { flex: 1, fontSize: 11, fontFamily: FFB, color: '#6b7280', letterSpacing: 1 },
+  grandValue: { fontSize: 22, fontFamily: FFB, color: '#fff' },
+  grandToPar: { fontSize: 16, fontFamily: FFB },
+  grandDivider: { height: 1, backgroundColor: '#1c1c1c' },
 
   empty:      { alignItems: 'center', paddingTop: 60 },
   emptyText:  { fontSize: 14, fontFamily: FFB, color: '#fff' },

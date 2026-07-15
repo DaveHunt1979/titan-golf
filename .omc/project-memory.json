@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep \"_layout\\|index.tsx\" | grep -v \"web/\" | head -10",
+    "buildCommand": "npx tsc --noEmit --skipLibCheck 2>&1 | grep -v \"^web/\" | grep -v \"CourseMapView\" | grep -E \"handicap|profile\" | head -20",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -260,44 +260,86 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 32,
-      "lastAccessed": 1784096490352,
+      "accessCount": 74,
+      "lastAccessed": 1784117668074,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/rangefinder/index.tsx",
+      "accessCount": 44,
+      "lastAccessed": 1784121120564,
       "type": "file"
     },
     {
       "path": "app/(app)/games/new.tsx",
-      "accessCount": 29,
-      "lastAccessed": 1784097036354,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/index.tsx",
-      "accessCount": 25,
-      "lastAccessed": 1784097026094,
+      "accessCount": 34,
+      "lastAccessed": 1784121373666,
       "type": "file"
     },
     {
       "path": "app/(app)/index.tsx",
-      "accessCount": 13,
-      "lastAccessed": 1784101081983,
+      "accessCount": 32,
+      "lastAccessed": 1784116410452,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/index.tsx",
+      "accessCount": 31,
+      "lastAccessed": 1784116725665,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/SocietyThemeContext.tsx",
+      "accessCount": 22,
+      "lastAccessed": 1784116401614,
       "type": "file"
     },
     {
       "path": "app/(app)/admin/swindle.tsx",
-      "accessCount": 12,
-      "lastAccessed": 1784098158875,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/_layout.tsx",
-      "accessCount": 10,
-      "lastAccessed": 1784101077594,
+      "accessCount": 18,
+      "lastAccessed": 1784104400491,
       "type": "file"
     },
     {
       "path": "app/(app)/profile/index.tsx",
+      "accessCount": 16,
+      "lastAccessed": 1784121550072,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 15,
+      "lastAccessed": 1784116201888,
+      "type": "file"
+    },
+    {
+      "path": "app.json",
+      "accessCount": 14,
+      "lastAccessed": 1784121677207,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/profile/round/[matchId].tsx",
+      "accessCount": 13,
+      "lastAccessed": 1784115329088,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/range/index.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1784116754438,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/watch/index.tsx",
       "accessCount": 6,
-      "lastAccessed": 1784095554247,
+      "lastAccessed": 1784105561989,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/join.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1784114703316,
       "type": "file"
     },
     {
@@ -319,9 +361,15 @@
       "type": "file"
     },
     {
-      "path": "app.json",
+      "path": "app/(app)/admin/concept.tsx",
       "accessCount": 4,
-      "lastAccessed": 1784101303156,
+      "lastAccessed": 1784115508826,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/profile/handicap.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1784121577018,
       "type": "file"
     },
     {
@@ -337,27 +385,39 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/score/preview/[matchId].tsx",
+      "accessCount": 3,
+      "lastAccessed": 1784104163188,
+      "type": "file"
+    },
+    {
       "path": "web/src/app/rounds/page.tsx",
       "accessCount": 2,
       "lastAccessed": 1784098058357,
       "type": "file"
     },
     {
-      "path": "src/lib/offlineQueue.ts",
-      "accessCount": 1,
-      "lastAccessed": 1784096342119,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/SocietyThemeContext.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1784096422594,
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 2,
+      "lastAccessed": 1784104166904,
       "type": "file"
     },
     {
       "path": "src/lib/assets.ts",
+      "accessCount": 2,
+      "lastAccessed": 1784115036320,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/WhatsApp Image 2026-07-15 at 13.10.40.jpeg",
+      "accessCount": 2,
+      "lastAccessed": 1784119976367,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/offlineQueue.ts",
       "accessCount": 1,
-      "lastAccessed": 1784096457274,
+      "lastAccessed": 1784096342119,
       "type": "file"
     },
     {
@@ -370,6 +430,60 @@
       "path": "web/src/app/dashboard/page.tsx",
       "accessCount": 1,
       "lastAccessed": 1784097966913,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf Watch App Watch App/ContentView.swift",
+      "accessCount": 1,
+      "lastAccessed": 1784109585294,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/spectate/[matchId].tsx",
+      "accessCount": 1,
+      "lastAccessed": 1784109585568,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf/WatchBridge.swift",
+      "accessCount": 1,
+      "lastAccessed": 1784109629729,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/watch.ts",
+      "accessCount": 1,
+      "lastAccessed": 1784109639571,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf/WatchBridge.m",
+      "accessCount": 1,
+      "lastAccessed": 1784109651951,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf Watch App Watch App/WatchSessionManager.swift",
+      "accessCount": 1,
+      "lastAccessed": 1784109654983,
+      "type": "file"
+    },
+    {
+      "path": "app/_layout.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1784115678725,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/WhatsApp Image 2026-07-15 at 13.05.45.jpeg",
+      "accessCount": 1,
+      "lastAccessed": 1784117532280,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-07-15 at 13.10.28.png",
+      "accessCount": 1,
+      "lastAccessed": 1784117533404,
       "type": "file"
     }
   ],

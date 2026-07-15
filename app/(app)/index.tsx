@@ -10,9 +10,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../src/lib/supabase';
 import { resolveAvatar, titanLogo } from '../../src/lib/assets';
-import { useSocietyTheme } from '../../src/lib/SocietyThemeContext';
+import { useSocietyTheme, useDynamicColors } from '../../src/lib/SocietyThemeContext';
 
-const GOLD  = '#D4AF37';
+const GOLD = '#D4AF37'; // fallback for StyleSheet only — JSX uses dc.gold
 const GREEN = '#4ade80';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
@@ -38,7 +38,8 @@ const TILES = [
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { societyId: SOCIETY_ID } = useSocietyTheme();
+  const { societyId: SOCIETY_ID, localLogo, logoUrl, societyName } = useSocietyTheme();
+  const dc = useDynamicColors();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../assets/fonts/JUSTSans-Regular.otf'),
@@ -161,12 +162,12 @@ export default function HomeScreen() {
   if (!fontsLoaded) return <View style={s.root} />;
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* ── Header ── */}
       <View style={s.header}>
-        <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+        <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.headerLogo} resizeMode="contain" />
         <View style={s.headerRight}>
           <TouchableOpacity
             onPress={() => router.push('/(app)/chat' as any)}
@@ -178,21 +179,21 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/(app)/profile' as any)} activeOpacity={0.85}>
             {avatarSrc
-              ? <Image source={avatarSrc} style={s.avatar} />
-              : <View style={s.avatarFallback}><Ionicons name="person" size={16} color={GOLD} /></View>
+              ? <Image source={avatarSrc} style={[s.avatar, { borderColor: dc.gold }]} />
+              : <View style={[s.avatarFallback, { borderColor: dc.gold }]}><Ionicons name="person" size={16} color={dc.gold} /></View>
             }
           </TouchableOpacity>
         </View>
       </View>
 
       {loading ? (
-        <View style={s.centered}><ActivityIndicator color={GOLD} size="large" /></View>
+        <View style={s.centered}><ActivityIndicator color={dc.gold} size="large" /></View>
       ) : (
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={s.scroll}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={GOLD} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={dc.gold} />}
         >
           {/* ── Greeting ── */}
           <View style={s.greeting}>
@@ -209,8 +210,8 @@ export default function HomeScreen() {
             />
             <View style={s.heroCard}>
               <View style={s.heroCardLeft}>
-                <Text style={s.heroCardLabel}>
-                  {tourLive > 0 ? 'TOURNAMENT · LIVE' : swindleCount > 0 ? 'SWINDLE · OPEN' : casualCount > 0 ? 'CASUAL · IN PROGRESS' : 'TITAN GOLF'}
+                <Text style={[s.heroCardLabel, { color: dc.gold }]}>
+                  {tourLive > 0 ? 'TOURNAMENT · LIVE' : swindleCount > 0 ? 'SWINDLE · OPEN' : casualCount > 0 ? 'CASUAL · IN PROGRESS' : societyName.toUpperCase()}
                 </Text>
                 <Text style={s.heroCardTitle}>
                   {tourLive > 0 ? (tourName ?? `${tourLive} matches live`) : swindleCount > 0 ? (swindleName ?? 'Open swindle') : casualCount > 0 ? `${casualCount} game${casualCount !== 1 ? 's' : ''} running` : 'Ready when you are'}
@@ -218,7 +219,7 @@ export default function HomeScreen() {
               </View>
               {(tourLive > 0 || swindleCount > 0 || casualCount > 0) && (
                 <TouchableOpacity
-                  style={s.heroCardBtn}
+                  style={[s.heroCardBtn, { borderColor: dc.gold }]}
                   activeOpacity={0.8}
                   onPress={() => {
                     if (tourLive > 0)     router.push('/(app)/tour' as any);
@@ -226,8 +227,8 @@ export default function HomeScreen() {
                     else                  router.push('/(app)/score' as any);
                   }}
                 >
-                  <Text style={s.heroCardBtnText}>VIEW</Text>
-                  <Ionicons name="chevron-forward" size={11} color={GOLD} />
+                  <Text style={[s.heroCardBtnText, { color: dc.gold }]}>VIEW</Text>
+                  <Ionicons name="chevron-forward" size={11} color={dc.gold} />
                 </TouchableOpacity>
               )}
             </View>
@@ -242,21 +243,24 @@ export default function HomeScreen() {
               return (
                 <TouchableOpacity
                   key={tile.key}
-                  style={[s.tile, locked && s.tileLocked]}
+                  style={[s.tile, { backgroundColor: dc.card, borderColor: dc.border }, locked && s.tileLocked]}
                   onPress={() => handleTile(tile)}
                   activeOpacity={0.75}
                 >
-                  <View style={[s.tileIcon, locked && s.tileIconLocked]}>
+                  <View style={[
+                    s.tileIcon,
+                    { backgroundColor: locked ? 'transparent' : dc.iconBoxBg, borderColor: locked ? '#333' : dc.iconBoxBorder },
+                  ]}>
                     <Ionicons
                       name={locked ? 'lock-closed-outline' : tile.icon}
                       size={22}
-                      color={locked ? '#444' : GOLD}
+                      color={locked ? '#444' : dc.iconBoxIcon}
                     />
                   </View>
-                  <Text style={[s.tileLabel, locked && s.tileLabelLocked]} numberOfLines={1}>
+                  <Text style={[s.tileLabel, { color: dc.cardText }, locked && s.tileLabelLocked]} numberOfLines={1}>
                     {tile.label}
                   </Text>
-                  <Text style={s.tileSub} numberOfLines={2}>{sub}</Text>
+                  <Text style={[s.tileSub, { color: dc.textSecondary }]} numberOfLines={2}>{sub}</Text>
                   {live && (
                     <View style={s.livePill}>
                       <View style={s.liveDot} />
@@ -270,10 +274,9 @@ export default function HomeScreen() {
 
           {/* ── Quick links ── */}
           <View style={s.quickRow}>
-            <QuickBtn icon="chatbubbles-outline" label="Chat"        onPress={() => router.push('/(app)/chat' as any)}        badge={unread > 0 ? unread : undefined} />
-            <QuickBtn icon="podium-outline"      label="Leaderboard" onPress={() => router.push('/(app)/leaderboard' as any)} />
-            <QuickBtn icon="ribbon-outline"      label="Records"     onPress={() => router.push('/(app)/records' as any)}     />
-            <QuickBtn icon="bag-outline"         label="Shop"        onPress={() => Linking.openURL('https://titangolf-web.vercel.app/')} />
+            <QuickBtn icon="chatbubbles-outline" label="Chat"    cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/chat' as any)}    badge={unread > 0 ? unread : undefined} badgeColor={dc.gold} />
+            <QuickBtn icon="ribbon-outline"      label="Records" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/records' as any)} />
+            <QuickBtn icon="bag-outline"         label="Shop"    cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => Linking.openURL('https://titangolf-web.vercel.app/')} />
           </View>
 
           <View style={{ height: 32 }} />
@@ -283,18 +286,22 @@ export default function HomeScreen() {
   );
 }
 
-function QuickBtn({ icon, label, onPress, badge }: {
+function QuickBtn({ icon, label, cardBg, iconColor, textColor, onPress, badge, badgeColor }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
+  cardBg: string;
+  iconColor: string;
+  textColor: string;
   onPress: () => void;
   badge?: number;
+  badgeColor?: string;
 }) {
   return (
-    <TouchableOpacity style={s.quickBtn} onPress={onPress} activeOpacity={0.8}>
-      <Ionicons name={icon} size={20} color={GOLD} />
-      <Text style={s.quickLabel}>{label}</Text>
+    <TouchableOpacity style={[s.quickBtn, { backgroundColor: cardBg }]} onPress={onPress} activeOpacity={0.8}>
+      <Ionicons name={icon} size={20} color={iconColor} />
+      <Text style={[s.quickLabel, { color: textColor }]}>{label}</Text>
       {badge != null && (
-        <View style={s.quickBadge}>
+        <View style={[s.quickBadge, { backgroundColor: badgeColor ?? iconColor }]}>
           <Text style={s.quickBadgeText}>{badge > 9 ? '9+' : badge}</Text>
         </View>
       )}

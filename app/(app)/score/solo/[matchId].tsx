@@ -181,7 +181,7 @@ export default function SoloRoundScreen() {
     return acc;
   }, {} as Record<number, string>);
   const currentSideGame = sideGameByHole[activeHole] ?? null;
-  const voiceOff = match?.side_games?.includes('voice:off') ?? false;
+  const voiceOff = !match?.side_games?.includes('voice:on');
 
   const courseHole = courseHoles.find(h => h.hole_number === activeHole);
   const shots = courseHole ? calcStrokesReceived(courseHcp, courseHole.stroke_index) : 0;

@@ -9,9 +9,10 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
+import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import type { Player } from '../../../src/types';
 
-const GOLD  = '#D4AF37';
+const GOLD  = '#D4AF37'; // StyleSheet fallback — JSX uses dc.gold
 const GREEN = '#22c55e';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
@@ -30,6 +31,7 @@ type Club = {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const dc = useDynamicColors();
 
   const [player,         setPlayer]         = useState<Player | null>(null);
   const [clubs,          setClubs]          = useState<Club[]>([]);
@@ -54,7 +56,7 @@ export default function ProfileScreen() {
   const [hcp,      setHcp]      = useState('');
   const [cdhNum,   setCdhNum]   = useState('');
 
-  useEffect(() => { load(); }, []);
+  useFocusEffect(useCallback(() => { load(); }, []));
 
   async function load() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -201,15 +203,15 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <View style={s.root}>
+      <View style={[s.root, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
-        <View style={s.centered}><ActivityIndicator color={GOLD} size="large" /></View>
+        <View style={s.centered}><ActivityIndicator color={dc.gold} size="large" /></View>
       </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[s.root, { backgroundColor: dc.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="light" />
 
       {/* ── Header ── */}
@@ -449,6 +451,13 @@ export default function ProfileScreen() {
                 title="Change Password"
                 sub="Update your login password"
                 onPress={() => { setNewPw(''); setConfirmPw(''); setShowPwModal(true); }}
+              />
+              <View style={s.quickLinkDivider} />
+              <QuickLink
+                icon="swap-horizontal-outline"
+                title="Switch Society"
+                sub="Change your active golf society"
+                onPress={() => router.push('/(app)/join' as any)}
               />
               <View style={s.quickLinkDivider} />
               <TouchableOpacity style={s.quickLink} onPress={signOut} activeOpacity={0.7}>

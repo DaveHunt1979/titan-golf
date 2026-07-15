@@ -45,9 +45,8 @@ const MODE_INFO: Record<GameMode, { label: string; sub: string; icon: keyof type
 
 function getModeSections(gold: string): { label: string; accent: string; modes: GameMode[] }[] {
   return [
-    { label: 'MATCHPLAY',    accent: gold,      modes: ['4bbb', 'singles', 'nassau', 'foursomes', 'greensome'] },
+    { label: 'MATCHPLAY',    accent: gold,      modes: ['4bbb', 'singles'] },
     { label: 'INDIVIDUAL',   accent: '#4ade80', modes: ['stableford', 'medal', 'modified_stableford', 'par_bogey'] },
-    { label: 'GROUP GAMES',  accent: '#60a5fa', modes: ['skins', 'scramble'] },
     { label: 'TEAM GAMES',   accent: '#f97316', modes: ['team_stableford'] },
     { label: 'MASHIE GOLF',  accent: '#a78bfa', modes: ['best2from4', 'best2from4_par3all'] },
   ];
@@ -503,7 +502,7 @@ export default function NewGameScreen() {
       const sideGamesList = [
         ...(ldActive && ldHole ? [`Longest Drive:${ldHole}`] : []),
         ...(npActive && ntpHole ? [`Closest to Pin:${ntpHole}`] : []),
-        ...(!voiceEnabled ? ['voice:off'] : []),
+        ...(voiceEnabled ? ['voice:on'] : []),
       ];
 
       const isTeamStableford = mode === 'team_stableford' || isMashie;

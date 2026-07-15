@@ -85,6 +85,7 @@ interface MatchInfo {
   side_games: string[] | null;
   secondary_format: string | null;
   hcp_allowance: number | null;
+  day_id: string | null;
   day: {
     course_name: string;
     course_par: number;
@@ -149,6 +150,7 @@ export default function EnterScoresScreen() {
   const holeStripRef = useRef<ScrollView>(null);
   const gpsRef = useRef<{ lat: number; lng: number } | null>(null);
   const skipNextLoad = useRef(false);
+  const [dayBoard, setDayBoard] = useState<{ playerId: string; name: string; pts: number }[]>([]);
 
   // Offline queue: drain on foreground, load initial pending count
   useEffect(() => {
@@ -256,8 +258,13 @@ export default function EnterScoresScreen() {
       if (!match || entry.matchId !== matchId) return;
       await processWatchScore(entry.hole, entry.result);
     });
-    return () => { unsub(); clearMatchFromWatch(); };
+    return () => unsub();
   }, [match]);
+
+  // Clear watch only when leaving the scoring screen, not on every hole change
+  useEffect(() => {
+    return () => { clearMatchFromWatch(); };
+  }, []);
 
   // Auto-scroll to Front 9 scorecard if game is already in progress
   useEffect(() => {
@@ -359,7 +366,7 @@ export default function EnterScoresScreen() {
         sendMatchNotification(match.competition_id, '🏆 Match Complete', msg, [...match.home_player_ids, ...match.away_player_ids]);
       }
       clearMatchFromWatch();
-      Alert.alert('Match Complete', msg, [{ text: 'Done', onPress: () => router.back() }]);
+      Alert.alert('Match Complete', msg, [{ text: 'View Scorecard' }]);
     }
   }
 
@@ -392,7 +399,7 @@ export default function EnterScoresScreen() {
   const currentSideGame = sideGameByHole[activeHole] ?? null;
 
   const [coachLoading, setCoachLoading] = useState(false);
-  const voiceOff = match?.side_games?.includes('voice:off') ?? false;
+  const voiceOff = !match?.side_games?.includes('voice:on');
 
   async function onCoachMe() {
     if (coachLoading || voiceOff) return;
@@ -572,7 +579,7 @@ export default function EnterScoresScreen() {
           const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
           const broken = allBroken.flat();
           if (broken.length > 0) { setRecordsBroken(broken); }
-          else { Alert.alert('Round Complete', 'All 18 holes scored!', [{ text: 'Done', onPress: () => router.back() }]); }
+          else { Alert.alert('Round Complete', 'All 18 holes scored!', [{ text: 'View Scorecard' }]); }
         }
 
         if (!editingHole && !wasAlreadyComplete && [6, 9, 12, 15, 16, 17, 18].includes(activeHole)) {
@@ -746,14 +753,14 @@ export default function EnterScoresScreen() {
             'Matchplay Complete',
             `${msg}\n\nYou have a ${secLabel} secondary game running — continue to finish all 18 holes.`,
             [
-              { text: 'Finish Now', style: 'cancel', onPress: () => router.back() },
+              { text: 'Finish Now', style: 'cancel' },
               { text: `Continue ${secLabel}`, onPress: () => {
                   setMatch(prev => prev ? { ...prev, status: 'in_progress' } : prev);
                 } },
             ]
           );
         } else {
-          Alert.alert('Match Complete', msg, [{ text: 'Done', onPress: () => router.back() }]);
+          Alert.alert('Match Complete', msg, [{ text: 'View Scorecard' }]);
         }
       }
 
@@ -770,6 +777,66 @@ export default function EnterScoresScreen() {
       }
     }
   }
+
+  // Cross-group day leaderboard
+  useEffect(() => {
+    if (!match?.day_id) return;
+    const dayId = match.day_id;
+
+    async function loadDayBoard() {
+      const { data: dayMatches } = await supabase
+        .from('matches')
+        .select('id, home_player_ids, away_player_ids, round_format')
+        .eq('day_id', dayId)
+        .neq('status', 'cancelled');
+
+      if (!dayMatches || dayMatches.length < 2) return;
+
+      const allMatchIds = dayMatches.map((m: any) => m.id);
+      const allPlayerIds: string[] = [
+        ...new Set(dayMatches.flatMap((m: any) => [
+          ...(m.home_player_ids ?? []),
+          ...(m.away_player_ids ?? []),
+        ])) as any,
+      ];
+
+      const [{ data: playersData }, { data: holesData }] = await Promise.all([
+        supabase.from('players').select('id, display_name').in('id', allPlayerIds),
+        supabase.from('match_holes').select('player_id, stableford_pts').in('match_id', allMatchIds),
+      ]);
+
+      const nameMap: Record<string, string> = {};
+      (playersData ?? []).forEach((p: any) => { nameMap[p.id] = p.display_name; });
+
+      const totals: Record<string, number> = {};
+      (holesData ?? []).forEach((h: any) => {
+        if (h.stableford_pts != null) {
+          totals[h.player_id] = (totals[h.player_id] ?? 0) + h.stableford_pts;
+        }
+      });
+
+      const board = allPlayerIds
+        .map(pid => ({
+          playerId: pid,
+          name: (nameMap[pid] ?? '?').split(' ')[0],
+          pts: totals[pid] ?? 0,
+        }))
+        .sort((a, b) => b.pts - a.pts);
+
+      setDayBoard(board);
+    }
+
+    loadDayBoard();
+
+    const sub = supabase
+      .channel(`day-lb-${dayId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_holes' }, () => {
+        loadDayBoard();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(sub); };
+  }, [match?.day_id]);
 
   // ── Undo last hole ──────────────────────────────────────────────
   async function undoHole() {
@@ -998,40 +1065,59 @@ export default function EnterScoresScreen() {
 
                   <View style={s.holeCardDivider} />
 
-                  {/* Mini leaderboard — group play only */}
-                  {allPlayerIds.length > 1 && <View style={s.leaderboard}>
-                    {(() => {
-                      const sorted = [...allPlayerIds].sort((a, b) => {
-                        const aVal = playerTotals[a] ?? 0;
-                        const bVal = playerTotals[b] ?? 0;
-                        if (match.round_format === 'medal') {
-                          if (aVal === 0 && bVal === 0) return 0;
-                          if (aVal === 0) return 1;
-                          if (bVal === 0) return -1;
-                          return aVal - bVal;
-                        }
-                        return bVal - aVal;
-                      });
-                      const topScore = playerTotals[sorted[0]] ?? 0;
-                      return sorted.map((id, rank) => {
-                        const isHome = match.home_player_ids.includes(id);
-                        const teamColor = isHome ? homeColor : awayColor;
-                        const src = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
-                        const firstName = (playerNames[id] ?? '?').split(' ')[0];
-                        const total = playerTotals[id] ?? 0;
-                        const isStablefordMode = isStrokePlay || !!match.secondary_format;
-                        const scoreStr = total > 0 ? (isStablefordMode ? `${total}pts` : `${total}`) : '—';
-                        const isLeader = rank === 0 && topScore > 0;
+                  {/* Leaderboard — cross-group (day_id) or single-group */}
+                  {dayBoard.length > 1 ? (
+                    <View style={s.leaderboard}>
+                      <Text style={s.lbGroupHeader}>ALL GROUPS</Text>
+                      {dayBoard.slice(0, 6).map((entry, rank) => {
+                        const isLeader = rank === 0 && entry.pts > 0;
                         return (
-                          <View key={id} style={s.lbRow}>
-                            <Avatar name={firstName} color={teamColor} size={32} source={src} />
-                            <Text style={[s.lbName, !isLeader && { opacity: 0.5 }]} numberOfLines={1}>{firstName}</Text>
-                            <Text style={[s.lbPts, { color: isLeader ? GOLD : '#fff' }]}>{scoreStr}</Text>
+                          <View key={entry.playerId} style={s.lbRow}>
+                            <Text style={[s.lbRank, { color: isLeader ? GOLD : '#555' }]}>{rank + 1}</Text>
+                            <Text style={[s.lbName, !isLeader && { opacity: 0.5 }]} numberOfLines={1}>{entry.name}</Text>
+                            <Text style={[s.lbPts, { color: isLeader ? GOLD : '#fff' }]}>{entry.pts > 0 ? `${entry.pts}pts` : '—'}</Text>
                           </View>
                         );
-                      });
-                    })()}
-                  </View>}
+                      })}
+                      {dayBoard.length > 6 && (
+                        <Text style={s.lbMore}>+{dayBoard.length - 6} more</Text>
+                      )}
+                    </View>
+                  ) : allPlayerIds.length > 1 ? (
+                    <View style={s.leaderboard}>
+                      {(() => {
+                        const sorted = [...allPlayerIds].sort((a, b) => {
+                          const aVal = playerTotals[a] ?? 0;
+                          const bVal = playerTotals[b] ?? 0;
+                          if (match.round_format === 'medal') {
+                            if (aVal === 0 && bVal === 0) return 0;
+                            if (aVal === 0) return 1;
+                            if (bVal === 0) return -1;
+                            return aVal - bVal;
+                          }
+                          return bVal - aVal;
+                        });
+                        const topScore = playerTotals[sorted[0]] ?? 0;
+                        return sorted.map((id, rank) => {
+                          const isHome = match.home_player_ids.includes(id);
+                          const teamColor = isHome ? homeColor : awayColor;
+                          const src = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
+                          const firstName = (playerNames[id] ?? '?').split(' ')[0];
+                          const total = playerTotals[id] ?? 0;
+                          const isStablefordMode = isStrokePlay || !!match.secondary_format;
+                          const scoreStr = total > 0 ? (isStablefordMode ? `${total}pts` : `${total}`) : '—';
+                          const isLeader = rank === 0 && topScore > 0;
+                          return (
+                            <View key={id} style={s.lbRow}>
+                              <Avatar name={firstName} color={teamColor} size={32} source={src} />
+                              <Text style={[s.lbName, !isLeader && { opacity: 0.5 }]} numberOfLines={1}>{firstName}</Text>
+                              <Text style={[s.lbPts, { color: isLeader ? GOLD : '#fff' }]}>{scoreStr}</Text>
+                            </View>
+                          );
+                        });
+                      })()}
+                    </View>
+                  ) : null}
                 </View>
 
                 {/* Gets a shot */}
@@ -1285,6 +1371,10 @@ export default function EnterScoresScreen() {
               <Text style={s.undoBtnText}>Correct Hole {lastPlayedHole}</Text>
             </TouchableOpacity>
           )}
+
+          <TouchableOpacity style={s.doneBtn} onPress={() => router.back()} activeOpacity={0.85}>
+            <Text style={s.doneBtnText}>Done</Text>
+          </TouchableOpacity>
         </ScrollView>
       )}
 
@@ -1350,12 +1440,12 @@ export default function EnterScoresScreen() {
                   return (
                     <TouchableOpacity
                       key={n}
-                      style={[sh.scoreBtn, on && { backgroundColor: `${accent}20`, borderColor: accent }]}
+                      style={[sh.scoreBtn, on && { backgroundColor: accent, borderColor: accent }]}
                       onPress={() => setSelectedScore(n)}
                       activeOpacity={0.7}
                     >
-                      <Text style={[sh.scoreBtnText, on && { color: accent }]}>{n}</Text>
-                      {on && <Text style={[sh.scoreDiff, { color: accent }]}>{diffLabel}</Text>}
+                      <Text style={[sh.scoreBtnText, on && { color: '#000' }]}>{n}</Text>
+                      {on && <Text style={[sh.scoreDiff, { color: '#000' }]}>{diffLabel}</Text>}
                     </TouchableOpacity>
                   );
                 })}
@@ -1535,7 +1625,7 @@ export default function EnterScoresScreen() {
       {recordsBroken.length > 0 && (
         <RecordCelebration
           records={recordsBroken}
-          onDismiss={() => { setRecordsBroken([]); router.back(); }}
+          onDismiss={() => setRecordsBroken([])}
         />
       )}
     </View>
@@ -1744,10 +1834,13 @@ const s = StyleSheet.create({
   },
   holeChipText: { fontFamily: FFB, fontSize: 10, color: '#fff' },
 
-  leaderboard: { flex: 1, justifyContent: 'center', gap: 10 },
-  lbRow:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  lbName:      { flex: 1, fontFamily: FFB, fontSize: 13, color: '#ffffff' },
-  lbPts:       { fontFamily: FFB, fontSize: 13 },
+  leaderboard:    { flex: 1, justifyContent: 'center', gap: 10 },
+  lbGroupHeader:  { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2, marginBottom: 2 },
+  lbRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  lbRank:         { fontFamily: FFB, fontSize: 12, width: 18, textAlign: 'center' },
+  lbName:         { flex: 1, fontFamily: FFB, fontSize: 13, color: '#ffffff' },
+  lbPts:          { fontFamily: FFB, fontSize: 13 },
+  lbMore:         { fontFamily: FFB, fontSize: 11, color: '#555', textAlign: 'center', marginTop: 2 },
 
   shotRow: {
     paddingHorizontal: 16, paddingVertical: 10,
@@ -1784,6 +1877,11 @@ const s = StyleSheet.create({
     paddingVertical: 12, marginBottom: 12,
   },
   undoBtnText: { fontFamily: FFB, fontSize: 13, color: '#fff' },
+  doneBtn: {
+    backgroundColor: GOLD, borderRadius: 14, paddingVertical: 16,
+    alignItems: 'center', marginTop: 8, marginBottom: 32,
+  },
+  doneBtnText: { fontFamily: FFB, fontSize: 18, color: '#000' },
 
   pageHint:       { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 8 },
   pageDot:        { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2c2c2c' },
@@ -1865,32 +1963,32 @@ const sh = StyleSheet.create({
 
   pickerLabel: { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2, marginBottom: 10, marginTop: 16 },
 
-  scoreGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  scoreGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   scoreBtn: {
-    width: 56, height: 56, borderRadius: 12,
-    backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#2c2c2c',
+    width: 62, height: 62, borderRadius: 14,
+    backgroundColor: '#232323', borderWidth: 1.5, borderColor: '#444',
     alignItems: 'center', justifyContent: 'center',
   },
-  scoreBtnText: { fontFamily: FFB, fontSize: 20, color: '#fff' },
-  scoreDiff:    { fontFamily: FFB, fontSize: 8, marginTop: 1 },
+  scoreBtnText: { fontFamily: FFB, fontSize: 26, color: '#ffffff' },
+  scoreDiff:    { fontFamily: FFB, fontSize: 9, marginTop: 1 },
 
   fairwayRow: { flexDirection: 'row', gap: 8 },
   fairwayBtn: {
-    flex: 1, paddingVertical: 10, borderRadius: 10,
-    backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#2c2c2c', alignItems: 'center',
+    flex: 1, paddingVertical: 12, borderRadius: 12,
+    backgroundColor: '#232323', borderWidth: 1.5, borderColor: '#444', alignItems: 'center',
   },
-  fairwayBtnOn:  { backgroundColor: `${GOLD}15`, borderColor: GOLD },
-  fairwayText:   { fontFamily: FFB, fontSize: 13, color: '#fff' },
-  fairwayTextOn: { color: GOLD },
+  fairwayBtnOn:  { backgroundColor: GOLD, borderColor: GOLD },
+  fairwayText:   { fontFamily: FFB, fontSize: 14, color: '#fff' },
+  fairwayTextOn: { color: '#000' },
 
   puttsRow: { flexDirection: 'row', gap: 8 },
   puttsBtn: {
-    flex: 1, paddingVertical: 10, borderRadius: 10,
-    backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#2c2c2c', alignItems: 'center',
+    flex: 1, paddingVertical: 12, borderRadius: 12,
+    backgroundColor: '#232323', borderWidth: 1.5, borderColor: '#444', alignItems: 'center',
   },
-  puttsBtnOn:  { backgroundColor: `${BLUE}15`, borderColor: BLUE },
-  puttsText:   { fontFamily: FFB, fontSize: 16, color: '#fff' },
-  puttsTextOn: { color: BLUE },
+  puttsBtnOn:  { backgroundColor: BLUE, borderColor: BLUE },
+  puttsText:   { fontFamily: FFB, fontSize: 18, color: '#fff' },
+  puttsTextOn: { color: '#fff' },
 
   submitBtn: {
     marginTop: 24, backgroundColor: GOLD, borderRadius: 14,

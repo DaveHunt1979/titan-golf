@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../src/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GOLD = '#D4AF37';
 const FF   = 'JUSTSans';
@@ -97,6 +98,10 @@ export default function JoinScreen() {
     if (error || !data?.[0]) {
       Alert.alert('Error', error?.message ?? 'Could not join. Please try again.');
       return;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await AsyncStorage.setItem(`active_society_id:${user.id}`, areaInfo!.societyId);
     }
     router.replace('/(app)');
   }

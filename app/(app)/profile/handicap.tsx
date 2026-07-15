@@ -58,14 +58,16 @@ export default function HandicapCalculatorScreen() {
   const [rounds, setRounds] = useState<Round[]>([blankRound(), blankRound(), blankRound()]);
   const [saving, setSaving] = useState(false);
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [currentHcp, setCurrentHcp] = useState<number | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
-      supabase.from('players').select('id, handicap_rounds').eq('auth_uid', user.id).maybeSingle()
+      supabase.from('players').select('id, handicap_index, handicap_rounds').eq('auth_uid', user.id).maybeSingle()
         .then(({ data }) => {
           if (!data) return;
           setPlayerId(data.id);
+          if ((data as any).handicap_index != null) setCurrentHcp((data as any).handicap_index);
           const saved = (data as any).handicap_rounds as Round[] | null;
           if (saved && saved.length >= 3) setRounds(saved);
         });
@@ -149,6 +151,9 @@ export default function HandicapCalculatorScreen() {
       >
         {/* Info card */}
         <View style={s.infoCard}>
+          {currentHcp !== null && (
+            <Text style={s.currentHcp}>Current Index: <Text style={{ color: GOLD }}>{currentHcp.toFixed(1)}</Text></Text>
+          )}
           <Text style={s.infoText}>
             Enter your recent scorecards — minimum 3 rounds. We'll calculate your WHS Handicap Index using the official formula.
           </Text>
@@ -281,6 +286,7 @@ const s = StyleSheet.create({
     backgroundColor: '#111', borderRadius: 12, borderWidth: 1,
     borderColor: '#1c1c1c', padding: 16, marginBottom: 20,
   },
+  currentHcp: { fontSize: 13, fontFamily: FFB, color: '#fff', marginBottom: 6 },
   infoText: { fontSize: 13, fontFamily: FFB, color: '#fff', lineHeight: 20 },
 
   colHeaders: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingHorizontal: 2 },

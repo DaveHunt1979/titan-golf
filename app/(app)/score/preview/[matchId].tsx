@@ -90,8 +90,8 @@ export default function MatchPreviewScreen() {
     const firstNames = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])]
       .map(id => players.find(p => p.id === id)?.display_name.split(' ')[0])
       .filter(Boolean) as string[];
-    const voiceOff = match.side_games?.includes('voice:off');
-    if (!voiceOff) {
+    const voiceOn = match.side_games?.includes('voice:on');
+    if (voiceOn) {
       await Promise.race([speakIntro(firstNames), new Promise(resolve => setTimeout(resolve, 6000))]);
     }
     router.replace(`/(app)/score/${matchId}` as any);
@@ -131,7 +131,7 @@ export default function MatchPreviewScreen() {
     return `${h}% Handicap`;
   })();
 
-  const voiceOn = !match.side_games?.includes('voice:off');
+  const voiceOn = match.side_games?.includes('voice:on') ?? false;
   const sideGames = (match.side_games ?? []).filter(g => !g.startsWith('voice'));
 
   return (
