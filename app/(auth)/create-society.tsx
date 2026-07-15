@@ -258,25 +258,25 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
   },
-  back:  { fontSize: 14, fontFamily: FF, color: GOLD },
+  back:  { fontSize: 14, fontFamily: FFB, color: GOLD },
   dots:  { flexDirection: 'row', gap: 6 },
   dot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: '#1c1c1c' },
   dotOn: { backgroundColor: GOLD },
 
   scroll: { padding: 20, paddingBottom: 80 },
 
-  stepLabel: { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5, textTransform: 'uppercase' },
+  stepLabel: { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, textTransform: 'uppercase' },
   stepTitle: { fontSize: 28, fontFamily: FFB, color: '#fff', marginTop: 6, marginBottom: 6 },
-  stepSub:   { fontSize: 14, fontFamily: FF, color: '#555', marginBottom: 24 },
+  stepSub:   { fontSize: 14, fontFamily: FFB, color: '#fff', marginBottom: 24 },
 
   card: {
     backgroundColor: '#111', borderRadius: 12,
     borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 16,
   },
   fieldRow:    { paddingHorizontal: 16, paddingVertical: 14 },
-  fieldLabel:  { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginBottom: 4 },
+  fieldLabel:  { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginBottom: 4 },
   fieldInput:  { fontSize: 16, fontFamily: FFB, color: '#fff' },
-  slugPreview: { fontSize: 12, fontFamily: FF, color: '#555', paddingHorizontal: 16, paddingBottom: 12 },
+  slugPreview: { fontSize: 12, fontFamily: FFB, color: '#fff', paddingHorizontal: 16, paddingBottom: 12 },
 
   colorGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 12,
@@ -300,8 +300,8 @@ const s = StyleSheet.create({
   planOn:    { borderColor: GOLD + '88', backgroundColor: GOLD + '18' },
   planRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   planName:  { fontSize: 16, fontFamily: FFB, color: '#fff' },
-  planPrice: { fontSize: 14, fontFamily: FF, color: '#555' },
-  planSub:   { fontSize: 12, fontFamily: FF, color: '#444' },
+  planPrice: { fontSize: 14, fontFamily: FFB, color: '#fff' },
+  planSub:   { fontSize: 12, fontFamily: FFB, color: '#444' },
   planCheck: {
     position: 'absolute', top: 12, right: 12,
     width: 18, height: 18, borderRadius: 9,
@@ -311,18 +311,18 @@ const s = StyleSheet.create({
   nextBtn:     { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 24 },
   nextBtnText: { fontSize: 16, fontFamily: FFB, color: '#000' },
 
-  creatingText: { fontSize: 16, fontFamily: FF, color: '#555', marginTop: 24 },
+  creatingText: { fontSize: 16, fontFamily: FFB, color: '#fff', marginTop: 24 },
 
   successTitle: { fontSize: 28, fontFamily: FFB, color: '#fff', textAlign: 'center' },
-  successSub:   { fontSize: 14, fontFamily: FF, color: '#555', marginTop: 6, marginBottom: 40 },
+  successSub:   { fontSize: 14, fontFamily: FFB, color: '#fff', marginTop: 6, marginBottom: 40 },
   pinCard: {
     backgroundColor: '#111', borderRadius: 16,
     borderWidth: 1, borderColor: GOLD + '55',
     padding: 32, alignItems: 'center', marginHorizontal: 32,
   },
-  pinLabel:  { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5 },
+  pinLabel:  { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
   pinNumber: { fontSize: 48, fontFamily: FFB, color: GOLD, letterSpacing: 8, marginVertical: 16 },
-  pinHint:   { fontSize: 12, fontFamily: FF, color: '#555', textAlign: 'center' },
+  pinHint:   { fontSize: 12, fontFamily: FFB, color: '#fff', textAlign: 'center' },
   enterBtn: {
     backgroundColor: GOLD, borderRadius: 12,
     paddingVertical: 16, paddingHorizontal: 48, marginTop: 32,

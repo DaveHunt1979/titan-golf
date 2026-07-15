@@ -25,6 +25,7 @@ interface Match {
   away_player_ids: string[];
   team_size: number | null;
   counting_scores: number | null;
+  side_games: string[] | null;
   hcp_allowance: number | null;
   status: string;
   day: { course_name: string; course_par: number } | null;
@@ -146,7 +147,11 @@ export default function TeamStablefordScreen() {
   }
 
   function computeTeamHole(playerIds: string[], holeNum: number): TeamHoleResult {
-    const countN = match?.counting_scores ?? 2;
+    const isPar3 = courseHoles.find(h => h.hole_number === holeNum)?.par === 3;
+    const effectiveN = (match?.side_games?.includes('par3all') && isPar3)
+      ? (match?.team_size ?? 2)
+      : (match?.counting_scores ?? 2);
+    const countN = effectiveN;
     const data = playerIds.map(id => ({
       playerId: id,
       pts: getPts(id, holeNum) ?? 0,
@@ -239,8 +244,10 @@ export default function TeamStablefordScreen() {
 
   const totalHoles = courseHoles.length || 18;
   const hole       = courseHoles.find(h => h.hole_number === currentHole) ?? null;
-  const countN     = match.counting_scores ?? 2;
+  const par3all    = match.side_games?.includes('par3all') ?? false;
+  const baseCountN = match.counting_scores ?? 2;
   const teamSize   = match.team_size ?? 2;
+  const countN     = par3all && hole?.par === 3 ? teamSize : baseCountN;
 
   const homeTotal  = runningTotal(match.home_player_ids);
   const awayTotal  = runningTotal(match.away_player_ids);
@@ -283,7 +290,7 @@ export default function TeamStablefordScreen() {
           {back9.length > 0 && (
             <>
               <View style={[s.scHeaderRow, { marginTop: 10 }]}>
-                <Text style={[s.scHdr, { flex: 2, color: '#555' }]}>BACK</Text>
+                <Text style={[s.scHdr, { flex: 2, color: '#fff' }]}>BACK</Text>
                 {back9.map(h => <Text key={h} style={s.scHdr}>{h}</Text>)}
                 <Text style={[s.scHdr, { color }]}>IN</Text>
               </View>
@@ -368,14 +375,14 @@ export default function TeamStablefordScreen() {
       <View style={s.totalsBar}>
         <View style={[s.totalBlock, homeTotal > awayTotal && s.totalBlockWin]}>
           <Text style={s.totalTeamLbl}>TEAM A</Text>
-          <Text style={[s.totalPts, homeTotal >= awayTotal ? { color: GOLD } : { color: '#555' }]}>{homeTotal}</Text>
+          <Text style={[s.totalPts, homeTotal >= awayTotal ? { color: GOLD } : { color: '#fff' }]}>{homeTotal}</Text>
         </View>
         <View style={s.totalMid}>
           <Text style={s.totalVs}>VS</Text>
         </View>
         <View style={[s.totalBlock, { alignItems: 'flex-end' }, awayTotal > homeTotal && s.totalBlockWinB]}>
           <Text style={[s.totalTeamLbl, { color: BLUE }]}>TEAM B</Text>
-          <Text style={[s.totalPts, awayTotal >= homeTotal ? { color: BLUE } : { color: '#555' }]}>{awayTotal}</Text>
+          <Text style={[s.totalPts, awayTotal >= homeTotal ? { color: BLUE } : { color: '#fff' }]}>{awayTotal}</Text>
         </View>
       </View>
 
@@ -611,21 +618,21 @@ const s = StyleSheet.create({
   headerSide:   { width: 40, alignItems: 'center' },
   headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
   headerLogo:   { width: 28, height: 28 },
-  headerSub:    { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2.5 },
+  headerSub:    { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2.5 },
 
   totalsBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 4, backgroundColor: '#111', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden' },
   totalBlock: { flex: 1, padding: 12 },
   totalBlockWin:  { borderRightWidth: 2, borderRightColor: `${GOLD}30` },
   totalBlockWinB: { borderLeftWidth: 2, borderLeftColor: `${BLUE}30` },
-  totalTeamLbl: { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2 },
-  totalPts:     { fontFamily: FFB, fontSize: 26, color: '#555', marginTop: 2 },
+  totalTeamLbl: { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2 },
+  totalPts:     { fontFamily: FFB, fontSize: 26, color: '#fff', marginTop: 2 },
   totalMid:     { paddingHorizontal: 12 },
-  totalVs:      { fontFamily: FF, fontSize: 11, color: '#333', letterSpacing: 2 },
+  totalVs:      { fontFamily: FFB, fontSize: 11, color: '#333', letterSpacing: 2 },
 
   holeStrip: { paddingHorizontal: 8, gap: 4, paddingVertical: 8 },
   holeTile: { width: 42, height: 42, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   holeTileNum: { fontFamily: FFB, fontSize: 14 },
-  holeTilePar: { fontFamily: FF, fontSize: 9, marginTop: 1 },
+  holeTilePar: { fontFamily: FFB, fontSize: 9, marginTop: 1 },
 
   scroll: { paddingHorizontal: 16, paddingBottom: 120, gap: 12 },
 
@@ -633,20 +640,20 @@ const s = StyleSheet.create({
   holeNum:  { fontFamily: FFB, fontSize: 48, color: '#fff', lineHeight: 52, width: 60 },
   holeDetails: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, backgroundColor: '#1c1c1c', borderWidth: 1, borderColor: '#2a2a2a' },
-  chipText: { fontFamily: FF, fontSize: 12, color: '#aaa' },
+  chipText: { fontFamily: FFB, fontSize: 12, color: '#fff' },
 
   holeResult: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 },
   holeResultBlock: { flex: 1, backgroundColor: '#111', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c', padding: 14, alignItems: 'center' },
-  holeResultLbl:   { fontFamily: FF, fontSize: 10, color: '#555', letterSpacing: 1.5 },
+  holeResultLbl:   { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 1.5 },
   holeResultPts:   { fontFamily: FFB, fontSize: 28, marginTop: 4 },
-  holeResultVs:    { fontFamily: FF, fontSize: 12, color: '#444' },
+  holeResultVs:    { fontFamily: FFB, fontSize: 12, color: '#444' },
 
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 36, backgroundColor: '#000', borderTopWidth: 1, borderTopColor: '#111', flexDirection: 'row', gap: 10 },
   prevBtn:     { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#222' },
   prevBtnOff:  { opacity: 0.3 },
-  prevBtnText: { fontFamily: FF, fontSize: 15, color: '#fff' },
+  prevBtnText: { fontFamily: FFB, fontSize: 15, color: '#fff' },
   nextBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14 },
-  nextBtnText: { fontFamily: FF, fontSize: 15, color: '#000' },
+  nextBtnText: { fontFamily: FFB, fontSize: 15, color: '#000' },
   completeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14 },
   completeBtnText: { fontFamily: FFB, fontSize: 15, color: '#000' },
 
@@ -655,17 +662,17 @@ const s = StyleSheet.create({
   winnerText:   { fontFamily: FFB, fontSize: 28, letterSpacing: 1 },
   winnerScoreRow: { flexDirection: 'row', alignItems: 'center' },
   winnerScore:  { fontFamily: FFB, fontSize: 42 },
-  winnerDash:   { fontFamily: FF, fontSize: 24, color: '#444' },
-  winnerSub:    { fontFamily: FF, fontSize: 12, color: '#555', letterSpacing: 1 },
+  winnerDash:   { fontFamily: FFB, fontSize: 24, color: '#444' },
+  winnerSub:    { fontFamily: FFB, fontSize: 12, color: '#fff', letterSpacing: 1 },
 
-  teamLabel: { fontFamily: FF, fontSize: 10, color: GOLD, letterSpacing: 2, marginTop: 4 },
+  teamLabel: { fontFamily: FFB, fontSize: 10, color: GOLD, letterSpacing: 2, marginTop: 4 },
   cardDark: { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 14 },
 
   scHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   scRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-  scHdr:  { fontFamily: FF, fontSize: 9, color: '#444', letterSpacing: 1, width: 22, textAlign: 'center' },
-  scName: { fontFamily: FF, fontSize: 12, color: '#888' },
-  scCell: { fontFamily: FFB, fontSize: 12, color: '#aaa', width: 22, textAlign: 'center' },
+  scHdr:  { fontFamily: FFB, fontSize: 9, color: '#444', letterSpacing: 1, width: 22, textAlign: 'center' },
+  scName: { fontFamily: FFB, fontSize: 12, color: '#fff' },
+  scCell: { fontFamily: FFB, fontSize: 12, color: '#fff', width: 22, textAlign: 'center' },
 
   doneBtn:     { backgroundColor: GOLD, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   doneBtnText: { fontFamily: FFB, fontSize: 16, color: '#000' },
@@ -681,12 +688,12 @@ const ts = StyleSheet.create({
   playerBlock: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
   playerRow:   { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   playerName:  { fontFamily: FFB, fontSize: 14, color: '#fff' },
-  playerHcp:   { fontFamily: FF, fontSize: 11, color: '#555', marginTop: 1 },
+  playerHcp:   { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 1 },
 
   badge:       { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
   badgeCounts: { backgroundColor: 'transparent' },
   badgeDropped:{ backgroundColor: 'transparent', borderColor: '#2a2a2a' },
-  badgeText:   { fontFamily: FF, fontSize: 11, letterSpacing: 0.5 },
+  badgeText:   { fontFamily: FFB, fontSize: 11, letterSpacing: 0.5 },
 
   scoreRow:    { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
   scoreBtn:    { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#222' },

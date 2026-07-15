@@ -576,8 +576,8 @@ const s = StyleSheet.create({
   gameCard:         { marginHorizontal: 16, backgroundColor: '#111', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#1c1c1c', marginBottom: 16 },
   gameCardTop:      { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
   gameName:         { fontSize: 20, fontFamily: FFB, color: '#fff', marginBottom: 4 },
-  gameSub:          { fontSize: 13, fontFamily: FF, color: '#888', marginBottom: 2 },
-  gameCourse:       { fontSize: 13, fontFamily: FFB, color: '#aaa', marginBottom: 2 },
+  gameSub:          { fontSize: 13, fontFamily: FFB, color: '#fff', marginBottom: 2 },
+  gameCourse:       { fontSize: 13, fontFamily: FFB, color: '#fff', marginBottom: 2 },
   gameFormat:       { fontSize: 12, fontFamily: FFB, color: GOLD, marginTop: 2 },
 
   // Status badge
@@ -587,12 +587,12 @@ const s = StyleSheet.create({
   // Stats row
   statsRow:         { flexDirection: 'row', alignItems: 'center' },
   statDivider:      { width: 1, height: 28, backgroundColor: '#1c1c1c' },
-  statLabel:        { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1, marginBottom: 2, textAlign: 'center' },
+  statLabel:        { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1, marginBottom: 2, textAlign: 'center' },
   statValue:        { fontSize: 15, fontFamily: FFB, color: '#fff', textAlign: 'center' },
 
   // Section
   section:          { marginHorizontal: 16, marginBottom: 20 },
-  sectionLabel:     { fontSize: 11, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginBottom: 10 },
+  sectionLabel:     { fontSize: 11, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginBottom: 10 },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
 
   // Pot pill
@@ -604,17 +604,17 @@ const s = StyleSheet.create({
   prizePill:        { backgroundColor: 'rgba(212,175,55,0.10)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(212,175,55,0.25)', flexDirection: 'row', alignItems: 'center', gap: 6 },
   prizePillPos:     { fontSize: 12, fontFamily: FFB, color: GOLD },
   prizePillAmt:     { fontSize: 14, fontFamily: FFB, color: GOLD },
-  prizePillName:    { fontSize: 12, fontFamily: FF, color: '#aaa', maxWidth: 72 },
+  prizePillName:    { fontSize: 12, fontFamily: FFB, color: '#fff', maxWidth: 72 },
 
   // Card (twos/ntp/ld)
   card:             { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', paddingHorizontal: 14, paddingVertical: 4 },
   cardRow:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
-  cardRowLabel:     { width: 36, fontSize: 12, fontFamily: FFB, color: '#555' },
+  cardRowLabel:     { width: 36, fontSize: 12, fontFamily: FFB, color: '#fff' },
   cardRowName:      { flex: 1, fontSize: 15, fontFamily: FFB, color: '#fff' },
   cardRowAmt:       { fontSize: 15, fontFamily: FFB, color: GOLD },
-  cardSub:          { fontSize: 11, fontFamily: FF, color: '#555', paddingVertical: 8 },
+  cardSub:          { fontSize: 11, fontFamily: FFB, color: '#fff', paddingVertical: 8 },
 
-  noEntries:        { fontSize: 13, fontFamily: FF, color: '#444', paddingVertical: 10 },
+  noEntries:        { fontSize: 13, fontFamily: FFB, color: '#444', paddingVertical: 10 },
 
   // Set winner button
   setWinnerBtn:     { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)' },
@@ -628,7 +628,7 @@ const s = StyleSheet.create({
   lbRowMe:          { backgroundColor: 'rgba(212,175,55,0.07)', borderRadius: 10 },
   lbRank:           { width: 22, fontSize: 15, fontFamily: FFB, color: GOLD, textAlign: 'center' },
   lbName:           { fontSize: 15, fontFamily: FFB, color: '#fff' },
-  lbHoles:          { fontSize: 11, fontFamily: FF, color: '#555' },
+  lbHoles:          { fontSize: 11, fontFamily: FFB, color: '#fff' },
   lbPts:            { fontSize: 16, fontFamily: FFB, color: GOLD, minWidth: 54, textAlign: 'right' },
   lbPrize:          { fontSize: 13, fontFamily: FFB, color: GOLD, minWidth: 40, textAlign: 'right' },
 
@@ -646,7 +646,7 @@ const s = StyleSheet.create({
 
   // Complete button
   completeBtn:      { marginHorizontal: 16, backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginBottom: 10 },
-  completeBtnText:  { color: '#555', fontSize: 14, fontFamily: FFB },
+  completeBtnText:  { color: '#fff', fontSize: 14, fontFamily: FFB },
 
   // Share results
   shareResultsBtn:  { marginHorizontal: 16, backgroundColor: '#25D366', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
@@ -657,7 +657,7 @@ const s = StyleSheet.create({
   pickerSheet:      { backgroundColor: '#111', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40, maxHeight: '60%', borderTopWidth: 1, borderColor: '#1c1c1c' },
   pickerHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
   pickerTitle:      { fontSize: 17, fontFamily: FFB, color: '#fff' },
-  pickerClose:      { fontSize: 17, fontFamily: FF, color: '#555', paddingHorizontal: 8 },
+  pickerClose:      { fontSize: 17, fontFamily: FFB, color: '#fff', paddingHorizontal: 8 },
   pickerItem:       { paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
   pickerItemActive: { backgroundColor: 'rgba(212,175,55,0.08)' },
   pickerItemText:   { fontSize: 16, fontFamily: FFB, color: '#fff' },

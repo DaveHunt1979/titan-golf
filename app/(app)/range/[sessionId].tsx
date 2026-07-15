@@ -27,7 +27,7 @@ const SHAPES = [
 ];
 const QUALITY = [
   { key: 'poor',  label: 'POOR',  color: RED },
-  { key: 'ok',    label: 'OK',    color: '#aaa' },
+  { key: 'ok',    label: 'OK',    color: '#fff' },
   { key: 'flush', label: 'FLUSH', color: GOLD },
 ];
 
@@ -269,7 +269,7 @@ export default function RangeSessionScreen() {
                         s.shotTag,
                         shot.quality === 'flush' && { color: GOLD },
                         shot.quality === 'poor'  && { color: RED },
-                        shot.quality === 'ok'    && { color: '#555' },
+                        shot.quality === 'ok'    && { color: '#fff' },
                       ]}>
                         {QUALITY.find(q => q.key === shot.quality)?.label}
                       </Text>
@@ -339,7 +339,7 @@ const s = StyleSheet.create({
   headerLeft:   { minWidth: 44, alignItems: 'flex-start' },
   headerCentre: { alignItems: 'center' },
   headerLogo:   { width: 28, height: 28 },
-  headerSub:    { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2.5, marginTop: 3 },
+  headerSub:    { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2.5, marginTop: 3 },
   headerRight:  { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 80, justifyContent: 'flex-end' },
   iconBtn:      { padding: 4 },
   endBtn: {
@@ -350,7 +350,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1c1c1c',
   },
-  endBtnText: { fontFamily: FF, fontSize: 12, color: '#555' },
+  endBtnText: { fontFamily: FFB, fontSize: 12, color: '#fff' },
 
   // Club strip
   clubScroll: {},
@@ -364,7 +364,7 @@ const s = StyleSheet.create({
     borderColor: '#222',
   },
   clubChipOn:      { backgroundColor: GOLD, borderColor: GOLD },
-  clubChipText:    { fontFamily: FF, fontSize: 13, color: '#555' },
+  clubChipText:    { fontFamily: FFB, fontSize: 13, color: '#fff' },
   clubChipTextOn:  { fontFamily: FFB, color: '#000' },
 
   // Stats banner
@@ -380,7 +380,7 @@ const s = StyleSheet.create({
   },
   statItem:    { alignItems: 'center', paddingHorizontal: 28 },
   statVal:     { fontFamily: FFB, fontSize: 22, color: GOLD },
-  statLbl:     { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 2, marginTop: 2 },
+  statLbl:     { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 2, marginTop: 2 },
   statDivider: { width: 1, height: 28, backgroundColor: '#222' },
 
   // Scroll body
@@ -395,7 +395,7 @@ const s = StyleSheet.create({
     padding: 16,
     marginBottom: 10,
   },
-  inputLabel: { fontFamily: FF, fontSize: 10, color: '#555', letterSpacing: 2, marginBottom: 10 },
+  inputLabel: { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 2, marginBottom: 10 },
   carryInput: {
     fontFamily: FFB,
     fontSize: 48,
@@ -418,7 +418,7 @@ const s = StyleSheet.create({
   shapeBtnOn:  { backgroundColor: `${GOLD}15`, borderColor: `${GOLD}40` },
   shapeIcon:   { fontFamily: FFB, fontSize: 16, color: '#444' },
   shapeIconOn: { color: GOLD },
-  shapeTip:    { fontFamily: FF, fontSize: 10, color: '#444', marginTop: 3 },
+  shapeTip:    { fontFamily: FFB, fontSize: 10, color: '#444', marginTop: 3 },
   shapeTipOn:  { color: GOLD },
 
   // Quality picker
@@ -441,7 +441,7 @@ const s = StyleSheet.create({
   logBtnText: { fontFamily: FFB, fontSize: 16, color: '#000' },
 
   // History
-  historyLabel: { fontFamily: FF, fontSize: 10, color: '#555', letterSpacing: 2, marginBottom: 10, marginTop: 6 },
+  historyLabel: { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 2, marginBottom: 10, marginTop: 6 },
 
   shotRow: {
     flexDirection: 'row',
@@ -467,9 +467,9 @@ const s = StyleSheet.create({
   shotCarry:    { fontFamily: FFB, fontSize: 15, color: '#fff' },
   shotMeta:     { flexDirection: 'row', gap: 6, marginTop: 3 },
   shotTag: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 11,
-    color: '#555',
+    color: '#fff',
     backgroundColor: '#1c1c1c',
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -479,7 +479,7 @@ const s = StyleSheet.create({
 
   // Empty
   emptyHint:     { alignItems: 'center', paddingVertical: 40 },
-  emptyHintText: { fontFamily: FF, fontSize: 14, color: '#444', textAlign: 'center' },
+  emptyHintText: { fontFamily: FFB, fontSize: 14, color: '#444', textAlign: 'center' },
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
@@ -493,7 +493,7 @@ const s = StyleSheet.create({
     borderTopColor: '#1c1c1c',
   },
   modalTitle:  { fontFamily: FFB, fontSize: 12, color: '#fff', letterSpacing: 2, textAlign: 'center', marginBottom: 6 },
-  modalSub:    { fontFamily: FF, fontSize: 12, color: '#555', textAlign: 'center', marginBottom: 20 },
+  modalSub:    { fontFamily: FFB, fontSize: 12, color: '#fff', textAlign: 'center', marginBottom: 20 },
   targetsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 20 },
   targetBtn: {
     width: 68,
@@ -507,7 +507,7 @@ const s = StyleSheet.create({
   targetBtnOn:    { backgroundColor: GOLD, borderColor: GOLD },
   targetYds:      { fontFamily: FFB, fontSize: 18, color: '#fff' },
   targetYdsOn:    { color: '#000' },
-  targetLbl:      { fontFamily: FF, fontSize: 10, color: '#555', marginTop: 1 },
+  targetLbl:      { fontFamily: FFB, fontSize: 10, color: '#fff', marginTop: 1 },
   modalCancel:    { alignItems: 'center', paddingVertical: 14 },
-  modalCancelText: { fontFamily: FF, fontSize: 14, color: GOLD },
+  modalCancelText: { fontFamily: FFB, fontSize: 14, color: GOLD },
 });

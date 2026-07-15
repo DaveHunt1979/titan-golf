@@ -171,7 +171,7 @@ export default function SocietyAdminScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
         <StatusBar style="light" />
-        <Text style={{ color: '#555', fontFamily: FF, fontSize: 14, textAlign: 'center', paddingHorizontal: 32 }}>
+        <Text style={{ color: '#fff', fontFamily: FFB, fontSize: 14, textAlign: 'center', paddingHorizontal: 32 }}>
           No society found.{'\n'}Create one from the landing screen or contact your admin.
         </Text>
       </View>
@@ -297,6 +297,17 @@ export default function SocietyAdminScreen() {
             <View style={{ flex: 1 }}>
               <Text style={s.linkTitle}>Manage Players</Text>
               <Text style={s.linkSub}>View roster, add players manually</Text>
+            </View>
+            <Text style={s.arrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={s.linkCard}
+            onPress={() => router.push('/(app)/admin/groups' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={s.linkTitle}>Player Groups</Text>
+              <Text style={s.linkSub}>Named groups for quick game setup</Text>
             </View>
             <Text style={s.arrow}>›</Text>
           </TouchableOpacity>
@@ -477,34 +488,6 @@ export default function SocietyAdminScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* DESIGN */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>DESIGN</Text>
-          {[
-            { route: '/(app)/admin/concept',             label: '✦ Concept Preview',         sub: 'New premium home screen redesign — safe sandbox' },
-            { route: '/(app)/admin/concept-locker',      label: '✦ Locker Room Preview',     sub: 'Premium Locker Room / profile concept — safe sandbox' },
-            { route: '/(app)/admin/concept-casual',      label: '✦ Casual Round Preview',    sub: 'Single-screen game setup concept — safe sandbox' },
-            { route: '/(app)/admin/concept-score',       label: '✦ Score Entry Preview',     sub: 'Premium live scoring with scrollable hole strip — safe sandbox' },
-            { route: '/(app)/admin/concept-practice',    label: '✦ Driving Range Preview',   sub: 'Premium practice screen with bag distances — safe sandbox' },
-            { route: '/(app)/admin/concept-rangefinder', label: '✦ Rangefinder Preview',     sub: 'Premium FCB overlay — Apple Maps sits behind in live app' },
-            { route: '/(app)/admin/concept-swindle',     label: '✦ Swindle Lobby Preview',   sub: 'Premium game list with pot hero, I\'m In CTA — safe sandbox' },
-            { route: '/(app)/admin/concept-swindle-game',label: '✦ Swindle Game Preview',    sub: 'Podium prizes, leaderboard, side pots — safe sandbox' },
-          ].map((item, idx) => (
-            <TouchableOpacity
-              key={item.route}
-              style={[s.linkCard, { borderColor: GOLD + '55', backgroundColor: GOLD + '0F' }, idx > 0 && { marginTop: 8 }]}
-              onPress={() => router.push(item.route as any)}
-              activeOpacity={0.7}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={[s.linkTitle, { color: GOLD }]}>{item.label}</Text>
-                <Text style={s.linkSub}>{item.sub}</Text>
-              </View>
-              <Text style={[s.arrow, { color: GOLD }]}>›</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
         {/* Save Button */}
         <TouchableOpacity
           style={[s.saveButton, saving && { opacity: 0.5 }]}
@@ -586,7 +569,7 @@ const s = StyleSheet.create({
   section: { marginBottom: 28 },
 
   sectionLabel: {
-    fontFamily: FFB, fontSize: 10, color: '#555',
+    fontFamily: FFB, fontSize: 10, color: '#fff',
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10,
   },
 
@@ -595,7 +578,7 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: '#1c1c1c', padding: 16,
   },
   cardLabel: {
-    fontFamily: FFB, fontSize: 10, color: '#555', letterSpacing: 1, marginBottom: 4,
+    fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 1, marginBottom: 4,
     textTransform: 'uppercase',
   },
   cardValue: { fontFamily: FFB, fontSize: 16, color: '#fff' },
@@ -604,9 +587,9 @@ const s = StyleSheet.create({
     backgroundColor: '#111', borderRadius: 12,
     borderWidth: 1, borderColor: '#1c1c1c',
     paddingHorizontal: 16, paddingVertical: 12,
-    fontFamily: FF, fontSize: 15, color: '#fff', marginTop: 10,
+    fontFamily: FFB, fontSize: 15, color: '#fff', marginTop: 10,
   },
-  hint: { fontFamily: FF, fontSize: 12, color: '#555', marginTop: 6 },
+  hint: { fontFamily: FFB, fontSize: 12, color: '#fff', marginTop: 6 },
 
   linkCard: {
     backgroundColor: '#111', borderRadius: 14,
@@ -614,8 +597,8 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   linkTitle: { fontFamily: FFB, fontSize: 15, color: '#fff', marginBottom: 2 },
-  linkSub:   { fontFamily: FF, fontSize: 12, color: '#555' },
-  arrow:     { fontSize: 22, color: '#555' },
+  linkSub:   { fontFamily: FFB, fontSize: 12, color: '#fff' },
+  arrow:     { fontSize: 22, color: '#fff' },
 
   saveButton: {
     backgroundColor: GOLD, borderRadius: 12,
@@ -637,5 +620,5 @@ const s = StyleSheet.create({
     padding: 16, alignItems: 'center',
   },
   deleteTitle: { fontFamily: FFB, fontSize: 16, color: RED },
-  deleteSub:   { fontFamily: FF, fontSize: 12, color: RED, opacity: 0.7, marginTop: 4 },
+  deleteSub:   { fontFamily: FFB, fontSize: 12, color: RED, opacity: 0.7, marginTop: 4 },
 });

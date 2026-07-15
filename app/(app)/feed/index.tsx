@@ -57,15 +57,15 @@ export default function FeedScreen() {
     tabs:        { flexDirection: 'row', gap: 4, marginTop: 4 },
     tab:         { paddingHorizontal: 8, paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: 'transparent' },
     tabOn:       { borderBottomColor: colors.gold },
-    tabText:     { fontSize: 10, fontFamily: 'JUSTSans', color: colors.textMuted, letterSpacing: 0.3 },
+    tabText:     { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: colors.textMuted, letterSpacing: 0.3 },
     tabTextOn:   { color: colors.gold },
     scroll:      { padding: 16, paddingBottom: 48 },
     heroBanner:  { backgroundColor: colors.card, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.goldBorder },
     heroLabel:   { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: colors.gold, letterSpacing: 2, marginBottom: 4 },
     heroName:    { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: colors.white },
     empty:       { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24 },
-    emptyTitle:  { fontSize: 18, fontFamily: 'JUSTSans', color: colors.textSecondary, marginBottom: 4 },
-    emptySub:    { fontSize: 12, fontFamily: 'JUSTSans', color: colors.textMuted, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+    emptyTitle:  { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: colors.textSecondary, marginBottom: 4 },
+    emptySub:    { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: colors.textMuted, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
     emptyBtn:    { backgroundColor: colors.goldDim, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 8, borderWidth: 1, borderColor: colors.goldBorder },
     emptyBtnText:{ fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: colors.gold },
   }), [colors]);
@@ -274,9 +274,9 @@ const portal = StyleSheet.create({
   tileLocked: { opacity: 0.6 },
   tileIcon:   { fontSize: 28, width: 36, textAlign: 'center' },
   tileLabel:  { fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 2 },
-  tileLabelLocked: { color: '#6b7280' },
-  tileSub:    { fontSize: 10, fontFamily: 'JUSTSans', color: '#6b7280' },
-  arrow:      { fontSize: 24, fontFamily: 'JUSTSans' },
+  tileLabelLocked: { color: '#fff' },
+  tileSub:    { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
+  arrow:      { fontSize: 24, fontFamily: 'JUSTSans-ExBold',},
   lock:       { fontSize: 16 },
   divider:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 16 },
   dividerLine:{ flex: 1, height: 1, backgroundColor: '#2c2c2e' },
@@ -386,7 +386,7 @@ function LocationCard({ s }: { s: LocationSection }) {
     <CardShell title={s.title}>
       <Text style={loc.name}>{s.name}</Text>
       {s.address ? <Text style={loc.detail}>{s.address}</Text> : null}
-      {s.phone ? <Text style={loc.detail}><Text style={{ color: '#6b7280' }}>T  </Text>{s.phone}</Text> : null}
+      {s.phone ? <Text style={loc.detail}><Text style={{ color: '#fff' }}>T  </Text>{s.phone}</Text> : null}
       {s.notes ? <Text style={[loc.detail, { marginTop: 4, fontStyle: 'italic' }]}>{s.notes}</Text> : null}
     </CardShell>
   );
@@ -445,20 +445,20 @@ function FeedCard({ n }: { n: Notification }) {
 
 // ── Static styles ─────────────────────────────────────────────
 const ig = StyleSheet.create({
-  emptyTitle: { fontSize: 18, fontFamily: 'JUSTSans', color: '#9ca3af', marginBottom: 4, textAlign: 'center' },
-  emptySub:   { fontSize: 12, fontFamily: 'JUSTSans', color: '#6b7280', textAlign: 'center', lineHeight: 20, marginBottom: 24, paddingHorizontal: 24 },
+  emptyTitle: { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: '#fff', marginBottom: 4, textAlign: 'center' },
+  emptySub:   { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff', textAlign: 'center', lineHeight: 20, marginBottom: 24, paddingHorizontal: 24 },
   iconWrap:   { width: 96, height: 96, borderRadius: 28, backgroundColor: '#833AB4', alignItems: 'center', justifyContent: 'center' },
   iconText:   { fontSize: 44 },
   handle:     { fontSize: 22, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 4 },
-  sub:        { fontSize: 12, fontFamily: 'JUSTSans', color: '#6b7280' },
+  sub:        { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
   openBtn:    { backgroundColor: '#833AB4', borderRadius: 12, paddingVertical: 16, paddingHorizontal: 48 },
   openBtnText:{ fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', letterSpacing: 0.5 },
-  webLink:    { fontSize: 12, fontFamily: 'JUSTSans', color: '#6b7280', textDecorationLine: 'underline' },
+  webLink:    { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff', textDecorationLine: 'underline' },
 });
 const card = StyleSheet.create({
   shell:  { backgroundColor: '#1c1c1e', borderRadius: 12, borderWidth: 1, borderColor: '#2c2c2e', padding: 16, marginBottom: 16 },
-  title:  { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#6b7280', letterSpacing: 2, marginBottom: 16, textTransform: 'uppercase' },
-  body:   { fontSize: 12, fontFamily: 'JUSTSans', color: '#9ca3af', lineHeight: 22 },
+  title:  { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#fff', letterSpacing: 2, marginBottom: 16, textTransform: 'uppercase' },
+  body:   { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 22 },
 });
 const sched = StyleSheet.create({
   row:     { flexDirection: 'row', marginBottom: 0 },
@@ -466,18 +466,18 @@ const sched = StyleSheet.create({
   time:    { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#d4af37', lineHeight: 22 },
   line:    { width: 1, flex: 1, backgroundColor: 'rgba(212,175,55,0.2)', alignSelf: 'center', marginTop: 2, marginBottom: 2, minHeight: 20 },
   content: { flex: 1, paddingBottom: 16 },
-  label:   { fontSize: 12, fontFamily: 'JUSTSans', color: '#ffffff', lineHeight: 22 },
-  note:    { fontSize: 10, fontFamily: 'JUSTSans', color: '#6b7280', marginTop: 1 },
+  label:   { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', lineHeight: 22 },
+  note:    { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#fff', marginTop: 1 },
 });
 const travel = StyleSheet.create({
   row:    { flexDirection: 'row', alignItems: 'flex-start', gap: 16, marginBottom: 16 },
   dot:    { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d4af37', marginTop: 6 },
   label:  { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 2 },
-  detail: { fontSize: 12, fontFamily: 'JUSTSans', color: '#9ca3af' },
+  detail: { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
 });
 const loc = StyleSheet.create({
   name:   { fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 4 },
-  detail: { fontSize: 12, fontFamily: 'JUSTSans', color: '#9ca3af', lineHeight: 20 },
+  detail: { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 20 },
 });
 const contact = StyleSheet.create({
   row:       { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
@@ -485,20 +485,20 @@ const contact = StyleSheet.create({
   avatar:    { width: 36, height: 36, borderRadius: 18, backgroundColor: '#2c2c2e', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2c2c2e' },
   initial:   { fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: '#d4af37' },
   name:      { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#ffffff' },
-  role:      { fontSize: 10, fontFamily: 'JUSTSans', color: '#6b7280' },
-  phone:     { fontSize: 10, fontFamily: 'JUSTSans', color: '#9ca3af' },
+  role:      { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
+  phone:     { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
 });
 const rules = StyleSheet.create({
   row:      { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
   numBadge: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(212,175,55,0.1)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.2)', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   num:      { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#d4af37' },
-  text:     { flex: 1, fontSize: 12, fontFamily: 'JUSTSans', color: '#9ca3af', lineHeight: 22 },
+  text:     { flex: 1, fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 22 },
 });
 const feedCard = StyleSheet.create({
   container: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, backgroundColor: '#1c1c1e', borderRadius: 12, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: '#2c2c2e' },
   dot:       { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d4af37', marginTop: 5 },
   top:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   label:     { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#ffffff' },
-  time:      { fontSize: 10, fontFamily: 'JUSTSans', color: '#6b7280' },
-  body:      { fontSize: 12, fontFamily: 'JUSTSans', color: '#9ca3af' },
+  time:      { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
+  body:      { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
 });

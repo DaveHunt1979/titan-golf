@@ -151,7 +151,7 @@ export default function SpectateScreen() {
   if (!match) return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
-      <Text style={{ color: '#555', fontFamily: FF }}>Match not found.</Text>
+      <Text style={{ color: '#fff', fontFamily: FFB }}>Match not found.</Text>
     </View>
   );
 
@@ -238,7 +238,7 @@ export default function SpectateScreen() {
                 s.statusText,
                 status === 'in_progress' && { color: GREEN },
                 status === 'complete'    && { color: GOLD },
-                status === 'upcoming'   && { color: '#555' },
+                status === 'upcoming'   && { color: '#fff' },
               ]}>{label}</Text>
               {status === 'in_progress' && (
                 <Text style={s.thruText}>
@@ -368,7 +368,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
-      <Text style={{ fontSize: 11, fontFamily: FF, color: '#555' }} numberOfLines={1}>{label}</Text>
+      <Text style={{ fontSize: 11, fontFamily: FFB, color: '#fff' }} numberOfLines={1}>{label}</Text>
     </View>
   );
 }
@@ -386,7 +386,7 @@ const s = StyleSheet.create({
   back:       { fontSize: 14, fontFamily: FFB, color: GOLD },
   headerCenter: { alignItems: 'center' },
   headerLogo:   { width: 28, height: 28 },
-  headerSub:    { fontSize: 9, fontFamily: FF, color: '#555', marginTop: 2, letterSpacing: 1.5 },
+  headerSub:    { fontSize: 9, fontFamily: FFB, color: '#fff', marginTop: 2, letterSpacing: 1.5 },
   headerRight:  { flex: 1 },
 
   scroll: { padding: 16, paddingBottom: 48 },
@@ -398,7 +398,7 @@ const s = StyleSheet.create({
     padding: 20, marginBottom: 12,
   },
   pillRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  matchNum: { fontSize: 11, fontFamily: FFB, color: '#555', letterSpacing: 1.5 },
+  matchNum: { fontSize: 11, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
 
   livePill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -420,13 +420,13 @@ const s = StyleSheet.create({
   heroSide:      { flex: 1, alignItems: 'flex-start' },
   heroSideRight: { alignItems: 'flex-end' },
   avatarRing:    { borderRadius: 36, borderWidth: 2, padding: 2, marginBottom: 8 },
-  sideName:      { fontSize: 15, fontFamily: FFB, color: '#888', lineHeight: 20 },
+  sideName:      { fontSize: 15, fontFamily: FFB, color: '#fff', lineHeight: 20 },
   sideNameRight: { textAlign: 'right' },
-  sidePlayers:   { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 2 },
+  sidePlayers:   { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 2 },
 
   heroCenter: { alignItems: 'center', paddingHorizontal: 8, paddingTop: 8, minWidth: 72 },
   statusText: { fontSize: 22, fontFamily: FFB, textAlign: 'center', letterSpacing: 0.5 },
-  thruText:   { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginTop: 4 },
+  thruText:   { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginTop: 4 },
 
   leaderBanner: {
     marginTop: 12, borderRadius: 8,
@@ -434,7 +434,7 @@ const s = StyleSheet.create({
     paddingVertical: 8, alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.02)',
   },
-  leaderText: { fontSize: 13, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  leaderText: { fontSize: 13, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
 
   /* Now playing */
   nowCard: {
@@ -452,14 +452,14 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: '#1c1c1c',
     padding: 14, marginBottom: 12,
   },
-  gridTitle:   { fontSize: 11, fontFamily: FFB, color: '#555', letterSpacing: 2, marginBottom: 14 },
+  gridTitle:   { fontSize: 11, fontFamily: FFB, color: '#fff', letterSpacing: 2, marginBottom: 14 },
   gridDivider: { height: 1, backgroundColor: '#1c1c1c', marginVertical: 8 },
   legend:      { flexDirection: 'row', gap: 14, marginTop: 12, flexWrap: 'wrap' },
 });
 
 const g = StyleSheet.create({
   wrap:  { marginBottom: 2 },
-  label: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginBottom: 6 },
+  label: { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginBottom: 6 },
   row:   { flexDirection: 'row', gap: 3 },
   cell: {
     flex: 1, aspectRatio: 0.72,
@@ -467,9 +467,9 @@ const g = StyleSheet.create({
   },
   cellEmpty:   { borderWidth: 1, borderColor: '#1c1c1c' },
   cellCurrent: { borderWidth: 2, borderColor: GOLD },
-  num:         { fontSize: 8,  fontFamily: FFB, color: '#555' },
+  num:         { fontSize: 8,  fontFamily: FFB, color: '#fff' },
   numFilled:   { color: 'rgba(255,255,255,0.7)' },
-  char:        { fontSize: 9,  fontFamily: FFB, color: '#555', marginTop: 1 },
+  char:        { fontSize: 9,  fontFamily: FFB, color: '#fff', marginTop: 1 },
   charFilled:  { color: '#fff' },
 });
 
@@ -480,6 +480,6 @@ const mc = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 4,
     alignItems: 'center', minWidth: 44,
   },
-  label: { fontSize: 8, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  label: { fontSize: 8, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
   value: { fontSize: 15, fontFamily: FFB, color: '#fff' },
 });

@@ -418,9 +418,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   formatSub: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 11,
-    color: '#555',
+    color: '#fff',
     textAlign: 'center',
     marginTop: 3,
     letterSpacing: 0.5,
@@ -439,10 +439,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionLabel: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 10,
     letterSpacing: 2,
-    color: '#555',
+    color: '#fff',
   },
   liveDot: {
     width: 7,
@@ -455,9 +455,9 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyText: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 15,
-    color: '#555',
+    color: '#fff',
   },
 });
 
@@ -477,9 +477,9 @@ const card = StyleSheet.create({
     marginBottom: 10,
   },
   matchNum: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 10,
-    color: '#555',
+    color: '#fff',
     letterSpacing: 1,
   },
   singlesTag: {
@@ -491,7 +491,7 @@ const card = StyleSheet.create({
     paddingVertical: 1,
   },
   singlesTagText: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 9,
     color: GOLD,
     letterSpacing: 1,
@@ -560,7 +560,7 @@ const card = StyleSheet.create({
     color: '#fff',
   },
   name: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 14,
     flexShrink: 1,
   },
@@ -569,7 +569,7 @@ const card = StyleSheet.create({
     color: '#fff',
   },
   nameLost: {
-    color: '#666',
+    color: '#fff',
   },
   badge: {
     paddingHorizontal: 10,

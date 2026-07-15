@@ -314,14 +314,14 @@ const styles = StyleSheet.create({
   headerCenter: { alignItems: 'center', gap: 2 },
   logo: { width: 28, height: 28, marginBottom: 2 },
   headerTitle: { fontSize: 12, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
-  headerSub: { fontSize: 9, fontFamily: FF, color: '#555' },
+  headerSub: { fontSize: 9, fontFamily: FFB, color: '#fff' },
 
   scroll: { padding: 20, paddingBottom: 60 },
   stepTitle: { fontSize: 22, fontFamily: FFB, color: '#fff', marginBottom: 6 },
-  stepSub: { fontSize: 13, fontFamily: FF, color: '#555', lineHeight: 20, marginBottom: 24 },
+  stepSub: { fontSize: 13, fontFamily: FFB, color: '#fff', lineHeight: 20, marginBottom: 24 },
 
   fieldLabel: {
-    fontSize: 11, fontFamily: FFB, color: '#555',
+    fontSize: 11, fontFamily: FFB, color: '#fff',
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6,
   },
   input: {
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
     fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 6,
   },
-  hint: { fontSize: 11, fontFamily: FF, color: '#555', marginBottom: 16 },
+  hint: { fontSize: 11, fontFamily: FFB, color: '#fff', marginBottom: 16 },
 
   btn: {
     backgroundColor: GOLD, borderRadius: 12,
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   },
   swatchOn:   { borderColor: '#fff' },
   swatchTick: { fontSize: 24, color: '#fff', fontFamily: FFB },
-  swatchLabel: { textAlign: 'center', fontSize: 13, fontFamily: FFB, color: '#888', marginBottom: 20, minHeight: 20 },
+  swatchLabel: { textAlign: 'center', fontSize: 13, fontFamily: FFB, color: '#fff', marginBottom: 20, minHeight: 20 },
 
   planCard: {
     backgroundColor: '#111', borderRadius: 12,
@@ -365,10 +365,10 @@ const styles = StyleSheet.create({
   },
   planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   planName:  { fontSize: 17, fontFamily: FFB, color: '#fff' },
-  planPrice: { fontSize: 13, fontFamily: FF, color: '#555' },
+  planPrice: { fontSize: 13, fontFamily: FFB, color: '#fff' },
   planFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  planTick:    { fontSize: 13, fontFamily: FFB, color: '#555', width: 18 },
-  planFeature: { fontSize: 13, fontFamily: FF, color: '#888' },
+  planTick:    { fontSize: 13, fontFamily: FFB, color: '#fff', width: 18 },
+  planFeature: { fontSize: 13, fontFamily: FFB, color: '#fff' },
 
   successScroll: { alignItems: 'center', paddingTop: 80 },
   successBadge: {
@@ -377,14 +377,14 @@ const styles = StyleSheet.create({
   },
   successTitle: { fontSize: 22, fontFamily: FFB, color: '#fff', marginBottom: 6, textAlign: 'center' },
   successSub: {
-    fontSize: 13, fontFamily: FF, color: '#555', textAlign: 'center',
+    fontSize: 13, fontFamily: FFB, color: '#fff', textAlign: 'center',
     lineHeight: 20, marginBottom: 24, paddingHorizontal: 20,
   },
   pinCard: {
     backgroundColor: '#111', borderRadius: 14, borderWidth: 2,
     padding: 24, alignItems: 'center', marginBottom: 24, width: '100%',
   },
-  pinLabel:  { fontSize: 11, fontFamily: FFB, color: '#555', letterSpacing: 3, marginBottom: 10 },
+  pinLabel:  { fontSize: 11, fontFamily: FFB, color: '#fff', letterSpacing: 3, marginBottom: 10 },
   pinNumber: { fontSize: 56, fontFamily: FFB, letterSpacing: 6, marginBottom: 6 },
-  pinHint:   { fontSize: 11, fontFamily: FF, color: '#555' },
+  pinHint:   { fontSize: 11, fontFamily: FFB, color: '#fff' },
 });

@@ -214,11 +214,11 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
   },
-  back:  { fontSize: 14, fontFamily: FF, color: GOLD },
+  back:  { fontSize: 14, fontFamily: FFB, color: GOLD },
   title: { fontSize: 18, fontFamily: FFB, color: '#fff' },
 
   scroll:   { padding: 20, paddingBottom: 80 },
-  subtitle: { fontSize: 14, fontFamily: FF, color: '#555', marginBottom: 32, textAlign: 'center' },
+  subtitle: { fontSize: 14, fontFamily: FFB, color: '#fff', marginBottom: 32, textAlign: 'center' },
 
   pinArea:  { alignItems: 'center', position: 'relative' },
   pinBoxes: { flexDirection: 'row', gap: 8, marginBottom: 8 },
@@ -239,10 +239,10 @@ const s = StyleSheet.create({
   },
   societyDot:     { width: 14, height: 14, borderRadius: 7 },
   societyName:    { fontSize: 16, fontFamily: FFB, color: '#fff' },
-  societyCaption: { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 2 },
+  societyCaption: { fontSize: 12, fontFamily: FFB, color: '#fff', marginTop: 2 },
 
   sectionLabel: {
-    fontSize: 10, fontFamily: FFB, color: '#555',
+    fontSize: 10, fontFamily: FFB, color: '#fff',
     letterSpacing: 1.5, marginBottom: 8,
   },
   card: {
@@ -250,11 +250,11 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 16,
   },
   fieldRow:   { paddingHorizontal: 16, paddingVertical: 14 },
-  fieldLabel: { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginBottom: 4 },
+  fieldLabel: { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginBottom: 4 },
   fieldInput: { fontSize: 16, fontFamily: FFB, color: '#fff' },
 
   joinBtn:     { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   joinBtnText: { fontSize: 16, fontFamily: FFB, color: '#000' },
 
-  creatingText: { fontSize: 16, fontFamily: FF, color: '#555', marginTop: 24 },
+  creatingText: { fontSize: 16, fontFamily: FFB, color: '#fff', marginTop: 24 },
 });

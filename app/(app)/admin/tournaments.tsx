@@ -264,14 +264,14 @@ const s = StyleSheet.create({
   headerRight:  { width: 70 },
   headerLogo:   { width: 28, height: 28, marginBottom: 2 },
   headerTitle:  { fontFamily: FFB, fontSize: 15, color: '#fff', letterSpacing: 0.5 },
-  headerSub:    { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1, textTransform: 'uppercase' },
+  headerSub:    { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1, textTransform: 'uppercase' },
   back:         { fontFamily: FFB, fontSize: 14, color: GOLD },
 
   scroll: { padding: 20, paddingBottom: 48 },
 
   section:      { marginBottom: 28 },
   sectionLabel: {
-    fontFamily: FFB, fontSize: 10, color: '#555',
+    fontFamily: FFB, fontSize: 10, color: '#fff',
     letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase',
   },
 
@@ -284,9 +284,9 @@ const s = StyleSheet.create({
   champYear:   { fontFamily: FFB, fontSize: 10, color: GOLD, letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' },
   champInner:  {},
   champRow:    {},
-  champAward:  { fontFamily: FFB, fontSize: 10, color: '#555', letterSpacing: 1, textTransform: 'uppercase' },
+  champAward:  { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 1, textTransform: 'uppercase' },
   champName:   { fontFamily: FFB, fontSize: 18, color: '#fff', marginTop: 2 },
-  champDetail: { fontFamily: FF, fontSize: 11, color: '#777', marginTop: 2 },
+  champDetail: { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 2 },
 
   // Competition cards
   compCard: {
@@ -296,8 +296,8 @@ const s = StyleSheet.create({
   },
   compCardTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14 },
   compName:    { fontFamily: FFB, fontSize: 16, color: '#fff', marginBottom: 2 },
-  compFormat:  { fontFamily: FF, fontSize: 13, color: '#555', marginBottom: 2 },
-  compMeta:    { fontFamily: FF, fontSize: 11, color: '#555' },
+  compFormat:  { fontFamily: FFB, fontSize: 13, color: '#fff', marginBottom: 2 },
+  compMeta:    { fontFamily: FFB, fontSize: 11, color: '#fff' },
 
   statusBadge: {
     borderWidth: 1, borderRadius: 20,
@@ -310,7 +310,7 @@ const s = StyleSheet.create({
     backgroundColor: '#0a0a0a', borderRadius: 10,
     padding: 12,
   },
-  pinLabel: { fontFamily: FFB, fontSize: 9, color: '#555', letterSpacing: 1, textTransform: 'uppercase' },
+  pinLabel: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1, textTransform: 'uppercase' },
   pinValue: { fontFamily: FFB, fontSize: 20, color: GOLD, letterSpacing: 4, marginTop: 2 },
   shareBtn: {
     backgroundColor: GOLD + '1A', borderWidth: 1, borderColor: GOLD + '44',
@@ -321,5 +321,5 @@ const s = StyleSheet.create({
   empty:      { alignItems: 'center', paddingTop: 80, gap: 10 },
   emptyEmoji: { fontSize: 48 },
   emptyTitle: { fontFamily: FFB, fontSize: 18, color: '#fff' },
-  emptySub:   { fontFamily: FF, fontSize: 14, color: '#555', textAlign: 'center', paddingHorizontal: 28 },
+  emptySub:   { fontFamily: FFB, fontSize: 14, color: '#fff', textAlign: 'center', paddingHorizontal: 28 },
 });

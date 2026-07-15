@@ -257,11 +257,11 @@ const s = StyleSheet.create({
 
   // Greeting
   greetingBlock: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 18 },
-  greetingSub:   { fontFamily: FF, fontSize: 15, color: '#6b7280' },
-  greetingName:  { fontFamily: FF, fontSize: 40, color: '#ffffff', lineHeight: 46, letterSpacing: -0.5 },
-  courseName:    { fontFamily: FF, fontSize: 13, color: '#6b7280', marginTop: 8 },
+  greetingSub:   { fontFamily: FFB, fontSize: 15, color: '#fff' },
+  greetingName:  { fontFamily: FFB, fontSize: 40, color: '#ffffff', lineHeight: 46, letterSpacing: -0.5 },
+  courseName:    { fontFamily: FFB, fontSize: 13, color: '#fff', marginTop: 8 },
   weatherRow:    { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
-  weatherText:   { fontFamily: FF, fontSize: 12, color: '#6b7280' },
+  weatherText:   { fontFamily: FFB, fontSize: 12, color: '#fff' },
 
   // Hero
   heroWrap: {
@@ -284,7 +284,7 @@ const s = StyleSheet.create({
     height: 200,
   },
   heroPlaceholderText: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 10,
     color: `${GOLD}40`,
     letterSpacing: 2.5,
@@ -302,9 +302,9 @@ const s = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.07)',
   },
   teetimeLeft:     { gap: 2 },
-  teetimeLabel:    { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2 },
-  teetimeTime:     { fontFamily: FF, fontSize: 22, color: '#ffffff', marginTop: 1 },
-  teetimeOpponent: { fontFamily: FF, fontSize: 12, color: '#6b7280', marginTop: 1 },
+  teetimeLabel:    { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2 },
+  teetimeTime:     { fontFamily: FFB, fontSize: 22, color: '#ffffff', marginTop: 1 },
+  teetimeOpponent: { fontFamily: FFB, fontSize: 12, color: '#fff', marginTop: 1 },
   viewBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -315,7 +315,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  viewBtnText: { fontFamily: FF, fontSize: 11, color: GOLD, letterSpacing: 0.5 },
+  viewBtnText: { fontFamily: FFB, fontSize: 11, color: GOLD, letterSpacing: 0.5 },
 
   // Grid
   grid: {
@@ -348,14 +348,14 @@ const s = StyleSheet.create({
     borderColor: '#333',
     backgroundColor: 'transparent',
   },
-  tileLabel:       { fontFamily: FF, fontSize: 15, color: '#ffffff', letterSpacing: -0.2 },
-  tileLabelLocked: { color: '#555' },
-  tileSub:         { fontFamily: FF, fontSize: 11, color: '#6b7280', lineHeight: 15 },
+  tileLabel:       { fontFamily: FFB, fontSize: 15, color: '#ffffff', letterSpacing: -0.2 },
+  tileLabelLocked: { color: '#fff' },
+  tileSub:         { fontFamily: FFB, fontSize: 11, color: '#fff', lineHeight: 15 },
 
   // Watermark
   watermark: { alignItems: 'center', paddingVertical: 24 },
   watermarkText: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 10,
     color: '#2a2a2a',
     letterSpacing: 2,

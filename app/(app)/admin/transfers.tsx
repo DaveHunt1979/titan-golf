@@ -269,7 +269,7 @@ export default function TransferWindowScreen() {
         {unassigned.length > 0 && (
           <View style={styles.teamSection}>
             <View style={styles.teamHeader}>
-              <Text style={[styles.teamName, { color: '#555' }]}>UNASSIGNED</Text>
+              <Text style={[styles.teamName, { color: '#fff' }]}>UNASSIGNED</Text>
               <Text style={styles.teamCount}>{unassigned.length}</Text>
             </View>
             {unassigned.map(player => (
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 14, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
   liveBadge: { backgroundColor: GREEN, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
   liveBadgeText: { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
-  headerSub: { fontSize: 9, fontFamily: FF, color: '#555' },
+  headerSub: { fontSize: 9, fontFamily: FFB, color: '#fff' },
 
   scroll: { padding: 20, paddingBottom: 60 },
 
@@ -527,8 +527,8 @@ const styles = StyleSheet.create({
   teamHeaderLogoFallback: { width: 32, height: 32, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   teamHeaderInitial: { fontSize: 14, fontFamily: FFB },
   teamName: { flex: 1, fontSize: 13, fontFamily: FFB, letterSpacing: 1 },
-  teamCount: { fontSize: 11, fontFamily: FF, color: '#555' },
-  emptyTeam: { fontSize: 13, fontFamily: FF, color: '#555', padding: 16, textAlign: 'center', fontStyle: 'italic' },
+  teamCount: { fontSize: 11, fontFamily: FFB, color: '#fff' },
+  emptyTeam: { fontSize: 13, fontFamily: FFB, color: '#fff', padding: 16, textAlign: 'center', fontStyle: 'italic' },
 
   playerRow: {
     flexDirection: 'row', alignItems: 'center',
@@ -541,14 +541,14 @@ const styles = StyleSheet.create({
   playerRowInitial: { fontSize: 14, fontFamily: FFB, color: '#fff' },
   playerRowInfo: { flex: 1 },
   playerRowName: { fontSize: 13, fontFamily: FFB, color: '#fff' },
-  playerRowHcp: { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 1 },
+  playerRowHcp: { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 1 },
   transferChip: {
     backgroundColor: '#1a1a1a', borderRadius: 20,
     paddingHorizontal: 10, paddingVertical: 3,
     borderWidth: 1, borderColor: '#1c1c1c',
   },
   draftChip: { backgroundColor: `${GOLD}18`, borderColor: `${GOLD}55` },
-  transferChipText: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  transferChipText: { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
   draftChipText: { color: GOLD },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
@@ -558,11 +558,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: '#1c1c1c', alignItems: 'center', minHeight: 500,
   },
   modalHeading: { fontSize: 13, fontFamily: FFB, color: GOLD, letterSpacing: 2, marginBottom: 6 },
-  modalSub: { fontSize: 13, fontFamily: FF, color: '#555', marginBottom: 20, textAlign: 'center' },
+  modalSub: { fontSize: 13, fontFamily: FFB, color: '#fff', marginBottom: 20, textAlign: 'center' },
   playerPreviewRow: { alignItems: 'center', marginBottom: 20 },
   playerPreviewName: { fontSize: 17, fontFamily: FFB, color: '#fff', marginTop: 10 },
-  playerPreviewHcp: { fontSize: 13, fontFamily: FF, color: '#555' },
-  pickLabel: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 2, alignSelf: 'flex-start', marginBottom: 10 },
+  playerPreviewHcp: { fontSize: 13, fontFamily: FFB, color: '#fff' },
+  pickLabel: { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 2, alignSelf: 'flex-start', marginBottom: 10 },
   teamGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, width: '100%', marginBottom: 16 },
   teamTile: {
     width: '30%', alignItems: 'center', padding: 10,
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   teamTileLogo: { width: 44, height: 44 },
   teamTileLogoFallback: { width: 44, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   teamTileInitial: { fontSize: 18, fontFamily: FFB },
-  teamTileName: { fontSize: 9, fontFamily: FFB, color: '#888', textAlign: 'center', letterSpacing: 0.5 },
+  teamTileName: { fontSize: 9, fontFamily: FFB, color: '#fff', textAlign: 'center', letterSpacing: 0.5 },
   dropoutBtn: {
     width: '100%', paddingVertical: 12, borderRadius: 12,
     borderWidth: 1, borderColor: `${RED}55`, backgroundColor: 'rgba(248,113,113,0.08)',
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
   },
   dropoutBtnText: { fontSize: 13, fontFamily: FFB, color: RED },
   cancelBtn: { paddingVertical: 10, alignItems: 'center', marginTop: 6 },
-  cancelBtnText: { fontSize: 13, fontFamily: FF, color: '#555' },
+  cancelBtnText: { fontSize: 13, fontFamily: FFB, color: '#fff' },
 
   swapRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
   swapLogo: { width: 64, height: 64 },
   swapLogoFallback: { width: 64, height: 64, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   swapLogoInitial: { fontSize: 28, fontFamily: FFB },
-  swapTeamLabel: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 0.5, textAlign: 'center' },
+  swapTeamLabel: { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 0.5, textAlign: 'center' },
   swapPlayerWrap: { alignItems: 'center' },
   releasedBadge: {
     width: 64, height: 64, borderRadius: 12,
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
   },
   releasedBadgeText: { fontSize: 9, fontFamily: FFB, color: RED, letterSpacing: 1 },
   confirmPlayerName: { fontSize: 18, fontFamily: FFB, color: '#fff', marginBottom: 4 },
-  confirmArrow: { fontSize: 13, fontFamily: FF, color: '#555', marginBottom: 24 },
+  confirmArrow: { fontSize: 13, fontFamily: FFB, color: '#fff', marginBottom: 24 },
   confirmBtn: {
     width: '100%', backgroundColor: GOLD, borderRadius: 12,
     paddingVertical: 16, alignItems: 'center', marginBottom: 10,
@@ -611,7 +611,7 @@ const styles = StyleSheet.create({
   doneWrap: { alignItems: 'center', paddingTop: 28 },
   doneTick: { fontSize: 64, color: GOLD, marginBottom: 16 },
   doneTitle: { fontSize: 17, fontFamily: FFB, color: '#fff', letterSpacing: 2, marginBottom: 10 },
-  doneSub: { fontSize: 13, fontFamily: FF, color: '#555', textAlign: 'center', lineHeight: 20, marginBottom: 28 },
+  doneSub: { fontSize: 13, fontFamily: FFB, color: '#fff', textAlign: 'center', lineHeight: 20, marginBottom: 28 },
   doneBtn: {
     backgroundColor: GOLD, borderRadius: 12,
     paddingVertical: 16, paddingHorizontal: 40, alignItems: 'center',

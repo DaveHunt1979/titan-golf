@@ -291,7 +291,7 @@ export default function BuildTournamentScreen() {
                 activeOpacity={f.available ? 0.75 : 1}
               >
                 <View style={styles.formatRow}>
-                  <Text style={[styles.formatLabel, !f.available && { color: '#555' }]}>
+                  <Text style={[styles.formatLabel, !f.available && { color: '#fff' }]}>
                     {f.label}
                   </Text>
                   {!f.available && (
@@ -507,7 +507,7 @@ const reviewStyles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
   rowLast: { borderBottomWidth: 0 },
-  key: { width: 72, fontSize: 13, fontFamily: 'JUSTSans', color: '#555' },
+  key: { width: 72, fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
   val: { flex: 1, fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
 });
 
@@ -524,14 +524,14 @@ const styles = StyleSheet.create({
   headerCenter: { alignItems: 'center', gap: 2 },
   logo: { width: 28, height: 28, marginBottom: 2 },
   headerTitle: { fontSize: 12, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
-  headerSub: { fontSize: 9, fontFamily: FF, color: '#555' },
+  headerSub: { fontSize: 9, fontFamily: FFB, color: '#fff' },
   stepDots: { flexDirection: 'row', gap: 6, width: 80, justifyContent: 'flex-end' },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#1c1c1c' },
   dotOn: { backgroundColor: GOLD },
 
   scroll: { padding: 20, paddingBottom: 48 },
   stepTitle: { fontSize: 20, fontFamily: FFB, color: '#fff', marginBottom: 6 },
-  stepSub: { fontSize: 13, fontFamily: FF, color: '#888', marginBottom: 20, lineHeight: 20 },
+  stepSub: { fontSize: 13, fontFamily: FFB, color: '#fff', marginBottom: 20, lineHeight: 20 },
 
   // Format cards
   formatCard: {
@@ -542,13 +542,13 @@ const styles = StyleSheet.create({
   formatCardOff: { opacity: 0.4 },
   formatRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   formatLabel: { flex: 1, fontSize: 15, fontFamily: FFB, color: '#fff' },
-  formatSub: { fontSize: 13, fontFamily: FF, color: '#888', lineHeight: 18 },
-  comingSoon: { fontSize: 11, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  formatSub: { fontSize: 13, fontFamily: FFB, color: '#fff', lineHeight: 18 },
+  comingSoon: { fontSize: 11, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
   tick: { fontSize: 15, fontFamily: FFB, color: GOLD },
 
   // Fields
   fieldLabel: {
-    fontSize: 11, fontFamily: FFB, color: '#555',
+    fontSize: 11, fontFamily: FFB, color: '#fff',
     letterSpacing: 1.5, marginBottom: 6, marginTop: 16,
   },
   input: {
@@ -581,9 +581,9 @@ const styles = StyleSheet.create({
     alignItems: 'center', minWidth: 80,
   },
   chipOn: { backgroundColor: GOLD, borderColor: GOLD },
-  chipText: { fontSize: 13, fontFamily: FFB, color: '#888' },
+  chipText: { fontSize: 13, fontFamily: FFB, color: '#fff' },
   chipTextOn: { color: '#000' },
-  chipSub: { fontSize: 10, fontFamily: FF, color: '#555', marginTop: 2 },
+  chipSub: { fontSize: 10, fontFamily: FFB, color: '#fff', marginTop: 2 },
 
   // HCP chips
   hcpRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   hcpChipOn: { backgroundColor: `${GOLD}18`, borderColor: `${GOLD}55` },
-  hcpText: { fontSize: 13, fontFamily: FFB, color: '#888' },
+  hcpText: { fontSize: 13, fontFamily: FFB, color: '#fff' },
   hcpTextOn: { color: GOLD },
 
   // Kronos toggle
@@ -603,14 +603,14 @@ const styles = StyleSheet.create({
     borderColor: '#1c1c1c', padding: 16, marginTop: 6,
   },
   toggleLabel: { fontSize: 13, fontFamily: FFB, color: '#fff', marginBottom: 2 },
-  toggleSub: { fontSize: 11, fontFamily: FF, color: '#888', lineHeight: 16 },
+  toggleSub: { fontSize: 11, fontFamily: FFB, color: '#fff', lineHeight: 16 },
 
   // Review
   reviewCard: {
     backgroundColor: '#111', borderRadius: 12, borderWidth: 1,
     borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 16,
   },
-  reviewNote: { fontSize: 13, fontFamily: FF, color: '#555', lineHeight: 20, marginBottom: 20 },
+  reviewNote: { fontSize: 13, fontFamily: FFB, color: '#fff', lineHeight: 20, marginBottom: 20 },
   createBtn: {
     backgroundColor: GOLD, borderRadius: 12,
     paddingVertical: 16, alignItems: 'center',

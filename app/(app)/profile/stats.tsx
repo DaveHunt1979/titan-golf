@@ -560,7 +560,7 @@ function TrendChart({ data }: { data: HcpEntry[] }) {
             );
           })}
           {/* First and last labels */}
-          <Text style={{ position: 'absolute', left: points[0].x - 14, top: points[0].y + 8, fontSize: 9, color: '#555', fontFamily: FFB }}>
+          <Text style={{ position: 'absolute', left: points[0].x - 14, top: points[0].y + 8, fontSize: 9, color: '#fff', fontFamily: FFB }}>
             {points[0].v.toFixed(1)}
           </Text>
           <Text style={{ position: 'absolute', left: points[points.length - 1].x - 14, top: points[points.length - 1].y + 8, fontSize: 9, color: GOLD, fontFamily: FFB }}>
@@ -587,7 +587,7 @@ const ss = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: 'center' },
   headerLogo: { width: 28, height: 28 },
   headerSubtitle: {
-    fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2.5, marginTop: 3,
+    fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2.5, marginTop: 3,
   },
 
   scroll: { padding: 20 },
@@ -600,7 +600,7 @@ const ss = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center',
   },
   pillVal: { fontFamily: FFB, fontSize: 28, color: GOLD },
-  pillLbl: { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 2, marginTop: 3 },
+  pillLbl: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 2, marginTop: 3 },
 
   // ── section ──
   section: {
@@ -609,7 +609,7 @@ const ss = StyleSheet.create({
     padding: 16, marginBottom: 12,
   },
   sectionLabel: {
-    fontFamily: FF, fontSize: 10, color: '#555',
+    fontFamily: FFB, fontSize: 10, color: '#fff',
     letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14,
   },
 
@@ -621,25 +621,25 @@ const ss = StyleSheet.create({
   },
   roughZone: { backgroundColor: 'rgba(139,69,19,0.10)', borderColor: 'rgba(139,69,19,0.18)' },
   fairZone:  { backgroundColor: 'rgba(74,222,128,0.05)', borderColor: 'rgba(74,222,128,0.12)' },
-  zoneLabel: { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1.5, textTransform: 'uppercase' },
+  zoneLabel: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1.5, textTransform: 'uppercase' },
   zoneCount: { fontFamily: FFB, fontSize: 22, marginTop: 2 },
   dotGrid:   { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 },
-  fairwayPct:{ fontFamily: FF, fontSize: 10, color: GREEN, marginTop: 4, opacity: 0.8 },
+  fairwayPct:{ fontFamily: FFB, fontSize: 10, color: GREEN, marginTop: 4, opacity: 0.8 },
 
   // ── club usage ──
   clubRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   clubShort: { fontFamily: FFB, fontSize: 12, width: 28, letterSpacing: 0.3 },
-  clubCount: { fontFamily: FF, fontSize: 12, color: '#555', width: 40, textAlign: 'right' },
+  clubCount: { fontFamily: FFB, fontSize: 12, color: '#fff', width: 40, textAlign: 'right' },
   legend:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   legendItem:{ flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDot: { width: 6, height: 6, borderRadius: 3 },
-  legendLbl: { fontFamily: FF, fontSize: 10, color: '#555', textTransform: 'capitalize' },
+  legendLbl: { fontFamily: FFB, fontSize: 10, color: '#fff', textTransform: 'capitalize' },
 
   // ── scoring ──
   vBarRow: { flexDirection: 'row', gap: 10 },
   vBarCol: { flex: 1, alignItems: 'center', gap: 6 },
   vBarCount: { fontFamily: FFB, fontSize: 14 },
-  vBarLabel: { fontFamily: FF, fontSize: 9, color: '#555', textAlign: 'center', letterSpacing: 0.5 },
+  vBarLabel: { fontFamily: FFB, fontSize: 9, color: '#fff', textAlign: 'center', letterSpacing: 0.5 },
 
   // ── putting ──
   puttRow:  { flexDirection: 'row', gap: 10 },
@@ -649,18 +649,18 @@ const ss = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center',
   },
   puttVal: { fontFamily: FFB, fontSize: 26 },
-  puttLbl: { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1, marginTop: 2 },
-  puttPct: { fontFamily: FF, fontSize: 11, color: '#555', marginTop: 2 },
+  puttLbl: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1, marginTop: 2 },
+  puttPct: { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 2 },
 
   // ── empty ──
   empty: { alignItems: 'center', paddingTop: 80 },
-  emptyTitle: { fontFamily: FFB, fontSize: 16, color: '#555', textAlign: 'center' },
-  emptySub:   { fontFamily: FF, fontSize: 13, color: '#444', textAlign: 'center', marginTop: 8, paddingHorizontal: 32 },
+  emptyTitle: { fontFamily: FFB, fontSize: 16, color: '#fff', textAlign: 'center' },
+  emptySub:   { fontFamily: FFB, fontSize: 13, color: '#444', textAlign: 'center', marginTop: 8, paddingHorizontal: 32 },
 
   // ── handicap trend ──
   hcpMeta:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
   hcpMetaItem: { flex: 1 },
   hcpMetaVal:  { fontFamily: FFB, fontSize: 24, color: GOLD },
-  hcpMetaLbl:  { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1, marginTop: 2 },
+  hcpMetaLbl:  { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1, marginTop: 2 },
   hcpDelta:    { fontFamily: FFB, fontSize: 22 },
 });

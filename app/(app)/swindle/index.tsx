@@ -255,7 +255,7 @@ const s = StyleSheet.create({
   headerSide:    { flex: 1 },
   headerCenter:  { alignItems: 'center', gap: 4 },
   logo:          { width: 28, height: 28 },
-  headerSub:     { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 2 },
+  headerSub:     { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 2 },
 
   // Join row
   joinRow:       { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 20 },
@@ -264,26 +264,26 @@ const s = StyleSheet.create({
   joinBtnText:   { fontFamily: FFB, color: '#000', fontSize: 14 },
 
   // Section headers
-  sectionLabel:  { fontFamily: FFB, fontSize: 10, color: '#555', letterSpacing: 1.5, textTransform: 'uppercase', paddingHorizontal: 16, marginTop: 12, marginBottom: 8 },
+  sectionLabel:  { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 1.5, textTransform: 'uppercase', paddingHorizontal: 16, marginTop: 12, marginBottom: 8 },
 
   // Game card
   card:          { marginHorizontal: 16, marginBottom: 10, backgroundColor: '#111', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#1c1c1c' },
   cardOpen:      { borderLeftWidth: 3, borderLeftColor: PURPLE },
   cardTop:       { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
   cardName:      { fontFamily: FFB, fontSize: 15, color: '#fff', marginBottom: 2 },
-  cardSub:       { fontFamily: FF, fontSize: 12, color: '#555' },
+  cardSub:       { fontFamily: FFB, fontSize: 12, color: '#fff' },
   statusBadge:   { borderWidth: 1, borderRadius: 99, paddingHorizontal: 8, paddingVertical: 2 },
   statusText:    { fontFamily: FFB, fontSize: 10, letterSpacing: 1 },
 
   // Stats row
   cardStats:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
   statBlock:     { alignItems: 'center' },
-  statLabel:     { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1, marginBottom: 2 },
+  statLabel:     { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1, marginBottom: 2 },
   statValue:     { fontFamily: FFB, fontSize: 14, color: '#fff' },
 
   // Entry count pill
   entryPill:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1c1c1c', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  pillLabel:     { fontFamily: FF, fontSize: 11, color: '#555' },
+  pillLabel:     { fontFamily: FFB, fontSize: 11, color: '#fff' },
   pillCount:     { fontFamily: FFB, fontSize: 11, color: PURPLE },
 
   // Recurring badge
@@ -296,11 +296,11 @@ const s = StyleSheet.create({
 
   // Entered badge
   enteredBadge:  { marginTop: 10, backgroundColor: 'rgba(167,139,250,0.15)', borderRadius: 10, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: PURPLE },
-  enteredText:   { fontFamily: FF, fontSize: 13, color: PURPLE },
+  enteredText:   { fontFamily: FFB, fontSize: 13, color: PURPLE },
 
   // Empty state
   empty:         { alignItems: 'center', paddingTop: 80, gap: 10 },
   emptyEmoji:    { fontSize: 48 },
-  emptyTitle:    { fontFamily: FFB, fontSize: 16, color: '#555' },
-  emptySub:      { fontFamily: FF, fontSize: 13, color: '#444', textAlign: 'center', paddingHorizontal: 32 },
+  emptyTitle:    { fontFamily: FFB, fontSize: 16, color: '#fff' },
+  emptySub:      { fontFamily: FFB, fontSize: 13, color: '#444', textAlign: 'center', paddingHorizontal: 32 },
 });

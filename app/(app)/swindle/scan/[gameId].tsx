@@ -357,7 +357,7 @@ const s = StyleSheet.create({
   back:          { color: GOLD, fontSize: 15, fontFamily: FFB, width: 60 },
   headerTitle:   { flex: 1, fontSize: 15, fontFamily: FFB, color: '#fff', textAlign: 'center' },
   headerPts:     { fontSize: 15, fontFamily: FFB, color: GOLD, minWidth: 60, textAlign: 'right' },
-  stepHint:      { fontSize: 12, color: '#555', fontFamily: FF, textAlign: 'center', marginBottom: 16, paddingHorizontal: 24 },
+  stepHint:      { fontSize: 12, color: '#fff', fontFamily: FFB, textAlign: 'center', marginBottom: 16, paddingHorizontal: 24 },
 
   // Player list
   playerRow:          { paddingHorizontal: 16, paddingVertical: 8 },
@@ -369,7 +369,7 @@ const s = StyleSheet.create({
   },
   playerRowInnerSelected: { borderLeftWidth: 3, borderLeftColor: GOLD },
   playerName:    { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 2 },
-  playerHcp:     { fontSize: 12, fontFamily: FF, color: '#555' },
+  playerHcp:     { fontSize: 12, fontFamily: FFB, color: '#fff' },
   arrow:         { fontSize: 22, color: GOLD },
   checkBadge:    { fontSize: 16, color: GOLD, fontFamily: FFB },
 
@@ -377,7 +377,7 @@ const s = StyleSheet.create({
   scanArea:      { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 20 },
   scanIcon:      { fontSize: 56 },
   scanTitle:     { fontSize: 20, fontFamily: FFB, color: '#fff', textAlign: 'center' },
-  scanSub:       { fontSize: 14, fontFamily: FF, color: '#555', textAlign: 'center', lineHeight: 20 },
+  scanSub:       { fontSize: 14, fontFamily: FFB, color: '#fff', textAlign: 'center', lineHeight: 20 },
   scanBtns:      { flexDirection: 'row', gap: 12, width: '100%' },
   scanBtn:       {
     flex: 1, backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
@@ -387,13 +387,13 @@ const s = StyleSheet.create({
   scanBtnIcon:   { fontSize: 24 },
   scanBtnText:   { fontSize: 14, fontFamily: FFB, color: '#fff' },
   scanningWrap:  { alignItems: 'center', gap: 12 },
-  scanningText:  { color: '#555', fontFamily: FF, fontSize: 14 },
+  scanningText:  { color: '#fff', fontFamily: FFB, fontSize: 14 },
   manualBtn:     { alignItems: 'center', paddingBottom: 32 },
-  manualBtnText: { fontSize: 13, fontFamily: FF, color: '#555', textDecorationLine: 'underline' },
+  manualBtnText: { fontSize: 13, fontFamily: FFB, color: '#fff', textDecorationLine: 'underline' },
 
   // Review grid
   gridHeader:    { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, paddingVertical: 8 },
-  gridHeaderText:{ fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  gridHeaderText:{ fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
   grid:          { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   holeCell:      {
     width: '30%', flexGrow: 1,
@@ -401,9 +401,9 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: '#1c1c1c',
     padding: 8, alignItems: 'center', gap: 2,
   },
-  holeCellNum:        { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 0.5 },
-  holeCellPar:        { fontSize: 9, fontFamily: FF, color: '#555' },
-  holeCellInput:      { fontSize: 24, fontFamily: FFB, color: '#555', textAlign: 'center', width: '100%', paddingVertical: 4, backgroundColor: '#1a1a1a', borderRadius: 6 },
+  holeCellNum:        { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 0.5 },
+  holeCellPar:        { fontSize: 9, fontFamily: FFB, color: '#fff' },
+  holeCellInput:      { fontSize: 24, fontFamily: FFB, color: '#fff', textAlign: 'center', width: '100%', paddingVertical: 4, backgroundColor: '#1a1a1a', borderRadius: 6 },
   holeCellInputFilled:{ color: '#fff' },
   holeCellPts:        { fontSize: 11, fontFamily: FFB },
 
@@ -414,7 +414,7 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: '#1c1c1c',
   },
   summaryItem:   { alignItems: 'center' },
-  summaryLabel:  { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  summaryLabel:  { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
   summaryValue:  { fontSize: 20, fontFamily: FFB, color: '#fff', marginTop: 2 },
 
   submitBtn:     { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 16 },

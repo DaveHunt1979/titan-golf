@@ -363,7 +363,7 @@ const s = StyleSheet.create({
   teamLogoFallback:       { width: 48, height: 48, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   teamLogoFallbackText:   { fontSize: 22 },
   teamName:               { flex: 1, fontFamily: FFB, fontSize: 16, color: '#fff' },
-  teamArrow:              { fontSize: 22, color: '#555' },
+  teamArrow:              { fontSize: 22, color: '#fff' },
 
   addRowBtn: {
     backgroundColor: '#111', borderRadius: 14,
@@ -376,7 +376,7 @@ const s = StyleSheet.create({
   emptyIcon:  { fontSize: 52, marginBottom: 12 },
   emptyTitle: { fontFamily: FFB, fontSize: 20, color: '#fff', marginBottom: 6 },
   emptyHint: {
-    fontFamily: FF, fontSize: 14, color: '#555',
+    fontFamily: FFB, fontSize: 14, color: '#fff',
     textAlign: 'center', marginBottom: 28,
     paddingHorizontal: 24, lineHeight: 20,
   },
@@ -393,7 +393,7 @@ const s = StyleSheet.create({
     paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  modalCancel: { fontFamily: FF, fontSize: 14, color: '#555' },
+  modalCancel: { fontFamily: FFB, fontSize: 14, color: '#fff' },
   modalTitle:  { fontFamily: FFB, fontSize: 16, color: '#fff' },
   modalSave:   { fontFamily: FFB, fontSize: 14, color: GOLD },
   modalScroll: { padding: 20, paddingBottom: 60 },
@@ -407,11 +407,11 @@ const s = StyleSheet.create({
   logoFallback:     { flex: 1, alignItems: 'center', justifyContent: 'center' },
   logoFallbackIcon: { fontSize: 44 },
   logoTapHint:      { fontFamily: FFB, fontSize: 14, marginBottom: 4 },
-  logoSubHint:      { fontFamily: FF, fontSize: 11, color: '#555' },
+  logoSubHint:      { fontFamily: FFB, fontSize: 11, color: '#fff' },
 
   section:      { marginBottom: 24 },
   sectionLabel: {
-    fontFamily: FFB, fontSize: 10, color: '#555',
+    fontFamily: FFB, fontSize: 10, color: '#fff',
     letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase',
   },
 

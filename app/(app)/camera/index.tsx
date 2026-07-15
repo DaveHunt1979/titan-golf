@@ -430,11 +430,11 @@ const s = StyleSheet.create({
   centered:  { alignItems: 'center', justifyContent: 'center', padding: 24 },
 
   // ── Permission gate
-  permTitle:   { fontSize: 22, fontFamily: FFB, color: '#555', marginBottom: 8, textAlign: 'center' },
-  permSub:     { fontSize: 14, fontFamily: FF, color: '#444', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  permTitle:   { fontSize: 22, fontFamily: FFB, color: '#fff', marginBottom: 8, textAlign: 'center' },
+  permSub:     { fontSize: 14, fontFamily: FFB, color: '#444', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
   permBtn:     { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 24 },
   permBtnText: { fontSize: 15, fontFamily: FFB, color: '#000' },
-  closeText:   { fontSize: 14, fontFamily: FF, color: '#444', textDecorationLine: 'underline' },
+  closeText:   { fontSize: 14, fontFamily: FFB, color: '#444', textDecorationLine: 'underline' },
 
   // ── Close button overlay
   closeBtn:     {
@@ -465,7 +465,7 @@ const s = StyleSheet.create({
   bannerAvatarFallback: { backgroundColor: 'rgba(212,175,55,0.25)', alignItems: 'center', justifyContent: 'center' },
   bannerInitial:   { fontSize: 18, fontFamily: FFB, color: GOLD },
   bannerName:      { fontSize: 15, fontFamily: FFB, color: '#fff' },
-  bannerSub:       { fontSize: 11, fontFamily: FF, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  bannerSub:       { fontSize: 11, fontFamily: FFB, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
   bannerHoleChip:  {
     alignItems: 'center', backgroundColor: GOLD,
     borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, minWidth: 44,
@@ -496,7 +496,7 @@ const s = StyleSheet.create({
   },
   modeBtn:       { flex: 1, paddingVertical: 10, borderRadius: 11, alignItems: 'center' },
   modeBtnOn:     { backgroundColor: 'rgba(255,255,255,0.18)' },
-  modeBtnText:   { fontSize: 14, fontFamily: FF, color: 'rgba(255,255,255,0.4)' },
+  modeBtnText:   { fontSize: 14, fontFamily: FFB, color: 'rgba(255,255,255,0.4)' },
   modeBtnTextOn: { fontFamily: FFB, color: '#fff' },
 
   // ── Main controls bar

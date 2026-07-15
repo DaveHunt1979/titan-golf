@@ -300,7 +300,7 @@ const s = StyleSheet.create({
   headerCenter: { alignItems: 'center', gap: 2 },
   logo: { width: 28, height: 28, marginBottom: 2 },
   title: { fontSize: 14, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
-  subtitle: { fontSize: 9, fontFamily: FF, color: '#555' },
+  subtitle: { fontSize: 9, fontFamily: FFB, color: '#fff' },
 
   tabBar: {
     flexDirection: 'row',
@@ -313,11 +313,11 @@ const s = StyleSheet.create({
     backgroundColor: '#111',
   },
   tabItemActive: { borderColor: PURPLE, backgroundColor: 'rgba(167,139,250,0.12)' },
-  tabLabel:      { fontSize: 13, fontFamily: FFB, color: '#555' },
+  tabLabel:      { fontSize: 13, fontFamily: FFB, color: '#fff' },
   tabLabelActive: { color: PURPLE },
 
   scroll: { padding: 16 },
-  empty:  { fontFamily: FF, color: '#555', textAlign: 'center', paddingVertical: 40, fontSize: 13 },
+  empty:  { fontFamily: FFB, color: '#fff', textAlign: 'center', paddingVertical: 40, fontSize: 13 },
 
   gameCard: {
     flexDirection: 'row',
@@ -331,7 +331,7 @@ const s = StyleSheet.create({
     padding: 16, gap: 10,
   },
   gameName: { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 3 },
-  gameMeta: { fontSize: 11, fontFamily: FF, color: '#555' },
+  gameMeta: { fontSize: 11, fontFamily: FFB, color: '#fff' },
   statusChip: {
     borderRadius: 6, borderWidth: 1,
     paddingHorizontal: 6, paddingVertical: 2,
@@ -345,7 +345,7 @@ const s = StyleSheet.create({
   },
   potCell: { flex: 1, alignItems: 'center' },
   potNum:  { fontSize: 14, fontFamily: FFB, color: PURPLE },
-  potLbl:  { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1, marginTop: 2 },
+  potLbl:  { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1, marginTop: 2 },
 
   resultsBlock: {
     borderTopWidth: 1, borderTopColor: '#1c1c1c',
@@ -355,9 +355,9 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 6, gap: 10,
   },
-  resultPos:    { width: 20, fontSize: 13, fontFamily: FFB, color: '#555', textAlign: 'center' },
+  resultPos:    { width: 20, fontSize: 13, fontFamily: FFB, color: '#fff', textAlign: 'center' },
   resultName:   { flex: 1, fontSize: 13, fontFamily: FFB, color: '#fff' },
-  resultPts:    { fontSize: 13, fontFamily: FF, color: '#555', width: 50, textAlign: 'right' },
+  resultPts:    { fontSize: 13, fontFamily: FFB, color: '#fff', width: 50, textAlign: 'right' },
   resultPayout: { fontSize: 13, fontFamily: FFB, color: PURPLE, width: 56, textAlign: 'right' },
 
   gameActions: {
@@ -373,7 +373,7 @@ const s = StyleSheet.create({
   actionBtnDanger: { borderColor: '#f8717155' },
   actionBtnText: { fontSize: 13, fontFamily: FFB, color: '#fff' },
 
-  moneySubtitle: { fontSize: 11, fontFamily: FF, color: '#555', marginBottom: 16 },
+  moneySubtitle: { fontSize: 11, fontFamily: FFB, color: '#fff', marginBottom: 16 },
   moneyRow: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#111', borderRadius: 12,
@@ -381,8 +381,8 @@ const s = StyleSheet.create({
     padding: 16, marginBottom: 8, gap: 12,
   },
   moneyRowFirst: { borderColor: `${PURPLE}55`, backgroundColor: 'rgba(167,139,250,0.08)' },
-  moneyPos:      { width: 24, fontSize: 15, fontFamily: FFB, color: '#555', textAlign: 'center' },
+  moneyPos:      { width: 24, fontSize: 15, fontFamily: FFB, color: '#fff', textAlign: 'center' },
   moneyName:     { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 2 },
-  moneyDetail:   { fontSize: 11, fontFamily: FF, color: '#555' },
+  moneyDetail:   { fontSize: 11, fontFamily: FFB, color: '#fff' },
   moneyEarnings: { fontSize: 18, fontFamily: FFB, color: PURPLE },
 });

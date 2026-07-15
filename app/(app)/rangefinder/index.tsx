@@ -401,7 +401,7 @@ const s = StyleSheet.create({
   headerSide:   { width: 40, alignItems: 'center' },
   headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
   headerLogo:   { width: 28, height: 28 },
-  headerSub:    { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2.5 },
+  headerSub:    { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2.5 },
 
   // ── Course selector ──────────────────────────────────────────────
   selHeader: {
@@ -409,10 +409,10 @@ const s = StyleSheet.create({
     paddingTop: 56, paddingHorizontal: 16, paddingBottom: 12,
     backgroundColor: '#000',
   },
-  sectionLabel: { fontFamily: FF, fontSize: 10, color: '#555', letterSpacing: 2, marginBottom: 4, marginTop: 4 },
+  sectionLabel: { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 2, marginBottom: 4, marginTop: 4 },
   courseCard:   { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 16, flexDirection: 'row', alignItems: 'center' },
   courseName:   { fontFamily: FFB, fontSize: 15, color: '#fff', flex: 1 },
-  empty:        { fontFamily: FF, fontSize: 14, color: '#555', textAlign: 'center', paddingTop: 40 },
+  empty:        { fontFamily: FFB, fontSize: 14, color: '#fff', textAlign: 'center', paddingTop: 40 },
 
   // ── Map header overlay ───────────────────────────────────────────
   mapHeader: {
@@ -421,10 +421,10 @@ const s = StyleSheet.create({
     backgroundColor: OVERLAY,
   },
   mapHole:   { fontFamily: FFB, fontSize: 13, color: '#fff', letterSpacing: 1.5, textAlign: 'center' },
-  mapCourse: { fontFamily: FF, fontSize: 11, color: '#666', marginTop: 2, textAlign: 'center' },
+  mapCourse: { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 2, textAlign: 'center' },
   gpsChip:   { flexDirection: 'row', alignItems: 'center', gap: 4 },
   gpsDot:    { width: 8, height: 8, borderRadius: 4 },
-  gpsText:   { fontFamily: FFB, fontSize: 10, color: '#555', letterSpacing: 1 },
+  gpsText:   { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 1 },
 
   // ── Distance HUD ─────────────────────────────────────────────────
   hud: {
@@ -443,9 +443,9 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(74,222,128,0.08)',
     borderWidth: 1, borderColor: 'rgba(74,222,128,0.25)',
   },
-  hudLabel: { fontFamily: FF, fontSize: 9, color: '#444', letterSpacing: 2, marginBottom: 2 },
+  hudLabel: { fontFamily: FFB, fontSize: 9, color: '#444', letterSpacing: 2, marginBottom: 2 },
   hudNum:   { fontFamily: FFB, fontSize: 52, color: '#444', lineHeight: 58 },
-  hudYds:   { fontFamily: FF, fontSize: 11, color: '#444', marginTop: 1, letterSpacing: 1 },
+  hudYds:   { fontFamily: FFB, fontSize: 11, color: '#444', marginTop: 1, letterSpacing: 1 },
 
   // ── Info strip ───────────────────────────────────────────────────
   infoStrip: {
@@ -455,7 +455,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)',
   },
   windArrow: { fontFamily: FFB, fontSize: 14, color: '#fff' },
-  infoText:  { fontFamily: FF, fontSize: 11, color: '#888', letterSpacing: 0.5 },
+  infoText:  { fontFamily: FFB, fontSize: 11, color: '#fff', letterSpacing: 0.5 },
   infoDot:   { width: 3, height: 3, borderRadius: 2, backgroundColor: '#333' },
 
   // ── Pin markers on map ───────────────────────────────────────────
@@ -481,5 +481,5 @@ const s = StyleSheet.create({
   holeBtnText:  { fontFamily: FFB, fontSize: 13, color: GOLD },
   measureBox:   { flex: 1, alignItems: 'center' },
   measureDist:  { fontFamily: FFB, fontSize: 42, color: GREEN, lineHeight: 46 },
-  measureYds:   { fontFamily: FF, fontSize: 11, color: '#666', marginTop: 1, letterSpacing: 1 },
+  measureYds:   { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 1, letterSpacing: 1 },
 });

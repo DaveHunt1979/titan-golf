@@ -245,8 +245,8 @@ const ss = StyleSheet.create({
   },
   headerSub: {
     fontSize: 11,
-    fontFamily: FF,
-    color: '#555',
+    fontFamily: FFB,
+    color: '#fff',
     marginTop: 2,
   },
 
@@ -279,11 +279,11 @@ const ss = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
 
-  senderName: { fontSize: 11, fontFamily: FFB, color: '#555', marginBottom: 2, letterSpacing: 0.3 },
-  msgText:    { fontSize: 14, fontFamily: FF,  color: '#fff', lineHeight: 18 },
+  senderName: { fontSize: 11, fontFamily: FFB, color: '#fff', marginBottom: 2, letterSpacing: 0.3 },
+  msgText:    { fontSize: 14, fontFamily: FFB,  color: '#fff', lineHeight: 18 },
   msgTextMe:  { fontFamily: FFB, color: '#fff' },
-  time:       { fontSize: 10, fontFamily: FF, color: '#555', marginTop: 3, alignSelf: 'flex-end' },
-  timeMe:     { color: '#555' },
+  time:       { fontSize: 10, fontFamily: FFB, color: '#fff', marginTop: 3, alignSelf: 'flex-end' },
+  timeMe:     { color: '#fff' },
 
   inputRow: {
     flexDirection: 'row',
@@ -303,7 +303,7 @@ const ss = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     color: '#fff',
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 14,
     maxHeight: 100,
     borderWidth: 1,
@@ -320,6 +320,6 @@ const ss = StyleSheet.create({
 
   empty:      { flex: 1, alignItems: 'center', paddingTop: 80 },
   emptyIcon:  { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { fontSize: 18, fontFamily: FFB, color: '#555' },
-  emptySub:   { fontSize: 14, fontFamily: FF,  color: '#444', marginTop: 4 },
+  emptyTitle: { fontSize: 18, fontFamily: FFB, color: '#fff' },
+  emptySub:   { fontSize: 14, fontFamily: FFB,  color: '#444', marginTop: 4 },
 });

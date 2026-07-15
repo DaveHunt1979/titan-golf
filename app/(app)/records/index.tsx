@@ -277,7 +277,7 @@ const ss = StyleSheet.create({
     letterSpacing: 4, textTransform: 'uppercase',
   },
   societyName: {
-    fontSize: 14, fontFamily: FF, color: '#555',
+    fontSize: 14, fontFamily: FFB, color: '#fff',
     letterSpacing: 2, textTransform: 'uppercase', marginTop: 4,
   },
   titleDivider: {
@@ -294,17 +294,17 @@ const ss = StyleSheet.create({
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   cardIcon:   { fontSize: 22 },
-  cardLabel:  { fontSize: 11, fontFamily: FFB, color: '#555', letterSpacing: 1.5, textTransform: 'uppercase' },
+  cardLabel:  { fontSize: 11, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, textTransform: 'uppercase' },
 
   valueRow:  { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
   valueNum:  { fontSize: 48, fontFamily: FFB, color: GOLD, lineHeight: 52 },
-  valueUnit: { fontSize: 14, fontFamily: FF, color: '#555', marginBottom: 8 },
+  valueUnit: { fontSize: 14, fontFamily: FFB, color: '#fff', marginBottom: 8 },
 
   holderName:   { fontSize: 18, fontFamily: FFB, color: '#fff', marginTop: 2 },
-  courseName:   { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 3 },
-  achievedDate: { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 2, opacity: 0.7 },
+  courseName:   { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 3 },
+  achievedDate: { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 2, opacity: 0.7 },
 
   vacant:    { paddingVertical: 16, alignItems: 'center' },
-  vacantText:{ fontSize: 16, fontFamily: FFB, color: '#555' },
-  vacantSub: { fontSize: 11, fontFamily: FF, color: '#444', marginTop: 4 },
+  vacantText:{ fontSize: 16, fontFamily: FFB, color: '#fff' },
+  vacantSub: { fontSize: 11, fontFamily: FFB, color: '#444', marginTop: 4 },
 });

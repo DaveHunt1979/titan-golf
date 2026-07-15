@@ -288,10 +288,10 @@ export default function TourScreen() {
       </View>
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
         <Text style={{ fontSize: 56, marginBottom: 20 }}>⛳</Text>
-        <Text style={{ fontSize: 20, fontFamily: FFB, color: '#555', marginBottom: 8, textAlign: 'center' }}>
+        <Text style={{ fontSize: 20, fontFamily: FFB, color: '#fff', marginBottom: 8, textAlign: 'center' }}>
           No Tournament Running
         </Text>
-        <Text style={{ fontSize: 14, fontFamily: FF, color: '#444', textAlign: 'center', lineHeight: 20 }}>
+        <Text style={{ fontSize: 14, fontFamily: FFB, color: '#444', textAlign: 'center', lineHeight: 20 }}>
           Ask your admin to create and activate{'\n'}a competition to unlock this tab.
         </Text>
       </View>
@@ -315,7 +315,7 @@ export default function TourScreen() {
         <Text style={{ fontSize: 26, fontFamily: FFB, color: '#fff', marginBottom: 8, textAlign: 'center' }}>
           Enter Tournament PIN
         </Text>
-        <Text style={{ fontSize: 14, fontFamily: FF, color: '#555', textAlign: 'center', lineHeight: 20, marginBottom: 32 }}>
+        <Text style={{ fontSize: 14, fontFamily: FFB, color: '#fff', textAlign: 'center', lineHeight: 20, marginBottom: 32 }}>
           A tournament is live.{'\n'}Enter the 4-digit PIN your admin shared with you.
         </Text>
 
@@ -349,7 +349,7 @@ export default function TourScreen() {
         {verifying && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
             <ActivityIndicator color={GOLD} size="small" />
-            <Text style={{ fontSize: 14, fontFamily: FF, color: '#555' }}>Checking PIN…</Text>
+            <Text style={{ fontSize: 14, fontFamily: FFB, color: '#fff' }}>Checking PIN…</Text>
           </View>
         )}
 
@@ -358,7 +358,7 @@ export default function TourScreen() {
           onPress={() => setPin('')}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={{ fontSize: 14, fontFamily: FF, color: '#555', textDecorationLine: 'underline' }}>
+          <Text style={{ fontSize: 14, fontFamily: FFB, color: '#fff', textDecorationLine: 'underline' }}>
             {pin.length > 0 ? 'Clear' : ' '}
           </Text>
         </TouchableOpacity>
@@ -375,7 +375,7 @@ export default function TourScreen() {
       <View style={st.titanHeader}>
         <View style={{ position: 'absolute', right: 16, bottom: 10 }}>
           <TouchableOpacity onPress={leaveTournament} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={{ fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5 }}>LEAVE</Text>
+            <Text style={{ fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 }}>LEAVE</Text>
           </TouchableOpacity>
         </View>
         <Image source={titanLogo} style={st.titanLogoImg} resizeMode="contain" />
@@ -407,7 +407,7 @@ export default function TourScreen() {
           onPress={() => setSelectedSection(null)}
           activeOpacity={0.7}
         >
-          <Text style={{ fontSize: 14, fontFamily: FF, color: '#555' }}>‹ Back</Text>
+          <Text style={{ fontSize: 14, fontFamily: FFB, color: '#fff' }}>‹ Back</Text>
           <Text style={{ fontSize: 16, fontFamily: FFB, color: '#fff' }}>
             {selectedSection === 'matches' ? 'Matches' : selectedSection === 'standings' ? 'Standings' : selectedSection === 'info' ? 'Info Pack' : 'Live & Social'}
           </Text>
@@ -571,7 +571,7 @@ export default function TourScreen() {
                 return (
                   <View key={year} style={{ marginBottom: 20 }}>
                     <Text style={{
-                      fontSize: 10, fontFamily: FFB, color: '#555',
+                      fontSize: 10, fontFamily: FFB, color: '#fff',
                       letterSpacing: 2, marginBottom: 10,
                     }}>
                       {year}
@@ -583,7 +583,7 @@ export default function TourScreen() {
                         </Text>
                         <Text style={{ fontSize: 18, fontFamily: FFB, color: '#fff' }}>{c.winner_name}</Text>
                         {c.detail && (
-                          <Text style={{ fontSize: 13, fontFamily: FF, color: '#888', marginTop: 4 }}>{c.detail}</Text>
+                          <Text style={{ fontSize: 13, fontFamily: FFB, color: '#fff', marginTop: 4 }}>{c.detail}</Text>
                         )}
                       </View>
                     ))}
@@ -620,7 +620,7 @@ export default function TourScreen() {
                       </Text>
                       <Text style={{ fontSize: 15, fontFamily: FFB, color: '#fff' }}>{day.course_name ?? 'TBC'}</Text>
                       {day.play_date && (
-                        <Text style={{ fontSize: 11, fontFamily: FF, color: '#555', marginTop: 1 }}>
+                        <Text style={{ fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 1 }}>
                           {formatDate(day.play_date)}
                         </Text>
                       )}
@@ -630,7 +630,7 @@ export default function TourScreen() {
                       isLive && { backgroundColor: 'rgba(74,222,128,0.1)', borderColor: 'rgba(74,222,128,0.35)' },
                     ]}>
                       <Text style={[
-                        { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 0.5 },
+                        { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 0.5 },
                         isLive && { color: GREEN },
                       ]}>
                         {isDone ? 'COMPLETE' : isLive ? 'LIVE' : 'UPCOMING'}
@@ -674,7 +674,7 @@ export default function TourScreen() {
                               {m.result_str}
                             </Text>
                           ) : (
-                            <Text style={{ fontSize: 10, fontFamily: FFB, color: '#555' }}>vs</Text>
+                            <Text style={{ fontSize: 10, fontFamily: FFB, color: '#fff' }}>vs</Text>
                           )}
                         </View>
 
@@ -688,7 +688,7 @@ export default function TourScreen() {
                           </View>
                         </View>
 
-                        <Text style={{ fontSize: 18, color: '#555', marginLeft: 6 }}>›</Text>
+                        <Text style={{ fontSize: 18, color: '#fff', marginLeft: 6 }}>›</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -780,7 +780,7 @@ const st = StyleSheet.create({
     borderBottomColor: '#1c1c1c',
   },
   titanLogoImg: { width: 120, height: 36 },
-  titanSubtitle: { fontSize: 9, fontFamily: 'JUSTSans', color: '#555', letterSpacing: 2, marginTop: 2 },
+  titanSubtitle: { fontSize: 9, fontFamily: 'JUSTSans-ExBold', color: '#fff', letterSpacing: 2, marginTop: 2 },
 
   // PIN
   pinBox: {
@@ -798,28 +798,28 @@ const st = StyleSheet.create({
   },
   sectionTileIcon:  { fontSize: 32, marginBottom: 8 },
   sectionTileLabel: { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: '#fff', marginBottom: 4 },
-  sectionTileSub:   { fontSize: 12, fontFamily: 'JUSTSans', color: '#555', lineHeight: 17, marginBottom: 8 },
-  sectionTileArrow: { fontSize: 22, fontFamily: 'JUSTSans', fontWeight: '300' },
+  sectionTileSub:   { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 17, marginBottom: 8 },
+  sectionTileArrow: { fontSize: 22, fontFamily: 'JUSTSans-ExBold', fontWeight: '300' },
 
   // Section headings
   sectionHeader: {
     fontSize: 10, fontFamily: 'JUSTSans-ExBold', letterSpacing: 1.5,
-    color: '#555', paddingVertical: 10, marginTop: 8,
+    color: '#fff', paddingVertical: 10, marginTop: 8,
   },
 
   // Table
   tableHeader: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 8, marginBottom: 6 },
-  th:       { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#555', letterSpacing: 1 },
+  th:       { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#fff', letterSpacing: 1 },
   row: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#111',
     borderRadius: 10, paddingVertical: 12, paddingHorizontal: 8,
     marginBottom: 6, borderWidth: 1, borderColor: '#1c1c1c',
   },
   rowFirst:  { borderColor: 'rgba(212,175,55,0.35)', backgroundColor: '#111' },
-  cell:      { flex: 1, textAlign: 'center', fontSize: 13, fontFamily: 'JUSTSans', color: '#888' },
+  cell:      { flex: 1, textAlign: 'center', fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
   cellTeam:  { flex: 4, textAlign: 'left' },
   cellPts:   { flex: 1.5 },
-  pos:       { fontSize: 13, fontFamily: 'JUSTSans', color: '#555', width: 18, textAlign: 'center' },
+  pos:       { fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#fff', width: 18, textAlign: 'center' },
   teamName:  { fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
   pts:       { fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37' },
 
@@ -846,7 +846,7 @@ const st = StyleSheet.create({
   matchName: { fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
 
   // No results
-  noResults: { fontSize: 13, fontFamily: 'JUSTSans', color: '#555', textAlign: 'center', padding: 20, lineHeight: 22 },
+  noResults: { fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#fff', textAlign: 'center', padding: 20, lineHeight: 22 },
 });
 
 // ── Info section renderer ─────────────────────────────────────────────
@@ -911,7 +911,7 @@ function LocationCard({ s }: { s: LocationSection }) {
     <CardShell title={s.title}>
       <Text style={locSt.name}>{s.name}</Text>
       {s.address ? <Text style={locSt.detail}>{s.address}</Text> : null}
-      {s.phone ? <Text style={locSt.detail}><Text style={{ color: '#6b7280' }}>T  </Text>{s.phone}</Text> : null}
+      {s.phone ? <Text style={locSt.detail}><Text style={{ color: '#fff' }}>T  </Text>{s.phone}</Text> : null}
       {s.notes ? <Text style={[locSt.detail, { marginTop: 4, fontStyle: 'italic' }]}>{s.notes}</Text> : null}
     </CardShell>
   );
@@ -1015,15 +1015,15 @@ const infoStyles = StyleSheet.create({
   heroLabel:  { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37', letterSpacing: 2, marginBottom: 4 },
   heroName:   { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: '#ffffff' },
   empty:      { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24 },
-  emptyTitle: { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: '#555', marginBottom: 8 },
-  emptySub:   { fontSize: 14, fontFamily: 'JUSTSans', color: '#444', textAlign: 'center', lineHeight: 20, marginBottom: 20 },
+  emptyTitle: { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: '#fff', marginBottom: 8 },
+  emptySub:   { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#444', textAlign: 'center', lineHeight: 20, marginBottom: 20 },
   emptyBtn:   { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(212,175,55,0.25)' },
   emptyBtnText: { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37' },
 });
 const cardSt = StyleSheet.create({
   shell:  { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 16, marginBottom: 12 },
-  title:  { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#555', letterSpacing: 2, marginBottom: 12, textTransform: 'uppercase' },
-  body:   { fontSize: 14, fontFamily: 'JUSTSans', color: '#9ca3af', lineHeight: 22 },
+  title:  { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#fff', letterSpacing: 2, marginBottom: 12, textTransform: 'uppercase' },
+  body:   { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 22 },
 });
 const schedSt = StyleSheet.create({
   row:     { flexDirection: 'row', marginBottom: 0 },
@@ -1032,17 +1032,17 @@ const schedSt = StyleSheet.create({
   line:    { width: 1, flex: 1, backgroundColor: 'rgba(212,175,55,0.2)', alignSelf: 'center', marginTop: 2, marginBottom: 2, minHeight: 20 },
   content: { flex: 1, paddingBottom: 12 },
   label:   { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', lineHeight: 22 },
-  note:    { fontSize: 12, fontFamily: 'JUSTSans', color: '#555', marginTop: 1 },
+  note:    { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff', marginTop: 1 },
 });
 const travelSt = StyleSheet.create({
   row:    { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
   dot:    { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D4AF37', marginTop: 6 },
   label:  { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 2 },
-  detail: { fontSize: 14, fontFamily: 'JUSTSans', color: '#9ca3af' },
+  detail: { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
 });
 const locSt = StyleSheet.create({
   name:   { fontSize: 16, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 6 },
-  detail: { fontSize: 14, fontFamily: 'JUSTSans', color: '#9ca3af', lineHeight: 20 },
+  detail: { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 20 },
 });
 const contactSt = StyleSheet.create({
   row:       { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
@@ -1050,34 +1050,34 @@ const contactSt = StyleSheet.create({
   avatar:    { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center' },
   initial:   { fontSize: 16, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37' },
   name:      { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#ffffff' },
-  role:      { fontSize: 12, fontFamily: 'JUSTSans', color: '#555' },
-  phone:     { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#9ca3af' },
+  role:      { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
+  phone:     { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
 });
 const rulesSt = StyleSheet.create({
   row:      { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
   numBadge: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(212,175,55,0.1)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.2)', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   num:      { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37' },
-  text:     { flex: 1, fontSize: 14, fontFamily: 'JUSTSans', color: '#9ca3af', lineHeight: 22 },
+  text:     { flex: 1, fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 22 },
 });
 const feedSt = StyleSheet.create({
   container: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#111', borderRadius: 14, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: '#1c1c1c' },
   dot:       { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D4AF37', marginTop: 5 },
   top:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   label:     { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#ffffff' },
-  time:      { fontSize: 12, fontFamily: 'JUSTSans', color: '#555' },
-  body:      { fontSize: 14, fontFamily: 'JUSTSans', color: '#9ca3af' },
+  time:      { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
+  body:      { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
 });
 const igSt = StyleSheet.create({
   centered:   { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  emptyTitle: { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: '#555', marginBottom: 8, textAlign: 'center' },
-  emptySub:   { fontSize: 14, fontFamily: 'JUSTSans', color: '#444', textAlign: 'center', lineHeight: 20, marginBottom: 20, paddingHorizontal: 16 },
+  emptyTitle: { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: '#fff', marginBottom: 8, textAlign: 'center' },
+  emptySub:   { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#444', textAlign: 'center', lineHeight: 20, marginBottom: 20, paddingHorizontal: 16 },
   emptyBtn:   { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(212,175,55,0.25)' },
   emptyBtnText: { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37' },
   iconWrap:   { width: 96, height: 96, borderRadius: 28, backgroundColor: '#833AB4', alignItems: 'center', justifyContent: 'center' },
   iconText:   { fontSize: 44 },
   handle:     { fontSize: 20, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 4 },
-  sub:        { fontSize: 14, fontFamily: 'JUSTSans', color: '#555' },
+  sub:        { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
   openBtn:    { backgroundColor: '#833AB4', borderRadius: 10, paddingVertical: 14, paddingHorizontal: 32 },
   openBtnText:{ fontSize: 16, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', letterSpacing: 0.5 },
-  webLink:    { fontSize: 14, fontFamily: 'JUSTSans', color: '#555', textDecorationLine: 'underline' },
+  webLink:    { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#fff', textDecorationLine: 'underline' },
 });

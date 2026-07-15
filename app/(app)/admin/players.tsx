@@ -484,7 +484,7 @@ const s = StyleSheet.create({
   addBtn:       { fontFamily: FFB, fontSize: 14, color: GOLD },
 
   scroll: { padding: 20, paddingBottom: 60 },
-  count:  { fontFamily: FFB, fontSize: 10, color: '#555', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16 },
+  count:  { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16 },
 
   memberRow:       { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14,
                      backgroundColor: '#111', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c',
@@ -497,15 +497,15 @@ const s = StyleSheet.create({
   },
   avatarText:    { fontFamily: FFB, fontSize: 16, color: GOLD },
   memberName:    { fontFamily: FFB, fontSize: 15, color: '#fff' },
-  memberEmail:   { fontFamily: FF, fontSize: 12, color: '#555', marginTop: 2 },
-  committeeRole: { fontFamily: FF, fontSize: 12, color: GOLD, fontStyle: 'italic', marginTop: 2 },
-  hcp:           { fontFamily: FF, fontSize: 12, color: '#555' },
+  memberEmail:   { fontFamily: FFB, fontSize: 12, color: '#fff', marginTop: 2 },
+  committeeRole: { fontFamily: FFB, fontSize: 12, color: GOLD, fontStyle: 'italic', marginTop: 2 },
+  hcp:           { fontFamily: FFB, fontSize: 12, color: '#fff' },
   roleBadge:     { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, borderWidth: 1 },
   roleText:      { fontFamily: FFB, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
 
   empty:      { alignItems: 'center', paddingVertical: 60 },
-  emptyTitle: { fontFamily: FFB, fontSize: 18, color: '#555', marginBottom: 8 },
-  emptySub:   { fontFamily: FF, fontSize: 14, color: '#555', textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { fontFamily: FFB, fontSize: 18, color: '#fff', marginBottom: 8 },
+  emptySub:   { fontFamily: FFB, fontSize: 14, color: '#fff', textAlign: 'center', lineHeight: 20 },
 
   modalContainer: { flex: 1, backgroundColor: '#000' },
   modalHeader: {
@@ -516,10 +516,10 @@ const s = StyleSheet.create({
   modalTitle: { fontFamily: FFB, fontSize: 16, color: '#fff' },
 
   sectionLabel: {
-    fontFamily: FFB, fontSize: 10, color: '#555',
+    fontFamily: FFB, fontSize: 10, color: '#fff',
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4,
   },
-  sectionHint: { fontFamily: FF, fontSize: 12, color: '#555', marginBottom: 14 },
+  sectionHint: { fontFamily: FFB, fontSize: 12, color: '#fff', marginBottom: 14 },
 
   chip: {
     paddingHorizontal: 14, paddingVertical: 8,
@@ -527,7 +527,7 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: '#1c1c1c',
   },
   chipOn:      { backgroundColor: GOLD + '22', borderColor: GOLD + '55' },
-  chipText:    { fontFamily: FF, fontSize: 12, color: '#555' },
+  chipText:    { fontFamily: FFB, fontSize: 12, color: '#fff' },
   chipTextOn:  { color: GOLD },
 
   permRow:     { flexDirection: 'row', gap: 10 },
@@ -537,20 +537,20 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   permChipOn:     { backgroundColor: GOLD + '22', borderColor: GOLD + '55' },
-  permChipText:   { fontFamily: FFB, fontSize: 14, color: '#555' },
+  permChipText:   { fontFamily: FFB, fontSize: 14, color: '#fff' },
   permChipTextOn: { color: GOLD },
 
   fieldLabel: {
-    fontFamily: FFB, fontSize: 10, color: '#555',
+    fontFamily: FFB, fontSize: 10, color: '#fff',
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6, marginTop: 14,
   },
   input: {
     backgroundColor: '#111', borderRadius: 12,
     borderWidth: 1, borderColor: '#1c1c1c',
     paddingHorizontal: 16, paddingVertical: 14,
-    fontFamily: FF, fontSize: 15, color: '#fff',
+    fontFamily: FFB, fontSize: 15, color: '#fff',
   },
-  hint:    { fontFamily: FF, fontSize: 12, color: '#555', lineHeight: 18, marginTop: 16 },
+  hint:    { fontFamily: FFB, fontSize: 12, color: '#fff', lineHeight: 18, marginTop: 16 },
   saveBtn: { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 28 },
   saveBtnText: { fontFamily: FFB, fontSize: 16, color: '#000' },
 

@@ -156,8 +156,8 @@ export default function SkinsScreen() {
           })}
           {carryover > 0 && (
             <View style={[s.tallyItem, s.tallyCarry]}>
-              <Text style={[s.tallyName, { color: '#555' }]}>CARRY</Text>
-              <Text style={[s.tallySkins, { color: '#555' }]}>{carryover}</Text>
+              <Text style={[s.tallyName, { color: '#fff' }]}>CARRY</Text>
+              <Text style={[s.tallySkins, { color: '#fff' }]}>{carryover}</Text>
               <View style={s.tallyPill}>
                 <Text style={s.tallyLbl}>HOLES</Text>
               </View>
@@ -234,32 +234,32 @@ const s = StyleSheet.create({
   back:            { fontSize: 13, fontFamily: FFB, color: GOLD },
   headerCenter:    { alignItems: 'center', gap: 4 },
   logo:            { width: 28, height: 28 },
-  headerSub:       { fontSize: 9, fontFamily: FF, color: '#555', letterSpacing: 2 },
+  headerSub:       { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 2 },
   // Tally
   tallyScroll:     { maxHeight: 100, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
   tally:           { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 12, alignItems: 'center' },
   tallyItem:       { alignItems: 'center', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', paddingHorizontal: 14, paddingVertical: 10, minWidth: 72 },
   tallyItemWinner: { backgroundColor: 'rgba(212,175,55,0.08)', borderColor: GOLD },
   tallyCarry:      { borderColor: '#333' },
-  tallyName:       { fontSize: 11, fontFamily: FF, color: '#555', marginBottom: 2 },
+  tallyName:       { fontSize: 11, fontFamily: FFB, color: '#fff', marginBottom: 2 },
   tallyNameWinner: { fontFamily: FFB, color: GOLD },
-  tallySkins:      { fontSize: 26, fontFamily: FFB, color: '#555' },
+  tallySkins:      { fontSize: 26, fontFamily: FFB, color: '#fff' },
   tallySkinsWinner:{ color: GOLD },
   tallyPill:       { backgroundColor: '#1a1a1a', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginTop: 2 },
   tallyPillWinner: { backgroundColor: GOLD },
-  tallyLbl:        { fontSize: 8, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  tallyLbl:        { fontSize: 8, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
   tallyLblWinner:  { color: '#000' },
   // Hole card
   holeCard:        { alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
   holeNum:         { fontSize: 28, fontFamily: FFB, color: '#fff' },
-  holeMeta:        { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 3 },
+  holeMeta:        { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 3 },
   // Players
   playersWrap:     { padding: 20, gap: 12 },
   playerCard:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', paddingHorizontal: 16, paddingVertical: 14 },
   playerName:      { fontSize: 15, fontFamily: FFB, color: '#fff', flex: 1 },
   stepper:         { flexDirection: 'row', alignItems: 'center', gap: 12 },
   stepBtn:         { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#222', alignItems: 'center', justifyContent: 'center' },
-  stepBtnTxt:      { fontSize: 22, fontFamily: FF, color: '#fff' },
+  stepBtnTxt:      { fontSize: 22, fontFamily: FFB, color: '#fff' },
   scoreDisp:       { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a1a', borderWidth: 2, borderColor: '#222' },
   birdie:          { borderColor: GREEN, backgroundColor: 'rgba(74,222,128,0.1)' },
   par:             {},

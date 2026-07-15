@@ -238,9 +238,9 @@ const s = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: 'center' },
   logoImg:      { width: 80, height: 28 },
   headerSubtitle: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 10,
-    color: '#555',
+    color: '#fff',
     letterSpacing: 2,
     marginTop: 2,
   },
@@ -263,7 +263,7 @@ const s = StyleSheet.create({
     letterSpacing: 0.5,
   },
   startBtnSub: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 12,
     color: 'rgba(0,0,0,0.55)',
     marginTop: 4,
@@ -273,9 +273,9 @@ const s = StyleSheet.create({
 
   // Section labels
   sectionLabel: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 10,
-    color: '#555',
+    color: '#fff',
     letterSpacing: 2,
     marginBottom: 8,
     marginTop: 12,
@@ -315,15 +315,15 @@ const s = StyleSheet.create({
     textAlign: 'right',
   },
   bagYds: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 11,
-    color: '#555',
+    color: '#fff',
   },
   bagMax: {
     width: 40,
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 11,
-    color: '#555',
+    color: '#fff',
     textAlign: 'right',
   },
 
@@ -345,15 +345,15 @@ const s = StyleSheet.create({
     color: '#fff',
   },
   sessionCount: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 12,
-    color: '#555',
+    color: '#fff',
     marginTop: 2,
   },
   longPressHint: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 11,
-    color: '#555',
+    color: '#fff',
     textAlign: 'center',
     marginTop: 6,
     opacity: 0.7,
@@ -368,9 +368,9 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   emptySub: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 14,
-    color: '#555',
+    color: '#fff',
     textAlign: 'center',
     lineHeight: 22,
   },

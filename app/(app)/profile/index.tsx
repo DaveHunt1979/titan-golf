@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
   ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, Modal,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
@@ -45,6 +45,8 @@ export default function ProfileScreen() {
   const [newPw,       setNewPw]       = useState('');
   const [confirmPw,   setConfirmPw]   = useState('');
   const [pwSaving,    setPwSaving]    = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  useFocusEffect(useCallback(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, []));
 
   // Edit fields
   const [name,     setName]     = useState('');
@@ -236,6 +238,7 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={s.scroll}
         keyboardShouldPersistTaps="handled"
@@ -570,8 +573,8 @@ const s = StyleSheet.create({
     width: 8, height: 8, borderRadius: 4,
     backgroundColor: GOLD, borderWidth: 1.5, borderColor: '#000',
   },
-  editLink:   { fontFamily: FF, fontSize: 15, color: GOLD },
-  cancelLink: { fontFamily: FF, fontSize: 15, color: '#6b7280' },
+  editLink:   { fontFamily: FFB, fontSize: 15, color: GOLD },
+  cancelLink: { fontFamily: FFB, fontSize: 15, color: '#fff' },
   modalTitle: { fontFamily: FFB, fontSize: 17, color: '#ffffff' },
 
   pageTitle: {
@@ -605,15 +608,15 @@ const s = StyleSheet.create({
   profileName:  { fontFamily: FFB, fontSize: 20, color: '#ffffff', letterSpacing: -0.3 },
   badgeRow:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
   eliteDot:     { width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN },
-  eliteText:    { fontFamily: FF, fontSize: 12, color: GREEN },
+  eliteText:    { fontFamily: FFB, fontSize: 12, color: GREEN },
   statsRow:     { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   statBox:      { flex: 1, gap: 2 },
   statDivider:  { width: 1, height: 28, backgroundColor: '#2c2c2c', marginHorizontal: 12 },
-  statLabel:    { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 1.5 },
+  statLabel:    { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1.5 },
   statValue:    { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
 
   sectionLabel: {
-    fontFamily: FF, fontSize: 10, color: '#6b7280', letterSpacing: 2,
+    fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 2,
     textTransform: 'uppercase', paddingHorizontal: 16, marginBottom: 8, marginTop: 4,
   },
 
@@ -629,13 +632,13 @@ const s = StyleSheet.create({
     paddingHorizontal: 16, marginBottom: 10,
   },
   bagTitle:    { fontFamily: FFB, fontSize: 18, color: '#ffffff', marginBottom: 2 },
-  bagSubtitle: { fontFamily: FF, fontSize: 11, color: '#6b7280' },
+  bagSubtitle: { fontFamily: FFB, fontSize: 11, color: '#fff' },
   addClubBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderWidth: 1, borderColor: GOLD, borderRadius: 20,
     paddingHorizontal: 12, paddingVertical: 7,
   },
-  addClubText: { fontFamily: FF, fontSize: 12, color: GOLD },
+  addClubText: { fontFamily: FFB, fontSize: 12, color: GOLD },
 
   clubList: {
     marginHorizontal: 16, backgroundColor: '#111111',
@@ -653,18 +656,18 @@ const s = StyleSheet.create({
     backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}25`,
     alignItems: 'center', justifyContent: 'center',
   },
-  clubName:       { fontFamily: FF, fontSize: 15, color: '#ffffff' },
-  clubBrand:      { fontFamily: FF, fontSize: 11, color: '#6b7280', marginTop: 1 },
-  clubBrandEmpty: { fontFamily: FF, fontSize: 11, color: '#333', marginTop: 1 },
+  clubName:       { fontFamily: FFB, fontSize: 15, color: '#ffffff' },
+  clubBrand:      { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 1 },
+  clubBrandEmpty: { fontFamily: FFB, fontSize: 11, color: '#333', marginTop: 1 },
   nfcBadge: {
     borderWidth: 1, borderColor: `${GOLD}60`, borderRadius: 20,
     paddingHorizontal: 8, paddingVertical: 3,
     backgroundColor: `${GOLD}0d`, marginRight: 4,
   },
-  nfcText: { fontFamily: FF, fontSize: 10, color: GOLD, letterSpacing: 0.5 },
+  nfcText: { fontFamily: FFB, fontSize: 10, color: GOLD, letterSpacing: 0.5 },
   emptyBag:     { paddingVertical: 32, alignItems: 'center' },
-  emptyBagText: { fontFamily: FF, fontSize: 14, color: '#6b7280' },
-  emptyBagSub:  { fontFamily: FF, fontSize: 12, color: '#444', marginTop: 4 },
+  emptyBagText: { fontFamily: FFB, fontSize: 14, color: '#fff' },
+  emptyBagSub:  { fontFamily: FFB, fontSize: 12, color: '#444', marginTop: 4 },
 
   quickLinks: {
     marginHorizontal: 16, marginBottom: 16, backgroundColor: '#111111',
@@ -680,8 +683,8 @@ const s = StyleSheet.create({
     backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}25`,
     alignItems: 'center', justifyContent: 'center',
   },
-  quickLinkTitle:   { fontFamily: FF, fontSize: 14, color: '#ffffff', marginBottom: 2 },
-  quickLinkSub:     { fontFamily: FF, fontSize: 11, color: '#6b7280' },
+  quickLinkTitle:   { fontFamily: FFB, fontSize: 14, color: '#ffffff', marginBottom: 2 },
+  quickLinkSub:     { fontFamily: FFB, fontSize: 11, color: '#fff' },
   quickLinkDivider: { height: 1, backgroundColor: '#1c1c1c', marginHorizontal: 14 },
 
   statsBar: {
@@ -692,24 +695,24 @@ const s = StyleSheet.create({
   },
   statsCol:        { flex: 1, alignItems: 'center', gap: 4 },
   statsColDivider: { width: 1, height: 36, backgroundColor: '#1c1c1c' },
-  statsColLabel:   { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 1.5, marginTop: 4 },
-  statsColValue:   { fontFamily: FF, fontSize: 12, color: '#ffffff' },
+  statsColLabel:   { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1.5, marginTop: 4 },
+  statsColValue:   { fontFamily: FFB, fontSize: 12, color: '#ffffff' },
 
   fieldRow:   { paddingHorizontal: 16, paddingVertical: 12 },
-  fieldLabel: { fontFamily: FF, fontSize: 10, color: '#6b7280', letterSpacing: 1, marginBottom: 4 },
-  fieldInput: { fontFamily: FF, fontSize: 16, color: '#ffffff' },
+  fieldLabel: { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 1, marginBottom: 4 },
+  fieldInput: { fontFamily: FFB, fontSize: 16, color: '#ffffff' },
   syncBtn: {
     marginHorizontal: 16, borderRadius: 12,
     borderWidth: 1, borderColor: `${GREEN}44`, backgroundColor: `${GREEN}0d`,
     paddingVertical: 12, alignItems: 'center', marginBottom: 20,
   },
-  syncBtnText: { fontFamily: FF, fontSize: 14, color: GREEN },
+  syncBtnText: { fontFamily: FFB, fontSize: 14, color: GREEN },
   saveBtn: {
     marginHorizontal: 16, backgroundColor: GOLD, borderRadius: 14,
     paddingVertical: 16, alignItems: 'center', marginTop: 8,
   },
   saveBtnText: { fontFamily: FFB, fontSize: 16, color: '#000000' },
   version: {
-    textAlign: 'center', fontFamily: FF, fontSize: 11, color: '#2a2a2a', marginTop: 8, paddingBottom: 8,
+    textAlign: 'center', fontFamily: FFB, fontSize: 11, color: '#2a2a2a', marginTop: 8, paddingBottom: 8,
   },
 });

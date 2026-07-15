@@ -60,7 +60,7 @@ export default function LeaderboardScreen() {
     headerCenter: { alignItems: 'center', gap: 4 },
     headerLogo:   { width: 28, height: 28 },
     headerSub: {
-      fontFamily: FF,
+      fontFamily: FFB,
       fontSize: 9,
       color: colors.gold,
       letterSpacing: 2.5,
@@ -81,7 +81,7 @@ export default function LeaderboardScreen() {
     },
     tabActive:     { borderBottomColor: colors.gold },
     tabText: {
-      fontFamily: FF,
+      fontFamily: FFB,
       fontSize: 10,
       letterSpacing: 1.5,
       textTransform: 'uppercase',
@@ -100,9 +100,9 @@ export default function LeaderboardScreen() {
       marginBottom: 6,
     },
     headerText: {
-      fontFamily: FF,
+      fontFamily: FFB,
       fontSize: 9,
-      color: '#555',
+      color: '#fff',
       letterSpacing: 1.5,
     },
 
@@ -120,7 +120,7 @@ export default function LeaderboardScreen() {
     },
     rowFirst: { borderColor: `${colors.gold}30` },
 
-    cell:     { flex: 1, textAlign: 'center', fontFamily: FF, fontSize: 13, color: '#555' },
+    cell:     { flex: 1, textAlign: 'center', fontFamily: FFB, fontSize: 13, color: '#fff' },
     cellTeam: { flex: 4, textAlign: 'left' },
     cellPts:  { flex: 1.5 },
 
@@ -146,9 +146,9 @@ export default function LeaderboardScreen() {
     // ── Champions ─────────────────────────────────────────────────────────
     champYear:      { marginBottom: 24 },
     champYearLabel: {
-      fontFamily: FF,
+      fontFamily: FFB,
       fontSize: 10,
-      color: '#555',
+      color: '#fff',
       letterSpacing: 2,
       marginBottom: 10,
     },
@@ -161,7 +161,7 @@ export default function LeaderboardScreen() {
       borderColor: colors.goldBorder,
     },
     champAward: {
-      fontFamily: FF,
+      fontFamily: FFB,
       fontSize: 10,
       color: colors.gold,
       letterSpacing: 1.5,
@@ -173,9 +173,9 @@ export default function LeaderboardScreen() {
       color: '#ffffff',
     },
     champDetail: {
-      fontFamily: FF,
+      fontFamily: FFB,
       fontSize: 13,
-      color: '#666',
+      color: '#fff',
       marginTop: 4,
     },
 
@@ -185,11 +185,11 @@ export default function LeaderboardScreen() {
     emptyText: {
       fontFamily: FFB,
       fontSize: 16,
-      color: '#556677',
+      color: '#fff',
       textAlign: 'center',
     },
     emptySub: {
-      fontFamily: FF,
+      fontFamily: FFB,
       fontSize: 13,
       color: '#334455',
       marginTop: 6,

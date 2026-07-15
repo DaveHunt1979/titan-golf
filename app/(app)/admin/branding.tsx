@@ -77,7 +77,7 @@ function SplashPreview({ name, logoUri, primary, secondary }: {
       <Text style={[prev.name, { color: palette.text, fontFamily: FFB }]} numberOfLines={1}>
         {name || 'Your Society'}
       </Text>
-      <Text style={[prev.sub, { color: palette.accent, fontFamily: FF }]}>Loading…</Text>
+      <Text style={[prev.sub, { color: palette.accent, fontFamily: FFB }]}>Loading…</Text>
     </View>
   );
 }
@@ -378,18 +378,18 @@ const s = StyleSheet.create({
   headerLogo:   { width: 24, height: 24, marginBottom: 2 },
   back:         { fontSize: 14, color: GOLD, fontFamily: FFB },
   headerTitle:  { fontSize: 15, color: '#fff', fontFamily: FFB, letterSpacing: 0.5 },
-  headerSub:    { fontSize: 9, color: '#555', fontFamily: FF },
+  headerSub:    { fontSize: 9, color: '#fff', fontFamily: FFB },
   saveBtn:      { fontSize: 14, fontFamily: FFB, color: GOLD },
 
   scroll:   { padding: 20, paddingBottom: 60 },
   section:  { marginBottom: 28 },
 
   sectionLabel: {
-    fontSize: 10, fontFamily: FFB, color: '#555',
+    fontSize: 10, fontFamily: FFB, color: '#fff',
     letterSpacing: 2, marginBottom: 8,
   },
-  hint:  { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 8, lineHeight: 17 },
-  hint2: { fontSize: 12, fontFamily: FF, color: '#666', marginBottom: 12 },
+  hint:  { fontSize: 12, fontFamily: FFB, color: '#fff', marginTop: 8, lineHeight: 17 },
+  hint2: { fontSize: 12, fontFamily: FFB, color: '#fff', marginBottom: 12 },
 
   // Logo card
   logoCard: {
@@ -451,7 +451,7 @@ const sw = StyleSheet.create({
   },
   swatchOn: { borderWidth: 3, borderColor: GOLD, transform: [{ scale: 1.12 }] },
   tick:     { color: '#ffffff', fontSize: 16, fontWeight: '800' },
-  label:    { fontSize: 11, fontFamily: FF, color: '#888', minHeight: 16 },
+  label:    { fontSize: 11, fontFamily: FFB, color: '#fff', minHeight: 16 },
 });
 
 const hi = StyleSheet.create({

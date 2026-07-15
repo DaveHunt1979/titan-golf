@@ -54,7 +54,7 @@ export default function LandingScreen() {
         >
           <Text style={s.linkText}>
             Already have an account?{'  '}
-            <Text style={{ color: GOLD, fontFamily: FF }}>Sign in</Text>
+            <Text style={{ color: GOLD, fontFamily: FFB }}>Sign in</Text>
           </Text>
         </TouchableOpacity>
       </View>
@@ -71,7 +71,7 @@ const s = StyleSheet.create({
   logo:    { width: 120, height: 36 },
   divider: { width: 60, height: 1, backgroundColor: GOLD },
   appName: { fontSize: 28, fontFamily: FFB, color: '#fff', letterSpacing: 4 },
-  tagline: { fontSize: 13, fontFamily: FF, color: '#555', letterSpacing: 1 },
+  tagline: { fontSize: 13, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
 
   actions: { paddingBottom: 40, gap: 12 },
 
@@ -80,7 +80,7 @@ const s = StyleSheet.create({
     paddingVertical: 18, alignItems: 'center',
   },
   primaryText: { fontSize: 16, fontFamily: FFB, color: '#000' },
-  primarySub:  { fontSize: 12, fontFamily: FF, color: '#000', opacity: 0.65, marginTop: 2 },
+  primarySub:  { fontSize: 12, fontFamily: FFB, color: '#000', opacity: 0.65, marginTop: 2 },
 
   secondary: {
     backgroundColor: '#111', borderRadius: 12,
@@ -88,10 +88,10 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: '#1c1c1c',
   },
   secondaryText: { fontSize: 16, fontFamily: FFB, color: '#fff' },
-  secondarySub:  { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 2 },
+  secondarySub:  { fontSize: 12, fontFamily: FFB, color: '#fff', marginTop: 2 },
 
   link:     { alignItems: 'center', paddingVertical: 8 },
-  linkText: { fontSize: 14, fontFamily: FF, color: '#555' },
+  linkText: { fontSize: 14, fontFamily: FFB, color: '#fff' },
 
-  footer: { textAlign: 'center', fontSize: 12, fontFamily: FF, color: '#444', paddingBottom: 16 },
+  footer: { textAlign: 'center', fontSize: 12, fontFamily: FFB, color: '#444', paddingBottom: 16 },
 });

@@ -81,19 +81,19 @@ export default function SignInScreen() {
 const s = StyleSheet.create({
   container:      { flex: 1, backgroundColor: '#000' },
   back:           { position: 'absolute', top: 56, left: 24, zIndex: 10 },
-  backText:       { fontSize: 14, color: GOLD, fontFamily: FF },
+  backText:       { fontSize: 14, color: GOLD, fontFamily: FFB },
   inner:          { flex: 1, paddingHorizontal: 24, justifyContent: 'center' },
   logoArea:       { alignItems: 'center', marginBottom: 40 },
   logo:           { width: 120, height: 36, marginBottom: 16 },
   divider:        { width: 60, height: 1, backgroundColor: GOLD, marginBottom: 20 },
   appName:        { fontSize: 28, fontFamily: FFB, color: '#fff', letterSpacing: 4 },
-  tagline:        { fontSize: 13, fontFamily: FF, color: '#555', marginTop: 6, letterSpacing: 1 },
+  tagline:        { fontSize: 13, fontFamily: FFB, color: '#fff', marginTop: 6, letterSpacing: 1 },
   form: {
     backgroundColor: '#111', borderRadius: 12,
     padding: 20, borderWidth: 1, borderColor: '#1c1c1c',
   },
   label: {
-    fontSize: 10, fontFamily: FFB, color: '#555',
+    fontSize: 10, fontFamily: FFB, color: '#fff',
     letterSpacing: 1.5, marginBottom: 8,
   },
   input: {

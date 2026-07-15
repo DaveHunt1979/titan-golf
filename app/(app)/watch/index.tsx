@@ -178,13 +178,13 @@ const s = StyleSheet.create({
   headerBackText: { fontFamily: FFB, fontSize: 15, color: GOLD },
   headerCentre:   { alignItems: 'center', gap: 4 },
   headerLogo:     { width: 28, height: 28 },
-  headerSub:      { fontFamily: FF, fontSize: 9, color: '#555', letterSpacing: 1 },
+  headerSub:      { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1 },
   headerSpacer:   { flex: 1 },
   scroll:  { padding: 16, paddingBottom: 48 },
   empty:   { alignItems: 'center', paddingTop: 80 },
   emptyIcon:  { fontSize: 52, marginBottom: 12 },
-  emptyTitle: { fontFamily: FFB, fontSize: 18, color: '#555', marginBottom: 6 },
-  emptySub:   { fontFamily: FF, fontSize: 14, color: '#3a3a3a', textAlign: 'center', lineHeight: 20, paddingHorizontal: 24 },
+  emptyTitle: { fontFamily: FFB, fontSize: 18, color: '#fff', marginBottom: 6 },
+  emptySub:   { fontFamily: FFB, fontSize: 14, color: '#3a3a3a', textAlign: 'center', lineHeight: 20, paddingHorizontal: 24 },
 });
 
 // ── Section label ─────────────────────────────────────────────
@@ -197,7 +197,7 @@ function SectionLabel({ label, color, dot }: { label: string; color?: string; do
   );
 }
 const sl = StyleSheet.create({
-  text: { fontFamily: FFB, fontSize: 11, color: '#6b7280', letterSpacing: 2 },
+  text: { fontFamily: FFB, fontSize: 11, color: '#fff', letterSpacing: 2 },
 });
 
 // ── Match card ────────────────────────────────────────────────
@@ -330,8 +330,8 @@ const mc = StyleSheet.create({
   },
   cardLive: { borderColor: 'rgba(248,113,113,0.3)' },
   topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 8 },
-  matchNum:  { fontFamily: FFB, fontSize: 11, color: '#6b7280', letterSpacing: 1 },
-  dayTag:    { fontFamily: FF, fontSize: 11, color: '#6b7280', flex: 1 },
+  matchNum:  { fontFamily: FFB, fontSize: 11, color: '#fff', letterSpacing: 1 },
+  dayTag:    { fontFamily: FFB, fontSize: 11, color: '#fff', flex: 1 },
   watchLink: { fontFamily: FFB, fontSize: 11, color: RED, letterSpacing: 0.3 },
   teamsRow:  { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
   side:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -344,11 +344,11 @@ const mc = StyleSheet.create({
   pairAv:     { width: 26, height: 26, borderRadius: 13, overflow: 'hidden' },
   pairOverlap:{ marginLeft: -8 },
   pairInitial:{ fontFamily: FFB, fontSize: 10, color: GOLD },
-  sideName:      { flex: 1, fontFamily: FFB, fontSize: 14, color: '#9ca3af' },
+  sideName:      { flex: 1, fontFamily: FFB, fontSize: 14, color: '#fff' },
   sideNameRight: { textAlign: 'right' },
   centre:      { alignItems: 'center', paddingHorizontal: 6, minWidth: 68 },
-  statusLabel: { fontFamily: FFB, fontSize: 18, color: '#9ca3af', textAlign: 'center', letterSpacing: 0.5 },
-  thru:        { fontFamily: FFB, fontSize: 9, color: '#6b7280', letterSpacing: 1.5, marginTop: 2 },
+  statusLabel: { fontFamily: FFB, fontSize: 18, color: '#fff', textAlign: 'center', letterSpacing: 0.5 },
+  thru:        { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1.5, marginTop: 2 },
   strip:    { flexDirection: 'row', gap: 3, marginBottom: 10 },
   dot:      { flex: 1, height: 6, borderRadius: 3 },
   dotEmpty: { backgroundColor: '#1c1c1c' },
@@ -357,5 +357,5 @@ const mc = StyleSheet.create({
     paddingLeft: 8, paddingVertical: 4,
     borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.02)',
   },
-  leaderText: { fontFamily: FFB, fontSize: 11, color: '#6b7280', letterSpacing: 0.5 },
+  leaderText: { fontFamily: FFB, fontSize: 11, color: '#fff', letterSpacing: 0.5 },
 });

@@ -150,7 +150,7 @@ export default function NassauScreen() {
         ].map((b, i) => (
           <View key={b.label} style={[s.bet, i < 2 && s.betBorder]}>
             <Text style={s.betLabel}>{b.label}</Text>
-            <Text style={[s.betValue, b.diff === 0 && { color: '#888' }]} numberOfLines={2}>{b.value}</Text>
+            <Text style={[s.betValue, b.diff === 0 && { color: '#fff' }]} numberOfLines={2}>{b.value}</Text>
           </View>
         ))}
       </View>
@@ -233,25 +233,25 @@ const s = StyleSheet.create({
   back:         { fontSize: 13, fontFamily: FFB, color: GOLD },
   headerCenter: { alignItems: 'center', gap: 4 },
   logo:         { width: 28, height: 28 },
-  headerSub:    { fontSize: 9, fontFamily: FF, color: '#555', letterSpacing: 1.5 },
+  headerSub:    { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
   headerSpacer: { width: 70 },
 
   // Bets strip
   bets:         { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
   bet:          { flex: 1, alignItems: 'center', paddingVertical: 10 },
   betBorder:    { borderRightWidth: 1, borderRightColor: '#1c1c1c' },
-  betLabel:     { fontSize: 8, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginBottom: 3, textTransform: 'uppercase' },
+  betLabel:     { fontSize: 8, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginBottom: 3, textTransform: 'uppercase' },
   betValue:     { fontSize: 11, fontFamily: FFB, color: GOLD, textAlign: 'center' },
 
   // Matchup
   matchupRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
   matchupName:  { fontSize: 11, fontFamily: FFB, flex: 1 },
-  vs:           { fontSize: 11, fontFamily: FFB, color: '#555', marginHorizontal: 8 },
+  vs:           { fontSize: 11, fontFamily: FFB, color: '#fff', marginHorizontal: 8 },
 
   // Hole card
   holeCard:     { alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1c1c1c', backgroundColor: '#111', marginHorizontal: 16, marginTop: 12, borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c' },
   holeNum:      { fontSize: 28, fontFamily: FFB, color: '#fff' },
-  holeMeta:     { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 2 },
+  holeMeta:     { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 2 },
 
   // Players
   playersWrap:  { padding: 16, gap: 16 },
@@ -262,7 +262,7 @@ const s = StyleSheet.create({
   // Stepper
   stepper:      { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stepBtn:      { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#222', alignItems: 'center', justifyContent: 'center' },
-  stepBtnTxt:   { fontSize: 22, fontFamily: FF, color: '#fff' },
+  stepBtnTxt:   { fontSize: 22, fontFamily: FFB, color: '#fff' },
   scoreDisp:    { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a1a', borderWidth: 2, borderColor: '#222' },
   birdie:       { borderColor: GREEN, backgroundColor: 'rgba(74,222,128,0.1)' },
   bogey:        { borderColor: RED,   backgroundColor: 'rgba(248,113,113,0.1)' },

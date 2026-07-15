@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, Modal, Image,
-  TextInput, ScrollView, useWindowDimensions, Dimensions,
+  TextInput, ScrollView, useWindowDimensions, Dimensions, AppState,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -23,6 +23,7 @@ import { sendMatchNotification } from '../../../../src/lib/notifications';
 import { sendMatchToWatch, clearMatchFromWatch, onWatchScoreEntry, onWatchRequestsState } from '../../../../src/lib/watch';
 import CaddieButton from '../../../../src/components/CaddieButton';
 import type { VoiceCommandResult } from '../../../../src/lib/voiceCommand';
+import { enqueueHole, drainQueue, isNetworkError, getPendingCount } from '../../../../src/lib/offlineQueue';
 
 // ── Design tokens ──────────────────────────────────────────────
 const GOLD   = '#D4AF37';
@@ -62,7 +63,7 @@ function Avatar({ name, color, size = 36, source }: { name: string; color: strin
   }
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: `${color}20`, borderWidth: 1.5, borderColor: `${color}60`, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontFamily: FF, fontSize: size * 0.4, color }}>{(name || '?').charAt(0).toUpperCase()}</Text>
+      <Text style={{ fontFamily: FFB, fontSize: size * 0.4, color }}>{(name || '?').charAt(0).toUpperCase()}</Text>
     </View>
   );
 }
@@ -141,11 +142,26 @@ export default function EnterScoresScreen() {
   const [playerTotals, setPlayerTotals] = useState<Record<string, number>>({});
   const [holeData, setHoleData] = useState<Record<string, Record<number, { gross: number | null; pts: number | null }>>>({});
   const [editingHole, setEditingHole] = useState<number | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
   const { width: screenWidth } = useWindowDimensions();
   const pagerRef = useRef<ScrollView>(null);
   const holeStripRef = useRef<ScrollView>(null);
   const gpsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const skipNextLoad = useRef(false);
+
+  // Offline queue: drain on foreground, load initial pending count
+  useEffect(() => {
+    getPendingCount().then(n => setPendingCount(n));
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        drainQueue().then(r => {
+          if (r.drained > 0) setPendingCount(p => Math.max(0, p - r.drained));
+        });
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // Passive GPS — used only for tagging shot locations
   useEffect(() => {
@@ -256,6 +272,7 @@ export default function EnterScoresScreen() {
   // Load running totals per player whenever a hole is scored
   useEffect(() => {
     if (!match) return;
+    if (skipNextLoad.current) { skipNextLoad.current = false; return; }
     async function loadTotals() {
       const { data } = await supabase
         .from('match_holes')
@@ -464,11 +481,7 @@ export default function EnterScoresScreen() {
     const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
 
     if (isStrokePlay) {
-      const { error: delErr } = await supabase.from('match_holes').delete()
-        .eq('match_id', matchId)
-        .eq('hole_number', activeHole);
-      if (delErr) console.error('match_holes delete error:', delErr);
-
+      // Compute all data first so we can queue offline if needed
       const spRows = allPlayerIds.map(id => {
         const hcp = playerCourseHcp(id, compPlayers, day, match.hcp_allowance ?? 100);
         const shots = calcStrokesReceived(hcp, si);
@@ -485,9 +498,6 @@ export default function EnterScoresScreen() {
         };
       });
 
-      const { error: insErr } = await supabase.from('match_holes').insert(spRows);
-      if (insErr) console.error('match_holes insert error:', insErr);
-
       const spStatRows = allPlayerIds
         .map(id => ({
           match_id: matchId,
@@ -498,9 +508,6 @@ export default function EnterScoresScreen() {
           putts: stats[id]?.putts ?? null,
         }))
         .filter(r => r.fairway_direction !== null || r.putts !== null);
-      if (spStatRows.length > 0) {
-        await supabase.from('hole_stats').upsert(spStatRows, { onConflict: 'match_id,player_id,hole_number' });
-      }
 
       const spChars = [...holeChars];
       spChars[activeHole - 1] = 'd';
@@ -508,33 +515,77 @@ export default function EnterScoresScreen() {
       const holesPlayed = newHolesStr.split('').filter(c => c !== '.').length;
       const newStatus: 'upcoming' | 'in_progress' | 'complete' = holesPlayed >= 18 ? 'complete' : 'in_progress';
       const newResultStr = newStatus === 'complete' ? 'Complete' : null;
+      const matchUpdate = { holes_string: newHolesStr, status: newStatus, winner: null, result_str: newResultStr };
 
-      const { error } = await supabase.from('matches')
-        .update({ holes_string: newHolesStr, status: newStatus, winner: null, result_str: newResultStr })
-        .eq('id', match.id);
-
-      setSaving(false);
-      if (error) { Alert.alert('Error', error.message); return; }
-      setMatch({ ...match, holes_string: newHolesStr, status: newStatus, winner: null, result_str: newResultStr });
-      setEditingHole(null);
-
-      if (newStatus === 'complete' && !editingHole) {
-        const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
-        const broken = allBroken.flat();
-        if (broken.length > 0) { setRecordsBroken(broken); }
-        else { Alert.alert('Round Complete', 'All 18 holes scored!', [{ text: 'Done', onPress: () => router.back() }]); }
+      // Try drain before saving
+      if (pendingCount > 0) {
+        const dr = await drainQueue();
+        if (dr.drained > 0) setPendingCount(p => Math.max(0, p - dr.drained));
       }
 
-      if (!editingHole && !wasAlreadyComplete && [6, 9, 12, 15, 16, 17, 18].includes(activeHole)) {
-        const updatedTotals = { ...playerTotals };
-        for (const row of spRows) {
-          updatedTotals[row.player_id] = (updatedTotals[row.player_id] ?? 0) + (row.stableford_pts ?? 0);
+      let savedOffline = false;
+      try {
+        await supabase.from('match_holes').delete().eq('match_id', matchId).eq('hole_number', activeHole);
+        const { error: insErr } = await supabase.from('match_holes').insert(spRows);
+        if (insErr) throw insErr;
+        if (spStatRows.length > 0) {
+          await supabase.from('hole_stats').upsert(spStatRows, { onConflict: 'match_id,player_id,hole_number' });
         }
-        const standings = allPlayerIds.map(id => ({
-          name: (playerNames[id] ?? 'Player').split(' ')[0],
-          pts: updatedTotals[id] ?? 0,
-        }));
-        if (!voiceOff) speakPressure({ standings, holeNumber: activeHole, holesLeft: 18 - holesPlayed, format: 'stableford' });
+        const { error: updErr } = await supabase.from('matches').update(matchUpdate).eq('id', match.id);
+        if (updErr) throw updErr;
+      } catch (err: any) {
+        if (!isNetworkError(err)) {
+          setSaving(false);
+          Alert.alert('Error', String(err.message ?? err));
+          return;
+        }
+        savedOffline = true;
+        await enqueueHole({ matchId: matchId as string, holeNumber: activeHole, insertRows: spRows, statRows: spStatRows, matchUpdate });
+        setPendingCount(c => c + 1);
+      }
+
+      // Optimistic local update (same path online or offline)
+      setSaving(false);
+      skipNextLoad.current = true;
+      setHoleData(prev => {
+        const next: typeof prev = {};
+        for (const [pid, holes] of Object.entries(prev)) next[pid] = { ...holes };
+        for (const row of spRows) {
+          if (!next[row.player_id]) next[row.player_id] = {};
+          next[row.player_id][row.hole_number] = { gross: row.gross_score ?? null, pts: row.stableford_pts ?? null };
+        }
+        return next;
+      });
+      setPlayerTotals(prev => {
+        const next = { ...prev };
+        for (const row of spRows) {
+          const oldPts = editingHole ? (holeData[row.player_id]?.[activeHole]?.pts ?? 0) : 0;
+          next[row.player_id] = (prev[row.player_id] ?? 0) - oldPts + (row.stableford_pts ?? 0);
+        }
+        return next;
+      });
+      setMatch({ ...match, ...matchUpdate });
+      setEditingHole(null);
+
+      if (!savedOffline) {
+        if (newStatus === 'complete' && !editingHole) {
+          const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
+          const broken = allBroken.flat();
+          if (broken.length > 0) { setRecordsBroken(broken); }
+          else { Alert.alert('Round Complete', 'All 18 holes scored!', [{ text: 'Done', onPress: () => router.back() }]); }
+        }
+
+        if (!editingHole && !wasAlreadyComplete && [6, 9, 12, 15, 16, 17, 18].includes(activeHole)) {
+          const updatedTotals = { ...playerTotals };
+          for (const row of spRows) {
+            updatedTotals[row.player_id] = (updatedTotals[row.player_id] ?? 0) + (row.stableford_pts ?? 0);
+          }
+          const standings = allPlayerIds.map(id => ({
+            name: (playerNames[id] ?? 'Player').split(' ')[0],
+            pts: updatedTotals[id] ?? 0,
+          }));
+          if (!voiceOff) speakPressure({ standings, holeNumber: activeHole, holesLeft: 18 - holesPlayed, format: 'stableford' });
+        }
       }
       return;
     }
@@ -550,11 +601,6 @@ export default function EnterScoresScreen() {
     const awayNet = Math.min(...match.away_player_ids.map(getNetScore));
     const holeResult: 'h' | 'a' | 'f' = homeNet < awayNet ? 'h' : awayNet < homeNet ? 'a' : 'f';
 
-    const { error: delErr } = await supabase.from('match_holes').delete()
-      .eq('match_id', matchId)
-      .eq('hole_number', activeHole);
-    if (delErr) console.error('match_holes delete error:', delErr);
-
     const rows = allPlayerIds.map(id => {
       const hcp = playerCourseHcp(id, compPlayers, day, match.hcp_allowance ?? 100);
       const shots = calcStrokesReceived(hcp, si);
@@ -569,9 +615,6 @@ export default function EnterScoresScreen() {
       };
     });
 
-    const { error: insErr } = await supabase.from('match_holes').insert(rows);
-    if (insErr) console.error('match_holes insert error:', insErr);
-
     const statRows = allPlayerIds
       .map(id => ({
         match_id: matchId,
@@ -582,9 +625,6 @@ export default function EnterScoresScreen() {
         putts: stats[id]?.putts ?? null,
       }))
       .filter(r => r.fairway_direction !== null || r.putts !== null);
-    if (statRows.length > 0) {
-      await supabase.from('hole_stats').upsert(statRows, { onConflict: 'match_id,player_id,hole_number' });
-    }
 
     const chars = [...holeChars];
     chars[activeHole - 1] = holeResult;
@@ -605,93 +645,129 @@ export default function EnterScoresScreen() {
       else { winner = homeUp > 0 ? 'home' : 'away'; result_str = `${Math.abs(homeUp)}UP`; }
     }
 
-    const { error } = await supabase.from('matches')
-      .update({ holes_string: newHolesStr, status: newStatus, winner, result_str })
-      .eq('id', match.id);
+    const matchUpdate = { holes_string: newHolesStr, status: newStatus, winner, result_str };
 
+    // Try drain before saving
+    if (pendingCount > 0) {
+      const dr = await drainQueue();
+      if (dr.drained > 0) setPendingCount(p => Math.max(0, p - dr.drained));
+    }
+
+    let savedOffline = false;
+    try {
+      await supabase.from('match_holes').delete().eq('match_id', matchId).eq('hole_number', activeHole);
+      const { error: insErr } = await supabase.from('match_holes').insert(rows);
+      if (insErr) throw insErr;
+      if (statRows.length > 0) {
+        await supabase.from('hole_stats').upsert(statRows, { onConflict: 'match_id,player_id,hole_number' });
+      }
+      const { error: updErr } = await supabase.from('matches').update(matchUpdate).eq('id', match.id);
+      if (updErr) throw updErr;
+    } catch (err: any) {
+      if (!isNetworkError(err)) {
+        setSaving(false);
+        Alert.alert('Error', String(err.message ?? err));
+        return;
+      }
+      savedOffline = true;
+      await enqueueHole({ matchId: matchId as string, holeNumber: activeHole, insertRows: rows, statRows, matchUpdate });
+      setPendingCount(c => c + 1);
+    }
+
+    // Optimistic local update
     setSaving(false);
-    if (error) { Alert.alert('Error', error.message); return; }
-
-    setMatch({ ...match, holes_string: newHolesStr, status: newStatus, winner, result_str });
+    skipNextLoad.current = true;
+    setHoleData(prev => {
+      const next: typeof prev = {};
+      for (const [pid, holes] of Object.entries(prev)) next[pid] = { ...holes };
+      for (const row of rows) {
+        if (!next[row.player_id]) next[row.player_id] = {};
+        next[row.player_id][row.hole_number] = { gross: row.gross_score ?? null, pts: row.stableford_pts ?? null };
+      }
+      return next;
+    });
+    setMatch({ ...match, ...matchUpdate });
     setEditingHole(null);
 
-    if (!editingHole) {
-      if (match.competition_id && newStatus !== 'complete' && [9, 12, 15].includes(activeHole)) {
-        const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-        const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-        const { homeUp: newHomeUp } = calcHoles(newHolesStr);
-        const at = activeHole === 9 ? 'the turn' : `hole ${activeHole}`;
-        const scoreBody = newHomeUp > 0
-          ? `${homeTeam} ${newHomeUp}UP at ${at}`
-          : newHomeUp < 0
-            ? `${awayTeam} ${Math.abs(newHomeUp)}UP at ${at}`
-            : `All Square at ${at}`;
-        sendMatchNotification(match.competition_id, `⛳ Match ${match.match_number}`, scoreBody);
-      }
+    if (!savedOffline) {
+      if (!editingHole) {
+        if (match.competition_id && newStatus !== 'complete' && [9, 12, 15].includes(activeHole)) {
+          const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+          const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+          const { homeUp: newHomeUp } = calcHoles(newHolesStr);
+          const at = activeHole === 9 ? 'the turn' : `hole ${activeHole}`;
+          const scoreBody = newHomeUp > 0
+            ? `${homeTeam} ${newHomeUp}UP at ${at}`
+            : newHomeUp < 0
+              ? `${awayTeam} ${Math.abs(newHomeUp)}UP at ${at}`
+              : `All Square at ${at}`;
+          sendMatchNotification(match.competition_id, `⛳ Match ${match.match_number}`, scoreBody);
+        }
 
-      if (currentSideGame) {
-        setSideGameResult('');
-        setSideGameWinner(null);
-        setSideGameModal({ type: currentSideGame, hole: activeHole });
-      }
+        if (currentSideGame) {
+          setSideGameResult('');
+          setSideGameWinner(null);
+          setSideGameModal({ type: currentSideGame, hole: activeHole });
+        }
 
-      if (match.competition_id) {
-        for (const id of allPlayerIds) {
-          const gross = scores[id];
-          if (!gross) continue;
-          const firstName = (playerNames[id] ?? '').split(' ')[0];
-          const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
-          if (gross === 1) {
-            sendMatchNotification(match.competition_id, '⛳ HOLE IN ONE!', `${firstName} just made a hole in one on hole ${activeHole}!`, pids);
-          } else if (gross <= par - 2) {
-            sendMatchNotification(match.competition_id, '🦅 Eagle!', `${firstName} just made an eagle on hole ${activeHole}!`, pids);
-          } else if (gross === par - 1) {
-            sendMatchNotification(match.competition_id, '🐦 Birdie!', `${firstName} is on fire — birdie on hole ${activeHole}!`, pids);
+        if (match.competition_id) {
+          for (const id of allPlayerIds) {
+            const gross = scores[id];
+            if (!gross) continue;
+            const firstName = (playerNames[id] ?? '').split(' ')[0];
+            const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
+            if (gross === 1) {
+              sendMatchNotification(match.competition_id, '⛳ HOLE IN ONE!', `${firstName} just made a hole in one on hole ${activeHole}!`, pids);
+            } else if (gross <= par - 2) {
+              sendMatchNotification(match.competition_id, '🦅 Eagle!', `${firstName} just made an eagle on hole ${activeHole}!`, pids);
+            } else if (gross === par - 1) {
+              sendMatchNotification(match.competition_id, '🐦 Birdie!', `${firstName} is on fire — birdie on hole ${activeHole}!`, pids);
+            }
           }
         }
       }
-    }
 
-    if (newStatus === 'complete' && !wasAlreadyComplete) {
-      const homeDisplayName = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-      const awayDisplayName = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-      const winTeam = winner === 'home' ? homeDisplayName : winner === 'away' ? awayDisplayName : null;
-      const msg = winner === 'half' ? 'Match Halved!' : `${winTeam} win ${result_str}!`;
-      if (match.competition_id) {
-        const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
-        sendMatchNotification(match.competition_id, '🏆 Match Complete', msg, pids);
+      if (newStatus === 'complete' && !wasAlreadyComplete) {
+        const homeDisplayName = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+        const awayDisplayName = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+        const winTeam = winner === 'home' ? homeDisplayName : winner === 'away' ? awayDisplayName : null;
+        const msg = winner === 'half' ? 'Match Halved!' : `${winTeam} win ${result_str}!`;
+        if (match.competition_id) {
+          const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
+          sendMatchNotification(match.competition_id, '🏆 Match Complete', msg, pids);
+        }
+        const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
+        const broken = allBroken.flat();
+        if (broken.length > 0) {
+          setRecordsBroken(broken);
+        } else if (match.secondary_format && match.round_format === 'matchplay') {
+          const secLabel = match.secondary_format === 'stableford' ? 'Stableford' : 'Stroke Play';
+          Alert.alert(
+            'Matchplay Complete',
+            `${msg}\n\nYou have a ${secLabel} secondary game running — continue to finish all 18 holes.`,
+            [
+              { text: 'Finish Now', style: 'cancel', onPress: () => router.back() },
+              { text: `Continue ${secLabel}`, onPress: () => {
+                  setMatch(prev => prev ? { ...prev, status: 'in_progress' } : prev);
+                } },
+            ]
+          );
+        } else {
+          Alert.alert('Match Complete', msg, [{ text: 'Done', onPress: () => router.back() }]);
+        }
       }
-      const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
-      const broken = allBroken.flat();
-      if (broken.length > 0) {
-        setRecordsBroken(broken);
-      } else if (match.secondary_format && match.round_format === 'matchplay') {
-        const secLabel = match.secondary_format === 'stableford' ? 'Stableford' : 'Stroke Play';
-        Alert.alert(
-          'Matchplay Complete',
-          `${msg}\n\nYou have a ${secLabel} secondary game running — continue to finish all 18 holes.`,
-          [
-            { text: 'Finish Now', style: 'cancel', onPress: () => router.back() },
-            { text: `Continue ${secLabel}`, onPress: () => {
-                setMatch(prev => prev ? { ...prev, status: 'in_progress' } : prev);
-              } },
-          ]
-        );
-      } else {
-        Alert.alert('Match Complete', msg, [{ text: 'Done', onPress: () => router.back() }]);
-      }
-    }
 
-    if (!editingHole && !wasAlreadyComplete && [9, 12, 15].includes(activeHole)) {
-      const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-      const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-      const { homeUp: newHomeUp, remaining: newRemaining } = calcHoles(newHolesStr);
-      if (!voiceOff) speakPressure({
-        holeNumber: activeHole,
-        holesLeft: newRemaining,
-        format: 'matchplay',
-        matchplay: { homeTeam, awayTeam, homeUp: newHomeUp, remaining: newRemaining },
-      });
+      if (!editingHole && !wasAlreadyComplete && [9, 12, 15].includes(activeHole)) {
+        const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+        const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+        const { homeUp: newHomeUp, remaining: newRemaining } = calcHoles(newHolesStr);
+        if (!voiceOff) speakPressure({
+          holeNumber: activeHole,
+          holesLeft: newRemaining,
+          format: 'matchplay',
+          matchplay: { homeTeam, awayTeam, homeUp: newHomeUp, remaining: newRemaining },
+        });
+      }
     }
   }
 
@@ -747,7 +823,7 @@ export default function EnterScoresScreen() {
 
   if (!match) return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' }}>
-      <Text style={{ fontFamily: FF, color: '#6b7280' }}>Match not found.</Text>
+      <Text style={{ fontFamily: FFB, color: '#fff' }}>Match not found.</Text>
     </View>
   );
 
@@ -895,6 +971,13 @@ export default function EnterScoresScreen() {
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
+              {pendingCount > 0 && (
+                <View style={s.offlineBanner}>
+                  <Ionicons name="cloud-offline-outline" size={13} color="#fff" />
+                  <Text style={s.offlineBannerText}>{pendingCount} score{pendingCount !== 1 ? 's' : ''} saved offline — will sync when connected</Text>
+                </View>
+              )}
+
               {/* Hole card */}
               <View style={s.holeCard}>
                 <View style={s.holeCardTop}>
@@ -915,8 +998,8 @@ export default function EnterScoresScreen() {
 
                   <View style={s.holeCardDivider} />
 
-                  {/* Mini leaderboard */}
-                  <View style={s.leaderboard}>
+                  {/* Mini leaderboard — group play only */}
+                  {allPlayerIds.length > 1 && <View style={s.leaderboard}>
                     {(() => {
                       const sorted = [...allPlayerIds].sort((a, b) => {
                         const aVal = playerTotals[a] ?? 0;
@@ -943,12 +1026,12 @@ export default function EnterScoresScreen() {
                           <View key={id} style={s.lbRow}>
                             <Avatar name={firstName} color={teamColor} size={32} source={src} />
                             <Text style={[s.lbName, !isLeader && { opacity: 0.5 }]} numberOfLines={1}>{firstName}</Text>
-                            <Text style={[s.lbPts, { color: isLeader ? GOLD : '#6b7280' }]}>{scoreStr}</Text>
+                            <Text style={[s.lbPts, { color: isLeader ? GOLD : '#fff' }]}>{scoreStr}</Text>
                           </View>
                         );
                       });
                     })()}
-                  </View>
+                  </View>}
                 </View>
 
                 {/* Gets a shot */}
@@ -1004,12 +1087,12 @@ export default function EnterScoresScreen() {
               {/* Undo / edit */}
               {editingHole ? (
                 <TouchableOpacity style={s.undoBtn} onPress={() => setEditingHole(null)} disabled={saving} activeOpacity={0.7}>
-                  <Ionicons name="close-outline" size={16} color="#6b7280" />
+                  <Ionicons name="close-outline" size={16} color="#fff" />
                   <Text style={s.undoBtnText}>Cancel edit · Hole {editingHole}</Text>
                 </TouchableOpacity>
               ) : lastPlayedHole > 0 ? (
                 <TouchableOpacity style={s.undoBtn} onPress={undoHole} disabled={saving} activeOpacity={0.7}>
-                  <Ionicons name="arrow-undo-outline" size={16} color="#6b7280" />
+                  <Ionicons name="arrow-undo-outline" size={16} color="#fff" />
                   <Text style={s.undoBtnText}>Undo · Hole {lastPlayedHole}</Text>
                 </TouchableOpacity>
               ) : null}
@@ -1124,7 +1207,7 @@ export default function EnterScoresScreen() {
                     <Ionicons name={type === 'Longest Drive' ? 'flag-outline' : 'locate-outline'} size={20} color={GOLD} />
                     <View style={{ flex: 1 }}>
                       <Text style={s.summaryName}>{type}</Text>
-                      <Text style={{ fontFamily: FF, fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                      <Text style={{ fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 2 }}>
                         {result ? `${result.player ? result.player + ' · ' : ''}${result.result}` : 'Not recorded'}
                       </Text>
                     </View>
@@ -1377,7 +1460,7 @@ export default function EnterScoresScreen() {
               <Text style={sh.submitText}>Save Result</Text>
             </TouchableOpacity>
             <TouchableOpacity style={{ paddingVertical: 12, alignItems: 'center' }} onPress={() => setSideGameModal(null)} activeOpacity={0.7}>
-              <Text style={{ fontFamily: FF, fontSize: 14, color: '#6b7280' }}>Skip</Text>
+              <Text style={{ fontFamily: FFB, fontSize: 14, color: '#fff' }}>Skip</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1495,11 +1578,11 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
 
         {/* Header row */}
         <View style={sc.headerRow}>
-          <Text style={[sc.cell, sc.labelCell, { color: '#6b7280' }]}>PLAYER</Text>
+          <Text style={[sc.cell, sc.labelCell, { color: '#fff' }]}>PLAYER</Text>
           {holes.map(h => (
             <Text key={h} style={[sc.cell, sc.holeCell, holeChars[h-1] !== '.' && { color: '#ffffff' }]}>{h}</Text>
           ))}
-          <Text style={[sc.cell, sc.totalCell, { color: '#6b7280' }]}>TOT</Text>
+          <Text style={[sc.cell, sc.totalCell, { color: '#fff' }]}>TOT</Text>
         </View>
 
         {/* Par row */}
@@ -1537,7 +1620,7 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
             <View key={id} style={[sc.row, pi % 2 === 0 && { backgroundColor: '#0d0d0d' }]}>
               <View style={[sc.cell, sc.labelCell, { flexDirection: 'row', alignItems: 'center', gap: 5 }]}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: teamColor }} />
-                <Text style={{ fontFamily: FF, fontSize: 11, color: '#ffffff' }} numberOfLines={1}>{firstName}</Text>
+                <Text style={{ fontFamily: FFB, fontSize: 11, color: '#ffffff' }} numberOfLines={1}>{firstName}</Text>
               </View>
               {holes.map(h => {
                 const score = holeData[id]?.[h];
@@ -1561,7 +1644,7 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
                         )}
                       </>
                     ) : (
-                      <Text style={{ fontFamily: FF, fontSize: 10, color: played ? '#444' : '#222', textAlign: 'center' }}>
+                      <Text style={{ fontFamily: FFB, fontSize: 10, color: played ? '#444' : '#222', textAlign: 'center' }}>
                         {played ? '—' : ''}
                       </Text>
                     )}
@@ -1578,7 +1661,7 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
         {/* Matchplay result row */}
         {!isStrokePlay && (
           <View style={[sc.row, { backgroundColor: '#0a0a0a', borderTopWidth: 1, borderTopColor: '#1a1a1a' }]}>
-            <Text style={[sc.cell, sc.labelCell, { color: '#6b7280' }]}>RESULT</Text>
+            <Text style={[sc.cell, sc.labelCell, { color: '#fff' }]}>RESULT</Text>
             {holes.map(h => {
               const c = holeChars[h - 1];
               const color = c === 'h' ? homeColor : c === 'a' ? awayColor : c === 'f' ? '#4b5563' : 'transparent';
@@ -1598,7 +1681,7 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
       {lastPlayedHole > 0 && (
         <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 16, flexDirection: 'row', justifyContent: 'center', gap: 6 }} onPress={onUndo} disabled={saving} activeOpacity={0.7}>
           <Ionicons name="arrow-undo-outline" size={14} color="#444" />
-          <Text style={{ fontFamily: FF, fontSize: 12, color: '#444' }}>Edit Hole {lastPlayedHole}</Text>
+          <Text style={{ fontFamily: FFB, fontSize: 12, color: '#444' }}>Edit Hole {lastPlayedHole}</Text>
         </TouchableOpacity>
       )}
     </ScrollView>
@@ -1616,12 +1699,12 @@ const s = StyleSheet.create({
   headerSide:   { width: 40 },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerLogo:   { width: 28, height: 28, marginBottom: 2 },
-  headerSub:    { fontFamily: FF, fontSize: 11, color: '#6b7280', letterSpacing: 0.5 },
+  headerSub:    { fontFamily: FFB, fontSize: 11, color: '#fff', letterSpacing: 0.5 },
 
   statusBanner: { alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16 },
-  statusMain:   { fontFamily: FF, fontSize: 22, letterSpacing: -0.3 },
-  statusSecondary: { fontFamily: FF, fontSize: 11, color: GOLD, marginTop: 2, letterSpacing: 0.5 },
-  statusSub:    { fontFamily: FF, fontSize: 12, color: '#6b7280', marginTop: 2 },
+  statusMain:   { fontFamily: FFB, fontSize: 22, letterSpacing: -0.3 },
+  statusSecondary: { fontFamily: FFB, fontSize: 11, color: GOLD, marginTop: 2, letterSpacing: 0.5 },
+  statusSub:    { fontFamily: FFB, fontSize: 12, color: '#fff', marginTop: 2 },
 
   holeStripWrap: { maxHeight: 72 },
   holeStrip:     { paddingHorizontal: 12, paddingVertical: 6, gap: 6, alignItems: 'center' },
@@ -1631,8 +1714,8 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: 2,
   },
   holeTileActive: { borderColor: GOLD, borderWidth: 1.5 },
-  holeTileNum:    { fontFamily: FF, fontSize: 14, color: '#ffffff' },
-  holeTilePar:    { fontFamily: FF, fontSize: 9, color: '#6b7280' },
+  holeTileNum:    { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
+  holeTilePar:    { fontFamily: FFB, fontSize: 9, color: '#fff' },
   holeTileDot:    { width: 6, height: 6, borderRadius: 3, marginTop: 1 },
   holeTilePts:    { fontFamily: FFB, fontSize: 11, marginTop: 1 },
 
@@ -1640,7 +1723,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-around',
     paddingHorizontal: 12, paddingBottom: 4,
   },
-  halfLabel: { fontFamily: FF, fontSize: 8, color: '#2a2a2a', letterSpacing: 1.5 },
+  halfLabel: { fontFamily: FFB, fontSize: 8, color: '#2a2a2a', letterSpacing: 1.5 },
 
   pageContent: { padding: 16, paddingBottom: 24 },
 
@@ -1652,18 +1735,18 @@ const s = StyleSheet.create({
   holeCardTop:     { flexDirection: 'row', padding: 16, gap: 12 },
   holeCardDivider: { width: 1, backgroundColor: '#1c1c1c' },
   holeNumberBlock: { width: 110, alignItems: 'flex-start', justifyContent: 'center', gap: 6 },
-  holeWord:        { fontFamily: FF, fontSize: 10, color: '#6b7280', letterSpacing: 2 },
-  holeBig:         { fontFamily: FF, fontSize: 64, color: '#ffffff', lineHeight: 68, letterSpacing: -2 },
+  holeWord:        { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 2 },
+  holeBig:         { fontFamily: FFB, fontSize: 64, color: '#ffffff', lineHeight: 68, letterSpacing: -2 },
   holeChips:       { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   holeChip: {
     borderWidth: 1, borderColor: '#2c2c2c', borderRadius: 6,
     paddingHorizontal: 6, paddingVertical: 2,
   },
-  holeChipText: { fontFamily: FF, fontSize: 10, color: '#6b7280' },
+  holeChipText: { fontFamily: FFB, fontSize: 10, color: '#fff' },
 
   leaderboard: { flex: 1, justifyContent: 'center', gap: 10 },
   lbRow:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  lbName:      { flex: 1, fontFamily: FF, fontSize: 13, color: '#ffffff' },
+  lbName:      { flex: 1, fontFamily: FFB, fontSize: 13, color: '#ffffff' },
   lbPts:       { fontFamily: FFB, fontSize: 13 },
 
   shotRow: {
@@ -1676,13 +1759,13 @@ const s = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
     alignSelf: 'flex-start',
   },
-  shotText: { fontFamily: FF, fontSize: 12, color: GOLD },
+  shotText: { fontFamily: FFB, fontSize: 12, color: GOLD },
 
   actionsRow: {
     flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#1a1a1a',
   },
   actionBtn:   { flex: 1, alignItems: 'center', paddingVertical: 14, gap: 4 },
-  actionLabel: { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 1.5 },
+  actionLabel: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1.5 },
   actionSep:   { width: 1, backgroundColor: '#1a1a1a' },
 
   sideGameBanner: {
@@ -1693,14 +1776,14 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   sideGameBannerTitle: { fontFamily: FFB, fontSize: 13, color: GOLD, letterSpacing: 1 },
-  sideGameBannerSub:   { fontFamily: FF, fontSize: 11, color: '#6b7280', marginTop: 2 },
+  sideGameBannerSub:   { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 2 },
 
   undoBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: '#111111', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c',
     paddingVertical: 12, marginBottom: 12,
   },
-  undoBtnText: { fontFamily: FF, fontSize: 13, color: '#6b7280' },
+  undoBtnText: { fontFamily: FFB, fontSize: 13, color: '#fff' },
 
   pageHint:       { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 8 },
   pageDot:        { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2c2c2c' },
@@ -1712,22 +1795,22 @@ const s = StyleSheet.create({
     paddingVertical: 16, flexDirection: 'row',
     alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  ctaText: { fontFamily: FF, fontSize: 17, color: '#000000' },
+  ctaText: { fontFamily: FFB, fontSize: 17, color: '#000000' },
 
   completeHero: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 24 },
-  completeTitle: { fontFamily: FF, fontSize: 10, color: '#6b7280', letterSpacing: 3, marginBottom: 8 },
+  completeTitle: { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 3, marginBottom: 8 },
   completeResult: { fontFamily: FFB, fontSize: 56, color: GOLD, letterSpacing: 2 },
-  completeWinner: { fontFamily: FF, fontSize: 18, color: '#ffffff', marginTop: 4 },
+  completeWinner: { fontFamily: FFB, fontSize: 18, color: '#ffffff', marginTop: 4 },
 
   summaryCard: {
     marginHorizontal: 16, marginBottom: 12,
     backgroundColor: '#111111', borderRadius: 14,
     borderWidth: 1, borderColor: '#1c1c1c', padding: 14,
   },
-  summaryTitle: { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 2, marginBottom: 12 },
+  summaryTitle: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 2, marginBottom: 12 },
   summaryRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   summaryRank:  { fontFamily: FFB, fontSize: 14, width: 20, textAlign: 'center' },
-  summaryName:  { flex: 1, fontFamily: FF, fontSize: 14, color: '#ffffff' },
+  summaryName:  { flex: 1, fontFamily: FFB, fontSize: 14, color: '#ffffff' },
   summaryScore: { fontFamily: FFB, fontSize: 16 },
 
   savingIndicator: {
@@ -1737,6 +1820,9 @@ const s = StyleSheet.create({
     borderRadius: 20, padding: 12,
     borderWidth: 1, borderColor: '#1c1c1c',
   },
+
+  offlineBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1c1c1c', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginHorizontal: 16, marginBottom: 8 },
+  offlineBannerText: { flex: 1, fontFamily: 'JUSTSans-ExBold', fontSize: 11, color: '#fff' },
 });
 
 // ── Score sheet styles ────────────────────────────────────────
@@ -1754,8 +1840,8 @@ const sh = StyleSheet.create({
     marginBottom: 12, paddingBottom: 16,
     borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  playerName: { fontFamily: FF, fontSize: 18, color: '#ffffff' },
-  playerInfo: { fontFamily: FF, fontSize: 11, color: '#6b7280', marginTop: 2 },
+  playerName: { fontFamily: FFB, fontSize: 18, color: '#ffffff' },
+  playerInfo: { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 2 },
 
   shotBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -1763,7 +1849,7 @@ const sh = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
     alignSelf: 'flex-start', marginBottom: 10,
   },
-  shotBadgeText: { fontFamily: FF, fontSize: 12, color: GOLD },
+  shotBadgeText: { fontFamily: FFB, fontSize: 12, color: GOLD },
 
   progressRow:   { flexDirection: 'row', gap: 8, marginBottom: 8 },
   progressDot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: '#1c1c1c', borderWidth: 1, borderColor: '#2c2c2c' },
@@ -1775,9 +1861,9 @@ const sh = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 4,
     marginBottom: 4, borderWidth: 1, borderColor: '#2c2c2c', alignSelf: 'flex-start',
   },
-  statusStripText: { fontFamily: FF, fontSize: 11, color: GOLD, letterSpacing: 0.5 },
+  statusStripText: { fontFamily: FFB, fontSize: 11, color: GOLD, letterSpacing: 0.5 },
 
-  pickerLabel: { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2, marginBottom: 10, marginTop: 16 },
+  pickerLabel: { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2, marginBottom: 10, marginTop: 16 },
 
   scoreGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   scoreBtn: {
@@ -1785,8 +1871,8 @@ const sh = StyleSheet.create({
     backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#2c2c2c',
     alignItems: 'center', justifyContent: 'center',
   },
-  scoreBtnText: { fontFamily: FF, fontSize: 20, color: '#6b7280' },
-  scoreDiff:    { fontFamily: FF, fontSize: 8, marginTop: 1 },
+  scoreBtnText: { fontFamily: FFB, fontSize: 20, color: '#fff' },
+  scoreDiff:    { fontFamily: FFB, fontSize: 8, marginTop: 1 },
 
   fairwayRow: { flexDirection: 'row', gap: 8 },
   fairwayBtn: {
@@ -1794,7 +1880,7 @@ const sh = StyleSheet.create({
     backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#2c2c2c', alignItems: 'center',
   },
   fairwayBtnOn:  { backgroundColor: `${GOLD}15`, borderColor: GOLD },
-  fairwayText:   { fontFamily: FF, fontSize: 13, color: '#6b7280' },
+  fairwayText:   { fontFamily: FFB, fontSize: 13, color: '#fff' },
   fairwayTextOn: { color: GOLD },
 
   puttsRow: { flexDirection: 'row', gap: 8 },
@@ -1803,7 +1889,7 @@ const sh = StyleSheet.create({
     backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#2c2c2c', alignItems: 'center',
   },
   puttsBtnOn:  { backgroundColor: `${BLUE}15`, borderColor: BLUE },
-  puttsText:   { fontFamily: FF, fontSize: 16, color: '#6b7280' },
+  puttsText:   { fontFamily: FFB, fontSize: 16, color: '#fff' },
   puttsTextOn: { color: BLUE },
 
   submitBtn: {
@@ -1811,34 +1897,34 @@ const sh = StyleSheet.create({
     paddingVertical: 16, alignItems: 'center',
   },
   submitBtnOff: { opacity: 0.35 },
-  submitText:   { fontFamily: FF, fontSize: 16, color: '#000000' },
+  submitText:   { fontFamily: FFB, fontSize: 16, color: '#000000' },
 
   sideGameTitle: { fontFamily: FFB, fontSize: 16, color: GOLD, letterSpacing: 1.5, marginBottom: 4 },
-  sideGameSub:   { fontFamily: FF, fontSize: 11, color: '#6b7280', marginBottom: 16 },
+  sideGameSub:   { fontFamily: FFB, fontSize: 11, color: '#fff', marginBottom: 16 },
   sideGameInput: {
     width: '100%', backgroundColor: '#1a1a1a', borderRadius: 12,
     borderWidth: 1, borderColor: '#2c2c2c',
     paddingHorizontal: 14, paddingVertical: 14,
-    fontFamily: FF, fontSize: 18, color: '#ffffff', textAlign: 'center',
+    fontFamily: FFB, fontSize: 18, color: '#ffffff', textAlign: 'center',
     marginBottom: 16,
   },
   winnerBtn:    { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2c2c2c', backgroundColor: '#1a1a1a' },
   winnerBtnOn:  { borderColor: GOLD, backgroundColor: `${GOLD}15` },
-  winnerText:   { fontFamily: FF, fontSize: 14, color: '#6b7280' },
+  winnerText:   { fontFamily: FFB, fontSize: 14, color: '#fff' },
 });
 
 // ── Scorecard styles ──────────────────────────────────────────
 const sc = StyleSheet.create({
   container:    { backgroundColor: '#111111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 12 },
-  title:        { fontFamily: FF, fontSize: 10, color: GOLD, letterSpacing: 2, padding: 12, paddingBottom: 4 },
+  title:        { fontFamily: FFB, fontSize: 10, color: GOLD, letterSpacing: 2, padding: 12, paddingBottom: 4 },
   headerRow:    { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1a1a1a', backgroundColor: '#0a0a0a' },
   row:          { flexDirection: 'row', paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: '#141414' },
   cell:         { alignItems: 'center', justifyContent: 'center' },
   labelCell:    { width: 60, paddingLeft: 10, alignItems: 'flex-start' },
-  holeCell:     { flex: 1, fontFamily: FF, fontSize: 11, color: '#6b7280', textAlign: 'center' },
+  holeCell:     { flex: 1, fontFamily: FFB, fontSize: 11, color: '#fff', textAlign: 'center' },
   totalCell:    { width: 34, fontFamily: FFB, fontSize: 11, color: '#ffffff', textAlign: 'center' },
   scorePill:    { borderWidth: 1, borderRadius: 5, paddingHorizontal: 4, paddingVertical: 1, minWidth: 20, alignItems: 'center' },
-  scorePillText: { fontFamily: FF, fontSize: 11 },
+  scorePillText: { fontFamily: FFB, fontSize: 11 },
   ptsText:      { fontFamily: FFB, fontSize: 9, textAlign: 'center' },
-  swipeHint:    { fontFamily: FF, fontSize: 10, color: '#1a1a1a', textAlign: 'center', padding: 10, letterSpacing: 1 },
+  swipeHint:    { fontFamily: FFB, fontSize: 10, color: '#1a1a1a', textAlign: 'center', padding: 10, letterSpacing: 1 },
 });

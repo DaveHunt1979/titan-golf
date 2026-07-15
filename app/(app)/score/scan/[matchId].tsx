@@ -256,8 +256,8 @@ export default function ScanMatchScorecardScreen() {
                 : RED;
               return (
                 <View key={hole} style={s.gridRow}>
-                  <Text style={[s.gridCell, { flex: 1, color: '#aaa' }]}>{hole}</Text>
-                  <Text style={[s.gridCell, { width: 36, color: '#555' }]}>{par}</Text>
+                  <Text style={[s.gridCell, { flex: 1, color: '#fff' }]}>{hole}</Text>
+                  <Text style={[s.gridCell, { width: 36, color: '#fff' }]}>{par}</Text>
                   <TextInput
                     style={[s.gridInput, { color: grossColor }]}
                     value={gross !== null ? String(gross) : ''}
@@ -277,7 +277,7 @@ export default function ScanMatchScorecardScreen() {
             {/* Totals */}
             <View style={s.totalsRow}>
               <Text style={[s.totalsLabel, { flex: 1 }]}>TOTAL</Text>
-              <Text style={[s.totalsVal, { width: 36, color: '#555' }]}>{totalPar > 0 ? totalPar : '—'}</Text>
+              <Text style={[s.totalsVal, { width: 36, color: '#fff' }]}>{totalPar > 0 ? totalPar : '—'}</Text>
               <View style={{ width: 52, alignItems: 'center' }}>
                 <Text style={[s.totalsVal, { color: '#fff' }]}>{totalGross > 0 ? totalGross : '—'}</Text>
                 {toPar !== null && (
@@ -330,16 +330,16 @@ const s = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: 'center', gap: 4 },
   headerRight:  { width: 70 },
   logoImg:      { width: 28, height: 28 },
-  headerSub:    { fontSize: 9, fontFamily: FF, color: '#555', letterSpacing: 1.5 },
+  headerSub:    { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
   back:         { fontSize: 15, fontFamily: FFB, color: GOLD },
 
   // ── Scan step ──
   scanStep:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
   scanIcon:     { fontSize: 56, marginBottom: 20 },
   scanHeading:  { fontSize: 20, fontFamily: FFB, color: '#fff', textAlign: 'center', marginBottom: 10 },
-  scanSub:      { fontSize: 14, fontFamily: FF, color: '#555', textAlign: 'center', lineHeight: 22, marginBottom: 28 },
+  scanSub:      { fontSize: 14, fontFamily: FFB, color: '#fff', textAlign: 'center', lineHeight: 22, marginBottom: 28 },
   scanningWrap: { alignItems: 'center', gap: 14 },
-  scanningText: { fontSize: 14, fontFamily: FF, color: '#555' },
+  scanningText: { fontSize: 14, fontFamily: FFB, color: '#fff' },
   scanBtns:     { width: '100%', gap: 10 },
 
   scanBtnCamera: {
@@ -362,11 +362,11 @@ const s = StyleSheet.create({
   },
   scanBtnLibText: { fontSize: 15, fontFamily: FFB, color: '#fff' },
 
-  manualLink: { fontSize: 13, fontFamily: FF, color: '#555', textDecorationLine: 'underline', textAlign: 'center' },
+  manualLink: { fontSize: 13, fontFamily: FFB, color: '#fff', textDecorationLine: 'underline', textAlign: 'center' },
 
   // ── Review step ──
   reviewScroll: { padding: 16, paddingBottom: 48 },
-  courseName:   { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginBottom: 14, textAlign: 'center' },
+  courseName:   { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginBottom: 14, textAlign: 'center' },
 
   gridHeader: {
     flexDirection: 'row',
@@ -379,7 +379,7 @@ const s = StyleSheet.create({
     borderColor: '#1c1c1c',
     marginBottom: 2,
   },
-  gridHdr:  { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1, textAlign: 'center' },
+  gridHdr:  { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1, textAlign: 'center' },
   gridRow:  {
     flexDirection: 'row',
     alignItems: 'center',
@@ -388,7 +388,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1c1c1c',
   },
-  gridCell: { fontSize: 14, fontFamily: FF, textAlign: 'center' },
+  gridCell: { fontSize: 14, fontFamily: FFB, textAlign: 'center' },
   gridInput: {
     width: 52,
     height: 34,
@@ -413,7 +413,7 @@ const s = StyleSheet.create({
     borderColor: GOLD,
     marginTop: 10,
   },
-  totalsLabel: { fontSize: 10, fontFamily: FFB, color: '#aaa', letterSpacing: 1 },
+  totalsLabel: { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
   totalsVal:   { fontSize: 15, fontFamily: FFB, textAlign: 'center' },
   toParLabel:  { fontSize: 10, fontFamily: FFB },
 

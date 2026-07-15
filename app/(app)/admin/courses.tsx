@@ -683,7 +683,7 @@ const s = StyleSheet.create({
   headerLogo:   { width: 24, height: 24, marginBottom: 2 },
   back:         { fontSize: 14, color: GOLD, fontFamily: FFB },
   headerTitle:  { fontSize: 15, color: '#fff', fontFamily: FFB, letterSpacing: 0.5 },
-  headerSub:    { fontSize: 9, color: '#555', fontFamily: FF },
+  headerSub:    { fontSize: 9, color: '#fff', fontFamily: FFB },
   addBtn:       { fontSize: 14, color: GOLD, fontFamily: FFB },
 
   searchWrap:        { paddingHorizontal: 20, paddingBottom: 10 },
@@ -702,9 +702,9 @@ const s = StyleSheet.create({
     marginBottom: 10,
   },
   courseName:    { fontSize: 15, fontFamily: FFB, color: '#fff' },
-  courseMeta:    { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 2 },
+  courseMeta:    { fontSize: 12, fontFamily: FFB, color: '#fff', marginTop: 2 },
   incompleteTag: { fontSize: 12, color: '#f59e0b', fontFamily: FFB },
-  arrow:         { fontSize: 22, color: '#555' },
+  arrow:         { fontSize: 22, color: '#fff' },
 
   addRowBtn: {
     backgroundColor: '#111', borderRadius: 14,
@@ -717,7 +717,7 @@ const s = StyleSheet.create({
   emptyIcon:  { fontSize: 52, marginBottom: 16 },
   emptyTitle: { fontSize: 20, fontFamily: FFB, color: '#fff', marginBottom: 8 },
   emptyHint: {
-    fontSize: 14, fontFamily: FF, color: '#555',
+    fontSize: 14, fontFamily: FFB, color: '#fff',
     textAlign: 'center', marginBottom: 24,
     paddingHorizontal: 24, lineHeight: 20,
   },
@@ -737,14 +737,14 @@ const s = StyleSheet.create({
   modalHeaderLeft:   { flex: 1, alignItems: 'flex-start' },
   modalHeaderCenter: { flex: 2, alignItems: 'center' },
   modalHeaderRight:  { flex: 1, alignItems: 'flex-end' },
-  modalCancel: { fontSize: 14, fontFamily: FF, color: '#555' },
+  modalCancel: { fontSize: 14, fontFamily: FFB, color: '#fff' },
   modalTitle:  { fontSize: 15, fontFamily: FFB, color: '#fff', letterSpacing: 0.5 },
   modalSave:   { fontSize: 14, fontFamily: FFB, color: GOLD },
 
   // Name step
   namePad:   { padding: 20 },
   sectionLabel: {
-    fontSize: 10, fontFamily: FFB, color: '#555',
+    fontSize: 10, fontFamily: FFB, color: '#fff',
     letterSpacing: 2, marginBottom: 8,
   },
   nameCard:  {
@@ -755,7 +755,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 14,
     fontSize: 15, fontFamily: FFB, color: '#fff',
   },
-  nameHint:  { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 8, lineHeight: 18 },
+  nameHint:  { fontSize: 12, fontFamily: FFB, color: '#fff', marginTop: 8, lineHeight: 18 },
 
   // Holes step
   holesPad: { padding: 20, paddingBottom: 80 },
@@ -773,7 +773,7 @@ const s = StyleSheet.create({
     minHeight: 44,
   },
   scanBtnText: { fontSize: 14, fontFamily: FFB, color: GOLD },
-  scanHint: { fontSize: 12, fontFamily: FF, color: '#555', textAlign: 'center', marginBottom: 14 },
+  scanHint: { fontSize: 12, fontFamily: FFB, color: '#fff', textAlign: 'center', marginBottom: 14 },
 
   parSummary: {
     flexDirection: 'row', backgroundColor: '#111', borderRadius: 14,
@@ -781,12 +781,12 @@ const s = StyleSheet.create({
     marginBottom: 16, alignItems: 'center',
   },
   parItem:    { flex: 1, alignItems: 'center' },
-  parLabel:   { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  parLabel:   { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
   parValue:   { fontSize: 20, fontFamily: FFB, color: '#fff', marginTop: 2 },
   parDivider: { width: 1, height: 32, backgroundColor: '#1c1c1c' },
 
   holeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingHorizontal: 4 },
-  holeHeaderText: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1.5 },
+  holeHeaderText: { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
 
   nineLabel: {
     fontSize: 10, fontFamily: FFB, color: GOLD,
@@ -800,7 +800,7 @@ const s = StyleSheet.create({
     paddingVertical: 6, paddingHorizontal: 10,
     marginBottom: 4, gap: 8,
   },
-  holeNum:   { width: 28, fontSize: 14, fontFamily: FFB, color: '#555', textAlign: 'right' },
+  holeNum:   { width: 28, fontSize: 14, fontFamily: FFB, color: '#fff', textAlign: 'right' },
   parChips:  { flex: 1, flexDirection: 'row', gap: 4 },
   parChip: {
     flex: 1, height: 30, borderRadius: 8,
@@ -808,7 +808,7 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   parChipOn:     { backgroundColor: 'rgba(212,175,55,0.15)', borderColor: 'rgba(212,175,55,0.4)' },
-  parChipText:   { fontSize: 14, fontFamily: FFB, color: '#555' },
+  parChipText:   { fontSize: 14, fontFamily: FFB, color: '#fff' },
   parChipTextOn: { color: GOLD },
 
   siInput: {
@@ -840,7 +840,7 @@ const s = StyleSheet.create({
     minWidth: 76,
   },
   searchBtnText: { fontSize: 14, fontFamily: FFB, color: '#000' },
-  gbError: { fontSize: 12, fontFamily: FF, color: RED, marginTop: 8 },
+  gbError: { fontSize: 12, fontFamily: FFB, color: RED, marginTop: 8 },
   resultsList: {
     marginTop: 10, backgroundColor: '#111',
     borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c',
@@ -852,6 +852,6 @@ const s = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
   resultName:   { fontSize: 14, fontFamily: FFB, color: '#fff' },
-  resultMeta:   { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 2 },
+  resultMeta:   { fontSize: 12, fontFamily: FFB, color: '#fff', marginTop: 2 },
   resultImport: { fontSize: 14, fontFamily: FFB, color: GOLD, marginLeft: 10 },
 });

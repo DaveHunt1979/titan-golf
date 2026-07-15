@@ -481,7 +481,7 @@ function makeStyles(c: ReturnType<typeof useDynamicColors>) {
       paddingTop: 60, paddingHorizontal: 24, paddingBottom: 16,
       borderBottomWidth: 1, borderBottomColor: c.border,
     },
-    back:  { fontSize: 12, fontFamily: 'JUSTSans', color: c.gold, width: 48 },
+    back:  { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: c.gold, width: 48 },
     title: { fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: c.white, letterSpacing: 0.5 },
     scroll: { padding: 16, paddingBottom: 60 },
 
@@ -491,13 +491,13 @@ function makeStyles(c: ReturnType<typeof useDynamicColors>) {
       alignItems: 'center',
     },
     pillNum:   { fontSize: 28, fontFamily: 'JUSTSans-ExBold' },
-    pillLabel: { fontSize: 10, fontFamily: 'JUSTSans', color: c.textMuted, marginTop: 2 },
+    pillLabel: { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.textMuted, marginTop: 2 },
 
     nfcWarning: {
       backgroundColor: c.card, borderRadius: 12, padding: 16,
       borderWidth: 1, borderColor: c.border, marginBottom: 24,
     },
-    nfcWarningText: { fontSize: 10, fontFamily: 'JUSTSans', color: c.textSecondary, lineHeight: 17 },
+    nfcWarningText: { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.textSecondary, lineHeight: 17 },
 
     section:      { marginBottom: 24 },
     sectionLabel: {
@@ -521,12 +521,12 @@ function makeStyles(c: ReturnType<typeof useDynamicColors>) {
 
     clubInfo:       { flex: 1 },
     clubName:       { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: c.white, marginBottom: 1 },
-    brandLabel:     { fontSize: 10, fontFamily: 'JUSTSans', color: c.gold, marginBottom: 1 },
-    setBrandLabel:  { fontSize: 10, fontFamily: 'JUSTSans', color: c.textMuted, fontStyle: 'italic', marginBottom: 1 },
+    brandLabel:     { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.gold, marginBottom: 1 },
+    setBrandLabel:  { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.textMuted, fontStyle: 'italic', marginBottom: 1 },
     tagId:          { fontSize: 10, color: c.green, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', marginTop: 1 },
 
     scanningPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8 },
-    scanningText: { fontSize: 10, fontFamily: 'JUSTSans', color: c.green },
+    scanningText: { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.green },
 
     assignBtn:    { backgroundColor: c.goldDim, borderRadius: 6, paddingVertical: 6, paddingHorizontal: 8, borderWidth: 1, borderColor: c.goldBorder },
     assignBtnDim: { opacity: 0.4 },
@@ -535,7 +535,7 @@ function makeStyles(c: ReturnType<typeof useDynamicColors>) {
     removeBtn:    { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(248,113,113,0.12)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)' },
     removeBtnText:{ fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.red },
 
-    footer: { fontSize: 10, fontFamily: 'JUSTSans', color: c.textMuted, textAlign: 'center', lineHeight: 18, marginTop: 16 },
+    footer: { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.textMuted, textAlign: 'center', lineHeight: 18, marginTop: 16 },
 
     // Modal
     modal: { flex: 1, backgroundColor: c.bg },
@@ -545,15 +545,15 @@ function makeStyles(c: ReturnType<typeof useDynamicColors>) {
       borderBottomWidth: 1, borderBottomColor: c.border,
     },
     modalTitle:  { fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: c.white },
-    modalBack:   { fontSize: 12, fontFamily: 'JUSTSans', color: c.gold, width: 64 },
-    modalCancel: { fontSize: 12, fontFamily: 'JUSTSans', color: c.gold, width: 64, textAlign: 'right' },
+    modalBack:   { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: c.gold, width: 64 },
+    modalCancel: { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: c.gold, width: 64, textAlign: 'right' },
 
     pickerRow: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingVertical: 16, paddingHorizontal: 24,
     },
-    pickerRowText: { fontSize: 12, fontFamily: 'JUSTSans', color: c.white },
-    pickerChevron: { fontSize: 15, fontFamily: 'JUSTSans', color: c.textMuted },
+    pickerRowText: { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: c.white },
+    pickerChevron: { fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: c.textMuted },
     separator:     { height: 1, backgroundColor: c.border, marginHorizontal: 24 },
   });
 }

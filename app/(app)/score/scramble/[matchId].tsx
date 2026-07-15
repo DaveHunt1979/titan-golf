@@ -219,7 +219,7 @@ const s = StyleSheet.create({
   headerCenter: { alignItems: 'center' },
   headerRight:  { width: 70 },
   logo:         { width: 28, height: 28 },
-  subtitle:     { fontSize: 9, fontFamily: FF, color: '#555', letterSpacing: 1.5, marginTop: 3 },
+  subtitle:     { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginTop: 3 },
   back:         { fontSize: 14, fontFamily: FFB, color: GOLD },
 
   // Summary card
@@ -231,11 +231,11 @@ const s = StyleSheet.create({
     borderColor: '#1c1c1c',
     padding: 16,
   },
-  teamLabel:   { fontSize: 11, fontFamily: FF, color: '#555', marginBottom: 12, textAlign: 'center', letterSpacing: 0.5 },
+  teamLabel:   { fontSize: 11, fontFamily: FFB, color: '#fff', marginBottom: 12, textAlign: 'center', letterSpacing: 0.5 },
   summaryRow:  { flexDirection: 'row', justifyContent: 'space-around' },
   summaryItem: { alignItems: 'center' },
   summaryVal:  { fontSize: 28, fontFamily: FFB, color: '#fff' },
-  summaryLbl:  { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1, marginTop: 2 },
+  summaryLbl:  { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1, marginTop: 2 },
 
   // Hole card
   holeCard: {
@@ -245,11 +245,11 @@ const s = StyleSheet.create({
     borderBottomColor: '#1c1c1c',
   },
   holeNum:  { fontSize: 36, fontFamily: FFB, color: '#fff' },
-  holeMeta: { fontSize: 13, fontFamily: FF, color: '#555', marginTop: 4 },
+  holeMeta: { fontSize: 13, fontFamily: FFB, color: '#fff', marginTop: 4 },
 
   // Stepper
   stepperWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  stepperLbl:  { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginBottom: 24 },
+  stepperLbl:  { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginBottom: 24 },
   stepper:     { flexDirection: 'row', alignItems: 'center', gap: 24 },
   stepBtn: {
     width: 60,
@@ -261,7 +261,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepBtnTxt: { fontSize: 28, fontFamily: FF, color: '#fff' },
+  stepBtnTxt: { fontSize: 28, fontFamily: FFB, color: '#fff' },
   scoreDisp: {
     width: 100,
     height: 100,
@@ -271,7 +271,7 @@ const s = StyleSheet.create({
     borderWidth: 2,
   },
   scoreTxt:  { fontSize: 40, fontFamily: FFB, color: '#fff' },
-  scoreDiff: { fontSize: 10, fontFamily: FFB, color: '#555', marginTop: -4 },
+  scoreDiff: { fontSize: 10, fontFamily: FFB, color: '#fff', marginTop: -4 },
 
   // Navigation
   nav: {

@@ -512,7 +512,7 @@ const ss = StyleSheet.create({
   },
   back:     { fontSize: 14, fontFamily: FFB, color: GOLD },
   title:    { fontSize: 15, fontFamily: FFB, color: '#fff', maxWidth: 160, textAlign: 'center' },
-  subtitle: { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 2 },
+  subtitle: { fontSize: 12, fontFamily: FFB, color: '#fff', marginTop: 2 },
 
   debriefBtn:     { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
   debriefBtnBusy: { opacity: 0.5 },
@@ -525,8 +525,8 @@ const ss = StyleSheet.create({
     paddingVertical: 8, alignItems: 'center',
   },
   sumVal: { fontSize: 20, fontFamily: FFB, color: GOLD },
-  sumLbl: { fontSize: 8, fontFamily: FFB, color: '#555', letterSpacing: 1, marginTop: 1 },
-  sumSub: { fontSize: 12, fontFamily: FF, color: '#555', marginTop: 1 },
+  sumLbl: { fontSize: 8, fontFamily: FFB, color: '#fff', letterSpacing: 1, marginTop: 1 },
+  sumSub: { fontSize: 12, fontFamily: FFB, color: '#fff', marginTop: 1 },
 
   tabBar: {
     flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
@@ -534,7 +534,7 @@ const ss = StyleSheet.create({
   },
   tab:        { flex: 1, paddingVertical: 12, alignItems: 'center' },
   tabOn:      { borderBottomWidth: 2, borderBottomColor: GOLD },
-  tabText:    { fontSize: 12, fontFamily: FFB, color: '#555', letterSpacing: 1.2 },
+  tabText:    { fontSize: 12, fontFamily: FFB, color: '#fff', letterSpacing: 1.2 },
   tabTextOn:  { color: GOLD },
 
   scroll: { padding: 16 },
@@ -544,22 +544,22 @@ const ss = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 6,
     borderBottomWidth: 1, borderBottomColor: '#1c1c1c', marginBottom: 2,
   },
-  headCell: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  headCell: { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
   row:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 8, borderRadius: 4 },
   rowAlt:    { backgroundColor: 'rgba(255,255,255,0.02)' },
-  cell:      { fontSize: 14, color: '#9ca3af' },
-  holeNum:   { width: 32, fontSize: 12, fontFamily: FFB, color: '#555' },
+  cell:      { fontSize: 14, color: '#fff' },
+  holeNum:   { width: 32, fontSize: 12, fontFamily: FFB, color: '#fff' },
   ptsBadge:  { borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
   ptsText:   { fontSize: 12, fontFamily: FFB },
 
-  fairwayCell: { width: 32, fontSize: 14, fontFamily: FF },
-  puttsCell:   { width: 28, fontFamily: FF, color: '#9ca3af' },
-  clubsCell:   { flex: 1, fontFamily: FF, color: '#555', fontSize: 11 },
+  fairwayCell: { width: 32, fontSize: 14, fontFamily: FFB },
+  puttsCell:   { width: 28, fontFamily: FFB, color: '#fff' },
+  clubsCell:   { flex: 1, fontFamily: FFB, color: '#fff', fontSize: 11 },
 
   empty:      { alignItems: 'center', paddingTop: 60 },
-  emptyText:  { fontSize: 14, fontFamily: FFB, color: '#555' },
+  emptyText:  { fontSize: 14, fontFamily: FFB, color: '#fff' },
   emptyTitle: { fontSize: 20, fontFamily: FFB, color: '#444' },
-  emptySub:   { fontSize: 14, fontFamily: FF, color: '#555', textAlign: 'center', paddingHorizontal: 32 },
+  emptySub:   { fontSize: 14, fontFamily: FFB, color: '#fff', textAlign: 'center', paddingHorizontal: 32 },
 
   // Shot map
   shotDot: {
@@ -583,7 +583,7 @@ const ss = StyleSheet.create({
   },
   mapHoleLabel: { fontSize: 12, fontFamily: FFB, color: GOLD, letterSpacing: 1.5 },
   mapHoleStats: { fontSize: 14, fontFamily: FFB, color: '#fff' },
-  mapShotCount: { fontSize: 12, fontFamily: FF, color: '#555' },
+  mapShotCount: { fontSize: 12, fontFamily: FFB, color: '#fff' },
 
   holeNav: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -594,12 +594,12 @@ const ss = StyleSheet.create({
   },
   holeNavArrow:     { width: 36, alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
   holeNavArrowOff:  { opacity: 0.25 },
-  holeNavArrowText: { fontSize: 24, fontFamily: FF, color: GOLD },
+  holeNavArrowText: { fontSize: 24, fontFamily: FFB, color: GOLD },
 
   holePills:        { flexDirection: 'row', gap: 6, paddingHorizontal: 4 },
   holePill:         { width: 32, height: 32, borderRadius: 16, backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center' },
   holePillOn:       { backgroundColor: GOLD, borderColor: GOLD },
   holePillEmpty:    { opacity: 0.35 },
-  holePillText:     { fontSize: 12, fontFamily: FFB, color: '#555' },
+  holePillText:     { fontSize: 12, fontFamily: FFB, color: '#fff' },
   holePillTextOn:   { color: '#000' },
 });

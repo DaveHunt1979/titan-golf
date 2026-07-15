@@ -36,7 +36,7 @@ function Avatar({ name, color, size = 40, source }: { name: string; color: strin
   }
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: `${color}20`, borderWidth: 1.5, borderColor: `${color}60`, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontFamily: FF, fontSize: size * 0.38, color }}>{(name || '?').charAt(0).toUpperCase()}</Text>
+      <Text style={{ fontFamily: FFB, fontSize: size * 0.38, color }}>{(name || '?').charAt(0).toUpperCase()}</Text>
     </View>
   );
 }
@@ -190,7 +190,7 @@ export default function MatchDetailScreen() {
 
   if (!match) return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' }}>
-      <Text style={{ fontFamily: FF, color: '#6b7280' }}>Match not found.</Text>
+      <Text style={{ fontFamily: FFB, color: '#fff' }}>Match not found.</Text>
     </View>
   );
 
@@ -227,13 +227,12 @@ export default function MatchDetailScreen() {
         const specialRoutes: Record<string, string> = {
           skins: `/(app)/score/skins/${matchId}`,
           nassau: `/(app)/score/nassau/${matchId}`,
-          wolf: `/(app)/score/wolf/${matchId}`,
           scramble: `/(app)/score/scramble/${matchId}`,
-          bbb: `/(app)/score/bbb/${matchId}`,
           modified_stableford: `/(app)/score/modified/${matchId}`,
           par_bogey: `/(app)/score/parbogey/${matchId}`,
-          chacha: `/(app)/score/chacha/${matchId}`,
           team_stableford: `/(app)/score/teamstableford/${matchId}`,
+          best2from4:      `/(app)/score/teamstableford/${matchId}`,
+          best2from4_par3all: `/(app)/score/teamstableford/${matchId}`,
         };
         if (specialRoutes[fmt]) router.push(specialRoutes[fmt] as any);
         else router.push(buildUrl(`/(app)/score/enter/${matchId}`, teeColor) as any);
@@ -295,9 +294,9 @@ export default function MatchDetailScreen() {
               <View style={[s.playerPillAvatar, isLeader && { borderColor: GOLD, borderWidth: 2 }]}>
                 <Avatar name={firstName} color={teamColor} size={44} source={src} />
               </View>
-              <Text style={[s.playerPillName, { color: isLeader ? '#ffffff' : '#9ca3af' }]} numberOfLines={1}>{firstName}</Text>
+              <Text style={[s.playerPillName, { color: '#ffffff', opacity: isLeader ? 1 : 0.6 }]} numberOfLines={1}>{firstName}</Text>
               {total > 0 && (
-                <Text style={[s.playerPillPts, { color: isLeader ? GOLD : '#6b7280' }]}>
+                <Text style={[s.playerPillPts, { color: isLeader ? GOLD : '#fff' }]}>
                   {isStrokePlay ? `${total}pts` : ''}
                 </Text>
               )}
@@ -360,7 +359,7 @@ export default function MatchDetailScreen() {
           <View style={s.tagsRow}>
             {match.hcp_allowance !== 100 && (
               <View style={s.tag}>
-                <Ionicons name="person-outline" size={10} color="#6b7280" />
+                <Ionicons name="person-outline" size={10} color="#fff" />
                 <Text style={s.tagText}>{match.hcp_allowance === 0 ? 'Scratch' : `${match.hcp_allowance}% HCP`}</Text>
               </View>
             )}
@@ -404,10 +403,10 @@ export default function MatchDetailScreen() {
                 const ScCell = ({ val, par: p }: { val: number | null; par: number | null }) => {
                   const diff = val !== null && p !== null ? val - p : null;
                   const bg = diff === null ? 'transparent' : diff < 0 ? `${GREEN}25` : diff === 0 ? '#1a1a1a' : `${RED}15`;
-                  const tc = diff === null ? '#333' : diff < 0 ? GREEN : diff === 0 ? '#9ca3af' : RED;
+                  const tc = diff === null ? '#333' : diff < 0 ? GREEN : diff === 0 ? '#fff' : RED;
                   return (
                     <View style={{ width: SC, height: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderRadius: 4 }}>
-                      <Text style={{ fontFamily: FF, fontSize: 11, color: val ? tc : '#2a2a2a' }}>{val ?? '·'}</Text>
+                      <Text style={{ fontFamily: FFB, fontSize: 11, color: val ? tc : '#2a2a2a' }}>{val ?? '·'}</Text>
                     </View>
                   );
                 };
@@ -415,14 +414,14 @@ export default function MatchDetailScreen() {
                 const renderHalf = (holes: CourseHole[], outLabel: string, showTot: boolean) => (
                   <View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: '#1a1a1a', backgroundColor: '#0a0a0a' }}>
-                      <Text style={{ width: SL, fontFamily: FF, fontSize: 8, color: '#6b7280', paddingLeft: 8 }}>HOLE</Text>
-                      {holes.map(h => <Text key={h.hole_number} style={{ width: SC, fontFamily: FF, fontSize: 10, color: gross(h.hole_number) ? '#ffffff' : '#444', textAlign: 'center' }}>{h.hole_number}</Text>)}
+                      <Text style={{ width: SL, fontFamily: FFB, fontSize: 8, color: '#fff', paddingLeft: 8 }}>HOLE</Text>
+                      {holes.map(h => <Text key={h.hole_number} style={{ width: SC, fontFamily: FFB, fontSize: 10, color: gross(h.hole_number) ? '#ffffff' : '#444', textAlign: 'center' }}>{h.hole_number}</Text>)}
                       <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{outLabel}</Text>
                       {showTot && <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>TOT</Text>}
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}>
-                      <Text style={{ width: SL, fontFamily: FF, fontSize: 8, color: '#444', paddingLeft: 8 }}>PAR</Text>
-                      {holes.map(h => <Text key={h.hole_number} style={{ width: SC, fontFamily: FF, fontSize: 9, color: GOLD, textAlign: 'center' }}>{h.par}</Text>)}
+                      <Text style={{ width: SL, fontFamily: FFB, fontSize: 8, color: '#444', paddingLeft: 8 }}>PAR</Text>
+                      {holes.map(h => <Text key={h.hole_number} style={{ width: SC, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{h.par}</Text>)}
                       <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{holes.reduce((s, h) => s + h.par, 0)}</Text>
                       {showTot && <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{frontPar + backPar}</Text>}
                     </View>
@@ -436,7 +435,7 @@ export default function MatchDetailScreen() {
                     </View>
                     {isStrokePlay && (
                       <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, backgroundColor: `${GOLD}06` }}>
-                        <Text style={{ width: SL, fontFamily: FF, fontSize: 8, color: '#6b7280', paddingLeft: 8 }}>PTS</Text>
+                        <Text style={{ width: SL, fontFamily: FFB, fontSize: 8, color: '#fff', paddingLeft: 8 }}>PTS</Text>
                         {holes.map(h => {
                           const p = pts(h.hole_number);
                           return <Text key={h.hole_number} style={{ width: SC, fontFamily: FFB, fontSize: 10, color: p ? ptsColor(p) : '#2a2a2a', textAlign: 'center' }}>{p ?? '·'}</Text>;
@@ -517,12 +516,12 @@ const s = StyleSheet.create({
   headerSide:   { width: 40 },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerLogo:   { width: 28, height: 28, marginBottom: 2 },
-  headerSub:    { fontFamily: FF, fontSize: 11, color: '#6b7280', letterSpacing: 0.5 },
+  headerSub:    { fontFamily: FFB, fontSize: 11, color: '#fff', letterSpacing: 0.5 },
 
   statusBanner: { alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16 },
   livePulse:    { width: 8, height: 8, borderRadius: 4, backgroundColor: '#22c55e', marginBottom: 4 },
-  statusMain:   { fontFamily: FF, fontSize: 22, letterSpacing: -0.3, textAlign: 'center' },
-  statusSub:    { fontFamily: FF, fontSize: 12, color: '#6b7280', marginTop: 2 },
+  statusMain:   { fontFamily: FFB, fontSize: 22, letterSpacing: -0.3, textAlign: 'center' },
+  statusSub:    { fontFamily: FFB, fontSize: 12, color: '#fff', marginTop: 2 },
 
   playersRow: {
     flexDirection: 'row', justifyContent: 'center',
@@ -530,7 +529,7 @@ const s = StyleSheet.create({
   },
   playerPill:       { alignItems: 'center', gap: 4, minWidth: 52 },
   playerPillAvatar: { borderRadius: 26, overflow: 'visible' },
-  playerPillName:   { fontFamily: FF, fontSize: 11, textAlign: 'center' },
+  playerPillName:   { fontFamily: FFB, fontSize: 11, textAlign: 'center' },
   playerPillPts:    { fontFamily: FFB, fontSize: 11, textAlign: 'center' },
 
   holeStripWrap: { maxHeight: 72 },
@@ -540,25 +539,25 @@ const s = StyleSheet.create({
     backgroundColor: '#111111', borderWidth: 1, borderColor: '#1c1c1c',
     alignItems: 'center', justifyContent: 'center', gap: 2,
   },
-  holeTileNum:  { fontFamily: FF, fontSize: 14, color: '#4b5563' },
-  holeTilePar:  { fontFamily: FF, fontSize: 9, color: '#333' },
+  holeTileNum:  { fontFamily: FFB, fontSize: 14, color: '#4b5563' },
+  holeTilePar:  { fontFamily: FFB, fontSize: 9, color: '#333' },
   holeTilePts:  { fontFamily: FFB, fontSize: 11, marginTop: 1 },
 
   halfLabels: {
     flexDirection: 'row', justifyContent: 'space-around',
     paddingHorizontal: 12, paddingBottom: 4,
   },
-  halfLabel: { fontFamily: FF, fontSize: 8, color: '#2a2a2a', letterSpacing: 1.5 },
+  halfLabel: { fontFamily: FFB, fontSize: 8, color: '#2a2a2a', letterSpacing: 1.5 },
 
   scroll: { padding: 16, paddingBottom: 24 },
 
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   tag:     { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, backgroundColor: '#111111', borderWidth: 1, borderColor: '#1c1c1c' },
   tagGold: { backgroundColor: `${GOLD}0d`, borderColor: `${GOLD}30` },
-  tagText: { fontFamily: FF, fontSize: 11, color: '#6b7280' },
+  tagText: { fontFamily: FFB, fontSize: 11, color: '#fff' },
 
   section: { marginBottom: 16 },
-  sectionTitle: { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 2, marginBottom: 10 },
+  sectionTitle: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 2, marginBottom: 10 },
 
   scorecardCard: {
     backgroundColor: '#111111', borderRadius: 14,
@@ -572,14 +571,14 @@ const s = StyleSheet.create({
   },
   scorecardName:  { flex: 1, fontFamily: FFB, fontSize: 14 },
   scorecardTotal: { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
-  scorecardPts:   { fontFamily: FF, fontSize: 11, color: GOLD },
+  scorecardPts:   { fontFamily: FFB, fontSize: 11, color: GOLD },
 
   pageDots:    { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 8 },
   pageDot:     { width: 6, height: 6, borderRadius: 3, backgroundColor: '#1c1c1c' },
   pageDotActive: { backgroundColor: GOLD, width: 18 },
 
   deleteBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 20, marginTop: 8 },
-  deleteBtnText: { fontFamily: FF, fontSize: 12, color: '#4b5563' },
+  deleteBtnText: { fontFamily: FFB, fontSize: 12, color: '#4b5563' },
 
   ctaWrap: { paddingHorizontal: 16, paddingBottom: 32, paddingTop: 8, backgroundColor: '#000000', borderTopWidth: 1, borderTopColor: '#111111' },
   ctaBtn: {
@@ -588,11 +587,11 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: 8,
     marginBottom: 10,
   },
-  ctaText: { fontFamily: FF, fontSize: 17, color: '#000000' },
+  ctaText: { fontFamily: FFB, fontSize: 17, color: '#000000' },
   ctaSecondary: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 12, borderRadius: 14,
     backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}30`,
   },
-  ctaSecondaryText: { fontFamily: FF, fontSize: 14, color: GOLD },
+  ctaSecondaryText: { fontFamily: FFB, fontSize: 14, color: GOLD },
 });

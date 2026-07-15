@@ -456,8 +456,8 @@ function AddItemBtn({ label, onPress }: { label: string; onPress: () => void }) 
 const styles = StyleSheet.create({
   container:    { flex: 1, backgroundColor: '#000' },
   centered:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: '#000' },
-  noComp:       { fontSize: 16, fontFamily: FFB, color: '#888', marginBottom: 8 },
-  noCompSub:    { fontSize: 13, fontFamily: FF, color: '#555', textAlign: 'center' },
+  noComp:       { fontSize: 16, fontFamily: FFB, color: '#fff', marginBottom: 8 },
+  noCompSub:    { fontSize: 13, fontFamily: FFB, color: '#fff', textAlign: 'center' },
 
   header: {
     paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14,
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
   logo:         { width: 24, height: 24, marginBottom: 2 },
   headerTitle:  { fontSize: 15, fontFamily: FFB, color: '#fff' },
-  headerSub:    { fontSize: 9, fontFamily: FF, color: '#555' },
+  headerSub:    { fontSize: 9, fontFamily: FFB, color: '#fff' },
 
   saveBtn: {
     backgroundColor: GOLD, borderRadius: 12,
@@ -481,15 +481,15 @@ const styles = StyleSheet.create({
   scroll:       { padding: 16, paddingBottom: 48 },
 
   emptyHint:    { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24 },
-  emptyHintText: { fontSize: 15, fontFamily: FFB, color: '#666', marginBottom: 8, textAlign: 'center' },
-  emptyHintSub: { fontSize: 13, fontFamily: FF, color: '#444', textAlign: 'center', lineHeight: 20 },
+  emptyHintText: { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 8, textAlign: 'center' },
+  emptyHintSub: { fontSize: 13, fontFamily: FFB, color: '#444', textAlign: 'center', lineHeight: 20 },
 
   addBtn: {
     borderWidth: 1, borderColor: '#2a2a2a', borderStyle: 'dashed',
     borderRadius: 14, paddingVertical: 14,
     alignItems: 'center', marginTop: 8,
   },
-  addBtnText: { fontSize: 13, fontFamily: FF, color: '#555' },
+  addBtnText: { fontSize: 13, fontFamily: FFB, color: '#fff' },
 
   pickerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end' },
   pickerBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },
@@ -503,9 +503,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
   pickerLabel:      { fontSize: 15, fontFamily: FFB, color: '#fff' },
-  pickerSub:        { fontSize: 11, fontFamily: FF, color: '#555' },
+  pickerSub:        { fontSize: 11, fontFamily: FFB, color: '#fff' },
   pickerCancel:     { alignItems: 'center', marginTop: 16 },
-  pickerCancelText: { fontSize: 13, fontFamily: FF, color: '#555' },
+  pickerCancelText: { fontSize: 13, fontFamily: FFB, color: '#fff' },
 });
 
 const sc = StyleSheet.create({
@@ -527,13 +527,13 @@ const sc = StyleSheet.create({
   typeLabel:    { fontSize: 9, fontFamily: FFB, color: GOLD, letterSpacing: 1 },
   sectionTitle: { flex: 1, fontSize: 13, fontFamily: FFB, color: '#fff' },
 
-  arrow:    { fontSize: 15, color: '#666', fontFamily: FFB, padding: 2 },
+  arrow:    { fontSize: 15, color: '#fff', fontFamily: FFB, padding: 2 },
   arrowOff: { color: '#222' },
-  chevron:  { fontSize: 15, color: '#555', width: 16, textAlign: 'center' },
+  chevron:  { fontSize: 15, color: '#fff', width: 16, textAlign: 'center' },
 
   editor: { padding: 14, paddingTop: 0, borderTopWidth: 1, borderTopColor: '#1c1c1c' },
 
-  fieldLabel: { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginTop: 14, marginBottom: 6 },
+  fieldLabel: { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginTop: 14, marginBottom: 6 },
 
   input: {
     backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
@@ -553,13 +553,13 @@ const sc = StyleSheet.create({
   },
   ruleNumText: { fontSize: 10, fontFamily: FFB, color: GOLD },
 
-  removeItem: { fontSize: 20, color: '#555', lineHeight: 22, paddingTop: 8 },
+  removeItem: { fontSize: 20, color: '#fff', lineHeight: 22, paddingTop: 8 },
 
   addItemBtn: {
     marginTop: 6, paddingVertical: 8, alignItems: 'center',
     borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 12, borderStyle: 'dashed',
   },
-  addItemBtnText: { fontSize: 11, fontFamily: FF, color: '#555' },
+  addItemBtnText: { fontSize: 11, fontFamily: FFB, color: '#fff' },
 
   deleteBtn:     { marginTop: 20, paddingVertical: 10, alignItems: 'center' },
   deleteBtnText: { fontSize: 11, fontFamily: FFB, color: RED, letterSpacing: 0.5 },

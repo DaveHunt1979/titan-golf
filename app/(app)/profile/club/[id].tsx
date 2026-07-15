@@ -420,7 +420,7 @@ const s = StyleSheet.create({
   },
 
   sectionLabel: {
-    fontFamily: FF, fontSize: 10, color: '#6b7280', letterSpacing: 2,
+    fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 2,
     paddingHorizontal: 16, marginBottom: 8, marginTop: 4,
   },
 
@@ -454,8 +454,8 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   rowIconActive: { backgroundColor: GOLD, borderColor: GOLD },
-  rowTitle: { fontFamily: FF, fontSize: 15, color: '#ffffff', marginBottom: 2 },
-  rowSub:   { fontFamily: FF, fontSize: 12, color: '#6b7280' },
+  rowTitle: { fontFamily: FFB, fontSize: 15, color: '#ffffff', marginBottom: 2 },
+  rowSub:   { fontFamily: FFB, fontSize: 12, color: '#fff' },
 
   // Toggle switch
   toggle: {
@@ -472,11 +472,11 @@ const s = StyleSheet.create({
   clearBtn: {
     marginHorizontal: 16, alignItems: 'center', paddingVertical: 10, marginBottom: 20,
   },
-  clearBtnText: { fontFamily: FF, fontSize: 13, color: '#555' },
+  clearBtnText: { fontFamily: FFB, fontSize: 13, color: '#fff' },
 
-  errorText: { fontFamily: FF, fontSize: 16, color: '#6b7280', marginBottom: 16 },
+  errorText: { fontFamily: FFB, fontSize: 16, color: '#fff', marginBottom: 16 },
   backBtn:   { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, backgroundColor: `${GOLD}18`, borderWidth: 1, borderColor: `${GOLD}30` },
-  backBtnText: { fontFamily: FF, fontSize: 14, color: GOLD },
+  backBtnText: { fontFamily: FFB, fontSize: 14, color: GOLD },
 
   // Modal
   modal: { flex: 1, backgroundColor: '#000000' },
@@ -487,13 +487,13 @@ const s = StyleSheet.create({
   },
   modalSide:   { width: 70 },
   modalTitle:  { fontFamily: FFB, fontSize: 17, color: '#ffffff' },
-  modalBack:   { fontFamily: FF, fontSize: 15, color: GOLD },
-  modalCancel: { fontFamily: FF, fontSize: 15, color: GOLD, textAlign: 'right' },
+  modalBack:   { fontFamily: FFB, fontSize: 15, color: GOLD },
+  modalCancel: { fontFamily: FFB, fontSize: 15, color: GOLD, textAlign: 'right' },
 
   pickerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 16, paddingHorizontal: 20,
   },
-  pickerRowText: { fontFamily: FF, fontSize: 16, color: '#ffffff' },
+  pickerRowText: { fontFamily: FFB, fontSize: 16, color: '#ffffff' },
   pickerDivider: { height: 1, backgroundColor: '#1c1c1c', marginHorizontal: 20 },
 });

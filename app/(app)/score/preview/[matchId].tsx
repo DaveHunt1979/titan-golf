@@ -266,13 +266,13 @@ const s = StyleSheet.create({
   headerSide:   { width: 40 },
   headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
   headerLogo:   { width: 28, height: 28 },
-  headerSub:    { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2.5 },
+  headerSub:    { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2.5 },
 
   courseBlock: { alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, gap: 4 },
   courseName:  { fontFamily: FFB, fontSize: 28, color: '#ffffff', textAlign: 'center' },
-  coursePar:   { fontFamily: FF, fontSize: 14, color: '#6b7280' },
+  coursePar:   { fontFamily: FFB, fontSize: 14, color: '#fff' },
   voiceBadge:  { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}30` },
-  voiceBadgeText: { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 1.5 },
+  voiceBadgeText: { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 1.5 },
 
   scroll: { paddingHorizontal: 16, paddingBottom: 120, gap: 16 },
 
@@ -285,15 +285,15 @@ const s = StyleSheet.create({
   playerCard: { alignItems: 'center', gap: 6 },
   avatarRing: { borderWidth: 2, borderColor: `${GOLD}40`, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   playerName: { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
-  playerHcp:  { fontFamily: FF, fontSize: 12, color: '#6b7280' },
+  playerHcp:  { fontFamily: FFB, fontSize: 12, color: '#fff' },
 
   detailCard: {
     backgroundColor: '#111111', borderRadius: 14,
     borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden',
   },
   detailRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 13 },
-  detailLabel: { fontFamily: FF, fontSize: 12, color: '#6b7280', width: 80 },
-  detailValue: { flex: 1, fontFamily: FF, fontSize: 13, color: '#ffffff', textAlign: 'right' },
+  detailLabel: { fontFamily: FFB, fontSize: 12, color: '#fff', width: 80 },
+  detailValue: { flex: 1, fontFamily: FFB, fontSize: 13, color: '#ffffff', textAlign: 'right' },
   divider:     { height: 1, backgroundColor: '#1a1a1a' },
 
   dayCard: {
@@ -301,11 +301,11 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: `${GOLD}30`,
     padding: 16, alignItems: 'center', gap: 8,
   },
-  dayCardTitle: { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2 },
-  dayCardSub:   { fontFamily: FF, fontSize: 11, color: '#6b7280', textAlign: 'center' },
+  dayCardTitle: { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2 },
+  dayCardSub:   { fontFamily: FFB, fontSize: 11, color: '#fff', textAlign: 'center' },
   dayCode:      { fontFamily: FFB, fontSize: 38, color: '#ffffff', letterSpacing: 10, marginVertical: 4 },
   dayBtn:       { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}30` },
-  dayBtnText:   { fontFamily: FF, fontSize: 13, color: GOLD },
+  dayBtnText:   { fontFamily: FFB, fontSize: 13, color: GOLD },
 
   footer: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -318,5 +318,5 @@ const s = StyleSheet.create({
     paddingVertical: 17,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  teeBtnText: { fontFamily: FF, fontSize: 18, color: '#000000' },
+  teeBtnText: { fontFamily: FFB, fontSize: 18, color: '#000000' },
 });

@@ -309,7 +309,7 @@ const s = StyleSheet.create({
 
   // Looking row
   lookingRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  lookingText: { fontFamily: FF, fontSize: 14, color: '#555' },
+  lookingText: { fontFamily: FFB, fontSize: 14, color: '#fff' },
 
   // Area card
   areaCard: {
@@ -324,9 +324,9 @@ const s = StyleSheet.create({
     width: '100%',
   },
   areaIcon:  { fontSize: 32 },
-  areaFound: { fontFamily: FF, fontSize: 11, color: '#555' },
+  areaFound: { fontFamily: FFB, fontSize: 11, color: '#fff' },
   areaName:  { fontFamily: FFB, fontSize: 17 },
-  areaSub:   { fontFamily: FF, fontSize: 13, color: '#555', marginTop: 2 },
+  areaSub:   { fontFamily: FFB, fontSize: 13, color: '#fff', marginTop: 2 },
 
   // Button
   btn: {
@@ -340,13 +340,13 @@ const s = StyleSheet.create({
 
   // Clear
   clearBtn:  { marginTop: 12 },
-  clearText: { fontFamily: FF, fontSize: 13, color: '#555', textDecorationLine: 'underline' },
+  clearText: { fontFamily: FFB, fontSize: 13, color: '#fff', textDecorationLine: 'underline' },
 
   // Profile fields
   fieldLabel: {
     fontFamily: FFB,
     fontSize: 11,
-    color: '#555',
+    color: '#fff',
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     marginBottom: 6,
@@ -360,7 +360,7 @@ const s = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     color: '#fff',
-    fontFamily: FF,
+    fontFamily: FFB,
   },
-  hint: { fontFamily: FF, fontSize: 12, color: '#555', marginTop: 6 },
+  hint: { fontFamily: FFB, fontSize: 12, color: '#fff', marginTop: 6 },
 });

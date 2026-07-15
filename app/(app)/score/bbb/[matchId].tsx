@@ -239,20 +239,20 @@ const s = StyleSheet.create({
   headerRight:     { width: 60 },
   back:            { fontSize: 14, fontFamily: FFB, color: GOLD },
   logo:            { width: 28, height: 28 },
-  subtitle:        { fontSize: 9, fontFamily: FF, color: '#555', letterSpacing: 1.5 },
+  subtitle:        { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
 
   // Running totals
   totalsScroll:    { maxHeight: 80, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
   totals:          { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 10, alignItems: 'center' },
   totalItem:       { alignItems: 'center', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', paddingHorizontal: 14, paddingVertical: 8, minWidth: 64 },
-  totalName:       { fontSize: 11, fontFamily: FFB, color: '#555', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 1.5 },
+  totalName:       { fontSize: 11, fontFamily: FFB, color: '#fff', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 1.5 },
   totalPts:        { fontSize: 22, fontFamily: FFB, color: GOLD },
-  totalLbl:        { fontSize: 8, fontFamily: FFB, color: '#555', letterSpacing: 1.5, marginTop: 1 },
+  totalLbl:        { fontSize: 8, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginTop: 1 },
 
   // Hole card
   holeCard:        { alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
   holeNum:         { fontSize: 28, fontFamily: FFB, color: '#fff' },
-  holeMeta:        { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 2 },
+  holeMeta:        { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 2 },
 
   // Points sections
   pointsWrap:      { padding: 20, gap: 14 },
@@ -260,13 +260,13 @@ const s = StyleSheet.create({
   pointHeader:     { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   pointEmoji:      { fontSize: 24 },
   pointLabel:      { fontSize: 14, fontFamily: FFB, color: GOLD, letterSpacing: 1.5 },
-  pointSub:        { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 2 },
+  pointSub:        { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 2 },
 
   // Player buttons
   playerBtns:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   playerBtn:       { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 99, borderWidth: 1, borderColor: '#222', backgroundColor: '#1a1a1a' },
   playerBtnOn:     { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.15)' },
-  playerBtnTxt:    { fontSize: 14, fontFamily: FFB, color: '#888' },
+  playerBtnTxt:    { fontSize: 14, fontFamily: FFB, color: '#fff' },
   playerBtnTxtOn:  { color: '#fff' },
 
   // Nav

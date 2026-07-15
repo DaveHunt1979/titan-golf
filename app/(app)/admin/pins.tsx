@@ -328,7 +328,7 @@ const s = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
   logo:         { width: 24, height: 24, marginBottom: 2 },
   title:        { fontSize: 15, fontFamily: FFB, color: '#fff' },
-  subtitle:     { fontSize: 9, fontFamily: FF, color: '#555' },
+  subtitle:     { fontSize: 9, fontFamily: FFB, color: '#fff' },
   backText:     { fontSize: 15, fontFamily: FFB, color: GOLD },
 
   scroll: { padding: 16, paddingBottom: 60 },
@@ -340,7 +340,7 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: '#1c1c1c',
   },
   courseName: { flex: 1, fontSize: 15, fontFamily: FFB, color: '#fff' },
-  chevron:    { fontSize: 18, fontFamily: FF, color: '#555' },
+  chevron:    { fontSize: 18, fontFamily: FFB, color: '#fff' },
 
   holeRow: {
     flexDirection: 'row', alignItems: 'center',
@@ -354,7 +354,7 @@ const s = StyleSheet.create({
     backgroundColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center',
   },
   holeNumText: { fontSize: 14, fontFamily: FFB, color: '#fff' },
-  holePar:     { fontSize: 13, fontFamily: FF, color: '#555', width: 44 },
+  holePar:     { fontSize: 13, fontFamily: FFB, color: '#fff', width: 44 },
   pinDots:     { flex: 1, flexDirection: 'row', gap: 12, justifyContent: 'center' },
   pinDotWrap:  { alignItems: 'center', gap: 2 },
   pinDot:      { width: 10, height: 10, borderRadius: 5 },
@@ -367,7 +367,7 @@ const s = StyleSheet.create({
   },
   mapHeaderCenter: { flex: 1 },
   mapTitle: { fontSize: 15, fontFamily: FFB, color: '#fff' },
-  mapSub:   { fontSize: 9, fontFamily: FF, color: '#555', marginTop: 2 },
+  mapSub:   { fontSize: 9, fontFamily: FFB, color: '#fff', marginTop: 2 },
 
   pinTypeRow: {
     flexDirection: 'row', gap: 10, padding: 10,
@@ -379,7 +379,7 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: '#1c1c1c', backgroundColor: '#111',
   },
   pinTypeDot:   { width: 10, height: 10, borderRadius: 5 },
-  pinTypeLabel: { fontSize: 10, fontFamily: FFB, color: '#555', letterSpacing: 0.5 },
+  pinTypeLabel: { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 0.5 },
   pinTypeCheck: { fontSize: 10, fontFamily: FFB },
 
   mapFull: { flex: 1 },
@@ -394,7 +394,7 @@ const s = StyleSheet.create({
     backgroundColor: '#000', padding: 20, paddingBottom: 40,
     borderTopWidth: 1, borderTopColor: '#1c1c1c',
   },
-  coordText: { fontSize: 11, fontFamily: FF, color: '#555', textAlign: 'center', marginBottom: 10 },
+  coordText: { fontSize: 11, fontFamily: FFB, color: '#fff', textAlign: 'center', marginBottom: 10 },
   saveBtn: {
     backgroundColor: GOLD, borderRadius: 12,
     paddingVertical: 14, alignItems: 'center',

@@ -496,7 +496,7 @@ export default function SoloRoundScreen() {
     <View style={s.loading}><ActivityIndicator color={GOLD} size="large" /></View>
   );
   if (!match) return (
-    <View style={s.loading}><Text style={{ fontFamily: FF, color: '#6b7280' }}>Round not found.</Text></View>
+    <View style={s.loading}><Text style={{ fontFamily: FFB, color: '#fff' }}>Round not found.</Text></View>
   );
 
   const formatLabel = isStableford ? 'Stableford' : 'Medal';
@@ -885,7 +885,7 @@ export default function SoloRoundScreen() {
                 <Text style={s.submitBtnText}>{editingHole ? `Save Hole ${editingHole}` : `Save Hole ${nextHole}`}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={{ paddingVertical: 14, alignItems: 'center' }}>
-                <Text style={{ fontFamily: FF, color: '#6b7280', fontSize: 14 }}>Cancel</Text>
+                <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 14 }}>Cancel</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -915,7 +915,7 @@ export default function SoloRoundScreen() {
               <Text style={s.submitBtnText}>Save Result</Text>
             </TouchableOpacity>
             <TouchableOpacity style={{ paddingVertical: 14, alignItems: 'center' }} onPress={() => setSideGameModal(null)}>
-              <Text style={{ fontFamily: FF, color: '#6b7280', fontSize: 14 }}>Skip</Text>
+              <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 14 }}>Skip</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1025,74 +1025,74 @@ const s = StyleSheet.create({
   headerSide:   { width: 40 },
   headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
   headerLogo:   { width: 28, height: 28 },
-  headerSub:    { fontFamily: FF, fontSize: 11, color: '#6b7280', letterSpacing: 0.5 },
+  headerSub:    { fontFamily: FFB, fontSize: 11, color: '#fff', letterSpacing: 0.5 },
 
   playerBlock: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#0a0a0a', borderBottomWidth: 1, borderBottomColor: '#111111' },
   playerNameText: { fontFamily: FFB, fontSize: 16, color: '#ffffff' },
-  playerHcpText:  { fontFamily: FF, fontSize: 11, color: '#6b7280', marginTop: 2 },
+  playerHcpText:  { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 2 },
   scoreDisplay:   { alignItems: 'center' },
-  scoreDisplayVal:   { fontFamily: FF, fontSize: 26, letterSpacing: -0.5 },
-  scoreDisplayLabel: { fontFamily: FF, fontSize: 8, color: '#6b7280', letterSpacing: 1.5, marginTop: 1 },
+  scoreDisplayVal:   { fontFamily: FFB, fontSize: 26, letterSpacing: -0.5 },
+  scoreDisplayLabel: { fontFamily: FFB, fontSize: 8, color: '#fff', letterSpacing: 1.5, marginTop: 1 },
 
   holeStripWrap: { maxHeight: 72 },
   holeStrip:     { paddingHorizontal: 12, paddingVertical: 6, gap: 6, alignItems: 'center' },
   holeTile: { width: 42, height: 58, borderRadius: 10, backgroundColor: '#111111', borderWidth: 1, borderColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center', gap: 2 },
-  holeTileNum:   { fontFamily: FF, fontSize: 14, color: '#4b5563' },
-  holeTilePar:   { fontFamily: FF, fontSize: 9, color: '#333' },
+  holeTileNum:   { fontFamily: FFB, fontSize: 14, color: '#4b5563' },
+  holeTilePar:   { fontFamily: FFB, fontSize: 9, color: '#333' },
   holeTilePts:   { fontFamily: FFB, fontSize: 11, marginTop: 1 },
   halfLabels:    { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 12, paddingBottom: 4 },
-  halfLabel:     { fontFamily: FF, fontSize: 8, color: '#2a2a2a', letterSpacing: 1.5 },
+  halfLabel:     { fontFamily: FFB, fontSize: 8, color: '#2a2a2a', letterSpacing: 1.5 },
 
   scroll: { padding: 16, paddingBottom: 40 },
 
   holeCard: { alignItems: 'center', marginBottom: 12, paddingVertical: 20, backgroundColor: '#111111', borderRadius: 16, borderWidth: 1, borderColor: '#1c1c1c' },
-  holeLabelSmall: { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 2 },
-  holeBig:        { fontFamily: FF, fontSize: 64, color: '#ffffff', lineHeight: 72 },
+  holeLabelSmall: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 2 },
+  holeBig:        { fontFamily: FFB, fontSize: 64, color: '#ffffff', lineHeight: 72 },
   holeChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4, justifyContent: 'center', paddingHorizontal: 12 },
   holeChip:     { flexDirection: 'row', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#222' },
   holeChipGold: { backgroundColor: `${GOLD}0d`, borderColor: `${GOLD}30` },
-  holeChipText: { fontFamily: FF, fontSize: 10, color: '#6b7280' },
+  holeChipText: { fontFamily: FFB, fontSize: 10, color: '#fff' },
   quickActions:   { flexDirection: 'row', alignItems: 'center', marginTop: 14, borderTopWidth: 1, borderTopColor: '#1a1a1a', width: '100%' },
   quickActionBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, gap: 3 },
-  quickActionLbl: { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 1 },
+  quickActionLbl: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1 },
   quickActionSep: { width: 1, height: 28, backgroundColor: '#1a1a1a' },
 
   sideGameBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: `${GOLD}0d`, borderRadius: 12, borderWidth: 1.5, borderColor: `${GOLD}40`, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 12 },
   sideGameBannerTitle: { fontFamily: FFB, fontSize: 13, color: GOLD, letterSpacing: 1 },
-  sideGameBannerSub:   { fontFamily: FF, fontSize: 11, color: '#6b7280', marginTop: 2 },
+  sideGameBannerSub:   { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 2 },
 
   ctaBtn:     { backgroundColor: GOLD, borderRadius: 14, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 },
-  ctaBtnText: { fontFamily: FF, fontSize: 17, color: '#000000' },
+  ctaBtnText: { fontFamily: FFB, fontSize: 17, color: '#000000' },
 
   undoBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
-  undoBtnText: { fontFamily: FF, fontSize: 13, color: '#4b5563' },
+  undoBtnText: { fontFamily: FFB, fontSize: 13, color: '#4b5563' },
   deleteLink:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14 },
-  deleteLinkText: { fontFamily: FF, fontSize: 12, color: '#4b5563' },
+  deleteLinkText: { fontFamily: FFB, fontSize: 12, color: '#4b5563' },
 
   completeCard:   { alignItems: 'center', paddingVertical: 32, gap: 8 },
-  completeTitle:  { fontFamily: FF, fontSize: 10, color: '#6b7280', letterSpacing: 3, marginTop: 8 },
-  completeScore:  { fontFamily: FF, fontSize: 60, letterSpacing: -1 },
-  completeDetail: { fontFamily: FF, fontSize: 13, color: '#6b7280' },
+  completeTitle:  { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 3, marginTop: 8 },
+  completeScore:  { fontFamily: FFB, fontSize: 60, letterSpacing: -1 },
+  completeDetail: { fontFamily: FFB, fontSize: 13, color: '#fff' },
   statGrid:     { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 20, marginBottom: 8 },
   statBox:      { alignItems: 'center', minWidth: 68, backgroundColor: '#111111', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: '#1c1c1c' },
   statVal:      { fontFamily: FFB, fontSize: 24 },
-  statLbl:      { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 0.5, marginTop: 2 },
+  statLbl:      { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 0.5, marginTop: 2 },
   bestWorstRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
   bestWorstBox: { alignItems: 'center', flex: 1, backgroundColor: '#111111', borderRadius: 12, paddingVertical: 10, borderWidth: 1, borderColor: '#1c1c1c' },
-  bestWorstLbl: { fontFamily: FF, fontSize: 8, color: '#6b7280', letterSpacing: 1 },
+  bestWorstLbl: { fontFamily: FFB, fontSize: 8, color: '#fff', letterSpacing: 1 },
   bestWorstVal: { fontFamily: FFB, fontSize: 14, marginTop: 2 },
-  bestWorstSub: { fontFamily: FF, fontSize: 10, color: '#6b7280', marginTop: 1 },
+  bestWorstSub: { fontFamily: FFB, fontSize: 10, color: '#fff', marginTop: 1 },
   endRoundBtn:  { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: GOLD, borderRadius: 14, paddingHorizontal: 32, paddingVertical: 14, marginTop: 8 },
-  endRoundText: { fontFamily: FF, fontSize: 16, color: '#000000' },
+  endRoundText: { fontFamily: FFB, fontSize: 16, color: '#000000' },
 
   scorecardCard:    { backgroundColor: '#111111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginTop: 8, marginBottom: 8, padding: 10 },
-  scorecardTitle:   { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 2, marginBottom: 8 },
+  scorecardTitle:   { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 2, marginBottom: 8 },
   scorecardRow:     { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
-  scorecardHoleLabel: { width: 36, fontFamily: FF, fontSize: 8, color: '#4b5563' },
-  scorecardCell:    { flex: 1, fontFamily: FF, fontSize: 10, textAlign: 'center' },
+  scorecardHoleLabel: { width: 36, fontFamily: FFB, fontSize: 8, color: '#4b5563' },
+  scorecardCell:    { flex: 1, fontFamily: FFB, fontSize: 10, textAlign: 'center' },
   scorecardTot:     { width: 30, fontFamily: FFB, fontSize: 10, color: '#ffffff', textAlign: 'center' },
   scorecardScoreCell:  { flex: 1, height: 20, borderRadius: 3, alignItems: 'center', justifyContent: 'center' },
-  scorecardScoreText:  { fontFamily: FF, fontSize: 10, color: '#9ca3af' },
+  scorecardScoreText:  { fontFamily: FFB, fontSize: 10, color: '#fff' },
 
   savingOverlay: { position: 'absolute', bottom: 40, alignSelf: 'center', backgroundColor: '#111111', borderRadius: 20, padding: 10, borderWidth: 1, borderColor: '#1c1c1c' },
 
@@ -1102,18 +1102,18 @@ const s = StyleSheet.create({
   sheetHandle:     { width: 40, height: 4, borderRadius: 2, backgroundColor: '#333', alignSelf: 'center', marginTop: 12, marginBottom: 16 },
   sheetPlayerRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   sheetPlayerName: { fontFamily: FFB, fontSize: 16, color: '#ffffff' },
-  sheetHoleInfo:   { fontFamily: FF, fontSize: 11, color: '#6b7280', marginTop: 2 },
+  sheetHoleInfo:   { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 2 },
   sheetPts:        { fontFamily: FFB, fontSize: 22 },
   sheetShotBadge:  { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}30`, marginBottom: 12 },
-  sheetShotBadgeText: { fontFamily: FF, fontSize: 12, color: GOLD },
+  sheetShotBadgeText: { fontFamily: FFB, fontSize: 12, color: GOLD },
 
   scoreGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 12 },
   scoreNumBtn: { width: '30%', flexGrow: 1, height: 64, borderRadius: 12, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#222', alignItems: 'center', justifyContent: 'center' },
-  scoreNumText:   { fontFamily: FF, fontSize: 22, color: '#6b7280' },
-  scoreDiffLabel: { fontFamily: FF, fontSize: 9, letterSpacing: 0.5, marginTop: 2 },
+  scoreNumText:   { fontFamily: FFB, fontSize: 22, color: '#fff' },
+  scoreDiffLabel: { fontFamily: FFB, fontSize: 9, letterSpacing: 0.5, marginTop: 2 },
 
   statSection:      { marginTop: 12 },
-  statSectionLabel: { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 1.5, marginBottom: 8, textAlign: 'center' },
+  statSectionLabel: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1.5, marginBottom: 8, textAlign: 'center' },
   statBtnRow:   { flexDirection: 'row', gap: 8, justifyContent: 'center' },
   statBtn:      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#222', minWidth: 70, alignItems: 'center' },
   statBtnPutt:  { minWidth: 60 },
@@ -1121,17 +1121,17 @@ const s = StyleSheet.create({
   statBtnRed:   { backgroundColor: `${RED}20`, borderColor: RED },
   statBtnOrange:{ backgroundColor: `${ORANGE}20`, borderColor: ORANGE },
   statBtnGold:  { backgroundColor: `${GOLD}15`, borderColor: GOLD },
-  statBtnText:  { fontFamily: FF, fontSize: 13, color: '#9ca3af' },
+  statBtnText:  { fontFamily: FFB, fontSize: 13, color: '#fff' },
 
   submitBtn:    { backgroundColor: GOLD, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 16 },
-  submitBtnText:{ fontFamily: FF, fontSize: 16, color: '#000000' },
+  submitBtnText:{ fontFamily: FFB, fontSize: 16, color: '#000000' },
 
   sideGameModalTitle: { fontFamily: FFB, fontSize: 16, color: GOLD, letterSpacing: 1.5, marginBottom: 6, textAlign: 'center' },
-  sideGameModalSub:   { fontFamily: FF, fontSize: 12, color: '#6b7280', marginBottom: 20, textAlign: 'center' },
-  sideGameInput: { backgroundColor: '#1a1a1a', borderRadius: 12, borderWidth: 1, borderColor: '#222', paddingHorizontal: 16, paddingVertical: 14, fontFamily: FF, fontSize: 18, color: '#ffffff', textAlign: 'center', marginBottom: 16 },
+  sideGameModalSub:   { fontFamily: FFB, fontSize: 12, color: '#fff', marginBottom: 20, textAlign: 'center' },
+  sideGameInput: { backgroundColor: '#1a1a1a', borderRadius: 12, borderWidth: 1, borderColor: '#222', paddingHorizontal: 16, paddingVertical: 14, fontFamily: FFB, fontSize: 18, color: '#ffffff', textAlign: 'center', marginBottom: 16 },
 
   popupOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
   popupSheet:   { backgroundColor: '#111111', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderTopColor: '#1c1c1c', overflow: 'hidden', paddingBottom: 32 },
   popupTitleRow:{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
-  popupTitleText: { flex: 1, fontFamily: FF, fontSize: 11, color: '#ffffff', letterSpacing: 2 },
+  popupTitleText: { flex: 1, fontFamily: FFB, fontSize: 11, color: '#ffffff', letterSpacing: 2 },
 });

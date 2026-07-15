@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   Image, ActivityIndicator, RefreshControl, Dimensions, Linking,
@@ -57,6 +57,8 @@ export default function HomeScreen() {
   const [tourName,     setTourName]     = useState<string | null>(null);
   const [tourLive,     setTourLive]     = useState(0);
   const [swindleName,  setSwindleName]  = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  useFocusEffect(useCallback(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, []));
   const [swindleCount, setSwindleCount] = useState(0);
 
   async function checkUnread(pid: string | null) {
@@ -181,6 +183,7 @@ export default function HomeScreen() {
         <View style={s.centered}><ActivityIndicator color={GOLD} size="large" /></View>
       ) : (
         <ScrollView
+          ref={scrollRef}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={s.scroll}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={GOLD} />}
@@ -323,7 +326,7 @@ const s = StyleSheet.create({
 
   // Greeting
   greeting: { paddingTop: 4, paddingBottom: 24 },
-  greetSub:  { fontFamily: FF,  fontSize: 15, color: '#6b7280' },
+  greetSub:  { fontFamily: FFB,  fontSize: 15, color: '#fff' },
   greetName: { fontFamily: FFB, fontSize: 42, color: '#ffffff', lineHeight: 48, letterSpacing: -0.5 },
 
   // Hero image
@@ -339,14 +342,14 @@ const s = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)',
   },
   heroCardLeft:  { gap: 3 },
-  heroCardLabel: { fontFamily: FF, fontSize: 9, color: GOLD, letterSpacing: 2 },
+  heroCardLabel: { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2 },
   heroCardTitle: { fontFamily: FFB, fontSize: 18, color: '#ffffff' },
   heroCardBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
     borderWidth: 1, borderColor: GOLD, borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 7,
   },
-  heroCardBtnText: { fontFamily: FF, fontSize: 11, color: GOLD, letterSpacing: 0.5 },
+  heroCardBtnText: { fontFamily: FFB, fontSize: 11, color: GOLD, letterSpacing: 0.5 },
 
   // Tile grid
   grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
@@ -364,8 +367,8 @@ const s = StyleSheet.create({
   },
   tileIconLocked: { borderColor: '#333', backgroundColor: 'transparent' },
   tileLabel:       { fontFamily: FFB, fontSize: 15, color: '#ffffff', letterSpacing: -0.2 },
-  tileLabelLocked: { color: '#555' },
-  tileSub:         { fontFamily: FF,  fontSize: 11, color: '#6b7280', lineHeight: 15 },
+  tileLabelLocked: { color: '#fff' },
+  tileSub:         { fontFamily: FFB,  fontSize: 11, color: '#fff', lineHeight: 15 },
   livePill: {
     flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, alignSelf: 'flex-start',
     backgroundColor: `${GREEN}12`, paddingHorizontal: 7, paddingVertical: 3,
@@ -382,7 +385,7 @@ const s = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center', gap: 5,
     position: 'relative',
   },
-  quickLabel:    { fontFamily: FF, fontSize: 10, color: '#6b7280', letterSpacing: 0.3 },
+  quickLabel:    { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 0.3 },
   quickBadge: {
     position: 'absolute', top: 6, right: 6,
     minWidth: 16, height: 16, borderRadius: 8,

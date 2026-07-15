@@ -275,7 +275,7 @@ const ss = StyleSheet.create({
     marginBottom: 4,
   },
   headerSubtitle: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 9,
     color: GOLD,
     letterSpacing: 2.5,
@@ -302,9 +302,9 @@ const ss = StyleSheet.create({
     marginBottom: 2,
   },
   date: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 12,
-    color: '#555',
+    color: '#fff',
   },
   scoreBox: {
     alignItems: 'flex-end',
@@ -316,11 +316,11 @@ const ss = StyleSheet.create({
     color: '#fff',
   },
   toPar: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 12,
   },
   holesTag: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 12,
     color: GOLD,
   },
@@ -338,9 +338,9 @@ const ss = StyleSheet.create({
     paddingVertical: 3,
   },
   chipText: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 11,
-    color: '#555',
+    color: '#fff',
   },
 
   drillRow: {
@@ -350,7 +350,7 @@ const ss = StyleSheet.create({
     gap: 4,
   },
   drillLink: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 12,
     color: GOLD,
   },
@@ -362,10 +362,10 @@ const ss = StyleSheet.create({
   emptyTitle: {
     fontFamily: FFB,
     fontSize: 16,
-    color: '#555',
+    color: '#fff',
   },
   emptySub: {
-    fontFamily: FF,
+    fontFamily: FFB,
     fontSize: 13,
     color: '#444',
     textAlign: 'center',

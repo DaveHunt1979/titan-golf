@@ -281,17 +281,17 @@ const s = StyleSheet.create({
     backgroundColor: '#111', borderRadius: 12, borderWidth: 1,
     borderColor: '#1c1c1c', padding: 16, marginBottom: 20,
   },
-  infoText: { fontSize: 13, fontFamily: FF, color: '#9ca3af', lineHeight: 20 },
+  infoText: { fontSize: 13, fontFamily: FFB, color: '#fff', lineHeight: 20 },
 
   colHeaders: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingHorizontal: 2 },
-  colHeader:  { fontSize: 9, fontFamily: FFB, color: '#555', letterSpacing: 1 },
+  colHeader:  { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
 
   roundCard: {
     backgroundColor: '#111', borderRadius: 12, borderWidth: 1,
     borderColor: '#1c1c1c', marginBottom: 10, padding: 10,
   },
   roundRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  roundNum: { fontSize: 14, fontFamily: FFB, color: '#555', textAlign: 'center' },
+  roundNum: { fontSize: 14, fontFamily: FFB, color: '#fff', textAlign: 'center' },
 
   cell: {
     backgroundColor: '#1a1a1a', borderRadius: 8, borderWidth: 1,
@@ -300,14 +300,14 @@ const s = StyleSheet.create({
   },
   removeBtn:  { width: 28, alignItems: 'center' },
   removeText: { fontSize: 13, color: RED, fontFamily: FFB },
-  diffLabel:  { fontSize: 11, fontFamily: FF, color: GOLD, marginTop: 6, marginLeft: 2 },
+  diffLabel:  { fontSize: 11, fontFamily: FFB, color: GOLD, marginTop: 6, marginLeft: 2 },
 
   addBtn: {
     borderWidth: 1.5, borderColor: '#2a2a2a', borderStyle: 'dashed',
     borderRadius: 12, paddingVertical: 16,
     alignItems: 'center', marginBottom: 20,
   },
-  addBtnText: { fontSize: 14, fontFamily: FF, color: '#555' },
+  addBtnText: { fontSize: 14, fontFamily: FFB, color: '#fff' },
 
   resultCard: {
     backgroundColor: 'rgba(212,175,55,0.08)', borderRadius: 14, borderWidth: 2,
@@ -316,7 +316,7 @@ const s = StyleSheet.create({
   },
   resultLabel: { fontSize: 11, fontFamily: FFB, color: GOLD, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 },
   resultValue: { fontSize: 48, fontFamily: FFB, color: '#fff', letterSpacing: -1 },
-  resultSub:   { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 4 },
+  resultSub:   { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 4 },
 
   saveBtn: {
     backgroundColor: GOLD, borderRadius: 12,
@@ -328,5 +328,5 @@ const s = StyleSheet.create({
     backgroundColor: '#111', borderRadius: 12, borderWidth: 1,
     borderColor: '#1c1c1c', padding: 16,
   },
-  noteText: { fontSize: 11, fontFamily: FF, color: '#555', lineHeight: 18 },
+  noteText: { fontSize: 11, fontFamily: FFB, color: '#fff', lineHeight: 18 },
 });

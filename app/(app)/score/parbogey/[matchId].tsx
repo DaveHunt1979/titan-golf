@@ -29,7 +29,7 @@ function holeResult(gross: number, par: number, strokes: number): 1 | 0 | -1 {
 function resultLabel(r: 1 | 0 | -1) {
   if (r === 1)  return { text: 'WIN',   color: GREEN };
   if (r === -1) return { text: 'LOSE',  color: RED };
-  return            { text: 'HALVE', color: '#555' };
+  return            { text: 'HALVE', color: '#fff' };
 }
 
 function totalLabel(t: number) {
@@ -269,29 +269,29 @@ const s = StyleSheet.create({
   back:         { fontSize: 13, fontFamily: FFB, color: GOLD },
   headerCenter: { alignItems: 'center', gap: 4 },
   logo:         { width: 28, height: 28 },
-  subtitle:     { fontSize: 9, fontFamily: FF, color: '#555', letterSpacing: 1.5 },
+  subtitle:     { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
   // Tally strip
   tallyScroll:  { maxHeight: 90, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
   tally:        { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 10, alignItems: 'center' },
   tallyItem:    { alignItems: 'center', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', paddingHorizontal: 14, paddingVertical: 8, minWidth: 70 },
   tallyWin:     { borderColor: GREEN, backgroundColor: 'rgba(74,222,128,0.08)' },
   tallyLose:    { borderColor: RED,   backgroundColor: 'rgba(248,113,113,0.08)' },
-  tallyName:    { fontSize: 10, fontFamily: FFB, color: '#555', marginBottom: 2 },
+  tallyName:    { fontSize: 10, fontFamily: FFB, color: '#fff', marginBottom: 2 },
   tallyScore:   { fontSize: 20, fontFamily: FFB },
-  tallyLbl:     { fontSize: 8, fontFamily: FFB, color: '#555', letterSpacing: 1, marginTop: 1 },
+  tallyLbl:     { fontSize: 8, fontFamily: FFB, color: '#fff', letterSpacing: 1, marginTop: 1 },
   // Hole card
   holeCard:     { alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
   holeNum:      { fontSize: 28, fontFamily: FFB, color: '#fff' },
-  holeMeta:     { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 2 },
+  holeMeta:     { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 2 },
   // Player rows
   playersWrap:  { padding: 20, gap: 20 },
   playerRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 16 },
   playerName:   { fontSize: 16, fontFamily: FFB, color: '#fff' },
-  playerSub:    { fontSize: 11, fontFamily: FF, color: '#555', marginTop: 3 },
+  playerSub:    { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 3 },
   // Stepper
   stepper:      { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stepBtn:      { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#222', alignItems: 'center', justifyContent: 'center' },
-  stepBtnTxt:   { fontSize: 22, fontFamily: FF, color: '#fff' },
+  stepBtnTxt:   { fontSize: 22, fontFamily: FFB, color: '#fff' },
   scoreDisp:    { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a1a', borderWidth: 2, borderColor: '#222' },
   win:          { borderColor: GREEN, backgroundColor: 'rgba(74,222,128,0.1)' },
   lose:         { borderColor: RED,   backgroundColor: 'rgba(248,113,113,0.1)' },

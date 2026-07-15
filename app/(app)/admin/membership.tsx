@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
   logo:         { width: 24, height: 24, marginBottom: 2 },
   headerTitle:  { fontSize: 15, fontFamily: FFB, color: '#fff' },
-  headerSub:    { fontSize: 9, fontFamily: FF, color: '#555' },
+  headerSub:    { fontSize: 9, fontFamily: FFB, color: '#fff' },
 
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -208,14 +208,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 10,
     margin: 16, marginBottom: 0,
   },
-  searchIcon:  { fontSize: 14, color: '#555' },
-  searchInput: { flex: 1, fontSize: 13, fontFamily: FF, color: '#fff', padding: 0 },
+  searchIcon:  { fontSize: 14, color: '#fff' },
+  searchInput: { flex: 1, fontSize: 13, fontFamily: FFB, color: '#fff', padding: 0 },
 
   scroll:  { padding: 16, paddingBottom: 48 },
-  count:   { fontSize: 11, fontFamily: FF, color: '#555', marginBottom: 12, textAlign: 'center' },
+  count:   { fontSize: 11, fontFamily: FFB, color: '#fff', marginBottom: 12, textAlign: 'center' },
 
   empty:     { alignItems: 'center', paddingVertical: 48 },
-  emptyText: { fontSize: 15, fontFamily: FF, color: '#555', textAlign: 'center' },
+  emptyText: { fontSize: 15, fontFamily: FFB, color: '#fff', textAlign: 'center' },
 
   playerCard: {
     backgroundColor: '#111', borderRadius: 14,
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     padding: 14, marginBottom: 10,
   },
   playerName: { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 2 },
-  playerHcp:  { fontSize: 11, fontFamily: FF, color: '#555', marginBottom: 10 },
+  playerHcp:  { fontSize: 11, fontFamily: FFB, color: '#fff', marginBottom: 10 },
 
   chips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   chip: {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
@@ -10,17 +10,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useSociety } from '../../../src/lib/useSociety';
+import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { getPlayerAvatar } from '../../../src/lib/assets';
 
 // ── Constants ─────────────────────────────────────────────────
 
-type GameMode  = '4bbb' | 'singles' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble' | 'greensome' | 'foursomes' | 'modified_stableford' | 'par_bogey' | 'team_stableford';
+type GameMode  = '4bbb' | 'singles' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble' | 'greensome' | 'foursomes' | 'modified_stableford' | 'par_bogey' | 'team_stableford' | 'best2from4' | 'best2from4_par3all';
 type HolesMode = 'full18' | 'front9' | 'back9';
 
-interface Player     { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
-interface CourseItem { name: string; par: number; }
+interface Player      { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
+interface CourseItem  { name: string; par: number; }
+interface PlayerGroup { id: string; name: string; player_ids: string[]; }
 
-const GOLD  = '#D4AF37';
 const GREEN = '#22c55e';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
@@ -37,15 +38,20 @@ const MODE_INFO: Record<GameMode, { label: string; sub: string; icon: keyof type
   'par_bogey':           { label: 'Par / Bogey',       sub: 'Win, halve or lose vs par',    icon: 'stats-chart-outline' },
   'skins':               { label: 'Skins',             sub: 'Per-hole prize pot',           icon: 'diamond-outline' },
   'scramble':            { label: 'Scramble',          sub: 'Team best ball',               icon: 'golf-outline' },
-  'team_stableford':    { label: 'Team Stableford',   sub: 'Best N scores count per team', icon: 'people-circle-outline' },
+  'team_stableford':      { label: 'Team Stableford',        sub: 'Best N scores count per team',       icon: 'people-circle-outline' },
+  'best2from4':           { label: 'Best 2 From 4',          sub: 'Best 2 stableford scores per hole',  icon: 'people-outline' },
+  'best2from4_par3all':   { label: 'Best 2 From 4 (Par 3s)', sub: 'All scores count on par 3 holes',    icon: 'golf-outline' },
 };
 
-const MODE_SECTIONS: { label: string; accent: string; modes: GameMode[] }[] = [
-  { label: 'MATCHPLAY',    accent: GOLD,      modes: ['4bbb', 'singles', 'nassau', 'foursomes', 'greensome'] },
-  { label: 'INDIVIDUAL',   accent: '#4ade80', modes: ['stableford', 'medal', 'modified_stableford', 'par_bogey'] },
-  { label: 'GROUP GAMES',  accent: '#60a5fa', modes: ['skins', 'scramble'] },
-  { label: 'TEAM GAMES',   accent: '#f97316', modes: ['team_stableford'] },
-];
+function getModeSections(gold: string): { label: string; accent: string; modes: GameMode[] }[] {
+  return [
+    { label: 'MATCHPLAY',    accent: gold,      modes: ['4bbb', 'singles', 'nassau', 'foursomes', 'greensome'] },
+    { label: 'INDIVIDUAL',   accent: '#4ade80', modes: ['stableford', 'medal', 'modified_stableford', 'par_bogey'] },
+    { label: 'GROUP GAMES',  accent: '#60a5fa', modes: ['skins', 'scramble'] },
+    { label: 'TEAM GAMES',   accent: '#f97316', modes: ['team_stableford'] },
+    { label: 'MASHIE GOLF',  accent: '#a78bfa', modes: ['best2from4', 'best2from4_par3all'] },
+  ];
+}
 
 const HCP_ALLOWANCES: { pct: number; label: string }[] = [
   { pct: 100, label: 'Full (100%)' },
@@ -70,10 +76,11 @@ function nowTime() {
 // ── Picker sheet (generic) ────────────────────────────────────
 
 function PickerSheet<T extends string>({
-  visible, title, options, selected, onSelect, onClose,
+  visible, title, options, selected, onSelect, onClose, ps, GOLD,
 }: {
   visible: boolean; title: string; options: { key: T; label: string }[];
   selected: T; onSelect: (v: T) => void; onClose: () => void;
+  ps: any; GOLD: string;
 }) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -98,10 +105,12 @@ function PickerSheet<T extends string>({
 // ── Format picker sheet (sectioned) ──────────────────────────
 
 function FormatSheet({
-  visible, selected, onSelect, onClose,
+  visible, selected, onSelect, onClose, ps, GOLD,
 }: {
   visible: boolean; selected: GameMode; onSelect: (v: GameMode) => void; onClose: () => void;
+  ps: any; GOLD: string;
 }) {
+  const MODE_SECTIONS = getModeSections(GOLD);
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={onClose} />
@@ -150,13 +159,16 @@ function FormatSheet({
 // ── Player picker sheet ───────────────────────────────────────
 
 function PlayerSheet({
-  visible, players, pair1, pair2, pairStep, isSolo, atMax, takenIds,
-  teamLabels, onToggle, onNextPair, onClose,
+  visible, players, groups, pair1, pair2, pairStep, isSolo, atMax, takenIds,
+  teamLabels, onToggle, onNextPair, onLoadGroup, onClose, ps, GOLD,
 }: {
-  visible: boolean; players: Player[]; pair1: string[]; pair2: string[];
+  visible: boolean; players: Player[]; groups: PlayerGroup[];
+  pair1: string[]; pair2: string[];
   pairStep: 1 | 2; isSolo: boolean; atMax: boolean; takenIds: string[];
   teamLabels?: boolean;
-  onToggle: (id: string) => void; onNextPair: () => void; onClose: () => void;
+  onToggle: (id: string) => void; onNextPair: () => void;
+  onLoadGroup: (ids: string[]) => void; onClose: () => void;
+  ps: any; GOLD: string;
 }) {
   const firstName = (id: string) => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '?';
   const activePair = pairStep === 1 ? pair1 : pair2;
@@ -177,6 +189,18 @@ function PlayerSheet({
             </View>
           )}
         </View>
+        {groups.length > 0 && (
+          <View style={ps.groupRow}>
+            <Text style={ps.groupRowLabel}>LOAD GROUP</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={ps.groupScroll}>
+              {groups.map(g => (
+                <TouchableOpacity key={g.id} style={ps.groupChip} onPress={() => onLoadGroup(g.player_ids)} activeOpacity={0.7}>
+                  <Text style={ps.groupChipText}>{g.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
         <FlatList
           data={players}
           keyExtractor={p => p.id}
@@ -237,10 +261,11 @@ function PlayerSheet({
 // ── Course picker sheet ───────────────────────────────────────
 
 function CourseSheet({
-  visible, courses, selected, onSelect, onClose,
+  visible, courses, selected, onSelect, onClose, ps, GOLD,
 }: {
   visible: boolean; courses: CourseItem[]; selected: string | null;
   onSelect: (name: string) => void; onClose: () => void;
+  ps: any; GOLD: string;
 }) {
   const [search, setSearch] = useState('');
   const filtered = courses.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
@@ -285,11 +310,12 @@ function CourseSheet({
 // ── Setting row helper ────────────────────────────────────────
 
 function SettingRow({
-  icon, label, value, valueColor, onPress, children, last,
+  icon, label, value, valueColor, onPress, children, last, s, GOLD,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string; value?: string; valueColor?: string;
   onPress?: () => void; children?: React.ReactNode; last?: boolean;
+  s: any; GOLD: string;
 }) {
   return (
     <TouchableOpacity style={s.settingRow} onPress={onPress} activeOpacity={onPress ? 0.7 : 1}>
@@ -320,6 +346,12 @@ export default function NewGameScreen() {
     'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
+  const dc     = useDynamicColors();
+  const GOLD   = dc.gold;
+  const BG     = dc.bg;
+  const CARD   = dc.card;
+  const BORDER = dc.border;
+
   // Game state
   const [mode, setMode]         = useState<GameMode>('stableford');
   const [pair1, setPair1]       = useState<string[]>([]);
@@ -330,7 +362,7 @@ export default function NewGameScreen() {
   const [sideGames, setSideGames]           = useState<string[]>([]);
   const [secondaryFormat, setSecondaryFormat] = useState<string | null>(null);
   const [holesMode, setHoles]               = useState<HolesMode>('full18');
-  const [voiceEnabled, setVoiceEnabled]     = useState(true);
+  const [voiceEnabled, setVoiceEnabled]     = useState(false);
   const [ldActive, setLdActive]             = useState(false);
   const [npActive, setNpActive]             = useState(false);
   const [ldHole, setLdHole]                 = useState<number | null>(null);
@@ -342,6 +374,7 @@ export default function NewGameScreen() {
 
   // Data
   const [players, setPlayers]           = useState<Player[]>([]);
+  const [groups,  setGroups]            = useState<PlayerGroup[]>([]);
   const [loadingPlayers, setLoadingPlayers] = useState(true);
   const [courses, setCourses]           = useState<CourseItem[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
@@ -402,13 +435,17 @@ export default function NewGameScreen() {
       const { data } = await supabase.from('players').select('id, display_name, handicap_index, avatar_url').in('id', ids).order('display_name');
       if (data) setPlayers(data as Player[]);
       setLoadingPlayers(false);
+      const { data: groupData } = await supabase.from('player_groups').select('id,name,player_ids').eq('society_id', societyId).order('name');
+      if (groupData) setGroups(groupData as PlayerGroup[]);
     })();
   }, [societyId, societyLoading]);
 
-  const isSolo = ['stableford', 'medal', 'skins', 'scramble', 'modified_stableford', 'par_bogey'].includes(mode);
+  const isSolo    = ['stableford', 'medal', 'skins', 'scramble', 'modified_stableford', 'par_bogey'].includes(mode);
+  const isMashie  = mode === 'best2from4' || mode === 'best2from4_par3all';
   const maxPer = mode === 'team_stableford' ? teamSize
                : (mode === 'singles' || mode === 'nassau') ? 1
                : isSolo ? 4
+               : isMashie ? 4
                : 2;
   const atMax  = isSolo && pair1.length >= maxPer;
 
@@ -450,8 +487,6 @@ export default function NewGameScreen() {
       let dayCode: string | null = null;
 
       if (existingDayId) {
-        const { data: dayData } = await supabase.from('competition_days').select('id, join_code').eq('id', existingDayId).single();
-        if (!dayData) throw new Error('Game day not found');
         resolvedDayId = existingDayId;
       } else {
         const { data: dayResult, error: dayErr } = await supabase.rpc('create_game_day_with_code', {
@@ -471,7 +506,7 @@ export default function NewGameScreen() {
         ...(!voiceEnabled ? ['voice:off'] : []),
       ];
 
-      const isTeamStableford = mode === 'team_stableford';
+      const isTeamStableford = mode === 'team_stableford' || isMashie;
       const { data: newMatch, error } = await supabase.from('matches').insert({
         competition_id: null,
         day_id: resolvedDayId,
@@ -483,16 +518,18 @@ export default function NewGameScreen() {
         status: 'in_progress',
         holes_string: '..................',
         is_singles: mode === 'singles',
-        round_format: (mode === '4bbb' || mode === 'singles') ? 'matchplay' : mode,
+        round_format: (mode === '4bbb' || mode === 'singles') ? 'matchplay' : isMashie ? 'team_stableford' : mode,
         hcp_allowance: hcpAllowance,
         side_games: sideGamesList,
         secondary_format: secondaryFormat,
-        ...(isTeamStableford ? { team_size: teamSize, counting_scores: countingScores } : {}),
+        ...(isTeamStableford ? { team_size: isMashie ? 4 : teamSize, counting_scores: isMashie ? 2 : countingScores } : {}),
+        ...(mode === 'best2from4_par3all' ? { side_games: [...sideGamesList, 'par3all'] } : {}),
       }).select().single();
 
       if (error || !newMatch) throw error ?? new Error('Could not create game');
 
       const codeMsg = dayCode ? `\nDay code: ${dayCode}` : '';
+      setCreating(false);
       Alert.alert(
         'Group added!',
         `${pair1.map(id => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '').join(', ')} are on.${codeMsg}\n\nAdd another group?`,
@@ -522,6 +559,192 @@ export default function NewGameScreen() {
       setCreating(false);
     }
   }
+
+  const s = useMemo(() => StyleSheet.create({
+    root:    { flex: 1, backgroundColor: BG },
+    centered:{ flex: 1, alignItems: 'center', justifyContent: 'center' },
+    scroll:  { paddingBottom: 48 },
+
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
+    },
+    headerSide:   { width: 40 },
+    headerCenter: { alignItems: 'center' },
+    headerLogo:   { width: 36, height: 36 },
+
+    pageTitle:    { fontFamily: FFB, fontSize: 36, color: '#ffffff', paddingHorizontal: 20, letterSpacing: -0.5, marginTop: 4 },
+    pageSubtitle: { fontFamily: FFB, fontSize: 13, color: '#fff', paddingHorizontal: 20, marginTop: 4, marginBottom: 20 },
+
+    // Course card
+    courseCard: {
+      marginHorizontal: 16, borderRadius: 16,
+      overflow: 'hidden', marginBottom: 16,
+      backgroundColor: CARD,
+    },
+    courseHero:    { width: '100%', height: 200 },
+    courseOverlay: {
+      position: 'absolute', top: 0, left: 0, right: 0, height: 200,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+    },
+    todayBadge: {
+      position: 'absolute', top: 14, left: 14,
+      borderWidth: 1, borderColor: GOLD,
+      borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+      backgroundColor: `${GOLD}15`,
+    },
+    todayText: { fontFamily: FFB, fontSize: 10, color: GOLD, letterSpacing: 2 },
+    courseInfo: { position: 'absolute', bottom: 64, left: 16, right: 16 },
+    courseName: { fontFamily: FFB, fontSize: 20, color: '#ffffff', marginBottom: 6 },
+    courseMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 },
+    courseMeta:    { fontFamily: FFB, fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+    teetimeRow: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.85)',
+      paddingHorizontal: 14, paddingVertical: 12,
+      borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)',
+      gap: 8,
+    },
+    teetimeItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    teetimeText: { fontFamily: FFB, fontSize: 12, color: 'rgba(255,255,255,0.55)' },
+    teetimeDivider: { width: 1, height: 14, backgroundColor: 'rgba(255,255,255,0.1)', marginHorizontal: 4 },
+    startBtn: {
+      marginLeft: 'auto', backgroundColor: GOLD,
+      borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8,
+    },
+    startBtnOff:  { opacity: 0.3 },
+    startBtnText: { fontFamily: FFB, fontSize: 13, color: '#000000' },
+
+    // Settings
+    settingsCard: {
+      marginHorizontal: 16, marginBottom: 20,
+      backgroundColor: CARD, borderRadius: 14,
+      borderWidth: 1, borderColor: BORDER, overflow: 'hidden',
+    },
+    settingRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 14, paddingVertical: 14,
+    },
+    settingLeft:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    settingRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    settingIconWrap: {
+      width: 32, height: 32, borderRadius: 8,
+      backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}20`,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    settingLabel:  { fontFamily: FFB, fontSize: 15, color: '#ffffff' },
+    settingValue:  { fontFamily: FFB, fontSize: 14, color: '#fff' },
+    settingDivider:{ height: 1, backgroundColor: '#1a1a1a', marginHorizontal: 14 },
+
+    toggle:        { width: 40, height: 24, borderRadius: 12, backgroundColor: '#2c2c2e', justifyContent: 'center', padding: 2 },
+    toggleOn:      { backgroundColor: `${GOLD}50` },
+    toggleThumb:   { width: 20, height: 20, borderRadius: 10, backgroundColor: '#6b7280' },
+    toggleThumbOn: { transform: [{ translateX: 16 }], backgroundColor: GOLD },
+
+    sectionLabel: {
+      fontFamily: FFB, fontSize: 10, color: GOLD,
+      letterSpacing: 2, paddingHorizontal: 16, marginBottom: 10,
+    },
+
+    // Hole picker
+    holePicker: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 14, paddingBottom: 12 },
+    holeBtn: {
+      width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#2a2a2a',
+    },
+    holeBtnOn:     { borderColor: GOLD, backgroundColor: `${GOLD}15` },
+    holeBtnText:   { fontFamily: FFB, fontSize: 14, color: '#fff' },
+    holeBtnTextOn: { color: GOLD },
+    holeBtnPar:    { fontFamily: FFB, fontSize: 8, color: '#444', marginTop: 1 },
+
+    // Features
+    featuresGrid: { paddingHorizontal: 16, gap: 10, marginBottom: 20 },
+    featuresRow:  { flexDirection: 'row', gap: 10 },
+    featureCard: {
+      flex: 1, backgroundColor: CARD,
+      borderRadius: 12, borderWidth: 1, borderColor: BORDER,
+      padding: 12, alignItems: 'center', gap: 8,
+    },
+    featureIcon: {
+      width: 46, height: 46, borderRadius: 23,
+      alignItems: 'center', justifyContent: 'center', borderWidth: 1,
+    },
+    featureTitle: { fontFamily: FFB, fontSize: 12, color: '#ffffff', textAlign: 'center' },
+    featureSub:   { fontFamily: FFB, fontSize: 10, color: '#fff', textAlign: 'center', lineHeight: 14 },
+
+    // Ready
+    readyCard: {
+      marginHorizontal: 16, marginBottom: 24,
+      backgroundColor: CARD, borderRadius: 14,
+      borderWidth: 1, borderColor: BORDER,
+      flexDirection: 'row', alignItems: 'center', paddingVertical: 16,
+    },
+    readyItem:    { flex: 1, alignItems: 'center', gap: 5 },
+    readyDivider: { width: 1, height: 36, backgroundColor: BORDER },
+    readyLabel:   { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1.5 },
+    readyValue:   { fontFamily: FFB, fontSize: 12, color: '#ffffff' },
+
+    // CTA
+    ctaBtn: {
+      marginHorizontal: 16, marginBottom: 16,
+      backgroundColor: GOLD, borderRadius: 14,
+      paddingVertical: 18, flexDirection: 'row',
+      alignItems: 'center', justifyContent: 'center', gap: 8,
+    },
+    ctaBtnOff:  { opacity: 0.3 },
+    ctaBtnText: { fontFamily: FFB, fontSize: 17, color: '#000000' },
+  }), [GOLD, BG, CARD, BORDER]);
+
+  const ps = useMemo(() => StyleSheet.create({
+    overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+    sheet: {
+      position: 'absolute', bottom: 0, left: 0, right: 0,
+      backgroundColor: CARD, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      paddingBottom: 34, paddingHorizontal: 16,
+    },
+    handle: {
+      width: 36, height: 4, borderRadius: 2, backgroundColor: '#333',
+      alignSelf: 'center', marginVertical: 12,
+    },
+    sheetTitle:  { fontFamily: FFB, fontSize: 18, color: '#ffffff', marginBottom: 8, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: BORDER },
+    sheetRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
+    sheetOpt:    { fontFamily: FFB, fontSize: 16, color: '#fff' },
+    sheetOptOn:  { color: '#ffffff' },
+    cancelBtn:   { marginTop: 12, alignItems: 'center', paddingVertical: 14 },
+    cancelText:  { fontFamily: FFB, fontSize: 16, color: '#fff' },
+    doneBtn:     { marginTop: 12, backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+    doneBtnText: { fontFamily: FFB, fontSize: 16, color: '#000000' },
+    courseParLabel: { fontFamily: FFB, fontSize: 12, color: '#fff' },
+    searchInput: {
+      backgroundColor: '#1a1a1a', borderRadius: 10, borderWidth: 1, borderColor: '#2a2a2a',
+      paddingHorizontal: 12, paddingVertical: 10, color: '#fff',
+      fontFamily: FFB, fontSize: 15, marginBottom: 8,
+    },
+    playerSheetHeader: {},
+    groupRow:      { paddingHorizontal: 16, paddingBottom: 10 },
+    groupRowLabel: { fontFamily: FFB, fontSize: 10, color: GOLD, letterSpacing: 1.5, marginBottom: 6 },
+    groupScroll:   { flexGrow: 0 },
+    groupChip:     { backgroundColor: `${GOLD}18`, borderWidth: 1, borderColor: `${GOLD}40`, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, marginRight: 8 },
+    groupChipText: { fontFamily: FFB, fontSize: 13, color: GOLD },
+    pair1Summary: { flexDirection: 'row', paddingBottom: 6 },
+    pair1SummaryLabel: { fontFamily: FFB, fontSize: 12, color: '#fff' },
+    pair1SummaryNames: { fontFamily: FFB, fontSize: 12, color: GOLD },
+    playerRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+    playerAvatar: {
+      width: 36, height: 36, borderRadius: 18,
+      backgroundColor: `${GOLD}18`, alignItems: 'center', justifyContent: 'center',
+    },
+    playerAvatarImg:    { width: 36, height: 36, borderRadius: 18 },
+    playerAvatarLetter: { fontFamily: FFB, fontSize: 15, color: GOLD },
+    playerHcp:          { fontFamily: FFB, fontSize: 11, color: '#fff' },
+    sectionHead:   { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, marginTop: 4 },
+    sectionDot:    { width: 5, height: 5, borderRadius: 2.5 },
+    sectionLabel:  { fontFamily: FFB, fontSize: 9, fontWeight: '800', letterSpacing: 2 },
+    formatRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#1a1a1a', gap: 10 },
+    formatRowOn:   { backgroundColor: 'rgba(212,175,55,0.04)', borderRadius: 8 },
+    formatIconWrap:{ width: 28, height: 28, borderRadius: 7, backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}20`, alignItems: 'center', justifyContent: 'center' },
+    formatSub:     { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 1 },
+  }), [GOLD, BG, CARD, BORDER]);
 
   if (!fontsLoaded) {
     return (
@@ -604,33 +827,33 @@ export default function NewGameScreen() {
         <View style={s.settingsCard}>
 
           {/* Players */}
-          <SettingRow icon="people-outline" label="Players" value={playersLabel} valueColor={pair1.length === 0 ? GOLD : undefined} onPress={() => setShowPlayers(true)} />
+          <SettingRow icon="people-outline" label="Players" value={playersLabel} valueColor={pair1.length === 0 ? GOLD : undefined} onPress={() => setShowPlayers(true)} s={s} GOLD={GOLD} />
           <View style={s.settingDivider} />
 
           {/* Format */}
-          <SettingRow icon="trophy-outline" label="Format" value={formatLabel} onPress={() => setShowFormat(true)} />
+          <SettingRow icon="trophy-outline" label="Format" value={formatLabel} onPress={() => setShowFormat(true)} s={s} GOLD={GOLD} />
 
           {/* Team Stableford config */}
           {mode === 'team_stableford' && (
             <>
               <View style={s.settingDivider} />
-              <SettingRow icon="people-outline" label="Team Size" value={`${teamSize} players per side`} onPress={() => setShowTeamSize(true)} />
+              <SettingRow icon="people-outline" label="Team Size" value={`${teamSize} players per side`} onPress={() => setShowTeamSize(true)} s={s} GOLD={GOLD} />
               <View style={s.settingDivider} />
-              <SettingRow icon="checkmark-circle-outline" label="Counting Scores" value={`Best ${countingScores} of ${teamSize}`} onPress={() => setShowCounting(true)} />
+              <SettingRow icon="checkmark-circle-outline" label="Counting Scores" value={`Best ${countingScores} of ${teamSize}`} onPress={() => setShowCounting(true)} s={s} GOLD={GOLD} />
             </>
           )}
           <View style={s.settingDivider} />
 
           {/* Holes */}
-          <SettingRow icon="golf-outline" label="Holes" value={holesLabel} onPress={() => setShowHoles(true)} />
+          <SettingRow icon="golf-outline" label="Holes" value={holesLabel} onPress={() => setShowHoles(true)} s={s} GOLD={GOLD} />
           <View style={s.settingDivider} />
 
           {/* Handicap */}
-          <SettingRow icon="stats-chart-outline" label="Handicap" value={hcpLabel} onPress={() => setShowHcp(true)} />
+          <SettingRow icon="stats-chart-outline" label="Handicap" value={hcpLabel} onPress={() => setShowHcp(true)} s={s} GOLD={GOLD} />
           <View style={s.settingDivider} />
 
           {/* Chip & Birdie */}
-          <SettingRow icon="mic-outline" label="Chip & Birdie" value={voiceEnabled ? 'On' : 'Off'} valueColor={voiceEnabled ? GOLD : '#6b7280'} onPress={() => setVoiceEnabled(v => !v)}>
+          <SettingRow icon="mic-outline" label="Chip & Birdie" value={voiceEnabled ? 'On' : 'Off'} valueColor={voiceEnabled ? GOLD : '#6b7280'} onPress={() => setVoiceEnabled(v => !v)} s={s} GOLD={GOLD}>
             <View style={[s.toggle, voiceEnabled && s.toggleOn]}>
               <View style={[s.toggleThumb, voiceEnabled && s.toggleThumbOn]} />
             </View>
@@ -649,6 +872,7 @@ export default function NewGameScreen() {
             value={ldActive ? (ldHole ? `Hole ${ldHole}` : 'Pick hole') : 'Off'}
             valueColor={ldActive ? GOLD : '#6b7280'}
             onPress={() => setLdActive(v => !v)}
+            s={s} GOLD={GOLD}
           >
             <View style={[s.toggle, ldActive && s.toggleOn]}>
               <View style={[s.toggleThumb, ldActive && s.toggleThumbOn]} />
@@ -679,6 +903,7 @@ export default function NewGameScreen() {
             value={npActive ? (ntpHole ? `Hole ${ntpHole}` : 'Pick hole') : 'Off'}
             valueColor={npActive ? GOLD : '#6b7280'}
             onPress={() => setNpActive(v => !v)}
+            s={s} GOLD={GOLD}
           >
             <View style={[s.toggle, npActive && s.toggleOn]}>
               <View style={[s.toggleThumb, npActive && s.toggleThumbOn]} />
@@ -784,25 +1009,34 @@ export default function NewGameScreen() {
       </ScrollView>
 
       {/* ── Pickers ───────────────────────────────────────────── */}
-      <FormatSheet visible={showFormat} selected={mode} onSelect={selectMode} onClose={() => setShowFormat(false)} />
+      <FormatSheet visible={showFormat} selected={mode} onSelect={selectMode} onClose={() => setShowFormat(false)} ps={ps} GOLD={GOLD} />
       <PlayerSheet
-        visible={showPlayers} players={players} pair1={pair1} pair2={pair2}
+        visible={showPlayers} players={players} groups={groups} pair1={pair1} pair2={pair2}
         pairStep={pairStep} isSolo={isSolo} atMax={atMax} takenIds={takenPlayerIds}
         teamLabels={mode === 'team_stableford'}
         onToggle={togglePlayer}
         onNextPair={() => setPairStep(2)}
+        onLoadGroup={(ids) => {
+          const valid = ids.filter(id => players.some(p => p.id === id));
+          setPair1(valid.slice(0, maxPer));
+          setPair2([]);
+          setPairStep(1);
+        }}
         onClose={() => { setShowPlayers(false); setPairStep(1); }}
+        ps={ps} GOLD={GOLD}
       />
-      <CourseSheet visible={showCourse} courses={courses} selected={selectedCourse} onSelect={setSelectedCourse} onClose={() => setShowCourse(false)} />
+      <CourseSheet visible={showCourse} courses={courses} selected={selectedCourse} onSelect={setSelectedCourse} onClose={() => setShowCourse(false)} ps={ps} GOLD={GOLD} />
       <PickerSheet
         visible={showHoles} title="Holes" options={HOLES_OPTIONS}
         selected={holesMode} onSelect={setHoles} onClose={() => setShowHoles(false)}
+        ps={ps} GOLD={GOLD}
       />
       <PickerSheet
         visible={showHcp} title="Handicap Allowance" options={HCP_ALLOWANCES.map(h => ({ key: h.pct.toString() as any, label: h.label }))}
         selected={hcpAllowance.toString() as any}
         onSelect={(v: any) => setHcpAllowance(parseInt(v, 10))}
         onClose={() => setShowHcp(false)}
+        ps={ps} GOLD={GOLD}
       />
       <PickerSheet
         visible={showTeamSize} title="Team Size"
@@ -819,6 +1053,7 @@ export default function NewGameScreen() {
           setPair1([]); setPair2([]); setPairStep(1);
         }}
         onClose={() => setShowTeamSize(false)}
+        ps={ps} GOLD={GOLD}
       />
       <PickerSheet
         visible={showCounting} title="Counting Scores"
@@ -829,193 +1064,10 @@ export default function NewGameScreen() {
         selected={countingScores.toString() as any}
         onSelect={(v: any) => setCounting(parseInt(v, 10))}
         onClose={() => setShowCounting(false)}
+        ps={ps} GOLD={GOLD}
       />
 
     </View>
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────
-
-const s = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: '#000000' },
-  centered:{ flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll:  { paddingBottom: 48 },
-
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
-  },
-  headerSide:   { width: 40 },
-  headerCenter: { alignItems: 'center' },
-  headerLogo:   { width: 36, height: 36 },
-
-  pageTitle:    { fontFamily: FFB, fontSize: 36, color: '#ffffff', paddingHorizontal: 20, letterSpacing: -0.5, marginTop: 4 },
-  pageSubtitle: { fontFamily: FF, fontSize: 13, color: '#6b7280', paddingHorizontal: 20, marginTop: 4, marginBottom: 20 },
-
-  // Course card
-  courseCard: {
-    marginHorizontal: 16, borderRadius: 16,
-    overflow: 'hidden', marginBottom: 16,
-    backgroundColor: '#111',
-  },
-  courseHero:    { width: '100%', height: 200 },
-  courseOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: 200,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  todayBadge: {
-    position: 'absolute', top: 14, left: 14,
-    borderWidth: 1, borderColor: GOLD,
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
-    backgroundColor: `${GOLD}15`,
-  },
-  todayText: { fontFamily: FF, fontSize: 10, color: GOLD, letterSpacing: 2 },
-  courseInfo: { position: 'absolute', bottom: 64, left: 16, right: 16 },
-  courseName: { fontFamily: FFB, fontSize: 20, color: '#ffffff', marginBottom: 6 },
-  courseMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 },
-  courseMeta:    { fontFamily: FF, fontSize: 12, color: 'rgba(255,255,255,0.6)' },
-  teetimeRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)',
-    gap: 8,
-  },
-  teetimeItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  teetimeText: { fontFamily: FF, fontSize: 12, color: 'rgba(255,255,255,0.55)' },
-  teetimeDivider: { width: 1, height: 14, backgroundColor: 'rgba(255,255,255,0.1)', marginHorizontal: 4 },
-  startBtn: {
-    marginLeft: 'auto', backgroundColor: GOLD,
-    borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8,
-  },
-  startBtnOff:  { opacity: 0.3 },
-  startBtnText: { fontFamily: FFB, fontSize: 13, color: '#000000' },
-
-  // Settings
-  settingsCard: {
-    marginHorizontal: 16, marginBottom: 20,
-    backgroundColor: '#111111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden',
-  },
-  settingRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 14, paddingVertical: 14,
-  },
-  settingLeft:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  settingRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  settingIconWrap: {
-    width: 32, height: 32, borderRadius: 8,
-    backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}20`,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  settingLabel:  { fontFamily: FF, fontSize: 15, color: '#ffffff' },
-  settingValue:  { fontFamily: FF, fontSize: 14, color: '#6b7280' },
-  settingDivider:{ height: 1, backgroundColor: '#1a1a1a', marginHorizontal: 14 },
-
-  toggle:        { width: 40, height: 24, borderRadius: 12, backgroundColor: '#2c2c2e', justifyContent: 'center', padding: 2 },
-  toggleOn:      { backgroundColor: `${GOLD}50` },
-  toggleThumb:   { width: 20, height: 20, borderRadius: 10, backgroundColor: '#6b7280' },
-  toggleThumbOn: { transform: [{ translateX: 16 }], backgroundColor: GOLD },
-
-  sectionLabel: {
-    fontFamily: FF, fontSize: 10, color: GOLD,
-    letterSpacing: 2, paddingHorizontal: 16, marginBottom: 10,
-  },
-
-  // Hole picker
-  holePicker: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 14, paddingBottom: 12 },
-  holeBtn: {
-    width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#2a2a2a',
-  },
-  holeBtnOn:     { borderColor: GOLD, backgroundColor: `${GOLD}15` },
-  holeBtnText:   { fontFamily: FFB, fontSize: 14, color: '#6b7280' },
-  holeBtnTextOn: { color: GOLD },
-  holeBtnPar:    { fontFamily: FF, fontSize: 8, color: '#444', marginTop: 1 },
-
-  // Features
-  featuresGrid: { paddingHorizontal: 16, gap: 10, marginBottom: 20 },
-  featuresRow:  { flexDirection: 'row', gap: 10 },
-  featureCard: {
-    flex: 1, backgroundColor: '#111111',
-    borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c',
-    padding: 12, alignItems: 'center', gap: 8,
-  },
-  featureIcon: {
-    width: 46, height: 46, borderRadius: 23,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1,
-  },
-  featureTitle: { fontFamily: FF, fontSize: 12, color: '#ffffff', textAlign: 'center' },
-  featureSub:   { fontFamily: FF, fontSize: 10, color: '#6b7280', textAlign: 'center', lineHeight: 14 },
-
-  // Ready
-  readyCard: {
-    marginHorizontal: 16, marginBottom: 24,
-    backgroundColor: '#111111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1c1c1c',
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 16,
-  },
-  readyItem:    { flex: 1, alignItems: 'center', gap: 5 },
-  readyDivider: { width: 1, height: 36, backgroundColor: '#1c1c1c' },
-  readyLabel:   { fontFamily: FF, fontSize: 9, color: '#6b7280', letterSpacing: 1.5 },
-  readyValue:   { fontFamily: FF, fontSize: 12, color: '#ffffff' },
-
-  // CTA
-  ctaBtn: {
-    marginHorizontal: 16, marginBottom: 16,
-    backgroundColor: GOLD, borderRadius: 14,
-    paddingVertical: 18, flexDirection: 'row',
-    alignItems: 'center', justifyContent: 'center', gap: 8,
-  },
-  ctaBtnOff:  { opacity: 0.3 },
-  ctaBtnText: { fontFamily: FFB, fontSize: 17, color: '#000000' },
-});
-
-// ── Picker sheet styles ───────────────────────────────────────
-
-const ps = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
-  sheet: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: '#111111', borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    paddingBottom: 34, paddingHorizontal: 16,
-  },
-  handle: {
-    width: 36, height: 4, borderRadius: 2, backgroundColor: '#333',
-    alignSelf: 'center', marginVertical: 12,
-  },
-  sheetTitle:  { fontFamily: FFB, fontSize: 18, color: '#ffffff', marginBottom: 8, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
-  sheetRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
-  sheetOpt:    { fontFamily: FF, fontSize: 16, color: '#6b7280' },
-  sheetOptOn:  { color: '#ffffff' },
-  cancelBtn:   { marginTop: 12, alignItems: 'center', paddingVertical: 14 },
-  cancelText:  { fontFamily: FF, fontSize: 16, color: '#6b7280' },
-  doneBtn:     { marginTop: 12, backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  doneBtnText: { fontFamily: FFB, fontSize: 16, color: '#000000' },
-  courseParLabel: { fontFamily: FF, fontSize: 12, color: '#6b7280' },
-  searchInput: {
-    backgroundColor: '#1a1a1a', borderRadius: 10, borderWidth: 1, borderColor: '#2a2a2a',
-    paddingHorizontal: 12, paddingVertical: 10, color: '#fff',
-    fontFamily: FF, fontSize: 15, marginBottom: 8,
-  },
-  playerSheetHeader: {},
-  pair1Summary: { flexDirection: 'row', paddingBottom: 6 },
-  pair1SummaryLabel: { fontFamily: FF, fontSize: 12, color: '#6b7280' },
-  pair1SummaryNames: { fontFamily: FFB, fontSize: 12, color: GOLD },
-  playerRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  playerAvatar: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: `${GOLD}18`, alignItems: 'center', justifyContent: 'center',
-  },
-  playerAvatarImg:    { width: 36, height: 36, borderRadius: 18 },
-  playerAvatarLetter: { fontFamily: FF, fontSize: 15, color: GOLD },
-  playerHcp:          { fontFamily: FF, fontSize: 11, color: '#6b7280' },
-  sectionHead:   { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, marginTop: 4 },
-  sectionDot:    { width: 5, height: 5, borderRadius: 2.5 },
-  sectionLabel:  { fontFamily: FF, fontSize: 9, fontWeight: '800', letterSpacing: 2 },
-  formatRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#1a1a1a', gap: 10 },
-  formatRowOn:   { backgroundColor: 'rgba(212,175,55,0.04)', borderRadius: 8 },
-  formatIconWrap:{ width: 28, height: 28, borderRadius: 7, backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}20`, alignItems: 'center', justifyContent: 'center' },
-  formatSub:     { fontFamily: FF, fontSize: 11, color: '#555', marginTop: 1 },
-});
