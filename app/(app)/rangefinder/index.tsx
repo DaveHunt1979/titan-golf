@@ -305,7 +305,7 @@ export default function RangefinderScreen() {
       <View style={[s.root, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
 
-        <View style={s.selHeader}>
+        <View style={[s.selHeader, { backgroundColor: dc.bg }]}>
           <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Ionicons name="chevron-back" size={24} color={dc.gold} />
           </TouchableOpacity>
@@ -317,15 +317,15 @@ export default function RangefinderScreen() {
         </View>
 
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60, gap: 8 }} showsVerticalScrollIndicator={false}>
-          <Text style={s.sectionLabel}>SELECT COURSE</Text>
+          <Text style={[s.sectionLabel, { color: dc.cardText }]}>SELECT COURSE</Text>
           {courses.map(c => (
             <TouchableOpacity
               key={c}
-              style={s.courseCard}
+              style={[s.courseCard, { backgroundColor: dc.card, borderColor: dc.border }]}
               onPress={() => { setSelected(c); setHoleIdx(0); }}
               activeOpacity={0.8}
             >
-              <Text style={s.courseName}>{c}</Text>
+              <Text style={[s.courseName, { color: dc.cardText }]}>{c}</Text>
               <Ionicons name="chevron-forward" size={18} color={GOLD} />
             </TouchableOpacity>
           ))}

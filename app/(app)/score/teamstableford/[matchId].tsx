@@ -21,6 +21,8 @@ const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface Match {
   id: string;
+  day_id: string | null;
+  round_format: string | null;
   home_player_ids: string[];
   away_player_ids: string[];
   team_size: number | null;
@@ -364,7 +366,7 @@ export default function TeamStablefordScreen() {
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
-          <Text style={s.headerSub}>TEAM STABLEFORD</Text>
+          <Text style={s.headerSub}>{match.round_format === 'best2from4' || match.round_format === 'best2from4_par3all' ? 'MASHIE · BEST 2 FROM 4' : 'TEAM STABLEFORD'}</Text>
         </View>
         <TouchableOpacity onPress={confirmDelete} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="trash-outline" size={20} color="#555" />
@@ -497,6 +499,17 @@ export default function TeamStablefordScreen() {
           <Ionicons name="chevron-back" size={20} color={currentHole === 1 ? '#333' : '#fff'} />
           <Text style={[s.prevBtnText, currentHole === 1 && { color: '#333' }]}>Prev</Text>
         </TouchableOpacity>
+
+        {match.day_id && (
+          <TouchableOpacity
+            style={s.leadersBtn}
+            onPress={() => router.push(`/(app)/score/day/${match.day_id}` as any)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trophy-outline" size={18} color={GOLD} />
+            <Text style={s.leadersBtnText}>LEADERS</Text>
+          </TouchableOpacity>
+        )}
 
         {currentHole === totalHoles ? (
           <TouchableOpacity style={s.completeBtn} onPress={completeRound} activeOpacity={0.85}>
@@ -656,6 +669,8 @@ const s = StyleSheet.create({
   nextBtnText: { fontFamily: FFB, fontSize: 15, color: '#000' },
   completeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14 },
   completeBtnText: { fontFamily: FFB, fontSize: 15, color: '#000' },
+  leadersBtn:     { flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: `${GOLD}40`, backgroundColor: `${GOLD}10` },
+  leadersBtnText: { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 1.5 },
 
   // Complete view
   winnerBanner: { backgroundColor: '#111', borderRadius: 16, borderWidth: 1, padding: 24, alignItems: 'center', gap: 8 },

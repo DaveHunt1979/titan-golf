@@ -37,6 +37,16 @@ function lightenHex(hex: string, amount: number): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
+// For dark-primary societies: lighten uniformly but always boost blue so the
+// card reads as navy rather than grey (handles even pure-black primaries).
+function navyCard(hex: string): string {
+  const h = hex.replace('#', '');
+  const r = Math.min(255, parseInt(h.slice(0, 2), 16) + 46);
+  const g = Math.min(255, parseInt(h.slice(2, 4), 16) + 46);
+  const b = Math.min(255, parseInt(h.slice(4, 6), 16) + 110);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
 export const TITAN_PALETTE: ThemePalette = {
   bg:            colors.bg,
   card:          colors.card,
@@ -58,7 +68,7 @@ export function derivePalette(primaryColor: string, secondaryColor: string): The
     const accent = secondaryColor || '#ffffff';
     return {
       bg:            primaryColor,
-      card:          lightenHex(primaryColor, 0.05),
+      card:          navyCard(primaryColor),
       border:        'rgba(255,255,255,0.18)',
       goldBorder:    'rgba(255,255,255,0.35)',
       accent,
@@ -149,8 +159,10 @@ async function fetchTheme(): Promise<SocietyTheme> {
   const s = society as any;
   const name        = s.name ?? 'TITAN GOLF';
   const societyDefs = SOCIETY_COLOR_DEFAULTS[name.toLowerCase()];
-  const primaryColor   = s.primary_color   ?? societyDefs?.primary   ?? colors.gold;
-  const secondaryColor = s.secondary_color ?? societyDefs?.secondary ?? '#1B3A5C';
+  // SOCIETY_COLOR_DEFAULTS take precedence over DB values — DB colours may
+  // be stale/wrong for known societies (e.g. Mashie secondary was saved as Titan gold).
+  const primaryColor   = societyDefs?.primary   ?? s.primary_color   ?? colors.gold;
+  const secondaryColor = societyDefs?.secondary ?? s.secondary_color ?? '#1B3A5C';
 
   return {
     primaryColor,

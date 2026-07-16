@@ -1,14 +1,15 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, ActivityIndicator,
   TouchableOpacity, RefreshControl, Image,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { matchLabel, getEffectiveWinner, calcHoles } from '../../../src/lib/scoring';
-import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
+import { getPlayerAvatar, teamLogos, titanLogo } from '../../../src/lib/assets';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 
 // ── TITAN constants ───────────────────────────────────────────
 const GOLD  = '#D4AF37';
@@ -16,7 +17,6 @@ const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 // ── Types ─────────────────────────────────────────────────────
 interface CompDay { day_number: number; course_name: string | null; }
@@ -41,6 +41,10 @@ interface Player { id: string; display_name: string; avatar_url?: string | null;
 // ── Screen ────────────────────────────────────────────────────
 export default function WatchScreen() {
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
+  useFocusEffect(useCallback(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, []));
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [compName, setCompName]     = useState('');
   const [compId, setCompId]         = useState<string | null>(null);
   const [matches, setMatches]       = useState<MatchRow[]>([]);
@@ -102,8 +106,8 @@ export default function WatchScreen() {
   }, [load]);
 
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-      <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
+      <StatusBar style="light" /><ActivityIndicator color={dc.gold} size="large" />
     </View>
   );
 
@@ -113,22 +117,23 @@ export default function WatchScreen() {
   const upcoming  = matches.filter(m => m.status === 'upcoming');
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
-      <View style={s.header}>
+      <View style={[s.header, { borderBottomColor: dc.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.headerBack}>
-          <Text style={s.headerBackText}>‹ Back</Text>
+          <Text style={[s.headerBackText, { color: dc.gold }]}>‹ Back</Text>
         </TouchableOpacity>
         <View style={s.headerCentre}>
-          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
-          <Text style={s.headerSub}>APPLE WATCH</Text>
+          <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.headerLogo} resizeMode="contain" />
+          <Text style={[s.headerSub, { color: dc.cardText }]}>APPLE WATCH</Text>
         </View>
         <View style={s.headerSpacer} />
       </View>
 
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={s.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={GOLD} />}
@@ -137,7 +142,7 @@ export default function WatchScreen() {
         {matches.length === 0 && (
           <View style={s.empty}>
             <Text style={s.emptyIcon}>⛳</Text>
-            <Text style={s.emptyTitle}>{compName ? 'No matches yet' : 'No active competition'}</Text>
+            <Text style={[s.emptyTitle, { color: dc.cardText }]}>{compName ? 'No matches yet' : 'No active competition'}</Text>
             <Text style={s.emptySub}>
               {compName
                 ? 'Matches will appear here once the draw is generated.'
@@ -191,10 +196,11 @@ const s = StyleSheet.create({
 
 // ── Section label ─────────────────────────────────────────────
 function SectionLabel({ label, color, dot }: { label: string; color?: string; dot?: boolean }) {
+  const dc = useDynamicColors();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, marginTop: 4 }}>
       {dot && <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: color ?? '#6b7280' }} />}
-      <Text style={[sl.text, color ? { color } : {}]}>{label}</Text>
+      <Text style={[sl.text, { color: dc.cardText }, color ? { color } : {}]}>{label}</Text>
     </View>
   );
 }
@@ -209,6 +215,7 @@ function MatchCard({ match, firstName, getAvatar, onWatch }: {
   getAvatar: (id: string) => string | null;
   onWatch: () => void;
 }) {
+  const dc = useDynamicColors();
   const holesStr    = match.holes_string ?? '..................';
   const holeChars   = holesStr.split('');
   const { homeUp }  = calcHoles(holesStr);
@@ -249,14 +256,14 @@ function MatchCard({ match, firstName, getAvatar, onWatch }: {
 
   return (
     <TouchableOpacity
-      style={[mc.card, isLive && mc.cardLive]}
+      style={[mc.card, { backgroundColor: dc.card, borderColor: dc.border }, isLive && mc.cardLive]}
       onPress={onWatch}
       activeOpacity={0.8}
     >
       {/* Top bar */}
       <View style={mc.topBar}>
-        <Text style={mc.matchNum}>MATCH {match.match_number}{match.is_singles ? ' · SINGLES' : ''}</Text>
-        {match.day && <Text style={mc.dayTag}>DAY {match.day.day_number}{match.day.course_name ? ` · ${match.day.course_name}` : ''}</Text>}
+        <Text style={[mc.matchNum, { color: dc.cardText }]}>MATCH {match.match_number}{match.is_singles ? ' · SINGLES' : ''}</Text>
+        {match.day && <Text style={[mc.dayTag, { color: dc.cardText }]}>DAY {match.day.day_number}{match.day.course_name ? ` · ${match.day.course_name}` : ''}</Text>}
         {isLive && <Text style={mc.watchLink}>Watch Live →</Text>}
       </View>
 
@@ -265,21 +272,21 @@ function MatchCard({ match, firstName, getAvatar, onWatch }: {
         {/* Home */}
         <View style={mc.side}>
           {renderSide(match.home_player_ids, match.home_team, match.home_team_id, homeLabel)}
-          <Text style={[mc.sideName, aheadSide === 'home' && { color: '#ffffff' }]} numberOfLines={1}>
+          <Text style={[mc.sideName, { color: dc.cardText }, aheadSide === 'home' && { color: '#ffffff' }]} numberOfLines={1}>
             {homeLabel}
           </Text>
         </View>
 
         {/* Status */}
         <View style={mc.centre}>
-          <Text style={[mc.statusLabel, isLive && { color: RED }]}>{label}</Text>
-          {isLive && holesPlayed > 0 && <Text style={mc.thru}>THRU {holesPlayed}</Text>}
-          {isLive && holesPlayed === 0 && <Text style={mc.thru}>TEE OFF</Text>}
+          <Text style={[mc.statusLabel, { color: dc.cardText }, isLive && { color: RED }]}>{label}</Text>
+          {isLive && holesPlayed > 0 && <Text style={[mc.thru, { color: dc.cardText }]}>THRU {holesPlayed}</Text>}
+          {isLive && holesPlayed === 0 && <Text style={[mc.thru, { color: dc.cardText }]}>TEE OFF</Text>}
         </View>
 
         {/* Away */}
         <View style={[mc.side, mc.sideRight]}>
-          <Text style={[mc.sideName, mc.sideNameRight, aheadSide === 'away' && { color: '#ffffff' }]} numberOfLines={1}>
+          <Text style={[mc.sideName, mc.sideNameRight, { color: dc.cardText }, aheadSide === 'away' && { color: '#ffffff' }]} numberOfLines={1}>
             {awayLabel}
           </Text>
           {renderSide(match.away_player_ids, match.away_team, match.away_team_id, awayLabel)}

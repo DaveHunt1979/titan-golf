@@ -7,6 +7,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
+import { useDynamicColors } from '../../../../src/lib/SocietyThemeContext';
 import { scanNfcTagId, isNfcSupported, formatTagId } from '../../../../src/lib/nfc';
 
 const GOLD  = '#D4AF37';
@@ -62,6 +63,7 @@ type PickerMode = 'brand' | 'model' | null;
 // ── Screen ─────────────────────────────────────────────────────
 export default function ClubDetailScreen() {
   const router = useRouter();
+  const dc = useDynamicColors();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [club,      setClub]      = useState<Club | null>(null);
@@ -165,21 +167,21 @@ export default function ClubDetailScreen() {
 
   if (loading) {
     return (
-      <View style={s.root}>
+      <View style={[s.root, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
-        <View style={s.centered}><ActivityIndicator color={GOLD} size="large" /></View>
+        <View style={s.centered}><ActivityIndicator color={dc.gold} size="large" /></View>
       </View>
     );
   }
 
   if (!club) {
     return (
-      <View style={s.root}>
+      <View style={[s.root, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
         <View style={s.centered}>
           <Text style={s.errorText}>Club not found</Text>
-          <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-            <Text style={s.backBtnText}>Go Back</Text>
+          <TouchableOpacity onPress={() => router.back()} style={[s.backBtn, { backgroundColor: `${dc.gold}18`, borderColor: `${dc.gold}30` }]}>
+            <Text style={[s.backBtnText, { color: dc.gold }]}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -189,7 +191,7 @@ export default function ClubDetailScreen() {
   const modelList = BRAND_MODELS[pickerBrand || club.brand || ''] ?? [];
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* ── Header ── */}
@@ -198,7 +200,7 @@ export default function ClubDetailScreen() {
           <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Text style={s.headerShort}>{club.short_name}</Text>
+          <Text style={[s.headerShort, { color: dc.gold }]}>{club.short_name}</Text>
         </View>
         <View style={s.headerSide} />
       </View>
@@ -210,30 +212,30 @@ export default function ClubDetailScreen() {
 
         {/* ── In Bag toggle ── */}
         <Text style={s.sectionLabel}>BAG STATUS</Text>
-        <TouchableOpacity style={s.card} onPress={toggleInBag} activeOpacity={0.7}>
+        <TouchableOpacity style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={toggleInBag} activeOpacity={0.7}>
           <View style={s.row}>
             <View style={s.rowLeft}>
-              <View style={[s.rowIcon, club.in_bag && s.rowIconActive]}>
-                <Ionicons name="golf-outline" size={18} color={club.in_bag ? '#000' : GOLD} />
+              <View style={[s.rowIcon, { backgroundColor: `${dc.gold}1a`, borderColor: `${dc.gold}30` }, club.in_bag && { backgroundColor: dc.gold, borderColor: dc.gold }]}>
+                <Ionicons name="golf-outline" size={18} color={club.in_bag ? dc.bg : dc.gold} />
               </View>
               <View>
                 <Text style={s.rowTitle}>{club.in_bag ? 'In your bag' : 'Not in bag'}</Text>
                 <Text style={s.rowSub}>{club.in_bag ? 'Tap to remove from active bag' : 'Tap to add to active bag'}</Text>
               </View>
             </View>
-            <View style={[s.toggle, club.in_bag && s.toggleOn]}>
-              <View style={[s.toggleThumb, club.in_bag && s.toggleThumbOn]} />
+            <View style={[s.toggle, club.in_bag && { backgroundColor: dc.gold }]}>
+              <View style={[s.toggleThumb, club.in_bag && { backgroundColor: dc.bg, alignSelf: 'flex-end' }]} />
             </View>
           </View>
         </TouchableOpacity>
 
         {/* ── Brand & Model ── */}
         <Text style={s.sectionLabel}>EQUIPMENT</Text>
-        <View style={s.cardGroup}>
+        <View style={[s.cardGroup, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <TouchableOpacity style={s.rowInCard} onPress={openBrandPicker} activeOpacity={0.7}>
             <View style={s.rowLeft}>
-              <View style={s.rowIcon}>
-                <Ionicons name="bookmark-outline" size={18} color={GOLD} />
+              <View style={[s.rowIcon, { backgroundColor: `${dc.gold}1a`, borderColor: `${dc.gold}30` }]}>
+                <Ionicons name="bookmark-outline" size={18} color={dc.gold} />
               </View>
               <View>
                 <Text style={s.rowTitle}>Brand</Text>
@@ -243,7 +245,7 @@ export default function ClubDetailScreen() {
             <Ionicons name="chevron-forward" size={16} color="#444" />
           </TouchableOpacity>
 
-          <View style={s.cardDivider} />
+          <View style={[s.cardDivider, { backgroundColor: dc.border }]} />
 
           <TouchableOpacity
             style={[s.rowInCard, !club.brand && { opacity: 0.35 }]}
@@ -251,8 +253,8 @@ export default function ClubDetailScreen() {
             activeOpacity={0.7}
           >
             <View style={s.rowLeft}>
-              <View style={s.rowIcon}>
-                <Ionicons name="pricetag-outline" size={18} color={GOLD} />
+              <View style={[s.rowIcon, { backgroundColor: `${dc.gold}1a`, borderColor: `${dc.gold}30` }]}>
+                <Ionicons name="pricetag-outline" size={18} color={dc.gold} />
               </View>
               <View>
                 <Text style={s.rowTitle}>Model</Text>
@@ -271,11 +273,11 @@ export default function ClubDetailScreen() {
 
         {/* ── NFC Tag ── */}
         <Text style={s.sectionLabel}>NFC STICKER</Text>
-        <View style={s.cardGroup}>
+        <View style={[s.cardGroup, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <View style={s.rowInCard}>
             <View style={s.rowLeft}>
-              <View style={[s.rowIcon, club.nfc_tag_id ? { backgroundColor: `${GREEN}18`, borderColor: `${GREEN}30` } : {}]}>
-                <Ionicons name="wifi-outline" size={18} color={club.nfc_tag_id ? GREEN : GOLD} />
+              <View style={[s.rowIcon, { backgroundColor: `${dc.gold}1a`, borderColor: `${dc.gold}30` }, club.nfc_tag_id ? { backgroundColor: `${GREEN}18`, borderColor: `${GREEN}30` } : {}]}>
+                <Ionicons name="wifi-outline" size={18} color={club.nfc_tag_id ? GREEN : dc.gold} />
               </View>
               <View>
                 <Text style={s.rowTitle}>{club.nfc_tag_id ? 'Sticker linked' : 'No sticker assigned'}</Text>
@@ -288,11 +290,11 @@ export default function ClubDetailScreen() {
 
           {club.nfc_tag_id ? (
             <>
-              <View style={s.cardDivider} />
+              <View style={[s.cardDivider, { backgroundColor: dc.border }]} />
               <TouchableOpacity style={s.rowInCard} onPress={assignNfc} activeOpacity={0.7}>
                 <View style={s.rowLeft}>
-                  <View style={s.rowIcon}>
-                    <Ionicons name="refresh-outline" size={18} color={GOLD} />
+                  <View style={[s.rowIcon, { backgroundColor: `${dc.gold}1a`, borderColor: `${dc.gold}30` }]}>
+                    <Ionicons name="refresh-outline" size={18} color={dc.gold} />
                   </View>
                   <View>
                     <Text style={s.rowTitle}>Replace sticker</Text>
@@ -301,7 +303,7 @@ export default function ClubDetailScreen() {
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#444" />
               </TouchableOpacity>
-              <View style={s.cardDivider} />
+              <View style={[s.cardDivider, { backgroundColor: dc.border }]} />
               <TouchableOpacity style={s.rowInCard} onPress={removeNfc} activeOpacity={0.7}>
                 <View style={s.rowLeft}>
                   <View style={[s.rowIcon, { backgroundColor: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.2)' }]}>
@@ -313,7 +315,7 @@ export default function ClubDetailScreen() {
             </>
           ) : (
             <>
-              <View style={s.cardDivider} />
+              <View style={[s.cardDivider, { backgroundColor: dc.border }]} />
               <TouchableOpacity
                 style={[s.rowInCard, (!nfcAvail || scanning) && { opacity: 0.5 }]}
                 onPress={assignNfc}
@@ -321,8 +323,8 @@ export default function ClubDetailScreen() {
                 activeOpacity={0.7}
               >
                 <View style={s.rowLeft}>
-                  <View style={s.rowIcon}>
-                    <Ionicons name="add-circle-outline" size={18} color={GOLD} />
+                  <View style={[s.rowIcon, { backgroundColor: `${dc.gold}1a`, borderColor: `${dc.gold}30` }]}>
+                    <Ionicons name="add-circle-outline" size={18} color={dc.gold} />
                   </View>
                   <View>
                     <Text style={s.rowTitle}>{scanning ? 'Scanning…' : 'Assign sticker'}</Text>
@@ -332,7 +334,7 @@ export default function ClubDetailScreen() {
                   </View>
                 </View>
                 {scanning
-                  ? <ActivityIndicator color={GOLD} size="small" />
+                  ? <ActivityIndicator color={dc.gold} size="small" />
                   : <Ionicons name="chevron-forward" size={16} color="#444" />
                 }
               </TouchableOpacity>
@@ -349,11 +351,11 @@ export default function ClubDetailScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setPicker(null)}
       >
-        <View style={s.modal}>
-          <View style={s.modalHeader}>
+        <View style={[s.modal, { backgroundColor: dc.bg }]}>
+          <View style={[s.modalHeader, { borderBottomColor: dc.border }]}>
             {picker === 'model' ? (
               <TouchableOpacity onPress={() => setPicker('brand')} hitSlop={HIT} style={s.modalSide}>
-                <Text style={s.modalBack}>‹ Brands</Text>
+                <Text style={[s.modalBack, { color: dc.gold }]}>‹ Brands</Text>
               </TouchableOpacity>
             ) : (
               <View style={s.modalSide} />
@@ -362,7 +364,7 @@ export default function ClubDetailScreen() {
               {picker === 'brand' ? 'Select Brand' : pickerBrand}
             </Text>
             <TouchableOpacity onPress={() => setPicker(null)} hitSlop={HIT} style={[s.modalSide, { alignItems: 'flex-end' }]}>
-              <Text style={s.modalCancel}>Cancel</Text>
+              <Text style={[s.modalCancel, { color: dc.gold }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
 
@@ -376,7 +378,7 @@ export default function ClubDetailScreen() {
                   <Ionicons name="chevron-forward" size={16} color="#444" />
                 </TouchableOpacity>
               )}
-              ItemSeparatorComponent={() => <View style={s.pickerDivider} />}
+              ItemSeparatorComponent={() => <View style={[s.pickerDivider, { backgroundColor: dc.border }]} />}
               contentContainerStyle={{ paddingBottom: 48 }}
             />
           ) : (
@@ -388,7 +390,7 @@ export default function ClubDetailScreen() {
                   <Text style={s.pickerRowText}>{item}</Text>
                 </TouchableOpacity>
               )}
-              ItemSeparatorComponent={() => <View style={s.pickerDivider} />}
+              ItemSeparatorComponent={() => <View style={[s.pickerDivider, { backgroundColor: dc.border }]} />}
               contentContainerStyle={{ paddingBottom: 48 }}
             />
           )}

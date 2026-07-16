@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
+import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 
 // ── TITAN design constants ───────────────────────────────────────────────────
 const GOLD = '#D4AF37';
@@ -49,11 +50,12 @@ function calcHandicapIndex(differentials: number[]): number {
 
 export default function HandicapCalculatorScreen() {
   const router = useRouter();
+  const dc = useDynamicColors();
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
     'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
-  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: '#000' }}><StatusBar style="light" /></View>;
+  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: dc.bg }}><StatusBar style="light" /></View>;
 
   const [rounds, setRounds] = useState<Round[]>([blankRound(), blankRound(), blankRound()]);
   const [saving, setSaving] = useState(false);
@@ -130,15 +132,15 @@ export default function HandicapCalculatorScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={s.container}
+      style={[s.container, { backgroundColor: dc.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <StatusBar style="light" />
 
       {/* Header: three-column */}
-      <View style={s.header}>
+      <View style={[s.header, { borderBottomColor: dc.border }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Text style={s.back}>← Profile</Text>
+          <Text style={[s.back, { color: dc.gold }]}>← Profile</Text>
         </TouchableOpacity>
         <Text style={s.title}>HANDICAP CALCULATOR</Text>
         <View style={{ width: 70 }} />
@@ -150,9 +152,9 @@ export default function HandicapCalculatorScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Info card */}
-        <View style={s.infoCard}>
+        <View style={[s.infoCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
           {currentHcp !== null && (
-            <Text style={s.currentHcp}>Current Index: <Text style={{ color: GOLD }}>{currentHcp.toFixed(1)}</Text></Text>
+            <Text style={s.currentHcp}>Current Index: <Text style={{ color: dc.gold }}>{currentHcp.toFixed(1)}</Text></Text>
           )}
           <Text style={s.infoText}>
             Enter your recent scorecards — minimum 3 rounds. We'll calculate your WHS Handicap Index using the official formula.
@@ -175,7 +177,7 @@ export default function HandicapCalculatorScreen() {
           const diff   = !isNaN(score) ? calcDifferential(score, rating, slope) : null;
 
           return (
-            <View key={i} style={s.roundCard}>
+            <View key={i} style={[s.roundCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <View style={s.roundRow}>
                 <Text style={[s.roundNum, { flex: 0.5 }]}>{i + 1}</Text>
 
@@ -217,7 +219,7 @@ export default function HandicapCalculatorScreen() {
               </View>
 
               {diff !== null && (
-                <Text style={s.diffLabel}>Differential: {diff.toFixed(1)}</Text>
+                <Text style={[s.diffLabel, { color: dc.gold }]}>Differential: {diff.toFixed(1)}</Text>
               )}
             </View>
           );
@@ -231,7 +233,7 @@ export default function HandicapCalculatorScreen() {
 
         {/* Result card */}
         <View style={[s.resultCard, !canCalculate && { opacity: 0.4 }]}>
-          <Text style={s.resultLabel}>WHS Handicap Index</Text>
+          <Text style={[s.resultLabel, { color: dc.gold }]}>WHS Handicap Index</Text>
           <Text style={s.resultValue}>
             {handicapIndex !== null ? handicapIndex.toFixed(1) : '—'}
           </Text>
@@ -247,7 +249,7 @@ export default function HandicapCalculatorScreen() {
 
         {/* Save button */}
         <TouchableOpacity
-          style={[s.saveBtn, (!canCalculate || saving) && { opacity: 0.4 }]}
+          style={[s.saveBtn, { backgroundColor: dc.gold }, (!canCalculate || saving) && { opacity: 0.4 }]}
           onPress={saveHandicap}
           disabled={!canCalculate || saving}
           activeOpacity={0.8}
@@ -259,7 +261,7 @@ export default function HandicapCalculatorScreen() {
         </TouchableOpacity>
 
         {/* Note card */}
-        <View style={s.noteCard}>
+        <View style={[s.noteCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <Text style={s.noteText}>
             Course Rating and Slope are printed on the scorecard. If you don't have them, the defaults (72 / 113) give a reasonable estimate.
           </Text>

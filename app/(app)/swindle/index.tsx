@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../../../src/lib/supabase';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../src/lib/assets';
 
 const GOLD   = '#D4AF37';
 const PURPLE = '#a78bfa';
@@ -27,6 +29,10 @@ type Game = {
 
 export default function SwindleIndex() {
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
+  useFocusEffect(useCallback(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, []));
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [games,    setGames]    = useState<Game[]>([]);
   const [myId,     setMyId]     = useState<string | null>(null);
   const [loading,  setLoading]  = useState(true);
@@ -42,9 +48,9 @@ export default function SwindleIndex() {
   useEffect(() => { init(); }, []);
 
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
-      <ActivityIndicator color={GOLD} size="large" />
+      <ActivityIndicator color={dc.gold} size="large" />
     </View>
   );
 
@@ -109,15 +115,15 @@ export default function SwindleIndex() {
   const complete = games.filter(g => g.status === 'complete');
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header: three-column */}
       <View style={s.header}>
         <View style={s.headerSide} />
         <View style={s.headerCenter}>
-          <Image source={require('../../../assets/TitanAppLogo.png')} style={s.logo} />
-          <Text style={s.headerSub}>THE SWINDLE</Text>
+          <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.logo} />
+          <Text style={[s.headerSub, { color: dc.cardText }]}>THE SWINDLE</Text>
         </View>
         <View style={s.headerSide} />
       </View>
@@ -125,7 +131,7 @@ export default function SwindleIndex() {
       {/* Join by code row */}
       <View style={s.joinRow}>
         <TextInput
-          style={s.joinInput}
+          style={[s.joinInput, { backgroundColor: dc.card, borderColor: dc.border, color: dc.cardText }]}
           placeholder="Enter join code…"
           placeholderTextColor="#444"
           value={joinCode}
@@ -138,10 +144,10 @@ export default function SwindleIndex() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
         {open.length > 0 && (
           <>
-            <Text style={s.sectionLabel}>LIVE & OPEN</Text>
+            <Text style={[s.sectionLabel, { color: dc.cardText }]}>LIVE & OPEN</Text>
             {open.map(g => (
               <GameCard
                 key={g.id}
@@ -155,14 +161,14 @@ export default function SwindleIndex() {
         )}
         {complete.length > 0 && (
           <>
-            <Text style={s.sectionLabel}>COMPLETED</Text>
+            <Text style={[s.sectionLabel, { color: dc.cardText }]}>COMPLETED</Text>
             {complete.map(g => <GameCard key={g.id} game={g} onPress={() => router.push(`/(app)/swindle/${g.id}` as any)} />)}
           </>
         )}
         {games.length === 0 && (
           <View style={s.empty}>
             <Text style={s.emptyEmoji}>🏌️</Text>
-            <Text style={s.emptyTitle}>No swindles yet</Text>
+            <Text style={[s.emptyTitle, { color: dc.cardText }]}>No swindles yet</Text>
             <Text style={s.emptySub}>Create one and share the join code with your group</Text>
           </View>
         )}
@@ -174,6 +180,7 @@ export default function SwindleIndex() {
 function GameCard({ game, onPress, onImIn, imInBusy }: {
   game: Game; onPress: () => void; onImIn?: () => void; imInBusy?: boolean;
 }) {
+  const dc = useDynamicColors();
   const pot = game.entry_fee * (game.entry_count ?? 0);
   const isOpen = game.status === 'open' || game.status === 'in_progress';
   const statusColor = game.status === 'in_progress' ? '#4ade80' : game.status === 'complete' ? '#555' : PURPLE;
@@ -183,21 +190,21 @@ function GameCard({ game, onPress, onImIn, imInBusy }: {
 
   return (
     <TouchableOpacity
-      style={[s.card, isOpen && s.cardOpen]}
+      style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }, isOpen && s.cardOpen]}
       onPress={onPress}
       activeOpacity={0.85}
     >
       <View style={s.cardTop}>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-            <Text style={s.cardName}>{game.name}</Text>
+            <Text style={[s.cardName, { color: dc.cardText }]}>{game.name}</Text>
             {game.is_recurring && dayLabel && (
               <View style={s.recurringBadge}>
                 <Text style={s.recurringText}>🔁 {dayLabel}</Text>
               </View>
             )}
           </View>
-          <Text style={s.cardSub}>{game.course_name ?? 'No course set'} · {new Date(game.game_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</Text>
+          <Text style={[s.cardSub, { color: dc.cardText }]}>{game.course_name ?? 'No course set'} · {new Date(game.game_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</Text>
         </View>
         <View style={[s.statusBadge, { borderColor: statusColor }]}>
           <Text style={[s.statusText, { color: statusColor }]}>{statusLabel}</Text>
@@ -207,23 +214,23 @@ function GameCard({ game, onPress, onImIn, imInBusy }: {
       <View style={s.cardStats}>
         {/* Entry fee */}
         <View style={s.statBlock}>
-          <Text style={s.statLabel}>ENTRY</Text>
-          <Text style={[s.statValue, { color: GOLD }]}>{game.currency}{Number(game.entry_fee).toFixed(0)}</Text>
+          <Text style={[s.statLabel, { color: dc.cardText }]}>ENTRY</Text>
+          <Text style={[s.statValue, { color: dc.gold }]}>{game.currency}{Number(game.entry_fee).toFixed(0)}</Text>
         </View>
         {/* Players pill */}
-        <View style={s.entryPill}>
-          <Text style={s.pillLabel}>Players: </Text>
+        <View style={[s.entryPill, { backgroundColor: dc.card }]}>
+          <Text style={[s.pillLabel, { color: dc.cardText }]}>Players: </Text>
           <Text style={s.pillCount}>{game.entry_count ?? 0}</Text>
         </View>
         {/* Pot */}
         <View style={s.statBlock}>
-          <Text style={s.statLabel}>POT</Text>
-          <Text style={[s.statValue, { color: GOLD }]}>{pot > 0 ? `${game.currency}${pot.toFixed(0)}` : '—'}</Text>
+          <Text style={[s.statLabel, { color: dc.cardText }]}>POT</Text>
+          <Text style={[s.statValue, { color: dc.gold }]}>{pot > 0 ? `${game.currency}${pot.toFixed(0)}` : '—'}</Text>
         </View>
         {/* Code */}
         <View style={s.statBlock}>
-          <Text style={s.statLabel}>CODE</Text>
-          <Text style={s.statValue}>{game.join_code}</Text>
+          <Text style={[s.statLabel, { color: dc.cardText }]}>CODE</Text>
+          <Text style={[s.statValue, { color: dc.cardText }]}>{game.join_code}</Text>
         </View>
       </View>
 

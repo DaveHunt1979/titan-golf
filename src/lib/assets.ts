@@ -2,6 +2,7 @@ export const titanLogo = require('../../assets/teams/Titan Logo.png');
 
 const societyLogos: Record<string, any> = {
   'mashie golf': require('../../assets/mashie/logo.png'),
+  'titan golf':  require('../../assets/titan_logo_trans.png'),
 };
 
 export function getSocietyLogo(societyName: string): any | null {

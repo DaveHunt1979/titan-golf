@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
+import { calcHoles } from '../../../../src/lib/scoring';
 
 const GOLD = '#D4AF37';
 const FF   = 'JUSTSans';
@@ -16,7 +17,7 @@ const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 type DayInfo   = { id: string; join_code: string; course_name: string; course_par: number; day_date: string };
 type PlayerRow = { player_id: string; name: string; match_id: string; pts: number; holes: number; hcp: number };
-type GroupRow  = { match_id: string; format: string; player_names: string[] };
+type GroupRow  = { match_id: string; format: string; player_names: string[]; status: string; holes_string: string; winner: string | null; result_str: string | null; home_player_ids: string[]; away_player_ids: string[]; home_pts: number; away_pts: number; };
 
 function InitialAvatar({ name, size = 38 }: { name: string; size?: number }) {
   return (
@@ -63,7 +64,7 @@ export default function DayLobby() {
 
     const { data: matches } = await supabase
       .from('matches')
-      .select('id,home_player_ids,away_player_ids,round_format,hcp_allowance')
+      .select('id,home_player_ids,away_player_ids,round_format,hcp_allowance,status,holes_string,winner,result_str')
       .eq('day_id', dayId)
       .neq('status', 'cancelled');
 
@@ -114,12 +115,25 @@ export default function DayLobby() {
       holes:     holesByPlayer[id]?.count ?? 0,
     })).sort((a, b) => b.pts - a.pts || b.holes - a.holes);
 
-    const grps: GroupRow[] = (matches as any[]).map(m => ({
-      match_id:     m.id,
-      format:       m.round_format ?? 'stableford',
-      player_names: [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]
-        .map(id => playerMap[id]?.name?.split(' ')[0] ?? '?'),
-    }));
+    const grps: GroupRow[] = (matches as any[]).map(m => {
+      const homeIds: string[] = m.home_player_ids ?? [];
+      const awayIds: string[] = m.away_player_ids ?? [];
+      const homePts = homeIds.reduce((s, id) => s + (holesByPlayer[id]?.pts ?? 0), 0);
+      const awayPts = awayIds.reduce((s, id) => s + (holesByPlayer[id]?.pts ?? 0), 0);
+      return {
+        match_id:       m.id,
+        format:         m.round_format ?? 'stableford',
+        player_names:   [...homeIds, ...awayIds].map(id => playerMap[id]?.name?.split(' ')[0] ?? '?'),
+        status:         m.status ?? 'upcoming',
+        holes_string:   m.holes_string ?? '..................',
+        winner:         m.winner ?? null,
+        result_str:     m.result_str ?? null,
+        home_player_ids: homeIds,
+        away_player_ids: awayIds,
+        home_pts: homePts,
+        away_pts: awayPts,
+      };
+    });
 
     setPlayers(rows);
     setGroups(grps);
@@ -220,29 +234,70 @@ export default function DayLobby() {
         {tab === 'scores' && (
           groups.length === 0
             ? <Text style={s.empty}>No groups yet.</Text>
-            : groups.map((g, i) => (
-                <TouchableOpacity
-                  key={g.match_id}
-                  style={[s.groupCard, g.match_id === myMatchId && s.groupCardMe]}
-                  onPress={() => router.push(`/(app)/score/${g.match_id}` as any)}
-                  activeOpacity={0.8}
-                >
-                  {g.match_id === myMatchId && <View style={s.groupAccent} />}
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <Text style={s.groupNum}>GROUP {i + 1}</Text>
-                      <View style={s.formatChip}>
-                        <Text style={s.formatChipText}>{g.format.replace(/_/g, ' ').toUpperCase()}</Text>
+            : groups.map((g, i) => {
+                const isMatchplay = g.format === 'nassau' || g.format === 'matchplay';
+                const hasTeams    = g.away_player_ids.length > 0;
+                const homeNames   = g.player_names.slice(0, g.home_player_ids.length);
+                const awayNames   = g.player_names.slice(g.home_player_ids.length);
+
+                let statusLabel = '';
+                let statusColor = GOLD;
+                if (isMatchplay && hasTeams) {
+                  if (g.status === 'complete' && g.result_str) {
+                    statusLabel = g.result_str;
+                    statusColor = '#4ade80';
+                  } else {
+                    const { homeUp } = calcHoles(g.holes_string);
+                    if (homeUp === 0) { statusLabel = 'A/S'; statusColor = '#888'; }
+                    else if (homeUp > 0) statusLabel = `${homeUp} UP`;
+                    else { statusLabel = `${Math.abs(homeUp)} DN`; statusColor = '#f87171'; }
+                  }
+                }
+
+                return (
+                  <TouchableOpacity
+                    key={g.match_id}
+                    style={[s.groupCard, g.match_id === myMatchId && s.groupCardMe]}
+                    onPress={() => router.push(`/(app)/score/${g.match_id}` as any)}
+                    activeOpacity={0.8}
+                  >
+                    {g.match_id === myMatchId && <View style={s.groupAccent} />}
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <Text style={s.groupNum}>GROUP {i + 1}</Text>
+                        <View style={s.formatChip}>
+                          <Text style={s.formatChipText}>{g.format.replace(/_/g, ' ').toUpperCase()}</Text>
+                        </View>
+                        {g.match_id === myMatchId && (
+                          <View style={s.yourGroupBadge}><Text style={s.yourGroupText}>YOUR GROUP</Text></View>
+                        )}
                       </View>
-                      {g.match_id === myMatchId && (
-                        <View style={s.yourGroupBadge}><Text style={s.yourGroupText}>YOUR GROUP</Text></View>
+
+                      {hasTeams ? (
+                        <View style={s.matchRow}>
+                          <Text style={[s.groupPlayers, { flex: 1 }]}>{homeNames.join(' & ')}</Text>
+                          {isMatchplay ? (
+                            <View style={[s.statusChip, { borderColor: `${statusColor}50`, backgroundColor: `${statusColor}15` }]}>
+                              <Text style={[s.statusChipText, { color: statusColor }]}>{statusLabel}</Text>
+                            </View>
+                          ) : (
+                            <View style={s.ptsScoreChip}>
+                              <Text style={s.ptsScoreText}>{g.home_pts} - {g.away_pts}</Text>
+                            </View>
+                          )}
+                          <Text style={[s.groupPlayers, { flex: 1, textAlign: 'right' }]}>{awayNames.join(' & ')}</Text>
+                        </View>
+                      ) : (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Text style={s.groupPlayers}>{g.player_names.join(' · ')}</Text>
+                          {g.home_pts > 0 && <Text style={s.groupSoloPts}>{g.home_pts} pts</Text>}
+                        </View>
                       )}
                     </View>
-                    <Text style={s.groupPlayers}>{g.player_names.join(' · ')}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={g.match_id === myMatchId ? GOLD : '#444'} />
-                </TouchableOpacity>
-              ))
+                    <Ionicons name="chevron-forward" size={18} color={g.match_id === myMatchId ? GOLD : '#444'} style={{ marginLeft: 8 }} />
+                  </TouchableOpacity>
+                );
+              })
         )}
       </ScrollView>
 
@@ -318,6 +373,13 @@ const s = StyleSheet.create({
   formatChipText:{ fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1 },
   yourGroupBadge:{ backgroundColor: `${GOLD}15`, borderWidth: 1, borderColor: `${GOLD}30`, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
   yourGroupText: { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 1 },
+
+  matchRow:      { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statusChip:    { borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, alignItems: 'center', minWidth: 46 },
+  statusChipText:{ fontFamily: FFB, fontSize: 10, letterSpacing: 1 },
+  ptsScoreChip:  { backgroundColor: '#1c1c1c', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 },
+  ptsScoreText:  { fontFamily: FFB, fontSize: 12, color: GOLD, letterSpacing: 1 },
+  groupSoloPts:  { fontFamily: FFB, fontSize: 12, color: GOLD },
 
   footer:        { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 36, backgroundColor: '#000', borderTopWidth: 1, borderTopColor: '#111' },
   actionBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GOLD, borderRadius: 14, paddingVertical: 16 },

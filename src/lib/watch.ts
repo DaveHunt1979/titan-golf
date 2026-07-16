@@ -3,6 +3,18 @@ import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
 const { WatchBridge } = NativeModules;
 const emitter = WatchBridge ? new NativeEventEmitter(WatchBridge) : null;
 
+// Diagnostic — visible in Metro / Xcode console
+if (Platform.OS === 'ios') {
+  console.log('[WatchBridge] module:', WatchBridge ? 'FOUND' : 'NULL — native module not registered');
+  if (WatchBridge) {
+    console.log('[WatchBridge] methods:', Object.keys(WatchBridge).join(', '));
+  }
+}
+
+export function watchBridgeAvailable(): boolean {
+  return !!WatchBridge;
+}
+
 export interface WatchMatchPayload {
   matchId: string;
   matchNumber: number;

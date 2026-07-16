@@ -693,6 +693,14 @@ export default function EnterScoresScreen() {
       }
       return next;
     });
+    setPlayerTotals(prev => {
+      const next = { ...prev };
+      for (const row of rows) {
+        const oldPts = editingHole ? (holeData[row.player_id]?.[activeHole]?.pts ?? 0) : 0;
+        next[row.player_id] = (prev[row.player_id] ?? 0) - oldPts + (row.stableford_pts ?? 0);
+      }
+      return next;
+    });
     setMatch({ ...match, ...matchUpdate });
     setEditingHole(null);
 
@@ -1151,6 +1159,15 @@ export default function EnterScoresScreen() {
                   <TouchableOpacity style={s.actionBtn} onPress={() => setShowCaddieModal(true)} activeOpacity={0.7}>
                     <Ionicons name="mic-outline" size={20} color={GOLD} />
                     <Text style={s.actionLabel}>CADDIE</Text>
+                  </TouchableOpacity>
+                  <View style={s.actionSep} />
+                  <TouchableOpacity
+                    style={s.actionBtn}
+                    onPress={() => match.day_id && router.push(`/(app)/score/day/${match.day_id}` as any)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trophy-outline" size={20} color={GOLD} />
+                    <Text style={s.actionLabel}>LEADERS</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1690,12 +1707,12 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
         {/* SI row */}
         {courseHoles.length > 0 && (
           <View style={sc.row}>
-            <Text style={[sc.cell, sc.labelCell, { color: '#444' }]}>SI</Text>
+            <Text style={[sc.cell, sc.labelCell, { color: '#fff' }]}>SI</Text>
             {holes.map(h => {
               const ch = courseHoles.find(c => c.hole_number === h);
-              return <Text key={h} style={[sc.cell, sc.holeCell, { color: '#444', fontSize: 9 }]}>{ch?.stroke_index ?? '—'}</Text>;
+              return <Text key={h} style={[sc.cell, sc.holeCell, { color: '#fff', fontSize: 9 }]}>{ch?.stroke_index ?? '—'}</Text>;
             })}
-            <Text style={[sc.cell, sc.totalCell, { color: '#444' }]}>—</Text>
+            <Text style={[sc.cell, sc.totalCell, { color: '#fff' }]}>—</Text>
           </View>
         )}
 
@@ -1727,10 +1744,12 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
                     {gross ? (
                       <>
                         <View style={[sc.scorePill, { borderColor: `${cellColor}50`, backgroundColor: `${cellColor}12` }]}>
-                          <Text style={[sc.scorePillText, { color: cellColor }]}>{gross}</Text>
+                          <Text style={[sc.scorePillText, { color: cellColor }]}>
+                            {showPts && pts != null ? pts : gross}
+                          </Text>
                         </View>
                         {showPts && pts != null && (
-                          <Text style={[sc.ptsText, { color: ptsColor(pts) }]}>{pts}</Text>
+                          <Text style={[sc.ptsText, { color: '#555' }]}>{gross}</Text>
                         )}
                       </>
                     ) : (

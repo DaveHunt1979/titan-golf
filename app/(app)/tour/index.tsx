@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, ActivityIndicator,
   TouchableOpacity, Image, RefreshControl, TextInput,
   KeyboardAvoidingView, Platform, Alert, Linking,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -72,8 +72,8 @@ function formatDate(s: string | null): string {
 }
 
 export default function TourScreen() {
-  const colors = useDynamicColors();
-  const { palette, societyId: SOCIETY_ID } = useSocietyTheme();
+  const dc = useDynamicColors();
+  const { palette, societyId: SOCIETY_ID, localLogo, logoUrl } = useSocietyTheme();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -82,6 +82,8 @@ export default function TourScreen() {
 
   const router = useRouter();
   const pinRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  useFocusEffect(useCallback(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, []));
 
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [joinedId, setJoinedId]       = useState<string | null>(null);
@@ -114,9 +116,9 @@ export default function TourScreen() {
   }, [pin]);
 
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
-      <ActivityIndicator color={GOLD} size="large" />
+      <ActivityIndicator color={dc.gold} size="large" />
     </View>
   );
 
@@ -279,10 +281,10 @@ export default function TourScreen() {
 
   // ── No active tournament ────────────────────────────────────────────
   if (!competition) return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg }}>
       <StatusBar style="light" />
-      <View style={st.titanHeader}>
-        <Image source={titanLogo} style={st.titanLogoImg} resizeMode="contain" />
+      <View style={[st.titanHeader, { backgroundColor: dc.bg, borderBottomColor: dc.border }]}>
+        <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={st.titanLogoImg} resizeMode="contain" />
         <Text style={st.titanSubtitle}>THE TOUR</Text>
       </View>
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
@@ -299,14 +301,15 @@ export default function TourScreen() {
 
   // ── PIN entry ───────────────────────────────────────────────────────
   if (joinedId !== competition.id) return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#000' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: dc.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="light" />
       {/* TITAN header */}
-      <View style={st.titanHeader}>
-        <Image source={titanLogo} style={st.titanLogoImg} resizeMode="contain" />
+      <View style={[st.titanHeader, { backgroundColor: dc.bg, borderBottomColor: dc.border }]}>
+        <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={st.titanLogoImg} resizeMode="contain" />
         <Text style={st.titanSubtitle}>THE TOUR</Text>
       </View>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{ alignItems: 'center', paddingTop: 60, paddingHorizontal: 24, paddingBottom: 60 }}
         keyboardShouldPersistTaps="handled"
       >
@@ -367,23 +370,23 @@ export default function TourScreen() {
 
   // ── Tournament hub ──────────────────────────────────────────────────
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg }}>
       <StatusBar style="light" />
 
       {/* TITAN header — logo centred, leave button right */}
-      <View style={st.titanHeader}>
+      <View style={[st.titanHeader, { backgroundColor: dc.bg, borderBottomColor: dc.border }]}>
         <View style={{ position: 'absolute', right: 16, bottom: 10 }}>
           <TouchableOpacity onPress={leaveTournament} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={{ fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 }}>LEAVE</Text>
+            <Text style={{ fontSize: 10, fontFamily: FFB, color: dc.cardText, letterSpacing: 1.5 }}>LEAVE</Text>
           </TouchableOpacity>
         </View>
-        <Image source={titanLogo} style={st.titanLogoImg} resizeMode="contain" />
+        <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={st.titanLogoImg} resizeMode="contain" />
         <Text style={st.titanSubtitle}>THE TOUR</Text>
       </View>
 
       {/* Tournament name + LIVE badge */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' }}>
-        <Text style={{ fontSize: 22, fontFamily: FFB, color: '#fff', marginBottom: 6 }}>{competition.name}</Text>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: dc.border }}>
+        <Text style={{ fontSize: 22, fontFamily: FFB, color: dc.cardText, marginBottom: 6 }}>{competition.name}</Text>
         <View style={{
           alignSelf: 'flex-start',
           backgroundColor: 'rgba(74,222,128,0.1)',
@@ -400,8 +403,8 @@ export default function TourScreen() {
           style={{
             flexDirection: 'row', alignItems: 'center', gap: 8,
             paddingHorizontal: 16, paddingVertical: 10,
-            borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
-            backgroundColor: '#000',
+            borderBottomWidth: 1, borderBottomColor: dc.border,
+            backgroundColor: dc.bg,
           }}
           onPress={() => setSelectedSection(null)}
           activeOpacity={0.7}
@@ -463,29 +466,29 @@ export default function TourScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            <TouchableOpacity style={st.sectionTile} onPress={() => setSelectedSection('matches')} activeOpacity={0.82}>
+            <TouchableOpacity style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => setSelectedSection('matches')} activeOpacity={0.82}>
               <Text style={st.sectionTileIcon}>🏌️</Text>
-              <Text style={st.sectionTileLabel}>Matches</Text>
-              <Text style={st.sectionTileSub}>Results & fixtures</Text>
-              <Text style={[st.sectionTileArrow, { color: palette.accent }]}>›</Text>
+              <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Matches</Text>
+              <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Results & fixtures</Text>
+              <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={st.sectionTile} onPress={() => setSelectedSection('standings')} activeOpacity={0.82}>
+            <TouchableOpacity style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => setSelectedSection('standings')} activeOpacity={0.82}>
               <Text style={st.sectionTileIcon}>📊</Text>
-              <Text style={st.sectionTileLabel}>Standings</Text>
-              <Text style={st.sectionTileSub}>Teams, points & honours</Text>
-              <Text style={[st.sectionTileArrow, { color: palette.accent }]}>›</Text>
+              <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Standings</Text>
+              <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Teams, points & honours</Text>
+              <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={st.sectionTile} onPress={() => setSelectedSection('info')} activeOpacity={0.82}>
+            <TouchableOpacity style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => setSelectedSection('info')} activeOpacity={0.82}>
               <Text style={st.sectionTileIcon}>📋</Text>
-              <Text style={st.sectionTileLabel}>Info Pack</Text>
-              <Text style={st.sectionTileSub}>Schedule & travel</Text>
-              <Text style={[st.sectionTileArrow, { color: palette.accent }]}>›</Text>
+              <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Info Pack</Text>
+              <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Schedule & travel</Text>
+              <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={st.sectionTile} onPress={() => setSelectedSection('social')} activeOpacity={0.82}>
+            <TouchableOpacity style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => setSelectedSection('social')} activeOpacity={0.82}>
               <Text style={st.sectionTileIcon}>📸</Text>
-              <Text style={st.sectionTileLabel}>Live & Social</Text>
-              <Text style={st.sectionTileSub}>Feed & Instagram</Text>
-              <Text style={[st.sectionTileArrow, { color: palette.accent }]}>›</Text>
+              <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Live & Social</Text>
+              <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Feed & Instagram</Text>
+              <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -520,7 +523,7 @@ export default function TourScreen() {
                 <Text style={[st.cell, st.cellPts, st.th]}>PTS</Text>
               </View>
               {enriched.map((s, i) => (
-                <View key={s.teamId} style={[st.row, i === 0 && st.rowFirst]}>
+                <View key={s.teamId} style={[st.row, { backgroundColor: dc.card, borderColor: dc.border }, i === 0 && st.rowFirst]}>
                   <View style={[st.cell, st.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
                     <Text style={st.pos}>{i + 1}</Text>
                     {teamLogos[s.name]
@@ -549,7 +552,7 @@ export default function TourScreen() {
                 <Text style={[st.cell, st.cellPts, st.th]}>PTS</Text>
               </View>
               {kronosRows.map((r, i) => (
-                <View key={r.playerId} style={[st.row, i === 0 && st.rowFirst]}>
+                <View key={r.playerId} style={[st.row, { backgroundColor: dc.card, borderColor: dc.border }, i === 0 && st.rowFirst]}>
                   <View style={[st.cell, st.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
                     <Text style={st.pos}>{i + 1}</Text>
                     <Text style={st.teamName}>{r.name}</Text>
@@ -570,19 +573,19 @@ export default function TourScreen() {
                 return (
                   <View key={year} style={{ marginBottom: 20 }}>
                     <Text style={{
-                      fontSize: 10, fontFamily: FFB, color: '#fff',
+                      fontSize: 10, fontFamily: FFB, color: dc.cardText,
                       letterSpacing: 2, marginBottom: 10,
                     }}>
                       {year}
                     </Text>
                     {yearChamps.map(c => (
-                      <View key={c.id} style={st.champCard}>
-                        <Text style={{ fontSize: 10, fontFamily: FFB, color: GOLD, letterSpacing: 1, marginBottom: 4 }}>
+                      <View key={c.id} style={[st.champCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
+                        <Text style={{ fontSize: 10, fontFamily: FFB, color: dc.gold, letterSpacing: 1, marginBottom: 4 }}>
                           {c.award_name.toUpperCase()}
                         </Text>
-                        <Text style={{ fontSize: 18, fontFamily: FFB, color: '#fff' }}>{c.winner_name}</Text>
+                        <Text style={{ fontSize: 18, fontFamily: FFB, color: dc.cardText }}>{c.winner_name}</Text>
                         {c.detail && (
-                          <Text style={{ fontSize: 13, fontFamily: FFB, color: '#fff', marginTop: 4 }}>{c.detail}</Text>
+                          <Text style={{ fontSize: 13, fontFamily: FFB, color: dc.cardText, marginTop: 4 }}>{c.detail}</Text>
                         )}
                       </View>
                     ))}
@@ -614,22 +617,23 @@ export default function TourScreen() {
                   {/* Day header */}
                   <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 10 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 10, fontFamily: FFB, color: GOLD, letterSpacing: 1.5, marginBottom: 2 }}>
+                      <Text style={{ fontSize: 10, fontFamily: FFB, color: dc.gold, letterSpacing: 1.5, marginBottom: 2 }}>
                         DAY {day.day_number}
                       </Text>
-                      <Text style={{ fontSize: 15, fontFamily: FFB, color: '#fff' }}>{day.course_name ?? 'TBC'}</Text>
+                      <Text style={{ fontSize: 15, fontFamily: FFB, color: dc.cardText }}>{day.course_name ?? 'TBC'}</Text>
                       {day.play_date && (
-                        <Text style={{ fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 1 }}>
+                        <Text style={{ fontSize: 11, fontFamily: FFB, color: dc.cardText, marginTop: 1 }}>
                           {formatDate(day.play_date)}
                         </Text>
                       )}
                     </View>
                     <View style={[
                       st.dayStatusBadge,
+                      { backgroundColor: dc.card, borderColor: dc.border },
                       isLive && { backgroundColor: 'rgba(74,222,128,0.1)', borderColor: 'rgba(74,222,128,0.35)' },
                     ]}>
                       <Text style={[
-                        { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 0.5 },
+                        { fontSize: 10, fontFamily: FFB, color: dc.cardText, letterSpacing: 0.5 },
                         isLive && { color: GREEN },
                       ]}>
                         {isDone ? 'COMPLETE' : isLive ? 'LIVE' : 'UPCOMING'}
@@ -648,6 +652,7 @@ export default function TourScreen() {
                         key={m.id}
                         style={[
                           st.matchRow,
+                          { backgroundColor: dc.card, borderColor: dc.border },
                           isMatchLive && { borderColor: 'rgba(74,222,128,0.35)' },
                         ]}
                         onPress={() => router.push(`/(app)/score/${m.id}` as any)}
@@ -655,11 +660,13 @@ export default function TourScreen() {
                       >
                         {/* Home side */}
                         <View style={{ flex: 1, alignItems: 'flex-start' }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                             {isTeamMatch && (
-                              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: mc.home }} />
+                              teamLogos[home]
+                                ? <Image source={teamLogos[home]} style={{ width: 22, height: 22 }} resizeMode="contain" />
+                                : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: mc.home }} />
                             )}
-                            <Text style={st.matchName} numberOfLines={1}>{home}</Text>
+                            <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{home}</Text>
                           </View>
                         </View>
 
@@ -669,25 +676,27 @@ export default function TourScreen() {
                             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN, marginBottom: 2 }} />
                           )}
                           {isComplete && m.result_str ? (
-                            <Text style={{ fontSize: 11, fontFamily: FFB, color: GOLD, textAlign: 'center' }}>
+                            <Text style={{ fontSize: 11, fontFamily: FFB, color: dc.gold, textAlign: 'center' }}>
                               {m.result_str}
                             </Text>
                           ) : (
-                            <Text style={{ fontSize: 10, fontFamily: FFB, color: '#fff' }}>vs</Text>
+                            <Text style={{ fontSize: 10, fontFamily: FFB, color: dc.cardText }}>vs</Text>
                           )}
                         </View>
 
                         {/* Away side */}
                         <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 5 }}>
+                          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
                             {isTeamMatch && (
-                              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: mc.away }} />
+                              teamLogos[away]
+                                ? <Image source={teamLogos[away]} style={{ width: 22, height: 22 }} resizeMode="contain" />
+                                : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: mc.away }} />
                             )}
-                            <Text style={st.matchName} numberOfLines={1}>{away}</Text>
+                            <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{away}</Text>
                           </View>
                         </View>
 
-                        <Text style={{ fontSize: 18, color: '#fff', marginLeft: 6 }}>›</Text>
+                        <Text style={{ fontSize: 18, color: dc.cardText, marginLeft: 6 }}>›</Text>
                       </TouchableOpacity>
                     );
                   })}

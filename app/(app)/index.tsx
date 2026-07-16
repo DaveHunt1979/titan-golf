@@ -28,13 +28,13 @@ function greet(): string {
 }
 
 const TILES = [
-  { key: 'play',      label: 'Play',        sub: 'Start a casual round',        icon: 'golf-outline'      as const, area: 'casual',  route: '/(app)/score'       },
-  { key: 'events',    label: 'Events',       sub: 'Tournaments & leagues',        icon: 'trophy-outline'    as const, area: 'tour',    route: '/(app)/tour'        },
-  { key: 'clubhouse', label: 'Clubhouse',    sub: 'Swindles & roll-ups',          icon: 'people-outline'    as const, area: 'swindle', route: '/(app)/swindle'     },
-  { key: 'caddie',    label: 'Caddie',       sub: 'GPS, yardages & distances',    icon: 'navigate-outline'  as const, area: 'casual',  route: '/(app)/rangefinder' },
-  { key: 'practice',  label: 'Practice',     sub: 'Driving range & tracking',     icon: 'bar-chart-outline' as const, area: 'casual',  route: '/(app)/range'       },
-  { key: 'locker',    label: 'Locker Room',  sub: 'Stats, handicap & equipment',  icon: 'shield-outline'    as const, area: 'casual',  route: '/(app)/profile'     },
+  { key: 'play',      label: 'Play',        sub: 'Start a casual round',        icon: 'golf-outline'   as const, area: 'casual',  route: '/(app)/score'   },
+  { key: 'events',    label: 'Events',       sub: 'Tournaments & leagues',        icon: 'trophy-outline' as const, area: 'tour',    route: '/(app)/tour'    },
+  { key: 'clubhouse', label: 'Clubhouse',    sub: 'Swindles & roll-ups',          icon: 'people-outline' as const, area: 'swindle', route: '/(app)/swindle' },
+  { key: 'locker',    label: 'Locker Room',  sub: 'Stats, handicap & equipment',  icon: 'shield-outline' as const, area: 'casual',  route: '/(app)/profile' },
 ] as const;
+
+type FriendRound = { playerId: string; name: string; courseName: string; hole: number; pts: number; matchId: string; };
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -46,21 +46,23 @@ export default function HomeScreen() {
     'JUSTSans-ExBold': require('../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
-  const [loading,      setLoading]      = useState(true);
-  const [refreshing,   setRefreshing]   = useState(false);
-  const [playerName,   setPlayerName]   = useState('');
-  const [avatarUrl,    setAvatarUrl]    = useState<string | null>(null);
-  const [playerId,     setPlayerId]     = useState<string | null>(null);
-  const [memberTypes,  setMemberTypes]  = useState<string[]>([]);
-  const [isPrivileged, setIsPrivileged] = useState(false);
-  const [unread,       setUnread]       = useState(0);
-  const [casualCount,  setCasualCount]  = useState(0);
-  const [tourName,     setTourName]     = useState<string | null>(null);
-  const [tourLive,     setTourLive]     = useState(0);
-  const [swindleName,  setSwindleName]  = useState<string | null>(null);
+  const [loading,        setLoading]        = useState(true);
+  const [refreshing,     setRefreshing]     = useState(false);
+  const [playerName,     setPlayerName]     = useState('');
+  const [avatarUrl,      setAvatarUrl]      = useState<string | null>(null);
+  const [playerId,       setPlayerId]       = useState<string | null>(null);
+  const [handicapIndex,  setHandicapIndex]  = useState<number | null>(null);
+  const [memberTypes,    setMemberTypes]    = useState<string[]>([]);
+  const [isPrivileged,   setIsPrivileged]   = useState(false);
+  const [unread,         setUnread]         = useState(0);
+  const [casualCount,    setCasualCount]    = useState(0);
+  const [tourName,       setTourName]       = useState<string | null>(null);
+  const [tourLive,       setTourLive]       = useState(0);
+  const [swindleName,    setSwindleName]    = useState<string | null>(null);
+  const [swindleCount,   setSwindleCount]   = useState(0);
+  const [friendRounds,   setFriendRounds]   = useState<FriendRound[]>([]);
   const scrollRef = useRef<ScrollView>(null);
   useFocusEffect(useCallback(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, []));
-  const [swindleCount, setSwindleCount] = useState(0);
 
   async function checkUnread(pid: string | null) {
     const lastRead = await AsyncStorage.getItem(CHAT_READ_KEY);
@@ -90,13 +92,14 @@ export default function HomeScreen() {
     // Get player row first so we can filter matches to this player only
     let pid: string | null = null;
     if (user) {
-      const { data: pr } = await supabase.from('players').select('id, display_name, avatar_url').eq('auth_uid', user.id).single();
+      const { data: pr } = await supabase.from('players').select('id, display_name, avatar_url, handicap_index').eq('auth_uid', user.id).single();
       if (pr) {
         const p = pr as any;
         pid = p.id;
         setPlayerId(p.id);
         setPlayerName(p.display_name ?? '');
         setAvatarUrl(p.avatar_url ?? null);
+        setHandicapIndex(p.handicap_index ?? null);
         checkUnread(p.id);
 
         const { data: sm } = await supabase.from('society_members')
@@ -133,6 +136,67 @@ export default function HomeScreen() {
     setSwindleName((swindleData as any)?.name ?? null);
     setSwindleCount((swindleData as any)?.swindle_entries?.[0]?.count ?? 0);
 
+    // Friends on a round
+    if (pid && SOCIETY_ID) {
+      const { data: memberRows } = await supabase
+        .from('society_members').select('player_id')
+        .eq('society_id', SOCIETY_ID).neq('player_id', pid);
+      const memberIds = (memberRows ?? []).map((m: any) => m.player_id as string);
+
+      if (memberIds.length > 0) {
+        const { data: activeMatches } = await supabase
+          .from('matches').select('id,course_name,home_player_ids,away_player_ids')
+          .eq('status', 'in_progress').limit(50);
+
+        const friendMatches = (activeMatches ?? []).filter((m: any) => {
+          const ids: string[] = [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])];
+          return ids.some(id => memberIds.includes(id));
+        });
+
+        if (friendMatches.length > 0) {
+          const matchIds = friendMatches.map((m: any) => m.id);
+          const playingFriendIds = [...new Set(
+            friendMatches.flatMap((m: any): string[] => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])])
+              .filter((id: string) => memberIds.includes(id))
+          )];
+
+          const [{ data: holesData }, { data: friendPlayersData }] = await Promise.all([
+            supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id').in('match_id', matchIds),
+            supabase.from('players').select('id,display_name').in('id', playingFriendIds),
+          ]);
+
+          const nameMap: Record<string, string> = {};
+          for (const p of (friendPlayersData ?? []) as any[]) nameMap[p.id] = p.display_name;
+
+          const stats: Record<string, { pts: number; maxHole: number }> = {};
+          for (const h of (holesData ?? []) as any[]) {
+            if (playingFriendIds.includes(h.player_id)) {
+              if (!stats[h.player_id]) stats[h.player_id] = { pts: 0, maxHole: 0 };
+              stats[h.player_id].pts += h.stableford_pts ?? 0;
+              if (h.hole_number > stats[h.player_id].maxHole) stats[h.player_id].maxHole = h.hole_number;
+            }
+          }
+
+          setFriendRounds(playingFriendIds.map(id => {
+            const match = friendMatches.find((m: any) => {
+              const ids: string[] = [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])];
+              return ids.includes(id);
+            });
+            return {
+              playerId: id,
+              name: nameMap[id] ?? 'Unknown',
+              courseName: match?.course_name ?? 'Course',
+              hole: Math.min((stats[id]?.maxHole ?? 0) + 1, 18),
+              pts: stats[id]?.pts ?? 0,
+              matchId: match?.id ?? '',
+            };
+          }));
+        } else {
+          setFriendRounds([]);
+        }
+      }
+    }
+
     setLoading(false);
     setRefreshing(false);
   }, [SOCIETY_ID]);
@@ -166,8 +230,7 @@ export default function HomeScreen() {
       <StatusBar style="light" />
 
       {/* ── Header ── */}
-      <View style={s.header}>
-        <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.headerLogo} resizeMode="contain" />
+      <View style={[s.header, { justifyContent: 'flex-end' }]}>
         <View style={s.headerRight}>
           <TouchableOpacity
             onPress={() => router.push('/(app)/chat' as any)}
@@ -198,39 +261,25 @@ export default function HomeScreen() {
           {/* ── Greeting ── */}
           <View style={s.greeting}>
             <Text style={s.greetSub}>{greet()}</Text>
-            <Text style={s.greetName}>{playerName.split(' ')[0] || 'Golfer'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={s.greetName}>{playerName.split(' ')[0] || 'Golfer'}</Text>
+              {handicapIndex != null && (
+                <View style={s.hcpChip}>
+                  <Text style={s.hcpLabel}>HCP</Text>
+                  <Text style={s.hcpValue}>{handicapIndex % 1 === 0 ? handicapIndex.toFixed(0) : handicapIndex.toFixed(1)}</Text>
+                </View>
+              )}
+            </View>
           </View>
 
-          {/* ── Hero image ── */}
+          {/* ── Hero ── */}
           <View style={s.heroWrap}>
-            <Image
-              source={require('../../assets/hero-course.jpeg')}
-              style={s.heroImage}
-              resizeMode="cover"
-            />
-            <View style={s.heroCard}>
-              <View style={s.heroCardLeft}>
-                <Text style={[s.heroCardLabel, { color: dc.gold }]}>
-                  {tourLive > 0 ? 'TOURNAMENT · LIVE' : swindleCount > 0 ? 'SWINDLE · OPEN' : casualCount > 0 ? 'CASUAL · IN PROGRESS' : societyName.toUpperCase()}
-                </Text>
-                <Text style={s.heroCardTitle}>
-                  {tourLive > 0 ? (tourName ?? `${tourLive} matches live`) : swindleCount > 0 ? (swindleName ?? 'Open swindle') : casualCount > 0 ? `${casualCount} game${casualCount !== 1 ? 's' : ''} running` : 'Ready when you are'}
-                </Text>
-              </View>
-              {(tourLive > 0 || swindleCount > 0 || casualCount > 0) && (
-                <TouchableOpacity
-                  style={[s.heroCardBtn, { borderColor: dc.gold }]}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    if (tourLive > 0)     router.push('/(app)/tour' as any);
-                    else if (swindleCount > 0) router.push('/(app)/swindle' as any);
-                    else                  router.push('/(app)/score' as any);
-                  }}
-                >
-                  <Text style={[s.heroCardBtnText, { color: dc.gold }]}>VIEW</Text>
-                  <Ionicons name="chevron-forward" size={11} color={dc.gold} />
-                </TouchableOpacity>
-              )}
+            <View style={[s.heroLogoSection, { backgroundColor: dc.bg }]}>
+              <Image
+                source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)}
+                style={s.heroSocietyLogo}
+                resizeMode="cover"
+              />
             </View>
           </View>
 
@@ -272,10 +321,57 @@ export default function HomeScreen() {
             })}
           </View>
 
+          {/* ── Friends on a Round ── */}
+          <View style={{ marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <Text style={[s.sectionTitle, { marginBottom: 0 }]}>FRIENDS ON A ROUND</Text>
+              <TouchableOpacity onPress={() => router.push('/(app)/friends' as any)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 9, color: GOLD, letterSpacing: 1 }}>SEE ALL →</Text>
+              </TouchableOpacity>
+            </View>
+            {friendRounds.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
+                {friendRounds.map(fr => (
+                  <TouchableOpacity
+                    key={fr.playerId}
+                    style={[s.friendCard, { backgroundColor: dc.card, borderColor: dc.border }]}
+                    onPress={() => router.push(`/(app)/score/${fr.matchId}` as any)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={s.friendAvatar}>
+                      <Text style={s.friendAvatarText}>{(fr.name[0] ?? '?').toUpperCase()}</Text>
+                    </View>
+                    <Text style={[s.friendName, { color: dc.cardText }]} numberOfLines={1}>{fr.name.split(' ')[0]}</Text>
+                    <Text style={s.friendCourse} numberOfLines={1}>{fr.courseName}</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                      <View style={s.holeChip}>
+                        <Text style={s.holeChipText}>Hole {fr.hole}</Text>
+                      </View>
+                      <Text style={[s.friendPts, { color: dc.gold }]}>{fr.pts}<Text style={s.friendPtsLabel}> pts</Text></Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <TouchableOpacity
+                style={[s.noFriendsCard, { backgroundColor: dc.card, borderColor: dc.border }]}
+                onPress={() => router.push('/(app)/friends' as any)}
+                activeOpacity={0.8}
+              >
+                <Text style={s.noFriendsText}>No friends on a round at this time</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                  <Text style={s.noFriendsSub}>View all members</Text>
+                  <Ionicons name="chevron-forward" size={11} color="#555" />
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+
           {/* ── Quick links ── */}
           <View style={s.quickRow}>
             <QuickBtn icon="chatbubbles-outline" label="Chat"    cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/chat' as any)}    badge={unread > 0 ? unread : undefined} badgeColor={dc.gold} />
             <QuickBtn icon="ribbon-outline"      label="Records" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/records' as any)} />
+            <QuickBtn icon="time-outline"        label="History" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/profile/rounds' as any)} />
             <QuickBtn icon="bag-outline"         label="Shop"    cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => Linking.openURL('https://titangolf-web.vercel.app/')} />
           </View>
 
@@ -342,27 +438,15 @@ const s = StyleSheet.create({
   greetSub:  { fontFamily: FFB,  fontSize: 15, color: '#fff' },
   greetName: { fontFamily: FFB, fontSize: 42, color: '#ffffff', lineHeight: 48, letterSpacing: -0.5 },
 
-  // Hero image
+  // Hero
   heroWrap: {
     marginBottom: 20, borderRadius: 14, overflow: 'hidden',
     backgroundColor: '#0a0f14',
   },
-  heroImage: { width: '100%' as const, height: 200 },
-  heroCard: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: 'rgba(0,0,0,0.92)',
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)',
+  heroLogoSection: {
+    paddingVertical: 16, alignItems: 'center', justifyContent: 'center',
   },
-  heroCardLeft:  { gap: 3 },
-  heroCardLabel: { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2 },
-  heroCardTitle: { fontFamily: FFB, fontSize: 18, color: '#ffffff' },
-  heroCardBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    borderWidth: 1, borderColor: GOLD, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 7,
-  },
-  heroCardBtnText: { fontFamily: FFB, fontSize: 11, color: GOLD, letterSpacing: 0.5 },
+  heroSocietyLogo: { width: '100%' as const, height: 160 },
 
   // Tile grid
   grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
@@ -405,4 +489,25 @@ const s = StyleSheet.create({
     backgroundColor: GOLD, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
   },
   quickBadgeText: { fontFamily: FFB, fontSize: 9, color: '#000' },
+
+  // HCP chip
+  hcpChip:  { backgroundColor: `${GOLD}15`, borderWidth: 1, borderColor: `${GOLD}40`, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, alignItems: 'center' },
+  hcpLabel: { fontFamily: FFB, fontSize: 8, color: GOLD, letterSpacing: 1.5 },
+  hcpValue: { fontFamily: FFB, fontSize: 16, color: GOLD, lineHeight: 18 },
+
+  // Friends on a round
+  sectionTitle:    { fontFamily: FFB, fontSize: 10, color: '#888', letterSpacing: 1.5, marginBottom: 10 },
+  friendCard:      { width: 140, borderRadius: 14, borderWidth: 1, padding: 12 },
+  friendAvatar:    { width: 36, height: 36, borderRadius: 18, backgroundColor: `${GOLD}15`, borderWidth: 1, borderColor: `${GOLD}30`, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  friendAvatarText:{ fontFamily: FFB, fontSize: 15, color: GOLD },
+  friendName:      { fontFamily: FFB, fontSize: 13, color: '#fff' },
+  friendCourse:    { fontFamily: FFB, fontSize: 10, color: '#666', marginTop: 1 },
+  holeChip:        { backgroundColor: '#1c1c1c', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  holeChipText:    { fontFamily: FFB, fontSize: 9, color: '#888', letterSpacing: 0.5 },
+  friendPts:       { fontFamily: FFB, fontSize: 15, color: GOLD },
+  friendPtsLabel:  { fontFamily: FFB, fontSize: 9, color: '#555' },
+
+  noFriendsCard:   { borderRadius: 14, borderWidth: 1, padding: 14 },
+  noFriendsText:   { fontFamily: FFB, fontSize: 13, color: '#555' },
+  noFriendsSub:    { fontFamily: FFB, fontSize: 10, color: '#444' },
 });

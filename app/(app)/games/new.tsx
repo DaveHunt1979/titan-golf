@@ -158,19 +158,38 @@ function FormatSheet({
 // ── Player picker sheet ───────────────────────────────────────
 
 function PlayerSheet({
-  visible, players, groups, pair1, pair2, pairStep, isSolo, atMax, takenIds,
-  teamLabels, onToggle, onNextPair, onLoadGroup, onClose, ps, GOLD,
+  visible, players, groups, pair1, pair2, pairStep, numTeams, extraTeams, isSolo, atMax, takenIds,
+  teamLabels, isSingles, onToggle, onNextPair, onLoadGroup, onClose, ps, GOLD,
 }: {
   visible: boolean; players: Player[]; groups: PlayerGroup[];
   pair1: string[]; pair2: string[];
-  pairStep: 1 | 2; isSolo: boolean; atMax: boolean; takenIds: string[];
-  teamLabels?: boolean;
+  pairStep: number; numTeams: number; extraTeams: string[][];
+  isSolo: boolean; atMax: boolean; takenIds: string[];
+  teamLabels?: boolean; isSingles?: boolean;
   onToggle: (id: string) => void; onNextPair: () => void;
   onLoadGroup: (ids: string[]) => void; onClose: () => void;
   ps: any; GOLD: string;
 }) {
   const firstName = (id: string) => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '?';
-  const activePair = pairStep === 1 ? pair1 : pair2;
+  const activePair = pairStep === 1 ? pair1 : pairStep === 2 ? pair2 : (extraTeams[pairStep - 3] ?? []);
+  const otherTeamIds = [
+    ...(pairStep !== 1 ? pair1 : []),
+    ...(pairStep !== 2 ? pair2 : []),
+    ...extraTeams.flatMap((t, i) => (i + 3) !== pairStep ? t : []),
+  ];
+  const isLastTeam = pairStep >= numTeams;
+
+  const teamTitle = isSolo ? 'Add Players'
+    : isSingles ? (pairStep === 1 ? 'Player 1' : 'Player 2')
+    : numTeams === 2 ? (pairStep === 1 ? (teamLabels ? 'Team A' : 'First Pair') : (teamLabels ? 'Team B' : 'Second Pair'))
+    : `Team ${pairStep} of ${numTeams}`;
+
+  const prevTeams: { label: string; names: string[] }[] = [];
+  if (!isSolo && pairStep > 1 && pair1.length > 0) prevTeams.push({ label: numTeams === 2 ? (isSingles ? 'PLAYER 1' : 'PAIR 1') : 'TEAM 1', names: pair1.map(firstName) });
+  if (!isSolo && pairStep > 2 && pair2.length > 0) prevTeams.push({ label: 'TEAM 2', names: pair2.map(firstName) });
+  for (let i = 0; i < pairStep - 3; i++) {
+    if (extraTeams[i]?.length > 0) prevTeams.push({ label: `TEAM ${i + 3}`, names: extraTeams[i].map(firstName) });
+  }
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -178,15 +197,13 @@ function PlayerSheet({
       <View style={[ps.sheet, { maxHeight: '80%' }]}>
         <View style={ps.handle} />
         <View style={ps.playerSheetHeader}>
-          <Text style={ps.sheetTitle}>
-            {isSolo ? 'Add Players' : pairStep === 1 ? (teamLabels ? 'Team A' : 'First Pair') : (teamLabels ? 'Team B' : 'Second Pair')}
-          </Text>
-          {!isSolo && pairStep === 2 && pair1.length > 0 && (
-            <View style={ps.pair1Summary}>
-              <Text style={ps.pair1SummaryLabel}>PAIR 1: </Text>
-              <Text style={ps.pair1SummaryNames}>{pair1.map(firstName).join(' & ')}</Text>
+          <Text style={ps.sheetTitle}>{teamTitle}</Text>
+          {prevTeams.map((t, i) => (
+            <View key={i} style={ps.pair1Summary}>
+              <Text style={ps.pair1SummaryLabel}>{t.label}: </Text>
+              <Text style={ps.pair1SummaryNames}>{t.names.join(' & ')}</Text>
             </View>
-          )}
+          ))}
         </View>
         {groups.length > 0 && (
           <View style={ps.groupRow}>
@@ -205,10 +222,8 @@ function PlayerSheet({
           keyExtractor={p => p.id}
           style={{ flexGrow: 0 }}
           renderItem={({ item }) => {
-            const inP1 = pair1.includes(item.id);
-            const inP2 = pair2.includes(item.id);
-            const inActive = pairStep === 1 ? inP1 : inP2;
-            const inOther  = pairStep === 1 ? inP2 : inP1;
+            const inActive = activePair.includes(item.id);
+            const inOther  = otherTeamIds.includes(item.id);
             const taken    = takenIds.includes(item.id);
             const disabled = inOther || taken || (atMax && !inActive);
             const av = item.avatar_url ?? getPlayerAvatar(item.id, 'normal');
@@ -235,13 +250,15 @@ function PlayerSheet({
             );
           }}
         />
-        {!isSolo && pairStep === 1 ? (
+        {!isSolo && !isLastTeam ? (
           <TouchableOpacity
-            style={[ps.doneBtn, pair1.length === 0 && { opacity: 0.35 }]}
-            onPress={pair1.length > 0 ? onNextPair : undefined}
+            style={[ps.doneBtn, activePair.length === 0 && { opacity: 0.35 }]}
+            onPress={activePair.length > 0 ? onNextPair : undefined}
             activeOpacity={0.8}
           >
-            <Text style={ps.doneBtnText}>{teamLabels ? 'Pick Team B  →' : 'Pick Pair 2  →'}</Text>
+            <Text style={ps.doneBtnText}>
+              {numTeams === 2 ? (teamLabels ? 'Pick Team B  →' : isSingles ? 'Pick Player 2  →' : 'Pick Pair 2  →') : `Pick Team ${pairStep + 1}  →`}
+            </Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -353,9 +370,11 @@ export default function NewGameScreen() {
 
   // Game state
   const [mode, setMode]         = useState<GameMode>('stableford');
-  const [pair1, setPair1]       = useState<string[]>([]);
-  const [pair2, setPair2]       = useState<string[]>([]);
-  const [pairStep, setPairStep] = useState<1 | 2>(1);
+  const [pair1, setPair1]         = useState<string[]>([]);
+  const [pair2, setPair2]         = useState<string[]>([]);
+  const [pairStep, setPairStep]   = useState<number>(1);
+  const [numTeams, setNumTeams]   = useState(2);
+  const [extraTeams, setExtraTeams] = useState<string[][]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string | null>(preselectedCourse ?? null);
   const [hcpAllowance, setHcpAllowance]     = useState<number>(100);
   const [sideGames, setSideGames]           = useState<string[]>([]);
@@ -387,6 +406,7 @@ export default function NewGameScreen() {
   const [showHcp, setShowHcp]         = useState(false);
   const [showTeamSize, setShowTeamSize]   = useState(false);
   const [showCounting, setShowCounting]   = useState(false);
+  const [showNumTeams, setShowNumTeams]   = useState(false);
 
   useFocusEffect(useCallback(() => {
     setMode('stableford');
@@ -395,9 +415,9 @@ export default function NewGameScreen() {
     setHcpAllowance(100); setSideGames([]); setSecondaryFormat(null);
     setHoles('full18'); setVoiceEnabled(true); setLdActive(false); setNpActive(false);
     setLdHole(null); setNtpHole(null); setCreating(false); setTakenPlayerIds([]);
-    setTeamSize(2); setCounting(2);
+    setTeamSize(2); setCounting(2); setNumTeams(2); setExtraTeams([]);
     setShowFormat(false); setShowPlayers(false); setShowCourse(false);
-    setShowHoles(false); setShowHcp(false); setShowTeamSize(false); setShowCounting(false);
+    setShowHoles(false); setShowHcp(false); setShowTeamSize(false); setShowCounting(false); setShowNumTeams(false);
     if (existingDayId) {
       supabase.from('matches').select('home_player_ids, away_player_ids')
         .eq('day_id', existingDayId).neq('status', 'cancelled')
@@ -446,18 +466,34 @@ export default function NewGameScreen() {
                : isSolo ? 4
                : isMashie ? 4
                : 2;
-  const atMax  = isSolo && pair1.length >= maxPer;
+  const currentTeamPlayers = pairStep === 1 ? pair1 : pairStep === 2 ? pair2 : (extraTeams[pairStep - 3] ?? []);
+  const atMax = isSolo ? pair1.length >= maxPer : (isMashie || mode === 'team_stableford') && currentTeamPlayers.length >= maxPer;
 
   function togglePlayer(id: string) {
-    const inOther = pairStep === 1 ? pair2.includes(id) : pair1.includes(id);
-    if (inOther) return;
-    const set = pairStep === 1 ? setPair1 : setPair2;
-    set(prev => prev.includes(id) ? prev.filter(p => p !== id) : prev.length < maxPer ? [...prev, id] : prev);
+    const inOtherTeam = [
+      ...(pairStep !== 1 ? pair1 : []),
+      ...(pairStep !== 2 ? pair2 : []),
+      ...extraTeams.flatMap((t, i) => (i + 3) !== pairStep ? t : []),
+    ].includes(id);
+    if (inOtherTeam) return;
+    if (pairStep === 1) {
+      setPair1(prev => prev.includes(id) ? prev.filter(p => p !== id) : prev.length < maxPer ? [...prev, id] : prev);
+    } else if (pairStep === 2) {
+      setPair2(prev => prev.includes(id) ? prev.filter(p => p !== id) : prev.length < maxPer ? [...prev, id] : prev);
+    } else {
+      const tIdx = pairStep - 3;
+      setExtraTeams(prev => {
+        const next = [...prev];
+        const curr = next[tIdx] ?? [];
+        next[tIdx] = curr.includes(id) ? curr.filter(p => p !== id) : curr.length < maxPer ? [...curr, id] : curr;
+        return next;
+      });
+    }
   }
 
   function selectMode(key: GameMode) {
     setMode(key);
-    setPair1([]); setPair2([]); setPairStep(1);
+    setPair1([]); setPair2([]); setPairStep(1); setExtraTeams([]); setNumTeams(2);
   }
 
   const firstName = (id: string) => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '?';
@@ -468,14 +504,19 @@ export default function NewGameScreen() {
       const n = pair1.map(firstName);
       return n.length <= 2 ? n.join(', ') : `${n[0]} +${n.length - 1} more`;
     }
-    const p1 = pair1.map(firstName).join(' & ');
-    return pair2.length === 0 ? `${p1}  ·  + pair 2` : `${p1}  vs  ${pair2.map(firstName).join(' & ')}`;
+    const teams = [pair1, pair2, ...extraTeams].filter(t => t.length > 0);
+    if (teams.length === 1) return `${pair1.map(firstName).join(' & ')}  ·  + team 2`;
+    return teams.map(t => t.map(firstName).join(' & ')).join('  vs  ');
   })();
 
   const formatLabel  = MODE_INFO[mode]?.label ?? 'Stableford';
   const holesLabel   = HOLES_OPTIONS.find(h => h.key === holesMode)?.label ?? 'Full 18';
   const hcpLabel     = HCP_ALLOWANCES.find(h => h.pct === hcpAllowance)?.label ?? '100%';
-  const canStart     = !!selectedCourse && pair1.length >= 1 && (mode !== 'team_stableford' || pair2.length >= 1) && !creating;
+  const isTeamMode   = mode === 'team_stableford' || isMashie;
+  const allTeamsFilled = numTeams === 2
+    ? pair2.length >= 1
+    : (pair2.length >= 1 && extraTeams.filter(t => t.length >= 1).length >= numTeams - 2);
+  const canStart     = !!selectedCourse && pair1.length >= 1 && (!isTeamMode || allTeamsFilled) && !creating;
   const selectedItem = courses.find(c => c.name === selectedCourse);
 
   async function createGame() {
@@ -506,26 +547,45 @@ export default function NewGameScreen() {
       ];
 
       const isTeamStableford = mode === 'team_stableford' || isMashie;
-      const { data: newMatch, error } = await supabase.from('matches').insert({
+      const teamCommonFields = {
         competition_id: null,
         day_id: resolvedDayId,
         match_number: matchNum,
         home_team_id: null,
         away_team_id: null,
-        home_player_ids: pair1,
-        away_player_ids: isSolo ? [] : pair2,
         status: 'in_progress',
         holes_string: '..................',
         is_singles: mode === 'singles',
         round_format: (mode === '4bbb' || mode === 'singles') ? 'matchplay' : isMashie ? 'team_stableford' : mode,
         hcp_allowance: hcpAllowance,
-        side_games: sideGamesList,
+        side_games: mode === 'best2from4_par3all' ? [...sideGamesList, 'par3all'] : sideGamesList,
         secondary_format: secondaryFormat,
         ...(isTeamStableford ? { team_size: isMashie ? 4 : teamSize, counting_scores: isMashie ? 2 : countingScores } : {}),
-        ...(mode === 'best2from4_par3all' ? { side_games: [...sideGamesList, 'par3all'] } : {}),
-      }).select().single();
+      };
 
-      if (error || !newMatch) throw error ?? new Error('Could not create game');
+      let newMatch: any;
+      let firstMatchId: string;
+
+      if (isTeamStableford && numTeams > 2) {
+        // Create one match per team, each as a solo team (no opponents)
+        const allTeamsList = [pair1, pair2, ...extraTeams].filter(t => t.length > 0);
+        const results = await Promise.all(allTeamsList.map(team =>
+          supabase.from('matches').insert({ ...teamCommonFields, home_player_ids: team, away_player_ids: [] }).select().single()
+        ));
+        const firstResult = results[0];
+        if (firstResult.error || !firstResult.data) throw firstResult.error ?? new Error('Could not create game');
+        newMatch = firstResult.data;
+        firstMatchId = firstResult.data.id;
+      } else {
+        const { data, error } = await supabase.from('matches').insert({
+          ...teamCommonFields,
+          home_player_ids: pair1,
+          away_player_ids: isSolo ? [] : pair2,
+        }).select().single();
+        if (error || !data) throw error ?? new Error('Could not create game');
+        newMatch = data;
+        firstMatchId = data.id;
+      }
 
       const codeMsg = dayCode ? `\nDay code: ${dayCode}` : '';
       setCreating(false);
@@ -541,13 +601,15 @@ export default function NewGameScreen() {
             text: "Let's Play",
             style: 'default',
             onPress: () => {
-              if (isTeamStableford) {
-                router.replace(`/(app)/score/teamstableford/${newMatch.id}` as any);
+              if (isTeamStableford && numTeams > 2) {
+                router.push(`/(app)/score/day/${resolvedDayId}` as any);
+              } else if (isTeamStableford) {
+                router.push(`/(app)/score/teamstableford/${firstMatchId}` as any);
               } else if (existingDayId) {
-                router.replace(`/(app)/score/day/${resolvedDayId}` as any);
+                router.push(`/(app)/score/day/${resolvedDayId}` as any);
               } else {
                 const params = dayCode ? `?dayId=${resolvedDayId}&dayCode=${dayCode}` : '';
-                router.replace(`/(app)/score/preview/${newMatch.id}${params}` as any);
+                router.push(`/(app)/score/preview/${firstMatchId}${params}` as any);
               }
             },
           },
@@ -825,14 +887,20 @@ export default function NewGameScreen() {
         {/* ── Settings card ──────────────────────────────────── */}
         <View style={s.settingsCard}>
 
-          {/* Players */}
-          <SettingRow icon="people-outline" label="Players" value={playersLabel} valueColor={pair1.length === 0 ? GOLD : undefined} onPress={() => setShowPlayers(true)} s={s} GOLD={GOLD} />
-          <View style={s.settingDivider} />
-
           {/* Format */}
           <SettingRow icon="trophy-outline" label="Format" value={formatLabel} onPress={() => setShowFormat(true)} s={s} GOLD={GOLD} />
+          <View style={s.settingDivider} />
 
-          {/* Team Stableford config */}
+          {/* Players */}
+          <SettingRow icon="people-outline" label="Players" value={playersLabel} valueColor={pair1.length === 0 ? GOLD : undefined} onPress={() => setShowPlayers(true)} s={s} GOLD={GOLD} />
+
+          {/* Team / Mashie config */}
+          {isTeamMode && (
+            <>
+              <View style={s.settingDivider} />
+              <SettingRow icon="albums-outline" label="Teams" value={`${numTeams} teams`} onPress={() => setShowNumTeams(true)} s={s} GOLD={GOLD} />
+            </>
+          )}
           {mode === 'team_stableford' && (
             <>
               <View style={s.settingDivider} />
@@ -924,6 +992,37 @@ export default function NewGameScreen() {
             </View>
           )}
 
+          {mode !== 'stableford' && mode !== 'medal' && (
+            <>
+              <View style={s.settingDivider} />
+              <SettingRow
+                icon="star-outline"
+                label="Stableford"
+                value={secondaryFormat === 'stableford' ? 'On' : 'Off'}
+                valueColor={secondaryFormat === 'stableford' ? GOLD : '#6b7280'}
+                onPress={() => setSecondaryFormat(f => f === 'stableford' ? null : 'stableford')}
+                s={s} GOLD={GOLD}
+              >
+                <View style={[s.toggle, secondaryFormat === 'stableford' && s.toggleOn]}>
+                  <View style={[s.toggleThumb, secondaryFormat === 'stableford' && s.toggleThumbOn]} />
+                </View>
+              </SettingRow>
+              <View style={s.settingDivider} />
+              <SettingRow
+                icon="medal-outline"
+                label="Medal"
+                value={secondaryFormat === 'medal' ? 'On' : 'Off'}
+                valueColor={secondaryFormat === 'medal' ? GOLD : '#6b7280'}
+                onPress={() => setSecondaryFormat(f => f === 'medal' ? null : 'medal')}
+                s={s} GOLD={GOLD}
+              >
+                <View style={[s.toggle, secondaryFormat === 'medal' && s.toggleOn]}>
+                  <View style={[s.toggleThumb, secondaryFormat === 'medal' && s.toggleThumbOn]} />
+                </View>
+              </SettingRow>
+            </>
+          )}
+
         </View>
 
         {/* ── GPS & Course Features ───────────────────────────── */}
@@ -1011,15 +1110,20 @@ export default function NewGameScreen() {
       <FormatSheet visible={showFormat} selected={mode} onSelect={selectMode} onClose={() => setShowFormat(false)} ps={ps} GOLD={GOLD} />
       <PlayerSheet
         visible={showPlayers} players={players} groups={groups} pair1={pair1} pair2={pair2}
-        pairStep={pairStep} isSolo={isSolo} atMax={atMax} takenIds={takenPlayerIds}
-        teamLabels={mode === 'team_stableford'}
+        pairStep={pairStep} numTeams={isTeamMode ? numTeams : 2} extraTeams={extraTeams}
+        isSolo={isSolo} atMax={atMax} takenIds={takenPlayerIds}
+        teamLabels={mode === 'team_stableford' || isMashie}
+        isSingles={mode === 'singles'}
         onToggle={togglePlayer}
-        onNextPair={() => setPairStep(2)}
+        onNextPair={() => {
+          const next = pairStep + 1;
+          if (next > 2) setExtraTeams(prev => { const a = [...prev]; if (!a[next - 3]) a[next - 3] = []; return a; });
+          setPairStep(next);
+        }}
         onLoadGroup={(ids) => {
           const valid = ids.filter(id => players.some(p => p.id === id));
           setPair1(valid.slice(0, maxPer));
-          setPair2([]);
-          setPairStep(1);
+          setPair2([]); setExtraTeams([]); setPairStep(1);
         }}
         onClose={() => { setShowPlayers(false); setPairStep(1); }}
         ps={ps} GOLD={GOLD}
@@ -1035,6 +1139,19 @@ export default function NewGameScreen() {
         selected={hcpAllowance.toString() as any}
         onSelect={(v: any) => setHcpAllowance(parseInt(v, 10))}
         onClose={() => setShowHcp(false)}
+        ps={ps} GOLD={GOLD}
+      />
+      <PickerSheet
+        visible={showNumTeams} title="Number of Teams"
+        options={Array.from({ length: 29 }, (_, i) => ({ key: String(i + 2), label: `${i + 2} teams` }))}
+        selected={numTeams.toString() as any}
+        onSelect={(v: any) => {
+          const n = parseInt(v, 10);
+          setNumTeams(n);
+          setExtraTeams(n > 2 ? Array.from({ length: n - 2 }, () => []) : []);
+          setPair1([]); setPair2([]); setPairStep(1);
+        }}
+        onClose={() => setShowNumTeams(false)}
         ps={ps} GOLD={GOLD}
       />
       <PickerSheet

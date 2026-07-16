@@ -8,13 +8,14 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../src/lib/assets';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
 const RED = '#f87171';
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
-const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 export default function SocietyAdminScreen() {
   const [fontsLoaded] = useFonts({
@@ -23,6 +24,8 @@ export default function SocietyAdminScreen() {
   });
 
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const { societyId, loading: societyLoading } = useAdminSociety();
   const [societyName, setSocietyName] = useState('');
   const [instagramUrl, setInstagramUrl] = useState('');
@@ -161,15 +164,15 @@ export default function SocietyAdminScreen() {
 
   if (loading || societyLoading || !fontsLoaded) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-        <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
+      <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <StatusBar style="light" /><ActivityIndicator color={dc.gold} size="large" />
       </View>
     );
   }
 
   if (!societyId) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
         <StatusBar style="light" />
         <Text style={{ color: '#fff', fontFamily: FFB, fontSize: 14, textAlign: 'center', paddingHorizontal: 32 }}>
           No society found.{'\n'}Create one from the landing screen or contact your admin.
@@ -180,25 +183,25 @@ export default function SocietyAdminScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={s.container}
+      style={[s.container, { backgroundColor: dc.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <StatusBar style="light" />
 
       {/* Header */}
-      <View style={s.header}>
+      <View style={[s.header, { borderBottomColor: dc.border }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={s.back}>← Back</Text>
+          <Text style={[s.back, { color: dc.gold }]}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
-          <Text style={s.headerSub}>ADMIN</Text>
+          <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.headerLogo} resizeMode="contain" />
+          <Text style={[s.headerSub, { color: dc.gold }]}>ADMIN</Text>
         </View>
         <TouchableOpacity onPress={save} disabled={saving}>
-          <Text style={[s.saveBtn, saving && { opacity: 0.4 }]}>
+          <Text style={[s.saveBtn, { color: dc.gold }, saving && { opacity: 0.4 }]}>
             {saving ? 'Saving…' : 'Save'}
           </Text>
         </TouchableOpacity>
@@ -212,24 +215,24 @@ export default function SocietyAdminScreen() {
       >
         {/* SOCIETY */}
         <View style={s.section}>
-          <Text style={s.sectionLabel}>SOCIETY</Text>
-          <View style={s.card}>
-            <Text style={s.cardLabel}>Name</Text>
-            <Text style={s.cardValue}>{societyName}</Text>
+          <Text style={[s.sectionLabel, { color: dc.cardText }]}>SOCIETY</Text>
+          <View style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }]}>
+            <Text style={[s.cardLabel, { color: dc.cardText }]}>Name</Text>
+            <Text style={[s.cardValue, { color: dc.cardText }]}>{societyName}</Text>
           </View>
-          <View style={[s.card, { marginTop: 8 }]}>
-            <Text style={s.cardLabel}>Player Join PIN</Text>
+          <View style={[s.card, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}>
+            <Text style={[s.cardLabel, { color: dc.cardText }]}>Player Join PIN</Text>
             {joinPin ? (
               <>
                 <Text style={s.pinValue}>{joinPin.slice(0, 3)} {joinPin.slice(3)}</Text>
-                <Text style={s.hint}>Share this PIN so new players can join your society</Text>
+                <Text style={[s.hint, { color: dc.cardText }]}>Share this PIN so new players can join your society</Text>
                 <TouchableOpacity style={s.pinShareBtn} onPress={sharePin} activeOpacity={0.8}>
                   <Text style={s.pinShareBtnText}>Share PIN</Text>
                 </TouchableOpacity>
               </>
             ) : (
               <>
-                <Text style={[s.hint, { marginTop: 4 }]}>No join PIN generated yet</Text>
+                <Text style={[s.hint, { color: dc.cardText, marginTop: 4 }]}>No join PIN generated yet</Text>
                 <TouchableOpacity style={s.pinShareBtn} onPress={generatePin} activeOpacity={0.8}>
                   <Text style={s.pinShareBtnText}>Generate PIN</Text>
                 </TouchableOpacity>
@@ -240,11 +243,11 @@ export default function SocietyAdminScreen() {
 
         {/* SOCIAL MEDIA */}
         <View style={s.section}>
-          <Text style={s.sectionLabel}>SOCIAL MEDIA</Text>
-          <View style={s.card}>
-            <Text style={s.cardLabel}>Instagram URL or Handle</Text>
+          <Text style={[s.sectionLabel, { color: dc.cardText }]}>SOCIAL MEDIA</Text>
+          <View style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }]}>
+            <Text style={[s.cardLabel, { color: dc.cardText }]}>Instagram URL or Handle</Text>
             <TextInput
-              style={s.input}
+              style={[s.input, { backgroundColor: dc.card, borderColor: dc.border, color: dc.cardText }]}
               value={instagramUrl}
               onChangeText={setInstagramUrl}
               placeholder="@yoursociety or full URL"
@@ -253,7 +256,7 @@ export default function SocietyAdminScreen() {
               autoCorrect={false}
               keyboardType="url"
             />
-            <Text style={s.hint}>
+            <Text style={[s.hint, { color: dc.cardText }]}>
               Enter @handle or https://www.instagram.com/yoursociety
             </Text>
           </View>
@@ -261,72 +264,72 @@ export default function SocietyAdminScreen() {
 
         {/* BRANDING */}
         <View style={s.section}>
-          <Text style={s.sectionLabel}>BRANDING</Text>
+          <Text style={[s.sectionLabel, { color: dc.cardText }]}>BRANDING</Text>
           <TouchableOpacity
-            style={s.linkCard}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border }]}
             onPress={() => router.push('/(app)/admin/branding' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={s.linkTitle}>Society Branding</Text>
-              <Text style={s.linkSub}>Logo, name, tagline and colours</Text>
+              <Text style={[s.linkTitle, { color: dc.cardText }]}>Society Branding</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Logo, name, tagline and colours</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[s.linkCard, { marginTop: 8 }]}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
             onPress={() => router.push('/(app)/admin/teams' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={s.linkTitle}>Manage Teams</Text>
-              <Text style={s.linkSub}>Add teams, set crests and colours</Text>
+              <Text style={[s.linkTitle, { color: dc.cardText }]}>Manage Teams</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Add teams, set crests and colours</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
         </View>
 
         {/* PLAYERS */}
         <View style={s.section}>
-          <Text style={s.sectionLabel}>PLAYERS</Text>
+          <Text style={[s.sectionLabel, { color: dc.cardText }]}>PLAYERS</Text>
           <TouchableOpacity
-            style={s.linkCard}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border }]}
             onPress={() => router.push('/(app)/admin/players' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={s.linkTitle}>Manage Players</Text>
-              <Text style={s.linkSub}>View roster, add players manually</Text>
+              <Text style={[s.linkTitle, { color: dc.cardText }]}>Manage Players</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>View roster, add players manually</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={s.linkCard}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
             onPress={() => router.push('/(app)/admin/groups' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={s.linkTitle}>Player Groups</Text>
-              <Text style={s.linkSub}>Named groups for quick game setup</Text>
+              <Text style={[s.linkTitle, { color: dc.cardText }]}>Player Groups</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Named groups for quick game setup</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
         </View>
 
         {/* MEMBERSHIP AREAS */}
         <View style={s.section}>
-          <Text style={s.sectionLabel}>MEMBERSHIP AREAS</Text>
+          <Text style={[s.sectionLabel, { color: dc.cardText }]}>MEMBERSHIP AREAS</Text>
           {[
             { key: 'casual',  label: 'Casual Golf', icon: '🏌️', code: casualCode,  color: GREEN },
             { key: 'tour',    label: 'The Tour',    icon: '🏆', code: tourCode,    color: GOLD },
             { key: 'swindle', label: 'The Swindle', icon: '💰', code: swindleCode, color: '#a78bfa' },
           ].map((area, idx) => (
-            <View key={area.key} style={[s.card, idx > 0 && { marginTop: 8 }]}>
+            <View key={area.key} style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }, idx > 0 && { marginTop: 8 }]}>
               <Text style={[s.cardLabel, { color: area.color }]}>{area.icon}  {area.label.toUpperCase()}</Text>
               {area.code ? (
                 <>
                   <Text style={[s.pinValue, { color: area.color, letterSpacing: 8 }]}>{area.code}</Text>
-                  <Text style={s.hint}>Share this code for players joining {area.label}</Text>
+                  <Text style={[s.hint, { color: dc.cardText }]}>Share this code for players joining {area.label}</Text>
                   <TouchableOpacity
                     style={[s.pinShareBtn, { borderColor: area.color + '55', backgroundColor: area.color + '15' }]}
                     onPress={() => shareAreaCode(area.code, area.label)}
@@ -336,155 +339,155 @@ export default function SocietyAdminScreen() {
                   </TouchableOpacity>
                 </>
               ) : (
-                <Text style={s.hint}>Code not generated — run membership_areas migration</Text>
+                <Text style={[s.hint, { color: dc.cardText }]}>Code not generated — run membership_areas migration</Text>
               )}
             </View>
           ))}
           <TouchableOpacity
-            style={[s.linkCard, { marginTop: 8 }]}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
             onPress={() => router.push('/(app)/admin/membership' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={s.linkTitle}>Manage Player Access</Text>
-              <Text style={s.linkSub}>Toggle Casual / Tour / Swindle per player</Text>
+              <Text style={[s.linkTitle, { color: dc.cardText }]}>Manage Player Access</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Toggle Casual / Tour / Swindle per player</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
         </View>
 
         {/* ACTIVE TOURNAMENT */}
         <View style={s.section}>
-          <Text style={s.sectionLabel}>ACTIVE TOURNAMENT</Text>
-          <View style={s.card}>
+          <Text style={[s.sectionLabel, { color: dc.cardText }]}>ACTIVE TOURNAMENT</Text>
+          <View style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }]}>
             {activeTournamentName ? (
               <>
-                <Text style={s.cardLabel}>{activeTournamentName}</Text>
-                <Text style={[s.cardLabel, { marginTop: 8 }]}>Tournament PIN</Text>
+                <Text style={[s.cardLabel, { color: dc.cardText }]}>{activeTournamentName}</Text>
+                <Text style={[s.cardLabel, { color: dc.cardText, marginTop: 8 }]}>Tournament PIN</Text>
                 {activeTournamentPin ? (
                   <>
                     <Text style={s.pinValue}>{activeTournamentPin.split('').join('  ')}</Text>
-                    <Text style={s.hint}>Share this PIN so players can unlock the Tour tab</Text>
+                    <Text style={[s.hint, { color: dc.cardText }]}>Share this PIN so players can unlock the Tour tab</Text>
                     <TouchableOpacity style={s.pinShareBtn} onPress={shareTournamentPin} activeOpacity={0.8}>
                       <Text style={s.pinShareBtnText}>Share Tournament PIN</Text>
                     </TouchableOpacity>
                   </>
                 ) : (
-                  <Text style={[s.hint, { marginTop: 4 }]}>No PIN — run add_competition_pin.sql migration</Text>
+                  <Text style={[s.hint, { color: dc.cardText, marginTop: 4 }]}>No PIN — run add_competition_pin.sql migration</Text>
                 )}
               </>
             ) : (
-              <Text style={s.hint}>No active tournament running</Text>
+              <Text style={[s.hint, { color: dc.cardText }]}>No active tournament running</Text>
             )}
           </View>
         </View>
 
         {/* COMPETITION TOOLS */}
         <View style={s.section}>
-          <Text style={s.sectionLabel}>COMPETITION TOOLS</Text>
+          <Text style={[s.sectionLabel, { color: dc.cardText }]}>COMPETITION TOOLS</Text>
           <TouchableOpacity
-            style={s.linkCard}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border }]}
             onPress={() => router.push('/(app)/admin/build' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={s.linkTitle}>Build a Tournament</Text>
-              <Text style={s.linkSub}>Create a new season competition</Text>
+              <Text style={[s.linkTitle, { color: dc.cardText }]}>Build a Tournament</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Create a new season competition</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[s.linkCard, { marginTop: 8 }]}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
             onPress={() => router.push('/(app)/admin/tournaments' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={s.linkTitle}>Tournament History</Text>
-              <Text style={s.linkSub}>All competitions, champions &amp; PINs</Text>
+              <Text style={[s.linkTitle, { color: dc.cardText }]}>Tournament History</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>All competitions, champions &amp; PINs</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[s.linkCard, { marginTop: 8 }]}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
             onPress={() => router.push('/(app)/admin/courses' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={s.linkTitle}>Manage Courses</Text>
-              <Text style={s.linkSub}>Add courses and set hole par / stroke index</Text>
+              <Text style={[s.linkTitle, { color: dc.cardText }]}>Manage Courses</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Add courses and set hole par / stroke index</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[s.linkCard, { marginTop: 8 }]}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
             onPress={() => router.push('/(app)/admin/pins' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={s.linkTitle}>⛳ Green Pins</Text>
-              <Text style={s.linkSub}>Set green locations for satellite rangefinder</Text>
+              <Text style={[s.linkTitle, { color: dc.cardText }]}>⛳ Green Pins</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Set green locations for satellite rangefinder</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[s.linkCard, { marginTop: 8 }]}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
             onPress={() => router.push('/(app)/admin/info' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={s.linkTitle}>Edit Info Pack</Text>
-              <Text style={s.linkSub}>Update the tour info board</Text>
+              <Text style={[s.linkTitle, { color: dc.cardText }]}>Edit Info Pack</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Update the tour info board</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[s.linkCard, { marginTop: 8, borderColor: GOLD + '55' }]}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.gold + '55', marginTop: 8 }]}
             onPress={() => router.push('/(app)/records' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: GOLD }]}>🏆 Wall of Records</Text>
-              <Text style={s.linkSub}>All-time society bests</Text>
+              <Text style={[s.linkTitle, { color: dc.gold }]}>🏆 Wall of Records</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>All-time society bests</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[s.linkCard, { marginTop: 8, borderColor: GOLD + '55' }]}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.gold + '55', marginTop: 8 }]}
             onPress={() => router.push('/(app)/admin/transfers' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: GOLD }]}>Transfer Window</Text>
-              <Text style={s.linkSub}>Move players between teams or release them</Text>
+              <Text style={[s.linkTitle, { color: dc.gold }]}>Transfer Window</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Move players between teams or release them</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[s.linkCard, { marginTop: 8, borderColor: '#a78bfa55' }]}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: '#a78bfa55', marginTop: 8 }]}
             onPress={() => router.push('/(app)/admin/swindle' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
               <Text style={[s.linkTitle, { color: '#a78bfa' }]}>💰 Swindle Manager</Text>
-              <Text style={s.linkSub}>Games, results & season money list</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Games, results & season money list</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
         </View>
 
         {/* PLATFORM */}
         <View style={s.section}>
-          <Text style={s.sectionLabel}>PLATFORM</Text>
+          <Text style={[s.sectionLabel, { color: dc.cardText }]}>PLATFORM</Text>
           <TouchableOpacity
-            style={s.linkCard}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border }]}
             onPress={() => router.push('/(app)/admin/create-society' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={s.linkTitle}>Create New Society</Text>
-              <Text style={s.linkSub}>Onboard a new golf club to Titan</Text>
+              <Text style={[s.linkTitle, { color: dc.cardText }]}>Create New Society</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Onboard a new golf club to Titan</Text>
             </View>
-            <Text style={s.arrow}>›</Text>
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
         </View>
 
@@ -500,9 +503,9 @@ export default function SocietyAdminScreen() {
 
         {/* CHAT */}
         <View style={s.section}>
-          <Text style={s.sectionLabel}>CHAT</Text>
+          <Text style={[s.sectionLabel, { color: dc.cardText }]}>CHAT</Text>
           <TouchableOpacity
-            style={s.linkCard}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border }]}
             onPress={() => Alert.alert(
               'Clear All Chat?',
               'This will delete all messages for everyone. Cannot be undone.',
@@ -521,8 +524,8 @@ export default function SocietyAdminScreen() {
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={s.linkTitle}>Clear All Messages</Text>
-              <Text style={s.linkSub}>Delete the entire chat history</Text>
+              <Text style={[s.linkTitle, { color: dc.cardText }]}>Clear All Messages</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Delete the entire chat history</Text>
             </View>
             <Text style={[s.arrow, { color: RED }]}>›</Text>
           </TouchableOpacity>

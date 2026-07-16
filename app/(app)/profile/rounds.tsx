@@ -5,13 +5,14 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../src/lib/assets';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 interface Round {
   matchId: string;
@@ -28,6 +29,8 @@ interface Round {
 
 export default function RoundsScreen() {
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [loading, setLoading] = useState(true);
   const [rounds,  setRounds]  = useState<Round[]>([]);
 
@@ -132,19 +135,19 @@ export default function RoundsScreen() {
 
   if (loading || !fontsLoaded) {
     return (
-      <View style={ss.loadingContainer}>
+      <View style={[ss.loadingContainer, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
-        <ActivityIndicator color={GOLD} size="large" />
+        <ActivityIndicator color={dc.gold} size="large" />
       </View>
     );
   }
 
   return (
-    <View style={ss.container}>
+    <View style={[ss.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
-      <View style={ss.header}>
+      <View style={[ss.header, { borderBottomColor: dc.border }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -154,8 +157,8 @@ export default function RoundsScreen() {
         </TouchableOpacity>
 
         <View style={ss.headerCenter}>
-          <Image source={titanLogo} style={ss.logo} resizeMode="contain" />
-          <Text style={ss.headerSubtitle}>ROUND HISTORY</Text>
+          <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={ss.logo} resizeMode="contain" />
+          <Text style={[ss.headerSubtitle, { color: dc.gold }]}>ROUND HISTORY</Text>
         </View>
 
         <View style={[ss.headerSide, { alignItems: 'flex-end' }]} />
@@ -176,7 +179,7 @@ export default function RoundsScreen() {
             return (
               <TouchableOpacity
                 key={r.matchId}
-                style={ss.card}
+                style={[ss.card, { backgroundColor: dc.card, borderColor: dc.border }]}
                 onPress={() => router.push(`/(app)/profile/round/${r.matchId}` as any)}
                 activeOpacity={0.75}
               >
@@ -219,7 +222,7 @@ export default function RoundsScreen() {
                 {/* View hole-by-hole row */}
                 <View style={ss.drillRow}>
                   <Text style={ss.drillLink}>View hole-by-hole</Text>
-                  <Ionicons name="chevron-forward" size={14} color={GOLD} />
+                  <Ionicons name="chevron-forward" size={14} color={dc.gold} />
                 </View>
               </TouchableOpacity>
             );

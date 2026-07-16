@@ -9,7 +9,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
-import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../src/lib/assets';
 import type { Player } from '../../../src/types';
 
 const GOLD  = '#D4AF37'; // StyleSheet fallback — JSX uses dc.gold
@@ -32,6 +33,7 @@ type Club = {
 export default function ProfileScreen() {
   const router = useRouter();
   const dc = useDynamicColors();
+  const { localLogo, logoUrl, societyName: themeSocietyName } = useSocietyTheme();
 
   const [player,         setPlayer]         = useState<Player | null>(null);
   const [clubs,          setClubs]          = useState<Club[]>([]);
@@ -215,7 +217,7 @@ export default function ProfileScreen() {
       <StatusBar style="light" />
 
       {/* ── Header ── */}
-      <View style={s.header}>
+      <View style={[s.header, { backgroundColor: dc.bg }]}>
         <View style={s.headerSide}>
           <TouchableOpacity onPress={() => {}} hitSlop={HIT}>
             <View style={s.bellWrap}>
@@ -226,14 +228,14 @@ export default function ProfileScreen() {
         </View>
         <View style={s.headerCenter}>
           <Image
-            source={require('../../../assets/TitanAppLogo.png')}
+            source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)}
             style={s.headerLogo}
             resizeMode="contain"
           />
         </View>
         <View style={[s.headerSide, { alignItems: 'flex-end' }]}>
           {!editing
-            ? <TouchableOpacity onPress={startEdit} hitSlop={HIT}><Text style={s.editLink}>Edit</Text></TouchableOpacity>
+            ? <TouchableOpacity onPress={startEdit} hitSlop={HIT}><Text style={[s.editLink, { color: dc.gold }]}>Edit</Text></TouchableOpacity>
             : <TouchableOpacity onPress={cancelEdit} hitSlop={HIT}><Text style={s.cancelLink}>Cancel</Text></TouchableOpacity>
           }
         </View>
@@ -249,7 +251,7 @@ export default function ProfileScreen() {
         <Text style={s.pageTitle}>{editing ? 'Edit Profile' : 'Locker Room'}</Text>
 
         {/* ── Profile card ── */}
-        <View style={s.profileCard}>
+        <View style={[s.profileCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <TouchableOpacity
             onPress={editing ? pickImage : undefined}
             activeOpacity={editing ? 0.7 : 1}
@@ -258,12 +260,12 @@ export default function ProfileScreen() {
             {player?.avatar_url
               ? <Image source={{ uri: player.avatar_url }} style={s.avatarImg} />
               : (
-                <View style={s.avatarPlaceholder}>
-                  <Text style={s.avatarInitial}>{initial}</Text>
+                <View style={[s.avatarPlaceholder, { backgroundColor: `${dc.gold}18` }]}>
+                  <Text style={[s.avatarInitial, { color: dc.gold }]}>{initial}</Text>
                 </View>
               )
             }
-            <View style={s.avatarRing} />
+            <View style={[s.avatarRing, { borderColor: `${dc.gold}50` }]} />
             {editing && (
               <View style={s.avatarOverlay}>
                 {uploadingImage
@@ -278,7 +280,7 @@ export default function ProfileScreen() {
             <Text style={s.profileName}>{player?.display_name ?? 'Golfer'}</Text>
             <View style={s.badgeRow}>
               <View style={s.eliteDot} />
-              <Text style={s.eliteText}>{player?.nickname ? `"${player.nickname}"` : 'TITAN Member'}</Text>
+              <Text style={s.eliteText}>{player?.nickname ? `"${player.nickname}"` : `${themeSocietyName} Member`}</Text>
             </View>
             <View style={s.statsRow}>
               <View style={s.statBox}>
@@ -300,13 +302,13 @@ export default function ProfileScreen() {
           <>
             {/* ── EDIT: Details only ── */}
             <Text style={s.sectionLabel}>DETAILS</Text>
-            <View style={s.card}>
+            <View style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <EditField label="Display Name"   value={name}     onChange={setName}     placeholder="Your name" autoFocus />
-              <View style={s.divider} />
+              <View style={[s.divider, { backgroundColor: dc.border }]} />
               <EditField label="Nickname"       value={nickname} onChange={setNickname} placeholder='e.g. "The Machine"' />
-              <View style={s.divider} />
+              <View style={[s.divider, { backgroundColor: dc.border }]} />
               <EditField label="Handicap Index" value={hcp}      onChange={setHcp}      placeholder="e.g. 14.2" keyboardType="decimal-pad" />
-              <View style={s.divider} />
+              <View style={[s.divider, { backgroundColor: dc.border }]} />
               <EditField label="CDH Number"     value={cdhNum}   onChange={setCdhNum}   placeholder="England Golf CDH number" keyboardType="number-pad" />
             </View>
 
@@ -323,7 +325,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[s.saveBtn, saving && { opacity: 0.5 }]}
+              style={[s.saveBtn, { backgroundColor: dc.gold }, saving && { opacity: 0.5 }]}
               onPress={save} disabled={saving} activeOpacity={0.8}
             >
               {saving ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>Save Profile</Text>}
@@ -338,16 +340,16 @@ export default function ProfileScreen() {
                 <Text style={s.bagSubtitle}>Tap a club to edit or assign NFC</Text>
               </View>
               <TouchableOpacity
-                style={s.addClubBtn}
+                style={[s.addClubBtn, { borderColor: dc.gold }]}
                 onPress={() => router.push('/(app)/profile/bag' as any)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="options-outline" size={14} color={GOLD} />
-                <Text style={s.addClubText}>Manage</Text>
+                <Ionicons name="options-outline" size={14} color={dc.gold} />
+                <Text style={[s.addClubText, { color: dc.gold }]}>Manage</Text>
               </TouchableOpacity>
             </View>
 
-            <View style={s.clubList}>
+            <View style={[s.clubList, { backgroundColor: dc.card, borderColor: dc.border }]}>
               {clubs.length === 0 ? (
                 <TouchableOpacity
                   style={s.emptyBag}
@@ -366,8 +368,8 @@ export default function ProfileScreen() {
                     onPress={() => router.push(`/(app)/profile/club/${club.id}` as any)}
                     activeOpacity={0.7}
                   >
-                    <View style={s.clubIconWrap}>
-                      <Ionicons name="golf-outline" size={15} color={GOLD} />
+                    <View style={[s.clubIconWrap, { backgroundColor: `${dc.gold}0d`, borderColor: `${dc.gold}25` }]}>
+                      <Ionicons name="golf-outline" size={15} color={dc.gold} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={s.clubName}>{club.name}</Text>
@@ -390,46 +392,60 @@ export default function ProfileScreen() {
             </View>
 
             {/* ── READ: Quick links ── */}
-            <View style={s.quickLinks}>
+            <View style={[s.quickLinks, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <QuickLink
                 icon="bar-chart-outline"
                 title="My Stats"
                 sub="Scoring, drives, putting & distances"
                 onPress={() => router.push('/(app)/profile/stats' as any)}
               />
-              <View style={s.quickLinkDivider} />
+              <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
               <QuickLink
                 icon="golf-outline"
                 title="Round History"
                 sub="All your past rounds & scores"
                 onPress={() => router.push('/(app)/profile/rounds' as any)}
               />
-              <View style={s.quickLinkDivider} />
+              <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
               <QuickLink
                 icon="trending-down-outline"
                 title="Handicap Calculator"
                 sub="Recalculate your index"
                 onPress={() => router.push('/(app)/profile/handicap' as any)}
               />
-              <View style={s.quickLinkDivider} />
+              <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
               <QuickLink
                 icon="wifi-outline"
                 title="My Bag & NFC Tags"
                 sub="Add, remove and reorder clubs"
                 onPress={() => router.push('/(app)/profile/bag' as any)}
               />
+              <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
+              <QuickLink
+                icon="navigate-outline"
+                title="Caddie"
+                sub="GPS, yardages & distances"
+                onPress={() => router.push('/(app)/rangefinder' as any)}
+              />
+              <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
+              <QuickLink
+                icon="bar-chart-outline"
+                title="Practice"
+                sub="Driving range & tracking"
+                onPress={() => router.push('/(app)/range' as any)}
+              />
             </View>
 
             {/* ── READ: Stats bar ── */}
-            <View style={s.statsBar}>
+            <View style={[s.statsBar, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <View style={s.statsCol}>
-                <Ionicons name="golf-outline" size={18} color={GOLD} />
+                <Ionicons name="golf-outline" size={18} color={dc.gold} />
                 <Text style={s.statsColLabel}>IN THE BAG</Text>
                 <Text style={s.statsColValue}>{clubs.length} clubs</Text>
               </View>
               <View style={s.statsColDivider} />
               <View style={s.statsCol}>
-                <Ionicons name="trending-down-outline" size={18} color={GOLD} />
+                <Ionicons name="trending-down-outline" size={18} color={dc.gold} />
                 <Text style={s.statsColLabel}>HANDICAP</Text>
                 <Text style={s.statsColValue}>
                   {player?.handicap_index != null ? String(player.handicap_index) : '—'}
@@ -445,21 +461,21 @@ export default function ProfileScreen() {
 
             {/* ── READ: Account ── */}
             <Text style={s.sectionLabel}>ACCOUNT</Text>
-            <View style={s.quickLinks}>
+            <View style={[s.quickLinks, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <QuickLink
                 icon="key-outline"
                 title="Change Password"
                 sub="Update your login password"
                 onPress={() => { setNewPw(''); setConfirmPw(''); setShowPwModal(true); }}
               />
-              <View style={s.quickLinkDivider} />
+              <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
               <QuickLink
                 icon="swap-horizontal-outline"
                 title="Switch Society"
                 sub="Change your active golf society"
                 onPress={() => router.push('/(app)/join' as any)}
               />
-              <View style={s.quickLinkDivider} />
+              <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
               <TouchableOpacity style={s.quickLink} onPress={signOut} activeOpacity={0.7}>
                 <View style={s.quickLinkLeft}>
                   <View style={[s.quickLinkIcon, { backgroundColor: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.2)' }]}>
@@ -502,13 +518,13 @@ export default function ProfileScreen() {
           </View>
           <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
             <Text style={[s.pageTitle, { fontSize: 28 }]}>Change Password</Text>
-            <View style={s.card}>
+            <View style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <EditField label="New Password"     value={newPw}     onChange={setNewPw}     placeholder="Min 6 characters" secureTextEntry autoFocus />
-              <View style={s.divider} />
+              <View style={[s.divider, { backgroundColor: dc.border }]} />
               <EditField label="Confirm Password" value={confirmPw} onChange={setConfirmPw} placeholder="Repeat new password" secureTextEntry />
             </View>
             <TouchableOpacity
-              style={[s.saveBtn, pwSaving && { opacity: 0.5 }]}
+              style={[s.saveBtn, { backgroundColor: dc.gold }, pwSaving && { opacity: 0.5 }]}
               onPress={changePassword} disabled={pwSaving} activeOpacity={0.8}
             >
               {pwSaving ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>Update Password</Text>}
@@ -524,11 +540,12 @@ export default function ProfileScreen() {
 function QuickLink({ icon, title, sub, onPress }: {
   icon: any; title: string; sub: string; onPress: () => void;
 }) {
+  const dc = useDynamicColors();
   return (
     <TouchableOpacity style={s.quickLink} onPress={onPress} activeOpacity={0.75}>
       <View style={s.quickLinkLeft}>
-        <View style={s.quickLinkIcon}>
-          <Ionicons name={icon} size={18} color={GOLD} />
+        <View style={[s.quickLinkIcon, { backgroundColor: `${dc.gold}1a`, borderColor: `${dc.gold}30` }]}>
+          <Ionicons name={icon} size={18} color={dc.gold} />
         </View>
         <View>
           <Text style={s.quickLinkTitle}>{title}</Text>
@@ -641,7 +658,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16, marginBottom: 10,
   },
   bagTitle:    { fontFamily: FFB, fontSize: 18, color: '#ffffff', marginBottom: 2 },
-  bagSubtitle: { fontFamily: FFB, fontSize: 11, color: '#fff' },
+  bagSubtitle: { fontFamily: FF, fontSize: 11, color: '#fff' },
   addClubBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderWidth: 1, borderColor: GOLD, borderRadius: 20,

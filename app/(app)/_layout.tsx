@@ -124,7 +124,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="watch/index"    options={{ href: null }} />
         <Tabs.Screen name="chat/index"     options={{ href: null }} />
         <Tabs.Screen name="feed/index"     options={{ href: null }} />
-        <Tabs.Screen name="profile/index"  options={{ title: 'Profile',  tabBarIcon: ({ focused }) => <TabIcon focused={focused}><ProfileIcon     color={ic(focused)} /></TabIcon> }} />
+        <Tabs.Screen name="profile"  options={{ title: 'Profile',  tabBarIcon: ({ focused }) => <TabIcon focused={focused}><ProfileIcon     color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="admin/index"    options={{ href: isAdmin ? undefined : null, title: 'Admin', tabBarIcon: ({ focused }) => <TabIcon focused={focused}><AdminIcon color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="admin/build"              options={{ href: null }} />
         <Tabs.Screen name="admin/concept"            options={{ href: null }} />
@@ -168,12 +168,6 @@ function AppLayoutInner() {
         <Tabs.Screen name="range/index"              options={{ href: null }} />
         <Tabs.Screen name="range/[sessionId]"        options={{ href: null }} />
         <Tabs.Screen name="rangefinder/index"        options={{ href: null }} />
-        <Tabs.Screen name="profile/handicap"            options={{ href: null }} />
-        <Tabs.Screen name="profile/stats"            options={{ href: null }} />
-        <Tabs.Screen name="profile/bag"              options={{ href: null }} />
-        <Tabs.Screen name="profile/rounds"           options={{ href: null }} />
-        <Tabs.Screen name="profile/round/[matchId]"  options={{ href: null }} />
-        <Tabs.Screen name="profile/club/[id]"        options={{ href: null }} />
         <Tabs.Screen name="records/index"             options={{ href: null }} />
         <Tabs.Screen name="swindle/create"           options={{ href: null }} />
         <Tabs.Screen name="swindle/[gameId]"         options={{ href: null }} />

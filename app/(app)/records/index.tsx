@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../src/lib/assets';
 
 // ── TITAN design constants ─────────────────────────────────────
 const GOLD = '#D4AF37';
@@ -32,40 +34,43 @@ const RECORD_DEFS: Array<{
 
 // ── Grand opening animated record card ────────────────────────
 function RecordCard({
-  def, entry, slideY, opacity,
+  def, entry, slideY, opacity, dc,
 }: {
   def: typeof RECORD_DEFS[0];
   entry: RecordEntry | null;
   slideY: Animated.Value;
   opacity: Animated.Value;
+  dc: ReturnType<typeof useDynamicColors>;
 }) {
   return (
-    <Animated.View style={[ss.card, { opacity, transform: [{ translateY: slideY }] }]}>
-      <View style={ss.cardHeader}>
-        <Text style={ss.cardIcon}>{def.icon}</Text>
-        <Text style={ss.cardLabel}>{def.label}</Text>
-      </View>
-
-      {entry ? (
-        <>
-          <View style={ss.valueRow}>
-            <Text style={ss.valueNum}>{entry.value}</Text>
-            <Text style={ss.valueUnit}>{def.unit}</Text>
-          </View>
-          <Text style={ss.holderName}>{entry.playerName}</Text>
-          {entry.courseName && (
-            <Text style={ss.courseName} numberOfLines={1}>{entry.courseName}</Text>
-          )}
-          {entry.achievedAt && (
-            <Text style={ss.achievedDate}>{formatDate(entry.achievedAt)}</Text>
-          )}
-        </>
-      ) : (
-        <View style={ss.vacant}>
-          <Text style={ss.vacantText}>Not yet set</Text>
-          <Text style={ss.vacantSub}>Play a round to claim this record</Text>
+    <Animated.View style={{ opacity, transform: [{ translateY: slideY }] }}>
+      <View style={[ss.card, { backgroundColor: dc.card, borderColor: dc.border }]}>
+        <View style={ss.cardHeader}>
+          <Text style={ss.cardIcon}>{def.icon}</Text>
+          <Text style={[ss.cardLabel, { color: dc.cardText }]}>{def.label}</Text>
         </View>
-      )}
+
+        {entry ? (
+          <>
+            <View style={ss.valueRow}>
+              <Text style={[ss.valueNum, { color: dc.gold }]}>{entry.value}</Text>
+              <Text style={[ss.valueUnit, { color: dc.cardText }]}>{def.unit}</Text>
+            </View>
+            <Text style={[ss.holderName, { color: dc.cardText }]}>{entry.playerName}</Text>
+            {entry.courseName && (
+              <Text style={[ss.courseName, { color: dc.cardText }]} numberOfLines={1}>{entry.courseName}</Text>
+            )}
+            {entry.achievedAt && (
+              <Text style={[ss.achievedDate, { color: dc.cardText }]}>{formatDate(entry.achievedAt)}</Text>
+            )}
+          </>
+        ) : (
+          <View style={ss.vacant}>
+            <Text style={[ss.vacantText, { color: dc.cardText }]}>Not yet set</Text>
+            <Text style={[ss.vacantSub, { color: dc.textSecondary }]}>Play a round to claim this record</Text>
+          </View>
+        )}
+      </View>
     </Animated.View>
   );
 }
@@ -73,6 +78,8 @@ function RecordCard({
 // ── Main screen ───────────────────────────────────────────────
 export default function RecordsScreen() {
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [records, setRecords] = useState<Partial<Record<RecordType, RecordEntry>>>({});
   const [societyName, setSocietyName] = useState('Society');
   const [opened, setOpened] = useState(false);
@@ -198,19 +205,19 @@ export default function RecordsScreen() {
   }
 
   if (!opened || !fontsLoaded) {
-    return <View style={{ flex: 1, backgroundColor: '#000' }}><StatusBar style="light" /></View>;
+    return <View style={{ flex: 1, backgroundColor: dc.bg }}><StatusBar style="light" /></View>;
   }
 
   return (
-    <View style={ss.container}>
+    <View style={[ss.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
       <View style={ss.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={ss.back}>← Back</Text>
+          <Text style={[ss.back, { color: dc.gold }]}>← Back</Text>
         </TouchableOpacity>
-        <View style={{ flex: 1 }} />
+        <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={ss.headerLogo} resizeMode="contain" />
         <View style={{ width: 56 }} />
       </View>
 
@@ -221,9 +228,9 @@ export default function RecordsScreen() {
           🏆
         </Animated.Text>
         <Animated.View style={{ opacity: titleOpacity, transform: [{ translateY: titleSlideY }], alignItems: 'center' }}>
-          <Text style={ss.wallTitle}>WALL OF RECORDS</Text>
-          <Text style={ss.societyName}>{societyName}</Text>
-          <View style={ss.titleDivider} />
+          <Text style={[ss.wallTitle, { color: dc.gold }]}>WALL OF RECORDS</Text>
+          <Text style={[ss.societyName, { color: dc.cardText }]}>{societyName}</Text>
+          <View style={[ss.titleDivider, { backgroundColor: dc.gold }]} />
         </Animated.View>
       </View>
 
@@ -240,6 +247,7 @@ export default function RecordsScreen() {
             entry={records[def.type] ?? null}
             slideY={cardSlides[i]}
             opacity={cardOpacity[i]}
+            dc={dc}
           />
         ))}
         <View style={{ height: 40 }} />
@@ -259,7 +267,8 @@ const ss = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 60, paddingHorizontal: 20, paddingBottom: 8,
   },
-  back: { fontSize: 14, fontFamily: FFB, color: GOLD },
+  back:       { fontSize: 14, fontFamily: FFB, color: GOLD },
+  headerLogo: { width: 80, height: 28 },
 
   heroArea: {
     alignItems: 'center', paddingTop: 12, paddingBottom: 24,
@@ -288,8 +297,7 @@ const ss = StyleSheet.create({
   scroll: { paddingHorizontal: 20 },
 
   card: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1c1c1c',
+    borderRadius: 14, borderWidth: 1,
     padding: 16, marginBottom: 16,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },

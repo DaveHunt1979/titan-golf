@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Modal, Image,
@@ -91,6 +92,7 @@ export default function PlayersScreen() {
   }
 
   useEffect(() => { load(); }, [societyId]);
+  useFocusEffect(useCallback(() => { load(); }, [societyId]));
 
   async function addPlayer() {
     if (!newName.trim()) { Alert.alert('Name required'); return; }

@@ -8,6 +8,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../src/lib/assets';
 
 // ─── TITAN design constants ──────────────────────────────────────────────────
 
@@ -16,7 +18,6 @@ const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -126,6 +127,8 @@ interface HcpEntry  { index: number; calculatedAt: string }
 
 export default function StatsScreen() {
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
     'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
@@ -272,8 +275,8 @@ export default function StatsScreen() {
 
   if (loading || !fontsLoaded) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={GOLD} size="large" />
+      <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={dc.gold} size="large" />
       </View>
     );
   }
@@ -291,11 +294,11 @@ export default function StatsScreen() {
   const maxScore = Math.max(1, ...scoringEntries.map(e => scoring[e.key]));
 
   return (
-    <View style={ss.container}>
+    <View style={[ss.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* ── Header ── */}
-      <View style={ss.header}>
+      <View style={[ss.header, { borderBottomColor: dc.border }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -305,8 +308,8 @@ export default function StatsScreen() {
         </TouchableOpacity>
 
         <View style={ss.headerCenter}>
-          <Image source={titanLogo} style={ss.headerLogo} resizeMode="contain" />
-          <Text style={ss.headerSubtitle}>MY STATS</Text>
+          <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={ss.headerLogo} resizeMode="contain" />
+          <Text style={[ss.headerSubtitle, { color: dc.gold }]}>MY STATS</Text>
         </View>
 
         <View style={ss.headerBtn} />
@@ -316,23 +319,23 @@ export default function StatsScreen() {
 
         {/* ── Summary pills ── */}
         <View style={ss.pillRow}>
-          <View style={ss.pill}>
-            <Text style={ss.pillVal}>{rounds}</Text>
+          <View style={[ss.pill, { backgroundColor: dc.card, borderColor: dc.border }]}>
+            <Text style={[ss.pillVal, { color: dc.gold }]}>{rounds}</Text>
             <Text style={ss.pillLbl}>ROUNDS</Text>
           </View>
-          <View style={ss.pill}>
-            <Text style={ss.pillVal}>{shots}</Text>
+          <View style={[ss.pill, { backgroundColor: dc.card, borderColor: dc.border }]}>
+            <Text style={[ss.pillVal, { color: dc.gold }]}>{shots}</Text>
             <Text style={ss.pillLbl}>SHOTS</Text>
           </View>
-          <View style={ss.pill}>
-            <Text style={ss.pillVal}>{avgPutts != null ? avgPutts : '—'}</Text>
+          <View style={[ss.pill, { backgroundColor: dc.card, borderColor: dc.border }]}>
+            <Text style={[ss.pillVal, { color: dc.gold }]}>{avgPutts != null ? avgPutts : '—'}</Text>
             <Text style={ss.pillLbl}>AVG PUTTS</Text>
           </View>
         </View>
 
         {/* ── DRIVES ── */}
         {totalDrives > 0 && (
-          <View style={ss.section}>
+          <View style={[ss.section, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={ss.sectionLabel}>DRIVES  ·  {totalDrives} tracked</Text>
             <View style={ss.fairwayWrap}>
 
@@ -379,7 +382,7 @@ export default function StatsScreen() {
 
         {/* ── CLUB USAGE ── */}
         {clubs.length > 0 && (
-          <View style={ss.section}>
+          <View style={[ss.section, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={ss.sectionLabel}>CLUB USAGE  ·  {shots} shots</Text>
             {clubs.map((c, i) => (
               <View key={c.short} style={ss.clubRow}>
@@ -402,7 +405,7 @@ export default function StatsScreen() {
 
         {/* ── NET SCORING ── */}
         {(scoring.eagle + scoring.birdie + scoring.par + scoring.bogey + scoring.double) > 0 && (
-          <View style={ss.section}>
+          <View style={[ss.section, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={ss.sectionLabel}>NET SCORING</Text>
             <View style={ss.vBarRow}>
               {scoringEntries.map((e, i) => (
@@ -418,24 +421,24 @@ export default function StatsScreen() {
 
         {/* ── PUTTING ── */}
         {putts.total > 0 && (
-          <View style={ss.section}>
+          <View style={[ss.section, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={ss.sectionLabel}>PUTTING  ·  {putts.total} holes</Text>
             <View style={ss.puttRow}>
-              <View style={ss.puttCard}>
-                <Text style={[ss.puttVal, { color: GOLD }]}>{putts.one}</Text>
+              <View style={[ss.puttCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
+                <Text style={[ss.puttVal, { color: dc.gold }]}>{putts.one}</Text>
                 <Text style={ss.puttLbl}>1-PUTT</Text>
                 {putts.total > 0 && (
                   <Text style={ss.puttPct}>{Math.round((putts.one / putts.total) * 100)}%</Text>
                 )}
               </View>
-              <View style={ss.puttCard}>
+              <View style={[ss.puttCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
                 <Text style={[ss.puttVal, { color: GREEN }]}>{putts.two}</Text>
                 <Text style={ss.puttLbl}>2-PUTT</Text>
                 {putts.total > 0 && (
                   <Text style={ss.puttPct}>{Math.round((putts.two / putts.total) * 100)}%</Text>
                 )}
               </View>
-              <View style={ss.puttCard}>
+              <View style={[ss.puttCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
                 <Text style={[ss.puttVal, { color: RED }]}>{putts.three}</Text>
                 <Text style={ss.puttLbl}>3-PUTT+</Text>
                 {putts.total > 0 && (
@@ -448,7 +451,7 @@ export default function StatsScreen() {
 
         {/* ── CLUB DISTANCES ── */}
         {clubDists.length > 0 && (
-          <View style={ss.section}>
+          <View style={[ss.section, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={ss.sectionLabel}>CLUB DISTANCES  ·  avg yards</Text>
             {clubDists.map((c, i) => (
               <View key={c.short} style={ss.clubRow}>
@@ -462,11 +465,11 @@ export default function StatsScreen() {
 
         {/* ── HANDICAP TREND ── */}
         {hcpHistory.length >= 2 && (
-          <View style={ss.section}>
+          <View style={[ss.section, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={ss.sectionLabel}>HANDICAP TREND  ·  {hcpHistory.length} calculations</Text>
             <View style={ss.hcpMeta}>
               <View style={ss.hcpMetaItem}>
-                <Text style={ss.hcpMetaVal}>{hcpHistory[0].index.toFixed(1)}</Text>
+                <Text style={[ss.hcpMetaVal, { color: dc.gold }]}>{hcpHistory[0].index.toFixed(1)}</Text>
                 <Text style={ss.hcpMetaLbl}>STARTED</Text>
               </View>
               <View style={[ss.hcpMetaItem, { alignItems: 'center' }]}>
@@ -477,7 +480,7 @@ export default function StatsScreen() {
                 <Text style={ss.hcpMetaLbl}>CHANGE</Text>
               </View>
               <View style={[ss.hcpMetaItem, { alignItems: 'flex-end' }]}>
-                <Text style={ss.hcpMetaVal}>{hcpHistory[hcpHistory.length - 1].index.toFixed(1)}</Text>
+                <Text style={[ss.hcpMetaVal, { color: dc.gold }]}>{hcpHistory[hcpHistory.length - 1].index.toFixed(1)}</Text>
                 <Text style={ss.hcpMetaLbl}>NOW</Text>
               </View>
             </View>
@@ -501,6 +504,7 @@ export default function StatsScreen() {
 // ─── trend chart ─────────────────────────────────────────────────────────────
 
 function TrendChart({ data }: { data: HcpEntry[] }) {
+  const dc = useDynamicColors();
   const [w, setW] = useState(0);
   const CHART_H = 90;
   const PAD = 16;
@@ -554,8 +558,8 @@ function TrendChart({ data }: { data: HcpEntry[] }) {
                 position: 'absolute',
                 left: p.x - 5, top: p.y - 5,
                 width: 10, height: 10, borderRadius: 5,
-                backgroundColor: isLast ? GOLD : '#000',
-                borderWidth: 2, borderColor: GOLD,
+                backgroundColor: isLast ? dc.gold : dc.bg,
+                borderWidth: 2, borderColor: dc.gold,
               }} />
             );
           })}
@@ -563,7 +567,7 @@ function TrendChart({ data }: { data: HcpEntry[] }) {
           <Text style={{ position: 'absolute', left: points[0].x - 14, top: points[0].y + 8, fontSize: 9, color: '#fff', fontFamily: FFB }}>
             {points[0].v.toFixed(1)}
           </Text>
-          <Text style={{ position: 'absolute', left: points[points.length - 1].x - 14, top: points[points.length - 1].y + 8, fontSize: 9, color: GOLD, fontFamily: FFB }}>
+          <Text style={{ position: 'absolute', left: points[points.length - 1].x - 14, top: points[points.length - 1].y + 8, fontSize: 9, color: dc.gold, fontFamily: FFB }}>
             {points[points.length - 1].v.toFixed(1)}
           </Text>
         </>
