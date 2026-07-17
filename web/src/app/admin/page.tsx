@@ -49,10 +49,10 @@ export default async function AdminPage() {
       {/* Quick actions */}
       <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { icon: '🏆', label: 'New Competition', href: '/tournament/new', desc: 'Create a new season or casual comp' },
-          { icon: '📋', label: 'Tournament Archive', href: '/tournament/archive', desc: 'All competitions, champions & PINs' },
-          { icon: '🏌️', label: 'Leaderboard', href: '/leaderboard', desc: 'Live Kronos & team standings' },
-          { icon: '🎖️', label: 'Wall of Records', href: '/records', desc: 'Society records & achievements' },
+          { icon: '🏆', label: 'New Competition',    href: '/tournament/new',    desc: 'Create a new season or casual comp'   },
+          { icon: '📋', label: 'Tournament Archive',  href: '/tournament/archive', desc: 'All competitions, champions & PINs' },
+          { icon: '🏌️', label: 'Leaderboard',        href: '/leaderboard',        desc: 'Live Kronos & team standings'        },
+          { icon: '🔑', label: 'Codes & PINs',       href: '/admin/codes',        desc: 'Join codes, tournament PINs & more'  },
         ].map(item => (
           <a
             key={item.label}
@@ -66,37 +66,19 @@ export default async function AdminPage() {
         ))}
       </div>
 
-      {/* Area join codes */}
-      <div className="mb-4 grid gap-4 sm:grid-cols-3">
-        {[
-          { icon: '🏌️', name: 'Casual Golf', code: (society as any)?.casual_join_code, color: '#4ade80' },
-          { icon: '🏆', name: 'The Tour', code: (society as any)?.tour_join_code, color: '#D4AF37' },
-          { icon: '💰', name: 'The Swindle', code: (society as any)?.swindle_join_code, color: '#a78bfa' },
-        ].map(area => (
-          <div
-            key={area.name}
-            className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-6"
-            style={{ borderColor: `${area.color}33` }}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">{area.icon}</span>
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">{area.name}</span>
-            </div>
-            <div className="mt-4 font-mono text-4xl font-black tracking-[4px]" style={{ color: area.color }}>
-              {area.code ? String(area.code) : '—'}
-            </div>
-            <p className="mt-2 text-xs text-slate-500">Share this code</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Legacy society join PIN */}
-      <div className="mb-8 rounded-2xl border border-[#1e2d3d] bg-[#0f1923] px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Legacy Join PIN</div>
-          <div className="font-mono text-lg font-black tracking-[4px] text-slate-400">
+      {/* Society join PIN — only this one stays on the main page */}
+      <div className="mb-8 flex items-center justify-between rounded-2xl border border-[#D4AF37]/20 bg-[#0f1923] px-6 py-4">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Society Join PIN</div>
+          <div className="mt-1 text-xs text-slate-600">New players enter this in the app to join</div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="font-mono text-3xl font-black tracking-[6px] text-[#D4AF37]">
             {joinPin ? `${joinPin.slice(0, 3)} ${joinPin.slice(3)}` : '—'}
           </div>
+          <a href="/admin/codes" className="rounded-lg border border-[#D4AF37]/30 px-3 py-1.5 text-xs font-bold text-[#D4AF37] transition-colors hover:bg-[#D4AF37]/10">
+            All Codes →
+          </a>
         </div>
       </div>
 

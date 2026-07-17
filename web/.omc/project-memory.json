@@ -133,6 +133,30 @@
       "accessCount": 2,
       "lastAccessed": 1784269227335,
       "type": "file"
+    },
+    {
+      "path": "src/app/tournament/new/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1784272698884,
+      "type": "file"
+    },
+    {
+      "path": "src/app/admin/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1784272763865,
+      "type": "file"
+    },
+    {
+      "path": "src/app/tournament/archive/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1784272557974,
+      "type": "file"
+    },
+    {
+      "path": "src/app/admin/codes/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1784272743331,
+      "type": "file"
     }
   ],
   "userDirectives": []

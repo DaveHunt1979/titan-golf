@@ -316,33 +316,28 @@ export default function SocietyAdminScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* MEMBERSHIP AREAS */}
+        {/* CODES & PINS */}
         <View style={s.section}>
-          <Text style={[s.sectionLabel, { color: dc.cardText }]}>MEMBERSHIP AREAS</Text>
-          {[
-            { key: 'casual',  label: 'Casual Golf', icon: '🏌️', code: casualCode,  color: GREEN },
-            { key: 'tour',    label: 'The Tour',    icon: '🏆', code: tourCode,    color: GOLD },
-            { key: 'swindle', label: 'The Swindle', icon: '💰', code: swindleCode, color: '#a78bfa' },
-          ].map((area, idx) => (
-            <View key={area.key} style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }, idx > 0 && { marginTop: 8 }]}>
-              <Text style={[s.cardLabel, { color: area.color }]}>{area.icon}  {area.label.toUpperCase()}</Text>
-              {area.code ? (
-                <>
-                  <Text style={[s.pinValue, { color: area.color, letterSpacing: 8 }]}>{area.code}</Text>
-                  <Text style={[s.hint, { color: dc.cardText }]}>Share this code for players joining {area.label}</Text>
-                  <TouchableOpacity
-                    style={[s.pinShareBtn, { borderColor: area.color + '55', backgroundColor: area.color + '15' }]}
-                    onPress={() => shareAreaCode(area.code, area.label)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[s.pinShareBtnText, { color: area.color }]}>Share {area.label} Code</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <Text style={[s.hint, { color: dc.cardText }]}>Code not generated — run membership_areas migration</Text>
-              )}
+          <Text style={[s.sectionLabel, { color: dc.cardText }]}>CODES &amp; PINS</Text>
+          <View style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }]}>
+            <Text style={[s.cardLabel, { color: dc.cardText }]}>Society Join PIN</Text>
+            {joinPin ? (
+              <Text style={s.pinValue}>{joinPin.slice(0, 3)} {joinPin.slice(3)}</Text>
+            ) : (
+              <Text style={[s.hint, { color: dc.cardText, marginTop: 4 }]}>No PIN generated yet</Text>
+            )}
+          </View>
+          <TouchableOpacity
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
+            onPress={() => router.push('/(app)/admin/codes' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[s.linkTitle, { color: dc.cardText }]}>All Codes &amp; PINs</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Tournament PINs, area codes &amp; share links</Text>
             </View>
-          ))}
+            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
             onPress={() => router.push('/(app)/admin/membership' as any)}
@@ -354,32 +349,6 @@ export default function SocietyAdminScreen() {
             </View>
             <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* ACTIVE TOURNAMENT */}
-        <View style={s.section}>
-          <Text style={[s.sectionLabel, { color: dc.cardText }]}>ACTIVE TOURNAMENT</Text>
-          <View style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }]}>
-            {activeTournamentName ? (
-              <>
-                <Text style={[s.cardLabel, { color: dc.cardText }]}>{activeTournamentName}</Text>
-                <Text style={[s.cardLabel, { color: dc.cardText, marginTop: 8 }]}>Tournament PIN</Text>
-                {activeTournamentPin ? (
-                  <>
-                    <Text style={s.pinValue}>{activeTournamentPin.split('').join('  ')}</Text>
-                    <Text style={[s.hint, { color: dc.cardText }]}>Share this PIN so players can unlock the Tour tab</Text>
-                    <TouchableOpacity style={s.pinShareBtn} onPress={shareTournamentPin} activeOpacity={0.8}>
-                      <Text style={s.pinShareBtnText}>Share Tournament PIN</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <Text style={[s.hint, { color: dc.cardText, marginTop: 4 }]}>No PIN — run add_competition_pin.sql migration</Text>
-                )}
-              </>
-            ) : (
-              <Text style={[s.hint, { color: dc.cardText }]}>No active tournament running</Text>
-            )}
-          </View>
         </View>
 
         {/* COMPETITION TOOLS */}
