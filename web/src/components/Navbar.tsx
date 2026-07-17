@@ -39,6 +39,15 @@ const NAV = [
       { label: 'Wall of Records', href: '/records' },
     ],
   },
+  {
+    label: 'My Profile',
+    items: [
+      { label: 'Profile', href: '/profile' },
+      { label: 'My Stats', href: '/stats' },
+      { label: 'Round History', href: '/rounds' },
+      { label: 'Dashboard', href: '/dashboard' },
+    ],
+  },
 ];
 
 export default function Navbar() {

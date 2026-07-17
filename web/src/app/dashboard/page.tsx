@@ -2,6 +2,15 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
+interface FriendStatus {
+  playerId: string;
+  name: string;
+  courseName: string | null;
+  hole: number | null;
+  pts: number | null;
+  matchId: string | null;
+}
+
 interface Round {
   id: string;
   course_name: string | null;
@@ -63,6 +72,64 @@ export default async function DashboardPage() {
     ? Math.max(...completedRounds.map(r => r.stableford_total))
     : null;
 
+  // Society membership → friends on a round
+  const { data: memberRow } = player
+    ? await supabase.from('society_members').select('society_id').eq('player_id', player.id).maybeSingle()
+    : { data: null };
+  const societyId = (memberRow as any)?.society_id ?? null;
+
+  let friendStatuses: FriendStatus[] = [];
+  if (societyId && player) {
+    const { data: allMemberRows } = await supabase
+      .from('society_members').select('player_id')
+      .eq('society_id', societyId).neq('player_id', player.id);
+    const memberIds: string[] = (allMemberRows ?? []).map((m: any) => m.player_id);
+
+    if (memberIds.length > 0) {
+      const { data: memberPlayers } = await supabase
+        .from('players').select('id,display_name').in('id', memberIds);
+      const nameMap: Record<string, string> = {};
+      for (const p of (memberPlayers ?? []) as any[]) nameMap[p.id] = p.display_name;
+
+      const { data: activeMatches } = await supabase
+        .from('matches').select('id,course_name,home_player_ids,away_player_ids')
+        .eq('status', 'in_progress').limit(100);
+
+      const memberSet = new Set(memberIds);
+      const relevantMatches = (activeMatches ?? []).filter((m: any) =>
+        [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])].some((id: string) => memberSet.has(id))
+      );
+
+      const relevantMatchIds = relevantMatches.map((m: any) => m.id);
+      const { data: holesData } = relevantMatchIds.length
+        ? await supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id').in('match_id', relevantMatchIds)
+        : { data: [] };
+
+      const stats: Record<string, { pts: number; maxHole: number; matchId: string; courseName: string }> = {};
+      for (const m of relevantMatches) {
+        for (const id of [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]) {
+          if (memberSet.has(id) && !stats[id])
+            stats[id] = { pts: 0, maxHole: 0, matchId: m.id, courseName: m.course_name ?? 'Course' };
+        }
+      }
+      for (const h of (holesData ?? []) as any[]) {
+        if (stats[h.player_id]) {
+          stats[h.player_id].pts += h.stableford_pts ?? 0;
+          if (h.hole_number > stats[h.player_id].maxHole) stats[h.player_id].maxHole = h.hole_number;
+        }
+      }
+
+      friendStatuses = memberIds.map(id => ({
+        playerId: id,
+        name: nameMap[id] ?? 'Unknown',
+        courseName: stats[id]?.courseName ?? null,
+        hole: stats[id] ? Math.min(stats[id].maxHole + 1, 18) : null,
+        pts: stats[id]?.pts ?? null,
+        matchId: stats[id]?.matchId ?? null,
+      })).sort((a, b) => (a.matchId ? -1 : b.matchId ? 1 : a.name.localeCompare(b.name)));
+    }
+  }
+
   const firstName = (player?.display_name ?? user.email ?? 'Golfer').split(' ')[0];
 
   return (
@@ -101,8 +168,8 @@ export default async function DashboardPage() {
       {/* ── Nav cards ────────────────────────────────────────── */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
+          { icon: '👤', label: 'My Profile', href: '/profile', desc: 'Stats, handicap trend & recent form' },
           { icon: '🏆', label: 'Leaderboard', href: '/leaderboard', desc: 'Live Kronos Trophy & team standings' },
-          { icon: '📊', label: 'My Stats', href: '/stats', desc: 'Club distances, drives, handicap trend' },
           { icon: '🏌️', label: 'Round History', href: '/rounds', desc: 'Every round with full scorecard' },
           { icon: '🎖️', label: 'Wall of Records', href: '/records', desc: 'Society records — who holds what' },
         ].map(item => (
@@ -117,6 +184,51 @@ export default async function DashboardPage() {
           </Link>
         ))}
       </div>
+
+      {/* ── Friends on a Round ───────────────────────────────── */}
+      {friendStatuses.length > 0 && (
+        <div className="mb-8">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-black text-white">Members</h2>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
+              {friendStatuses.filter(f => f.matchId).length} on a round
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {friendStatuses.map(f => (
+              <div
+                key={f.playerId}
+                className={`rounded-2xl border p-4 transition-all ${
+                  f.matchId
+                    ? 'border-[#D4AF37]/30 bg-[#D4AF37]/5 hover:bg-[#D4AF37]/8'
+                    : 'border-[#1e2d3d] bg-[#0a0f17]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  {/* Avatar */}
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 text-sm font-black text-[#D4AF37]">
+                    {f.name[0]?.toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-bold text-white">{f.name.split(' ')[0]}</div>
+                    {f.matchId ? (
+                      <div className="truncate text-xs text-[#D4AF37]">{f.courseName} · Hole {f.hole}</div>
+                    ) : (
+                      <div className="text-xs text-slate-600">Not on a round</div>
+                    )}
+                  </div>
+                  {f.matchId && f.pts != null && (
+                    <div className="text-right">
+                      <div className="text-xl font-black text-[#D4AF37]">{f.pts}</div>
+                      <div className="text-xs text-slate-500">pts</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Recent rounds ────────────────────────────────────── */}
       {rounds.length > 0 && (
