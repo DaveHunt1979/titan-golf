@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1782916317202,
+  "lastScanned": 1784268608122,
   "projectRoot": "/Users/davehunt/Desktop/titan-golf/web",
   "techStack": {
     "languages": [
@@ -42,7 +42,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit 2>&1 | head -20",
+    "buildCommand": "npx tsc --noEmit 2>&1",
     "testCommand": null,
     "lintCommand": "npm run lint",
     "devCommand": "npm run dev",
@@ -54,8 +54,8 @@
     }
   },
   "conventions": {
-    "namingStyle": "camelCase",
-    "importStyle": "ES modules",
+    "namingStyle": null,
+    "importStyle": null,
     "testPattern": null,
     "fileOrganization": "type-based"
   },
@@ -77,7 +77,7 @@
       "path": "public",
       "purpose": "Public files",
       "fileCount": 7,
-      "lastAccessed": 1782916317193,
+      "lastAccessed": 1784268608111,
       "keyFiles": [
         "file.svg",
         "globe.svg",
@@ -89,17 +89,15 @@
     "src": {
       "path": "src",
       "purpose": "Source code",
-      "fileCount": 1,
-      "lastAccessed": 1782916317193,
-      "keyFiles": [
-        "middleware.ts"
-      ]
+      "fileCount": 0,
+      "lastAccessed": 1784268608112,
+      "keyFiles": []
     },
     "src/app": {
       "path": "src/app",
       "purpose": "Application code",
       "fileCount": 4,
-      "lastAccessed": 1782916317194,
+      "lastAccessed": 1784268608113,
       "keyFiles": [
         "favicon.ico",
         "globals.css",
@@ -110,7 +108,7 @@
       "path": "src/components",
       "purpose": "UI components",
       "fileCount": 1,
-      "lastAccessed": 1782916317194,
+      "lastAccessed": 1784268608113,
       "keyFiles": [
         "Navbar.tsx"
       ]
@@ -119,51 +117,15 @@
       "path": "src/lib",
       "purpose": "Library code",
       "fileCount": 0,
-      "lastAccessed": 1782916317194,
+      "lastAccessed": 1784268608113,
       "keyFiles": []
     }
   },
   "hotPaths": [
     {
-      "path": "src/app/leaderboard/page.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1782979835704,
-      "type": "file"
-    },
-    {
-      "path": "src/app/tournament/archive/page.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1783261739636,
-      "type": "file"
-    },
-    {
       "path": "src/components/Navbar.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1784267882043,
-      "type": "file"
-    },
-    {
-      "path": "src/middleware.ts",
-      "accessCount": 1,
-      "lastAccessed": 1782978597991,
-      "type": "file"
-    },
-    {
-      "path": "src/app/stats/page.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1784267809152,
-      "type": "file"
-    },
-    {
-      "path": "src/app/profile/page.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1784267876201,
-      "type": "file"
-    },
-    {
-      "path": "src/app/dashboard/page.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1784267887483,
+      "accessCount": 4,
+      "lastAccessed": 1784268802368,
       "type": "file"
     }
   ],

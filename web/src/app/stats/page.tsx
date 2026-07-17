@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { BarChart2 } from 'lucide-react';
 
 const CATEGORY_COLOR: Record<string, string> = {
   wood: '#D4AF37',
@@ -160,7 +161,7 @@ export default function StatsPage() {
     return (
       <div className="mx-auto max-w-screen-xl px-6 py-12">
         <div className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-12 text-center">
-          <div className="mb-3 text-4xl">📊</div>
+          <div className="mb-3 flex justify-center"><BarChart2 size={36} className="text-[#D4AF37]/40" /></div>
           <h3 className="text-lg font-bold text-white">No profile found</h3>
           <p className="mt-1 text-sm text-slate-400">Open the Titan Golf app to set up your player profile.</p>
         </div>
@@ -187,7 +188,7 @@ export default function StatsPage() {
 
       {!hasAnything ? (
         <div className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-12 text-center">
-          <div className="mb-3 text-4xl">📊</div>
+          <div className="mb-3 flex justify-center"><BarChart2 size={36} className="text-[#D4AF37]/40" /></div>
           <h3 className="text-lg font-bold text-white">No stats yet</h3>
           <p className="mt-1 text-sm text-slate-400">Log some shots and rounds in the app to see your stats here.</p>
         </div>

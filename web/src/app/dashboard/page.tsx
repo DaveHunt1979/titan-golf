@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { User, Trophy, History, Award } from 'lucide-react';
 
 interface FriendStatus {
   playerId: string;
@@ -167,18 +168,20 @@ export default async function DashboardPage() {
 
       {/* ── Nav cards ────────────────────────────────────────── */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { icon: '👤', label: 'My Profile', href: '/profile', desc: 'Stats, handicap trend & recent form' },
-          { icon: '🏆', label: 'Leaderboard', href: '/leaderboard', desc: 'Live Kronos Trophy & team standings' },
-          { icon: '🏌️', label: 'Round History', href: '/rounds', desc: 'Every round with full scorecard' },
-          { icon: '🎖️', label: 'Wall of Records', href: '/records', desc: 'Society records — who holds what' },
-        ].map(item => (
+        {([
+          { icon: <User size={22} />, label: 'My Profile', href: '/profile', desc: 'Stats, handicap trend & recent form' },
+          { icon: <Trophy size={22} />, label: 'Leaderboard', href: '/leaderboard', desc: 'Live Kronos Trophy & team standings' },
+          { icon: <History size={22} />, label: 'Round History', href: '/rounds', desc: 'Every round with full scorecard' },
+          { icon: <Award size={22} />, label: 'Wall of Records', href: '/records', desc: 'Society records — who holds what' },
+        ] as const).map(item => (
           <Link
             key={item.label}
             href={item.href}
             className="group rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-6 transition-all hover:border-[#D4AF37]/30 hover:bg-[#121e2b]"
           >
-            <div className="mb-3 text-3xl">{item.icon}</div>
+            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/8 text-[#D4AF37] transition-colors group-hover:border-[#D4AF37]/40 group-hover:bg-[#D4AF37]/12">
+              {item.icon}
+            </div>
             <div className="font-bold text-white transition-colors group-hover:text-[#D4AF37]">{item.label}</div>
             <div className="mt-1 text-sm text-slate-500">{item.desc}</div>
           </Link>

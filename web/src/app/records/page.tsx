@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
+import { Trophy, Flag, Bird, Zap, Lock } from 'lucide-react';
 
 interface Champion {
   year: number | null;
@@ -11,7 +13,7 @@ interface Champion {
 
 interface LiveRecord {
   label: string;
-  icon: string;
+  icon: ReactNode;
   value: string;
   holder: string | null;
   color: string;
@@ -43,7 +45,7 @@ export default async function RecordsPage() {
       <div className="mx-auto max-w-screen-xl px-6 py-12">
         <RecordsHeader societyName={null} />
         <div className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-12 text-center">
-          <div className="mb-3 text-4xl">🔒</div>
+          <div className="mb-3 flex justify-center"><Lock size={36} className="text-slate-600" /></div>
           <h3 className="text-lg font-bold text-white">Sign in to see your society&apos;s records</h3>
           <p className="mt-1 text-sm text-slate-400">
             The Wall of Records shows champions and all-time bests for your golf society.
@@ -121,22 +123,22 @@ export default async function RecordsPage() {
 
   const liveRecords: LiveRecord[] = [
     {
-      label: 'Best Stableford', icon: '🎯', color: '#D4AF37',
+      label: 'Best Stableford', icon: <Trophy size={22} />, color: '#D4AF37',
       value: bestStableford ? `${(bestStableford as { value: number }).value} pts` : '—',
       holder: bestStableford ? nameOf((bestStableford as { pid: string }).pid) : null,
     },
     {
-      label: 'Best Gross', icon: '⛳', color: '#4ade80',
+      label: 'Best Gross', icon: <Flag size={22} />, color: '#4ade80',
       value: bestGross ? `${(bestGross as { value: number }).value}` : '—',
       holder: bestGross ? nameOf((bestGross as { pid: string }).pid) : null,
     },
     {
-      label: 'Most Birdies', icon: '🐦', color: '#3b82f6',
+      label: 'Most Birdies', icon: <Bird size={22} />, color: '#3b82f6',
       value: mostBirdies ? `${(mostBirdies as { value: number }).value}` : '—',
       holder: mostBirdies ? nameOf((mostBirdies as { pid: string }).pid) : null,
     },
     {
-      label: 'Most Eagles', icon: '🦅', color: '#a78bfa',
+      label: 'Most Eagles', icon: <Zap size={22} />, color: '#a78bfa',
       value: mostEagles ? `${(mostEagles as { value: number }).value}` : '—',
       holder: mostEagles ? nameOf((mostEagles as { pid: string }).pid) : null,
     },
@@ -161,7 +163,7 @@ export default async function RecordsPage() {
 
       {!hasAnything ? (
         <div className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-12 text-center">
-          <div className="mb-3 text-4xl">🏆</div>
+          <div className="mb-3 flex justify-center"><Trophy size={36} className="text-[#D4AF37]/40" /></div>
           <h3 className="text-lg font-bold text-white">No records yet</h3>
           <p className="mt-1 text-sm text-slate-400">
             Champions and all-time bests will appear here as rounds are played.
@@ -181,7 +183,7 @@ export default async function RecordsPage() {
                     className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-6 text-center"
                     style={{ borderColor: r.holder ? `${r.color}44` : undefined }}
                   >
-                    <div className="mb-2 text-3xl">{r.icon}</div>
+                    <div className="mb-2 flex justify-center" style={{ color: r.color }}>{r.icon}</div>
                     <div className="text-3xl font-black" style={{ color: r.color }}>{r.value}</div>
                     <div className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-500">{r.label}</div>
                     <div className="mt-2 text-sm font-semibold text-white">{r.holder ?? '—'}</div>
@@ -208,7 +210,7 @@ export default async function RecordsPage() {
                           key={`${year}-${i}`}
                           className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-6 transition-all hover:border-[#D4AF37]/30"
                         >
-                          <div className="mb-3 text-3xl">🏆</div>
+                          <div className="mb-3 flex"><Trophy size={24} className="text-[#D4AF37]/60" /></div>
                           <div className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">
                             {c.award_name ?? 'Award'}
                           </div>
@@ -241,7 +243,7 @@ function RecordsHeader({ societyName }: { societyName: string | null }) {
         {societyName ?? 'Titan Golf'}
       </div>
       <h1 className="mt-1 flex items-center gap-3 text-5xl font-black text-white">
-        <span>🏆</span>
+        <Trophy size={16} className="text-[#D4AF37]" />
         <span>Wall of Records</span>
       </h1>
       <p className="mt-2 text-slate-400">Champions and all-time bests.</p>

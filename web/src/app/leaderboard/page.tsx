@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Image from 'next/image';
+import { Trophy, Users } from 'lucide-react';
 
 interface KronosRow { playerId: string; name: string; total: number; holes: number; }
 interface TeamRow { id: string; name: string; accent_color: string; played: number; w: number; h: number; l: number; pts: number; }
 
 type Tab = 'kronos' | 'teams';
 
-const MEDAL: Record<number, string> = { 0: '🥇', 1: '🥈', 2: '🥉' };
+const MEDAL_COLORS: Record<number, string> = { 0: '#D4AF37', 1: '#C0C0C0', 2: '#CD7F32' };
 
 export default function LeaderboardPage() {
   const [tab, setTab]               = useState<Tab>('kronos');
@@ -131,7 +132,10 @@ export default function LeaderboardPage() {
                     : 'border border-[#1e2d3d] text-slate-400 hover:border-[#D4AF37]/30 hover:text-white'
                 }`}
               >
-                {t === 'kronos' ? '🏆 Kronos Trophy' : '⚔️ Team Standings'}
+                <span className="flex items-center gap-1.5">
+                  {t === 'kronos' ? <Trophy size={13} /> : <Users size={13} />}
+                  {t === 'kronos' ? 'Kronos Trophy' : 'Team Standings'}
+                </span>
               </button>
             ))}
           </div>
@@ -160,7 +164,7 @@ function KronosTable({ rows }: { rows: KronosRow[] }) {
   if (rows.length === 0) {
     return (
       <div className="flex flex-col items-center gap-3 py-24 text-center">
-        <div className="text-5xl">🏆</div>
+        <Trophy size={48} className="text-[#D4AF37]/30" />
         <p className="text-lg font-bold text-white">No scores yet</p>
         <p className="text-sm text-slate-500">Enter some rounds on the app and they&apos;ll appear here instantly.</p>
       </div>
@@ -186,7 +190,9 @@ function KronosTable({ rows }: { rows: KronosRow[] }) {
                     : 'border-[#1e2d3d] bg-[#0f1923]'
                 } ${visIdx === 1 ? 'order-2' : visIdx === 0 ? 'order-1' : 'order-3'}`}
               >
-                <div className="mb-3 text-3xl">{MEDAL[rank - 1]}</div>
+                <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-full mx-auto" style={{ backgroundColor: `${MEDAL_COLORS[rank - 1] ?? '#333'}20`, border: `1.5px solid ${MEDAL_COLORS[rank - 1] ?? '#444'}` }}>
+                  <span className="text-sm font-black" style={{ color: MEDAL_COLORS[rank - 1] ?? '#aaa' }}>{rank}</span>
+                </div>
                 <div className={`text-xl font-black ${isLeader ? 'text-[#D4AF37]' : 'text-white'}`}>{r.name}</div>
                 <div className={`mt-2 text-4xl font-black ${isLeader ? 'text-[#D4AF37]' : 'text-slate-300'}`}>{r.total}</div>
                 <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">pts</div>

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { Flag } from 'lucide-react';
 
 interface RoundSummary {
   id: string;
@@ -110,7 +111,7 @@ export default async function RoundsPage() {
 
       {rounds.length === 0 ? (
         <div className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-12 text-center">
-          <div className="mb-3 text-4xl">⛳</div>
+          <div className="mb-3 flex justify-center"><Flag size={36} className="text-[#D4AF37]/40" /></div>
           <h3 className="text-lg font-bold text-white">No completed rounds yet</h3>
           <p className="mt-1 text-sm text-slate-400">
             Finish a round in the Titan Golf app and it will appear here.

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { BarChart2, Flag, Trophy } from 'lucide-react';
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -242,15 +243,17 @@ export default async function ProfilePage() {
 
       {/* ── Quick links ──────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-3">
-        {[
-          { icon: '📊', label: 'Full Stats', href: '/stats', desc: 'Club distances, putting & more' },
-          { icon: '🏌️', label: 'Round History', href: '/rounds', desc: 'Every round with full scorecard' },
-          { icon: '🏆', label: 'Leaderboard', href: '/leaderboard', desc: 'Season standings & records' },
-        ].map(item => (
+        {([
+          { icon: <BarChart2 size={22} />, label: 'Full Stats', href: '/stats', desc: 'Club distances, putting & more' },
+          { icon: <Flag size={22} />, label: 'Round History', href: '/rounds', desc: 'Every round with full scorecard' },
+          { icon: <Trophy size={22} />, label: 'Leaderboard', href: '/leaderboard', desc: 'Season standings & records' },
+        ] as const).map(item => (
           <Link key={item.label} href={item.href}
             className="group rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-6 transition-all hover:border-[#D4AF37]/30 hover:bg-[#121e2b]"
           >
-            <div className="mb-3 text-3xl">{item.icon}</div>
+            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/8 text-[#D4AF37] transition-colors group-hover:border-[#D4AF37]/40 group-hover:bg-[#D4AF37]/12">
+              {item.icon}
+            </div>
             <div className="font-bold text-white transition-colors group-hover:text-[#D4AF37]">{item.label}</div>
             <div className="mt-1 text-sm text-slate-500">{item.desc}</div>
           </Link>

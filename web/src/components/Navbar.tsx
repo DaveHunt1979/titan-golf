@@ -1,8 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { ShoppingBag, User, LogOut } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 const NAV = [
   {
@@ -52,6 +55,22 @@ const NAV = [
 
 export default function Navbar() {
   const [open, setOpen] = useState<string | null>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    window.location.href = '/';
+  }
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[#1e2d3d] bg-[#070b10]/95 backdrop-blur-md">
@@ -100,7 +119,8 @@ export default function Navbar() {
         {/* Shop */}
         <div className="hidden items-center md:flex">
           <div className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-600 text-slate-300 cursor-default">
-            🛍️ Shop
+            <ShoppingBag size={15} className="text-slate-400" />
+            Shop
             <span className="rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#D4AF37]">
               Soon
             </span>
@@ -109,18 +129,39 @@ export default function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
-          <Link
-            href="/auth/login"
-            className="rounded-lg border border-[#D4AF37]/40 px-4 py-2 text-sm font-700 text-[#D4AF37] transition-colors hover:bg-[#D4AF37]/10"
-          >
-            Sign In
-          </Link>
-          <Link
-            href="/auth/signup"
-            className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-700 text-[#070b10] transition-opacity hover:opacity-90"
-          >
-            Get Started
-          </Link>
+          {user ? (
+            <>
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 rounded-lg border border-[#D4AF37]/40 px-4 py-2 text-sm font-700 text-[#D4AF37] transition-colors hover:bg-[#D4AF37]/10"
+              >
+                <User size={15} />
+                Profile
+              </Link>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-2 rounded-lg bg-[#1e2d3d] px-4 py-2 text-sm font-700 text-slate-300 transition-colors hover:bg-[#263545] hover:text-white"
+              >
+                <LogOut size={15} />
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/auth/login"
+                className="rounded-lg border border-[#D4AF37]/40 px-4 py-2 text-sm font-700 text-[#D4AF37] transition-colors hover:bg-[#D4AF37]/10"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/auth/signup"
+                className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-700 text-[#070b10] transition-opacity hover:opacity-90"
+              >
+                Get Started
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

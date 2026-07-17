@@ -1,37 +1,14 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { Trophy, BarChart2, Wifi, Award, Activity, Bot } from 'lucide-react';
 
 const FEATURES = [
-  {
-    icon: '🏆',
-    title: 'Tournament Builder',
-    desc: 'Create competitions, set the draw, configure handicap allowances — all on the web. Players open the app on the day and everything is ready.',
-  },
-  {
-    icon: '📊',
-    title: 'Deep Stats',
-    desc: 'Club distances, driving accuracy, handicap trend, net scoring breakdown. Every round feeds the numbers automatically.',
-  },
-  {
-    icon: '📡',
-    title: 'NFC Shot Logging',
-    desc: 'Tap your club to a sticker on the grip. Shot logged instantly. Distance picked on the spot. No typing, no fuss.',
-  },
-  {
-    icon: '🎖️',
-    title: 'Wall of Records',
-    desc: 'Society-wide records for best gross, best stableford, most birdies. Break one and the app erupts in celebration.',
-  },
-  {
-    icon: '📍',
-    title: 'Live Leaderboard',
-    desc: 'Watch scores come in hole by hole via Supabase Realtime. The web dashboard updates the moment a score is entered.',
-  },
-  {
-    icon: '🤖',
-    title: 'Chip & Birdie',
-    desc: 'Your AI caddie duo. Chip handles the data — club selection, carry distances, wind. Birdie handles the banter.',
-  },
+  { icon: <Trophy size={24} />, title: 'Tournament Builder', desc: 'Create competitions, set the draw, configure handicap allowances — all on the web. Players open the app on the day and everything is ready.' },
+  { icon: <BarChart2 size={24} />, title: 'Deep Stats', desc: 'Club distances, driving accuracy, handicap trend, net scoring breakdown. Every round feeds the numbers automatically.' },
+  { icon: <Wifi size={24} />, title: 'NFC Shot Logging', desc: 'Tap your club to a sticker on the grip. Shot logged instantly. Distance picked on the spot. No typing, no fuss.' },
+  { icon: <Award size={24} />, title: 'Wall of Records', desc: 'Society-wide records for best gross, best stableford, most birdies. Break one and the app erupts in celebration.' },
+  { icon: <Activity size={24} />, title: 'Live Leaderboard', desc: 'Watch scores come in hole by hole via Supabase Realtime. The web dashboard updates the moment a score is entered.' },
+  { icon: <Bot size={24} />, title: 'Chip & Birdie', desc: 'Your AI caddie duo. Chip handles the data — club selection, carry distances, wind. Birdie handles the banter.' },
 ];
 
 const STATS = [
@@ -206,7 +183,7 @@ export default function HomePage() {
                 key={f.title}
                 className="group rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-6 transition-all hover:border-[#D4AF37]/30 hover:bg-[#121e2b]"
               >
-                <div className="mb-4 text-3xl">{f.icon}</div>
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/8 text-[#D4AF37]">{f.icon}</div>
                 <h3 className="mb-2 text-lg font-bold text-white">{f.title}</h3>
                 <p className="text-sm leading-relaxed text-slate-400">{f.desc}</p>
               </div>
