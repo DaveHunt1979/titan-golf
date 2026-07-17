@@ -1452,8 +1452,7 @@ export default function EnterScoresScreen() {
                     : 0;
                   const result = courseHole ? scoreVsPar(n, courseHole.par, shots) : 'par';
                   const accent = SCORE_COLORS[result] ?? '#6b7280';
-                  const netDiff = n - (courseHole?.par ?? 4) - shots;
-                  const diffLabel = netDiff === 0 ? 'PAR' : netDiff < 0 ? String(netDiff) : `+${netDiff}`;
+                  const stablePts = calcStablefordPoints(n, courseHole?.par ?? 4, shots);
                   return (
                     <TouchableOpacity
                       key={n}
@@ -1462,7 +1461,7 @@ export default function EnterScoresScreen() {
                       activeOpacity={0.7}
                     >
                       <Text style={[sh.scoreBtnText, on && { color: '#000' }]}>{n}</Text>
-                      {on && <Text style={[sh.scoreDiff, { color: '#000' }]}>{diffLabel}</Text>}
+                      {on && <Text style={[sh.scoreDiff, { color: '#000' }]}>{stablePts} pts</Text>}
                     </TouchableOpacity>
                   );
                 })}

@@ -43,7 +43,7 @@ export default function DayLobby() {
   const [myMatchId,  setMyMatchId]  = useState<string | null>(null);
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tab,        setTab]        = useState<'leaderboard' | 'scores'>('leaderboard');
+  const [tab,        setTab]        = useState<'leaderboard' | 'scores'>('scores');
 
   useEffect(() => { init(); }, [dayId]);
 
@@ -184,7 +184,7 @@ export default function DayLobby() {
 
       {/* Tab bar */}
       <View style={s.tabBar}>
-        {(['leaderboard', 'scores'] as const).map(t => (
+        {(['scores', 'leaderboard'] as const).map(t => (
           <TouchableOpacity
             key={t}
             style={[s.tabItem, tab === t && s.tabItemActive]}
@@ -192,7 +192,7 @@ export default function DayLobby() {
             activeOpacity={0.7}
           >
             <Text style={[s.tabLabel, tab === t && s.tabLabelActive]}>
-              {t === 'leaderboard' ? `LEADERBOARD · ${players.length}` : `GROUPS · ${groups.length}`}
+              {t === 'scores' ? `MATCHES · ${groups.length}` : `STABLEFORD · ${players.length}`}
             </Text>
           </TouchableOpacity>
         ))}
