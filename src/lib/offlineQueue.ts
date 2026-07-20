@@ -32,7 +32,9 @@ export function isNetworkError(err: any): boolean {
     msg.includes('networkerror') ||
     msg.includes('network error') ||
     msg.includes('unable to connect') ||
-    msg.includes('connection refused')
+    msg.includes('connection refused') ||
+    msg.includes('timed out') ||
+    msg.includes('timeout')
   );
 }
 

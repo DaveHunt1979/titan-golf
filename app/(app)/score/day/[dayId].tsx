@@ -64,7 +64,7 @@ export default function DayLobby() {
 
     const { data: matches } = await supabase
       .from('matches')
-      .select('id,home_player_ids,away_player_ids,round_format,hcp_allowance,status,holes_string,winner,result_str')
+      .select('id,home_player_ids,away_player_ids,round_format,hcp_allowance,counting_scores,status,holes_string,winner,result_str')
       .eq('day_id', dayId)
       .neq('status', 'cancelled');
 
@@ -87,10 +87,28 @@ export default function DayLobby() {
     }
 
     const holesByPlayer: Record<string, { pts: number; count: number }> = {};
+    // Per-match, per-hole, per-player pts — needed for team drop logic
+    const matchHolePts: Record<string, Record<number, Record<string, number>>> = {};
     for (const h of (holesData ?? []) as any[]) {
       if (!holesByPlayer[h.player_id]) holesByPlayer[h.player_id] = { pts: 0, count: 0 };
       holesByPlayer[h.player_id].pts   += h.stableford_pts ?? 0;
       holesByPlayer[h.player_id].count += 1;
+      if (!matchHolePts[h.match_id]) matchHolePts[h.match_id] = {};
+      if (!matchHolePts[h.match_id][h.hole_number]) matchHolePts[h.match_id][h.hole_number] = {};
+      matchHolePts[h.match_id][h.hole_number][h.player_id] = h.stableford_pts ?? 0;
+    }
+
+    function teamScore(matchId: string, playerIds: string[], countN: number): number {
+      let total = 0;
+      for (const holePts of Object.values(matchHolePts[matchId] ?? {})) {
+        const entered = playerIds
+          .filter(id => holePts[id] !== undefined)
+          .map(id => holePts[id])
+          .sort((a, b) => b - a)
+          .slice(0, countN);
+        total += entered.reduce((s, p) => s + p, 0);
+      }
+      return total;
     }
 
     const playerMatchMap: Record<string, string> = {};
@@ -118,8 +136,14 @@ export default function DayLobby() {
     const grps: GroupRow[] = (matches as any[]).map(m => {
       const homeIds: string[] = m.home_player_ids ?? [];
       const awayIds: string[] = m.away_player_ids ?? [];
-      const homePts = homeIds.reduce((s, id) => s + (holesByPlayer[id]?.pts ?? 0), 0);
-      const awayPts = awayIds.reduce((s, id) => s + (holesByPlayer[id]?.pts ?? 0), 0);
+      const countN: number | null = m.counting_scores ?? null;
+      // Use per-hole drop logic for team formats, raw sum for individual
+      const homePts = countN
+        ? teamScore(m.id, homeIds, countN)
+        : homeIds.reduce((s, id) => s + (holesByPlayer[id]?.pts ?? 0), 0);
+      const awayPts = countN
+        ? teamScore(m.id, awayIds, countN)
+        : awayIds.reduce((s, id) => s + (holesByPlayer[id]?.pts ?? 0), 0);
       return {
         match_id:       m.id,
         format:         m.round_format ?? 'stableford',

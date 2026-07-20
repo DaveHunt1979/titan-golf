@@ -16,10 +16,8 @@ import type { Match, Team } from '../../../src/types';
 
 const GREEN  = '#4ade80';
 const FF     = 'JUSTSans';
-const HERO_H = 340;
 const FFB    = 'JUSTSans-ExBold';
 const heroCourse = require('../../../assets/hero-course.jpeg');
-const titanLogo  = require('../../../assets/TitanAppLogo.png');
 
 const FORMAT_LABELS: Record<string, string> = {
   stableford: 'Stableford', medal: 'Medal', singles: 'Singles Matchplay',
@@ -153,21 +151,20 @@ export default function ScoreScreen() {
   const s = useMemo(() => StyleSheet.create({
     root: { flex: 1, backgroundColor: BG },
 
-    hero:        { height: HERO_H },
-    heroOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(7,11,16,0.45)' },
-    heroFade:    { position: 'absolute', bottom: 0, left: 0, right: 0, height: 160, backgroundColor: BG, opacity: 0.92 },
+    // Image is 4928×3264 (3:2). width=SW → natural height = SW*(3264/4928) ≈ SW*0.663
+    hero:        { width: '100%' as const, aspectRatio: 4928 / 3264 },
+    heroOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(7,11,16,0.35)' },
+    heroFade:    { position: 'absolute', bottom: 0, left: 0, right: 0, height: 50, backgroundColor: BG, opacity: 0.55 },
     heroContent: {
       flex: 1,
-      paddingTop: Platform.OS === 'ios' ? 60 : 36,
+      paddingTop: Platform.OS === 'ios' ? 64 : 40,
       paddingHorizontal: 20,
-      paddingBottom: 24,
+      paddingBottom: 10,
       justifyContent: 'flex-end',
     },
-    heroTop:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-    heroLogo: { width: 32, height: 32 },
-    heroDate: { fontFamily: FFB, fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.3 },
-    heroTitle:{ fontFamily: FFB, fontSize: 34, color: '#ffffff', lineHeight: 40, marginBottom: 20, letterSpacing: -0.3 },
-    heroBtn:  {
+    heroDate:  { fontFamily: FFB, fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.3, marginBottom: 6 },
+    heroTitle: { fontFamily: FF, fontSize: 26, color: '#ffffff', lineHeight: 32, marginBottom: 16, letterSpacing: -0.2 },
+    heroBtn:   {
       backgroundColor: GOLD, borderRadius: 14,
       paddingVertical: 16, flexDirection: 'row',
       alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -270,10 +267,7 @@ export default function ScoreScreen() {
           <View style={s.heroOverlay} />
           <View style={s.heroFade} />
           <View style={s.heroContent}>
-            <View style={s.heroTop}>
-              <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.heroLogo} resizeMode="contain" />
-              <Text style={s.heroDate}>{dateStr}</Text>
-            </View>
+            <Text style={s.heroDate}>{dateStr}</Text>
             <Text style={s.heroTitle}>Are we playing{'\n'}today?</Text>
             <TouchableOpacity
               style={s.heroBtn}

@@ -278,7 +278,7 @@ export default function HomeScreen() {
               <Image
                 source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)}
                 style={s.heroSocietyLogo}
-                resizeMode="cover"
+                resizeMode="contain"
               />
             </View>
           </View>

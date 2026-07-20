@@ -28,6 +28,7 @@ import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
+import EagleAlert, { type EagleType } from '../../../../src/components/EagleAlert';
 
 // ── Design tokens ──────────────────────────────────────────────
 const GOLD   = '#D4AF37';
@@ -151,6 +152,8 @@ export default function EnterScoresScreen() {
   const syncStatus = useSyncStatus();
   const pendingCount = syncStatus.pendingCount;
   const [showConflicts, setShowConflicts] = useState(false);
+  const [eagleAlert, setEagleAlert] = useState<{ type: EagleType; playerName: string; hole: number } | null>(null);
+  const [continuingSecondary, setContinuingSecondary] = useState(false);
   const { width: screenWidth } = useWindowDimensions();
   const pagerRef = useRef<ScrollView>(null);
   const holeStripRef = useRef<ScrollView>(null);
@@ -210,6 +213,11 @@ export default function EnterScoresScreen() {
 
       if (!matchData) { setLoading(false); return; }
       setMatch(matchData as unknown as MatchInfo);
+      // Detect secondary stableford continuation after a reload
+      if (matchData.round_format === 'matchplay' && matchData.secondary_format && matchData.status === 'in_progress') {
+        const { concluded } = calcHoles(matchData.holes_string ?? '..................');
+        if (concluded) setContinuingSecondary(true);
+      }
 
       const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
 
@@ -491,6 +499,24 @@ export default function EnterScoresScreen() {
     }
   }
 
+  // ── Eagle/albatross/hole-in-one detection ──────────────────────
+  function checkEagle(scores: Record<string, number>, par: number, hole: number) {
+    let best: { type: EagleType; playerName: string } | null = null;
+    for (const [id, gross] of Object.entries(scores)) {
+      if (!gross) continue;
+      const name = (playerNames[id] ?? 'Player').split(' ')[0];
+      if (gross === 1) {
+        best = { type: 'hole_in_one', playerName: name };
+        break;
+      } else if (gross <= par - 3 && best?.type !== 'hole_in_one') {
+        best = { type: 'albatross', playerName: name };
+      } else if (gross <= par - 2 && !best) {
+        best = { type: 'eagle', playerName: name };
+      }
+    }
+    if (best) setEagleAlert({ ...best, hole });
+  }
+
   // ── Calculate and save hole result ──────────────────────────────
   async function processHoleScores(scores: Record<string, number>, stats: Record<string, { fairway: 'left' | 'centre' | 'right' | null; putts: number | null }> = {}) {
     if (!match || !courseHole) return;
@@ -586,6 +612,7 @@ export default function EnterScoresScreen() {
       });
       setMatch({ ...match, ...matchUpdate });
       setEditingHole(null);
+      if (!editingHole) checkEagle(scores, par, activeHole);
 
       if (!savedOffline) {
         if (newStatus === 'complete' && !editingHole) {
@@ -663,6 +690,13 @@ export default function EnterScoresScreen() {
       newStatus = 'complete';
       if (homeUp === 0) { winner = 'half'; result_str = 'Halved'; }
       else { winner = homeUp > 0 ? 'home' : 'away'; result_str = `${Math.abs(homeUp)}UP`; }
+    }
+
+    if (continuingSecondary) {
+      // Secondary stableford phase — preserve matchplay result, complete only at 18
+      newStatus = played === 18 ? 'complete' : 'in_progress';
+      winner = match.winner;
+      result_str = match.result_str;
     }
 
     const matchUpdate = { holes_string: newHolesStr, status: newStatus, winner, result_str };
@@ -750,6 +784,7 @@ export default function EnterScoresScreen() {
             }
           }
         }
+        if (!editingHole) checkEagle(scores, par, activeHole);
       }
 
       if (newStatus === 'complete' && !wasAlreadyComplete) {
@@ -765,6 +800,9 @@ export default function EnterScoresScreen() {
         const broken = allBroken.flat();
         if (broken.length > 0) {
           setRecordsBroken(broken);
+        } else if (continuingSecondary) {
+          setContinuingSecondary(false);
+          Alert.alert('All Done!', 'Stableford scores complete.', [{ text: 'View Scorecard' }]);
         } else if (match.secondary_format && match.round_format === 'matchplay') {
           const secLabel = match.secondary_format === 'stableford' ? 'Stableford' : 'Stroke Play';
           Alert.alert(
@@ -773,7 +811,9 @@ export default function EnterScoresScreen() {
             [
               { text: 'Finish Now', style: 'cancel' },
               { text: `Continue ${secLabel}`, onPress: () => {
+                  setContinuingSecondary(true);
                   setMatch(prev => prev ? { ...prev, status: 'in_progress' } : prev);
+                  supabase.from('matches').update({ status: 'in_progress' }).eq('id', matchId as string);
                 } },
             ]
           );
@@ -1664,6 +1704,14 @@ export default function EnterScoresScreen() {
           onDismiss={() => setRecordsBroken([])}
         />
       )}
+
+      <EagleAlert
+        visible={!!eagleAlert}
+        type={eagleAlert?.type ?? 'eagle'}
+        playerName={eagleAlert?.playerName ?? ''}
+        hole={eagleAlert?.hole ?? 0}
+        onDismiss={() => setEagleAlert(null)}
+      />
     </View>
   );
 }
