@@ -67,7 +67,7 @@ const HOLES_OPTIONS: { key: HolesMode; label: string }[] = [
 ];
 
 const heroCourse = require('../../../assets/hero-course.jpeg');
-const titanLogo  = require('../../../assets/TitanAppLogo.png');
+
 
 function nowTime() {
   return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -864,9 +864,7 @@ export default function NewGameScreen() {
         <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="close-outline" size={28} color="#ffffff" />
         </TouchableOpacity>
-        <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
-        </View>
+        <View style={s.headerCenter} />
         <View style={[s.headerSide, { alignItems: 'flex-end' }]} />
       </View>
 
