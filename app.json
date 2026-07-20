@@ -10,10 +10,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.titangolf.app",
-      "buildNumber": "79",
+      "buildNumber": "80",
       "deploymentTarget": "16.0",
       "entitlements": {
-        "com.apple.developer.nfc.readersession.formats": ["TAG"]
+        "com.apple.developer.nfc.readersession.formats": [
+          "TAG"
+        ]
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -80,7 +82,8 @@
           "savePhotosPermission": "Titan Golf needs permission to save photos and videos.",
           "isAccessMediaLocationEnabled": true
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "newArchEnabled": false,
     "extra": {

@@ -2,6 +2,21 @@
 
 ---
 
+## Build 80 — 2026-07-20
+
+### Offline-First Phase 3 — SQLite local database
+- **expo-sqlite** installed and wired in; the app now maintains a persistent local relational database (`titan_offline.db`) on device
+- **Offline queue** migrated from AsyncStorage JSON blob → `offline_queue` SQLite table with proper columns; enables querying, avoids JSON parse/stringify on every hole save, and survives large backlogs
+- **Match pack** migrated from AsyncStorage JSON blob → `match_pack` SQLite table; course holes, player handicaps and match data stored relationally and queryable
+- **Sync metadata** (last synced time, backoff fail count) stored in `sync_meta` key-value table — no more separate AsyncStorage keys
+- **DB initialised at app startup** (`app/_layout.tsx`) before auth check, so the queue is ready before any screen loads
+- **Sign-out guard rail** — Profile → Sign Out now warns if there are unsynced scores in the queue before allowing sign-out
+
+### Admin
+- **Player Groups** — saved 4-ball groups now persist correctly (missing `player_groups` table created in Supabase)
+
+---
+
 ## Build 79 — 2026-07-20
 
 ### Offline-First Architecture (Phase 1 + 2)

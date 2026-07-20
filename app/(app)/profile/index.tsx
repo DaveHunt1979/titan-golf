@@ -12,6 +12,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 import type { Player } from '../../../src/types';
+import { getPendingCount } from '../../../src/lib/offlineQueue';
 
 const GOLD  = '#D4AF37'; // StyleSheet fallback — JSX uses dc.gold
 const GREEN = '#22c55e';
@@ -194,6 +195,18 @@ export default function ProfileScreen() {
   }
 
   async function signOut() {
+    const pending = await getPendingCount();
+    if (pending > 0) {
+      Alert.alert(
+        'Unsynced scores',
+        `You have ${pending} hole score${pending !== 1 ? 's' : ''} saved offline that haven't synced yet. Signing out now will lose them.\n\nSign out anyway?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign Out Anyway', style: 'destructive', onPress: () => supabase.auth.signOut() },
+        ]
+      );
+      return;
+    }
     Alert.alert('Sign out', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: () => supabase.auth.signOut() },

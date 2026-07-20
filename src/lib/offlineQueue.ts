@@ -1,38 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ensureDb } from './localDb';
 import { supabase } from './supabase';
 
-const QUEUE_KEY      = 'titan:offline_queue';
-const LAST_SYNC_KEY  = 'titan:last_synced_at';
-const RETRY_KEY      = 'titan:sync_fail_count';
-
 export type SyncState = 'idle' | 'syncing' | 'synced' | 'offline' | 'error';
-
-export async function getLastSyncedAt(): Promise<number | null> {
-  try {
-    const v = await AsyncStorage.getItem(LAST_SYNC_KEY);
-    return v ? parseInt(v, 10) : null;
-  } catch { return null; }
-}
-
-async function setLastSyncedAt(ts: number): Promise<void> {
-  try { await AsyncStorage.setItem(LAST_SYNC_KEY, String(ts)); } catch { /* ignore */ }
-}
-
-async function getFailCount(): Promise<number> {
-  try {
-    const v = await AsyncStorage.getItem(RETRY_KEY);
-    return v ? parseInt(v, 10) : 0;
-  } catch { return 0; }
-}
-
-async function setFailCount(n: number): Promise<void> {
-  try { await AsyncStorage.setItem(RETRY_KEY, String(n)); } catch { /* ignore */ }
-}
-
-export function backoffMs(failCount: number): number {
-  const STEPS = [0, 30_000, 60_000, 120_000, 300_000];
-  return STEPS[Math.min(failCount, STEPS.length - 1)];
-}
 
 export interface QueuedHole {
   id: string;
@@ -57,13 +26,62 @@ export function isNetworkError(err: any): boolean {
   );
 }
 
+async function getMeta(key: string): Promise<string | null> {
+  const db = await ensureDb();
+  const row = await db.getFirstAsync<{ value: string }>(
+    'SELECT value FROM sync_meta WHERE key = ?', [key]
+  );
+  return row?.value ?? null;
+}
+
+async function setMeta(key: string, value: string): Promise<void> {
+  const db = await ensureDb();
+  await db.runAsync(
+    'INSERT OR REPLACE INTO sync_meta(key, value) VALUES (?, ?)', [key, value]
+  );
+}
+
+export async function getLastSyncedAt(): Promise<number | null> {
+  const v = await getMeta('last_synced_at');
+  return v ? parseInt(v, 10) : null;
+}
+
+async function setLastSyncedAt(ts: number): Promise<void> {
+  await setMeta('last_synced_at', String(ts));
+}
+
+async function getFailCount(): Promise<number> {
+  const v = await getMeta('fail_count');
+  return v ? parseInt(v, 10) : 0;
+}
+
+async function setFailCount(n: number): Promise<void> {
+  await setMeta('fail_count', String(n));
+}
+
+export function backoffMs(failCount: number): number {
+  const STEPS = [0, 30_000, 60_000, 120_000, 300_000];
+  return STEPS[Math.min(failCount, STEPS.length - 1)];
+}
+
 export async function enqueueHole(item: Omit<QueuedHole, 'id' | 'timestamp'>): Promise<void> {
   try {
-    const raw = await AsyncStorage.getItem(QUEUE_KEY);
-    const queue: QueuedHole[] = raw ? JSON.parse(raw) : [];
-    const filtered = queue.filter(q => !(q.matchId === item.matchId && q.holeNumber === item.holeNumber));
-    filtered.push({ ...item, id: `${item.matchId}-${item.holeNumber}`, timestamp: Date.now() });
-    await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(filtered));
+    const db = await ensureDb();
+    const id = `${item.matchId}-${item.holeNumber}`;
+    await db.runAsync(
+      `INSERT OR REPLACE INTO offline_queue
+         (id, match_id, hole_number, insert_rows, stat_rows, match_update, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        item.matchId,
+        item.holeNumber,
+        JSON.stringify(item.insertRows),
+        JSON.stringify(item.statRows),
+        JSON.stringify(item.matchUpdate),
+        Date.now(),
+      ]
+    );
   } catch (e) {
     console.error('offlineQueue.enqueue failed:', e);
   }
@@ -71,9 +89,9 @@ export async function enqueueHole(item: Omit<QueuedHole, 'id' | 'timestamp'>): P
 
 export async function getPendingCount(): Promise<number> {
   try {
-    const raw = await AsyncStorage.getItem(QUEUE_KEY);
-    const queue: QueuedHole[] = raw ? JSON.parse(raw) : [];
-    return queue.length;
+    const db = await ensureDb();
+    const row = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) as n FROM offline_queue');
+    return row?.n ?? 0;
   } catch {
     return 0;
   }
@@ -81,8 +99,12 @@ export async function getPendingCount(): Promise<number> {
 
 export async function drainQueue(): Promise<{ drained: number; remaining: number; syncedAt?: number }> {
   try {
-    const raw = await AsyncStorage.getItem(QUEUE_KEY);
-    const queue: QueuedHole[] = raw ? JSON.parse(raw) : [];
+    const db = await ensureDb();
+    const queue = await db.getAllAsync<{
+      id: string; match_id: string; hole_number: number;
+      insert_rows: string; stat_rows: string; match_update: string; timestamp: number;
+    }>('SELECT * FROM offline_queue ORDER BY timestamp ASC');
+
     if (queue.length === 0) return { drained: 0, remaining: 0 };
 
     const failCount = await getFailCount();
@@ -92,46 +114,50 @@ export async function drainQueue(): Promise<{ drained: number; remaining: number
       return { drained: 0, remaining: queue.length };
     }
 
-    const sorted = [...queue].sort((a, b) => a.timestamp - b.timestamp);
     let drained = 0;
-    const stillPending: QueuedHole[] = [];
+    let networkFailed = false;
 
-    for (const item of sorted) {
+    for (const row of queue) {
+      const insertRows: Record<string, any>[] = JSON.parse(row.insert_rows);
+      const statRows: Record<string, any>[]   = JSON.parse(row.stat_rows);
+      const matchUpdate: Record<string, any>  = JSON.parse(row.match_update);
+
       try {
         await supabase.from('match_holes').delete()
-          .eq('match_id', item.matchId)
-          .eq('hole_number', item.holeNumber);
+          .eq('match_id', row.match_id)
+          .eq('hole_number', row.hole_number);
 
-        if (item.insertRows.length > 0) {
-          const { error } = await supabase.from('match_holes').insert(item.insertRows);
+        if (insertRows.length > 0) {
+          const { error } = await supabase.from('match_holes').insert(insertRows);
           if (error) throw error;
         }
 
-        if (item.statRows.length > 0) {
-          await supabase.from('hole_stats').upsert(item.statRows, { onConflict: 'match_id,player_id,hole_number' });
+        if (statRows.length > 0) {
+          await supabase.from('hole_stats').upsert(statRows, { onConflict: 'match_id,player_id,hole_number' });
         }
 
-        const { error } = await supabase.from('matches')
-          .update(item.matchUpdate)
-          .eq('id', item.matchId);
+        const { error } = await supabase.from('matches').update(matchUpdate).eq('id', row.match_id);
         if (error) throw error;
 
+        await db.runAsync('DELETE FROM offline_queue WHERE id = ?', [row.id]);
         drained++;
       } catch (err: any) {
         if (isNetworkError(err)) {
-          stillPending.push(item);
+          networkFailed = true;
+          break; // stop on first network failure — no point continuing
         } else {
           console.error('Queue item discarded (non-network error):', err);
+          await db.runAsync('DELETE FROM offline_queue WHERE id = ?', [row.id]);
           drained++;
         }
       }
     }
 
-    await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(stillPending));
+    const remaining = await getPendingCount();
 
-    if (stillPending.length > 0) {
+    if (networkFailed || remaining > 0) {
       await setFailCount(failCount + 1);
-      return { drained, remaining: stillPending.length };
+      return { drained, remaining };
     } else {
       const syncedAt = Date.now();
       await setLastSyncedAt(syncedAt);

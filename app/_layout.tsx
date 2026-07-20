@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
+import { initDb } from '../src/lib/localDb';
 const FFB = 'JUSTSans-ExBold';
 import { titanLogo } from '../src/lib/assets';
 
@@ -64,6 +65,7 @@ export default function RootLayout() {
   useEffect(() => {
     async function init() {
       try {
+        await initDb();
         const { data: { session } } = await supabase.auth.getSession();
         proceed(!!session);
       } catch {

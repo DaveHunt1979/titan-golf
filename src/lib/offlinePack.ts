@@ -1,8 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ensureDb } from './localDb';
 import { supabase } from './supabase';
 
-const PREFIX = 'titan:pack:v1:';
-const TTL = 14 * 60 * 60 * 1000; // 14 hours — covers a full day's golf
+const TTL = 14 * 60 * 60 * 1000; // 14 hours
 
 export interface MatchPack {
   matchId: string;
@@ -39,7 +38,6 @@ export async function downloadMatchPack(matchId: string): Promise<void> {
     ]);
 
     const players: MatchPack['players'] = {};
-    const compPlayers: MatchPack['compPlayers'] = [];
     const fallback: { player_id: string; handicap_index: number }[] = [];
 
     for (const p of (playersRes.data ?? []) as any[]) {
@@ -48,18 +46,22 @@ export async function downloadMatchPack(matchId: string): Promise<void> {
     }
 
     const comp = compRes.data as any[] | null;
-    const resolvedCompPlayers = comp && comp.length > 0 ? comp : fallback;
+    const compPlayers = comp && comp.length > 0 ? comp : fallback;
 
-    const pack: MatchPack = {
-      matchId,
-      downloadedAt: Date.now(),
-      match: matchData,
-      courseHoles: (holesRes.data ?? []) as any[],
-      players,
-      compPlayers: resolvedCompPlayers,
-    };
-
-    await AsyncStorage.setItem(`${PREFIX}${matchId}`, JSON.stringify(pack));
+    const db = await ensureDb();
+    await db.runAsync(
+      `INSERT OR REPLACE INTO match_pack
+         (match_id, downloaded_at, match_json, holes_json, players_json, comp_json)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        matchId,
+        Date.now(),
+        JSON.stringify(matchData),
+        JSON.stringify(holesRes.data ?? []),
+        JSON.stringify(players),
+        JSON.stringify(compPlayers),
+      ]
+    );
   } catch (e) {
     console.warn('offlinePack.download failed:', e);
   }
@@ -67,11 +69,26 @@ export async function downloadMatchPack(matchId: string): Promise<void> {
 
 export async function getMatchPack(matchId: string): Promise<MatchPack | null> {
   try {
-    const raw = await AsyncStorage.getItem(`${PREFIX}${matchId}`);
-    if (!raw) return null;
-    const pack: MatchPack = JSON.parse(raw);
-    if (Date.now() - pack.downloadedAt > TTL) return null;
-    return pack;
+    const db = await ensureDb();
+    const row = await db.getFirstAsync<{
+      downloaded_at: number;
+      match_json: string;
+      holes_json: string;
+      players_json: string;
+      comp_json: string;
+    }>('SELECT * FROM match_pack WHERE match_id = ?', [matchId]);
+
+    if (!row) return null;
+    if (Date.now() - row.downloaded_at > TTL) return null;
+
+    return {
+      matchId,
+      downloadedAt: row.downloaded_at,
+      match: JSON.parse(row.match_json),
+      courseHoles: JSON.parse(row.holes_json),
+      players: JSON.parse(row.players_json),
+      compPlayers: JSON.parse(row.comp_json),
+    };
   } catch {
     return null;
   }
@@ -83,7 +100,8 @@ export async function refreshMatchPack(matchId: string): Promise<void> {
 
 export async function clearMatchPack(matchId: string): Promise<void> {
   try {
-    await AsyncStorage.removeItem(`${PREFIX}${matchId}`);
+    const db = await ensureDb();
+    await db.runAsync('DELETE FROM match_pack WHERE match_id = ?', [matchId]);
   } catch {
     // ignore
   }
