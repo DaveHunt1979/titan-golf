@@ -2,6 +2,24 @@
 
 ---
 
+## Build 79 — 2026-07-20
+
+### Offline-First Architecture (Phase 1 + 2)
+
+**Phase 1 — Sync status & guard rails**
+- **SyncBar** — compact status strip on the scoring screen; shows Online · Offline · Syncing · Synced · Error with a coloured dot, pending score count, last-synced time, and a "Sync Now" button
+- **Exponential backoff** — failed sync retries wait 30 s → 60 s → 2 min → 5 min before trying again; state is persisted so it survives app restarts
+- **Foreground drain** — the offline queue now drains automatically when the app returns to foreground, replacing the old manual AppState listener
+- **Offline polling** — when the device is offline the app pings every 30 s and drains the queue the moment connectivity returns
+- **`lastSyncedAt` tracking** — last successful sync time is persisted and shown in the SyncBar
+
+**Phase 2 — Pre-game offline pack**
+- **Pack download on game creation** — immediately after a game is created, a local pack is written to AsyncStorage containing the match, course holes, par/SI/yardage, player handicaps, and comp data
+- **Pack-first load** — the scoring screen reads from the local pack first (instant, works offline); falls back to network if no pack exists
+- **14-hour TTL** — packs expire after 14 hours so stale data can't persist across multiple days
+
+---
+
 ## Build 78 — 2026-07-20
 
 ### Mashie Golf Overhaul

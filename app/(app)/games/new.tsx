@@ -12,6 +12,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useSociety } from '../../../src/lib/useSociety';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { getPlayerAvatar } from '../../../src/lib/assets';
+import { downloadMatchPack } from '../../../src/lib/offlinePack';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -587,6 +588,7 @@ export default function NewGameScreen() {
         if (firstResult.error || !firstResult.data) throw firstResult.error ?? new Error('Could not create game');
         newMatch = firstResult.data;
         firstMatchId = firstResult.data.id;
+        results.forEach(r => { if (r.data?.id) downloadMatchPack(r.data.id).catch(() => {}); });
         // Build group code summary for the alert
         if (isMashie) {
           const groupSummary = results.map((r, i) => {
@@ -621,6 +623,7 @@ export default function NewGameScreen() {
         if (error || !data) throw error ?? new Error('Could not create game');
         newMatch = data;
         firstMatchId = data.id;
+        downloadMatchPack(firstMatchId).catch(() => {});
       }
 
       const codeMsg = dayCode ? `\nDay code: ${dayCode}` : '';

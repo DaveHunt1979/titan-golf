@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, Modal, Image,
-  TextInput, ScrollView, useWindowDimensions, Dimensions, AppState,
+  TextInput, ScrollView, useWindowDimensions, Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -23,7 +23,10 @@ import { sendMatchNotification } from '../../../../src/lib/notifications';
 import { sendMatchToWatch, clearMatchFromWatch, onWatchScoreEntry, onWatchRequestsState } from '../../../../src/lib/watch';
 import CaddieButton from '../../../../src/components/CaddieButton';
 import type { VoiceCommandResult } from '../../../../src/lib/voiceCommand';
-import { enqueueHole, drainQueue, isNetworkError, getPendingCount } from '../../../../src/lib/offlineQueue';
+import { enqueueHole, isNetworkError } from '../../../../src/lib/offlineQueue';
+import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
+import { getMatchPack } from '../../../../src/lib/offlinePack';
+import SyncBar from '../../../../src/components/SyncBar';
 
 // ── Design tokens ──────────────────────────────────────────────
 const GOLD   = '#D4AF37';
@@ -143,27 +146,15 @@ export default function EnterScoresScreen() {
   const [playerTotals, setPlayerTotals] = useState<Record<string, number>>({});
   const [holeData, setHoleData] = useState<Record<string, Record<number, { gross: number | null; pts: number | null }>>>({});
   const [editingHole, setEditingHole] = useState<number | null>(null);
-  const [pendingCount, setPendingCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
+  const syncStatus = useSyncStatus();
+  const pendingCount = syncStatus.pendingCount;
   const { width: screenWidth } = useWindowDimensions();
   const pagerRef = useRef<ScrollView>(null);
   const holeStripRef = useRef<ScrollView>(null);
   const gpsRef = useRef<{ lat: number; lng: number } | null>(null);
   const skipNextLoad = useRef(false);
   const [dayBoard, setDayBoard] = useState<{ playerId: string; name: string; pts: number }[]>([]);
-
-  // Offline queue: drain on foreground, load initial pending count
-  useEffect(() => {
-    getPendingCount().then(n => setPendingCount(n));
-    const sub = AppState.addEventListener('change', state => {
-      if (state === 'active') {
-        drainQueue().then(r => {
-          if (r.drained > 0) setPendingCount(p => Math.max(0, p - r.drained));
-        });
-      }
-    });
-    return () => sub.remove();
-  }, []);
 
   // Passive GPS — used only for tagging shot locations
   useEffect(() => {
@@ -181,6 +172,29 @@ export default function EnterScoresScreen() {
 
   useEffect(() => {
     async function load() {
+      // Try local pack first — instant display when offline or on slow networks
+      const pack = await getMatchPack(matchId);
+      if (pack) {
+        setMatch(pack.match as unknown as MatchInfo);
+        setCourseHoles(pack.courseHoles);
+        setCompPlayers(pack.compPlayers);
+        const names: Record<string, string> = {};
+        const avatars: Record<string, string | null> = {};
+        Object.entries(pack.players).forEach(([id, p]) => {
+          names[id] = p.display_name;
+          avatars[id] = p.avatar_url ?? null;
+        });
+        setPlayerNames(names);
+        setPlayerAvatars(avatars);
+        setLoading(false);
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle()
+            .then(({ data: row }) => { if (row) setMyPlayerId(row.id); });
+        });
+        return;
+      }
+
+      // No pack — fetch from network
       const { data: matchData } = await supabase
         .from('matches')
         .select(`
@@ -525,10 +539,7 @@ export default function EnterScoresScreen() {
       const matchUpdate = { holes_string: newHolesStr, status: newStatus, winner: null, result_str: newResultStr };
 
       // Try drain before saving
-      if (pendingCount > 0) {
-        const dr = await drainQueue();
-        if (dr.drained > 0) setPendingCount(p => Math.max(0, p - dr.drained));
-      }
+      if (pendingCount > 0) await syncStatus.syncNow();
 
       let savedOffline = false;
       try {
@@ -548,7 +559,7 @@ export default function EnterScoresScreen() {
         }
         savedOffline = true;
         await enqueueHole({ matchId: matchId as string, holeNumber: activeHole, insertRows: spRows, statRows: spStatRows, matchUpdate });
-        setPendingCount(c => c + 1);
+        syncStatus.syncNow();
       }
 
       // Optimistic local update (same path online or offline)
@@ -655,10 +666,7 @@ export default function EnterScoresScreen() {
     const matchUpdate = { holes_string: newHolesStr, status: newStatus, winner, result_str };
 
     // Try drain before saving
-    if (pendingCount > 0) {
-      const dr = await drainQueue();
-      if (dr.drained > 0) setPendingCount(p => Math.max(0, p - dr.drained));
-    }
+    if (pendingCount > 0) await syncStatus.syncNow();
 
     let savedOffline = false;
     try {
@@ -678,7 +686,7 @@ export default function EnterScoresScreen() {
       }
       savedOffline = true;
       await enqueueHole({ matchId: matchId as string, holeNumber: activeHole, insertRows: rows, statRows, matchUpdate });
-      setPendingCount(c => c + 1);
+      syncStatus.syncNow();
     }
 
     // Optimistic local update
@@ -958,6 +966,9 @@ export default function EnterScoresScreen() {
           <Ionicons name="scan-outline" size={22} color={GOLD} />
         </TouchableOpacity>
       </View>
+
+      {/* ── Sync status ── */}
+      <SyncBar status={syncStatus} />
 
       {/* ── Status banner ── */}
       <View style={s.statusBanner}>

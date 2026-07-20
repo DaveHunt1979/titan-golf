@@ -1,7 +1,38 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 
-const QUEUE_KEY = 'titan:offline_queue';
+const QUEUE_KEY      = 'titan:offline_queue';
+const LAST_SYNC_KEY  = 'titan:last_synced_at';
+const RETRY_KEY      = 'titan:sync_fail_count';
+
+export type SyncState = 'idle' | 'syncing' | 'synced' | 'offline' | 'error';
+
+export async function getLastSyncedAt(): Promise<number | null> {
+  try {
+    const v = await AsyncStorage.getItem(LAST_SYNC_KEY);
+    return v ? parseInt(v, 10) : null;
+  } catch { return null; }
+}
+
+async function setLastSyncedAt(ts: number): Promise<void> {
+  try { await AsyncStorage.setItem(LAST_SYNC_KEY, String(ts)); } catch { /* ignore */ }
+}
+
+async function getFailCount(): Promise<number> {
+  try {
+    const v = await AsyncStorage.getItem(RETRY_KEY);
+    return v ? parseInt(v, 10) : 0;
+  } catch { return 0; }
+}
+
+async function setFailCount(n: number): Promise<void> {
+  try { await AsyncStorage.setItem(RETRY_KEY, String(n)); } catch { /* ignore */ }
+}
+
+export function backoffMs(failCount: number): number {
+  const STEPS = [0, 30_000, 60_000, 120_000, 300_000];
+  return STEPS[Math.min(failCount, STEPS.length - 1)];
+}
 
 export interface QueuedHole {
   id: string;
@@ -48,11 +79,18 @@ export async function getPendingCount(): Promise<number> {
   }
 }
 
-export async function drainQueue(): Promise<{ drained: number; remaining: number }> {
+export async function drainQueue(): Promise<{ drained: number; remaining: number; syncedAt?: number }> {
   try {
     const raw = await AsyncStorage.getItem(QUEUE_KEY);
     const queue: QueuedHole[] = raw ? JSON.parse(raw) : [];
     if (queue.length === 0) return { drained: 0, remaining: 0 };
+
+    const failCount = await getFailCount();
+    const delay = backoffMs(failCount);
+    const lastSync = await getLastSyncedAt();
+    if (delay > 0 && lastSync && Date.now() - lastSync < delay) {
+      return { drained: 0, remaining: queue.length };
+    }
 
     const sorted = [...queue].sort((a, b) => a.timestamp - b.timestamp);
     let drained = 0;
@@ -90,7 +128,16 @@ export async function drainQueue(): Promise<{ drained: number; remaining: number
     }
 
     await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(stillPending));
-    return { drained, remaining: stillPending.length };
+
+    if (stillPending.length > 0) {
+      await setFailCount(failCount + 1);
+      return { drained, remaining: stillPending.length };
+    } else {
+      const syncedAt = Date.now();
+      await setLastSyncedAt(syncedAt);
+      await setFailCount(0);
+      return { drained, remaining: 0, syncedAt };
+    }
   } catch (e) {
     console.error('drainQueue error:', e);
     return { drained: 0, remaining: 0 };
