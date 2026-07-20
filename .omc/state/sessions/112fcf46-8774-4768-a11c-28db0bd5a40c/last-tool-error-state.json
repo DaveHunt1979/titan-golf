@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"echo \\\"=== .md files at root ===\\\" && ls -1 *.md 2>/dev/null && echo \\\"\\\" && echo \\\"=== config files ===\\\" && ls -1 *.json *.js *.ts *.toml 2>/dev/null\",\"description\":\"List md and config f...",
+  "error": "Exit code 1\n=== .md files at root ===\nAGENTS.md\nCHANGELOG.md\nCLAUDE.md\nDESIGN_HANDOVER.md\n\n=== config files ===\n(eval):1: no matches found: *.js",
+  "timestamp": "2026-07-20T06:59:11.736Z",
+  "retry_count": 1
+}

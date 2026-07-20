@@ -1,0 +1,9 @@
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"oh-my-claudecode:omc-reference"}
+{"t":0,"agent":"ac4f921","agent_type":"explore","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ac4f921","agent_type":"explore","event":"agent_stop","success":true,"duration_ms":443188}
+{"t":0,"agent":"ae402f2","agent_type":"unknown","event":"agent_stop","success":true,"duration_ms":0}
+{"t":0,"agent":"ad57ca6","agent_type":"unknown","event":"agent_stop","success":true,"duration_ms":0}
+{"t":0,"agent":"a5ccfd2","agent_type":"unknown","event":"agent_stop","success":true,"duration_ms":0}
+{"t":0,"agent":"a208520","agent_type":"unknown","event":"agent_stop","success":true,"duration_ms":0}
+{"t":0,"agent":"a2902f5","agent_type":"unknown","event":"agent_stop","success":true,"duration_ms":0}
+{"t":0,"agent":"a195101","agent_type":"unknown","event":"agent_stop","success":true,"duration_ms":0}

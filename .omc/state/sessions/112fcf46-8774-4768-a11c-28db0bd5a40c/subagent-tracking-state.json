@@ -1,0 +1,71 @@
+{
+  "agents": [
+    {
+      "agent_id": "ac4f9219ec8bdcfec",
+      "agent_type": "oh-my-claudecode:explore",
+      "started_at": "2026-07-20T06:59:05.742Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-07-20T07:06:28.930Z",
+      "duration_ms": 443188
+    },
+    {
+      "agent_id": "ae402f2ed88af28cc",
+      "agent_type": "unknown",
+      "started_at": "2026-07-20T07:11:22.341Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-07-20T07:11:22.341Z",
+      "duration_ms": 0
+    },
+    {
+      "agent_id": "ad57ca67fd7134617",
+      "agent_type": "unknown",
+      "started_at": "2026-07-20T07:14:56.456Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-07-20T07:14:56.456Z",
+      "duration_ms": 0
+    },
+    {
+      "agent_id": "a5ccfd28929ae602f",
+      "agent_type": "unknown",
+      "started_at": "2026-07-20T07:18:54.147Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-07-20T07:18:54.147Z",
+      "duration_ms": 0
+    },
+    {
+      "agent_id": "a2085206cdafe7054",
+      "agent_type": "unknown",
+      "started_at": "2026-07-20T08:17:10.641Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-07-20T08:17:10.641Z",
+      "duration_ms": 0
+    },
+    {
+      "agent_id": "a2902f58192aafeb1",
+      "agent_type": "unknown",
+      "started_at": "2026-07-20T08:31:58.023Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-07-20T08:31:58.023Z",
+      "duration_ms": 0
+    },
+    {
+      "agent_id": "a19510114e28483ce",
+      "agent_type": "unknown",
+      "started_at": "2026-07-20T08:41:57.871Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-07-20T08:41:57.871Z",
+      "duration_ms": 0
+    }
+  ],
+  "total_spawned": 1,
+  "total_completed": 7,
+  "total_failed": 0,
+  "last_updated": "2026-07-20T08:41:57.975Z"
+}
