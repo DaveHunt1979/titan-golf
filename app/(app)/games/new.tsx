@@ -74,6 +74,10 @@ function nowTime() {
 
 // ── Picker sheet (generic) ────────────────────────────────────
 
+function genGroupCode() {
+  return Math.random().toString(36).substring(2, 6).toUpperCase();
+}
+
 function PickerSheet<T extends string>({
   visible, title, options, selected, onSelect, onClose, ps, GOLD,
 }: {
@@ -87,12 +91,14 @@ function PickerSheet<T extends string>({
       <View style={ps.sheet}>
         <View style={ps.handle} />
         <Text style={ps.sheetTitle}>{title}</Text>
-        {options.map(o => (
-          <TouchableOpacity key={o.key} style={ps.sheetRow} onPress={() => { onSelect(o.key); onClose(); }} activeOpacity={0.7}>
-            <Text style={[ps.sheetOpt, o.key === selected && ps.sheetOptOn]}>{o.label}</Text>
-            {o.key === selected && <Ionicons name="checkmark" size={18} color={GOLD} />}
-          </TouchableOpacity>
-        ))}
+        <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+          {options.map(o => (
+            <TouchableOpacity key={o.key} style={ps.sheetRow} onPress={() => { onSelect(o.key); onClose(); }} activeOpacity={0.7}>
+              <Text style={[ps.sheetOpt, o.key === selected && ps.sheetOptOn]}>{o.label}</Text>
+              {o.key === selected && <Ionicons name="checkmark" size={18} color={GOLD} />}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
         <TouchableOpacity style={ps.cancelBtn} onPress={onClose} activeOpacity={0.7}>
           <Text style={ps.cancelText}>Cancel</Text>
         </TouchableOpacity>
@@ -355,7 +361,7 @@ function SettingRow({
 export default function NewGameScreen() {
   const router = useRouter();
   const { societyId, loading: societyLoading } = useSociety();
-  const { existingDayId, course: preselectedCourse } = useLocalSearchParams<{ existingDayId?: string; course?: string }>();
+  const { existingDayId, course: preselectedCourse, openPlayers, resumeMode } = useLocalSearchParams<{ existingDayId?: string; course?: string; openPlayers?: string; resumeMode?: string }>();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -409,7 +415,7 @@ export default function NewGameScreen() {
   const [showNumTeams, setShowNumTeams]   = useState(false);
 
   useFocusEffect(useCallback(() => {
-    setMode('stableford');
+    setMode((resumeMode as GameMode | undefined) ?? 'stableford');
     setPair1([]); setPair2([]); setPairStep(1);
     setSelectedCourse(existingDayId && preselectedCourse ? preselectedCourse : null);
     setHcpAllowance(100); setSideGames([]); setSecondaryFormat(null);
@@ -427,8 +433,11 @@ export default function NewGameScreen() {
             setTakenPlayerIds([...new Set(ids)]);
           }
         });
+      if (openPlayers === '1') {
+        setTimeout(() => setShowPlayers(true), 300);
+      }
     }
-  }, [existingDayId, preselectedCourse]));
+  }, [existingDayId, preselectedCourse, openPlayers, resumeMode]));
 
   useEffect(() => {
     if (!selectedCourse) { setCourseHoleData([]); return; }
@@ -505,7 +514,8 @@ export default function NewGameScreen() {
       return n.length <= 2 ? n.join(', ') : `${n[0]} +${n.length - 1} more`;
     }
     const teams = [pair1, pair2, ...extraTeams].filter(t => t.length > 0);
-    if (teams.length === 1) return `${pair1.map(firstName).join(' & ')}  ·  + team 2`;
+    if (teams.length === 1) return `${pair1.map(firstName).join(' & ')}  ·  + group 2`;
+    if (isMashie) return `${teams.length} group${teams.length !== 1 ? 's' : ''} ready`;
     return teams.map(t => t.map(firstName).join(' & ')).join('  vs  ');
   })();
 
@@ -567,15 +577,41 @@ export default function NewGameScreen() {
       let firstMatchId: string;
 
       if (isTeamStableford && numTeams > 2) {
-        // Create one match per team, each as a solo team (no opponents)
+        // Create one match per team; Mashie groups each get their own join code
         const allTeamsList = [pair1, pair2, ...extraTeams].filter(t => t.length > 0);
-        const results = await Promise.all(allTeamsList.map(team =>
-          supabase.from('matches').insert({ ...teamCommonFields, home_player_ids: team, away_player_ids: [] }).select().single()
-        ));
+        const results = await Promise.all(allTeamsList.map(team => {
+          const extra = isMashie ? { group_code: genGroupCode() } : {};
+          return supabase.from('matches').insert({ ...teamCommonFields, ...extra, home_player_ids: team, away_player_ids: [] }).select().single();
+        }));
         const firstResult = results[0];
         if (firstResult.error || !firstResult.data) throw firstResult.error ?? new Error('Could not create game');
         newMatch = firstResult.data;
         firstMatchId = firstResult.data.id;
+        // Build group code summary for the alert
+        if (isMashie) {
+          const groupSummary = results.map((r, i) => {
+            const teamNames = allTeamsList[i].map(id => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '').join(', ');
+            const code = (r.data as any)?.group_code ?? '—';
+            return `Group ${i + 1} (${teamNames}): ${code}`;
+          }).join('\n');
+          setCreating(false);
+          Alert.alert(
+            'Mashie groups created!',
+            `Share each group code so players can score their own group:\n\n${groupSummary}\n\nRick shares the codes — each group of 4 can only score themselves.`,
+            [
+              {
+                text: 'Add Another Group',
+                onPress: () => router.replace(`/(app)/games/new?existingDayId=${resolvedDayId}&course=${encodeURIComponent(selectedCourse ?? '')}&openPlayers=1&resumeMode=${mode}` as any),
+              },
+              {
+                text: "Let's Play",
+                style: 'default',
+                onPress: () => router.push(`/(app)/score/day/${resolvedDayId}` as any),
+              },
+            ]
+          );
+          return;
+        }
       } else {
         const { data, error } = await supabase.from('matches').insert({
           ...teamCommonFields,
@@ -595,7 +631,7 @@ export default function NewGameScreen() {
         [
           {
             text: 'Add Another Group',
-            onPress: () => router.replace(`/(app)/games/new?existingDayId=${resolvedDayId}&course=${encodeURIComponent(selectedCourse ?? '')}` as any),
+            onPress: () => router.replace(`/(app)/games/new?existingDayId=${resolvedDayId}&course=${encodeURIComponent(selectedCourse ?? '')}&openPlayers=1&resumeMode=${mode}` as any),
           },
           {
             text: "Let's Play",

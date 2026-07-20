@@ -33,6 +33,7 @@ export default function CodesScreen() {
   const [swindleCode,           setSwindleCode]           = useState('');
   const [activeTournamentName,  setActiveTournamentName]  = useState('');
   const [activeTournamentPin,   setActiveTournamentPin]   = useState('');
+  const [mashieGroups,          setMashieGroups]          = useState<{ groupCode: string; playerNames: string }[]>([]);
   const [loading,               setLoading]               = useState(true);
   const [generatingPin,         setGeneratingPin]         = useState(false);
 
@@ -55,6 +56,28 @@ export default function CodesScreen() {
         if (activeComp) {
           setActiveTournamentName((activeComp as any).name ?? '');
           setActiveTournamentPin(String((activeComp as any).pin ?? '').replace(/[^0-9]/g, ''));
+        }
+        // Load active Mashie group matches (have a group_code, in_progress, belong to this society)
+        const { data: mashieMatches } = await supabase
+          .from('matches')
+          .select('group_code, home_player_ids, day:day_id(competition:competition_id(society_id))')
+          .eq('status', 'in_progress')
+          .not('group_code', 'is', null)
+          .limit(50);
+        const societyMashieMatches = (mashieMatches as any[] ?? []).filter(
+          m => (m.day as any)?.competition?.society_id === societyId
+        );
+        if (societyMashieMatches.length > 0) {
+          const allPlayerIds = societyMashieMatches.flatMap((m: any) => m.home_player_ids ?? []);
+          const { data: playerRows } = allPlayerIds.length
+            ? await supabase.from('players').select('id, display_name').in('id', allPlayerIds)
+            : { data: [] };
+          const nameMap: Record<string, string> = {};
+          (playerRows as any[] ?? []).forEach((p: any) => { nameMap[p.id] = p.display_name.split(' ')[0]; });
+          setMashieGroups(societyMashieMatches.map((m: any, i: number) => ({
+            groupCode: m.group_code,
+            playerNames: (m.home_player_ids ?? []).map((id: string) => nameMap[id] ?? '?').join(', ') || `Group ${i + 1}`,
+          })));
         }
       } finally {
         setLoading(false);
@@ -187,6 +210,33 @@ export default function CodesScreen() {
             </View>
           </>
         ) : null}
+
+        {/* Mashie group codes */}
+        {mashieGroups.length > 0 && (
+          <>
+            <Text style={[s.sectionLabel, { color: dc.cardText, marginTop: 24 }]}>MASHIE GROUP CODES</Text>
+            <View style={[s.card, { backgroundColor: dc.card, borderColor: '#a78bfa44' }]}>
+              <Text style={[s.cardHint, { color: dc.cardText, marginBottom: 12 }]}>
+                Share each code with the group — they can only score their own 4.
+              </Text>
+              {mashieGroups.map((g, idx) => (
+                <View key={g.groupCode} style={[{ borderTopWidth: idx > 0 ? 1 : 0, borderTopColor: dc.border, paddingTop: idx > 0 ? 12 : 0, marginTop: idx > 0 ? 12 : 0 }]}>
+                  <Text style={[s.cardHint, { color: dc.cardText, marginBottom: 4 }]}>{g.playerNames}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={[s.areaCode, { color: '#a78bfa', fontSize: 22, letterSpacing: 4 }]}>{g.groupCode}</Text>
+                    <TouchableOpacity
+                      style={[s.shareBtn, { flex: 0, borderColor: '#a78bfa55', backgroundColor: '#a78bfa15', paddingHorizontal: 14 }]}
+                      onPress={() => shareText(`Your Mashie group code: ${g.groupCode} — ${g.playerNames}`, g.groupCode)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[s.shareBtnText, { color: '#a78bfa' }]}>Share</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
 
         {/* Membership area codes */}
         <Text style={[s.sectionLabel, { color: dc.cardText, marginTop: 24 }]}>MEMBERSHIP AREA CODES</Text>

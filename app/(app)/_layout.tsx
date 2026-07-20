@@ -175,6 +175,8 @@ function AppLayoutInner() {
         <Tabs.Screen name="swindle/scan/[gameId]"    options={{ href: null }} />
         <Tabs.Screen name="admin/membership"         options={{ href: null }} />
         <Tabs.Screen name="admin/groups"             options={{ href: null }} />
+        <Tabs.Screen name="admin/codes"              options={{ href: null }} />
+        <Tabs.Screen name="friends"                  options={{ href: null }} />
         <Tabs.Screen name="join" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>
 

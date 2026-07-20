@@ -319,22 +319,14 @@ export default function SocietyAdminScreen() {
         {/* CODES & PINS */}
         <View style={s.section}>
           <Text style={[s.sectionLabel, { color: dc.cardText }]}>CODES &amp; PINS</Text>
-          <View style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }]}>
-            <Text style={[s.cardLabel, { color: dc.cardText }]}>Society Join PIN</Text>
-            {joinPin ? (
-              <Text style={s.pinValue}>{joinPin.slice(0, 3)} {joinPin.slice(3)}</Text>
-            ) : (
-              <Text style={[s.hint, { color: dc.cardText, marginTop: 4 }]}>No PIN generated yet</Text>
-            )}
-          </View>
           <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
+            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border }]}
             onPress={() => router.push('/(app)/admin/codes' as any)}
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
               <Text style={[s.linkTitle, { color: dc.cardText }]}>All Codes &amp; PINs</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Tournament PINs, area codes &amp; share links</Text>
+              <Text style={[s.linkSub, { color: dc.cardText }]}>Join PIN, tournament PINs, area codes</Text>
             </View>
             <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
           </TouchableOpacity>
