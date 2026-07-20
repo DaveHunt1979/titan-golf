@@ -37,18 +37,20 @@ export function isNetworkError(err: any): boolean {
 }
 
 async function getMeta(key: string): Promise<string | null> {
-  const db = await ensureDb();
-  const row = await db.getFirstAsync<{ value: string }>(
-    'SELECT value FROM sync_meta WHERE key = ?', [key]
-  );
-  return row?.value ?? null;
+  try {
+    const db = await ensureDb();
+    if (!db) return null;
+    const row = await db.getFirstAsync('SELECT value FROM sync_meta WHERE key = ?', [key]) as { value: string } | null;
+    return row?.value ?? null;
+  } catch { return null; }
 }
 
 async function setMeta(key: string, value: string): Promise<void> {
-  const db = await ensureDb();
-  await db.runAsync(
-    'INSERT OR REPLACE INTO sync_meta(key, value) VALUES (?, ?)', [key, value]
-  );
+  try {
+    const db = await ensureDb();
+    if (!db) return;
+    await db.runAsync('INSERT OR REPLACE INTO sync_meta(key, value) VALUES (?, ?)', [key, value]);
+  } catch { /* ignore */ }
 }
 
 export async function getLastSyncedAt(): Promise<number | null> {
@@ -77,43 +79,41 @@ export function backoffMs(failCount: number): number {
 export async function enqueueHole(item: Omit<QueuedHole, 'id' | 'timestamp'>): Promise<void> {
   try {
     const db = await ensureDb();
-    const id = `${item.matchId}-${item.holeNumber}`;
+    if (!db) return;
     await db.runAsync(
       `INSERT OR REPLACE INTO offline_queue
          (id, match_id, hole_number, insert_rows, stat_rows, match_update, timestamp)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
-        id,
-        item.matchId,
-        item.holeNumber,
+        `${item.matchId}-${item.holeNumber}`,
+        item.matchId, item.holeNumber,
         JSON.stringify(item.insertRows),
         JSON.stringify(item.statRows),
         JSON.stringify(item.matchUpdate),
         Date.now(),
       ]
     );
-  } catch (e) {
-    console.error('offlineQueue.enqueue failed:', e);
-  }
+  } catch (e) { console.error('offlineQueue.enqueue failed:', e); }
 }
 
 export async function getPendingCount(): Promise<number> {
   try {
     const db = await ensureDb();
-    const row = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) as n FROM offline_queue');
+    if (!db) return 0;
+    const row = await db.getFirstAsync('SELECT COUNT(*) as n FROM offline_queue') as { n: number } | null;
     return row?.n ?? 0;
-  } catch {
-    return 0;
-  }
+  } catch { return 0; }
 }
 
 export async function drainQueue(): Promise<{ drained: number; remaining: number; syncedAt?: number }> {
   try {
     const db = await ensureDb();
-    const queue = await db.getAllAsync<{
+    if (!db) return { drained: 0, remaining: 0 };
+
+    const queue = (await db.getAllAsync('SELECT * FROM offline_queue ORDER BY timestamp ASC')) as {
       id: string; match_id: string; hole_number: number;
       insert_rows: string; stat_rows: string; match_update: string; timestamp: number;
-    }>('SELECT * FROM offline_queue ORDER BY timestamp ASC');
+    }[];
 
     if (queue.length === 0) return { drained: 0, remaining: 0 };
 
@@ -133,19 +133,16 @@ export async function drainQueue(): Promise<{ drained: number; remaining: number
       const matchUpdate: Record<string, any>  = JSON.parse(row.match_update);
 
       try {
-        // Conflict detection: check if server already has different scores for this hole
+        // Conflict detection
         const { data: serverRows } = await supabase
-          .from('match_holes')
-          .select('player_id,gross_score')
-          .eq('match_id', row.match_id)
-          .eq('hole_number', row.hole_number);
+          .from('match_holes').select('player_id,gross_score')
+          .eq('match_id', row.match_id).eq('hole_number', row.hole_number);
 
         if (serverRows && serverRows.length > 0) {
           const hasConflict = insertRows.some(local => {
             const server = serverRows.find(s => s.player_id === local.player_id);
             return server && server.gross_score !== null && server.gross_score !== local.gross_score;
           });
-
           if (hasConflict) {
             await db.runAsync(
               `INSERT OR REPLACE INTO sync_conflicts
@@ -154,34 +151,28 @@ export async function drainQueue(): Promise<{ drained: number; remaining: number
               [row.id, row.match_id, row.hole_number,
                JSON.stringify(serverRows), row.insert_rows, row.match_update, Date.now()]
             );
-            // Leave the queue item in place until the conflict is resolved
             continue;
           }
         }
 
         await supabase.from('match_holes').delete()
-          .eq('match_id', row.match_id)
-          .eq('hole_number', row.hole_number);
+          .eq('match_id', row.match_id).eq('hole_number', row.hole_number);
 
         if (insertRows.length > 0) {
           const { error } = await supabase.from('match_holes').insert(insertRows);
           if (error) throw error;
         }
-
         if (statRows.length > 0) {
           await supabase.from('hole_stats').upsert(statRows, { onConflict: 'match_id,player_id,hole_number' });
         }
-
         const { error } = await supabase.from('matches').update(matchUpdate).eq('id', row.match_id);
         if (error) throw error;
 
         await db.runAsync('DELETE FROM offline_queue WHERE id = ?', [row.id]);
         drained++;
       } catch (err: any) {
-        if (isNetworkError(err)) {
-          networkFailed = true;
-          break;
-        } else {
+        if (isNetworkError(err)) { networkFailed = true; break; }
+        else {
           console.error('Queue item discarded (non-network error):', err);
           await db.runAsync('DELETE FROM offline_queue WHERE id = ?', [row.id]);
           drained++;
@@ -190,16 +181,14 @@ export async function drainQueue(): Promise<{ drained: number; remaining: number
     }
 
     const remaining = await getPendingCount();
-
     if (networkFailed || remaining > 0) {
       await setFailCount(failCount + 1);
       return { drained, remaining };
-    } else {
-      const syncedAt = Date.now();
-      await setLastSyncedAt(syncedAt);
-      await setFailCount(0);
-      return { drained, remaining: 0, syncedAt };
     }
+    const syncedAt = Date.now();
+    await setLastSyncedAt(syncedAt);
+    await setFailCount(0);
+    return { drained, remaining: 0, syncedAt };
   } catch (e) {
     console.error('drainQueue error:', e);
     return { drained: 0, remaining: 0 };
@@ -209,46 +198,39 @@ export async function drainQueue(): Promise<{ drained: number; remaining: number
 export async function getConflicts(): Promise<SyncConflict[]> {
   try {
     const db = await ensureDb();
-    const rows = await db.getAllAsync<{
+    if (!db) return [];
+    const rows = (await db.getAllAsync('SELECT * FROM sync_conflicts ORDER BY detected_at ASC')) as {
       id: string; match_id: string; hole_number: number;
       server_rows: string; local_rows: string; local_update: string; detected_at: number;
-    }>('SELECT * FROM sync_conflicts ORDER BY detected_at ASC');
-    return rows.map(r => ({
-      id: r.id,
-      matchId: r.match_id,
-      holeNumber: r.hole_number,
-      serverRows: JSON.parse(r.server_rows),
-      localRows: JSON.parse(r.local_rows),
-      localUpdate: JSON.parse(r.local_update),
-      detectedAt: r.detected_at,
+    }[];
+    return rows.map((r: any) => ({
+      id: r.id, matchId: r.match_id, holeNumber: r.hole_number,
+      serverRows: JSON.parse(r.server_rows), localRows: JSON.parse(r.local_rows),
+      localUpdate: JSON.parse(r.local_update), detectedAt: r.detected_at,
     }));
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 export async function resolveConflict(conflictId: string, useServer: boolean): Promise<void> {
-  const db = await ensureDb();
-  const conflict = await db.getFirstAsync<{
-    match_id: string; hole_number: number; local_rows: string; local_update: string;
-  }>('SELECT * FROM sync_conflicts WHERE id = ?', [conflictId]);
-  if (!conflict) return;
+  try {
+    const db = await ensureDb();
+    if (!db) return;
+    const conflict = (await db.getFirstAsync('SELECT * FROM sync_conflicts WHERE id = ?', [conflictId])) as {
+      match_id: string; hole_number: number; local_rows: string; local_update: string;
+    } | null;
+    if (!conflict) return;
 
-  if (!useServer) {
-    // Force-push local version to server
-    const insertRows: Record<string, any>[] = JSON.parse(conflict.local_rows);
-    const matchUpdate: Record<string, any>  = JSON.parse(conflict.local_update);
-    await supabase.from('match_holes').delete()
-      .eq('match_id', conflict.match_id).eq('hole_number', conflict.hole_number);
-    if (insertRows.length > 0) {
-      await supabase.from('match_holes').insert(insertRows);
+    if (!useServer) {
+      const insertRows: Record<string, any>[] = JSON.parse(conflict.local_rows);
+      const matchUpdate: Record<string, any>  = JSON.parse(conflict.local_update);
+      await supabase.from('match_holes').delete()
+        .eq('match_id', conflict.match_id).eq('hole_number', conflict.hole_number);
+      if (insertRows.length > 0) await supabase.from('match_holes').insert(insertRows);
+      await supabase.from('matches').update(matchUpdate).eq('id', conflict.match_id);
     }
-    await supabase.from('matches').update(matchUpdate).eq('id', conflict.match_id);
-  }
-  // useServer=true: server data already in Supabase — nothing to push
 
-  // Either way, remove queue item and conflict record
-  await db.runAsync('DELETE FROM offline_queue WHERE match_id = ? AND hole_number = ?',
-    [conflict.match_id, conflict.hole_number]);
-  await db.runAsync('DELETE FROM sync_conflicts WHERE id = ?', [conflictId]);
+    await db.runAsync('DELETE FROM offline_queue WHERE match_id = ? AND hole_number = ?',
+      [conflict.match_id, conflict.hole_number]);
+    await db.runAsync('DELETE FROM sync_conflicts WHERE id = ?', [conflictId]);
+  } catch (e) { console.error('resolveConflict error:', e); }
 }

@@ -1,7 +1,7 @@
 import { ensureDb } from './localDb';
 import { supabase } from './supabase';
 
-const TTL = 14 * 60 * 60 * 1000; // 14 hours
+const TTL = 14 * 60 * 60 * 1000;
 
 export interface MatchPack {
   matchId: string;
@@ -17,9 +17,7 @@ export async function downloadMatchPack(matchId: string): Promise<void> {
     const { data: matchData } = await supabase
       .from('matches')
       .select('*, home_team:home_team_id(name,accent_color), away_team:away_team_id(name,accent_color), day:day_id(course_name,course_par,course_rating,slope_rating,day_number,competition:competition_id(format))')
-      .eq('id', matchId)
-      .single();
-
+      .eq('id', matchId).single();
     if (!matchData) return;
 
     const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
@@ -39,59 +37,42 @@ export async function downloadMatchPack(matchId: string): Promise<void> {
 
     const players: MatchPack['players'] = {};
     const fallback: { player_id: string; handicap_index: number }[] = [];
-
     for (const p of (playersRes.data ?? []) as any[]) {
       players[p.id] = { display_name: p.display_name, handicap_index: p.handicap_index ?? 0, avatar_url: p.avatar_url ?? null };
       fallback.push({ player_id: p.id, handicap_index: p.handicap_index ?? 0 });
     }
-
     const comp = compRes.data as any[] | null;
     const compPlayers = comp && comp.length > 0 ? comp : fallback;
 
     const db = await ensureDb();
+    if (!db) return;
+
     await db.runAsync(
       `INSERT OR REPLACE INTO match_pack
          (match_id, downloaded_at, match_json, holes_json, players_json, comp_json)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        matchId,
-        Date.now(),
-        JSON.stringify(matchData),
-        JSON.stringify(holesRes.data ?? []),
-        JSON.stringify(players),
-        JSON.stringify(compPlayers),
-      ]
+      [matchId, Date.now(), JSON.stringify(matchData),
+       JSON.stringify(holesRes.data ?? []), JSON.stringify(players), JSON.stringify(compPlayers)]
     );
-  } catch (e) {
-    console.warn('offlinePack.download failed:', e);
-  }
+  } catch (e) { console.warn('offlinePack.download failed:', e); }
 }
 
 export async function getMatchPack(matchId: string): Promise<MatchPack | null> {
   try {
     const db = await ensureDb();
-    const row = await db.getFirstAsync<{
-      downloaded_at: number;
-      match_json: string;
-      holes_json: string;
-      players_json: string;
-      comp_json: string;
-    }>('SELECT * FROM match_pack WHERE match_id = ?', [matchId]);
-
+    if (!db) return null;
+    const row = (await db.getFirstAsync('SELECT * FROM match_pack WHERE match_id = ?', [matchId])) as {
+      downloaded_at: number; match_json: string; holes_json: string;
+      players_json: string; comp_json: string;
+    } | null;
     if (!row) return null;
     if (Date.now() - row.downloaded_at > TTL) return null;
-
     return {
-      matchId,
-      downloadedAt: row.downloaded_at,
-      match: JSON.parse(row.match_json),
-      courseHoles: JSON.parse(row.holes_json),
-      players: JSON.parse(row.players_json),
-      compPlayers: JSON.parse(row.comp_json),
+      matchId, downloadedAt: row.downloaded_at,
+      match: JSON.parse(row.match_json), courseHoles: JSON.parse(row.holes_json),
+      players: JSON.parse(row.players_json), compPlayers: JSON.parse(row.comp_json),
     };
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 export async function refreshMatchPack(matchId: string): Promise<void> {
@@ -101,8 +82,7 @@ export async function refreshMatchPack(matchId: string): Promise<void> {
 export async function clearMatchPack(matchId: string): Promise<void> {
   try {
     const db = await ensureDb();
+    if (!db) return;
     await db.runAsync('DELETE FROM match_pack WHERE match_id = ?', [matchId]);
-  } catch {
-    // ignore
-  }
+  } catch { /* ignore */ }
 }
