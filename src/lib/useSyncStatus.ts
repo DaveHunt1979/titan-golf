@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
-import { drainQueue, getLastSyncedAt, getPendingCount, type SyncState } from './offlineQueue';
+import {
+  drainQueue, getLastSyncedAt, getPendingCount, getConflicts,
+  type SyncState, type SyncConflict,
+} from './offlineQueue';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
@@ -27,21 +30,22 @@ export interface SyncStatus {
   pendingCount: number;
   lastSyncedAt: number | null;
   isOnline: boolean;
+  conflicts: SyncConflict[];
   syncNow: () => Promise<void>;
+  resolveAndRefresh: (conflictId: string, useServer: boolean) => Promise<void>;
 }
 
 export function useSyncStatus(): SyncStatus {
-  const [state, setState] = useState<SyncState>('idle');
+  const [state, setState]               = useState<SyncState>('idle');
   const [pendingCount, setPendingCount] = useState(0);
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
-  const [isOnline, setIsOnline] = useState(true);
-  const syncing = useRef(false);
-  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [isOnline, setIsOnline]         = useState(true);
+  const [conflicts, setConflicts]       = useState<SyncConflict[]>([]);
+  const syncing    = useRef(false);
+  const pollTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const refresh = useCallback(async () => {
-    const [count, last] = await Promise.all([getPendingCount(), getLastSyncedAt()]);
-    setPendingCount(count);
-    setLastSyncedAt(last);
+  const refreshConflicts = useCallback(async () => {
+    setConflicts(await getConflicts());
   }, []);
 
   const trySync = useCallback(async () => {
@@ -65,7 +69,9 @@ export function useSyncStatus(): SyncStatus {
       const count = result.remaining;
       setPendingCount(count);
       if (result.syncedAt) setLastSyncedAt(result.syncedAt);
-      setState(count > 0 ? 'error' : result.drained > 0 || result.syncedAt ? 'synced' : 'idle');
+      await refreshConflicts();
+      const hasConflicts = (await getConflicts()).length > 0;
+      setState(hasConflicts ? 'error' : count > 0 ? 'error' : result.drained > 0 || result.syncedAt ? 'synced' : 'idle');
     } catch {
       const count = await getPendingCount();
       setPendingCount(count);
@@ -73,38 +79,39 @@ export function useSyncStatus(): SyncStatus {
     } finally {
       syncing.current = false;
     }
-  }, []);
+  }, [refreshConflicts]);
 
-  const syncNow = useCallback(async () => {
-    await trySync();
-  }, [trySync]);
+  const syncNow = useCallback(async () => { await trySync(); }, [trySync]);
 
-  // Mount: load initial state
+  const resolveAndRefresh = useCallback(async (conflictId: string, useServer: boolean) => {
+    const { resolveConflict } = await import('./offlineQueue');
+    await resolveConflict(conflictId, useServer);
+    await refreshConflicts();
+    const count = await getPendingCount();
+    setPendingCount(count);
+    if (count === 0 && (await getConflicts()).length === 0) setState('synced');
+  }, [refreshConflicts]);
+
   useEffect(() => {
     (async () => {
-      await refresh();
+      const [count, last, c] = await Promise.all([getPendingCount(), getLastSyncedAt(), getConflicts()]);
+      setPendingCount(count);
+      setLastSyncedAt(last);
+      setConflicts(c);
       const online = await pingNetwork();
       setIsOnline(online);
-      if (online) {
-        await trySync();
-      } else {
-        const count = await getPendingCount();
-        setState(count > 0 ? 'offline' : 'idle');
-      }
+      if (online) await trySync();
+      else setState(count > 0 ? 'offline' : 'idle');
     })();
   }, []);
 
-  // AppState: drain on foreground
   useEffect(() => {
     const sub = AppState.addEventListener('change', async (next) => {
-      if (next === 'active') {
-        await trySync();
-      }
+      if (next === 'active') await trySync();
     });
     return () => sub.remove();
   }, [trySync]);
 
-  // Poll when offline — re-attempt every 30s
   useEffect(() => {
     if (!isOnline) {
       pollTimer.current = setInterval(() => trySync(), POLL_INTERVAL_OFFLINE);
@@ -114,5 +121,5 @@ export function useSyncStatus(): SyncStatus {
     return () => { if (pollTimer.current) clearInterval(pollTimer.current); };
   }, [isOnline, trySync]);
 
-  return { state, pendingCount, lastSyncedAt, isOnline, syncNow };
+  return { state, pendingCount, lastSyncedAt, isOnline, conflicts, syncNow, resolveAndRefresh };
 }

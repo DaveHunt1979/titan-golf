@@ -1,6 +1,16 @@
 import { ensureDb } from './localDb';
 import { supabase } from './supabase';
 
+export interface SyncConflict {
+  id: string;
+  matchId: string;
+  holeNumber: number;
+  serverRows: { player_id: string; gross_score: number | null }[];
+  localRows: Record<string, any>[];
+  localUpdate: Record<string, any>;
+  detectedAt: number;
+}
+
 export type SyncState = 'idle' | 'syncing' | 'synced' | 'offline' | 'error';
 
 export interface QueuedHole {
@@ -123,6 +133,32 @@ export async function drainQueue(): Promise<{ drained: number; remaining: number
       const matchUpdate: Record<string, any>  = JSON.parse(row.match_update);
 
       try {
+        // Conflict detection: check if server already has different scores for this hole
+        const { data: serverRows } = await supabase
+          .from('match_holes')
+          .select('player_id,gross_score')
+          .eq('match_id', row.match_id)
+          .eq('hole_number', row.hole_number);
+
+        if (serverRows && serverRows.length > 0) {
+          const hasConflict = insertRows.some(local => {
+            const server = serverRows.find(s => s.player_id === local.player_id);
+            return server && server.gross_score !== null && server.gross_score !== local.gross_score;
+          });
+
+          if (hasConflict) {
+            await db.runAsync(
+              `INSERT OR REPLACE INTO sync_conflicts
+                 (id, match_id, hole_number, server_rows, local_rows, local_update, detected_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [row.id, row.match_id, row.hole_number,
+               JSON.stringify(serverRows), row.insert_rows, row.match_update, Date.now()]
+            );
+            // Leave the queue item in place until the conflict is resolved
+            continue;
+          }
+        }
+
         await supabase.from('match_holes').delete()
           .eq('match_id', row.match_id)
           .eq('hole_number', row.hole_number);
@@ -144,7 +180,7 @@ export async function drainQueue(): Promise<{ drained: number; remaining: number
       } catch (err: any) {
         if (isNetworkError(err)) {
           networkFailed = true;
-          break; // stop on first network failure — no point continuing
+          break;
         } else {
           console.error('Queue item discarded (non-network error):', err);
           await db.runAsync('DELETE FROM offline_queue WHERE id = ?', [row.id]);
@@ -168,4 +204,51 @@ export async function drainQueue(): Promise<{ drained: number; remaining: number
     console.error('drainQueue error:', e);
     return { drained: 0, remaining: 0 };
   }
+}
+
+export async function getConflicts(): Promise<SyncConflict[]> {
+  try {
+    const db = await ensureDb();
+    const rows = await db.getAllAsync<{
+      id: string; match_id: string; hole_number: number;
+      server_rows: string; local_rows: string; local_update: string; detected_at: number;
+    }>('SELECT * FROM sync_conflicts ORDER BY detected_at ASC');
+    return rows.map(r => ({
+      id: r.id,
+      matchId: r.match_id,
+      holeNumber: r.hole_number,
+      serverRows: JSON.parse(r.server_rows),
+      localRows: JSON.parse(r.local_rows),
+      localUpdate: JSON.parse(r.local_update),
+      detectedAt: r.detected_at,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function resolveConflict(conflictId: string, useServer: boolean): Promise<void> {
+  const db = await ensureDb();
+  const conflict = await db.getFirstAsync<{
+    match_id: string; hole_number: number; local_rows: string; local_update: string;
+  }>('SELECT * FROM sync_conflicts WHERE id = ?', [conflictId]);
+  if (!conflict) return;
+
+  if (!useServer) {
+    // Force-push local version to server
+    const insertRows: Record<string, any>[] = JSON.parse(conflict.local_rows);
+    const matchUpdate: Record<string, any>  = JSON.parse(conflict.local_update);
+    await supabase.from('match_holes').delete()
+      .eq('match_id', conflict.match_id).eq('hole_number', conflict.hole_number);
+    if (insertRows.length > 0) {
+      await supabase.from('match_holes').insert(insertRows);
+    }
+    await supabase.from('matches').update(matchUpdate).eq('id', conflict.match_id);
+  }
+  // useServer=true: server data already in Supabase — nothing to push
+
+  // Either way, remove queue item and conflict record
+  await db.runAsync('DELETE FROM offline_queue WHERE match_id = ? AND hole_number = ?',
+    [conflict.match_id, conflict.hole_number]);
+  await db.runAsync('DELETE FROM sync_conflicts WHERE id = ?', [conflictId]);
 }

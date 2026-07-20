@@ -2,6 +2,17 @@
 
 ---
 
+## Build 81 — 2026-07-20
+
+### Offline-First Phase 4 — Conflict resolution
+- **Conflict detection** — when draining the offline queue, the app now checks if Supabase already has a different gross score for that hole before overwriting; if scores differ a conflict is recorded instead of silently clobbering the server data
+- **`sync_conflicts` table** — conflicts are persisted in SQLite so they survive app restarts
+- **SyncBar** — when conflicts exist the bar shows "⚠ N conflicts — tap to resolve" in red instead of the normal sync state
+- **Conflict Sheet** — tapping the conflict indicator opens a full-screen modal listing each conflict with a side-by-side table (Server vs Mine) per player per hole; differing scores are highlighted in red
+- **Resolution** — two buttons per conflict: "Keep Server" (discard local, server data stays) and "Use Mine" (force-push local version to Supabase); either path clears the queue item and the conflict record
+
+---
+
 ## Build 80 — 2026-07-20
 
 ### Offline-First Phase 3 — SQLite local database

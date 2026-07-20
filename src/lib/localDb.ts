@@ -37,6 +37,17 @@ export async function initDb(): Promise<void> {
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS sync_conflicts (
+      id           TEXT PRIMARY KEY,
+      match_id     TEXT NOT NULL,
+      hole_number  INTEGER NOT NULL,
+      server_rows  TEXT NOT NULL,
+      local_rows   TEXT NOT NULL,
+      local_update TEXT NOT NULL,
+      detected_at  INTEGER NOT NULL,
+      UNIQUE(match_id, hole_number)
+    );
   `);
 }
 

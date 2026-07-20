@@ -27,6 +27,7 @@ import { enqueueHole, isNetworkError } from '../../../../src/lib/offlineQueue';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
+import ConflictSheet from '../../../../src/components/ConflictSheet';
 
 // ── Design tokens ──────────────────────────────────────────────
 const GOLD   = '#D4AF37';
@@ -149,6 +150,7 @@ export default function EnterScoresScreen() {
   const [currentPage, setCurrentPage] = useState(0);
   const syncStatus = useSyncStatus();
   const pendingCount = syncStatus.pendingCount;
+  const [showConflicts, setShowConflicts] = useState(false);
   const { width: screenWidth } = useWindowDimensions();
   const pagerRef = useRef<ScrollView>(null);
   const holeStripRef = useRef<ScrollView>(null);
@@ -968,7 +970,14 @@ export default function EnterScoresScreen() {
       </View>
 
       {/* ── Sync status ── */}
-      <SyncBar status={syncStatus} />
+      <SyncBar status={syncStatus} onConflictsPress={() => setShowConflicts(true)} />
+      <ConflictSheet
+        visible={showConflicts}
+        conflicts={syncStatus.conflicts}
+        playerNames={playerNames}
+        onResolve={async (id, useServer) => { await syncStatus.resolveAndRefresh(id, useServer); }}
+        onClose={() => setShowConflicts(false)}
+      />
 
       {/* ── Status banner ── */}
       <View style={s.statusBanner}>
