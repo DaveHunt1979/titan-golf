@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import {
-  drainQueue, getLastSyncedAt, getPendingCount, getConflicts,
+  drainQueue, getLastSyncedAt, getPendingCount, getConflicts, resolveConflict,
   type SyncState, type SyncConflict,
 } from './offlineQueue';
 
@@ -84,7 +84,6 @@ export function useSyncStatus(): SyncStatus {
   const syncNow = useCallback(async () => { await trySync(); }, [trySync]);
 
   const resolveAndRefresh = useCallback(async (conflictId: string, useServer: boolean) => {
-    const { resolveConflict } = await import('./offlineQueue');
     await resolveConflict(conflictId, useServer);
     await refreshConflicts();
     const count = await getPendingCount();
