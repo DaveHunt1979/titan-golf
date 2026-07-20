@@ -16,7 +16,9 @@ CREATE POLICY "society members read groups"
   ON player_groups FOR SELECT
   USING (
     society_id IN (
-      SELECT society_id FROM players WHERE auth_uid = auth.uid()
+      SELECT sm.society_id FROM society_members sm
+      JOIN players p ON p.id = sm.player_id
+      WHERE p.auth_uid = auth.uid()
     )
   );
 
@@ -25,11 +27,17 @@ CREATE POLICY "society admins manage groups"
   ON player_groups FOR ALL
   USING (
     society_id IN (
-      SELECT id FROM societies WHERE admin_uid = auth.uid()
+      SELECT sm.society_id FROM society_members sm
+      JOIN players p ON p.id = sm.player_id
+      WHERE p.auth_uid = auth.uid()
+      AND sm.role IN ('admin', 'owner')
     )
   )
   WITH CHECK (
     society_id IN (
-      SELECT id FROM societies WHERE admin_uid = auth.uid()
+      SELECT sm.society_id FROM society_members sm
+      JOIN players p ON p.id = sm.player_id
+      WHERE p.auth_uid = auth.uid()
+      AND sm.role IN ('admin', 'owner')
     )
   );
