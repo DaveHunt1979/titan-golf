@@ -197,8 +197,27 @@ export default function MatchDetailScreen() {
   const isMember = myPlayerId && allPlayerIds.includes(myPlayerId);
 
   async function handleEnterScores() {
-    const courseName = match!.day?.course_name ?? null;
     const isSolo = match!.away_player_ids.length === 0 && match!.home_player_ids.length === 1;
+    const fmt = match!.round_format ?? '';
+    const specialRoutes: Record<string, string> = {
+      skins:                `/(app)/score/skins/${matchId}`,
+      nassau:               `/(app)/score/nassau/${matchId}`,
+      scramble:             `/(app)/score/scramble/${matchId}`,
+      modified_stableford:  `/(app)/score/modified/${matchId}`,
+      par_bogey:            `/(app)/score/parbogey/${matchId}`,
+      team_stableford:      `/(app)/score/teamstableford/${matchId}`,
+      best2from4:           `/(app)/score/teamstableford/${matchId}`,
+      best2from4_par3all:   `/(app)/score/teamstableford/${matchId}`,
+    };
+
+    if (match!.status === 'in_progress') {
+      if (isSolo) { router.push(`/(app)/score/solo/${matchId}` as any); return; }
+      if (specialRoutes[fmt]) { router.push(specialRoutes[fmt] as any); return; }
+      router.push(`/(app)/score/enter/${matchId}` as any);
+      return;
+    }
+
+    const courseName = match!.day?.course_name ?? null;
 
     let availableTees: string[] = [];
     if (courseName) {

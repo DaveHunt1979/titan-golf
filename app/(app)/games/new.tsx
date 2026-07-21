@@ -928,16 +928,16 @@ export default function NewGameScreen() {
           <SettingRow icon="trophy-outline" label="Format" value={formatLabel} onPress={() => setShowFormat(true)} s={s} GOLD={GOLD} />
           <View style={s.settingDivider} />
 
-          {/* Players */}
-          <SettingRow icon="people-outline" label="Players" value={playersLabel} valueColor={pair1.length === 0 ? GOLD : undefined} onPress={() => setShowPlayers(true)} s={s} GOLD={GOLD} />
-
-          {/* Team / Mashie config */}
+          {/* Team / Mashie config — shown above Players so count is set first */}
           {isTeamMode && (
             <>
+              <SettingRow icon="albums-outline" label="Groups" value={`${numTeams} groups`} onPress={() => setShowNumTeams(true)} s={s} GOLD={GOLD} />
               <View style={s.settingDivider} />
-              <SettingRow icon="albums-outline" label="Teams" value={`${numTeams} teams`} onPress={() => setShowNumTeams(true)} s={s} GOLD={GOLD} />
             </>
           )}
+
+          {/* Players */}
+          <SettingRow icon="people-outline" label="Players" value={playersLabel} valueColor={pair1.length === 0 ? GOLD : undefined} onPress={() => setShowPlayers(true)} s={s} GOLD={GOLD} />
           {mode === 'team_stableford' && (
             <>
               <View style={s.settingDivider} />
