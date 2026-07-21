@@ -444,9 +444,9 @@ const s = StyleSheet.create({
     backgroundColor: '#0a0f14',
   },
   heroLogoSection: {
-    paddingVertical: 16, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 24, alignItems: 'center', justifyContent: 'center',
   },
-  heroSocietyLogo: { width: '100%' as const, height: 160 },
+  heroSocietyLogo: { width: '100%' as const, height: 220 },
 
   // Tile grid
   grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
