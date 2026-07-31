@@ -392,6 +392,7 @@ export default function NewGameScreen() {
   const [npActive, setNpActive]             = useState(false);
   const [ldHole, setLdHole]                 = useState<number | null>(null);
   const [ntpHole, setNtpHole]               = useState<number | null>(null);
+  const [startHole, setStartHole]           = useState(1);
   const [creating, setCreating]             = useState(false);
   const [takenPlayerIds, setTakenPlayerIds] = useState<string[]>([]);
   const [teamSize, setTeamSize]             = useState<2 | 3 | 4>(2);
@@ -414,6 +415,7 @@ export default function NewGameScreen() {
   const [showTeamSize, setShowTeamSize]   = useState(false);
   const [showCounting, setShowCounting]   = useState(false);
   const [showNumTeams, setShowNumTeams]   = useState(false);
+  const [showStartHole, setShowStartHole] = useState(false);
 
   useFocusEffect(useCallback(() => {
     setMode((resumeMode as GameMode | undefined) ?? 'stableford');
@@ -423,8 +425,9 @@ export default function NewGameScreen() {
     setHoles('full18'); setVoiceEnabled(true); setLdActive(false); setNpActive(false);
     setLdHole(null); setNtpHole(null); setCreating(false); setTakenPlayerIds([]);
     setTeamSize(2); setCounting(2); setNumTeams(2); setExtraTeams([]);
+    setStartHole(1);
     setShowFormat(false); setShowPlayers(false); setShowCourse(false);
-    setShowHoles(false); setShowHcp(false); setShowTeamSize(false); setShowCounting(false); setShowNumTeams(false);
+    setShowHoles(false); setShowHcp(false); setShowTeamSize(false); setShowCounting(false); setShowNumTeams(false); setShowStartHole(false);
     if (existingDayId) {
       supabase.from('matches').select('home_player_ids, away_player_ids')
         .eq('day_id', existingDayId).neq('status', 'cancelled')
@@ -647,7 +650,10 @@ export default function NewGameScreen() {
               } else if (existingDayId) {
                 router.push(`/(app)/score/day/${resolvedDayId}` as any);
               } else {
-                const params = dayCode ? `?dayId=${resolvedDayId}&dayCode=${dayCode}` : '';
+                const paramParts: string[] = [];
+                if (dayCode) { paramParts.push(`dayId=${resolvedDayId}`); paramParts.push(`dayCode=${dayCode}`); }
+                if (startHole !== 1) paramParts.push(`startHole=${startHole}`);
+                const params = paramParts.length > 0 ? `?${paramParts.join('&')}` : '';
                 router.push(`/(app)/score/preview/${firstMatchId}${params}` as any);
               }
             },
@@ -900,7 +906,7 @@ export default function NewGameScreen() {
           <View style={s.teetimeRow}>
             <View style={s.teetimeItem}>
               <Ionicons name="flag-outline" size={13} color="rgba(255,255,255,0.5)" />
-              <Text style={s.teetimeText}>Hole 1 Start</Text>
+              <Text style={s.teetimeText}>Hole {startHole} Start</Text>
             </View>
             <View style={s.teetimeDivider} />
             <View style={s.teetimeItem}>
@@ -950,6 +956,17 @@ export default function NewGameScreen() {
 
           {/* Holes */}
           <SettingRow icon="golf-outline" label="Holes" value={holesLabel} onPress={() => setShowHoles(true)} s={s} GOLD={GOLD} />
+          <View style={s.settingDivider} />
+
+          {/* Start Hole */}
+          <SettingRow
+            icon="flag-outline"
+            label="Start Hole"
+            value={`Hole ${startHole}`}
+            valueColor={startHole !== 1 ? GOLD : undefined}
+            onPress={() => setShowStartHole(true)}
+            s={s} GOLD={GOLD}
+          />
           <View style={s.settingDivider} />
 
           {/* Handicap */}
@@ -1217,6 +1234,17 @@ export default function NewGameScreen() {
         selected={countingScores.toString() as any}
         onSelect={(v: any) => setCounting(parseInt(v, 10))}
         onClose={() => setShowCounting(false)}
+        ps={ps} GOLD={GOLD}
+      />
+      <PickerSheet
+        visible={showStartHole} title="Start Hole"
+        options={Array.from({ length: 18 }, (_, i) => ({
+          key: String(i + 1),
+          label: i === 0 ? 'Hole 1 (Front 9)' : i === 9 ? 'Hole 10 (Back 9)' : `Hole ${i + 1}`,
+        }))}
+        selected={startHole.toString() as any}
+        onSelect={(v: any) => setStartHole(parseInt(v, 10))}
+        onClose={() => setShowStartHole(false)}
         ps={ps} GOLD={GOLD}
       />
 

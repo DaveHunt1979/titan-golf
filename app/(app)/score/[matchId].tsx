@@ -66,7 +66,7 @@ interface MatchDetail {
 }
 
 export default function MatchDetailScreen() {
-  const { matchId } = useLocalSearchParams<{ matchId: string }>();
+  const { matchId, startHole: startHoleParam } = useLocalSearchParams<{ matchId: string; startHole?: string }>();
   const router = useRouter();
 
   const [fontsLoaded] = useFonts({
@@ -265,10 +265,14 @@ export default function MatchDetailScreen() {
       }
     };
 
-    Alert.alert('Starting Hole', 'Which hole are you starting from?', [
-      { text: 'Hole 1 (Front 9)', onPress: () => navigate(1) },
-      { text: 'Hole 10 (Back 9)', onPress: () => navigate(10) },
-    ]);
+    if (startHoleParam) {
+      navigate(parseInt(startHoleParam, 10));
+    } else {
+      Alert.alert('Starting Hole', 'Which hole are you starting from?', [
+        { text: 'Hole 1 (Front 9)', onPress: () => navigate(1) },
+        { text: 'Hole 10 (Back 9)', onPress: () => navigate(10) },
+      ]);
+    }
   }
 
   return (

@@ -47,7 +47,7 @@ function Avatar({ name, size = 72, src }: { name: string; size?: number; src?: a
 }
 
 export default function MatchPreviewScreen() {
-  const { matchId, dayId, dayCode } = useLocalSearchParams<{ matchId: string; dayId?: string; dayCode?: string }>();
+  const { matchId, dayId, dayCode, startHole } = useLocalSearchParams<{ matchId: string; dayId?: string; dayCode?: string; startHole?: string }>();
   const router = useRouter();
 
   const [fontsLoaded] = useFonts({
@@ -94,7 +94,10 @@ export default function MatchPreviewScreen() {
     if (voiceOn) {
       await Promise.race([speakIntro(firstNames), new Promise(resolve => setTimeout(resolve, 6000))]);
     }
-    router.replace(`/(app)/score/${matchId}` as any);
+    const dest = startHole && startHole !== '1'
+      ? `/(app)/score/${matchId}?startHole=${startHole}`
+      : `/(app)/score/${matchId}`;
+    router.replace(dest as any);
   }
 
   if (loading || !fontsLoaded) return (

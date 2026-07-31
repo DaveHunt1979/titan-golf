@@ -21,6 +21,7 @@ import RecordCelebration from '../../../../src/components/RecordCelebration';
 import { checkAndUpdateRecords, type BrokenRecord } from '../../../../src/lib/records';
 import { sendMatchNotification } from '../../../../src/lib/notifications';
 import { sendMatchToWatch, clearMatchFromWatch, onWatchScoreEntry, onWatchRequestsState } from '../../../../src/lib/watch';
+import { startLiveActivity, updateLiveActivity, endLiveActivity } from '../../../../src/lib/liveActivity';
 import CaddieButton from '../../../../src/components/CaddieButton';
 import type { VoiceCommandResult } from '../../../../src/lib/voiceCommand';
 import { enqueueHole, isNetworkError } from '../../../../src/lib/offlineQueue';
@@ -159,6 +160,7 @@ export default function EnterScoresScreen() {
   const holeStripRef = useRef<ScrollView>(null);
   const gpsRef = useRef<{ lat: number; lng: number } | null>(null);
   const skipNextLoad = useRef(false);
+  const liveActivityStarted = useRef(false);
   const [dayBoard, setDayBoard] = useState<{ playerId: string; name: string; pts: number }[]>([]);
 
   // Passive GPS — used only for tagging shot locations
@@ -276,6 +278,32 @@ export default function EnterScoresScreen() {
       holesString: holesStr,
     });
   }, [match?.holes_string]);
+
+  // Start Live Activity once data is loaded
+  useEffect(() => {
+    if (loading || liveActivityStarted.current || !match || Object.keys(playerNames).length === 0) return;
+    if (match.status !== 'in_progress') return;
+    liveActivityStarted.current = true;
+    const hs = (match.holes_string ?? '..................').padEnd(18, '.').slice(0, 18);
+    const firstDot = hs.indexOf('.');
+    const startHoleNum = firstDot >= 0 ? firstDot + 1 : 1;
+    const holeInfo = courseHoles.find(h => h.hole_number === startHoleNum);
+    const allIds = [...match.home_player_ids, ...match.away_player_ids];
+    const sorted = [...allIds].sort((a, b) => (playerTotals[b] ?? 0) - (playerTotals[a] ?? 0));
+    startLiveActivity({
+      matchId: match.id,
+      courseName: match.day?.course_name ?? 'Golf Course',
+      hole: startHoleNum,
+      par: holeInfo?.par ?? 4,
+      holesLeft: hs.split('').filter(c => c === '.').length,
+      format: match.round_format,
+      players: allIds.map(id => ({
+        name: (playerNames[id] ?? '').split(' ')[0],
+        pts: playerTotals[id] ?? 0,
+        isLeader: sorted[0] === id,
+      })),
+    });
+  }, [loading, match?.id]);
 
   useEffect(() => {
     const unsub = onWatchScoreEntry(async (entry) => {
@@ -614,12 +642,40 @@ export default function EnterScoresScreen() {
       setEditingHole(null);
       if (!editingHole) checkEagle(scores, par, activeHole);
 
+      // Live Activity update
+      {
+        const newTotals: Record<string, number> = {};
+        for (const id of allPlayerIds) {
+          const old = editingHole ? (holeData[id]?.[activeHole]?.pts ?? 0) : 0;
+          const row = spRows.find(r => r.player_id === id);
+          newTotals[id] = (playerTotals[id] ?? 0) - old + (row?.stableford_pts ?? 0);
+        }
+        if (newStatus === 'complete') {
+          endLiveActivity();
+        } else {
+          const nextDot = newHolesStr.indexOf('.');
+          const nextHole = nextDot >= 0 ? nextDot + 1 : activeHole;
+          const nextPar = courseHoles.find(h => h.hole_number === nextHole)?.par ?? par;
+          const sortedIds = [...allPlayerIds].sort((a, b) => (newTotals[b] ?? 0) - (newTotals[a] ?? 0));
+          updateLiveActivity({
+            hole: nextHole,
+            par: nextPar,
+            holesLeft: newHolesStr.split('').filter(c => c === '.').length,
+            format: match.round_format,
+            players: allPlayerIds.map(id => ({
+              name: (playerNames[id] ?? '').split(' ')[0],
+              pts: newTotals[id] ?? 0,
+              isLeader: sortedIds[0] === id,
+            })),
+          });
+        }
+      }
+
       if (!savedOffline) {
         if (newStatus === 'complete' && !editingHole) {
           const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
           const broken = allBroken.flat();
           if (broken.length > 0) { setRecordsBroken(broken); }
-          else { Alert.alert('Round Complete', 'All 18 holes scored!', [{ text: 'View Scorecard' }]); }
         }
 
         if (!editingHole && !wasAlreadyComplete && [6, 9, 12, 15, 16, 17, 18].includes(activeHole)) {
@@ -748,6 +804,33 @@ export default function EnterScoresScreen() {
     setMatch({ ...match, ...matchUpdate });
     setEditingHole(null);
 
+    // Live Activity update
+    {
+      const mpHolesLeft = newHolesStr.split('').filter(c => c === '.').length;
+      if (newStatus === 'complete' && !continuingSecondary) {
+        endLiveActivity();
+      } else {
+        const nextDot = newHolesStr.indexOf('.');
+        const nextHole = nextDot >= 0 ? nextDot + 1 : activeHole;
+        const nextPar = courseHoles.find(h => h.hole_number === nextHole)?.par ?? par;
+        const mpHomeLabel = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+        const mpAwayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
+        const mpScore = homeUp > 0
+          ? `${mpHomeLabel} ${homeUp}UP`
+          : homeUp < 0
+          ? `${mpAwayLabel} ${Math.abs(homeUp)}UP`
+          : 'All Square';
+        updateLiveActivity({
+          hole: nextHole,
+          par: nextPar,
+          holesLeft: mpHolesLeft,
+          format: 'matchplay',
+          players: [],
+          matchScore: mpScore,
+        });
+      }
+    }
+
     if (!savedOffline) {
       if (!editingHole) {
         if (match.competition_id && newStatus !== 'complete' && [9, 12, 15].includes(activeHole)) {
@@ -802,7 +885,6 @@ export default function EnterScoresScreen() {
           setRecordsBroken(broken);
         } else if (continuingSecondary) {
           setContinuingSecondary(false);
-          Alert.alert('All Done!', 'Stableford scores complete.', [{ text: 'View Scorecard' }]);
         } else if (match.secondary_format && match.round_format === 'matchplay') {
           const secLabel = match.secondary_format === 'stableford' ? 'Stableford' : 'Stroke Play';
           Alert.alert(
@@ -817,8 +899,6 @@ export default function EnterScoresScreen() {
                 } },
             ]
           );
-        } else {
-          Alert.alert('Match Complete', msg, [{ text: 'View Scorecard' }]);
         }
       }
 

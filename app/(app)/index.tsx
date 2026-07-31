@@ -144,14 +144,16 @@ export default function HomeScreen() {
       const memberIds = (memberRows ?? []).map((m: any) => m.player_id as string);
 
       if (memberIds.length > 0) {
+        const orFilter = memberIds
+          .flatMap(id => [`home_player_ids.cs.{"${id}"}`, `away_player_ids.cs.{"${id}"}`])
+          .join(',');
         const { data: activeMatches } = await supabase
-          .from('matches').select('id,course_name,home_player_ids,away_player_ids')
-          .eq('status', 'in_progress').limit(50);
+          .from('matches')
+          .select('id,home_player_ids,away_player_ids,day:day_id(course_name)')
+          .eq('status', 'in_progress')
+          .or(orFilter);
 
-        const friendMatches = (activeMatches ?? []).filter((m: any) => {
-          const ids: string[] = [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])];
-          return ids.some(id => memberIds.includes(id));
-        });
+        const friendMatches = activeMatches ?? [];
 
         if (friendMatches.length > 0) {
           const matchIds = friendMatches.map((m: any) => m.id);
@@ -185,7 +187,7 @@ export default function HomeScreen() {
             return {
               playerId: id,
               name: nameMap[id] ?? 'Unknown',
-              courseName: match?.course_name ?? 'Course',
+              courseName: (match as any)?.day?.course_name ?? 'Course',
               hole: Math.min((stats[id]?.maxHole ?? 0) + 1, 18),
               pts: stats[id]?.pts ?? 0,
               matchId: match?.id ?? '',
