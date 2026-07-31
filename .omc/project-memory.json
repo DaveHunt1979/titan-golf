@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1784530623295,
+  "lastScanned": 1785491804324,
   "projectRoot": "/Users/davehunt/Desktop/titan-golf",
   "techStack": {
     "languages": [
@@ -32,8 +32,8 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit 2>&1 | grep -v \"^web/\" | grep -v \"react-native-webview\" | head -20",
-    "testCommand": "cd /Users/davehunt/Desktop/titan-golf\necho \"=== voice/chip/birdie/elevenlabs/tts refs (app+src) ===\"\ngrep -rilE \"elevenlabs|chip|birdie|voiceCommand|tts\" app src 2>/dev/null\necho \"\"\necho \"=== supabase functions listing ===\"\nfind supabase/functions -maxdepth 2 -type f | sort\necho \"\"\necho \"=== test/spec/jest/CI ===\"\nfind . -maxdepth 4 \\( -name \"*.test.ts\" -o -name \"*.test.tsx\" -o -name \"*.spec.ts\" -o -name \"jest.config.*\" \\) -not -path '*/node_modules/*' 2>/dev/null\nls -d .github 2>/dev/null && find .github -type f 2>/dev/null || echo \"no .github dir\"\necho \"\"\necho \"=== web/ tree (2 levels) ===\"\nfind web -maxdepth 2 -not -path '*/node_modules/*' | sort\necho \"\"\necho \"=== mashie/ tree ===\"\nfind mashie -maxdepth 3 | sort\necho \"\"\necho \"=== concept/ errors/ dist/ csv/ screenshots/ (1 level) ===\"\nfor d in concept errors dist csv screenshots; do echo \"--- $d ---\"; ls -1 \"$d\" 2>/dev/null | head -30; done",
+    "buildCommand": "npx tsc --noEmit 2>&1 | grep \"matchId\\|new.tsx\\|dayId\"",
+    "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
     "scripts": {
@@ -69,7 +69,7 @@
       "path": "app",
       "purpose": "Application code",
       "fileCount": 2,
-      "lastAccessed": 1784530623280,
+      "lastAccessed": 1785491804315,
       "keyFiles": [
         "_layout.tsx"
       ]
@@ -78,7 +78,7 @@
       "path": "assets",
       "purpose": "Static assets",
       "fileCount": 20,
-      "lastAccessed": 1784530623280,
+      "lastAccessed": 1785491804317,
       "keyFiles": [
         "Golf_Competition_Format_Library_App_Blueprint.docx",
         "TitanAppLogo.png",
@@ -91,7 +91,7 @@
       "path": "concept",
       "purpose": null,
       "fileCount": 7,
-      "lastAccessed": 1784530623283,
+      "lastAccessed": 1785491804317,
       "keyFiles": [
         "Casual Round Set Up.PNG",
         "Event Screen.PNG",
@@ -104,7 +104,7 @@
       "path": "csv",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1784530623283,
+      "lastAccessed": 1785491804317,
       "keyFiles": [
         "Supabase Snippet Untitled query.csv"
       ]
@@ -113,7 +113,7 @@
       "path": "dist",
       "purpose": "Distribution/build output",
       "fileCount": 1,
-      "lastAccessed": 1784530623284,
+      "lastAccessed": 1785491804317,
       "keyFiles": [
         "metadata.json"
       ]
@@ -122,7 +122,7 @@
       "path": "errors",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1784530623284,
+      "lastAccessed": 1785491804317,
       "keyFiles": [
         "Bad.png",
         "Good.png",
@@ -135,7 +135,7 @@
       "path": "ios",
       "purpose": null,
       "fileCount": 9,
-      "lastAccessed": 1784530623284,
+      "lastAccessed": 1785491804317,
       "keyFiles": [
         "Podfile",
         "Podfile.lock",
@@ -148,24 +148,24 @@
       "path": "mashie",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1784530623284,
+      "lastAccessed": 1785491804318,
       "keyFiles": []
     },
     "screenshots": {
       "path": "screenshots",
       "purpose": null,
       "fileCount": 3,
-      "lastAccessed": 1784530623285,
+      "lastAccessed": 1785491804318,
       "keyFiles": [
-        "Screenshot 2026-07-17 at 06.26.11.png",
-        "Screenshot 2026-07-17 at 06.26.16.png"
+        "Screenshot 2026-07-21 at 06.54.49.png",
+        "Screenshot 2026-07-21 at 06.54.54.png"
       ]
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 1,
-      "lastAccessed": 1784530623285,
+      "lastAccessed": 1785491804318,
       "keyFiles": [
         "rename_player_assets.sh"
       ]
@@ -174,14 +174,14 @@
       "path": "src",
       "purpose": "Source code",
       "fileCount": 0,
-      "lastAccessed": 1784530623285,
+      "lastAccessed": 1785491804318,
       "keyFiles": []
     },
     "supabase": {
       "path": "supabase",
       "purpose": null,
       "fileCount": 45,
-      "lastAccessed": 1784530623286,
+      "lastAccessed": 1785491804318,
       "keyFiles": [
         "add_admin_create_login.sql",
         "add_avatars_bucket.sql",
@@ -194,7 +194,7 @@
       "path": "web",
       "purpose": null,
       "fileCount": 12,
-      "lastAccessed": 1784530623286,
+      "lastAccessed": 1785491804318,
       "keyFiles": [
         "README.md",
         "eslint.config.mjs",
@@ -207,7 +207,7 @@
       "path": "dist/assets",
       "purpose": "Static assets",
       "fileCount": 106,
-      "lastAccessed": 1784530623287,
+      "lastAccessed": 1785491804319,
       "keyFiles": [
         "017bc6ba3fc25503e5eb5e53826d48a8",
         "034b95d9056dbaa6b07ba86af2c28ce4",
@@ -217,19 +217,19 @@
     "src/components": {
       "path": "src/components",
       "purpose": "UI components",
-      "fileCount": 5,
-      "lastAccessed": 1784530623288,
+      "fileCount": 8,
+      "lastAccessed": 1785491804320,
       "keyFiles": [
         "CaddieButton.tsx",
-        "CourseMapView.tsx",
-        "RangeMap.tsx"
+        "ConflictSheet.tsx",
+        "CourseMapView.tsx"
       ]
     },
     "src/lib": {
       "path": "src/lib",
       "purpose": "Library code",
-      "fileCount": 19,
-      "lastAccessed": 1784530623288,
+      "fileCount": 22,
+      "lastAccessed": 1785491804320,
       "keyFiles": [
         "SocietyThemeContext.tsx",
         "assets.ts",
@@ -240,7 +240,7 @@
       "path": "src/types",
       "purpose": "Type definitions",
       "fileCount": 1,
-      "lastAccessed": 1784530623288,
+      "lastAccessed": 1785491804320,
       "keyFiles": [
         "index.ts"
       ]
@@ -249,33 +249,33 @@
       "path": "web/node_modules",
       "purpose": "Dependencies",
       "fileCount": 1,
-      "lastAccessed": 1784530623291,
+      "lastAccessed": 1785491804321,
       "keyFiles": []
     }
   },
   "hotPaths": [
     {
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 109,
+      "lastAccessed": 1785510363817,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/games/new.tsx",
-      "accessCount": 66,
-      "lastAccessed": 1784543617902,
+      "accessCount": 101,
+      "lastAccessed": 1785508998312,
       "type": "file"
     },
     {
       "path": "app/(app)/index.tsx",
-      "accessCount": 43,
-      "lastAccessed": 1784543587516,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 30,
-      "lastAccessed": 1784543058770,
+      "accessCount": 54,
+      "lastAccessed": 1785493865025,
       "type": "file"
     },
     {
       "path": "app/(app)/score/day/[dayId].tsx",
-      "accessCount": 19,
-      "lastAccessed": 1784266416523,
+      "accessCount": 25,
+      "lastAccessed": 1785510275705,
       "type": "file"
     },
     {
@@ -291,6 +291,12 @@
       "type": "file"
     },
     {
+      "path": "app.json",
+      "accessCount": 18,
+      "lastAccessed": 1785509863701,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/profile/club/[id].tsx",
       "accessCount": 13,
       "lastAccessed": 1784183583476,
@@ -303,9 +309,9 @@
       "type": "file"
     },
     {
-      "path": "app.json",
+      "path": "app/(app)/score/index.tsx",
       "accessCount": 12,
-      "lastAccessed": 1784543070495,
+      "lastAccessed": 1784549912134,
       "type": "file"
     },
     {
@@ -322,20 +328,32 @@
     },
     {
       "path": "app/(app)/score/teamstableford/[matchId].tsx",
-      "accessCount": 10,
-      "lastAccessed": 1784443871611,
+      "accessCount": 11,
+      "lastAccessed": 1784555323326,
       "type": "file"
     },
     {
       "path": "app/(app)/watch/index.tsx",
-      "accessCount": 9,
-      "lastAccessed": 1784524291392,
+      "accessCount": 10,
+      "lastAccessed": 1784549431240,
       "type": "file"
     },
     {
       "path": "app/(app)/swindle/index.tsx",
       "accessCount": 8,
       "lastAccessed": 1784234276232,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 8,
+      "lastAccessed": 1784613983208,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/[matchId].tsx",
+      "accessCount": 8,
+      "lastAccessed": 1785493073526,
       "type": "file"
     },
     {
@@ -351,15 +369,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/_layout.tsx",
-      "accessCount": 6,
-      "lastAccessed": 1784444233614,
+      "path": "src/lib/watch.ts",
+      "accessCount": 5,
+      "lastAccessed": 1785494410160,
       "type": "file"
     },
     {
-      "path": "src/lib/watch.ts",
-      "accessCount": 4,
-      "lastAccessed": 1784197857074,
+      "path": "ios/titangolf/WatchBridge.m",
+      "accessCount": 5,
+      "lastAccessed": 1785496482595,
       "type": "file"
     },
     {
@@ -375,9 +393,9 @@
       "type": "file"
     },
     {
-      "path": "ios/titangolf/WatchBridge.m",
-      "accessCount": 3,
-      "lastAccessed": 1784190884626,
+      "path": "app/(app)/score/preview/[matchId].tsx",
+      "accessCount": 4,
+      "lastAccessed": 1785493059475,
       "type": "file"
     },
     {
@@ -399,9 +417,15 @@
       "type": "file"
     },
     {
+      "path": "ios/titangolf Watch App Watch App/WatchSessionManager.swift",
+      "accessCount": 3,
+      "lastAccessed": 1785494425654,
+      "type": "file"
+    },
+    {
       "path": "ios/titangolf/WatchBridge.swift",
-      "accessCount": 2,
-      "lastAccessed": 1784188357828,
+      "accessCount": 3,
+      "lastAccessed": 1785495852922,
       "type": "file"
     },
     {
@@ -411,21 +435,21 @@
       "type": "file"
     },
     {
-      "path": "ios/titangolf Watch App Watch App/WatchSessionManager.swift",
-      "accessCount": 2,
-      "lastAccessed": 1784197856750,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/[matchId].tsx",
-      "accessCount": 2,
-      "lastAccessed": 1784234338020,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/admin/groups.tsx",
       "accessCount": 2,
       "lastAccessed": 1784541396664,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf Watch App Watch App/titangolf_Watch_AppApp.swift",
+      "accessCount": 2,
+      "lastAccessed": 1785494425995,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf Watch App Watch App/ContentView.swift",
+      "accessCount": 2,
+      "lastAccessed": 1785494452824,
       "type": "file"
     },
     {
@@ -459,12 +483,6 @@
       "type": "file"
     },
     {
-      "path": "ios/titangolf Watch App Watch App/ContentView.swift",
-      "accessCount": 1,
-      "lastAccessed": 1784184743525,
-      "type": "file"
-    },
-    {
       "path": "ios/titangolf Watch App Watch App/ScoreEntryView.swift",
       "accessCount": 1,
       "lastAccessed": 1784184748557,
@@ -474,12 +492,6 @@
       "path": "ios/titangolf Watch App Watch App/SoloScoreView.swift",
       "accessCount": 1,
       "lastAccessed": 1784184748969,
-      "type": "file"
-    },
-    {
-      "path": "ios/titangolf Watch App Watch App/titangolf_Watch_AppApp.swift",
-      "accessCount": 1,
-      "lastAccessed": 1784184966501,
       "type": "file"
     },
     {
@@ -507,12 +519,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/index.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1784191299412,
-      "type": "file"
-    },
-    {
       "path": "screenshots/Screenshot 2026-07-16 at 10.10.40.png",
       "accessCount": 1,
       "lastAccessed": 1784193082209,
@@ -522,12 +528,6 @@
       "path": "screenshots/Screenshot 2026-07-16 at 12.26.17.png",
       "accessCount": 1,
       "lastAccessed": 1784201213192,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/preview/[matchId].tsx",
-      "accessCount": 1,
-      "lastAccessed": 1784202344880,
       "type": "file"
     },
     {
