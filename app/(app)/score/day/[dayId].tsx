@@ -278,22 +278,31 @@ export default function DayLobby() {
                   }
                 }
 
+                const isMyGroup = g.match_id === myMatchId;
+                const canNavigate = isMyGroup || !myMatchId;
+
                 return (
                   <TouchableOpacity
                     key={g.match_id}
-                    style={[s.groupCard, g.match_id === myMatchId && s.groupCardMe]}
-                    onPress={() => router.push(`/(app)/score/${g.match_id}` as any)}
-                    activeOpacity={0.8}
+                    style={[s.groupCard, isMyGroup && s.groupCardMe, !canNavigate && { opacity: 0.6 }]}
+                    onPress={canNavigate ? () => router.push(`/(app)/score/${g.match_id}` as any) : undefined}
+                    activeOpacity={canNavigate ? 0.8 : 1}
+                    disabled={!canNavigate}
                   >
-                    {g.match_id === myMatchId && <View style={s.groupAccent} />}
+                    {isMyGroup && <View style={s.groupAccent} />}
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                         <Text style={s.groupNum}>GROUP {i + 1}</Text>
                         <View style={s.formatChip}>
                           <Text style={s.formatChipText}>{g.format.replace(/_/g, ' ').toUpperCase()}</Text>
                         </View>
-                        {g.match_id === myMatchId && (
+                        {isMyGroup && (
                           <View style={s.yourGroupBadge}><Text style={s.yourGroupText}>YOUR GROUP</Text></View>
+                        )}
+                        {!canNavigate && (
+                          <View style={[s.yourGroupBadge, { backgroundColor: '#1c1c1c' }]}>
+                            <Text style={[s.yourGroupText, { color: '#555' }]}>VIEW ONLY</Text>
+                          </View>
                         )}
                       </View>
 
@@ -318,7 +327,9 @@ export default function DayLobby() {
                         </View>
                       )}
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color={g.match_id === myMatchId ? GOLD : '#444'} style={{ marginLeft: 8 }} />
+                    {canNavigate && (
+                      <Ionicons name="chevron-forward" size={18} color={isMyGroup ? GOLD : '#444'} style={{ marginLeft: 8 }} />
+                    )}
                   </TouchableOpacity>
                 );
               })

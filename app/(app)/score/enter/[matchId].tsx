@@ -135,6 +135,7 @@ export default function EnterScoresScreen() {
 
   const [modalVisible, setModalVisible] = useState(false);
   const [modalPlayerIdx, setModalPlayerIdx] = useState(0);
+  const [modalStartIdx, setModalStartIdx] = useState(0);
   const [holeScores, setHoleScores] = useState<Record<string, number>>({});
   const [selectedScore, setSelectedScore] = useState<number | null>(null);
   const [selectedFairway, setSelectedFairway] = useState<'left' | 'centre' | 'right' | null>(null);
@@ -430,7 +431,8 @@ export default function EnterScoresScreen() {
     : Array.from({ length: 18 }, (_, i) => i + 1);
   const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? 19;
   const activeHole = editingHole ?? currentHole;
-  const isComplete = currentHole > 18;
+  const allHolesFilled = currentHole > 18;
+  const isComplete = match?.status === 'complete';
 
   let lastPlayedHole = 0;
   for (let i = holeChars.length - 1; i >= 0; i--) {
@@ -493,13 +495,16 @@ export default function EnterScoresScreen() {
         if (g != null) preScores[id] = g;
       }
     }
-    const firstId = allPlayerIds[0];
+    const myIdx = myPlayerId ? allPlayerIds.indexOf(myPlayerId) : -1;
+    const startIdx = !hole && myIdx >= 0 ? myIdx : 0;
+    const firstId = allPlayerIds[startIdx];
     setHoleScores(preScores);
     setHoleStatMap({});
     setSelectedScore(hole && firstId ? (holeData[firstId]?.[hole]?.gross ?? null) : null);
     setSelectedFairway(null);
     setSelectedPutts(null);
-    setModalPlayerIdx(0);
+    setModalStartIdx(startIdx);
+    setModalPlayerIdx(startIdx);
     setModalVisible(true);
   }
 
@@ -510,8 +515,8 @@ export default function EnterScoresScreen() {
     const newStats = { ...holeStatMap, [modalPlayerId]: { fairway: selectedFairway, putts: selectedPutts } };
     setHoleScores(newScores);
     setHoleStatMap(newStats);
-    const nextIdx = modalPlayerIdx + 1;
-    if (nextIdx < allPlayerIds.length) {
+    const nextIdx = (modalPlayerIdx + 1) % allPlayerIds.length;
+    if (nextIdx !== modalStartIdx) {
       const nextId = allPlayerIds[nextIdx];
       const nextExisting = editingHole ? (holeData[nextId]?.[editingHole]?.gross ?? null) : null;
       setSelectedScore(nextExisting);
@@ -590,9 +595,8 @@ export default function EnterScoresScreen() {
       spChars[activeHole - 1] = 'd';
       const newHolesStr = spChars.join('');
       const holesPlayed = newHolesStr.split('').filter(c => c !== '.').length;
-      const newStatus: 'upcoming' | 'in_progress' | 'complete' = holesPlayed >= 18 ? 'complete' : 'in_progress';
-      const newResultStr = newStatus === 'complete' ? 'Complete' : null;
-      const matchUpdate = { holes_string: newHolesStr, status: newStatus, winner: null, result_str: newResultStr };
+      const newStatus: 'upcoming' | 'in_progress' | 'complete' = 'in_progress';
+      const matchUpdate = { holes_string: newHolesStr, status: newStatus, winner: null, result_str: null };
 
       // Try drain before saving
       if (pendingCount > 0) await syncStatus.syncNow();
@@ -650,9 +654,7 @@ export default function EnterScoresScreen() {
           const row = spRows.find(r => r.player_id === id);
           newTotals[id] = (playerTotals[id] ?? 0) - old + (row?.stableford_pts ?? 0);
         }
-        if (newStatus === 'complete') {
-          endLiveActivity();
-        } else {
+        {
           const nextDot = newHolesStr.indexOf('.');
           const nextHole = nextDot >= 0 ? nextDot + 1 : activeHole;
           const nextPar = courseHoles.find(h => h.hole_number === nextHole)?.par ?? par;
@@ -672,12 +674,6 @@ export default function EnterScoresScreen() {
       }
 
       if (!savedOffline) {
-        if (newStatus === 'complete' && !editingHole) {
-          const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
-          const broken = allBroken.flat();
-          if (broken.length > 0) { setRecordsBroken(broken); }
-        }
-
         if (!editingHole && !wasAlreadyComplete && [6, 9, 12, 15, 16, 17, 18].includes(activeHole)) {
           const updatedTotals = { ...playerTotals };
           for (const row of spRows) {
@@ -688,6 +684,25 @@ export default function EnterScoresScreen() {
             pts: updatedTotals[id] ?? 0,
           }));
           if (!voiceOff) speakPressure({ standings, holeNumber: activeHole, holesLeft: 18 - holesPlayed, format: 'stableford' });
+        }
+
+        // Notify other groups in the same day when this group scores their first hole
+        if (!editingHole && holesPlayed === 1 && match.day_id) {
+          supabase
+            .from('matches')
+            .select('home_player_ids, away_player_ids')
+            .eq('day_id', match.day_id)
+            .neq('id', match.id)
+            .neq('status', 'cancelled')
+            .then(({ data: dayMatches }) => {
+              const otherIds = (dayMatches ?? []).flatMap(m => [
+                ...(m.home_player_ids ?? []),
+                ...(m.away_player_ids ?? []),
+              ]);
+              if (otherIds.length > 0) {
+                sendMatchNotification(null as any, '⛳ Score update', 'Another group has started scoring — open Titan Golf to score your round.', otherIds);
+              }
+            });
         }
       }
       return;
@@ -1017,6 +1032,40 @@ export default function EnterScoresScreen() {
       sendMatchNotification(match.competition_id, `${icon} ${type}`, body, pids);
     }
     setSideGameModal(null);
+  }
+
+  async function handleReopenMatch() {
+    if (!match || saving) return;
+    setSaving(true);
+    try {
+      const update = { status: 'in_progress' as const, winner: null, result_str: null };
+      const { error } = await supabase.from('matches').update(update).eq('id', match.id);
+      if (error) throw error;
+      setMatch({ ...match, ...update });
+    } catch (err: any) {
+      Alert.alert('Error', String(err?.message ?? err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleCompleteRound() {
+    if (!match || saving) return;
+    setSaving(true);
+    try {
+      const matchUpdate = { status: 'complete' as const, winner: null, result_str: 'Complete' };
+      const { error } = await supabase.from('matches').update(matchUpdate).eq('id', match.id);
+      if (error) throw error;
+      setMatch({ ...match, ...matchUpdate });
+      endLiveActivity();
+      const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
+      const broken = allBroken.flat();
+      if (broken.length > 0) setRecordsBroken(broken);
+    } catch (err: any) {
+      Alert.alert('Error', String(err?.message ?? err));
+    } finally {
+      setSaving(false);
+    }
   }
 
   // ── Render ──────────────────────────────────────────────────────
@@ -1389,19 +1438,31 @@ export default function EnterScoresScreen() {
             />
           </ScrollView>
 
-          {/* ── Enter score CTA ── */}
+          {/* ── Enter score / Complete Round CTA ── */}
           <View style={s.ctaWrap}>
-            <TouchableOpacity
-              style={[s.ctaBtn, saving && { opacity: 0.5 }]}
-              onPress={() => openScoreModal()}
-              disabled={saving}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="create-outline" size={20} color="#000000" />
-              <Text style={s.ctaText}>
-                {editingHole ? `Edit Score · Hole ${editingHole}` : `Enter Score · Hole ${currentHole}`}
-              </Text>
-            </TouchableOpacity>
+            {allHolesFilled && isStrokePlay && !editingHole ? (
+              <TouchableOpacity
+                style={[s.ctaBtn, saving && { opacity: 0.5 }]}
+                onPress={handleCompleteRound}
+                disabled={saving}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="checkmark-circle-outline" size={20} color="#000000" />
+                <Text style={s.ctaText}>Complete Round</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[s.ctaBtn, saving && { opacity: 0.5 }]}
+                onPress={() => openScoreModal()}
+                disabled={saving}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="create-outline" size={20} color="#000000" />
+                <Text style={s.ctaText}>
+                  {editingHole ? `Edit Score · Hole ${editingHole}` : `Enter Score · Hole ${currentHole}`}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </>
       ) : (
@@ -1529,6 +1590,24 @@ export default function EnterScoresScreen() {
             </TouchableOpacity>
           )}
 
+          {isStrokePlay && (
+            <TouchableOpacity
+              style={s.undoBtn}
+              onPress={() => Alert.alert(
+                'Edit Scores?',
+                'This reopens the round so you can correct any hole.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Edit', onPress: handleReopenMatch },
+                ]
+              )}
+              disabled={saving}
+            >
+              <Ionicons name="create-outline" size={16} color="#6b7280" />
+              <Text style={s.undoBtnText}>Edit Scores</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity style={s.doneBtn} onPress={() => router.back()} activeOpacity={0.85}>
             <Text style={s.doneBtnText}>Done</Text>
           </TouchableOpacity>
@@ -1600,8 +1679,8 @@ export default function EnterScoresScreen() {
                       onPress={() => setSelectedScore(n)}
                       activeOpacity={0.7}
                     >
-                      <Text style={[sh.scoreBtnText, on && { color: '#000' }]}>{n}</Text>
-                      {on && <Text style={[sh.scoreDiff, { color: '#000' }]}>{stablePts} pts</Text>}
+                      <Text style={[sh.scoreBtnText, on && { color: '#fff' }]}>{n}</Text>
+                      {on && <Text style={[sh.scoreDiff, { color: '#fff' }]}>{stablePts} pts</Text>}
                     </TouchableOpacity>
                   );
                 })}

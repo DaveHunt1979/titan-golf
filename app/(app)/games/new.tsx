@@ -55,9 +55,13 @@ function getModeSections(gold: string): { label: string; accent: string; modes: 
 
 const HCP_ALLOWANCES: { pct: number; label: string }[] = [
   { pct: 100, label: 'Full (100%)' },
-  { pct: 87,  label: '7/8 (87.5%)' },
+  { pct: 95,  label: '95%' },
+  { pct: 90,  label: '90%' },
+  { pct: 85,  label: '85%' },
+  { pct: 80,  label: '80%' },
   { pct: 75,  label: '3/4 (75%)' },
   { pct: 0,   label: 'Scratch' },
+  { pct: -1,  label: 'Manual...' },
 ];
 
 const HOLES_OPTIONS: { key: HolesMode; label: string }[] = [
@@ -362,7 +366,7 @@ function SettingRow({
 export default function NewGameScreen() {
   const router = useRouter();
   const { societyId, loading: societyLoading } = useSociety();
-  const { existingDayId, course: preselectedCourse, openPlayers, resumeMode } = useLocalSearchParams<{ existingDayId?: string; course?: string; openPlayers?: string; resumeMode?: string }>();
+  const { existingDayId, course: preselectedCourse, openPlayers, resumeMode, totalGroups, groupNum } = useLocalSearchParams<{ existingDayId?: string; course?: string; openPlayers?: string; resumeMode?: string; totalGroups?: string; groupNum?: string }>();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -406,6 +410,8 @@ export default function NewGameScreen() {
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [courseHoleData, setCourseHoleData] = useState<{ hole_number: number; par: number }[]>([]);
 
+  const [numGroups, setNumGroups] = useState<number>(1);
+
   // Pickers
   const [showFormat, setShowFormat]   = useState(false);
   const [showPlayers, setShowPlayers] = useState(false);
@@ -416,6 +422,7 @@ export default function NewGameScreen() {
   const [showCounting, setShowCounting]   = useState(false);
   const [showNumTeams, setShowNumTeams]   = useState(false);
   const [showStartHole, setShowStartHole] = useState(false);
+  const [showNumGroups, setShowNumGroups] = useState(false);
 
   useFocusEffect(useCallback(() => {
     setMode((resumeMode as GameMode | undefined) ?? 'stableford');
@@ -525,7 +532,7 @@ export default function NewGameScreen() {
 
   const formatLabel  = MODE_INFO[mode]?.label ?? 'Stableford';
   const holesLabel   = HOLES_OPTIONS.find(h => h.key === holesMode)?.label ?? 'Full 18';
-  const hcpLabel     = HCP_ALLOWANCES.find(h => h.pct === hcpAllowance)?.label ?? '100%';
+  const hcpLabel     = HCP_ALLOWANCES.find(h => h.pct === hcpAllowance)?.label ?? `${hcpAllowance}%`;
   const isTeamMode   = mode === 'team_stableford' || isMashie;
   const allTeamsFilled = numTeams === 2
     ? pair2.length >= 1
@@ -629,37 +636,30 @@ export default function NewGameScreen() {
         downloadMatchPack(firstMatchId).catch(() => {});
       }
 
-      const codeMsg = dayCode ? `\nDay code: ${dayCode}` : '';
       setCreating(false);
-      Alert.alert(
-        'Group added!',
-        `${pair1.map(id => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '').join(', ')} are on.${codeMsg}\n\nAdd another group?`,
-        [
-          {
-            text: 'Add Another Group',
-            onPress: () => router.replace(`/(app)/games/new?existingDayId=${resolvedDayId}&course=${encodeURIComponent(selectedCourse ?? '')}&openPlayers=1&resumeMode=${mode}` as any),
-          },
-          {
-            text: "Let's Play",
-            style: 'default',
-            onPress: () => {
-              if (isTeamStableford && numTeams > 2) {
-                router.push(`/(app)/score/day/${resolvedDayId}` as any);
-              } else if (isTeamStableford) {
-                router.push(`/(app)/score/teamstableford/${firstMatchId}` as any);
-              } else if (existingDayId) {
-                router.push(`/(app)/score/day/${resolvedDayId}` as any);
-              } else {
-                const paramParts: string[] = [];
-                if (dayCode) { paramParts.push(`dayId=${resolvedDayId}`); paramParts.push(`dayCode=${dayCode}`); }
-                if (startHole !== 1) paramParts.push(`startHole=${startHole}`);
-                const params = paramParts.length > 0 ? `?${paramParts.join('&')}` : '';
-                router.push(`/(app)/score/preview/${firstMatchId}${params}` as any);
-              }
-            },
-          },
-        ]
-      );
+      const currentGroupNum = groupNum ? parseInt(groupNum, 10) : 1;
+      const resolvedTotalGroups = totalGroups ? parseInt(totalGroups, 10) : numGroups;
+
+      if (resolvedTotalGroups > currentGroupNum) {
+        const nextGroup = currentGroupNum + 1;
+        router.replace(
+          `/(app)/games/new?existingDayId=${resolvedDayId}&course=${encodeURIComponent(selectedCourse ?? '')}&openPlayers=1&resumeMode=${mode}&totalGroups=${resolvedTotalGroups}&groupNum=${nextGroup}` as any
+        );
+      } else {
+        if (isTeamStableford && numTeams > 2) {
+          router.push(`/(app)/score/day/${resolvedDayId}` as any);
+        } else if (isTeamStableford) {
+          router.push(`/(app)/score/teamstableford/${firstMatchId}` as any);
+        } else if (existingDayId) {
+          router.push(`/(app)/score/day/${resolvedDayId}` as any);
+        } else {
+          const paramParts: string[] = [];
+          if (dayCode) { paramParts.push(`dayId=${resolvedDayId}`); paramParts.push(`dayCode=${dayCode}`); }
+          if (startHole !== 1) paramParts.push(`startHole=${startHole}`);
+          const params = paramParts.length > 0 ? `?${paramParts.join('&')}` : '';
+          router.push(`/(app)/score/preview/${firstMatchId}${params}` as any);
+        }
+      }
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Could not create game');
       setCreating(false);
@@ -973,6 +973,14 @@ export default function NewGameScreen() {
           <SettingRow icon="stats-chart-outline" label="Handicap" value={hcpLabel} onPress={() => setShowHcp(true)} s={s} GOLD={GOLD} />
           <View style={s.settingDivider} />
 
+          {/* Total Groups (non-team formats, first setup only) */}
+          {!isTeamMode && !resumeMode && (
+            <>
+              <SettingRow icon="people-circle-outline" label="Total Groups" value={numGroups === 1 ? '1 group' : `${numGroups} groups`} onPress={() => setShowNumGroups(true)} s={s} GOLD={GOLD} />
+              <View style={s.settingDivider} />
+            </>
+          )}
+
           {/* Chip & Birdie */}
           <SettingRow icon="mic-outline" label="Chip & Birdie" value={voiceEnabled ? 'On' : 'Off'} valueColor={voiceEnabled ? GOLD : '#6b7280'} onPress={() => setVoiceEnabled(v => !v)} s={s} GOLD={GOLD}>
             <View style={[s.toggle, voiceEnabled && s.toggleOn]}>
@@ -1191,8 +1199,25 @@ export default function NewGameScreen() {
       <PickerSheet
         visible={showHcp} title="Handicap Allowance" options={HCP_ALLOWANCES.map(h => ({ key: h.pct.toString() as any, label: h.label }))}
         selected={hcpAllowance.toString() as any}
-        onSelect={(v: any) => setHcpAllowance(parseInt(v, 10))}
+        onSelect={(v: any) => {
+          if (v === '-1') {
+            Alert.prompt('Handicap Allowance', 'Enter a percentage (1–100):', (txt) => {
+              const n = parseInt(txt, 10);
+              if (!isNaN(n) && n >= 1 && n <= 100) setHcpAllowance(n);
+            }, 'plain-text', '', 'number-pad');
+          } else {
+            setHcpAllowance(parseInt(v, 10));
+          }
+        }}
         onClose={() => setShowHcp(false)}
+        ps={ps} GOLD={GOLD}
+      />
+      <PickerSheet
+        visible={showNumGroups} title="Total Groups"
+        options={Array.from({ length: 50 }, (_, i) => ({ key: String(i + 1), label: i === 0 ? '1 group' : `${i + 1} groups` }))}
+        selected={numGroups.toString() as any}
+        onSelect={(v: any) => setNumGroups(parseInt(v, 10))}
+        onClose={() => setShowNumGroups(false)}
         ps={ps} GOLD={GOLD}
       />
       <PickerSheet
