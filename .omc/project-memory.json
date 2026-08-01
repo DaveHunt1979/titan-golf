@@ -32,7 +32,7 @@
     "runtime": null
   },
   "build": {
-    "buildCommand": "npx tsc --noEmit 2>&1 | grep \"matchId\\|new.tsx\\|dayId\"",
+    "buildCommand": "npx tsc --noEmit 2>&1 | grep \"_layout\"",
     "testCommand": null,
     "lintCommand": null,
     "devCommand": "npm run start",
@@ -268,8 +268,8 @@
     },
     {
       "path": "app/(app)/index.tsx",
-      "accessCount": 54,
-      "lastAccessed": 1785493865025,
+      "accessCount": 59,
+      "lastAccessed": 1785574281749,
       "type": "file"
     },
     {
@@ -297,6 +297,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/score/index.tsx",
+      "accessCount": 15,
+      "lastAccessed": 1785573834712,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/profile/club/[id].tsx",
       "accessCount": 13,
       "lastAccessed": 1784183583476,
@@ -306,12 +312,6 @@
       "path": "app/(app)/profile/handicap.tsx",
       "accessCount": 12,
       "lastAccessed": 1784182582757,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/index.tsx",
-      "accessCount": 12,
-      "lastAccessed": 1784549912134,
       "type": "file"
     },
     {

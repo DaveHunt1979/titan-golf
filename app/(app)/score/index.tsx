@@ -17,7 +17,7 @@ import type { Match, Team } from '../../../src/types';
 const GREEN  = '#4ade80';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
-const heroCourse = require('../../../assets/hero-course.jpeg');
+const heroCourse = require('../../../assets/startround_gfx.png');
 
 const FORMAT_LABELS: Record<string, string> = {
   stableford: 'Stableford', medal: 'Medal', singles: 'Singles Matchplay',

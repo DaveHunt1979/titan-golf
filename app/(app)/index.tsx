@@ -13,6 +13,7 @@ import { resolveAvatar, titanLogo } from '../../src/lib/assets';
 import { useSocietyTheme, useDynamicColors } from '../../src/lib/SocietyThemeContext';
 
 const GOLD = '#D4AF37'; // fallback for StyleSheet only — JSX uses dc.gold
+const heroLandscape = require('../../assets/hero_landscape.png');
 const GREEN = '#4ade80';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
@@ -276,13 +277,21 @@ export default function HomeScreen() {
 
           {/* ── Hero ── */}
           <View style={s.heroWrap}>
-            <View style={[s.heroLogoSection, { backgroundColor: dc.bg }]}>
+            {localLogo || logoUrl ? (
+              <View style={[s.heroLogoSection, { backgroundColor: dc.bg }]}>
+                <Image
+                  source={localLogo ?? { uri: logoUrl! }}
+                  style={s.heroSocietyLogo}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : (
               <Image
-                source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)}
+                source={heroLandscape}
                 style={s.heroSocietyLogo}
-                resizeMode="contain"
+                resizeMode="cover"
               />
-            </View>
+            )}
           </View>
 
           {/* ── 6-tile grid ── */}
