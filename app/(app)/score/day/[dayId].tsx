@@ -323,7 +323,7 @@ export default function DayLobby() {
                       ) : (
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                           <Text style={s.groupPlayers}>{g.player_names.join(' · ')}</Text>
-                          {g.home_pts > 0 && <Text style={s.groupSoloPts}>{g.home_pts} pts</Text>}
+                          {g.format === 'team_stableford' && g.home_pts > 0 && <Text style={s.groupSoloPts}>{g.home_pts} pts</Text>}
                         </View>
                       )}
                     </View>

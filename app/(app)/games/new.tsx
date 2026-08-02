@@ -905,11 +905,6 @@ export default function NewGameScreen() {
 
           <View style={s.teetimeRow}>
             <View style={s.teetimeItem}>
-              <Ionicons name="flag-outline" size={13} color="rgba(255,255,255,0.5)" />
-              <Text style={s.teetimeText}>Hole {startHole} Start</Text>
-            </View>
-            <View style={s.teetimeDivider} />
-            <View style={s.teetimeItem}>
               <Ionicons name="time-outline" size={13} color="rgba(255,255,255,0.5)" />
               <Text style={s.teetimeText}>{nowTime()} Tee Time</Text>
             </View>
@@ -1054,7 +1049,7 @@ export default function NewGameScreen() {
             </View>
           )}
 
-          {mode !== 'stableford' && mode !== 'medal' && (
+          {mode !== 'stableford' && (
             <>
               <View style={s.settingDivider} />
               <SettingRow
@@ -1069,6 +1064,10 @@ export default function NewGameScreen() {
                   <View style={[s.toggleThumb, secondaryFormat === 'stableford' && s.toggleThumbOn]} />
                 </View>
               </SettingRow>
+            </>
+          )}
+          {mode !== 'stableford' && mode !== 'medal' && (
+            <>
               <View style={s.settingDivider} />
               <SettingRow
                 icon="medal-outline"

@@ -67,7 +67,7 @@ function AnimatedSplash({ onComplete }: { onComplete: () => void }) {
       {/* Background splash image */}
       <Animated.Image
         source={splashBg}
-        style={[StyleSheet.absoluteFillObject, { opacity: bgOpacity }]}
+        style={[StyleSheet.absoluteFillObject, { opacity: bgOpacity, width: SW, height: SH }]}
         resizeMode="cover"
       />
 
@@ -90,7 +90,7 @@ function AnimatedSplash({ onComplete }: { onComplete: () => void }) {
       {/* Cracked glass overlay — fades in on impact */}
       <Animated.Image
         source={crackGlass}
-        style={[StyleSheet.absoluteFillObject, { opacity: crackOpacity }]}
+        style={[StyleSheet.absoluteFillObject, { opacity: crackOpacity, width: SW, height: SH }]}
         resizeMode="cover"
       />
 
