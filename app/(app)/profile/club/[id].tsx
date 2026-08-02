@@ -17,7 +17,7 @@ const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
 const HIT   = { top: 12, bottom: 12, left: 12, right: 12 };
 
-// ── Brand / model data ─────────────────────────────────────────
+// ── Brand / category / model data ──────────────────────────────
 const CLUB_BRANDS = [
   'Benross', 'Callaway', 'Cleveland', 'Cobra', 'Honma',
   'Lynx', 'Miura', 'Mizuno', 'Ping', 'PXG',
@@ -25,24 +25,113 @@ const CLUB_BRANDS = [
   'Yonex', 'Other',
 ];
 
-const BRAND_MODELS: Record<string, string[]> = {
-  Benross:    ['HTX Compressor', 'HTX Carbon', 'HTX Turbo', 'Power Play', 'Evolution', 'VX3 Forged'],
-  Callaway:   ['Paradym Ai Smoke', 'Paradym Ai Smoke Max', 'Paradym', 'Paradym X', 'Rogue ST Max', 'Big Bertha', 'Apex', 'Apex Pro', 'Apex CB', 'Jaws Raw', 'Opus Wedge', 'Ai Smoke Wedge'],
-  Cleveland:  ['Launcher XL2', 'Launcher HB Turbo 2', 'ZipCore XL', 'CBX4', 'RTX 6 ZipCore', 'RTX ZipCore', 'Smart Sole Full Face 4', 'Frontline Cero'],
-  Cobra:      ['Darkspeed', 'Darkspeed Max', 'Darkspeed LS', 'Aerojet', 'Aerojet Max', 'King Tour MIM', 'King Forged Tec', 'King CB', 'Snakebite'],
-  Honma:      ['BERES BE-08', 'BERES 09', 'TR20 V', 'TR20 P', 'T//World GS', 'T//World XP-1'],
-  Lynx:       ['Predator Driver', 'Predator 3 Wood', 'Predator Irons', 'Black Cat', 'Ai Driver', 'Ai Irons'],
-  Miura:      ['CB-301 Irons', 'CB-302 Irons', 'TC-201 Irons', 'IC-601 Irons', 'Baby Blades', '0-Grind Wedge', 'K-Grind 2.0'],
-  Mizuno:     ['ST-Max 230', 'ST-Z 230', 'JPX923 Hot Metal', 'JPX923 Forged', 'JPX923 Tour', 'JPX925 Hot Metal', 'JPX925 Forged', 'MP-20 MB', 'Pro 241', 'T24 Wedge', 'M-Craft OMOI'],
-  Ping:       ['G430 Max', 'G430 LST', 'G430 SFT', 'G430 Max 10K', 'G425 Max', 'Blueprint T', 'Blueprint S', 'i530', 'i525', 'i59', 'Glide 4.0', 'Scottsdale TR', 'Anser'],
-  PXG:        ['0811 XF Gen6', '0811 X Gen6', '0311 XP Gen6', '0311 P Gen6', '0311 T Gen6', '0211 Irons', '0702 Forged', 'Darkness Wedge', 'Battle Ready II Putter'],
-  Srixon:     ['ZX5 Mk II', 'ZX7 Mk II', 'ZXi-5', 'ZXi-7', 'ZXi-LS', 'ZX4 Mk II Iron', 'ZX7 Mk II Iron', 'U85 Utility Iron', 'W503 Wedge', 'Tri-Hot 5K Putter'],
-  TaylorMade: ['Qi10', 'Qi10 LS', 'Qi10 Max', 'Qi10 Tour', 'Stealth 2', 'Stealth 2 HD', 'Stealth 2 Plus', 'P790', 'P770', 'P7MC', 'P7MB', 'Milled Grind 4', 'Hi-Toe 3', 'Spider GT Max', 'Spider Tour', 'TP Hydro Blast'],
-  Titleist:   ['GT2', 'GT3', 'GT4', 'TSR2', 'TSR3', 'TSR4', 'T100', 'T100·S', 'T150', 'T200', 'T350', 'Vokey SM10', 'Vokey SM9', 'Scotty Cameron Phantom', 'Scotty Cameron Special Select', 'Scotty Cameron Newport'],
-  'Tour Edge':['Exotics C723', 'Exotics E723', 'Exotics 723 Forged', 'Hot Launch E523', 'Hot Launch C523'],
-  Wilson:     ['Dynapower Carbon', 'Dynapower Titanium', 'D9 Forged', 'D9', 'Staff Model Blade', 'Staff Model CB', 'Staff Model R', 'Harmonized Wedge', 'Infinite Putter'],
-  Yonex:      ['Ezone GS Driver', 'Ezone GS Wood', 'Ezone GS Iron', 'Royal Ezone Driver', 'Ezone Elite 4.0'],
-  Other:      ['Custom / No Model'],
+const BRAND_CATEGORY_MODELS: Record<string, Record<string, string[]>> = {
+  Benross: {
+    'Driver': ['HTX Compressor', 'HTX Carbon', 'HTX Turbo', 'Power Play', 'Evolution'],
+    'Iron':   ['VX3 Forged', 'Tech 37'],
+  },
+  Callaway: {
+    'Driver':  ['Paradym Ai Smoke', 'Paradym Ai Smoke Max', 'Paradym Ai Smoke Triple Diamond', 'Paradym', 'Paradym X', 'Paradym Triple Diamond', 'Rogue ST Max', 'Rogue ST Max D', 'Rogue ST Max LS', 'Big Bertha', 'Big Bertha B21'],
+    'Fairway': ['Paradym Ai Smoke', 'Paradym', 'Rogue ST Max', 'Big Bertha'],
+    'Hybrid':  ['Paradym Ai Smoke', 'Paradym', 'Rogue ST Max'],
+    'Iron':    ['Apex', 'Apex Pro', 'Apex CB', 'Apex MB', 'Apex DCB'],
+    'Wedge':   ['Jaws Raw', 'Jaws MD5', 'Opus Wedge', 'Ai Smoke Wedge'],
+    'Putter':  ['Ai Smoke Putter'],
+  },
+  Cleveland: {
+    'Driver': ['Launcher XL2', 'Launcher HB Turbo 2', 'Launcher XL Halo'],
+    'Iron':   ['ZipCore XL', 'CBX4', 'CBX ZipCore'],
+    'Wedge':  ['RTX 6 ZipCore', 'RTX ZipCore', 'Smart Sole Full Face 4'],
+    'Putter': ['Frontline Cero', 'HB Soft Milled'],
+  },
+  Cobra: {
+    'Driver': ['Darkspeed', 'Darkspeed Max', 'Darkspeed LS', 'Darkspeed X', 'Darkspeed Max D', 'Aerojet', 'Aerojet Max', 'Aerojet LS'],
+    'Iron':   ['King Tour MIM', 'King Forged Tec', 'King Forged Tec X', 'King CB', 'King Oversized'],
+    'Wedge':  ['Snakebite'],
+  },
+  Honma: {
+    'Driver': ['BERES BE-08', 'BERES 09', 'BERES S08'],
+    'Iron':   ['TR20 V', 'TR20 P', 'TR20 B', 'TR20 X', 'T//World GS', 'T//World XP-1', 'T//World B'],
+  },
+  Lynx: {
+    'Driver':  ['Predator Driver', 'Black Cat', 'Ai Driver', 'Tigress'],
+    'Fairway': ['Predator 3 Wood'],
+    'Iron':    ['Predator Irons', 'Ai Irons'],
+    'Putter':  ['Prowler'],
+  },
+  Miura: {
+    'Iron':   ['CB-301 Irons', 'CB-302 Irons', 'TC-201 Irons', 'IC-601 Irons', 'Baby Blades'],
+    'Wedge':  ['0-Grind Wedge', 'K-Grind Wedge', 'K-Grind 2.0'],
+    'Putter': ['PP-9002 Putter'],
+  },
+  Mizuno: {
+    'Driver': ['ST-Max 230', 'ST-Z 230', 'ST-Max 235', 'ST-G 220'],
+    'Iron':   ['JPX923 Hot Metal', 'JPX923 Hot Metal Pro', 'JPX923 Forged', 'JPX923 Tour', 'JPX925 Hot Metal', 'JPX925 Forged', 'JPX925 Tour', 'MP-20 MB', 'Pro 241'],
+    'Wedge':  ['T24 Wedge', 'T22 Wedge', 'S23 Wedge'],
+    'Putter': ['M-Craft OMOI', 'M-Craft II'],
+  },
+  Ping: {
+    'Driver':       ['G430 Max', 'G430 LST', 'G430 SFT', 'G430 Max 10K', 'G425 Max', 'G425 LST', 'G425 SFT'],
+    'Fairway':      ['G430 Max', 'G425 Max'],
+    'Hybrid':       ['G430 Max', 'G425 Max'],
+    'Driving Iron': ['G430 Crossover', 'ChipR'],
+    'Iron':         ['Blueprint T', 'Blueprint S', 'i530', 'i525', 'i59', 'G430 HL'],
+    'Wedge':        ['Glide 4.0', 'Glide 4.0 SS', 'Glide 4.0 ES'],
+    'Putter':       ['Scottsdale TR', 'Anser', 'DS72', 'Kushin 4'],
+  },
+  PXG: {
+    'Driver':       ['Lightning', 'Black Ops', 'Black Ops Tour-1', 'Black Ops Ultra Lite', 'Secret Weapon Mini Driver'],
+    'Fairway':      ['Lightning', 'Black Ops', 'Black Ops Tour-1'],
+    'Hybrid':       ['Lightning', 'Black Ops'],
+    'Driving Iron': ['GEN8 Driving Iron', '0317 X GEN8', '0317 CB GEN8', '0317 ST GEN8'],
+    'Iron':         ['0311 XP GEN8', '0311 P GEN8', '0311 T GEN8', '0311 XP GEN7', '0311 P GEN7', '0311 T GEN7', '0317 X', '0317 CB', '0317 ST', 'Black Ops Irons'],
+    'Wedge':        ['Sugar Daddy III', '0311 3X Forged', "Stick'em"],
+    'Putter':       ['Bat Attack ZT', 'Mustang ZT', 'Battle Ready II Brandon', 'Battle Ready II Closer', 'Battle Ready II Hercules', 'Battle Ready II One & Done', 'Battle Ready II Allan', 'Battle Ready II Blackjack', 'Battle Ready II Bat Attack', 'Battle Ready II Gunboat', 'Battle Ready II Mustang', 'Battle Ready II Torpedo'],
+  },
+  Srixon: {
+    'Driver':       ['ZX5 Mk II', 'ZX7 Mk II', 'ZX5 LS Mk II', 'ZXi-5', 'ZXi-7', 'ZXi-LS'],
+    'Driving Iron': ['U85 Utility Iron', 'U65 Utility Iron'],
+    'Iron':         ['ZX4 Mk II Iron', 'ZX5 Mk II Iron', 'ZX7 Mk II Iron', 'ZXi-7 Iron', 'ZXi-5 Iron'],
+    'Wedge':        ['W503 Wedge', 'Z785 Wedge'],
+    'Putter':       ['Tri-Hot 5K Putter'],
+  },
+  TaylorMade: {
+    'Driver':  ['Qi10', 'Qi10 LS', 'Qi10 Max', 'Qi10 Tour', 'BRNR Mini', 'Stealth 2', 'Stealth 2 HD', 'Stealth 2 Plus'],
+    'Fairway': ['Qi10', 'Stealth 2', 'Stealth 2 HD'],
+    'Hybrid':  ['Qi10', 'Stealth 2'],
+    'Iron':    ['P790', 'P770', 'P7MC', 'P7MB', 'P7TW'],
+    'Wedge':   ['Milled Grind 4', 'Hi-Toe 3'],
+    'Putter':  ['Spider GT Max', 'Spider Tour', 'TP Hydro Blast'],
+  },
+  Titleist: {
+    'Driver':  ['GT2', 'GT3', 'GT4', 'TSR2', 'TSR3', 'TSR4'],
+    'Fairway': ['GT2', 'GT3', 'TSR2', 'TSR3'],
+    'Hybrid':  ['GT2', 'TSR2'],
+    'Iron':    ['T100', 'T100·S', 'T150', 'T200', 'T350'],
+    'Wedge':   ['Vokey SM10', 'Vokey SM9'],
+    'Putter':  ['Scotty Cameron Phantom', 'Scotty Cameron Special Select', 'Scotty Cameron Newport'],
+  },
+  'Tour Edge': {
+    'Driver': ['Exotics C723', 'Exotics E723', 'Hot Launch E523', 'Hot Launch C523'],
+    'Iron':   ['Exotics 723 Forged'],
+  },
+  Wilson: {
+    'Driver': ['Dynapower Carbon', 'Dynapower Titanium'],
+    'Iron':   ['D9 Forged', 'D9', 'Staff Model Blade', 'Staff Model CB', 'Staff Model R', 'Staff Model Utility'],
+    'Wedge':  ['Harmonized Wedge'],
+    'Putter': ['Infinite Putter'],
+  },
+  Yonex: {
+    'Driver':  ['Ezone GS Driver', 'Royal Ezone Driver', 'Ezone Elite 4.0'],
+    'Fairway': ['Ezone GS Wood'],
+    'Iron':    ['Ezone GS Iron'],
+  },
+  Other: {
+    'Driver': ['Custom / No Model'], 'Fairway': ['Custom / No Model'],
+    'Hybrid': ['Custom / No Model'], 'Driving Iron': ['Custom / No Model'],
+    'Iron':   ['Custom / No Model'], 'Wedge':  ['Custom / No Model'],
+    'Putter': ['Custom / No Model'],
+  },
 };
 
 // ── Types ──────────────────────────────────────────────────────
@@ -52,13 +141,14 @@ type Club = {
   short_name: string;
   category: string;
   brand: string | null;
+  brand_category: string | null;
   model: string | null;
   nfc_tag_id: string | null;
   in_bag: boolean;
   sort_order: number;
 };
 
-type PickerMode = 'brand' | 'model' | null;
+type PickerMode = 'brand' | 'category' | 'model' | null;
 
 // ── Screen ─────────────────────────────────────────────────────
 export default function ClubDetailScreen() {
@@ -70,8 +160,9 @@ export default function ClubDetailScreen() {
   const [loading,   setLoading]   = useState(true);
   const [scanning,  setScanning]  = useState(false);
   const [nfcAvail,  setNfcAvail]  = useState(false);
-  const [picker,    setPicker]    = useState<PickerMode>(null);
-  const [pickerBrand, setPickerBrand] = useState('');
+  const [picker,        setPicker]        = useState<PickerMode>(null);
+  const [pickerBrand,    setPickerBrand]    = useState('');
+  const [pickerCategory, setPickerCategory] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -95,39 +186,40 @@ export default function ClubDetailScreen() {
 
   function openBrandPicker() {
     setPickerBrand('');
+    setPickerCategory('');
     setPicker('brand');
   }
 
-  async function pickBrand(brand: string) {
+  function pickBrand(brand: string) {
     setPickerBrand(brand);
-    const models = BRAND_MODELS[brand] ?? [];
-    if (models.length === 0) {
-      await saveBrand(brand, null);
-      setPicker(null);
-    } else {
-      setPicker('model');
-    }
+    setPickerCategory('');
+    setPicker('category');
+  }
+
+  function pickCategory(cat: string) {
+    setPickerCategory(cat);
+    setPicker('model');
   }
 
   async function pickModel(model: string) {
-    await saveBrand(pickerBrand, model);
+    await saveEquipment(pickerBrand, pickerCategory, model);
     setPicker(null);
   }
 
-  async function saveBrand(brand: string, model: string | null) {
+  async function saveEquipment(brand: string, brand_category: string, model: string) {
     if (!club) return;
-    setClub(c => c ? { ...c, brand, model } : c);
-    await supabase.from('clubs').update({ brand, model }).eq('id', club.id);
+    setClub(c => c ? { ...c, brand, brand_category, model } : c);
+    await supabase.from('clubs').update({ brand, brand_category, model }).eq('id', club.id);
   }
 
   async function clearBrand() {
     if (!club) return;
-    Alert.alert('Clear brand?', `Remove ${club.brand} from ${club.name}?`, [
+    Alert.alert('Clear equipment?', `Remove ${club.brand} from ${club.name}?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Clear', style: 'destructive', onPress: async () => {
-          setClub(c => c ? { ...c, brand: null, model: null } : c);
-          await supabase.from('clubs').update({ brand: null, model: null }).eq('id', club.id);
+          setClub(c => c ? { ...c, brand: null, brand_category: null, model: null } : c);
+          await supabase.from('clubs').update({ brand: null, brand_category: null, model: null }).eq('id', club.id);
         },
       },
     ]);
@@ -188,7 +280,8 @@ export default function ClubDetailScreen() {
     );
   }
 
-  const modelList = BRAND_MODELS[pickerBrand || club.brand || ''] ?? [];
+  const categoryList = Object.keys(BRAND_CATEGORY_MODELS[pickerBrand || club.brand || ''] ?? {});
+  const modelList = (BRAND_CATEGORY_MODELS[pickerBrand || club.brand || ''] ?? {})[pickerCategory || club.brand_category || ''] ?? [];
 
   return (
     <View style={[s.root, { backgroundColor: dc.bg }]}>
@@ -229,9 +322,10 @@ export default function ClubDetailScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* ── Brand & Model ── */}
+        {/* ── Equipment ── */}
         <Text style={s.sectionLabel}>EQUIPMENT</Text>
         <View style={[s.cardGroup, { backgroundColor: dc.card, borderColor: dc.border }]}>
+          {/* Brand */}
           <TouchableOpacity style={s.rowInCard} onPress={openBrandPicker} activeOpacity={0.7}>
             <View style={s.rowLeft}>
               <View style={[s.rowIcon, { backgroundColor: `${dc.gold}1a`, borderColor: `${dc.gold}30` }]}>
@@ -247,9 +341,30 @@ export default function ClubDetailScreen() {
 
           <View style={[s.cardDivider, { backgroundColor: dc.border }]} />
 
+          {/* Category */}
           <TouchableOpacity
             style={[s.rowInCard, !club.brand && { opacity: 0.35 }]}
-            onPress={club.brand ? () => { setPickerBrand(club.brand!); setPicker('model'); } : undefined}
+            onPress={club.brand ? () => { setPickerBrand(club.brand!); setPickerCategory(''); setPicker('category'); } : undefined}
+            activeOpacity={0.7}
+          >
+            <View style={s.rowLeft}>
+              <View style={[s.rowIcon, { backgroundColor: `${dc.gold}1a`, borderColor: `${dc.gold}30` }]}>
+                <Ionicons name="layers-outline" size={18} color={dc.gold} />
+              </View>
+              <View>
+                <Text style={s.rowTitle}>Category</Text>
+                <Text style={s.rowSub}>{club.brand_category ?? (club.brand ? 'Tap to choose category' : 'Set brand first')}</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#444" />
+          </TouchableOpacity>
+
+          <View style={[s.cardDivider, { backgroundColor: dc.border }]} />
+
+          {/* Model */}
+          <TouchableOpacity
+            style={[s.rowInCard, !club.brand_category && { opacity: 0.35 }]}
+            onPress={club.brand_category ? () => { setPickerBrand(club.brand!); setPickerCategory(club.brand_category!); setPicker('model'); } : undefined}
             activeOpacity={0.7}
           >
             <View style={s.rowLeft}>
@@ -258,7 +373,7 @@ export default function ClubDetailScreen() {
               </View>
               <View>
                 <Text style={s.rowTitle}>Model</Text>
-                <Text style={s.rowSub}>{club.model ?? (club.brand ? 'Tap to choose model' : 'Set brand first')}</Text>
+                <Text style={s.rowSub}>{club.model ?? (club.brand_category ? 'Tap to choose model' : 'Set category first')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#444" />
@@ -267,7 +382,7 @@ export default function ClubDetailScreen() {
 
         {(club.brand || club.model) && (
           <TouchableOpacity style={s.clearBtn} onPress={clearBrand} activeOpacity={0.7}>
-            <Text style={s.clearBtnText}>Clear brand & model</Text>
+            <Text style={s.clearBtnText}>Clear equipment</Text>
           </TouchableOpacity>
         )}
 
@@ -344,7 +459,7 @@ export default function ClubDetailScreen() {
 
       </ScrollView>
 
-      {/* ── Brand picker modal ── */}
+      {/* ── Equipment picker modal (Brand → Category → Model) ── */}
       <Modal
         visible={picker !== null}
         animationType="slide"
@@ -353,22 +468,28 @@ export default function ClubDetailScreen() {
       >
         <View style={[s.modal, { backgroundColor: dc.bg }]}>
           <View style={[s.modalHeader, { borderBottomColor: dc.border }]}>
-            {picker === 'model' ? (
+            {picker === 'category' ? (
               <TouchableOpacity onPress={() => setPicker('brand')} hitSlop={HIT} style={s.modalSide}>
                 <Text style={[s.modalBack, { color: dc.gold }]}>‹ Brands</Text>
+              </TouchableOpacity>
+            ) : picker === 'model' ? (
+              <TouchableOpacity onPress={() => setPicker('category')} hitSlop={HIT} style={s.modalSide}>
+                <Text style={[s.modalBack, { color: dc.gold }]}>‹ Categories</Text>
               </TouchableOpacity>
             ) : (
               <View style={s.modalSide} />
             )}
             <Text style={s.modalTitle}>
-              {picker === 'brand' ? 'Select Brand' : pickerBrand}
+              {picker === 'brand' ? 'Select Brand'
+                : picker === 'category' ? pickerBrand
+                : `${pickerBrand} · ${pickerCategory}`}
             </Text>
             <TouchableOpacity onPress={() => setPicker(null)} hitSlop={HIT} style={[s.modalSide, { alignItems: 'flex-end' }]}>
               <Text style={[s.modalCancel, { color: dc.gold }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
 
-          {picker === 'brand' ? (
+          {picker === 'brand' && (
             <FlatList
               data={CLUB_BRANDS}
               keyExtractor={b => b}
@@ -381,7 +502,24 @@ export default function ClubDetailScreen() {
               ItemSeparatorComponent={() => <View style={[s.pickerDivider, { backgroundColor: dc.border }]} />}
               contentContainerStyle={{ paddingBottom: 48 }}
             />
-          ) : (
+          )}
+
+          {picker === 'category' && (
+            <FlatList
+              data={categoryList}
+              keyExtractor={c => c}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={s.pickerRow} onPress={() => pickCategory(item)} activeOpacity={0.7}>
+                  <Text style={s.pickerRowText}>{item}</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#444" />
+                </TouchableOpacity>
+              )}
+              ItemSeparatorComponent={() => <View style={[s.pickerDivider, { backgroundColor: dc.border }]} />}
+              contentContainerStyle={{ paddingBottom: 48 }}
+            />
+          )}
+
+          {picker === 'model' && (
             <FlatList
               data={modelList}
               keyExtractor={m => m}
