@@ -52,6 +52,7 @@ interface MatchDetail {
   winner: string | null;
   result_str: string | null;
   holes_string: string;
+  start_hole: number;
   is_singles: boolean;
   round_format: string | null;
   home_team_id: string | null;
@@ -211,9 +212,11 @@ export default function MatchDetailScreen() {
     };
 
     if (match!.status === 'in_progress') {
-      if (isSolo) { router.push(`/(app)/score/solo/${matchId}` as any); return; }
+      const sh = startHoleParam ?? (match!.start_hole > 1 ? String(match!.start_hole) : null);
+      const shSuffix = sh && sh !== '1' ? `?startHole=${sh}` : '';
+      if (isSolo) { router.push(`/(app)/score/solo/${matchId}${shSuffix}` as any); return; }
       if (specialRoutes[fmt]) { router.push(specialRoutes[fmt] as any); return; }
-      router.push(`/(app)/score/enter/${matchId}` as any);
+      router.push(`/(app)/score/enter/${matchId}${shSuffix}` as any);
       return;
     }
 
@@ -507,24 +510,22 @@ export default function MatchDetailScreen() {
       </ScrollView>
 
       {/* ── Bottom CTAs ── */}
-      {status !== 'complete' && (
-        <View style={s.ctaWrap}>
-          <TouchableOpacity style={s.ctaBtn} onPress={handleEnterScores} activeOpacity={0.85}>
-            <Ionicons name="create-outline" size={20} color="#000000" />
-            <Text style={s.ctaText}>Enter Scores</Text>
+      <View style={s.ctaWrap}>
+        <TouchableOpacity style={s.ctaBtn} onPress={handleEnterScores} activeOpacity={0.85}>
+          <Ionicons name="create-outline" size={20} color="#000000" />
+          <Text style={s.ctaText}>{status === 'complete' ? 'Edit Scores' : 'Enter Scores'}</Text>
+        </TouchableOpacity>
+        {status !== 'complete' && isMember && (
+          <TouchableOpacity
+            style={s.ctaSecondary}
+            onPress={() => router.push(`/(app)/score/scan/${matchId}` as any)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="scan-outline" size={16} color={GOLD} />
+            <Text style={s.ctaSecondaryText}>Scan Paper Scorecard</Text>
           </TouchableOpacity>
-          {isMember && (
-            <TouchableOpacity
-              style={s.ctaSecondary}
-              onPress={() => router.push(`/(app)/score/scan/${matchId}` as any)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="scan-outline" size={16} color={GOLD} />
-              <Text style={s.ctaSecondaryText}>Scan Paper Scorecard</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
+        )}
+      </View>
     </View>
   );
 }

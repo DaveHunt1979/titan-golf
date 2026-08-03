@@ -10,6 +10,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { searchUKClubs, getUKClub, clubLocation, type UKClub } from '../../../src/lib/ukgolf';
 import { scanScorecardFromCamera, scanScorecardFromLibrary, type ScannedCourse } from '../../../src/lib/scanScorecard';
+import { searchCourse, getCourseHoles, type GICourseResult } from '../../../src/lib/golfIntelligence';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
@@ -44,6 +45,8 @@ export default function CoursesScreen() {
   const [pendingLng, setPendingLng]   = useState<number | null>(null);
   const [scanning, setScanning]       = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [giGPS, setGiGPS]             = useState<Record<number, { lat: number; lng: number }>>({});
+  const [giLoading, setGiLoading]     = useState(false);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -92,6 +95,7 @@ export default function CoursesScreen() {
     setEditingName(name);
     setCourseName(name);
     setHoles(loaded);
+    setGiGPS({});
     setStep('name');
     setModal(true);
   }
@@ -100,6 +104,7 @@ export default function CoursesScreen() {
     setEditingName(null);
     setCourseName('');
     setHoles(defaultHoles());
+    setGiGPS({});
     setStep('name');
     setModal(true);
   }
@@ -282,6 +287,78 @@ export default function CoursesScreen() {
     }
   }
 
+  async function downloadGPS() {
+    const name = courseName.trim();
+    if (!name) { Alert.alert('Name needed', 'Enter the course name first.'); return; }
+    setGiLoading(true);
+    let results: GICourseResult[] = [];
+    try {
+      results = await searchCourse(name);
+    } catch {
+      Alert.alert('Error', 'Could not search Golf Intelligence. Check your connection.');
+      setGiLoading(false);
+      return;
+    }
+    setGiLoading(false);
+
+    if (results.length === 0) {
+      Alert.alert('Not found', 'No courses found on Golf Intelligence. Try a shorter or slightly different name.');
+      return;
+    }
+
+    const applyGPS = async (r: GICourseResult) => {
+      setGiLoading(true);
+      try {
+        const giHoles = await getCourseHoles(r.publicId);
+        if (giHoles.length === 0) {
+          Alert.alert('No GPS data', 'Golf Intelligence has no hole GPS data for this course yet.');
+          return;
+        }
+        if (editingName) {
+          await Promise.all(
+            giHoles.map(h =>
+              supabase.from('course_holes')
+                .update({ green_lat: h.green_lat, green_lng: h.green_lng })
+                .eq('course_name', editingName)
+                .eq('hole_number', h.holeNumber),
+            ),
+          );
+          Alert.alert('GPS Downloaded', `${giHoles.length} holes updated with GPS coordinates. The rangefinder is now active for this course.`);
+        } else {
+          const gps: Record<number, { lat: number; lng: number }> = {};
+          giHoles.forEach(h => { gps[h.holeNumber] = { lat: h.green_lat, lng: h.green_lng }; });
+          setGiGPS(gps);
+          Alert.alert('GPS Ready', `${giHoles.length} holes loaded. GPS will be saved when you tap Save.`);
+        }
+      } catch {
+        Alert.alert('Error', 'Could not download GPS data. Try again.');
+      } finally {
+        setGiLoading(false);
+      }
+    };
+
+    if (results.length === 1) {
+      Alert.alert(
+        'Course Found',
+        `Download GPS for:\n"${results[0].name}"${results[0].location ? `\n${results[0].location}` : ''}`,
+        [
+          { text: 'Download GPS', onPress: () => applyGPS(results[0]) },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+    } else {
+      const top = results.slice(0, 3);
+      Alert.alert(
+        'Select Course',
+        `${results.length} matches found — pick one:`,
+        [
+          ...top.map(r => ({ text: r.name + (r.location ? ` — ${r.location}` : ''), onPress: () => applyGPS(r) })),
+          { text: 'Cancel', style: 'cancel' as const },
+        ],
+      );
+    }
+  }
+
   function promptScanSource() {
     Alert.alert('Scan Scorecard', 'How would you like to scan?', [
       { text: 'Take Photo', onPress: () => scanScorecard('camera') },
@@ -313,6 +390,7 @@ export default function CoursesScreen() {
         stroke_index: parseInt(h.si, 10) || i + 1,
         tee_yardages: h.teeYardages ?? {},
         yardage:      h.teeYardages?.white ?? h.teeYardages?.yellow ?? null,
+        ...(giGPS[i + 1] ? { green_lat: giGPS[i + 1].lat, green_lng: giGPS[i + 1].lng } : {}),
       }));
       const { error } = await supabase.from('course_holes').insert(rows);
       if (error) throw error;
@@ -566,19 +644,37 @@ export default function CoursesScreen() {
           {step === 'holes' && (
             <ScrollView contentContainerStyle={s.holesPad} keyboardShouldPersistTaps="handled">
 
-              {/* Scan scorecard */}
-              <TouchableOpacity
-                style={[s.scanBtn, scanning && { opacity: 0.5 }]}
-                onPress={promptScanSource}
-                disabled={scanning}
-                activeOpacity={0.8}
-              >
-                {scanning
-                  ? <ActivityIndicator color={GOLD} size="small" />
-                  : <Text style={s.scanBtnText}>📷  Scan Scorecard</Text>
-                }
-              </TouchableOpacity>
+              {/* Scan scorecard + GPS download row */}
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+                <TouchableOpacity
+                  style={[s.scanBtn, { flex: 1, marginBottom: 0 }, scanning && { opacity: 0.5 }]}
+                  onPress={promptScanSource}
+                  disabled={scanning || giLoading}
+                  activeOpacity={0.8}
+                >
+                  {scanning
+                    ? <ActivityIndicator color={GOLD} size="small" />
+                    : <Text style={s.scanBtnText}>📷  Scan Scorecard</Text>
+                  }
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.scanBtn, { flex: 1, marginBottom: 0 }, giLoading && { opacity: 0.5 }]}
+                  onPress={downloadGPS}
+                  disabled={scanning || giLoading}
+                  activeOpacity={0.8}
+                >
+                  {giLoading
+                    ? <ActivityIndicator color={GOLD} size="small" />
+                    : <Text style={s.scanBtnText}>📡  Download GPS</Text>
+                  }
+                </TouchableOpacity>
+              </View>
               {scanning && <Text style={s.scanHint}>Reading scorecard with AI — this takes a few seconds…</Text>}
+              {Object.keys(giGPS).length > 0 && (
+                <Text style={[s.scanHint, { color: GREEN }]}>
+                  ✓ GPS loaded for {Object.keys(giGPS).length} holes — will save with course
+                </Text>
+              )}
 
               {/* Par summary */}
               <View style={s.parSummary}>

@@ -75,6 +75,12 @@ async function _doInit(): Promise<void> {
     detected_at  INTEGER NOT NULL,
     UNIQUE(match_id, hole_number)
   );`);
+  await db.execAsync(`CREATE TABLE IF NOT EXISTS gi_course_cache (
+    public_id    TEXT PRIMARY KEY,
+    course_name  TEXT NOT NULL,
+    holes_json   TEXT NOT NULL,
+    cached_at    INTEGER NOT NULL
+  );`);
 }
 
 export async function ensureDb(): Promise<any> {

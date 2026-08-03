@@ -1,11 +1,14 @@
-import { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { colors } from './theme';
 import { getSocietyLogo } from './assets';
 
 const societyKey = (uid: string) => `active_society_id:${uid}`;
+const LIGHT_MODE_KEY = 'titan:light_mode';
+const GOLD = '#D4AF37';
 
+// ── Colour helpers ────────────────────────────────────────────────
 export interface ThemePalette {
   bg:            string;
   card:          string;
@@ -15,10 +18,18 @@ export interface ThemePalette {
   text:          string;
   textSecondary: string;
   textMuted:     string;
-  cardText:      string;  // text colour on card-background elements
-  iconBoxBg:     string;  // tile/list icon box background
-  iconBoxBorder: string;  // tile/list icon box border
-  iconBoxIcon:   string;  // icon colour inside icon boxes
+  cardText:      string;
+  iconBoxBg:     string;
+  iconBoxBorder: string;
+  iconBoxIcon:   string;
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function hexLuminance(hex: string): number {
@@ -47,6 +58,7 @@ function navyCard(hex: string): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
+// ── Dark palettes (default) ───────────────────────────────────────
 export const TITAN_PALETTE: ThemePalette = {
   bg:            colors.bg,
   card:          colors.card,
@@ -85,28 +97,71 @@ export function derivePalette(primaryColor: string, secondaryColor: string): The
   return { ...TITAN_PALETTE, accent: primaryColor };
 }
 
+// ── Light palettes ────────────────────────────────────────────────
+export const TITAN_LIGHT_PALETTE: ThemePalette = {
+  bg:            '#ffffff',
+  card:          '#f0f0f0',
+  border:        'rgba(0,0,0,0.10)',
+  goldBorder:    'rgba(212,175,55,0.40)',
+  accent:        GOLD,
+  text:          '#000000',
+  textSecondary: 'rgba(0,0,0,0.60)',
+  textMuted:     'rgba(0,0,0,0.38)',
+  cardText:      '#000000',
+  iconBoxBg:     'rgba(212,175,55,0.10)',
+  iconBoxBorder: 'rgba(212,175,55,0.30)',
+  iconBoxIcon:   GOLD,
+};
+
+export function deriveLightPalette(primaryColor: string, _secondaryColor: string): ThemePalette {
+  if (hexLuminance(primaryColor) < 0.15) {
+    // Dark-primary society (e.g. Mashie navy) — the primary becomes text in light mode
+    return {
+      bg:            '#ffffff',
+      card:          '#f0f0f0',
+      border:        'rgba(0,0,0,0.10)',
+      goldBorder:    'rgba(212,175,55,0.40)',
+      accent:        GOLD,
+      text:          primaryColor,
+      textSecondary: hexToRgba(primaryColor, 0.65),
+      textMuted:     hexToRgba(primaryColor, 0.40),
+      cardText:      primaryColor,
+      iconBoxBg:     'rgba(212,175,55,0.10)',
+      iconBoxBorder: 'rgba(212,175,55,0.30)',
+      iconBoxIcon:   GOLD,
+    };
+  }
+  // Light/vibrant primary (Titan gold) — white bg, black text, gold accent
+  return { ...TITAN_LIGHT_PALETTE, accent: primaryColor };
+}
+
+// ── Context types ─────────────────────────────────────────────────
 export interface SocietyTheme {
-  primaryColor:   string;
-  secondaryColor: string;
-  logoUrl:        string | null;
-  localLogo:      any | null;
-  societyName:    string;
-  tagline:        string;
-  societyId:      string;
-  loaded:         boolean;
-  palette:        ThemePalette;
+  primaryColor:    string;
+  secondaryColor:  string;
+  logoUrl:         string | null;
+  localLogo:       any | null;
+  societyName:     string;
+  tagline:         string;
+  societyId:       string;
+  loaded:          boolean;
+  palette:         ThemePalette;
+  lightMode:       boolean;
+  toggleLightMode: () => void;
 }
 
 const DEFAULT: SocietyTheme = {
-  primaryColor:   colors.gold,
-  secondaryColor: '#1B3A5C',
-  logoUrl:        null,
-  localLogo:      null,
-  societyName:    'TITAN GOLF',
-  tagline:        '',
-  societyId:      '00000000-0000-0000-0000-000000000001',
-  loaded:         false,
-  palette:        TITAN_PALETTE,
+  primaryColor:    colors.gold,
+  secondaryColor:  '#1B3A5C',
+  logoUrl:         null,
+  localLogo:       null,
+  societyName:     'TITAN GOLF',
+  tagline:         '',
+  societyId:       '00000000-0000-0000-0000-000000000001',
+  loaded:          false,
+  palette:         TITAN_PALETTE,
+  lightMode:       false,
+  toggleLightMode: () => {},
 };
 
 const Ctx = createContext<SocietyTheme>(DEFAULT);
@@ -115,7 +170,9 @@ const SOCIETY_COLOR_DEFAULTS: Record<string, { primary: string; secondary: strin
   'mashie golf': { primary: '#000035', secondary: '#ffffff' },
 };
 
-async function fetchTheme(): Promise<SocietyTheme> {
+type BaseTheme = Omit<SocietyTheme, 'lightMode' | 'toggleLightMode'>;
+
+async function fetchTheme(): Promise<BaseTheme> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ...DEFAULT, loaded: true };
 
@@ -124,7 +181,6 @@ async function fetchTheme(): Promise<SocietyTheme> {
   if (!player) return { ...DEFAULT, loaded: true };
 
   const pid = (player as any).id;
-
   const KEY = societyKey(user.id);
 
   // Use cached society if the player is still a member of it
@@ -142,7 +198,6 @@ async function fetchTheme(): Promise<SocietyTheme> {
       .from('society_members').select('society_id')
       .eq('player_id', pid);
     if (!members?.length) return { ...DEFAULT, loaded: true };
-    // Prefer any society that isn't the Titan default (00000000-...-0001)
     const nonDefault = members.find((m: any) => m.society_id !== DEFAULT.societyId);
     societyId = (nonDefault ?? members[0] as any).society_id;
     await AsyncStorage.setItem(KEY, societyId!);
@@ -167,46 +222,58 @@ async function fetchTheme(): Promise<SocietyTheme> {
   return {
     primaryColor,
     secondaryColor,
-    logoUrl:   s.logo_url ?? null,
-    localLogo: getSocietyLogo(name),
+    logoUrl:     s.logo_url ?? null,
+    localLogo:   getSocietyLogo(name),
     societyName: name,
-    tagline:   s.tagline ?? '',
-    societyId: societyId!,
-    loaded:    true,
-    palette:   derivePalette(primaryColor, secondaryColor),
+    tagline:     s.tagline ?? '',
+    societyId:   societyId!,
+    loaded:      true,
+    palette:     derivePalette(primaryColor, secondaryColor),
   };
 }
 
+// ── Provider ──────────────────────────────────────────────────────
 export function SocietyThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<SocietyTheme>(DEFAULT);
+  const [base,      setBase]      = useState<BaseTheme>(DEFAULT);
+  const [lightMode, setLightMode] = useState(false);
 
   useEffect(() => {
-    fetchTheme().then(setTheme);
+    AsyncStorage.getItem(LIGHT_MODE_KEY).then(v => {
+      if (v === 'true') setLightMode(true);
+    });
+
+    fetchTheme().then(setBase);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
-        setTheme({ ...DEFAULT, loaded: true });
+        setBase({ ...DEFAULT, loaded: true });
       } else {
-        fetchTheme().then(setTheme);
+        fetchTheme().then(setBase);
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  return <Ctx.Provider value={theme}>{children}</Ctx.Provider>;
+  function toggleLightMode() {
+    setLightMode(prev => {
+      const next = !prev;
+      AsyncStorage.setItem(LIGHT_MODE_KEY, String(next));
+      return next;
+    });
+  }
+
+  const palette = lightMode
+    ? deriveLightPalette(base.primaryColor, base.secondaryColor)
+    : base.palette;
+
+  const value: SocietyTheme = { ...base, palette, lightMode, toggleLightMode };
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export function useSocietyTheme(): SocietyTheme {
   return useContext(Ctx);
-}
-
-function hexToRgba(hex: string, alpha: number): string {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 /** Drop-in replacement for the static `colors` import — society-aware. */

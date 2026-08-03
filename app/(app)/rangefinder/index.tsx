@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Image,
+  ScrollView, Image, TextInput, Alert, ActivityIndicator,
 } from 'react-native';
 import MapView, { Marker, Polyline, Polygon } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -12,6 +12,8 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
+import { ensureDb } from '../../../src/lib/localDb';
+import { searchCourse, getCourseHoles, GICourseResult, GIHoleData } from '../../../src/lib/golfIntelligence';
 
 const GOLD    = '#D4AF37'; // StyleSheet fallback
 const GREEN   = '#4ade80';
@@ -28,9 +30,12 @@ interface HoleRow {
   front_lat: number | null; front_lng: number | null;
   green_lat: number | null; green_lng: number | null;
   back_lat: number | null; back_lng: number | null;
+  tee_lat?: number | null; tee_lng?: number | null;
+  yellow_yards?: number | null; white_yards?: number | null;
+  blue_yards?: number | null; red_yards?: number | null;
 }
 interface Weather { windSpeed: number; windDir: number; temp: number }
-interface ElevInfo { diff: number; adjusted: number }
+interface ElevInfo { diffFt: number; adjustYards: number }
 interface OsmFeature { id: number; golfType: string; coords: { latitude: number; longitude: number }[] }
 
 const GOLF_COLORS: Record<string, { fill: string; stroke: string }> = {
@@ -50,6 +55,12 @@ function haversineYards(la1: number, lo1: number, la2: number, lo2: number): num
   const Δφ = (la2 - la1) * Math.PI / 180, Δλ = (lo2 - lo1) * Math.PI / 180;
   const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.09361);
+}
+
+function bearingDeg(la1: number, lo1: number, la2: number, lo2: number): number {
+  const φ1 = la1 * Math.PI / 180, φ2 = la2 * Math.PI / 180;
+  const Δλ = (lo2 - lo1) * Math.PI / 180;
+  return (Math.atan2(Math.sin(Δλ) * Math.cos(φ2), Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ)) * 180 / Math.PI + 360) % 360;
 }
 
 function cardinal(deg: number): string {
@@ -104,6 +115,11 @@ export default function RangefinderScreen() {
   const [clubAvgs, setClubAvgs] = useState<Record<string, number>>({});
   const [osmFeatures, setOsmFeatures] = useState<OsmFeature[]>([]);
   const [osmLoading, setOsmLoading] = useState(false);
+
+  const [giQuery, setGiQuery]       = useState('');
+  const [giResults, setGiResults]   = useState<GICourseResult[]>([]);
+  const [giSearching, setGiSearching] = useState(false);
+  const giMode = useRef(false);
 
   const weatherFetched = useRef(false);
   const mapRef = useRef<MapView>(null);
@@ -207,9 +223,14 @@ export default function RangefinderScreen() {
     });
   }, []);
 
+  // ── Reset GI mode when course is cleared ────────────────────────
+  useEffect(() => {
+    if (!selectedCourse) giMode.current = false;
+  }, [selectedCourse]);
+
   // ── Load holes for selected course ───────────────────────────────
   useEffect(() => {
-    if (!selectedCourse) return;
+    if (!selectedCourse || giMode.current) return;
     supabase.from('course_holes')
       .select('hole_number,par,stroke_index,front_lat,front_lng,green_lat,green_lng,back_lat,back_lng')
       .eq('course_name', selectedCourse)
@@ -259,16 +280,19 @@ export default function RangefinderScreen() {
       .catch(() => {});
   }, [player]);
 
-  // ── Elevation (when player + pin known) ──────────────────────────
+  // ── Elevation (tee-to-green; falls back to player position) ─────
   useEffect(() => {
     const centre = pins.centre;
-    if (!player || !centre || elevLoading) return;
+    const fromPt = (hole?.tee_lat != null && hole?.tee_lng != null)
+      ? { lat: hole.tee_lat!, lng: hole.tee_lng! }
+      : player;
+    if (!fromPt || !centre || elevLoading) return;
     setElevLoading(true);
     fetch('https://api.open-elevation.com/api/v1/lookup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ locations: [
-        { latitude: player.lat, longitude: player.lng },
+        { latitude: fromPt.lat, longitude: fromPt.lng },
         { latitude: centre.lat, longitude: centre.lng },
       ]}),
     })
@@ -276,18 +300,106 @@ export default function RangefinderScreen() {
       .then(d => {
         const res = d.results;
         if (res?.length === 2) {
-          const diff = Math.round(res[1].elevation - res[0].elevation);
-          const baseDist = haversineYards(player.lat, player.lng, centre.lat, centre.lng);
-          setElev({ diff, adjusted: Math.round(baseDist + diff * 1.09) });
+          const diffFt = Math.round((res[1].elevation - res[0].elevation) * 3.28084);
+          setElev({ diffFt, adjustYards: Math.round(diffFt / 10) });
         }
       })
       .catch(() => {})
       .finally(() => setElevLoading(false));
-  }, [pins.centre?.lat, pins.centre?.lng, player?.lat, player?.lng]);
+  }, [pins.centre?.lat, pins.centre?.lng, player?.lat, player?.lng, hole?.tee_lat, hole?.tee_lng]);
+
+  function toHoleRows(giHoles: GIHoleData[]): HoleRow[] {
+    return giHoles.map(h => ({
+      hole_number:  h.holeNumber,
+      par:          h.par ?? 4,
+      stroke_index: h.strokeIndex ?? 1,
+      front_lat:    h.front_lat ?? null,
+      front_lng:    h.front_lng ?? null,
+      green_lat:    h.green_lat,
+      green_lng:    h.green_lng,
+      back_lat:     h.back_lat ?? null,
+      back_lng:     h.back_lng ?? null,
+      tee_lat:      h.tee_lat ?? null,
+      tee_lng:      h.tee_lng ?? null,
+      yellow_yards: h.yellow_yards ?? null,
+      white_yards:  h.white_yards ?? null,
+      blue_yards:   h.blue_yards ?? null,
+      red_yards:    h.red_yards ?? null,
+    }));
+  }
+
+  async function selectGiCourse(publicId: string, name: string) {
+    setGiSearching(true);
+    try {
+      // Check 30-day SQLite cache first
+      const db = await ensureDb();
+      if (db) {
+        const cached = await db.getFirstAsync(
+          'SELECT holes_json FROM gi_course_cache WHERE public_id = ? AND cached_at > ?',
+          [publicId, Date.now() - 30 * 24 * 60 * 60 * 1000],
+        ) as { holes_json: string } | null;
+        if (cached?.holes_json) {
+          const rows = toHoleRows(JSON.parse(cached.holes_json) as GIHoleData[]);
+          giMode.current = true;
+          setHoles(rows);
+          setSelected(name);
+          setHoleIdx(0);
+          setGiResults([]);
+          setGiQuery('');
+          return;
+        }
+      }
+      // Fetch from API
+      const giHoles = await getCourseHoles(publicId);
+      if (giHoles.length === 0) {
+        Alert.alert('No GPS data', 'Golf Intelligence has no GPS data for this course yet.');
+        return;
+      }
+      if (db) {
+        await db.runAsync(
+          'INSERT OR REPLACE INTO gi_course_cache (public_id, course_name, holes_json, cached_at) VALUES (?, ?, ?, ?)',
+          [publicId, name, JSON.stringify(giHoles), Date.now()],
+        ).catch(() => {});
+      }
+      const rows = toHoleRows(giHoles);
+      giMode.current = true;
+      setHoles(rows);
+      setSelected(name);
+      setHoleIdx(0);
+      setGiResults([]);
+      setGiQuery('');
+    } catch {
+      Alert.alert('Error', 'Could not load course GPS data. Check your connection.');
+    } finally {
+      setGiSearching(false);
+    }
+  }
+
+  async function runGiSearch() {
+    const q = giQuery.trim();
+    if (!q) return;
+    setGiSearching(true);
+    setGiResults([]);
+    try {
+      const results = await searchCourse(q);
+      setGiResults(results.slice(0, 10));
+      if (results.length === 0) Alert.alert('No results', `No courses found for "${q}"`);
+    } catch {
+      Alert.alert('Error', 'Course search failed. Check your connection.');
+    } finally {
+      setGiSearching(false);
+    }
+  }
+
+  const teeOrigin: { lat: number; lng: number } | null =
+    (hole?.tee_lat != null && hole?.tee_lng != null)
+      ? { lat: hole.tee_lat!, lng: hole.tee_lng! }
+      : null;
+  const distOrigin = teeOrigin ?? player;
 
   const distTo = (t: Target) => {
     const p = pins[t];
-    return player && p ? haversineYards(player.lat, player.lng, p.lat, p.lng) : null;
+    return distOrigin && p ? haversineYards(distOrigin.lat, distOrigin.lng, p.lat, p.lng) : null;
   };
   const dFront  = distTo('front');
   const dCentre = distTo('centre');
@@ -332,192 +444,286 @@ export default function RangefinderScreen() {
           {courses.length === 0 && (
             <Text style={s.empty}>No courses available</Text>
           )}
+
+          <Text style={[s.sectionLabel, { color: dc.cardText, marginTop: 24 }]}>SEARCH GOLF INTELLIGENCE</Text>
+          <View style={[s.giSearchRow, { backgroundColor: dc.card, borderColor: dc.border }]}>
+            <TextInput
+              style={[s.giInput, { color: dc.cardText }]}
+              placeholder="Course name..."
+              placeholderTextColor={dc.textMuted}
+              value={giQuery}
+              onChangeText={setGiQuery}
+              onSubmitEditing={runGiSearch}
+              returnKeyType="search"
+              autoCorrect={false}
+            />
+            <TouchableOpacity onPress={runGiSearch} style={s.giSearchBtn} disabled={giSearching}>
+              {giSearching
+                ? <ActivityIndicator size="small" color={GOLD} />
+                : <Ionicons name="search" size={20} color={GOLD} />}
+            </TouchableOpacity>
+          </View>
+
+          {giResults.map(r => (
+            <TouchableOpacity
+              key={r.publicId}
+              style={[s.courseCard, { backgroundColor: dc.card, borderColor: dc.border }]}
+              onPress={() => selectGiCourse(r.publicId, r.name)}
+              activeOpacity={0.8}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[s.courseName, { color: dc.cardText }]}>{r.name}</Text>
+                {r.location ? <Text style={[s.giLocation, { color: dc.textMuted }]}>{r.location}</Text> : null}
+              </View>
+              <Ionicons name="navigate-outline" size={18} color={GOLD} />
+            </TouchableOpacity>
+          ))}
         </ScrollView>
       </View>
     );
   }
 
   // ── Main rangefinder ──────────────────────────────────────────────
-  const clubRec = recommendClub(dActive, clubAvgs);
+  const windAdj = (() => {
+    if (!weather || !distOrigin || !pins[activeTarget]) return 0;
+    const shot = bearingDeg(distOrigin.lat, distOrigin.lng, pins[activeTarget]!.lat, pins[activeTarget]!.lng);
+    const headwind = weather.windSpeed * Math.cos((weather.windDir - shot) * Math.PI / 180);
+    return Math.round(headwind * 0.5);
+  })();
+  const effectiveDist = dActive !== null ? dActive + (elev?.adjustYards ?? 0) + windAdj : null;
+  const clubRec = recommendClub(effectiveDist, clubAvgs);
+
+  const bottomPanelHeight = 120;
+
+  const teeYards = [
+    { label: 'B', yards: hole?.blue_yards,   color: '#3b82f6' },
+    { label: 'W', yards: hole?.white_yards,  color: '#e5e7eb' },
+    { label: 'Y', yards: hole?.yellow_yards, color: '#eab308' },
+    { label: 'R', yards: hole?.red_yards,    color: '#ef4444' },
+  ].filter(t => t.yards != null);
 
   return (
     <View style={s.root}>
       <StatusBar style="light" />
 
-      {/* ── Map area ── */}
-      <View style={s.mapContainer}>
-        {initialRegion ? (
-          <MapView
-            ref={mapRef}
-            style={StyleSheet.absoluteFill}
-            mapType="satellite"
-            initialRegion={initialRegion}
-            showsUserLocation={gpsOk}
-            showsMyLocationButton={false}
-            pitchEnabled={false}
-            rotateEnabled={false}
-          >
-            {/* OSM course polygons — rendered back-to-front */}
-            {['rough','fairway','tee','green','bunker','lateral_water_hazard','water_hazard'].flatMap(type =>
-              osmFeatures
-                .filter(f => f.golfType === type)
-                .map(f => {
-                  const c = GOLF_COLORS[type] ?? GOLF_COLORS.fairway;
-                  return (
-                    <Polygon
-                      key={f.id}
-                      coordinates={f.coords}
-                      fillColor={c.fill}
-                      strokeColor={c.stroke}
-                      strokeWidth={1}
-                    />
-                  );
-                })
-            )}
+      {/* ── Full-screen map ── */}
+      {initialRegion ? (
+        <MapView
+          ref={mapRef}
+          style={s.mapFull}
+          mapType="satellite"
+          initialRegion={initialRegion}
+          showsUserLocation={gpsOk}
+          showsMyLocationButton={false}
+          pitchEnabled={false}
+          rotateEnabled={false}
+        >
+          {/* OSM course polygons — rendered back-to-front */}
+          {['rough','fairway','tee','green','bunker','lateral_water_hazard','water_hazard'].flatMap(type =>
+            osmFeatures
+              .filter(f => f.golfType === type)
+              .map(f => {
+                const c = GOLF_COLORS[type] ?? GOLF_COLORS.fairway;
+                return (
+                  <Polygon
+                    key={f.id}
+                    coordinates={f.coords}
+                    fillColor={c.fill}
+                    strokeColor={c.stroke}
+                    strokeWidth={1}
+                  />
+                );
+              })
+          )}
 
-            {pins.front && (
-              <Marker
-                coordinate={{ latitude: pins.front.lat, longitude: pins.front.lng }}
-                draggable anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}
-                onDragEnd={e => setPins(p => ({ ...p, front: { lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude } }))}
-              >
-                <View style={[s.pinDot, { backgroundColor: '#fff' }]}>
-                  <Text style={s.pinDotText}>F</Text>
-                </View>
-              </Marker>
-            )}
-            {pins.centre && (
-              <Marker
-                coordinate={{ latitude: pins.centre.lat, longitude: pins.centre.lng }}
-                draggable anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}
-                onDragEnd={e => setPins(p => ({ ...p, centre: { lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude } }))}
-              >
-                <View style={[s.pinDot, { backgroundColor: GOLD }]}>
-                  <Ionicons name="flag" size={13} color="#000" />
-                </View>
-              </Marker>
-            )}
-            {pins.back && (
-              <Marker
-                coordinate={{ latitude: pins.back.lat, longitude: pins.back.lng }}
-                draggable anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}
-                onDragEnd={e => setPins(p => ({ ...p, back: { lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude } }))}
-              >
-                <View style={[s.pinDot, { backgroundColor: '#fff' }]}>
-                  <Text style={s.pinDotText}>B</Text>
-                </View>
-              </Marker>
-            )}
-            {player && pins[activeTarget] && (
-              <Polyline
-                coordinates={[
-                  { latitude: player.lat, longitude: player.lng },
-                  { latitude: pins[activeTarget]!.lat, longitude: pins[activeTarget]!.lng },
-                ]}
-                strokeColor="#fff"
-                strokeWidth={1.5}
-                lineDashPattern={[6, 4]}
+          {pins.front && (
+            <Marker
+              coordinate={{ latitude: pins.front.lat, longitude: pins.front.lng }}
+              draggable anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}
+              onDragEnd={e => setPins(p => ({ ...p, front: { lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude } }))}
+            >
+              <View style={[s.pinDot, { backgroundColor: '#fff' }]}>
+                <Text style={s.pinDotText}>F</Text>
+              </View>
+            </Marker>
+          )}
+          {pins.centre && (
+            <Marker
+              coordinate={{ latitude: pins.centre.lat, longitude: pins.centre.lng }}
+              draggable anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}
+              onDragEnd={e => setPins(p => ({ ...p, centre: { lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude } }))}
+            >
+              <View style={[s.pinDot, { backgroundColor: GOLD }]}>
+                <Ionicons name="flag" size={13} color="#000" />
+              </View>
+            </Marker>
+          )}
+          {pins.back && (
+            <Marker
+              coordinate={{ latitude: pins.back.lat, longitude: pins.back.lng }}
+              draggable anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}
+              onDragEnd={e => setPins(p => ({ ...p, back: { lat: e.nativeEvent.coordinate.latitude, lng: e.nativeEvent.coordinate.longitude } }))}
+            >
+              <View style={[s.pinDot, { backgroundColor: '#fff' }]}>
+                <Text style={s.pinDotText}>B</Text>
+              </View>
+            </Marker>
+          )}
+
+          {/* Tee marker */}
+          {hole?.tee_lat != null && hole?.tee_lng != null && (
+            <Marker
+              coordinate={{ latitude: hole.tee_lat, longitude: hole.tee_lng }}
+              anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}
+            >
+              <View style={s.teeMarker} />
+            </Marker>
+          )}
+
+          {distOrigin && pins[activeTarget] && (
+            <Polyline
+              coordinates={[
+                { latitude: distOrigin.lat, longitude: distOrigin.lng },
+                { latitude: pins[activeTarget]!.lat, longitude: pins[activeTarget]!.lng },
+              ]}
+              strokeColor="#fff"
+              strokeWidth={1.5}
+              lineDashPattern={[6, 4]}
+            />
+          )}
+        </MapView>
+      ) : (
+        <View style={[s.mapFull, { backgroundColor: '#111' }]} />
+      )}
+
+      {/* ── TOP HEADER ── */}
+      <View style={s.topHeader}>
+        <View style={s.headerRow}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="chevron-back" size={24} color="#fff" />
+          </TouchableOpacity>
+
+          <View style={s.holeChip}>
+            <Text style={s.holeChipText}>
+              {hole
+                ? `HOLE ${String(hole.hole_number).padStart(2, '0')}  ·  Par ${hole.par}  ·  SI ${hole.stroke_index}`
+                : '—'}
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={[s.gpsDot, { backgroundColor: gpsOk ? GREEN : '#f59e0b' }]} />
+            {weather && <Text style={s.gpsText}>{weather.temp}°</Text>}
+          </View>
+        </View>
+        <Text style={s.courseChipText} numberOfLines={1}>{selectedCourse}</Text>
+      </View>
+
+      {/* ── DISTANCE CARDS — left column ── */}
+      <View style={s.distCol}>
+        {([
+          { t: 'front'  as Target, icon: 'arrow-up-outline'   as const, label: 'FRONT', d: dFront  },
+          { t: 'centre' as Target, icon: 'flag'               as const, label: 'FLAG',  d: dCentre },
+          { t: 'back'   as Target, icon: 'arrow-down-outline' as const, label: 'BACK',  d: dBack   },
+        ]).map(({ t, icon, label, d }) => {
+          const active = activeTarget === t;
+          return (
+            <TouchableOpacity
+              key={t}
+              onPress={() => setTarget(t)}
+              activeOpacity={0.75}
+              style={[s.distCard, active && s.distCardActive]}
+            >
+              <Ionicons name={icon} size={16} color={active ? GOLD : 'rgba(255,255,255,0.5)'} style={s.distIcon} />
+              <Text style={[s.distNum, { color: active ? '#fff' : 'rgba(255,255,255,0.45)', fontSize: active ? 22 : 18 }]}>
+                {d !== null ? d : '—'}
+              </Text>
+              <Text style={[s.distLabel, { color: active ? GOLD : 'rgba(255,255,255,0.35)' }]}>{label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* ── BIG ACTIVE YARDAGE ── */}
+      <View style={s.bigDistWrap}>
+        <Text style={s.bigDistNum}>{dActive !== null ? dActive : '—'}</Text>
+        <Text style={s.bigDistLabel}>{teeOrigin ? 'yds from tee' : 'yds from here'}</Text>
+        {(elev || windAdj !== 0) && effectiveDist !== null && (
+          <View style={s.elevChip}>
+            {elev ? (
+              <Ionicons
+                name={elev.diffFt >= 0 ? 'trending-up' : 'trending-down'}
+                size={13}
+                color={elev.diffFt >= 0 ? RED : GREEN}
               />
-            )}
-          </MapView>
-        ) : (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: '#111' }]} />
+            ) : null}
+            <Text style={[s.elevText, { color: 'rgba(255,255,255,0.85)' }]}>
+              {[
+                elev ? (elev.diffFt >= 0 ? `↑${elev.diffFt}ft` : `↓${Math.abs(elev.diffFt)}ft`) : null,
+                windAdj !== 0 ? (windAdj > 0 ? `↑${windAdj}yd wind` : `↓${Math.abs(windAdj)}yd wind`) : null,
+              ].filter(Boolean).join('  ')}
+              {'  →  play '}
+              <Text style={{ color: GOLD, fontFamily: FFB }}>{effectiveDist}</Text>
+            </Text>
+          </View>
         )}
-
-        {/* Distance panel — floating top-left, no card */}
-        <View style={s.distPanel}>
-          {(['front', 'centre', 'back'] as Target[]).map(t => {
-            const d = t === 'front' ? dFront : t === 'centre' ? dCentre : dBack;
-            const active = activeTarget === t;
-            return (
-              <TouchableOpacity key={t} onPress={() => setTarget(t)} activeOpacity={0.7} style={s.distRow}>
-                <Text style={[s.distArrow, { color: active ? GOLD : 'rgba(255,255,255,0.45)' }]}>
-                  {t === 'front' ? '↑' : t === 'centre' ? '●' : '↓'}
-                </Text>
-                <Text style={[s.distNum, {
-                  color: active ? GOLD : '#fff',
-                  fontSize: active ? 18 : 14,
-                  opacity: active ? 1 : 0.55,
-                }]}>
-                  {d !== null ? d : '—'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Back button — top left */}
-        <TouchableOpacity style={s.backBtn} onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="chevron-back" size={22} color="#fff" />
-        </TouchableOpacity>
-
-        {/* GPS dot — top right */}
-        <View style={s.gpsChip}>
-          <View style={[s.gpsDot, { backgroundColor: gpsOk ? GREEN : '#f59e0b' }]} />
-          <Text style={s.gpsText}>GPS</Text>
-        </View>
-
-        {/* Club chip — bottom centre of map */}
         {clubRec && (
-          <View style={s.clubChip}>
-            <Ionicons name="golf-outline" size={13} color={GOLD} />
-            <Text style={s.clubChipText}>{clubRec.club}</Text>
-            <Text style={s.clubChipYds}>· {clubRec.dist} yds</Text>
-          </View>
-        )}
-
-        {/* Wind compass — bottom left of map */}
-        {weather && (
-          <View style={s.compassCircle}>
-            <View style={[s.compassNeedle, { transform: [{ rotate: `${weather.windDir}deg` }] }]}>
-              <View style={s.needleHead} />
-              <View style={s.needleTail} />
-            </View>
-            <View style={s.compassCentre} />
-            <Text style={s.compassLabel}>{cardinal(weather.windDir)}</Text>
-          </View>
-        )}
-
-        {/* Elevation — bottom right of map */}
-        {elev && (
-          <View style={s.elevBadge}>
-            <Ionicons name={elev.diff > 0 ? 'trending-up' : 'trending-down'} size={14} color={elev.diff > 0 ? RED : GREEN} />
-            <Text style={[s.elevText, { color: elev.diff > 0 ? RED : GREEN }]}>{elev.adjusted} adj</Text>
+          <View style={s.clubChip2}>
+            <Text style={s.clubChipText}>🏌 {clubRec.club} · {clubRec.dist} yds</Text>
           </View>
         )}
       </View>
 
-      {/* ── Bottom info section — solid black, not overlaid ── */}
-      <View style={s.bottomSection}>
-        <View style={s.holeRow}>
+      {/* ── WIND COMPASS ── */}
+      {weather && (
+        <View style={[s.compassCircle, { bottom: bottomPanelHeight + 16 }]}>
+          <View style={[s.compassNeedle, { transform: [{ rotate: `${weather.windDir}deg` }] }]}>
+            <View style={s.needleHead} />
+            <View style={s.needleTail} />
+          </View>
+          <View style={s.compassCentre} />
+          <Text style={s.compassLabel}>{cardinal(weather.windDir)}</Text>
+        </View>
+      )}
+
+      {/* ── BOTTOM OVERLAY PANEL ── */}
+      <View style={s.bottomPanel}>
+        {/* Hole navigation */}
+        <View style={s.bottomHoleNav}>
           <TouchableOpacity
-            style={s.holeArrow}
+            style={s.holeNavArrow}
             onPress={() => setHoleIdx(i => Math.max(0, i - 1))}
             disabled={holeIdx === 0}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={30} color={holeIdx === 0 ? '#333' : '#fff'} />
+            <Ionicons name="chevron-back" size={28} color={holeIdx === 0 ? '#333' : '#fff'} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={s.holeInfoBlock} onPress={() => setSelected(null)} activeOpacity={0.7}>
-            <Text style={s.holeNum}>{hole ? String(hole.hole_number).padStart(2, '0') : '—'}</Text>
-            <View style={s.holeMetas}>
-              <Text style={s.holePar}>Par {hole?.par ?? '—'}</Text>
-              <Text style={s.holeHcp}>Handicap {hole?.stroke_index ?? '—'}</Text>
-            </View>
+          <TouchableOpacity onPress={() => setSelected(null)} activeOpacity={0.7}>
+            <Text style={s.holeNavNum}>{hole ? String(hole.hole_number).padStart(2, '0') : '—'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={s.holeArrow}
+            style={s.holeNavArrow}
             onPress={() => setHoleIdx(i => Math.min(holes.length - 1, i + 1))}
             disabled={holeIdx >= holes.length - 1}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-forward" size={30} color={holeIdx >= holes.length - 1 ? '#333' : '#fff'} />
+            <Ionicons name="chevron-forward" size={28} color={holeIdx >= holes.length - 1 ? '#333' : '#fff'} />
           </TouchableOpacity>
         </View>
 
-        <Text style={s.courseNameText} numberOfLines={1}>{selectedCourse}</Text>
+        {/* Tee yardage strip */}
+        {teeYards.length > 0 && (
+          <View style={s.yardageStrip}>
+            {teeYards.map(ty => (
+              <View key={ty.label} style={s.yardageChip}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ty.color, marginRight: 4 }} />
+                <Text style={s.yardageChipText}>{ty.yards}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -540,9 +746,13 @@ const s = StyleSheet.create({
   courseCard:   { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 16, flexDirection: 'row', alignItems: 'center' },
   courseName:   { fontFamily: FFB, fontSize: 15, color: '#fff', flex: 1 },
   empty:        { fontFamily: FFB, fontSize: 14, color: '#fff', textAlign: 'center', paddingTop: 40 },
+  giSearchRow:  { flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, height: 48, marginBottom: 8 },
+  giInput:      { flex: 1, fontFamily: FF, fontSize: 14, height: 48 },
+  giSearchBtn:  { paddingLeft: 10, height: 48, justifyContent: 'center' },
+  giLocation:   { fontFamily: FF, fontSize: 12, marginTop: 2 },
 
-  // ── Map container ────────────────────────────────────────────────
-  mapContainer: { flex: 1 },
+  // ── Full-screen map ──────────────────────────────────────────────
+  mapFull: StyleSheet.absoluteFillObject,
 
   // ── Pin dots on map ──────────────────────────────────────────────
   pinDot: {
@@ -552,56 +762,92 @@ const s = StyleSheet.create({
   },
   pinDotText: { fontFamily: FFB, fontSize: 12, color: '#000' },
 
-  // ── Floating distance panel ──────────────────────────────────────
-  distPanel: {
-    position: 'absolute', left: 14, top: 60,
-    backgroundColor: 'rgba(0,0,0,0.68)',
-    borderRadius: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
-    paddingVertical: 6, paddingHorizontal: 10,
-  },
-  distRow:  { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 1 },
-  distArrow: {
-    fontFamily: FFB, fontSize: 13, width: 16, textAlign: 'center',
-    color: 'rgba(255,255,255,0.6)',
-  },
-  distNum: {
-    fontFamily: FFB,
+  // ── Tee marker ───────────────────────────────────────────────────
+  teeMarker: {
+    width: 12, height: 12,
+    backgroundColor: '#fff',
+    borderRadius: 2,
+    borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.5)',
   },
 
-  // ── Back button ──────────────────────────────────────────────────
-  backBtn: {
-    position: 'absolute', top: 56, right: 14,
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center', justifyContent: 'center',
+  // ── Top header ───────────────────────────────────────────────────
+  topHeader: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    paddingTop: 56, paddingBottom: 10, paddingHorizontal: 16,
+    backgroundColor: 'rgba(0,0,0,0.72)',
   },
-
-  // ── GPS chip ─────────────────────────────────────────────────────
-  gpsChip: {
-    position: 'absolute', top: 56, right: 58,
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 14, paddingHorizontal: 8, paddingVertical: 5,
+  headerRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  holeChip: {
+    flex: 1, alignItems: 'center', paddingHorizontal: 8,
+  },
+  holeChipText: {
+    fontFamily: FFB, fontSize: 12, color: '#fff', letterSpacing: 1.5, textAlign: 'center',
+  },
+  courseChipText: {
+    fontFamily: FF, fontSize: 11, color: 'rgba(255,255,255,0.5)',
+    textAlign: 'center', marginTop: 4, letterSpacing: 0.5,
   },
   gpsDot:  { width: 7, height: 7, borderRadius: 4 },
-  gpsText: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1 },
+  gpsText: { fontFamily: FFB, fontSize: 11, color: '#fff' },
 
-  // ── Club chip ────────────────────────────────────────────────────
-  clubChip: {
-    position: 'absolute', bottom: 16, left: 0, right: 0,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    marginHorizontal: 80, borderRadius: 20,
-    borderWidth: 1, borderColor: 'rgba(212,175,55,0.4)',
-    paddingHorizontal: 14, paddingVertical: 7,
+  // ── Distance cards column ────────────────────────────────────────
+  distCol: {
+    position: 'absolute', left: 14, top: 140,
+    gap: 8,
   },
-  clubChipText: { fontFamily: FFB, fontSize: 15, color: GOLD },
-  clubChipYds:  { fontFamily: FFB, fontSize: 11, color: 'rgba(255,255,255,0.5)' },
+  distCard: {
+    width: 80, height: 72,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 12,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center', justifyContent: 'center',
+    gap: 2,
+  },
+  distCardActive: {
+    borderColor: GOLD,
+    borderWidth: 1.5,
+  },
+  distIcon:  { marginBottom: 2 },
+  distNum:   { fontFamily: FFB, lineHeight: 24 },
+  distLabel: { fontFamily: FFB, fontSize: 9, letterSpacing: 1.2 },
+
+  // ── Big active yardage ───────────────────────────────────────────
+  bigDistWrap: {
+    position: 'absolute',
+    left: 0, right: 0,
+    top: '38%',
+    alignItems: 'center',
+  },
+  bigDistNum: {
+    fontFamily: FFB, fontSize: 72, color: '#fff',
+    lineHeight: 76, letterSpacing: -2,
+    textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8,
+  },
+  bigDistLabel: {
+    fontFamily: FF, fontSize: 14, color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 1, marginTop: 2,
+  },
+  elevChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5,
+    marginTop: 8,
+  },
+  elevText: { fontFamily: FFB, fontSize: 11 },
+  clubChip2: {
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 14,
+    borderWidth: 1, borderColor: 'rgba(212,175,55,0.35)',
+    paddingHorizontal: 12, paddingVertical: 6,
+    marginTop: 6,
+  },
+  clubChipText: { fontFamily: FFB, fontSize: 13, color: GOLD },
 
   // ── Wind compass circle ──────────────────────────────────────────
   compassCircle: {
-    position: 'absolute', bottom: 16, left: 14,
+    position: 'absolute', left: 16,
     width: 52, height: 52, borderRadius: 26,
     backgroundColor: 'rgba(0,0,0,0.65)',
     borderWidth: 1.5, borderColor: GOLD,
@@ -616,42 +862,34 @@ const s = StyleSheet.create({
   compassCentre: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#fff' },
   compassLabel:  { position: 'absolute', bottom: 4, fontFamily: FFB, fontSize: 8, color: '#fff', letterSpacing: 1 },
 
-  // ── Elevation badge ──────────────────────────────────────────────
-  elevBadge: {
-    position: 'absolute', bottom: 16, right: 14,
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6,
+  // ── Bottom overlay panel ─────────────────────────────────────────
+  bottomPanel: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(0,0,0,0.82)',
+    paddingBottom: 34, paddingTop: 12,
+    alignItems: 'center',
   },
-  elevText: { fontFamily: FFB, fontSize: 11 },
-
-
-  // ── Bottom info section ──────────────────────────────────────────
-  bottomSection: {
-    backgroundColor: '#000',
-    borderTopWidth: 1, borderTopColor: '#1a1a1a',
-    paddingTop: 12, paddingBottom: 30,
-  },
-  holeRow: {
+  bottomHoleNav: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 4,
+    width: '100%', justifyContent: 'space-between',
+    paddingHorizontal: 16,
   },
-  holeArrow: {
-    width: 52, alignItems: 'center', justifyContent: 'center', paddingVertical: 8,
+  holeNavArrow: {
+    width: 52, alignItems: 'center', justifyContent: 'center', paddingVertical: 4,
   },
-  holeInfoBlock: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 12,
+  holeNavNum: {
+    fontFamily: FFB, fontSize: 52, color: '#fff',
+    lineHeight: 56, letterSpacing: -1,
   },
-  holeNum: {
-    fontFamily: FFB, fontSize: 48, color: '#fff',
-    lineHeight: 52, letterSpacing: -1,
+  yardageStrip: {
+    flexDirection: 'row', gap: 8,
+    marginTop: 8, paddingHorizontal: 16,
+    flexWrap: 'wrap', justifyContent: 'center',
   },
-  holeMetas: { justifyContent: 'center', gap: 2 },
-  holePar:   { fontFamily: FFB, fontSize: 15, color: '#fff' },
-  holeHcp:   { fontFamily: FFB, fontSize: 13, color: 'rgba(255,255,255,0.5)' },
-  courseNameText: {
-    fontFamily: FFB, fontSize: 11, color: 'rgba(255,255,255,0.35)',
-    textAlign: 'center', marginTop: 6, letterSpacing: 0.5,
+  yardageChip: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
   },
+  yardageChipText: { fontFamily: FFB, fontSize: 12, color: '#fff' },
 });

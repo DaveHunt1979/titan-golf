@@ -1,0 +1,3 @@
+ALTER TABLE hole_stats ADD COLUMN IF NOT EXISTS bunker_shots   INTEGER;
+ALTER TABLE hole_stats ADD COLUMN IF NOT EXISTS penalty_strokes INTEGER;
+ALTER TABLE hole_stats ADD COLUMN IF NOT EXISTS chip_shots      INTEGER;

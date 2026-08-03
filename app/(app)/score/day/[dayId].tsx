@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Share,
   StyleSheet, RefreshControl, ActivityIndicator, Image,
+  TextInput, Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -41,6 +42,8 @@ export default function DayLobby() {
   const [groups,     setGroups]     = useState<GroupRow[]>([]);
   const [myId,       setMyId]       = useState<string | null>(null);
   const [myMatchId,  setMyMatchId]  = useState<string | null>(null);
+  const [joinCode,   setJoinCode]   = useState('');
+  const [joining,    setJoining]    = useState(false);
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab,        setTab]        = useState<'leaderboard' | 'scores'>('scores');
@@ -164,6 +167,42 @@ export default function DayLobby() {
     setLoading(false);
     setRefreshing(false);
   }, [dayId]);
+
+  async function joinGroup() {
+    const code = joinCode.trim().toUpperCase();
+    if (!code || !myId) return;
+    setJoining(true);
+    try {
+      const { data: match } = await supabase
+        .from('matches')
+        .select('id, home_player_ids')
+        .eq('group_code', code)
+        .eq('day_id', dayId)
+        .maybeSingle();
+      if (!match) {
+        Alert.alert('Not found', 'No group found with that code — double-check with Rick and try again.');
+        return;
+      }
+      const existing: string[] = (match as any).home_player_ids ?? [];
+      if (existing.includes(myId)) {
+        setMyMatchId((match as any).id);
+        setJoinCode('');
+        return;
+      }
+      const { error } = await supabase
+        .from('matches')
+        .update({ home_player_ids: [...existing, myId] })
+        .eq('id', (match as any).id);
+      if (error) throw error;
+      setMyMatchId((match as any).id);
+      setJoinCode('');
+      await load();
+    } catch (err: any) {
+      Alert.alert('Error', String(err?.message ?? err));
+    } finally {
+      setJoining(false);
+    }
+  }
 
   function shareCode() {
     if (!day) return;
@@ -348,14 +387,28 @@ export default function DayLobby() {
             <Ionicons name="chevron-forward" size={20} color="#000" />
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity
-            style={s.actionBtn}
-            onPress={() => router.push(`/(app)/games/new?existingDayId=${dayId}&course=${encodeURIComponent(day.course_name)}` as any)}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="add-circle-outline" size={20} color="#000" />
-            <Text style={s.actionBtnText}>Add My Group</Text>
-          </TouchableOpacity>
+          <View style={s.joinRow}>
+            <TextInput
+              style={s.joinInput}
+              placeholder="Group code"
+              placeholderTextColor="#555"
+              value={joinCode}
+              onChangeText={t => setJoinCode(t.toUpperCase())}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={10}
+            />
+            <TouchableOpacity
+              style={[s.joinBtn, (!joinCode.trim() || joining) && { opacity: 0.4 }]}
+              onPress={joinGroup}
+              disabled={!joinCode.trim() || joining}
+              activeOpacity={0.85}
+            >
+              {joining
+                ? <ActivityIndicator size="small" color="#000" />
+                : <Text style={s.joinBtnText}>Join Group</Text>}
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </View>
@@ -419,4 +472,8 @@ const s = StyleSheet.create({
   footer:        { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 36, backgroundColor: '#000', borderTopWidth: 1, borderTopColor: '#111' },
   actionBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GOLD, borderRadius: 14, paddingVertical: 16 },
   actionBtnText: { fontFamily: FFB, fontSize: 16, color: '#000' },
+  joinRow:       { flexDirection: 'row', gap: 10 },
+  joinInput:     { flex: 1, backgroundColor: '#111', borderWidth: 1, borderColor: '#333', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontFamily: FFB, fontSize: 16, color: '#fff', letterSpacing: 2 },
+  joinBtn:       { backgroundColor: GOLD, borderRadius: 12, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center' },
+  joinBtnText:   { fontFamily: FFB, fontSize: 15, color: '#000' },
 });

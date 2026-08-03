@@ -762,10 +762,6 @@ export default function NewGameScreen() {
           `Share each group code so players can score their own group:\n\n${groupSummary}\n\nRick shares the codes — each group of 4 can only score themselves.`,
           [
             {
-              text: 'Add Another Group',
-              onPress: () => router.replace(`/(app)/games/new?existingDayId=${resolvedDayId}&course=${encodeURIComponent(selectedCourse ?? '')}&openPlayers=1&resumeMode=${mode}` as any),
-            },
-            {
               text: "Let's Play",
               style: 'default',
               onPress: () => router.push(`/(app)/score/day/${resolvedDayId}` as any),
@@ -1035,10 +1031,6 @@ export default function NewGameScreen() {
           </View>
 
           <View style={s.teetimeRow}>
-            <View style={s.teetimeItem}>
-              <Ionicons name="time-outline" size={13} color="rgba(255,255,255,0.5)" />
-              <Text style={s.teetimeText}>{nowTime()} Tee Time</Text>
-            </View>
             <TouchableOpacity
               style={[s.startBtn, !canStart && s.startBtnOff]}
               onPress={canStart ? createGame : undefined}
@@ -1310,6 +1302,7 @@ export default function NewGameScreen() {
         players={players}
         teamSize={teamSize}
         initialStartHole={startHole}
+        initialMatches={builtMatches ?? undefined}
         onDone={handleGroupBuilderDone}
         onClose={() => setShowGroupBuilder(false)}
       />

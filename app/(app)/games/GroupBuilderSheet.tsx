@@ -74,14 +74,29 @@ function incrementTime(t: string, mins: number): string {
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
+function restoreGroups(matches: BuiltMatch[], m: GameMode): GroupState[] {
+  if (matches.length === 0) return [];
+  return matches.map((bm, i) => ({
+    startHole: bm.startHole,
+    teeTime: incrementTime('10:00', i * 10),
+    slots: [{
+      home: bm.home,
+      away: bm.away,
+      homeName: (m === '4bbb' || m === 'team_stableford') ? 'Team A' : '',
+      awayName: (m === '4bbb' || m === 'team_stableford') ? 'Team B' : '',
+    }],
+  }));
+}
+
 export default function GroupBuilderSheet({
-  visible, mode, players, teamSize, initialStartHole, onDone, onClose,
+  visible, mode, players, teamSize, initialStartHole, initialMatches, onDone, onClose,
 }: {
   visible: boolean;
   mode: GameMode;
   players: Player[];
   teamSize: number;
   initialStartHole?: number;
+  initialMatches?: BuiltMatch[];
   onDone: (matches: BuiltMatch[]) => void;
   onClose: () => void;
 }) {
@@ -97,7 +112,10 @@ export default function GroupBuilderSheet({
 
   useEffect(() => {
     if (visible) {
-      setGroups([makeGroup(mode, '10:00', initialStartHole ?? 1)]);
+      const restored = initialMatches && initialMatches.length > 0
+        ? restoreGroups(initialMatches, mode)
+        : [makeGroup(mode, '10:00', initialStartHole ?? 1)];
+      setGroups(restored);
       setPickTarget(null);
       setHoleGi(null);
       setEditName(null);
@@ -115,12 +133,8 @@ export default function GroupBuilderSheet({
 
   const availablePlayers = useMemo(() => {
     if (!pickTarget) return players;
-    const { gi, si, side } = pickTarget;
-    const thisSlotIds = side === 'home'
-      ? (groups[gi]?.slots[si]?.home ?? [])
-      : (groups[gi]?.slots[si]?.away ?? []);
-    return players.filter(p => !usedIds.has(p.id) || thisSlotIds.includes(p.id));
-  }, [pickTarget, players, groups, usedIds]);
+    return players.filter(p => !usedIds.has(p.id));
+  }, [pickTarget, players, usedIds]);
 
   // ── Mutators ─────────────────────────────────────────────────
 

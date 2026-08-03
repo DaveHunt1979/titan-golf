@@ -139,8 +139,17 @@ export default function EnterScoresScreen() {
   const [holeScores, setHoleScores] = useState<Record<string, number>>({});
   const [selectedScore, setSelectedScore] = useState<number | null>(null);
   const [selectedFairway, setSelectedFairway] = useState<'left' | 'centre' | 'right' | null>(null);
-  const [selectedPutts, setSelectedPutts] = useState<number | null>(null);
-  const [holeStatMap, setHoleStatMap] = useState<Record<string, { fairway: 'left' | 'centre' | 'right' | null; putts: number | null }>>({});
+  const [selectedPutts, setSelectedPutts]     = useState<number | null>(null);
+  const [selectedBunker, setSelectedBunker]   = useState(0);
+  const [selectedPenalty, setSelectedPenalty] = useState(0);
+  const [selectedChips, setSelectedChips]     = useState(0);
+  const [holeStatMap, setHoleStatMap] = useState<Record<string, {
+    fairway: 'left' | 'centre' | 'right' | null;
+    putts: number | null;
+    bunker: number;
+    penalty: number;
+    chips: number;
+  }>>({});
   const [sideGameModal, setSideGameModal] = useState<{ type: string; hole: number } | null>(null);
   const [sideGameResult, setSideGameResult] = useState('');
   const [sideGameWinner, setSideGameWinner] = useState<string | null>(null);
@@ -426,8 +435,9 @@ export default function EnterScoresScreen() {
   // ── Derived values ──────────────────────────────────────────────
   const holesStr = (match?.holes_string ?? '..................').padEnd(18, '.').slice(0, 18);
   const holeChars = holesStr.split('');
-  const holeSequence = startHole > 1
-    ? [...Array.from({ length: 19 - startHole }, (_, i) => startHole + i), ...Array.from({ length: startHole - 1 }, (_, i) => i + 1)]
+  const effectiveStartHole = startHole > 1 ? startHole : Math.max(1, (match as any)?.start_hole ?? 1);
+  const holeSequence = effectiveStartHole > 1
+    ? [...Array.from({ length: 19 - effectiveStartHole }, (_, i) => effectiveStartHole + i), ...Array.from({ length: effectiveStartHole - 1 }, (_, i) => i + 1)]
     : Array.from({ length: 18 }, (_, i) => i + 1);
   const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? 19;
   const activeHole = editingHole ?? currentHole;
@@ -503,6 +513,9 @@ export default function EnterScoresScreen() {
     setSelectedScore(hole && firstId ? (holeData[firstId]?.[hole]?.gross ?? null) : null);
     setSelectedFairway(null);
     setSelectedPutts(null);
+    setSelectedBunker(0);
+    setSelectedPenalty(0);
+    setSelectedChips(0);
     setModalStartIdx(startIdx);
     setModalPlayerIdx(startIdx);
     setModalVisible(true);
@@ -512,7 +525,16 @@ export default function EnterScoresScreen() {
     if (selectedScore === null || !modalPlayerId) return;
 
     const newScores = { ...holeScores, [modalPlayerId]: selectedScore };
-    const newStats = { ...holeStatMap, [modalPlayerId]: { fairway: selectedFairway, putts: selectedPutts } };
+    const newStats = {
+      ...holeStatMap,
+      [modalPlayerId]: {
+        fairway: selectedFairway,
+        putts: selectedPutts,
+        bunker: selectedBunker,
+        penalty: selectedPenalty,
+        chips: selectedChips,
+      },
+    };
     setHoleScores(newScores);
     setHoleStatMap(newStats);
     const nextIdx = (modalPlayerIdx + 1) % allPlayerIds.length;
@@ -522,11 +544,17 @@ export default function EnterScoresScreen() {
       setSelectedScore(nextExisting);
       setSelectedFairway(null);
       setSelectedPutts(null);
+      setSelectedBunker(0);
+      setSelectedPenalty(0);
+      setSelectedChips(0);
       setModalPlayerIdx(nextIdx);
     } else {
       setSelectedScore(null);
       setSelectedFairway(null);
       setSelectedPutts(null);
+      setSelectedBunker(0);
+      setSelectedPenalty(0);
+      setSelectedChips(0);
       setModalVisible(false);
       processHoleScores(newScores, newStats);
     }
@@ -551,7 +579,7 @@ export default function EnterScoresScreen() {
   }
 
   // ── Calculate and save hole result ──────────────────────────────
-  async function processHoleScores(scores: Record<string, number>, stats: Record<string, { fairway: 'left' | 'centre' | 'right' | null; putts: number | null }> = {}) {
+  async function processHoleScores(scores: Record<string, number>, stats: Record<string, { fairway: 'left' | 'centre' | 'right' | null; putts: number | null; bunker?: number; penalty?: number; chips?: number }> = {}) {
     if (!match || !courseHole) return;
     setSaving(true);
     const wasAlreadyComplete = match.status === 'complete';
@@ -588,15 +616,21 @@ export default function EnterScoresScreen() {
           fairway_hit: courseHole.par >= 4 ? (stats[id]?.fairway != null ? stats[id]?.fairway === 'centre' : null) : null,
           fairway_direction: courseHole.par >= 4 ? (stats[id]?.fairway ?? null) : null,
           putts: stats[id]?.putts ?? null,
+          bunker_shots:    (stats[id]?.bunker ?? 0) > 0 ? stats[id]!.bunker! : null,
+          penalty_strokes: (stats[id]?.penalty ?? 0) > 0 ? stats[id]!.penalty! : null,
+          chip_shots:      (stats[id]?.chips ?? 0) > 0 ? stats[id]!.chips! : null,
         }))
-        .filter(r => r.fairway_direction !== null || r.putts !== null);
+        .filter(r => r.fairway_direction !== null || r.putts !== null || r.bunker_shots !== null || r.penalty_strokes !== null || r.chip_shots !== null);
 
       const spChars = [...holeChars];
       spChars[activeHole - 1] = 'd';
       const newHolesStr = spChars.join('');
       const holesPlayed = newHolesStr.split('').filter(c => c !== '.').length;
-      const newStatus: 'upcoming' | 'in_progress' | 'complete' = 'in_progress';
-      const matchUpdate = { holes_string: newHolesStr, status: newStatus, winner: null, result_str: null };
+      const isAlreadyComplete = match.status === 'complete';
+      const newStatus: 'upcoming' | 'in_progress' | 'complete' = isAlreadyComplete ? 'complete' : 'in_progress';
+      const matchUpdate = isAlreadyComplete
+        ? { holes_string: newHolesStr, status: 'complete' as const, winner: match.winner, result_str: match.result_str }
+        : { holes_string: newHolesStr, status: 'in_progress' as const, winner: null as null, result_str: null as null };
 
       // Try drain before saving
       if (pendingCount > 0) await syncStatus.syncNow();
@@ -741,8 +775,11 @@ export default function EnterScoresScreen() {
         fairway_hit: courseHole.par >= 4 ? (stats[id]?.fairway != null ? stats[id]?.fairway === 'centre' : null) : null,
         fairway_direction: courseHole.par >= 4 ? (stats[id]?.fairway ?? null) : null,
         putts: stats[id]?.putts ?? null,
+        bunker_shots:    (stats[id]?.bunker ?? 0) > 0 ? stats[id]!.bunker! : null,
+        penalty_strokes: (stats[id]?.penalty ?? 0) > 0 ? stats[id]!.penalty! : null,
+        chip_shots:      (stats[id]?.chips ?? 0) > 0 ? stats[id]!.chips! : null,
       }))
-      .filter(r => r.fairway_direction !== null || r.putts !== null);
+      .filter(r => r.fairway_direction !== null || r.putts !== null || r.bunker_shots !== null || r.penalty_strokes !== null || r.chip_shots !== null);
 
     const chars = [...holeChars];
     chars[activeHole - 1] = holeResult;
@@ -1060,7 +1097,9 @@ export default function EnterScoresScreen() {
       endLiveActivity();
       const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
       const broken = allBroken.flat();
-      if (broken.length > 0) setRecordsBroken(broken);
+      if (broken.length > 0) {
+        setRecordsBroken(broken);
+      }
     } catch (err: any) {
       Alert.alert('Error', String(err?.message ?? err));
     } finally {
@@ -1438,9 +1477,18 @@ export default function EnterScoresScreen() {
             />
           </ScrollView>
 
-          {/* ── Enter score / Complete Round CTA ── */}
+          {/* ── Enter score / Complete Round / Done Editing CTA ── */}
           <View style={s.ctaWrap}>
-            {allHolesFilled && isStrokePlay && !editingHole ? (
+            {match.status === 'complete' ? (
+              <TouchableOpacity
+                style={s.ctaBtn}
+                onPress={() => router.back()}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="checkmark-outline" size={20} color="#000000" />
+                <Text style={s.ctaText}>Done Editing</Text>
+              </TouchableOpacity>
+            ) : allHolesFilled && !editingHole ? (
               <TouchableOpacity
                 style={[s.ctaBtn, saving && { opacity: 0.5 }]}
                 onPress={handleCompleteRound}
@@ -1686,8 +1734,8 @@ export default function EnterScoresScreen() {
                 })}
               </View>
 
-              {/* Fairway (myPlayerId only, par 4+) */}
-              {modalPlayerId === myPlayerId && courseHole && courseHole.par >= 4 && (
+              {/* Fairway (myPlayerId or solo round, par 4+) */}
+              {(modalPlayerId === myPlayerId || allPlayerIds.length === 1) && courseHole && courseHole.par >= 4 && (
                 <>
                   <Text style={sh.pickerLabel}>FAIRWAY</Text>
                   <View style={sh.fairwayRow}>
@@ -1707,8 +1755,8 @@ export default function EnterScoresScreen() {
                 </>
               )}
 
-              {/* Putts (myPlayerId only) */}
-              {modalPlayerId === myPlayerId && (
+              {/* Putts (myPlayerId or solo round) */}
+              {(modalPlayerId === myPlayerId || allPlayerIds.length === 1) && (
                 <>
                   <Text style={sh.pickerLabel}>PUTTS</Text>
                   <View style={sh.puttsRow}>
@@ -1723,6 +1771,33 @@ export default function EnterScoresScreen() {
                       </TouchableOpacity>
                     ))}
                   </View>
+                </>
+              )}
+
+              {/* Extended stats: bunker / penalty / chips (myPlayerId or solo round) */}
+              {(modalPlayerId === myPlayerId || allPlayerIds.length === 1) && (
+                <>
+                  {[
+                    { label: 'BUNKER SHOTS', val: selectedBunker, set: setSelectedBunker },
+                    { label: 'PENALTY STROKES', val: selectedPenalty, set: setSelectedPenalty },
+                    { label: 'CHIP SHOTS', val: selectedChips, set: setSelectedChips },
+                  ].map(({ label, val, set }) => (
+                    <View key={label}>
+                      <Text style={sh.pickerLabel}>{label}</Text>
+                      <View style={sh.puttsRow}>
+                        {[0, 1, 2, 3].map(n => (
+                          <TouchableOpacity
+                            key={n}
+                            style={[sh.puttsBtn, val === n && sh.puttsBtnOn]}
+                            onPress={() => set(n)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[sh.puttsText, val === n && sh.puttsTextOn]}>{n === 3 ? '3+' : n}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
                 </>
               )}
 
@@ -1860,7 +1935,7 @@ export default function EnterScoresScreen() {
       {recordsBroken.length > 0 && (
         <RecordCelebration
           records={recordsBroken}
-          onDismiss={() => setRecordsBroken([])}
+          onDismiss={() => { setRecordsBroken([]); router.replace(`/(app)/score/results/${matchId}` as any); }}
         />
       )}
 

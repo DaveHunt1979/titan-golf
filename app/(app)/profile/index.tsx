@@ -45,6 +45,7 @@ export default function ProfileScreen() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [syncingHcp,     setSyncingHcp]     = useState(false);
   const [notifCount,     setNotifCount]     = useState(0);
+  const [showClubs,      setShowClubs]      = useState(false);
 
   // Password modal
   const [showPwModal, setShowPwModal] = useState(false);
@@ -348,22 +349,25 @@ export default function ProfileScreen() {
         ) : (
           <>
             {/* ── READ: My Bag ── */}
-            <View style={s.bagHeader}>
-              <View>
+            <TouchableOpacity style={s.bagHeader} onPress={() => setShowClubs(v => !v)} activeOpacity={0.8}>
+              <View style={{ flex: 1 }}>
                 <Text style={s.bagTitle}>My Bag</Text>
-                <Text style={s.bagSubtitle}>Tap a club to edit or assign NFC</Text>
+                <Text style={s.bagSubtitle}>{showClubs ? 'Tap a club to edit or assign NFC' : `${clubs.length} club${clubs.length !== 1 ? 's' : ''} in your bag`}</Text>
               </View>
-              <TouchableOpacity
-                style={[s.addClubBtn, { borderColor: dc.gold }]}
-                onPress={() => router.push('/(app)/profile/bag' as any)}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="options-outline" size={14} color={dc.gold} />
-                <Text style={[s.addClubText, { color: dc.gold }]}>Manage</Text>
-              </TouchableOpacity>
-            </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <TouchableOpacity
+                  style={[s.addClubBtn, { borderColor: dc.gold }]}
+                  onPress={() => router.push('/(app)/profile/bag' as any)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="options-outline" size={14} color={dc.gold} />
+                  <Text style={[s.addClubText, { color: dc.gold }]}>Manage</Text>
+                </TouchableOpacity>
+                <Ionicons name={showClubs ? 'chevron-up' : 'chevron-down'} size={18} color={dc.gold} />
+              </View>
+            </TouchableOpacity>
 
-            <View style={[s.clubList, { backgroundColor: dc.card, borderColor: dc.border }]}>
+            {showClubs && <View style={[s.clubList, { backgroundColor: dc.card, borderColor: dc.border }]}>
               {clubs.length === 0 ? (
                 <TouchableOpacity
                   style={s.emptyBag}
@@ -403,7 +407,7 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
                 ))
               )}
-            </View>
+            </View>}
 
             {/* ── READ: Quick links ── */}
             <View style={[s.quickLinks, { backgroundColor: dc.card, borderColor: dc.border }]}>
