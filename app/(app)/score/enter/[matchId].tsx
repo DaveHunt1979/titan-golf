@@ -30,6 +30,9 @@ import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
 import EagleAlert, { type EagleType } from '../../../../src/components/EagleAlert';
+import { IS_PAD } from '../../../../src/lib/useDeviceLayout';
+import HoleInfoPanel from '../../../../src/components/ipad/HoleInfoPanel';
+import LeaderboardPanel from '../../../../src/components/ipad/LeaderboardPanel';
 
 // ── Design tokens ──────────────────────────────────────────────
 const GOLD   = '#D4AF37';
@@ -1158,7 +1161,8 @@ export default function EnterScoresScreen() {
   const formatLabel = isMatchplay ? 'Matchplay' : match.round_format === 'stableford' ? 'Stableford' : 'Stroke Play';
 
   return (
-    <View style={s.root}>
+    <View style={IS_PAD ? { flex: 1, flexDirection: 'row', backgroundColor: '#000' } : s.root}>
+      <View style={IS_PAD ? { width: 360, backgroundColor: '#000000', overflow: 'hidden' } : { flex: 1 }}>
       <StatusBar style="light" />
 
       {/* ── Header ── */}
@@ -1950,6 +1954,33 @@ export default function EnterScoresScreen() {
         hole={eagleAlert?.hole ?? 0}
         onDismiss={() => setEagleAlert(null)}
       />
+      </View>
+      {IS_PAD && (
+        <>
+          <HoleInfoPanel
+            holeNumber={activeHole}
+            par={courseHole?.par ?? null}
+            strokeIndex={courseHole?.stroke_index ?? null}
+            yardage={courseHole?.yardage ?? null}
+            teeYardages={courseHole?.tee_yardages ?? null}
+            onRangefinder={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${activeHole}&fromMatchId=${matchId}` as any)}
+          />
+          <LeaderboardPanel
+            allPlayerIds={allPlayerIds}
+            playerNames={playerNames}
+            playerTotals={playerTotals}
+            matchHomeIds={match.home_player_ids}
+            homeColor={homeColor}
+            awayColor={awayColor}
+            holeChars={holeChars}
+            isStrokePlay={isStrokePlay}
+            isMatchplay={isMatchplay}
+            liveHomeUp={liveHomeUp}
+            homeLabel={homeLabel}
+            awayLabel={awayLabel}
+          />
+        </>
+      )}
     </View>
   );
 }
