@@ -435,7 +435,9 @@ export default function EnterScoresScreen() {
   // ── Derived values ──────────────────────────────────────────────
   const holesStr = (match?.holes_string ?? '..................').padEnd(18, '.').slice(0, 18);
   const holeChars = holesStr.split('');
-  const effectiveStartHole = startHole > 1 ? startHole : Math.max(1, (match as any)?.start_hole ?? 1);
+  // Infer start hole from first played hole in holes_string (fallback when URL param not present on re-entry)
+  const inferredStartHole = (() => { const i = holeChars.findIndex(c => c !== '.'); return i >= 0 ? i + 1 : 1; })();
+  const effectiveStartHole = startHole > 1 ? startHole : Math.max(1, (match as any)?.start_hole ?? inferredStartHole);
   const holeSequence = effectiveStartHole > 1
     ? [...Array.from({ length: 19 - effectiveStartHole }, (_, i) => effectiveStartHole + i), ...Array.from({ length: effectiveStartHole - 1 }, (_, i) => i + 1)]
     : Array.from({ length: 18 }, (_, i) => i + 1);
