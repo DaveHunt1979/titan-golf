@@ -13,6 +13,7 @@ import { useSociety } from '../../../src/lib/useSociety';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { getPlayerAvatar } from '../../../src/lib/assets';
 import { downloadMatchPack } from '../../../src/lib/offlinePack';
+import GroupBuilderSheet, { BuiltMatch } from './GroupBuilderSheet';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -285,6 +286,134 @@ function PlayerSheet({
   );
 }
 
+// ── Mashie group builder sheet ────────────────────────────────
+
+function MashieGroupSheet({
+  visible, players, initialGroups, numTeams, onDone, onClose, ps, GOLD,
+}: {
+  visible: boolean;
+  players: Player[];
+  initialGroups: string[][];
+  numTeams: number;
+  onDone: (groups: string[][]) => void;
+  onClose: () => void;
+  ps: any;
+  GOLD: string;
+}) {
+  const [groups, setGroups] = useState<string[][]>([]);
+  const [pickGroup, setPickGroup] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      setGroups(Array.from({ length: Math.max(numTeams, 1) }, (_, i) => initialGroups[i] ?? []));
+      setPickGroup(null);
+    }
+  }, [visible]);
+
+  const fn = (id: string) => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '?';
+  const usedIds = useMemo(() => new Set(groups.flat()), [groups]);
+  const available = useMemo(() => {
+    if (pickGroup === null) return [];
+    const inGroup = new Set(groups[pickGroup] ?? []);
+    return players.filter(p => !usedIds.has(p.id) || inGroup.has(p.id));
+  }, [pickGroup, players, groups, usedIds]);
+
+  function addPlayer(id: string) {
+    if (pickGroup === null) return;
+    setGroups(prev => prev.map((g, i) => i === pickGroup ? [...g, id] : g));
+    setPickGroup(null);
+  }
+  function removePlayer(gi: number, id: string) {
+    setGroups(prev => prev.map((g, i) => i === gi ? g.filter(pid => pid !== id) : g));
+  }
+
+  const canDone = groups.some(g => g.length > 0);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={onClose} />
+      <View style={[ps.sheet, { maxHeight: '90%' }]}>
+        <View style={ps.handle} />
+        <Text style={ps.sheetTitle}>Set Up Groups</Text>
+
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 8, gap: 12 }}>
+          {groups.map((group, gi) => (
+            <View key={gi} style={{ backgroundColor: '#111', borderRadius: 12, padding: 12, gap: 8, marginBottom: 4 }}>
+              <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: GOLD, letterSpacing: 1.5 }}>GROUP {gi + 1}</Text>
+              {group.map(pid => (
+                <View key={pid} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 }}>
+                  <View style={ps.playerAvatar}>
+                    <Text style={ps.playerAvatarLetter}>{fn(pid)[0]}</Text>
+                  </View>
+                  <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 14, color: '#fff', flex: 1 }}>{fn(pid)}</Text>
+                  <TouchableOpacity onPress={() => removePlayer(gi, pid)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close-circle" size={20} color="#444" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {group.length < 4 && (
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 }}
+                  onPress={() => setPickGroup(gi)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add-circle-outline" size={18} color={GOLD} />
+                  <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 13, color: GOLD }}>Add Player</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+              paddingVertical: 14, borderWidth: 1, borderColor: `${GOLD}40`, borderRadius: 12, borderStyle: 'dashed' }}
+            onPress={() => setGroups(prev => [...prev, []])}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="add" size={18} color={GOLD} />
+            <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 14, color: GOLD }}>Add Group</Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        <TouchableOpacity style={[ps.doneBtn, !canDone && { opacity: 0.4 }]} onPress={canDone ? () => onDone(groups) : undefined} activeOpacity={0.8}>
+          <Text style={ps.doneBtnText}>Done</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={ps.cancelBtn} onPress={onClose} activeOpacity={0.7}>
+          <Text style={ps.cancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+
+      {pickGroup !== null && (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setPickGroup(null)}>
+          <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={() => setPickGroup(null)} />
+          <View style={[ps.sheet, { maxHeight: '70%' }]}>
+            <View style={ps.handle} />
+            <Text style={ps.sheetTitle}>Add to Group {pickGroup + 1}</Text>
+            <ScrollView>
+              {available.length === 0
+                ? <Text style={{ color: '#555', textAlign: 'center', padding: 20, fontFamily: 'JUSTSans' }}>No players available</Text>
+                : available.map(p => (
+                  <TouchableOpacity key={p.id} style={ps.sheetRow} onPress={() => addPlayer(p.id)} activeOpacity={0.7}>
+                    <View style={ps.playerRow}>
+                      <View style={ps.playerAvatar}>
+                        <Text style={ps.playerAvatarLetter}>{p.display_name.split(' ')[0][0]}</Text>
+                      </View>
+                      <Text style={ps.sheetOpt}>{p.display_name}</Text>
+                    </View>
+                    {p.handicap_index != null && <Text style={ps.playerHcp}>HCP {p.handicap_index}</Text>}
+                  </TouchableOpacity>
+                ))
+              }
+            </ScrollView>
+            <TouchableOpacity style={ps.cancelBtn} onPress={() => setPickGroup(null)} activeOpacity={0.7}>
+              <Text style={ps.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </Modal>
+      )}
+    </Modal>
+  );
+}
+
 // ── Course picker sheet ───────────────────────────────────────
 
 function CourseSheet({
@@ -423,6 +552,9 @@ export default function NewGameScreen() {
   const [showNumTeams, setShowNumTeams]   = useState(false);
   const [showStartHole, setShowStartHole] = useState(false);
   const [showNumGroups, setShowNumGroups] = useState(false);
+  const [showMashie, setShowMashie] = useState(false);
+  const [showGroupBuilder, setShowGroupBuilder] = useState(false);
+  const [builtMatches, setBuiltMatches] = useState<BuiltMatch[] | null>(null);
 
   useFocusEffect(useCallback(() => {
     setMode((resumeMode as GameMode | undefined) ?? 'stableford');
@@ -432,8 +564,8 @@ export default function NewGameScreen() {
     setHoles('full18'); setVoiceEnabled(true); setLdActive(false); setNpActive(false);
     setLdHole(null); setNtpHole(null); setCreating(false); setTakenPlayerIds([]);
     setTeamSize(2); setCounting(2); setNumTeams(2); setExtraTeams([]);
-    setStartHole(1);
-    setShowFormat(false); setShowPlayers(false); setShowCourse(false);
+    setStartHole(1); setBuiltMatches(null);
+    setShowFormat(false); setShowPlayers(false); setShowCourse(false); setShowMashie(false); setShowGroupBuilder(false);
     setShowHoles(false); setShowHcp(false); setShowTeamSize(false); setShowCounting(false); setShowNumTeams(false); setShowStartHole(false);
     if (existingDayId) {
       supabase.from('matches').select('home_player_ids, away_player_ids')
@@ -445,7 +577,7 @@ export default function NewGameScreen() {
           }
         });
       if (openPlayers === '1') {
-        setTimeout(() => setShowPlayers(true), 300);
+        setTimeout(() => setShowGroupBuilder(true), 300);
       }
     }
   }, [existingDayId, preselectedCourse, openPlayers, resumeMode]));
@@ -518,16 +650,25 @@ export default function NewGameScreen() {
 
   const firstName = (id: string) => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '?';
 
+  function handleGroupBuilderDone(matches: BuiltMatch[]) {
+    setBuiltMatches(matches);
+    setShowGroupBuilder(false);
+    // Mirror into pair1/pair2 for legacy code paths that read them
+    const home0 = matches[0]?.home ?? [];
+    const away0 = matches[0]?.away ?? [];
+    setPair1(home0.length > 0 ? home0 : away0);
+    setPair2(away0.length > 0 && home0.length > 0 ? away0 : []);
+  }
+
   const playersLabel = (() => {
-    if (pair1.length === 0) return 'Add players';
-    if (isSolo) {
-      const n = pair1.map(firstName);
-      return n.length <= 2 ? n.join(', ') : `${n[0]} +${n.length - 1} more`;
+    if (!builtMatches || builtMatches.length === 0) return 'Add players';
+    const allPlayerIds = new Set(builtMatches.flatMap(m => [...m.home, ...m.away]));
+    if (builtMatches.length === 1) {
+      const ids = [...builtMatches[0].home, ...builtMatches[0].away];
+      const names = ids.map(id => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '?');
+      return names.length <= 2 ? names.join(' & ') : `${names[0]} +${names.length - 1} more`;
     }
-    const teams = [pair1, pair2, ...extraTeams].filter(t => t.length > 0);
-    if (teams.length === 1) return `${pair1.map(firstName).join(' & ')}  ·  + group 2`;
-    if (isMashie) return `${teams.length} group${teams.length !== 1 ? 's' : ''} ready`;
-    return teams.map(t => t.map(firstName).join(' & ')).join('  vs  ');
+    return `${allPlayerIds.size} players · ${builtMatches.length} groups`;
   })();
 
   const formatLabel  = MODE_INFO[mode]?.label ?? 'Stableford';
@@ -537,7 +678,7 @@ export default function NewGameScreen() {
   const allTeamsFilled = numTeams === 2
     ? pair2.length >= 1
     : (pair2.length >= 1 && extraTeams.filter(t => t.length >= 1).length >= numTeams - 2);
-  const canStart     = !!selectedCourse && pair1.length >= 1 && (!isTeamMode || allTeamsFilled) && !creating;
+  const canStart     = !!selectedCourse && !!builtMatches && builtMatches.length > 0 && !creating;
   const selectedItem = courses.find(c => c.name === selectedCourse);
 
   async function createGame() {
@@ -576,6 +717,7 @@ export default function NewGameScreen() {
         away_team_id: null,
         status: 'in_progress',
         holes_string: '..................',
+        start_hole: startHole,
         is_singles: mode === 'singles',
         round_format: (mode === '4bbb' || mode === 'singles') ? 'matchplay' : isMashie ? 'team_stableford' : mode,
         hcp_allowance: hcpAllowance,
@@ -587,78 +729,67 @@ export default function NewGameScreen() {
       let newMatch: any;
       let firstMatchId: string;
 
-      if (isTeamStableford && numTeams > 2) {
-        // Create one match per team; Mashie groups each get their own join code
-        const allTeamsList = [pair1, pair2, ...extraTeams].filter(t => t.length > 0);
-        const results = await Promise.all(allTeamsList.map(team => {
-          const extra = isMashie ? { group_code: genGroupCode() } : {};
-          return supabase.from('matches').insert({ ...teamCommonFields, ...extra, home_player_ids: team, away_player_ids: [] }).select().single();
-        }));
-        const firstResult = results[0];
-        if (firstResult.error || !firstResult.data) throw firstResult.error ?? new Error('Could not create game');
-        newMatch = firstResult.data;
-        firstMatchId = firstResult.data.id;
-        results.forEach(r => { if (r.data?.id) downloadMatchPack(r.data.id).catch(() => {}); });
-        // Build group code summary for the alert
-        if (isMashie) {
-          const groupSummary = results.map((r, i) => {
-            const teamNames = allTeamsList[i].map(id => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '').join(', ');
-            const code = (r.data as any)?.group_code ?? '—';
-            return `Group ${i + 1} (${teamNames}): ${code}`;
-          }).join('\n');
-          setCreating(false);
-          Alert.alert(
-            'Mashie groups created!',
-            `Share each group code so players can score their own group:\n\n${groupSummary}\n\nRick shares the codes — each group of 4 can only score themselves.`,
-            [
-              {
-                text: 'Add Another Group',
-                onPress: () => router.replace(`/(app)/games/new?existingDayId=${resolvedDayId}&course=${encodeURIComponent(selectedCourse ?? '')}&openPlayers=1&resumeMode=${mode}` as any),
-              },
-              {
-                text: "Let's Play",
-                style: 'default',
-                onPress: () => router.push(`/(app)/score/day/${resolvedDayId}` as any),
-              },
-            ]
-          );
-          return;
-        }
-      } else {
-        const { data, error } = await supabase.from('matches').insert({
+      if (!builtMatches || builtMatches.length === 0) throw new Error('No players selected');
+
+      const results = await Promise.all(builtMatches.map(bm => {
+        const extra = isMashie ? { group_code: genGroupCode() } : {};
+        return supabase.from('matches').insert({
           ...teamCommonFields,
-          home_player_ids: pair1,
-          away_player_ids: isSolo ? [] : pair2,
+          ...extra,
+          start_hole: bm.startHole,
+          home_player_ids: bm.home,
+          away_player_ids: bm.away,
         }).select().single();
-        if (error || !data) throw error ?? new Error('Could not create game');
-        newMatch = data;
-        firstMatchId = data.id;
-        downloadMatchPack(firstMatchId).catch(() => {});
+      }));
+
+      const firstResult = results[0];
+      if (firstResult.error || !firstResult.data) throw firstResult.error ?? new Error('Could not create game');
+      newMatch = firstResult.data;
+      firstMatchId = firstResult.data.id;
+      results.forEach(r => { if (r.data?.id) downloadMatchPack(r.data.id).catch(() => {}); });
+
+      if (isMashie) {
+        const groupSummary = results.map((r, i) => {
+          const teamNames = builtMatches[i].home
+            .map(id => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '')
+            .join(', ');
+          const code = (r.data as any)?.group_code ?? '—';
+          return `Group ${i + 1} (${teamNames}): ${code}`;
+        }).join('\n');
+        setCreating(false);
+        Alert.alert(
+          'Mashie groups created!',
+          `Share each group code so players can score their own group:\n\n${groupSummary}\n\nRick shares the codes — each group of 4 can only score themselves.`,
+          [
+            {
+              text: 'Add Another Group',
+              onPress: () => router.replace(`/(app)/games/new?existingDayId=${resolvedDayId}&course=${encodeURIComponent(selectedCourse ?? '')}&openPlayers=1&resumeMode=${mode}` as any),
+            },
+            {
+              text: "Let's Play",
+              style: 'default',
+              onPress: () => router.push(`/(app)/score/day/${resolvedDayId}` as any),
+            },
+          ]
+        );
+        return;
       }
 
       setCreating(false);
-      const currentGroupNum = groupNum ? parseInt(groupNum, 10) : 1;
-      const resolvedTotalGroups = totalGroups ? parseInt(totalGroups, 10) : numGroups;
 
-      if (resolvedTotalGroups > currentGroupNum) {
-        const nextGroup = currentGroupNum + 1;
-        router.replace(
-          `/(app)/games/new?existingDayId=${resolvedDayId}&course=${encodeURIComponent(selectedCourse ?? '')}&openPlayers=1&resumeMode=${mode}&totalGroups=${resolvedTotalGroups}&groupNum=${nextGroup}` as any
-        );
+      if (builtMatches.length > 1) {
+        router.push(`/(app)/score/day/${resolvedDayId}` as any);
+      } else if (isTeamStableford) {
+        router.push(`/(app)/score/teamstableford/${firstMatchId}` as any);
+      } else if (existingDayId) {
+        router.push(`/(app)/score/day/${resolvedDayId}` as any);
       } else {
-        if (isTeamStableford && numTeams > 2) {
-          router.push(`/(app)/score/day/${resolvedDayId}` as any);
-        } else if (isTeamStableford) {
-          router.push(`/(app)/score/teamstableford/${firstMatchId}` as any);
-        } else if (existingDayId) {
-          router.push(`/(app)/score/day/${resolvedDayId}` as any);
-        } else {
-          const paramParts: string[] = [];
-          if (dayCode) { paramParts.push(`dayId=${resolvedDayId}`); paramParts.push(`dayCode=${dayCode}`); }
-          if (startHole !== 1) paramParts.push(`startHole=${startHole}`);
-          const params = paramParts.length > 0 ? `?${paramParts.join('&')}` : '';
-          router.push(`/(app)/score/preview/${firstMatchId}${params}` as any);
-        }
+        const paramParts: string[] = [];
+        if (dayCode) { paramParts.push(`dayId=${resolvedDayId}`); paramParts.push(`dayCode=${dayCode}`); }
+        const sh = builtMatches[0].startHole;
+        if (sh !== 1) paramParts.push(`startHole=${sh}`);
+        const params = paramParts.length > 0 ? `?${paramParts.join('&')}` : '';
+        router.push(`/(app)/score/preview/${firstMatchId}${params}` as any);
       }
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Could not create game');
@@ -929,16 +1060,8 @@ export default function NewGameScreen() {
           <SettingRow icon="trophy-outline" label="Format" value={formatLabel} onPress={() => setShowFormat(true)} s={s} GOLD={GOLD} />
           <View style={s.settingDivider} />
 
-          {/* Team / Mashie config — shown above Players so count is set first */}
-          {isTeamMode && (
-            <>
-              <SettingRow icon="albums-outline" label="Groups" value={`${numTeams} groups`} onPress={() => setShowNumTeams(true)} s={s} GOLD={GOLD} />
-              <View style={s.settingDivider} />
-            </>
-          )}
-
           {/* Players */}
-          <SettingRow icon="people-outline" label="Players" value={playersLabel} valueColor={pair1.length === 0 ? GOLD : undefined} onPress={() => setShowPlayers(true)} s={s} GOLD={GOLD} />
+          <SettingRow icon="people-outline" label="Players" value={playersLabel} valueColor={!builtMatches ? GOLD : undefined} onPress={() => setShowGroupBuilder(true)} s={s} GOLD={GOLD} />
           {mode === 'team_stableford' && (
             <>
               <View style={s.settingDivider} />
@@ -967,14 +1090,6 @@ export default function NewGameScreen() {
           {/* Handicap */}
           <SettingRow icon="stats-chart-outline" label="Handicap" value={hcpLabel} onPress={() => setShowHcp(true)} s={s} GOLD={GOLD} />
           <View style={s.settingDivider} />
-
-          {/* Total Groups (non-team formats, first setup only) */}
-          {!isTeamMode && !resumeMode && (
-            <>
-              <SettingRow icon="people-circle-outline" label="Total Groups" value={numGroups === 1 ? '1 group' : `${numGroups} groups`} onPress={() => setShowNumGroups(true)} s={s} GOLD={GOLD} />
-              <View style={s.settingDivider} />
-            </>
-          )}
 
           {/* Chip & Birdie */}
           <SettingRow icon="mic-outline" label="Chip & Birdie" value={voiceEnabled ? 'On' : 'Off'} valueColor={voiceEnabled ? GOLD : '#6b7280'} onPress={() => setVoiceEnabled(v => !v)} s={s} GOLD={GOLD}>
@@ -1129,8 +1244,8 @@ export default function NewGameScreen() {
           <View style={s.readyItem}>
             <Ionicons name="people-outline" size={20} color={GOLD} />
             <Text style={s.readyLabel}>PLAYERS</Text>
-            <Text style={[s.readyValue, pair1.length > 0 && { color: GREEN }]}>
-              {pair1.length > 0 ? pair1.length : '—'}
+            <Text style={[s.readyValue, builtMatches && { color: GREEN }]}>
+              {builtMatches ? new Set(builtMatches.flatMap(m => [...m.home, ...m.away])).size : '—'}
             </Text>
           </View>
           <View style={s.readyDivider} />
@@ -1188,6 +1303,15 @@ export default function NewGameScreen() {
         }}
         onClose={() => { setShowPlayers(false); setPairStep(1); }}
         ps={ps} GOLD={GOLD}
+      />
+      <GroupBuilderSheet
+        visible={showGroupBuilder}
+        mode={mode}
+        players={players}
+        teamSize={teamSize}
+        initialStartHole={startHole}
+        onDone={handleGroupBuilderDone}
+        onClose={() => setShowGroupBuilder(false)}
       />
       <CourseSheet visible={showCourse} courses={courses} selected={selectedCourse} onSelect={setSelectedCourse} onClose={() => setShowCourse(false)} ps={ps} GOLD={GOLD} />
       <PickerSheet

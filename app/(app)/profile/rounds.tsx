@@ -16,6 +16,7 @@ const FFB   = 'JUSTSans-ExBold';
 
 interface Round {
   matchId: string;
+  matchNumber: number;
   courseName: string;
   coursePar: number;
   playDate: string | null;
@@ -53,19 +54,20 @@ export default function RoundsScreen() {
 
     const { data: matches } = await supabase
       .from('matches')
-      .select('id, day:day_id(play_date, course_name, course_par)')
+      .select('id, match_number, day:day_id(play_date, course_name, course_par)')
       .or(`home_player_ids.cs.{${pid}},away_player_ids.cs.{${pid}}`)
       .eq('status', 'complete');
 
     const matchIds = (matches ?? []).map((m: any) => m.id);
     if (matchIds.length === 0) { setLoading(false); return; }
 
-    const infoMap: Record<string, { courseName: string; coursePar: number; playDate: string | null }> = {};
+    const infoMap: Record<string, { matchNumber: number; courseName: string; coursePar: number; playDate: string | null }> = {};
     for (const m of (matches ?? []) as any[]) {
       infoMap[m.id] = {
-        courseName: m.day?.course_name ?? 'Unknown Course',
-        coursePar:  m.day?.course_par  ?? 72,
-        playDate:   m.day?.play_date   ?? null,
+        matchNumber: m.match_number ?? 0,
+        courseName:  m.day?.course_name ?? 'Unknown Course',
+        coursePar:   m.day?.course_par  ?? 72,
+        playDate:    m.day?.play_date   ?? null,
       };
     }
 
@@ -110,6 +112,7 @@ export default function RoundsScreen() {
         const st = statMap[id] ?? { fh: 0, ft: 0, tp: 0, pt: 0 };
         return {
           matchId:          id,
+          matchNumber:      info.matchNumber,
           courseName:       info.courseName,
           coursePar:        info.coursePar,
           playDate:         info.playDate,
@@ -123,10 +126,9 @@ export default function RoundsScreen() {
       });
 
     list.sort((a, b) => {
-      if (!a.playDate && !b.playDate) return 0;
-      if (!a.playDate) return 1;
-      if (!b.playDate) return -1;
-      return b.playDate.localeCompare(a.playDate);
+      if (a.playDate && b.playDate && a.playDate !== b.playDate)
+        return b.playDate.localeCompare(a.playDate);
+      return b.matchNumber - a.matchNumber;
     });
 
     setRounds(list);

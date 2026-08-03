@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
-  ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, Modal,
+  ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, Modal, Switch,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -34,7 +34,8 @@ type Club = {
 export default function ProfileScreen() {
   const router = useRouter();
   const dc = useDynamicColors();
-  const { localLogo, logoUrl, societyName: themeSocietyName } = useSocietyTheme();
+  const { localLogo, logoUrl, societyName: themeSocietyName, lightMode, toggleLightMode } = useSocietyTheme();
+  const s = useMemo(() => makeStyles(dc), [dc]);
 
   const [player,         setPlayer]         = useState<Player | null>(null);
   const [clubs,          setClubs]          = useState<Club[]>([]);
@@ -489,6 +490,24 @@ export default function ProfileScreen() {
                 onPress={() => router.push('/(app)/join' as any)}
               />
               <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
+              <View style={s.quickLink}>
+                <View style={s.quickLinkLeft}>
+                  <View style={[s.quickLinkIcon, { backgroundColor: dc.iconBoxBg, borderColor: dc.iconBoxBorder }]}>
+                    <Ionicons name={lightMode ? 'sunny-outline' : 'moon-outline'} size={18} color={dc.gold} />
+                  </View>
+                  <View>
+                    <Text style={[s.quickLinkTitle, { color: dc.white }]}>Light Mode</Text>
+                    <Text style={[s.quickLinkSub, { color: dc.textMuted }]}>White, black &amp; gold</Text>
+                  </View>
+                </View>
+                <Switch
+                  value={lightMode}
+                  onValueChange={toggleLightMode}
+                  trackColor={{ false: '#333', true: GOLD }}
+                  thumbColor="#fff"
+                />
+              </View>
+              <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
               <TouchableOpacity style={s.quickLink} onPress={signOut} activeOpacity={0.7}>
                 <View style={s.quickLinkLeft}>
                   <View style={[s.quickLinkIcon, { backgroundColor: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.2)' }]}>
@@ -554,6 +573,7 @@ function QuickLink({ icon, title, sub, onPress }: {
   icon: any; title: string; sub: string; onPress: () => void;
 }) {
   const dc = useDynamicColors();
+  const s = useMemo(() => makeStyles(dc), [dc]);
   return (
     <TouchableOpacity style={s.quickLink} onPress={onPress} activeOpacity={0.75}>
       <View style={s.quickLinkLeft}>
@@ -574,6 +594,8 @@ function EditField({ label, value, onChange, placeholder, keyboardType, autoFocu
   label: string; value: string; onChange: (v: string) => void;
   placeholder?: string; keyboardType?: any; autoFocus?: boolean; secureTextEntry?: boolean;
 }) {
+  const dc = useDynamicColors();
+  const s = useMemo(() => makeStyles(dc), [dc]);
   return (
     <View style={s.fieldRow}>
       <Text style={s.fieldLabel}>{label.toUpperCase()}</Text>
@@ -593,165 +615,167 @@ function EditField({ label, value, onChange, placeholder, keyboardType, autoFocu
 }
 
 // ── Styles ─────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: '#000000' },
-  centered:{ flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll:  { paddingBottom: 60 },
+function makeStyles(dc: { white: string; bg: string; card: string; border: string; gold: string }) {
+  return StyleSheet.create({
+    root:    { flex: 1, backgroundColor: dc.bg },
+    centered:{ flex: 1, alignItems: 'center', justifyContent: 'center' },
+    scroll:  { paddingBottom: 60 },
 
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
-    backgroundColor: '#000000',
-  },
-  headerSide:   { width: 60 },
-  headerCenter: { alignItems: 'center' },
-  headerLogo:   { width: 36, height: 36 },
-  bellWrap:     { position: 'relative' },
-  notifDot: {
-    position: 'absolute', top: -1, right: -1,
-    width: 8, height: 8, borderRadius: 4,
-    backgroundColor: GOLD, borderWidth: 1.5, borderColor: '#000',
-  },
-  editLink:   { fontFamily: FFB, fontSize: 15, color: GOLD },
-  cancelLink: { fontFamily: FFB, fontSize: 15, color: '#fff' },
-  modalTitle: { fontFamily: FFB, fontSize: 17, color: '#ffffff' },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12,
+      backgroundColor: dc.bg,
+    },
+    headerSide:   { width: 60 },
+    headerCenter: { alignItems: 'center' },
+    headerLogo:   { width: 36, height: 36 },
+    bellWrap:     { position: 'relative' },
+    notifDot: {
+      position: 'absolute', top: -1, right: -1,
+      width: 8, height: 8, borderRadius: 4,
+      backgroundColor: GOLD, borderWidth: 1.5, borderColor: dc.bg,
+    },
+    editLink:   { fontFamily: FFB, fontSize: 15, color: GOLD },
+    cancelLink: { fontFamily: FFB, fontSize: 15, color: dc.white },
+    modalTitle: { fontFamily: FFB, fontSize: 17, color: dc.white },
 
-  pageTitle: {
-    fontFamily: FFB, fontSize: 36, color: '#ffffff',
-    paddingHorizontal: 20, paddingBottom: 20, letterSpacing: -0.5,
-  },
+    pageTitle: {
+      fontFamily: FFB, fontSize: 36, color: dc.white,
+      paddingHorizontal: 20, paddingBottom: 20, letterSpacing: -0.5,
+    },
 
-  profileCard: {
-    marginHorizontal: 16, backgroundColor: '#111111',
-    borderRadius: 16, borderWidth: 1, borderColor: '#1c1c1c',
-    flexDirection: 'row', alignItems: 'center',
-    padding: 16, gap: 16, marginBottom: 28,
-  },
-  avatarWrap:        { position: 'relative' },
-  avatarImg:         { width: 72, height: 72, borderRadius: 36 },
-  avatarPlaceholder: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: `${GOLD}18`, alignItems: 'center', justifyContent: 'center',
-  },
-  avatarInitial: { fontFamily: FFB, fontSize: 28, color: GOLD },
-  avatarRing: {
-    position: 'absolute', top: -2, left: -2,
-    width: 76, height: 76, borderRadius: 38,
-    borderWidth: 1.5, borderColor: `${GOLD}50`,
-  },
-  avatarOverlay: {
-    position: 'absolute', top: 0, left: 0, width: 72, height: 72, borderRadius: 36,
-    backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center',
-  },
-  profileInfo:  { flex: 1, gap: 6 },
-  profileName:  { fontFamily: FFB, fontSize: 20, color: '#ffffff', letterSpacing: -0.3 },
-  badgeRow:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  eliteDot:     { width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN },
-  eliteText:    { fontFamily: FFB, fontSize: 12, color: GREEN },
-  statsRow:     { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  statBox:      { flex: 1, gap: 2 },
-  statDivider:  { width: 1, height: 28, backgroundColor: '#2c2c2c', marginHorizontal: 12 },
-  statLabel:    { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1.5 },
-  statValue:    { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
+    profileCard: {
+      marginHorizontal: 16, backgroundColor: dc.card,
+      borderRadius: 16, borderWidth: 1, borderColor: dc.border,
+      flexDirection: 'row', alignItems: 'center',
+      padding: 16, gap: 16, marginBottom: 28,
+    },
+    avatarWrap:        { position: 'relative' },
+    avatarImg:         { width: 72, height: 72, borderRadius: 36 },
+    avatarPlaceholder: {
+      width: 72, height: 72, borderRadius: 36,
+      backgroundColor: `${GOLD}18`, alignItems: 'center', justifyContent: 'center',
+    },
+    avatarInitial: { fontFamily: FFB, fontSize: 28, color: GOLD },
+    avatarRing: {
+      position: 'absolute', top: -2, left: -2,
+      width: 76, height: 76, borderRadius: 38,
+      borderWidth: 1.5, borderColor: `${GOLD}50`,
+    },
+    avatarOverlay: {
+      position: 'absolute', top: 0, left: 0, width: 72, height: 72, borderRadius: 36,
+      backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center',
+    },
+    profileInfo:  { flex: 1, gap: 6 },
+    profileName:  { fontFamily: FFB, fontSize: 20, color: dc.white, letterSpacing: -0.3 },
+    badgeRow:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    eliteDot:     { width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN },
+    eliteText:    { fontFamily: FFB, fontSize: 12, color: GREEN },
+    statsRow:     { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+    statBox:      { flex: 1, gap: 2 },
+    statDivider:  { width: 1, height: 28, backgroundColor: dc.border, marginHorizontal: 12 },
+    statLabel:    { fontFamily: FFB, fontSize: 9, color: dc.white, letterSpacing: 1.5 },
+    statValue:    { fontFamily: FFB, fontSize: 14, color: dc.white },
 
-  sectionLabel: {
-    fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 2,
-    textTransform: 'uppercase', paddingHorizontal: 16, marginBottom: 8, marginTop: 4,
-  },
+    sectionLabel: {
+      fontFamily: FFB, fontSize: 10, color: dc.white, letterSpacing: 2,
+      textTransform: 'uppercase', paddingHorizontal: 16, marginBottom: 8, marginTop: 4,
+    },
 
-  card: {
-    marginHorizontal: 16, backgroundColor: '#111111',
-    borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c',
-    overflow: 'hidden', marginBottom: 12,
-  },
-  divider: { height: 1, backgroundColor: '#1c1c1c', marginHorizontal: 16 },
+    card: {
+      marginHorizontal: 16, backgroundColor: dc.card,
+      borderRadius: 14, borderWidth: 1, borderColor: dc.border,
+      overflow: 'hidden', marginBottom: 12,
+    },
+    divider: { height: 1, backgroundColor: dc.border, marginHorizontal: 16 },
 
-  bagHeader: {
-    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
-    paddingHorizontal: 16, marginBottom: 10,
-  },
-  bagTitle:    { fontFamily: FFB, fontSize: 18, color: '#ffffff', marginBottom: 2 },
-  bagSubtitle: { fontFamily: FF, fontSize: 11, color: '#fff' },
-  addClubBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderWidth: 1, borderColor: GOLD, borderRadius: 20,
-    paddingHorizontal: 12, paddingVertical: 7,
-  },
-  addClubText: { fontFamily: FFB, fontSize: 12, color: GOLD },
+    bagHeader: {
+      flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
+      paddingHorizontal: 16, marginBottom: 10,
+    },
+    bagTitle:    { fontFamily: FFB, fontSize: 18, color: dc.white, marginBottom: 2 },
+    bagSubtitle: { fontFamily: FF, fontSize: 11, color: dc.white },
+    addClubBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      borderWidth: 1, borderColor: GOLD, borderRadius: 20,
+      paddingHorizontal: 12, paddingVertical: 7,
+    },
+    addClubText: { fontFamily: FFB, fontSize: 12, color: GOLD },
 
-  clubList: {
-    marginHorizontal: 16, backgroundColor: '#111111',
-    borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c',
-    overflow: 'hidden', marginBottom: 20,
-  },
-  clubRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: '#1c1c1c', gap: 12,
-  },
-  clubRowLast:  { borderBottomWidth: 0 },
-  clubIconWrap: {
-    width: 32, height: 32, borderRadius: 8,
-    backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}25`,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  clubName:       { fontFamily: FFB, fontSize: 15, color: '#ffffff' },
-  clubBrand:      { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 1 },
-  clubBrandEmpty: { fontFamily: FFB, fontSize: 11, color: '#333', marginTop: 1 },
-  nfcBadge: {
-    borderWidth: 1, borderColor: `${GOLD}60`, borderRadius: 20,
-    paddingHorizontal: 8, paddingVertical: 3,
-    backgroundColor: `${GOLD}0d`, marginRight: 4,
-  },
-  nfcText: { fontFamily: FFB, fontSize: 10, color: GOLD, letterSpacing: 0.5 },
-  emptyBag:     { paddingVertical: 32, alignItems: 'center' },
-  emptyBagText: { fontFamily: FFB, fontSize: 14, color: '#fff' },
-  emptyBagSub:  { fontFamily: FFB, fontSize: 12, color: '#444', marginTop: 4 },
+    clubList: {
+      marginHorizontal: 16, backgroundColor: dc.card,
+      borderRadius: 14, borderWidth: 1, borderColor: dc.border,
+      overflow: 'hidden', marginBottom: 20,
+    },
+    clubRow: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 14, paddingVertical: 14,
+      borderBottomWidth: 1, borderBottomColor: dc.border, gap: 12,
+    },
+    clubRowLast:  { borderBottomWidth: 0 },
+    clubIconWrap: {
+      width: 32, height: 32, borderRadius: 8,
+      backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}25`,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    clubName:       { fontFamily: FFB, fontSize: 15, color: dc.white },
+    clubBrand:      { fontFamily: FFB, fontSize: 11, color: dc.white, marginTop: 1 },
+    clubBrandEmpty: { fontFamily: FFB, fontSize: 11, color: '#333', marginTop: 1 },
+    nfcBadge: {
+      borderWidth: 1, borderColor: `${GOLD}60`, borderRadius: 20,
+      paddingHorizontal: 8, paddingVertical: 3,
+      backgroundColor: `${GOLD}0d`, marginRight: 4,
+    },
+    nfcText: { fontFamily: FFB, fontSize: 10, color: GOLD, letterSpacing: 0.5 },
+    emptyBag:     { paddingVertical: 32, alignItems: 'center' },
+    emptyBagText: { fontFamily: FFB, fontSize: 14, color: dc.white },
+    emptyBagSub:  { fontFamily: FFB, fontSize: 12, color: '#444', marginTop: 4 },
 
-  quickLinks: {
-    marginHorizontal: 16, marginBottom: 16, backgroundColor: '#111111',
-    borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden',
-  },
-  quickLink: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 14, paddingVertical: 14,
-  },
-  quickLinkLeft:    { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  quickLinkIcon: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}25`,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  quickLinkTitle:   { fontFamily: FFB, fontSize: 14, color: '#ffffff', marginBottom: 2 },
-  quickLinkSub:     { fontFamily: FFB, fontSize: 11, color: '#fff' },
-  quickLinkDivider: { height: 1, backgroundColor: '#1c1c1c', marginHorizontal: 14 },
+    quickLinks: {
+      marginHorizontal: 16, marginBottom: 16, backgroundColor: dc.card,
+      borderRadius: 14, borderWidth: 1, borderColor: dc.border, overflow: 'hidden',
+    },
+    quickLink: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 14, paddingVertical: 14,
+    },
+    quickLinkLeft:    { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    quickLinkIcon: {
+      width: 36, height: 36, borderRadius: 10,
+      backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}25`,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    quickLinkTitle:   { fontFamily: FFB, fontSize: 14, color: dc.white, marginBottom: 2 },
+    quickLinkSub:     { fontFamily: FFB, fontSize: 11, color: dc.white },
+    quickLinkDivider: { height: 1, backgroundColor: dc.border, marginHorizontal: 14 },
 
-  statsBar: {
-    marginHorizontal: 16, backgroundColor: '#111111',
-    borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c',
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 18, marginBottom: 24,
-  },
-  statsCol:        { flex: 1, alignItems: 'center', gap: 4 },
-  statsColDivider: { width: 1, height: 36, backgroundColor: '#1c1c1c' },
-  statsColLabel:   { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1.5, marginTop: 4 },
-  statsColValue:   { fontFamily: FFB, fontSize: 12, color: '#ffffff' },
+    statsBar: {
+      marginHorizontal: 16, backgroundColor: dc.card,
+      borderRadius: 14, borderWidth: 1, borderColor: dc.border,
+      flexDirection: 'row', alignItems: 'center',
+      paddingVertical: 18, marginBottom: 24,
+    },
+    statsCol:        { flex: 1, alignItems: 'center', gap: 4 },
+    statsColDivider: { width: 1, height: 36, backgroundColor: dc.border },
+    statsColLabel:   { fontFamily: FFB, fontSize: 9, color: dc.white, letterSpacing: 1.5, marginTop: 4 },
+    statsColValue:   { fontFamily: FFB, fontSize: 12, color: dc.white },
 
-  fieldRow:   { paddingHorizontal: 16, paddingVertical: 12 },
-  fieldLabel: { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 1, marginBottom: 4 },
-  fieldInput: { fontFamily: FFB, fontSize: 16, color: '#ffffff' },
-  syncBtn: {
-    marginHorizontal: 16, borderRadius: 12,
-    borderWidth: 1, borderColor: `${GREEN}44`, backgroundColor: `${GREEN}0d`,
-    paddingVertical: 12, alignItems: 'center', marginBottom: 20,
-  },
-  syncBtnText: { fontFamily: FFB, fontSize: 14, color: GREEN },
-  saveBtn: {
-    marginHorizontal: 16, backgroundColor: GOLD, borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center', marginTop: 8,
-  },
-  saveBtnText: { fontFamily: FFB, fontSize: 16, color: '#000000' },
-  version: {
-    textAlign: 'center', fontFamily: FFB, fontSize: 11, color: '#2a2a2a', marginTop: 8, paddingBottom: 8,
-  },
-});
+    fieldRow:   { paddingHorizontal: 16, paddingVertical: 12 },
+    fieldLabel: { fontFamily: FFB, fontSize: 10, color: dc.white, letterSpacing: 1, marginBottom: 4 },
+    fieldInput: { fontFamily: FFB, fontSize: 16, color: dc.white },
+    syncBtn: {
+      marginHorizontal: 16, borderRadius: 12,
+      borderWidth: 1, borderColor: `${GREEN}44`, backgroundColor: `${GREEN}0d`,
+      paddingVertical: 12, alignItems: 'center', marginBottom: 20,
+    },
+    syncBtnText: { fontFamily: FFB, fontSize: 14, color: GREEN },
+    saveBtn: {
+      marginHorizontal: 16, backgroundColor: GOLD, borderRadius: 14,
+      paddingVertical: 16, alignItems: 'center', marginTop: 8,
+    },
+    saveBtnText: { fontFamily: FFB, fontSize: 16, color: '#000000' },
+    version: {
+      textAlign: 'center', fontFamily: FFB, fontSize: 11, color: '#2a2a2a', marginTop: 8, paddingBottom: 8,
+    },
+  });
+}

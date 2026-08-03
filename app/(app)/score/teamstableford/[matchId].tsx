@@ -213,12 +213,20 @@ export default function TeamStablefordScreen() {
     if (!match) return;
     const homeTotal = runningTotal(match.home_player_ids);
     const awayTotal = runningTotal(match.away_player_ids);
-    const winner = homeTotal > awayTotal ? 'home' : awayTotal > homeTotal ? 'away' : 'half';
-    const lo = Math.min(homeTotal, awayTotal);
-    const hi = Math.max(homeTotal, awayTotal);
-    const resultStr = homeTotal === awayTotal
-      ? `All Square — ${homeTotal} pts each`
-      : `${winner === 'home' ? 'Team A' : 'Team B'} wins ${hi}–${lo}`;
+    const isMashie = match.away_player_ids.length === 0 && (match.team_size ?? 2) >= 4;
+    let winner: string;
+    let resultStr: string;
+    if (isMashie) {
+      winner = 'home';
+      resultStr = `${homeTotal} pts`;
+    } else {
+      winner = homeTotal > awayTotal ? 'home' : awayTotal > homeTotal ? 'away' : 'half';
+      const lo = Math.min(homeTotal, awayTotal);
+      const hi = Math.max(homeTotal, awayTotal);
+      resultStr = homeTotal === awayTotal
+        ? `All Square — ${homeTotal} pts each`
+        : `${winner === 'home' ? 'Team A' : 'Team B'} wins ${hi}–${lo}`;
+    }
     await supabase.from('matches').update({ status: 'complete', winner, result_str: resultStr }).eq('id', matchId);
     setMatch(prev => prev ? { ...prev, status: 'complete' } : prev);
     setShowComplete(true);
@@ -249,7 +257,8 @@ export default function TeamStablefordScreen() {
   const par3all    = match.side_games?.includes('par3all') ?? false;
   const baseCountN = match.counting_scores ?? 2;
   const teamSize   = match.team_size ?? 2;
-  const countN     = par3all && hole?.par === 3 ? teamSize : baseCountN;
+  const countN        = par3all && hole?.par === 3 ? teamSize : baseCountN;
+  const isMashieGroup = match.away_player_ids.length === 0 && teamSize >= 4;
 
   const homeTotal  = runningTotal(match.home_player_ids);
   const awayTotal  = runningTotal(match.away_player_ids);
@@ -258,8 +267,8 @@ export default function TeamStablefordScreen() {
 
   // ── Complete view ───────────────────────────────────────────
   if (showComplete) {
-    const winLabel = homeTotal > awayTotal ? 'TEAM A WINS' : awayTotal > homeTotal ? 'TEAM B WINS' : 'ALL SQUARE';
-    const winColor = homeTotal >= awayTotal ? GOLD : BLUE;
+    const winLabel = isMashieGroup ? 'ROUND COMPLETE' : homeTotal > awayTotal ? 'TEAM A WINS' : awayTotal > homeTotal ? 'TEAM B WINS' : 'ALL SQUARE';
+    const winColor = isMashieGroup || homeTotal >= awayTotal ? GOLD : BLUE;
     const front9   = Array.from({ length: Math.min(9, totalHoles) }, (_, i) => i + 1);
     const back9    = Array.from({ length: Math.max(0, totalHoles - 9) }, (_, i) => i + 10);
 
@@ -332,23 +341,42 @@ export default function TeamStablefordScreen() {
           <View style={[s.winnerBanner, { borderColor: `${winColor}40` }]}>
             <Ionicons name="trophy" size={36} color={winColor} />
             <Text style={[s.winnerText, { color: winColor }]}>{winLabel}</Text>
-            <View style={s.winnerScoreRow}>
-              <Text style={[s.winnerScore, { color: GOLD }]}>{homeTotal}</Text>
-              <Text style={s.winnerDash}> – </Text>
-              <Text style={[s.winnerScore, { color: BLUE }]}>{awayTotal}</Text>
-            </View>
+            {isMashieGroup ? (
+              <View style={s.winnerScoreRow}>
+                <Text style={[s.winnerScore, { color: GOLD }]}>{homeTotal} pts</Text>
+              </View>
+            ) : (
+              <View style={s.winnerScoreRow}>
+                <Text style={[s.winnerScore, { color: GOLD }]}>{homeTotal}</Text>
+                <Text style={s.winnerDash}> – </Text>
+                <Text style={[s.winnerScore, { color: BLUE }]}>{awayTotal}</Text>
+              </View>
+            )}
             <Text style={s.winnerSub}>Best {countN} of {teamSize} per hole</Text>
           </View>
 
           <Text style={s.teamLabel}>TEAM A</Text>
           <TeamBlock ids={match.home_player_ids} label="TEAM A" color={GOLD} />
 
-          <Text style={[s.teamLabel, { color: BLUE }]}>TEAM B</Text>
-          <TeamBlock ids={match.away_player_ids} label="TEAM B" color={BLUE} />
+          {!isMashieGroup && (
+            <>
+              <Text style={[s.teamLabel, { color: BLUE }]}>TEAM B</Text>
+              <TeamBlock ids={match.away_player_ids} label="TEAM B" color={BLUE} />
+            </>
+          )}
 
-          <TouchableOpacity style={s.doneBtn} onPress={() => router.replace('/(app)/score' as any)} activeOpacity={0.85}>
-            <Text style={s.doneBtnText}>Back to Play</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity
+              style={[s.doneBtn, { flex: 1, backgroundColor: 'transparent', borderWidth: 1, borderColor: GOLD }]}
+              onPress={() => setShowComplete(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={[s.doneBtnText, { color: GOLD }]}>Edit Scores</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.doneBtn, { flex: 1 }]} onPress={() => router.replace('/(app)/score' as any)} activeOpacity={0.85}>
+              <Text style={s.doneBtnText}>Back to Play</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </View>
     );
@@ -366,7 +394,7 @@ export default function TeamStablefordScreen() {
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
-          <Text style={s.headerSub}>{match.round_format === 'best2from4' || match.round_format === 'best2from4_par3all' ? 'MASHIE · BEST 2 FROM 4' : 'TEAM STABLEFORD'}</Text>
+          <Text style={s.headerSub}>{isMashieGroup ? `MASHIE · BEST ${baseCountN} FROM ${teamSize}` : 'TEAM STABLEFORD'}</Text>
         </View>
         <TouchableOpacity onPress={confirmDelete} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="trash-outline" size={20} color="#555" />
@@ -374,19 +402,28 @@ export default function TeamStablefordScreen() {
       </View>
 
       {/* Team totals bar */}
-      <View style={s.totalsBar}>
-        <View style={[s.totalBlock, homeTotal > awayTotal && s.totalBlockWin]}>
-          <Text style={s.totalTeamLbl}>TEAM A</Text>
-          <Text style={[s.totalPts, homeTotal >= awayTotal ? { color: GOLD } : { color: '#fff' }]}>{homeTotal}</Text>
+      {isMashieGroup ? (
+        <View style={[s.totalsBar, { justifyContent: 'center' }]}>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={s.totalTeamLbl}>GROUP TOTAL</Text>
+            <Text style={[s.totalPts, { color: GOLD }]}>{homeTotal} pts</Text>
+          </View>
         </View>
-        <View style={s.totalMid}>
-          <Text style={s.totalVs}>VS</Text>
+      ) : (
+        <View style={s.totalsBar}>
+          <View style={[s.totalBlock, homeTotal > awayTotal && s.totalBlockWin]}>
+            <Text style={s.totalTeamLbl}>TEAM A</Text>
+            <Text style={[s.totalPts, homeTotal >= awayTotal ? { color: GOLD } : { color: '#fff' }]}>{homeTotal}</Text>
+          </View>
+          <View style={s.totalMid}>
+            <Text style={s.totalVs}>VS</Text>
+          </View>
+          <View style={[s.totalBlock, { alignItems: 'flex-end' }, awayTotal > homeTotal && s.totalBlockWinB]}>
+            <Text style={[s.totalTeamLbl, { color: BLUE }]}>TEAM B</Text>
+            <Text style={[s.totalPts, awayTotal >= homeTotal ? { color: BLUE } : { color: '#fff' }]}>{awayTotal}</Text>
+          </View>
         </View>
-        <View style={[s.totalBlock, { alignItems: 'flex-end' }, awayTotal > homeTotal && s.totalBlockWinB]}>
-          <Text style={[s.totalTeamLbl, { color: BLUE }]}>TEAM B</Text>
-          <Text style={[s.totalPts, awayTotal >= homeTotal ? { color: BLUE } : { color: '#fff' }]}>{awayTotal}</Text>
-        </View>
-      </View>
+      )}
 
       {/* Hole strip */}
       <ScrollView
@@ -406,9 +443,10 @@ export default function TeamStablefordScreen() {
 
           let bg = '#111', fg = '#333';
           if (anyPlayed) {
-            if (hHome.teamTotal > hAway.teamTotal)      { bg = `${GOLD}25`; fg = GOLD; }
-            else if (hAway.teamTotal > hHome.teamTotal) { bg = `${BLUE}25`; fg = BLUE; }
-            else                                         { bg = '#222';      fg = '#888'; }
+            if (isMashieGroup)                           { bg = `${GOLD}25`; fg = GOLD; }
+            else if (hHome.teamTotal > hAway.teamTotal)  { bg = `${GOLD}25`; fg = GOLD; }
+            else if (hAway.teamTotal > hHome.teamTotal)  { bg = `${BLUE}25`; fg = BLUE; }
+            else                                          { bg = '#222';      fg = '#888'; }
           }
           if (isCur) { bg = GOLD; fg = '#000'; }
 
@@ -445,9 +483,9 @@ export default function TeamStablefordScreen() {
           </View>
         </View>
 
-        {/* Team A */}
+        {/* Team A / Group */}
         <TeamSection
-          label="TEAM A" color={GOLD}
+          label={isMashieGroup ? 'GROUP' : 'TEAM A'} color={GOLD}
           playerIds={match.home_player_ids}
           players={players}
           hole={hole}
@@ -458,8 +496,8 @@ export default function TeamStablefordScreen() {
           onScore={saveScore}
         />
 
-        {/* Team B */}
-        <TeamSection
+        {/* Team B — hidden for single Mashie groups */}
+        {!isMashieGroup && <TeamSection
           label="TEAM B" color={BLUE}
           playerIds={match.away_player_ids}
           players={players}
@@ -469,21 +507,30 @@ export default function TeamStablefordScreen() {
           holeResult={awayHole}
           getPts={getPts}
           onScore={saveScore}
-        />
+        />}
 
         {/* Hole result summary */}
         {(homeHole.teamTotal > 0 || awayHole.teamTotal > 0) && (
-          <View style={s.holeResult}>
-            <View style={[s.holeResultBlock, homeHole.teamTotal >= awayHole.teamTotal && { borderColor: `${GOLD}40` }]}>
-              <Text style={s.holeResultLbl}>TEAM A</Text>
-              <Text style={[s.holeResultPts, { color: GOLD }]}>{homeHole.teamTotal}</Text>
+          isMashieGroup ? (
+            <View style={s.holeResult}>
+              <View style={[s.holeResultBlock, { borderColor: `${GOLD}40` }]}>
+                <Text style={s.holeResultLbl}>HOLE TOTAL</Text>
+                <Text style={[s.holeResultPts, { color: GOLD }]}>{homeHole.teamTotal} pts</Text>
+              </View>
             </View>
-            <Text style={s.holeResultVs}>pts</Text>
-            <View style={[s.holeResultBlock, awayHole.teamTotal >= homeHole.teamTotal && { borderColor: `${BLUE}40` }]}>
-              <Text style={s.holeResultLbl}>TEAM B</Text>
-              <Text style={[s.holeResultPts, { color: BLUE }]}>{awayHole.teamTotal}</Text>
+          ) : (
+            <View style={s.holeResult}>
+              <View style={[s.holeResultBlock, homeHole.teamTotal >= awayHole.teamTotal && { borderColor: `${GOLD}40` }]}>
+                <Text style={s.holeResultLbl}>TEAM A</Text>
+                <Text style={[s.holeResultPts, { color: GOLD }]}>{homeHole.teamTotal}</Text>
+              </View>
+              <Text style={s.holeResultVs}>pts</Text>
+              <View style={[s.holeResultBlock, awayHole.teamTotal >= homeHole.teamTotal && { borderColor: `${BLUE}40` }]}>
+                <Text style={s.holeResultLbl}>TEAM B</Text>
+                <Text style={[s.holeResultPts, { color: BLUE }]}>{awayHole.teamTotal}</Text>
+              </View>
             </View>
-          </View>
+          )
         )}
 
       </ScrollView>
@@ -594,7 +641,7 @@ function TeamSection({
               {GROSS_BUTTONS.map(g => {
                 const isSel = gross === g;
                 const net   = hole ? g - strokes - hole.par : 0;
-                let bg = '#1a1a1a', fg = '#555';
+                let bg = '#1a1a1a', fg = '#fff';
                 if (isSel) {
                   if (net <= -2)     { bg = BLUE;    fg = '#fff'; }
                   else if (net === -1) { bg = GREEN;   fg = '#000'; }
