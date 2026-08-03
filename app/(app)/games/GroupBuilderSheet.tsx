@@ -352,16 +352,21 @@ export default function GroupBuilderSheet({
 
   function GroupCard({ gi }: { gi: number }) {
     const g = groups[gi];
+    const premium = gi === 0;
+    const hdrBg   = premium ? GOLD : '#0a0a0a';
+    const hdrText = premium ? '#fff' : GOLD;
+    const pillBg  = premium ? 'rgba(0,0,0,0.18)' : `${GOLD}18`;
+    const pillBdr = premium ? 'rgba(255,255,255,0.3)' : `${GOLD}50`;
     return (
-      <View style={[css.groupCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
-        <View style={css.groupHeader}>
-          <Text style={css.groupTitle}>Group {gi + 1}</Text>
+      <View style={[css.groupCard, { backgroundColor: dc.card, borderColor: premium ? GOLD : dc.border }]}>
+        <View style={[css.groupHeader, { backgroundColor: hdrBg }]}>
+          <Text style={[css.groupTitle, { color: hdrText }]}>Group {gi + 1}</Text>
           <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-            <TouchableOpacity style={css.pill} onPress={() => setHoleGi(gi)} activeOpacity={0.7}>
-              <Text style={css.pillText}>Hole {g.startHole} ▾</Text>
+            <TouchableOpacity style={[css.pill, { backgroundColor: pillBg, borderColor: pillBdr }]} onPress={() => setHoleGi(gi)} activeOpacity={0.7}>
+              <Text style={[css.pillText, { color: hdrText }]}>Hole {g.startHole} ▾</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={css.pill}
+              style={[css.pill, { backgroundColor: pillBg, borderColor: pillBdr }]}
               onPress={() => {
                 Alert.prompt(
                   'Tee Time',
@@ -376,7 +381,7 @@ export default function GroupBuilderSheet({
               }}
               activeOpacity={0.7}
             >
-              <Text style={css.pillText}>{g.teeTime || 'Set time'} ▾</Text>
+              <Text style={[css.pillText, { color: hdrText }]}>{g.teeTime || 'Set time'} ▾</Text>
             </TouchableOpacity>
             {groups.length > 1 && (
               <TouchableOpacity onPress={() => removeGroup(gi)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>

@@ -550,7 +550,6 @@ export default function NewGameScreen() {
   const [showTeamSize, setShowTeamSize]   = useState(false);
   const [showCounting, setShowCounting]   = useState(false);
   const [showNumTeams, setShowNumTeams]   = useState(false);
-  const [showStartHole, setShowStartHole] = useState(false);
   const [showNumGroups, setShowNumGroups] = useState(false);
   const [showMashie, setShowMashie] = useState(false);
   const [showGroupBuilder, setShowGroupBuilder] = useState(false);
@@ -566,7 +565,7 @@ export default function NewGameScreen() {
     setTeamSize(2); setCounting(2); setNumTeams(2); setExtraTeams([]);
     setStartHole(1); setBuiltMatches(null);
     setShowFormat(false); setShowPlayers(false); setShowCourse(false); setShowMashie(false); setShowGroupBuilder(false);
-    setShowHoles(false); setShowHcp(false); setShowTeamSize(false); setShowCounting(false); setShowNumTeams(false); setShowStartHole(false);
+    setShowHoles(false); setShowHcp(false); setShowTeamSize(false); setShowCounting(false); setShowNumTeams(false);
     if (existingDayId) {
       supabase.from('matches').select('home_player_ids, away_player_ids')
         .eq('day_id', existingDayId).neq('status', 'cancelled')
@@ -1068,17 +1067,6 @@ export default function NewGameScreen() {
           <SettingRow icon="golf-outline" label="Holes" value={holesLabel} onPress={() => setShowHoles(true)} s={s} GOLD={GOLD} />
           <View style={s.settingDivider} />
 
-          {/* Start Hole */}
-          <SettingRow
-            icon="flag-outline"
-            label="Start Hole"
-            value={`Hole ${startHole}`}
-            valueColor={startHole !== 1 ? GOLD : undefined}
-            onPress={() => setShowStartHole(true)}
-            s={s} GOLD={GOLD}
-          />
-          <View style={s.settingDivider} />
-
           {/* Handicap */}
           <SettingRow icon="stats-chart-outline" label="Handicap" value={hcpLabel} onPress={() => setShowHcp(true)} s={s} GOLD={GOLD} />
           <View style={s.settingDivider} />
@@ -1375,17 +1363,6 @@ export default function NewGameScreen() {
         selected={countingScores.toString() as any}
         onSelect={(v: any) => setCounting(parseInt(v, 10))}
         onClose={() => setShowCounting(false)}
-        ps={ps} GOLD={GOLD}
-      />
-      <PickerSheet
-        visible={showStartHole} title="Start Hole"
-        options={Array.from({ length: 18 }, (_, i) => ({
-          key: String(i + 1),
-          label: i === 0 ? 'Hole 1 (Front 9)' : i === 9 ? 'Hole 10 (Back 9)' : `Hole ${i + 1}`,
-        }))}
-        selected={startHole.toString() as any}
-        onSelect={(v: any) => setStartHole(parseInt(v, 10))}
-        onClose={() => setShowStartHole(false)}
         ps={ps} GOLD={GOLD}
       />
 
