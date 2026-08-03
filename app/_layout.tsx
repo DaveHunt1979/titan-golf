@@ -6,7 +6,9 @@ import { supabase } from '../src/lib/supabase';
 import { initDb } from '../src/lib/localDb';
 
 const { width: SW, height: SH } = Dimensions.get('window');
-const splashBg = require('../assets/splash-screen.png');
+const IS_PAD  = Platform.OS === 'ios' && !!(Platform as any).isPad;
+const splashBg     = require('../assets/splash-screen.png');
+const splashBgiPad = IS_PAD ? require('../assets/splash-screen-ipad.png') : null;
 
 // ── Animated splash ────────────────────────────────────────────────────────
 function AnimatedSplash({ onComplete }: { onComplete: () => void }) {
@@ -22,7 +24,7 @@ function AnimatedSplash({ onComplete }: { onComplete: () => void }) {
   return (
     <View style={ss.root}>
       <Animated.Image
-        source={splashBg}
+        source={splashBgiPad ?? splashBg}
         style={[StyleSheet.absoluteFillObject, { opacity: bgOpacity, width: SW, height: SH }]}
         resizeMode="cover"
       />

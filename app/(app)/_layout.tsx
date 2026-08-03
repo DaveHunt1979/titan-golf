@@ -48,7 +48,7 @@ function SplashOverlay({ onDone }: { onDone: () => void }) {
     if (!loaded) return;
     const timer = setTimeout(() => {
       Animated.timing(opacity, { toValue: 0, duration: 450, useNativeDriver: true })
-        .start(({ finished }) => { if (finished) onDone(); });
+        .start(() => onDone());
     }, 1400);
     return () => clearTimeout(timer);
   }, [loaded]);

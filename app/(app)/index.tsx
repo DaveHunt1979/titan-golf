@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  Image, ActivityIndicator, RefreshControl, Dimensions, Linking,
+  Image, ActivityIndicator, RefreshControl, Dimensions, Linking, useWindowDimensions,
 } from 'react-native';
+import { IS_PAD } from '../../src/lib/useDeviceLayout';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
@@ -13,13 +14,13 @@ import { resolveAvatar, titanLogo } from '../../src/lib/assets';
 import { useSocietyTheme, useDynamicColors } from '../../src/lib/SocietyThemeContext';
 
 const GOLD = '#D4AF37'; // fallback for StyleSheet only — JSX uses dc.gold
-const heroLandscape = require('../../assets/hero_landscape.png');
+const heroLandscape     = require('../../assets/hero_landscape.png');
+const heroLandscapeiPad = IS_PAD ? require('../../assets/hero_landscape_ipad.png') : null;
 const GREEN = '#4ade80';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
 const CHAT_READ_KEY = 'chat_last_read';
 const { width: SW } = Dimensions.get('window');
-const TILE_W = Math.floor((SW - 32 - 10) / 2);
 
 function greet(): string {
   const h = new Date().getHours();
@@ -41,6 +42,9 @@ export default function HomeScreen() {
   const router = useRouter();
   const { societyId: SOCIETY_ID, localLogo, logoUrl, societyName } = useSocietyTheme();
   const dc = useDynamicColors();
+  const { width: winW } = useWindowDimensions();
+  const contentW = IS_PAD ? winW - 220 : winW;
+  const tileW = Math.floor((contentW - 32 - 10) / 2);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../assets/fonts/JUSTSans-Regular.otf'),
@@ -281,13 +285,13 @@ export default function HomeScreen() {
               <View style={[s.heroLogoSection, { backgroundColor: dc.bg }]}>
                 <Image
                   source={localLogo ?? { uri: logoUrl! }}
-                  style={s.heroSocietyLogo}
+                  style={IS_PAD ? s.heroLogoiPad : s.heroSocietyLogo}
                   resizeMode="contain"
                 />
               </View>
             ) : (
               <Image
-                source={heroLandscape}
+                source={heroLandscapeiPad ?? heroLandscape}
                 style={s.heroSocietyLogo}
                 resizeMode="cover"
               />
@@ -303,7 +307,7 @@ export default function HomeScreen() {
               return (
                 <TouchableOpacity
                   key={tile.key}
-                  style={[s.tile, { backgroundColor: dc.card, borderColor: dc.border }, locked && s.tileLocked]}
+                  style={[s.tile, { width: tileW, backgroundColor: dc.card, borderColor: dc.border }, locked && s.tileLocked]}
                   onPress={() => handleTile(tile)}
                   activeOpacity={0.75}
                 >
@@ -457,12 +461,13 @@ const s = StyleSheet.create({
   heroLogoSection: {
     paddingVertical: 24, alignItems: 'center', justifyContent: 'center',
   },
-  heroSocietyLogo: { width: '100%' as const, height: 220 },
+  heroSocietyLogo: { width: '100%' as const, height: IS_PAD ? 320 : 220 },
+  heroLogoiPad:    { width: 320, height: 320, alignSelf: 'center' as const },
 
   // Tile grid
   grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   tile: {
-    width: TILE_W, backgroundColor: '#111111',
+    backgroundColor: '#111111',
     borderRadius: 14, padding: 16, gap: 6,
     borderWidth: 1, borderColor: '#1c1c1c',
   },
