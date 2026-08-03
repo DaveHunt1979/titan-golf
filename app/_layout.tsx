@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
 import { Slot, useRouter, useSegments } from 'expo-router';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { supabase } from '../src/lib/supabase';
 import { initDb } from '../src/lib/localDb';
 
@@ -71,6 +72,15 @@ export default function RootLayout() {
     animDoneRef.current = true;
     tryProceed();
   }
+
+  // Lock iPad to landscape, iPhone to portrait
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const lock = (Platform as any).isPad
+      ? ScreenOrientation.OrientationLock.LANDSCAPE
+      : ScreenOrientation.OrientationLock.PORTRAIT_UP;
+    ScreenOrientation.lockAsync(lock).catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function init() {

@@ -87,8 +87,11 @@ function recommendClub(yards: number | null, avgs: Record<string, number>): { cl
 }
 
 export default function RangefinderScreen() {
-  const { courseName: pCourse, holeNumber: pHole } = useLocalSearchParams<{ courseName?: string; holeNumber?: string }>();
+  const { courseName: pCourse, holeNumber: pHole, fromMatchId } = useLocalSearchParams<{ courseName?: string; holeNumber?: string; fromMatchId?: string }>();
   const router = useRouter();
+  const goBack = () => fromMatchId
+    ? router.navigate(`/(app)/score/enter/${fromMatchId}` as any)
+    : router.back();
   const dc = useDynamicColors();
   const { localLogo, logoUrl } = useSocietyTheme();
 
@@ -418,7 +421,7 @@ export default function RangefinderScreen() {
         <StatusBar style="light" />
 
         <View style={[s.selHeader, { backgroundColor: dc.bg }]}>
-          <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <TouchableOpacity onPress={goBack} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Ionicons name="chevron-back" size={24} color={dc.gold} />
           </TouchableOpacity>
           <View style={s.headerCenter}>
@@ -599,7 +602,7 @@ export default function RangefinderScreen() {
       {/* ── TOP HEADER ── */}
       <View style={s.topHeader}>
         <View style={s.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <TouchableOpacity onPress={goBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
 

@@ -3,7 +3,7 @@
     "name": "titan-golf",
     "slug": "titan-golf",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/TitanAppLogo.png",
     "scheme": "titangolf",
     "userInterfaceStyle": "dark",

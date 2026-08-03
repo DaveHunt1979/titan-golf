@@ -6,6 +6,8 @@ import { supabase } from '../../src/lib/supabase';
 import { registerForPushNotifications } from '../../src/lib/notifications';
 import { titanLogo } from '../../src/lib/assets';
 import { SocietyThemeProvider, useSocietyTheme } from '../../src/lib/SocietyThemeContext';
+import { IS_PAD } from '../../src/lib/useDeviceLayout';
+import IpadSidebar from '../../src/components/ipad/IpadSidebar';
 
 function TabIcon({ focused, children }: { focused: boolean; children: ReactNode }) {
   const { palette } = useSocietyTheme();
@@ -98,11 +100,12 @@ function AppLayoutInner() {
   const ic = (focused: boolean) =>
     focused ? palette.accent : palette.textSecondary;
 
-  return (
-    <View style={{ flex: 1 }}>
-      <Tabs
-        screenOptions={{
-          headerShown: false,
+  const tabsEl = (
+    <Tabs
+      tabBar={IS_PAD ? () => null : undefined}
+      screenOptions={{
+        headerShown: false,
+        ...(IS_PAD ? {} : {
           tabBarStyle: {
             backgroundColor: '#0a0a0a',
             borderTopColor: '#1c1c1c',
@@ -115,8 +118,9 @@ function AppLayoutInner() {
           tabBarLabelStyle: {
             fontSize: 10, fontWeight: '600', letterSpacing: 0.5, marginTop: 2,
           },
-        }}
-      >
+        }),
+      }}
+    >
         <Tabs.Screen name="index"          options={{ title: 'Home',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><HomeIcon        color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="score/index"    options={{ href: null }} />
         <Tabs.Screen name="tour/index"     options={{ href: null }} />
@@ -137,6 +141,8 @@ function AppLayoutInner() {
         <Tabs.Screen name="admin/concept-swindle"      options={{ href: null }} />
         <Tabs.Screen name="admin/concept-swindle-game" options={{ href: null }} />
         <Tabs.Screen name="games/new"                options={{ href: null }} />
+        <Tabs.Screen name="games/GroupBuilderSheet"   options={{ href: null }} />
+        <Tabs.Screen name="score/results/[matchId]"  options={{ href: null }} />
         <Tabs.Screen name="score/[matchId]"          options={{ href: null }} />
         <Tabs.Screen name="score/enter/[matchId]"    options={{ href: null }} />
         <Tabs.Screen name="score/preview/[matchId]"  options={{ href: null }} />
@@ -179,11 +185,20 @@ function AppLayoutInner() {
         <Tabs.Screen name="friends"                  options={{ href: null }} />
         <Tabs.Screen name="join" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>
+  );
 
+  return (
+    <View style={{ flex: 1 }}>
+      {IS_PAD ? (
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+          <IpadSidebar isAdmin={isAdmin} avatarUrl={avatarUrl} />
+          <View style={{ flex: 1 }}>{tabsEl}</View>
+        </View>
+      ) : tabsEl}
 
-      {/* Persistent camera FAB — accessible during gameplay */}
+      {/* Persistent camera FAB */}
       <TouchableOpacity
-        style={[fab.btn, { borderColor: palette.accent }]}
+        style={[fab.btn, { borderColor: palette.accent }, IS_PAD ? fab.btnPad : null]}
         onPress={() => router.push('/(app)/camera' as any)}
         activeOpacity={0.85}
       >
@@ -204,6 +219,10 @@ const fab = StyleSheet.create({
     backgroundColor: '#111', borderWidth: 1.5, borderColor: '#D4AF37',
     alignItems: 'center', justifyContent: 'center',
     zIndex: 100,
+  },
+  btnPad: {
+    bottom: 24,
+    right: 24,
   },
 });
 

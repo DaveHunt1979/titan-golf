@@ -439,6 +439,8 @@ export default function EnterScoresScreen() {
   const holeSequence = effectiveStartHole > 1
     ? [...Array.from({ length: 19 - effectiveStartHole }, (_, i) => effectiveStartHole + i), ...Array.from({ length: effectiveStartHole - 1 }, (_, i) => i + 1)]
     : Array.from({ length: 18 }, (_, i) => i + 1);
+  // Reorder hole results to match play sequence so calcHoles reads them correctly
+  const sequencedHolesStr = holeSequence.map(h => holeChars[h - 1] ?? '.').join('');
   const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? 19;
   const activeHole = editingHole ?? currentHole;
   const allHolesFilled = currentHole > 18;
@@ -1134,7 +1136,7 @@ export default function EnterScoresScreen() {
   const leaderStatusText = leaderPts > 0 && (isStrokePlay || match.secondary_format)
     ? `${leaderName} leads · ${leaderPts}pts`
     : null;
-  const { homeUp: liveHomeUp } = calcHoles(holesStr);
+  const { homeUp: liveHomeUp } = calcHoles(sequencedHolesStr);
   const holesLeft = holeChars.filter(c => c === '.').length;
 
   const statusBannerText = isMatchplay
@@ -1170,7 +1172,7 @@ export default function EnterScoresScreen() {
         </View>
         <TouchableOpacity
           style={s.headerSide}
-          onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${currentHole}` as any)}
+          onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${currentHole}&fromMatchId=${matchId}` as any)}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <Ionicons name="scan-outline" size={22} color={GOLD} />
@@ -1372,7 +1374,7 @@ export default function EnterScoresScreen() {
                 <View style={s.actionsRow}>
                   <TouchableOpacity
                     style={s.actionBtn}
-                    onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${currentHole}` as any)}
+                    onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${currentHole}&fromMatchId=${matchId}` as any)}
                     activeOpacity={0.7}
                   >
                     <Ionicons name="scan-outline" size={20} color={GOLD} />
