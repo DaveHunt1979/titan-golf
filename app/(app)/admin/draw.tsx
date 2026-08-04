@@ -517,6 +517,14 @@ export default function TournamentDrawScreen() {
               </View>
             )}
 
+            <TouchableOpacity
+              style={s.prizesBtn}
+              onPress={() => router.push(`/(app)/admin/prizes?id=${competitionId}` as any)}
+              activeOpacity={0.8}
+            >
+              <Text style={s.prizesBtnText}>🏅  CONFIGURE PRIZES →</Text>
+            </TouchableOpacity>
+
             {comp?.status === 'active' ? (
               <View style={[s.activatedBanner]}>
                 <Ionicons name="checkmark-circle" size={18} color={GREEN} />
@@ -686,6 +694,9 @@ const s = StyleSheet.create({
   vsText:    { fontFamily: 'JUSTSans', fontSize: 11, color: '#555', width: 20, textAlign: 'center' },
 
   summaryCard: { backgroundColor: '#111', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 16 },
+  prizesBtn:     { borderWidth: 1, borderColor: GOLD + '55', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 12, backgroundColor: GOLD + '0D' },
+  prizesBtnText: { fontFamily: 'JUSTSans-ExBold', fontSize: 13, color: GOLD, letterSpacing: 0.5 },
+
   activateBtn: { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
   activateBtnText: { fontFamily: 'JUSTSans-ExBold', fontSize: 15, color: '#000', letterSpacing: 0.5 },
 

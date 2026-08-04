@@ -49,6 +49,16 @@ export interface ContactsSection { id: string; type: 'contacts'; title: string; 
 export interface RulesSection    { id: string; type: 'rules';    title: string; items: string[]; }
 export type InfoSection = TextSection | ScheduleSection | TravelSection | LocationSection | ContactsSection | RulesSection;
 
+interface PrizeCat {
+  id: string; name: string; hcp_min: number | null; hcp_max: number | null; display_order: number;
+  prize_payouts: { position: number; prize_money: number }[];
+}
+interface IndivEntry {
+  player_id: string; display_name: string; handicap_index: number | null;
+  stableford_total: number; category_id: string | null; category_name: string | null;
+  category_position: number | null; prize_money: number | null;
+}
+
 const NOTIF_LABELS: Record<string, string> = {
   birdie: 'Birdie', eagle: 'Eagle', hole_in_one: 'Hole in One!',
   match_result: 'Match Result', draw: 'Draw Published',
@@ -63,6 +73,10 @@ function luminance(hex: string): number {
   const g = parseInt(c.slice(2, 4), 16);
   const b = parseInt(c.slice(4, 6), 16);
   return (r * 299 + g * 587 + b * 114) / 1000;
+}
+
+function ordinalLabel(n: number): string {
+  if (n === 1) return '1st'; if (n === 2) return '2nd'; if (n === 3) return '3rd'; return `${n}th`;
 }
 
 function formatDate(s: string | null): string {
@@ -96,12 +110,14 @@ export default function TourScreen() {
   const [myPlayerId, setMyPlayerId]   = useState<string | null>(null);
   const [loading, setLoading]         = useState(true);
   const [refreshing, setRefreshing]   = useState(false);
-  const [selectedSection, setSelectedSection] = useState<'matches' | 'standings' | 'info' | 'social' | null>(null);
+  const [selectedSection, setSelectedSection] = useState<'matches' | 'standings' | 'info' | 'social' | 'players' | null>(null);
   const [pin, setPin]                 = useState('');
   const [verifying, setVerifying]     = useState(false);
   const [sections, setSections]         = useState<InfoSection[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [instagramUrl, setInstagramUrl] = useState<string | null>(null);
+  const [prizeCats, setPrizeCats]       = useState<PrizeCat[]>([]);
+  const [indivBoard, setIndivBoard]     = useState<IndivEntry[]>([]);
 
   useEffect(() => {
     load();
@@ -133,6 +149,8 @@ export default function TourScreen() {
       { data: playersData },
       { data: kronosComps },
       { data: champsData },
+      { data: cpData },
+      { data: catsData },
     ] = await Promise.all([
       supabase.from('competition_days').select('*').eq('competition_id', compId).order('day_number'),
       supabase.from('matches').select('*').eq('competition_id', compId).order('match_number'),
@@ -141,6 +159,13 @@ export default function TourScreen() {
       supabase.from('players').select('id,display_name'),
       supabase.from('competitions').select('id').eq('include_in_kronos', true),
       supabase.from('champions').select('*').order('year', { ascending: false }),
+      supabase.from('competition_players')
+        .select('player_id,handicap_index,players(display_name)')
+        .eq('competition_id', compId),
+      supabase.from('prize_categories')
+        .select('id,name,hcp_min,hcp_max,display_order,prize_payouts(position,prize_money)')
+        .eq('competition_id', compId)
+        .order('display_order'),
     ]);
 
     if (daysData)    setDays(daysData as CompetitionDay[]);
@@ -148,6 +173,8 @@ export default function TourScreen() {
     if (teamsData)   setTeams(teamsData as Team[]);
     if (champsData)  setChampions(champsData as Champion[]);
     if (playersData) setPlayers(playersData as any[]);
+    const cats = (catsData ?? []) as unknown as PrizeCat[];
+    setPrizeCats(cats);
 
     if (holesData && playersData) {
       const kronosIds = new Set((kronosComps ?? []).map((c: any) => c.id));
@@ -171,6 +198,68 @@ export default function TourScreen() {
         })
         .sort((a, b) => b.total - a.total);
       setKronosRows(rows);
+    }
+
+    // Individual tournament leaderboard with prize positions
+    if (holesData && cpData) {
+      const thisMatchIds = new Set((matchesData as any[] ?? []).map((m: any) => m.id));
+      const totals: Record<string, number> = {};
+      (holesData as any[]).forEach(h => {
+        if (h.stableford_pts != null && thisMatchIds.has(h.match_id)) {
+          totals[h.player_id] = (totals[h.player_id] ?? 0) + h.stableford_pts;
+        }
+      });
+
+      const cpMap: Record<string, { display_name: string; handicap_index: number | null }> = {};
+      (cpData as any[]).forEach(cp => {
+        cpMap[cp.player_id] = { display_name: cp.players?.display_name ?? '—', handicap_index: cp.handicap_index };
+      });
+
+      const sorted = Object.entries(totals)
+        .map(([pid, total]) => ({
+          player_id: pid,
+          display_name: cpMap[pid]?.display_name ?? '—',
+          handicap_index: cpMap[pid]?.handicap_index ?? null,
+          stableford_total: total,
+          category_id: null as string | null,
+          category_name: null as string | null,
+          category_position: null as number | null,
+          prize_money: null as number | null,
+        }))
+        .sort((a, b) => b.stableford_total - a.stableford_total);
+
+      // Assign each player to their prize category
+      const localCats = (catsData ?? []) as unknown as PrizeCat[];
+      sorted.forEach(entry => {
+        const cat = localCats.find(c => {
+          const hcp = entry.handicap_index ?? 999;
+          const okMin = c.hcp_min == null || hcp >= c.hcp_min;
+          const okMax = c.hcp_max == null || hcp <= c.hcp_max;
+          return okMin && okMax;
+        });
+        if (cat) { entry.category_id = cat.id; entry.category_name = cat.name; }
+      });
+
+      // Rank within each category
+      const catGroups: Record<string, typeof sorted> = {};
+      sorted.forEach(e => {
+        if (e.category_id) {
+          if (!catGroups[e.category_id]) catGroups[e.category_id] = [];
+          catGroups[e.category_id].push(e);
+        }
+      });
+      Object.entries(catGroups).forEach(([catId, players]) => {
+        const catDef = localCats.find(c => c.id === catId);
+        players
+          .sort((a, b) => b.stableford_total - a.stableford_total)
+          .forEach((p, idx) => {
+            p.category_position = idx + 1;
+            const payout = catDef?.prize_payouts?.find(pp => pp.position === idx + 1);
+            p.prize_money = payout ? Number(payout.prize_money) : null;
+          });
+      });
+
+      setIndivBoard(sorted);
     }
   }
 
@@ -415,7 +504,7 @@ export default function TourScreen() {
         >
           <Text style={{ fontSize: 14, fontFamily: FFB, color: '#fff' }}>‹ Back</Text>
           <Text style={{ fontSize: 16, fontFamily: FFB, color: '#fff' }}>
-            {selectedSection === 'matches' ? 'Matches' : selectedSection === 'standings' ? 'Standings' : selectedSection === 'info' ? 'Info Pack' : 'Live & Social'}
+            {selectedSection === 'matches' ? 'Matches' : selectedSection === 'standings' ? 'Standings' : selectedSection === 'players' ? 'Players' : selectedSection === 'info' ? 'Info Pack' : 'Live & Social'}
           </Text>
         </TouchableOpacity>
       )}
@@ -492,6 +581,12 @@ export default function TourScreen() {
               <Text style={st.sectionTileIcon}>📸</Text>
               <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Live & Social</Text>
               <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Feed & Instagram</Text>
+              <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => setSelectedSection('players')} activeOpacity={0.82}>
+              <Text style={st.sectionTileIcon}>🏅</Text>
+              <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Players</Text>
+              <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Scores & prize positions</Text>
               <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
             </TouchableOpacity>
           </View>
@@ -711,6 +806,112 @@ export default function TourScreen() {
                 </View>
               );
             })}
+          </View>
+        )}
+
+        {/* ── Players (individual leaderboard + prize positions) ── */}
+        {selectedSection === 'players' && (
+          <View>
+            <Text style={st.sectionHeader}>INDIVIDUAL LEADERBOARD</Text>
+            <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 11, color: '#555', marginBottom: 12, lineHeight: 18 }}>
+              Stableford points from all rounds. Prize positions update live as scores come in.
+            </Text>
+            <View>
+              <View style={st.tableHeader}>
+                <Text style={[st.cell, st.cellTeam, st.th]}>PLAYER</Text>
+                <Text style={[st.cell, st.th]}>PTS</Text>
+                <Text style={[st.cell, { flex: 2 }, st.th]}>PRIZE</Text>
+              </View>
+              {indivBoard.map((entry, i) => {
+                const isMe = entry.player_id === myPlayerId;
+                const hasPrize = entry.prize_money != null && entry.prize_money > 0;
+                return (
+                  <View
+                    key={entry.player_id}
+                    style={[
+                      st.row,
+                      { backgroundColor: dc.card, borderColor: dc.border },
+                      isMe && { borderColor: 'rgba(212,175,55,0.5)', backgroundColor: 'rgba(212,175,55,0.05)' },
+                    ]}
+                  >
+                    <View style={[st.cell, st.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                      <Text style={st.pos}>{i + 1}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[st.teamName, isMe && { color: GOLD }]} numberOfLines={1}>{entry.display_name}</Text>
+                        {entry.category_name && (
+                          <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: '#555', marginTop: 1 }}>
+                            {entry.category_name}{entry.category_position != null ? ` · ${ordinalLabel(entry.category_position)} in cat` : ''}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    <Text style={[st.cell, st.pts]}>{entry.stableford_total}</Text>
+                    <View style={[st.cell, { flex: 2, alignItems: 'flex-end', paddingRight: 4 }]}>
+                      {hasPrize ? (
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 14, color: GOLD }}>
+                            £{Number(entry.prize_money).toLocaleString('en-GB', { minimumFractionDigits: 0 })}
+                          </Text>
+                          <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 9, color: '#4ade80', letterSpacing: 0.5 }}>
+                            IN THE MONEY
+                          </Text>
+                        </View>
+                      ) : entry.category_position != null ? (
+                        <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 11, color: '#555' }}>
+                          {ordinalLabel(entry.category_position)}
+                        </Text>
+                      ) : (
+                        <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 11, color: '#333' }}>—</Text>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+              {indivBoard.length === 0 && (
+                <Text style={st.noResults}>No Stableford scores yet.{'\n'}Scores will appear as players complete holes.</Text>
+              )}
+            </View>
+
+            {prizeCats.length > 0 && (
+              <>
+                <Text style={[st.sectionHeader, { marginTop: 24 }]}>PRIZE CATEGORIES</Text>
+                {prizeCats.map(cat => {
+                  const inCat = indivBoard.filter(e => e.category_id === cat.id);
+                  const sortedPayouts = [...cat.prize_payouts].sort((a, b) => a.position - b.position);
+                  return (
+                    <View key={cat.id} style={[st.champCard, { backgroundColor: dc.card, borderColor: dc.border, marginBottom: 10 }]}>
+                      <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: dc.gold, letterSpacing: 1.5, marginBottom: 6 }}>
+                        {cat.name.toUpperCase()}
+                        {(cat.hcp_min != null || cat.hcp_max != null) && (
+                          <Text style={{ color: '#555' }}>
+                            {'  '}HCP {cat.hcp_min ?? '—'} – {cat.hcp_max ?? '—'}
+                          </Text>
+                        )}
+                      </Text>
+                      {sortedPayouts.map(pp => {
+                        const leader = inCat[pp.position - 1];
+                        return (
+                          <View key={pp.position} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 5, borderTopWidth: pp.position > 1 ? 1 : 0, borderTopColor: '#1c1c1c' }}>
+                            <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 12, color: '#555', width: 32 }}>
+                              {pp.position === 1 ? '1st' : pp.position === 2 ? '2nd' : pp.position === 3 ? '3rd' : `${pp.position}th`}
+                            </Text>
+                            <Text style={{ flex: 1, fontFamily: 'JUSTSans-ExBold', fontSize: 14, color: dc.cardText }}>
+                              {leader?.display_name ?? '—'}
+                            </Text>
+                            <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 14, color: GOLD }}>
+                              £{Number(pp.prize_money).toLocaleString('en-GB', { minimumFractionDigits: 0 })}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                      {sortedPayouts.length === 0 && (
+                        <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 12, color: '#555' }}>No prize amounts set</Text>
+                      )}
+                    </View>
+                  );
+                })}
+              </>
+            )}
           </View>
         )}
 
