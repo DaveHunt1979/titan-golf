@@ -462,7 +462,10 @@ function RoundCard({ match, playerNames, playerAvatars, s, GOLD }: {
   return (
     <TouchableOpacity
       style={[s.card, isLive && s.cardLive, isComplete && s.cardComplete]}
-      onPress={() => router.push(`/(app)/score/${match.id}` as any)}
+      onPress={() => {
+        if (match.day_id) router.push(`/(app)/score/day/${match.day_id}` as any);
+        else router.push(`/(app)/score/enter/${match.id}` as any);
+      }}
       activeOpacity={0.75}
     >
       <View style={s.cardTop}>
