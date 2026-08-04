@@ -111,7 +111,9 @@ export function getStandings(
     result_str: string | null;
     holes_string: string;
     is_singles: boolean;
-  }>
+  }>,
+  ptsWin = 1,
+  ptsHalf = 0.5,
 ): TeamStanding[] {
   const teamMap = new Map<string, TeamStanding>();
   const ensure = (id: string) => {
@@ -132,17 +134,14 @@ export function getStandings(
     home.played++;
     away.played++;
 
-    const winPts  = m.is_singles ? 3 : 2;
-    const halfPts = m.is_singles ? 1 : 1;
-
     if (winner === 'half') {
-      home.pts += halfPts; home.h++;
-      away.pts += halfPts; away.h++;
+      home.pts += ptsHalf; home.h++;
+      away.pts += ptsHalf; away.h++;
     } else if (winner === 'home') {
-      home.pts += winPts; home.w++;
+      home.pts += ptsWin; home.w++;
       away.l++;
     } else {
-      away.pts += winPts; away.w++;
+      away.pts += ptsWin; away.w++;
       home.l++;
     }
   }

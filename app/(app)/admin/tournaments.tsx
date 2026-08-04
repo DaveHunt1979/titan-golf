@@ -171,7 +171,7 @@ export default function AdminTournaments() {
         {active.length > 0 && (
           <View style={s.section}>
             <Text style={s.sectionLabel}>ACTIVE</Text>
-            {active.map(c => <CompCard key={c.id} comp={c} onSharePin={() => sharePin(c)} />)}
+            {active.map(c => <CompCard key={c.id} comp={c} onSharePin={() => sharePin(c)} onManage={() => router.push(`/(app)/admin/draw?id=${c.id}` as any)} />)}
           </View>
         )}
 
@@ -179,7 +179,7 @@ export default function AdminTournaments() {
         {draft.length > 0 && (
           <View style={s.section}>
             <Text style={s.sectionLabel}>DRAFT</Text>
-            {draft.map(c => <CompCard key={c.id} comp={c} onSharePin={() => sharePin(c)} />)}
+            {draft.map(c => <CompCard key={c.id} comp={c} onSharePin={() => sharePin(c)} onManage={() => router.push(`/(app)/admin/draw?id=${c.id}` as any)} />)}
           </View>
         )}
 
@@ -203,7 +203,7 @@ export default function AdminTournaments() {
   );
 }
 
-function CompCard({ comp, onSharePin }: { comp: Competition; onSharePin: () => void }) {
+function CompCard({ comp, onSharePin, onManage }: { comp: Competition; onSharePin: () => void; onManage?: () => void }) {
   const statusColor =
     comp.status === 'active'   ? GREEN :
     comp.status === 'complete' ? GOLD  : '#555';
@@ -244,6 +244,11 @@ function CompCard({ comp, onSharePin }: { comp: Competition; onSharePin: () => v
           </TouchableOpacity>
         )}
       </View>
+      {(comp.status === 'draft' || comp.status === 'active') && onManage && (
+        <TouchableOpacity style={s.manageBtn} onPress={onManage} activeOpacity={0.8}>
+          <Text style={s.manageBtnText}>MANAGE DRAW</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -328,6 +333,9 @@ const s = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6,
   },
   shareBtnText: { fontFamily: FFB, color: GOLD, fontSize: 11 },
+
+  manageBtn:     { marginTop: 10, backgroundColor: GOLD + '1A', borderWidth: 1, borderColor: GOLD + '55', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  manageBtnText: { fontFamily: FFB, fontSize: 12, color: GOLD, letterSpacing: 1 },
 
   empty:      { alignItems: 'center', paddingTop: 80, gap: 10 },
   emptyEmoji: { fontSize: 48 },

@@ -41,6 +41,9 @@ export interface Competition {
   info_sections: Json[];
   include_in_kronos: boolean;
   pin: string | null;
+  tournament_type: 'casual' | 'ryder_cup' | 'titan_tour';
+  pts_win: number;
+  pts_half: number;
 }
 
 export interface CompetitionDay {
@@ -52,6 +55,8 @@ export interface CompetitionDay {
   course_rating: number | null;
   slope_rating: number;
   play_date: string | null;
+  day_format: string | null;
+  hcp_pct: number;
 }
 
 export interface Match {

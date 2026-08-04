@@ -242,7 +242,11 @@ export default function TourScreen() {
 
   // ── Derived data ────────────────────────────────────────────────────
 
-  const standings = getStandings((matches as any[]).filter((m: any) => m.home_team_id && m.away_team_id));
+  const standings = getStandings(
+    (matches as any[]).filter((m: any) => m.home_team_id && m.away_team_id),
+    (competition as any).pts_win  ?? 1,
+    (competition as any).pts_half ?? 0.5,
+  );
   const enriched  = standings.map(s => {
     const t = teams.find(t => t.id === s.teamId);
     return { ...s, name: t?.name ?? '—', accent_color: t?.accent_color ?? '#555' };
