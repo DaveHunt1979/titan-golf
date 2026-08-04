@@ -91,9 +91,11 @@ const DAY_FORMATS: Array<{ id: DayFormatId; label: string; sub: string }> = [
 ];
 
 const HCP_OPTIONS = [
-  { pct: 100, label: 'Full' },
-  { pct: 87,  label: '7/8' },
-  { pct: 75,  label: '3/4' },
+  { pct: 100, label: '100%' },
+  { pct: 95,  label: '95%' },
+  { pct: 90,  label: '90%' },
+  { pct: 85,  label: '85%' },
+  { pct: 75,  label: '75%' },
   { pct: 0,   label: 'Scratch' },
 ];
 
@@ -119,6 +121,8 @@ export default function BuildTournamentScreen() {
   const [name, setName]                     = useState('');
   const [year, setYear]                     = useState(String(new Date().getFullYear() + 1));
   const [days, setDays]                     = useState<DayConfig[]>([]);
+  const [ptsWin, setPtsWin]               = useState('1');
+  const [ptsHalf, setPtsHalf]             = useState('0.5');
   const [includeInKronos, setIncludeInKronos] = useState(false);
   const [creating, setCreating]             = useState(false);
 
@@ -128,6 +132,8 @@ export default function BuildTournamentScreen() {
     setName('');
     setYear(String(new Date().getFullYear() + 1));
     setDays([]);
+    setPtsWin('1');
+    setPtsHalf('0.5');
     setIncludeInKronos(false);
     setCreating(false);
   }, []));
@@ -171,18 +177,26 @@ export default function BuildTournamentScreen() {
     setDays(prev => prev.slice(0, -1));
   }
 
+  function tournamentType(f: FormatId): 'ryder_cup' | 'titan_tour' | 'casual' {
+    if (f === 'ryder_cup') return 'ryder_cup';
+    if (f === 'team_matchplay') return 'titan_tour';
+    return 'casual';
+  }
+
+  const isMatchplay = selectedFormat === 'ryder_cup' || selectedFormat === 'team_matchplay';
+
   async function create() {
     if (!selectedFormat || !name.trim()) return;
     if (!societyId) { Alert.alert('Error', 'Society not found.'); return; }
     setCreating(true);
 
+    const winPts  = parseFloat(ptsWin)  || 1;
+    const halfPts = parseFloat(ptsHalf) || 0.5;
+
     const settings = {
       format_type: selectedFormat,
       num_days: days.length,
       day_configs: days.map(d => ({ format: d.format, hcp_pct: d.hcpPct })),
-      ...(selectedFormat === 'team_matchplay' || selectedFormat === 'ryder_cup'
-        ? { pts_win: 2, pts_win_singles: 3, pts_half: 1 }
-        : {}),
     };
 
     const pin = String(1000 + Math.floor(Math.random() * 9000));
@@ -190,11 +204,14 @@ export default function BuildTournamentScreen() {
     const { data: comp, error: compErr } = await supabase
       .from('competitions')
       .insert({
-        society_id: societyId,
-        name: name.trim(),
-        year: parseInt(year, 10) || new Date().getFullYear() + 1,
-        format: selectedFormat,
-        status: 'draft',
+        society_id:      societyId,
+        name:            name.trim(),
+        year:            parseInt(year, 10) || new Date().getFullYear() + 1,
+        format:          selectedFormat,
+        tournament_type: tournamentType(selectedFormat),
+        pts_win:         isMatchplay ? winPts  : 1,
+        pts_half:        isMatchplay ? halfPts : 0.5,
+        status:          'draft',
         settings,
         include_in_kronos: includeInKronos,
         pin,
@@ -210,8 +227,10 @@ export default function BuildTournamentScreen() {
 
     const dayRows = days.map((d, i) => ({
       competition_id: comp.id,
-      day_number: i + 1,
-      course_name: d.courseName.trim() || null,
+      day_number:     i + 1,
+      course_name:    d.courseName.trim() || null,
+      day_format:     d.format,
+      hcp_pct:        d.hcpPct,
     }));
 
     const { error: daysErr } = await supabase.from('competition_days').insert(dayRows);
@@ -355,6 +374,29 @@ export default function BuildTournamentScreen() {
               </TouchableOpacity>
             </View>
 
+            {isMatchplay && (
+              <>
+                <Text style={styles.fieldLabel}>POINTS — MATCH WIN</Text>
+                <TextInput
+                  style={styles.input}
+                  value={ptsWin}
+                  onChangeText={setPtsWin}
+                  placeholder="1"
+                  placeholderTextColor="#444"
+                  keyboardType="decimal-pad"
+                />
+                <Text style={styles.fieldLabel}>POINTS — HALF</Text>
+                <TextInput
+                  style={styles.input}
+                  value={ptsHalf}
+                  onChangeText={setPtsHalf}
+                  placeholder="0.5"
+                  placeholderTextColor="#444"
+                  keyboardType="decimal-pad"
+                />
+              </>
+            )}
+
             <Text style={styles.fieldLabel}>KRONOS TROPHY</Text>
             <View style={styles.toggleRow}>
               <View style={{ flex: 1 }}>
@@ -442,6 +484,7 @@ export default function BuildTournamentScreen() {
               <ReviewRow label="Name" value={name.trim() || '—'} />
               <ReviewRow label="Year" value={year} />
               <ReviewRow label="Days" value={String(days.length)} />
+              {isMatchplay && <ReviewRow label="Points" value={`Win ${ptsWin} / Half ${ptsHalf}`} />}
               <ReviewRow label="Kronos" value={includeInKronos ? '✓ Included' : 'Not included'} last />
             </View>
 

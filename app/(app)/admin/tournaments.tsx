@@ -101,7 +101,13 @@ export default function AdminTournaments() {
           <Text style={s.headerTitle}>TOURNAMENTS</Text>
           <Text style={s.headerSub}>admin</Text>
         </View>
-        <View style={s.headerRight} />
+        <TouchableOpacity
+          style={s.newBtn}
+          onPress={() => router.push('/(app)/admin/build' as any)}
+          activeOpacity={0.8}
+        >
+          <Text style={s.newBtnText}>+ NEW</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -261,7 +267,12 @@ const s = StyleSheet.create({
   },
   headerLeft:   { width: 70, alignItems: 'flex-start' },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerRight:  { width: 70 },
+  headerRight:  { width: 70, alignItems: 'flex-end' },
+  newBtn: {
+    backgroundColor: GOLD + '1A', borderWidth: 1, borderColor: GOLD + '55',
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5,
+  },
+  newBtnText: { fontFamily: FFB, fontSize: 11, color: GOLD, letterSpacing: 1 },
   headerLogo:   { width: 28, height: 28, marginBottom: 2 },
   headerTitle:  { fontFamily: FFB, fontSize: 15, color: '#fff', letterSpacing: 0.5 },
   headerSub:    { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1, textTransform: 'uppercase' },
