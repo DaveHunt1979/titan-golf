@@ -186,6 +186,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="swindle/[gameId]"         options={{ href: null }} />
         <Tabs.Screen name="swindle/score/[gameId]"   options={{ href: null }} />
         <Tabs.Screen name="swindle/scan/[gameId]"    options={{ href: null }} />
+        <Tabs.Screen name="swindle/group/new"        options={{ href: null }} />
         <Tabs.Screen name="admin/membership"         options={{ href: null }} />
         <Tabs.Screen name="admin/groups"             options={{ href: null }} />
         <Tabs.Screen name="admin/codes"              options={{ href: null }} />

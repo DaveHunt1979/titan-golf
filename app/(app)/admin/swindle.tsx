@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Alert, Platform, Image,
+  ActivityIndicator, RefreshControl, Alert, Platform, Image, Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { supabase } from '../../../src/lib/supabase';
-import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -43,6 +43,18 @@ interface MoneyEntry {
   wins: number;
 }
 
+interface SwindleMember {
+  player_id: string;
+  display_name: string;
+  handicap_index: number | null;
+}
+
+interface AllSocietyMember {
+  player_id: string;
+  display_name: string;
+  is_swindle: boolean;
+}
+
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
@@ -56,12 +68,43 @@ export default function SwindleAdminScreen() {
     'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
-  const [loading, setLoading]       = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [tab, setTab]               = useState<'games' | 'money'>('games');
-  const [games, setGames]           = useState<SwindleGame[]>([]);
-  const [moneyList, setMoneyList]   = useState<MoneyEntry[]>([]);
-  const [downloading, setDownloading] = useState(false);
+  const { societyId } = useSocietyTheme() as any;
+
+  const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
+  const [tab, setTab]                   = useState<'games' | 'money' | 'members'>('games');
+  const [games, setGames]               = useState<SwindleGame[]>([]);
+  const [moneyList, setMoneyList]       = useState<MoneyEntry[]>([]);
+  const [downloading, setDownloading]   = useState(false);
+  const [swindleMembers, setSwindleMembers] = useState<SwindleMember[]>([]);
+  const [allMembers, setAllMembers]     = useState<AllSocietyMember[]>([]);
+  const [addMemberModal, setAddMemberModal] = useState(false);
+
+  async function removeSwindleMember(playerId: string) {
+    if (!societyId) return;
+    const { data: cur } = await supabase
+      .from('society_members').select('membership_types')
+      .eq('society_id', societyId).eq('player_id', playerId).maybeSingle();
+    const types: string[] = (cur?.membership_types ?? []) as string[];
+    await supabase.from('society_members')
+      .update({ membership_types: types.filter(t => t !== 'swindle') })
+      .eq('society_id', societyId).eq('player_id', playerId);
+    load();
+  }
+
+  async function addSwindleMember(playerId: string) {
+    if (!societyId) return;
+    const { data: cur } = await supabase
+      .from('society_members').select('membership_types')
+      .eq('society_id', societyId).eq('player_id', playerId).maybeSingle();
+    const types: string[] = (cur?.membership_types ?? []) as string[];
+    if (!types.includes('swindle')) types.push('swindle');
+    await supabase.from('society_members')
+      .update({ membership_types: types })
+      .eq('society_id', societyId).eq('player_id', playerId);
+    setAddMemberModal(false);
+    load();
+  }
 
   const load = useCallback(async () => {
     const { data: gamesData } = await supabase
@@ -119,9 +162,29 @@ export default function SwindleAdminScreen() {
     }
 
     setMoneyList(Object.values(earningsMap).sort((a, b) => b.earnings - a.earnings));
+
+    if (societyId) {
+      const { data: memData } = await supabase
+        .from('society_members')
+        .select('player_id, membership_types, players(display_name, handicap_index)')
+        .eq('society_id', societyId);
+      const swindle: SwindleMember[] = [];
+      const all: AllSocietyMember[] = [];
+      for (const m of (memData ?? []) as any[]) {
+        const types: string[] = m.membership_types ?? [];
+        const isSwindle = types.includes('swindle');
+        const row = { player_id: m.player_id, display_name: m.players?.display_name ?? 'Unknown', handicap_index: m.players?.handicap_index ?? null, is_swindle: isSwindle };
+        all.push(row);
+        if (isSwindle) swindle.push(row);
+      }
+      all.sort((a, b) => a.display_name.localeCompare(b.display_name));
+      setSwindleMembers(swindle.sort((a, b) => a.display_name.localeCompare(b.display_name)));
+      setAllMembers(all);
+    }
+
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [societyId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -265,7 +328,7 @@ export default function SwindleAdminScreen() {
 
       {/* Tab bar */}
       <View style={s.tabBar}>
-        {(['games', 'money'] as const).map(t => (
+        {(['games', 'money', 'members'] as const).map(t => (
           <TouchableOpacity
             key={t}
             style={[s.tabItem, tab === t && s.tabItemActive]}
@@ -273,7 +336,7 @@ export default function SwindleAdminScreen() {
             activeOpacity={0.7}
           >
             <Text style={[s.tabLabel, tab === t && s.tabLabelActive]}>
-              {t === 'games' ? 'All Games' : 'Money List'}
+              {t === 'games' ? 'All Games' : t === 'money' ? 'Money List' : 'Members'}
             </Text>
           </TouchableOpacity>
         ))}
@@ -375,8 +438,69 @@ export default function SwindleAdminScreen() {
           </>
         )}
 
+        {tab === 'members' && (
+          <>
+            <View style={s.membersHeader}>
+              <Text style={s.moneySubtitle}>{swindleMembers.length} member{swindleMembers.length !== 1 ? 's' : ''} with swindle access</Text>
+              <TouchableOpacity style={s.addMemberBtn} onPress={() => setAddMemberModal(true)} activeOpacity={0.8}>
+                <Text style={s.addMemberBtnText}>+ Add</Text>
+              </TouchableOpacity>
+            </View>
+            {swindleMembers.length === 0 && (
+              <Text style={s.empty}>No swindle members yet. Tap + Add to grant access.</Text>
+            )}
+            {swindleMembers.map(m => (
+              <View key={m.player_id} style={s.memberRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.memberName}>{m.display_name}</Text>
+                  {m.handicap_index != null && <Text style={s.memberHcp}>HCP {m.handicap_index}</Text>}
+                </View>
+                <TouchableOpacity
+                  style={s.removeBtn}
+                  onPress={() => Alert.alert('Remove member', `Remove ${m.display_name} from the swindle?`, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Remove', style: 'destructive', onPress: () => removeSwindleMember(m.player_id) },
+                  ])}
+                  activeOpacity={0.8}
+                >
+                  <Text style={s.removeBtnText}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </>
+        )}
+
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Add Member Modal */}
+      <Modal visible={addMemberModal} animationType="slide" presentationStyle="pageSheet">
+        <View style={{ flex: 1, backgroundColor: '#0a0a0a' }}>
+          <View style={s.modalHeader}>
+            <TouchableOpacity onPress={() => setAddMemberModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={s.modalCancel}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={s.modalTitle}>ADD MEMBER</Text>
+            <View style={{ width: 60 }} />
+          </View>
+          <ScrollView>
+            {allMembers.filter(m => !m.is_swindle).length === 0 && (
+              <Text style={{ fontFamily: FFB, color: '#555', padding: 24, textAlign: 'center' }}>All society members already have swindle access.</Text>
+            )}
+            {allMembers.filter(m => !m.is_swindle).map(m => (
+              <TouchableOpacity
+                key={m.player_id}
+                style={s.pickerRow}
+                onPress={() => addSwindleMember(m.player_id)}
+                activeOpacity={0.8}
+              >
+                <Text style={s.pickerRowText}>{m.display_name}</Text>
+                <Text style={s.pickerRowAdd}>+ Add</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
 
       {/* + FAB — create new swindle */}
       <TouchableOpacity
@@ -501,4 +625,20 @@ const s = StyleSheet.create({
   moneyName:     { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 2 },
   moneyDetail:   { fontSize: 11, fontFamily: FFB, color: '#fff' },
   moneyEarnings: { fontSize: 18, fontFamily: FFB, color: PURPLE },
+
+  membersHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  addMemberBtn:     { backgroundColor: 'rgba(167,139,250,0.15)', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: PURPLE + '55' },
+  addMemberBtnText: { fontFamily: FFB, fontSize: 13, color: PURPLE },
+  memberRow:        { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c', padding: 14, marginBottom: 8 },
+  memberName:       { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 2 },
+  memberHcp:        { fontSize: 11, fontFamily: FFB, color: '#555' },
+  removeBtn:        { backgroundColor: 'rgba(248,113,113,0.1)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)' },
+  removeBtnText:    { fontSize: 12, fontFamily: FFB, color: RED },
+
+  modalHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Platform.OS === 'ios' ? 60 : 24, paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  modalCancel:    { fontFamily: FFB, fontSize: 14, color: '#888', width: 60 },
+  modalTitle:     { fontFamily: FFB, fontSize: 13, color: '#fff', letterSpacing: 1 },
+  pickerRow:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#111' },
+  pickerRowText:  { flex: 1, fontFamily: FFB, fontSize: 15, color: '#fff' },
+  pickerRowAdd:   { fontFamily: FFB, fontSize: 13, color: PURPLE },
 });

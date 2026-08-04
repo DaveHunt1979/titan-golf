@@ -20,6 +20,11 @@ type Game = {
   twos_enabled: boolean; twos_fee: number;
   ntp_hole: number | null; ntp_fee: number; ntp_winner_id: string | null;
   ld_hole: number | null; ld_fee: number; ld_winner_id: string | null;
+  registration_closed_at: string | null;
+};
+type SwindleGroup = {
+  id: string; tee_time: string; course_tee: string | null; created_by: string;
+  players: { player_id: string | null; is_guest: boolean; display_name: string }[];
 };
 type Entry = {
   player_id: string; display_name: string; handicap: number | null;
@@ -47,6 +52,8 @@ export default function SwindleGame() {
   const [courseHoles,  setCourseHoles]  = useState<HoleInfo[]>([]);
   const [allScores,    setAllScores]    = useState<PlayerScore[]>([]);
   const [showWinner,   setShowWinner]   = useState<'ntp' | 'ld' | null>(null);
+  const [groups,       setGroups]       = useState<SwindleGroup[]>([]);
+  const [regClosed,    setRegClosed]    = useState(false);
 
   useEffect(() => { init(); }, [gameId]);
 
@@ -60,14 +67,26 @@ export default function SwindleGame() {
   }
 
   const load = useCallback(async () => {
-    const [{ data: gameData }, { data: entriesData }, { data: scoresData }] = await Promise.all([
+    const [{ data: gameData }, { data: entriesData }, { data: scoresData }, { data: groupsData }] = await Promise.all([
       supabase.from('swindle_games').select('*').eq('id', gameId).single(),
       supabase.from('swindle_entries').select('player_id, handicap, players(display_name)').eq('game_id', gameId),
       supabase.from('swindle_scores').select('player_id, hole_number, gross_score, stableford_pts').eq('game_id', gameId),
+      supabase.from('swindle_groups').select('id, tee_time, course_tee, created_by, swindle_group_players(player_id, is_guest, guest_name, players(display_name))').eq('game_id', gameId).order('tee_time'),
     ]);
+
+    if (groupsData) {
+      setGroups((groupsData as any[]).map(g => ({
+        id: g.id, tee_time: g.tee_time, course_tee: g.course_tee, created_by: g.created_by,
+        players: (g.swindle_group_players ?? []).map((gp: any) => ({
+          player_id: gp.player_id, is_guest: gp.is_guest,
+          display_name: gp.is_guest ? (gp.guest_name ?? 'Guest') : (gp.players?.display_name ?? 'Unknown'),
+        })),
+      })));
+    }
 
     if (gameData) {
       setGame(gameData as Game);
+      setRegClosed(!!gameData.registration_closed_at);
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: p } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
@@ -428,6 +447,30 @@ export default function SwindleGame() {
           </View>
         )}
 
+        {/* Groups */}
+        {groups.length > 0 && (
+          <View style={s.section}>
+            <View style={s.sectionHeaderRow}>
+              <Text style={s.sectionLabel}>TEE TIME GROUPS</Text>
+              <Text style={{ fontFamily: FFB, fontSize: 11, color: '#555' }}>{groups.length} group{groups.length !== 1 ? 's' : ''}</Text>
+            </View>
+            {groups.map(group => (
+              <View key={group.id} style={s.groupCard}>
+                <View style={s.groupHeader}>
+                  <Text style={s.groupTeeTime}>{group.tee_time}</Text>
+                  {group.course_tee ? <Text style={s.groupCourseTee}>{group.course_tee}</Text> : null}
+                  <Text style={s.groupPlayerCount}>{group.players.length}p</Text>
+                </View>
+                {group.players.map((p, i) => (
+                  <View key={i} style={s.groupPlayerRow}>
+                    <Text style={s.groupPlayerName}>{p.display_name}{p.is_guest ? ' (guest)' : ''}</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Leaderboard */}
         <View style={s.section}>
           <View style={s.lbHeader}>
@@ -478,6 +521,20 @@ export default function SwindleGame() {
         </View>
 
         {/* Actions */}
+        {game.status === 'open' && !regClosed && (
+          <TouchableOpacity
+            style={s.createGroupBtn}
+            onPress={() => router.push(`/(app)/swindle/group/new?gameId=${game.id}` as any)}
+            activeOpacity={0.85}
+          >
+            <Text style={s.createGroupBtnText}>⛳  Create Tee Time Group</Text>
+          </TouchableOpacity>
+        )}
+        {regClosed && game.status !== 'complete' && (
+          <View style={s.regClosedBadge}>
+            <Text style={s.regClosedText}>Registration Closed</Text>
+          </View>
+        )}
         {!inGame && game.status === 'open' && (
           <TouchableOpacity style={s.joinBtn} onPress={join} disabled={joining} activeOpacity={0.85}>
             <Text style={s.joinBtnText}>
@@ -501,6 +558,21 @@ export default function SwindleGame() {
             activeOpacity={0.85}
           >
             <Text style={s.scanBtnText}>Scan Paper Scorecard</Text>
+          </TouchableOpacity>
+        )}
+        {isCreator && game.status !== 'complete' && !regClosed && (
+          <TouchableOpacity
+            style={s.closeRegBtn}
+            onPress={() => Alert.alert('Close Registration', 'Stop players from creating new groups?', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Close', style: 'destructive', onPress: async () => {
+                await supabase.from('swindle_games').update({ registration_closed_at: new Date().toISOString() }).eq('id', game.id);
+                load();
+              }},
+            ])}
+            activeOpacity={0.85}
+          >
+            <Text style={s.closeRegBtnText}>Close Registration</Text>
           </TouchableOpacity>
         )}
         {isCreator && game.status !== 'complete' && (
@@ -651,6 +723,21 @@ const s = StyleSheet.create({
   // Share results
   shareResultsBtn:  { marginHorizontal: 16, backgroundColor: '#25D366', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
   shareResultsBtnText: { color: '#fff', fontSize: 15, fontFamily: FFB },
+
+  // Groups
+  groupCard:        { backgroundColor: '#111', borderRadius: 12, borderWidth: 1, borderColor: PURPLE + '44', marginBottom: 10, overflow: 'hidden' },
+  groupHeader:      { flexDirection: 'row', alignItems: 'center', backgroundColor: PURPLE + '18', paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
+  groupTeeTime:     { fontFamily: FFB, fontSize: 15, color: PURPLE },
+  groupCourseTee:   { fontFamily: FFB, fontSize: 12, color: '#888', flex: 1 },
+  groupPlayerCount: { fontFamily: FFB, fontSize: 11, color: '#555' },
+  groupPlayerRow:   { paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#1a1a1a' },
+  groupPlayerName:  { fontFamily: FFB, fontSize: 14, color: '#fff' },
+  createGroupBtn:   { marginHorizontal: 16, backgroundColor: PURPLE, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginBottom: 10 },
+  createGroupBtnText: { color: '#fff', fontSize: 17, fontFamily: FFB },
+  closeRegBtn:      { marginHorizontal: 16, backgroundColor: '#111', borderWidth: 1, borderColor: '#f8717155', borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginBottom: 10 },
+  closeRegBtnText:  { color: RED, fontSize: 14, fontFamily: FFB },
+  regClosedBadge:   { marginHorizontal: 16, backgroundColor: '#111', borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#1c1c1c' },
+  regClosedText:    { color: '#555', fontSize: 14, fontFamily: FFB },
 
   // Winner picker modal
   pickerOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },

@@ -32,13 +32,16 @@ export default function SwindleIndex() {
   const scrollRef = useRef<ScrollView>(null);
   useFocusEffect(useCallback(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, []));
   const dc = useDynamicColors();
-  const { localLogo, logoUrl } = useSocietyTheme();
+  const { localLogo, logoUrl, societyId } = useSocietyTheme() as any;
   const [games,    setGames]    = useState<Game[]>([]);
   const [myId,     setMyId]     = useState<string | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [joinCode, setJoinCode] = useState('');
   const [joining,  setJoining]  = useState(false);
-  const [imInBusy, setImInBusy] = useState<string | null>(null);
+  const [imInBusy,    setImInBusy]    = useState<string | null>(null);
+  const [isMember,    setIsMember]    = useState<boolean | null>(null);
+  const [gateCode,    setGateCode]    = useState('');
+  const [gateJoining, setGateJoining] = useState(false);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -47,7 +50,7 @@ export default function SwindleIndex() {
 
   useEffect(() => { init(); }, []);
 
-  if (loading || !fontsLoaded) return (
+  if (loading || !fontsLoaded || isMember === null) return (
     <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
       <ActivityIndicator color={dc.gold} size="large" />
@@ -56,11 +59,22 @@ export default function SwindleIndex() {
 
   async function init() {
     const { data: { user } } = await supabase.auth.getUser();
+    let pid: string | null = null;
     if (user) {
       const { data: p } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
-      if (p) { setMyId(p.id); await loadGames(p.id); return; }
+      if (p) { pid = p.id; setMyId(p.id); }
     }
-    await loadGames(null);
+    if (societyId && pid) {
+      const { data: mem } = await supabase
+        .from('society_members').select('membership_types')
+        .eq('society_id', societyId).eq('player_id', pid).maybeSingle();
+      const types: string[] = (mem?.membership_types ?? []) as string[];
+      if (!types.includes('swindle')) { setIsMember(false); setLoading(false); return; }
+      setIsMember(true);
+    } else {
+      setIsMember(true);
+    }
+    await loadGames(pid);
   }
 
   async function loadGames(playerId: string | null) {
@@ -111,8 +125,63 @@ export default function SwindleIndex() {
     router.push(`/(app)/swindle/${data.id}` as any);
   }
 
+  async function joinSwindle() {
+    const code = gateCode.trim().toUpperCase();
+    if (!code || !societyId) return;
+    setGateJoining(true);
+    const { data: soc } = await supabase.from('societies').select('swindle_join_code').eq('id', societyId).maybeSingle();
+    if (!soc || (soc.swindle_join_code ?? '').toUpperCase() !== code) {
+      Alert.alert('Invalid code', 'That access code is not correct. Ask your society admin.');
+      setGateJoining(false);
+      return;
+    }
+    if (myId) {
+      const { data: mem } = await supabase
+        .from('society_members').select('membership_types')
+        .eq('society_id', societyId).eq('player_id', myId).maybeSingle();
+      const types: string[] = (mem?.membership_types ?? []) as string[];
+      if (!types.includes('swindle')) types.push('swindle');
+      await supabase.from('society_members').update({ membership_types: types })
+        .eq('society_id', societyId).eq('player_id', myId);
+    }
+    setIsMember(true);
+    setGateJoining(false);
+    await loadGames(myId);
+  }
+
   const open     = games.filter(g => g.status === 'open' || g.status === 'in_progress');
   const complete = games.filter(g => g.status === 'complete');
+
+  if (!isMember) return (
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+      <StatusBar style="light" />
+      <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={{ width: 52, height: 52, marginBottom: 20 }} />
+      <View style={{ backgroundColor: PURPLE + '22', borderRadius: 99, paddingHorizontal: 16, paddingVertical: 6, borderWidth: 1, borderColor: PURPLE + '55', marginBottom: 20 }}>
+        <Text style={{ fontFamily: FFB, fontSize: 12, color: PURPLE, letterSpacing: 1 }}>INVITE ONLY</Text>
+      </View>
+      <Text style={{ fontFamily: FFB, fontSize: 22, color: dc.cardText, textAlign: 'center', marginBottom: 10 }}>The Swindle</Text>
+      <Text style={{ fontFamily: FFB, fontSize: 13, color: '#555', textAlign: 'center', lineHeight: 22, marginBottom: 32 }}>
+        This swindle is exclusive to invited members.{'\n'}Enter your access code to continue.
+      </Text>
+      <TextInput
+        style={{ width: '100%', backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 12, paddingHorizontal: 18, paddingVertical: 14, fontFamily: FFB, fontSize: 20, color: '#fff', letterSpacing: 4, textAlign: 'center', marginBottom: 14 }}
+        placeholder="ACCESS CODE"
+        placeholderTextColor="#333"
+        value={gateCode}
+        onChangeText={t => setGateCode(t.toUpperCase())}
+        autoCapitalize="characters"
+        maxLength={10}
+      />
+      <TouchableOpacity
+        style={{ width: '100%', backgroundColor: PURPLE, borderRadius: 12, paddingVertical: 16, alignItems: 'center', opacity: gateJoining ? 0.6 : 1 }}
+        onPress={joinSwindle}
+        disabled={gateJoining}
+        activeOpacity={0.85}
+      >
+        <Text style={{ fontFamily: FFB, fontSize: 16, color: '#fff' }}>{gateJoining ? 'Checking…' : 'Join The Swindle'}</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <View style={[s.container, { backgroundColor: dc.bg }]}>
