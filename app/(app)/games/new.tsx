@@ -13,7 +13,7 @@ import { useSociety } from '../../../src/lib/useSociety';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { getPlayerAvatar } from '../../../src/lib/assets';
 import { downloadMatchPack } from '../../../src/lib/offlinePack';
-import GroupBuilderSheet, { BuiltMatch } from './GroupBuilderSheet';
+import GroupBuilderSheet, { BuiltMatch, PlayerOverride } from './GroupBuilderSheet';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -553,6 +553,7 @@ export default function NewGameScreen() {
   const [showMashie, setShowMashie] = useState(false);
   const [showGroupBuilder, setShowGroupBuilder] = useState(false);
   const [builtMatches, setBuiltMatches] = useState<BuiltMatch[] | null>(null);
+  const [playerOverrides, setPlayerOverrides] = useState<Record<string, PlayerOverride>>({});
 
   useFocusEffect(useCallback(() => {
     setMode((resumeMode as GameMode | undefined) ?? 'stableford');
@@ -648,8 +649,9 @@ export default function NewGameScreen() {
 
   const firstName = (id: string) => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '?';
 
-  function handleGroupBuilderDone(matches: BuiltMatch[]) {
+  function handleGroupBuilderDone(matches: BuiltMatch[], overrides: Record<string, PlayerOverride>) {
     setBuiltMatches(matches);
+    setPlayerOverrides(overrides);
     setShowGroupBuilder(false);
     // Mirror into pair1/pair2 for legacy code paths that read them
     const home0 = matches[0]?.home ?? [];
@@ -734,6 +736,10 @@ export default function NewGameScreen() {
         const nameExtra = (bm.homeName || bm.awayName)
           ? { home_name: bm.homeName || null, away_name: bm.awayName || null }
           : {};
+        const matchPlayerIds = new Set([...bm.home, ...bm.away]);
+        const matchOverrides = Object.fromEntries(
+          Object.entries(playerOverrides).filter(([id]) => matchPlayerIds.has(id))
+        );
         return supabase.from('matches').insert({
           ...teamCommonFields,
           ...extra,
@@ -741,6 +747,7 @@ export default function NewGameScreen() {
           start_hole: bm.startHole,
           home_player_ids: bm.home,
           away_player_ids: bm.away,
+          ...(Object.keys(matchOverrides).length > 0 ? { player_overrides: matchOverrides } : {}),
         }).select().single();
       }));
 

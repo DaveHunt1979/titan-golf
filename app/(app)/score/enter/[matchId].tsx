@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, Modal, Image,
-  TextInput, ScrollView, useWindowDimensions, Dimensions,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Image,
+  Platform, TextInput, ScrollView, useWindowDimensions, Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -46,6 +46,14 @@ const { width: W } = Dimensions.get('window');
 const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: GREEN, par: BLUE, bogey: ORANGE, double: RED };
+
+const TEE_OPTIONS = [
+  { label: 'Yellow', color: '#EAB308' },
+  { label: 'White',  color: '#D1D5DB' },
+  { label: 'Red',    color: '#EF4444' },
+  { label: 'Blue',   color: '#3B82F6' },
+  { label: 'Black',  color: '#6B7280' },
+];
 
 function scoreVsPar(gross: number, par: number, shots: number): string {
   const net = gross - shots;
@@ -94,6 +102,7 @@ interface MatchInfo {
   side_games: string[] | null;
   secondary_format: string | null;
   hcp_allowance: number | null;
+  player_overrides: Record<string, { hcp?: number; tee?: string }> | null;
   day_id: string | null;
   day: {
     course_name: string;
@@ -130,10 +139,15 @@ export default function EnterScoresScreen() {
   const [match, setMatch] = useState<MatchInfo | null>(null);
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
   const [compPlayers, setCompPlayers] = useState<CompPlayer[]>([]);
+  const baseCompRef = useRef<CompPlayer[]>([]);
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
   const [playerAvatars, setPlayerAvatars] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [editPlayerId, setEditPlayerId] = useState<string | null>(null);
+  const [editHcp, setEditHcp] = useState('');
+  const [editTee, setEditTee] = useState<string | null>(null);
   const [recordsBroken, setRecordsBroken] = useState<BrokenRecord[]>([]);
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -262,7 +276,14 @@ export default function EnterScoresScreen() {
         setPlayerNames(names);
         setPlayerAvatars(avatars);
         const comp = compData as CompPlayer[] | null;
-        setCompPlayers(comp && comp.length > 0 ? comp : fallback);
+        const rawComp = comp && comp.length > 0 ? comp : fallback;
+        baseCompRef.current = rawComp;
+        const povs = (matchData as any).player_overrides ?? {};
+        const effectiveComp = rawComp.map(cp => {
+          const ov = povs[cp.player_id];
+          return ov?.hcp != null ? { ...cp, handicap_index: ov.hcp } : cp;
+        });
+        setCompPlayers(effectiveComp);
       }
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -1094,6 +1115,50 @@ export default function EnterScoresScreen() {
     }
   }
 
+  useEffect(() => {
+    if (!editPlayerId || !match) return;
+    const ov = (match.player_overrides ?? {})[editPlayerId];
+    const base = baseCompRef.current.find(c => c.player_id === editPlayerId);
+    setEditHcp(String(ov?.hcp ?? base?.handicap_index ?? ''));
+    setEditTee(ov?.tee ?? null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editPlayerId]);
+
+  async function savePlayerOverride() {
+    if (!editPlayerId || !match) return;
+    const parsedHcp = parseFloat(editHcp);
+    const base = baseCompRef.current.find(c => c.player_id === editPlayerId);
+    const hcpChanged = !isNaN(parsedHcp) && parsedHcp !== (base?.handicap_index ?? 0);
+    const existing = match.player_overrides ?? {};
+    const newOvs: Record<string, any> = { ...existing };
+    if (hcpChanged || editTee !== null) {
+      newOvs[editPlayerId] = { hcp: hcpChanged ? parsedHcp : null, tee: editTee };
+    } else {
+      delete newOvs[editPlayerId];
+    }
+    await supabase.from('matches').update({ player_overrides: newOvs } as any).eq('id', match.id);
+    setMatch({ ...match, player_overrides: newOvs });
+    const updated = baseCompRef.current.map(cp => {
+      const ov = newOvs[cp.player_id];
+      return ov?.hcp != null ? { ...cp, handicap_index: ov.hcp } : cp;
+    });
+    setCompPlayers(updated);
+    setEditPlayerId(null);
+  }
+
+  async function handleDeleteMatch() {
+    Alert.alert('Delete Game?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: async () => {
+          await supabase.from('matches').delete().eq('id', matchId as string);
+          router.replace('/(app)/' as any);
+        },
+      },
+    ]);
+  }
+
   async function handleCompleteRound() {
     if (!match || saving) return;
     setSaving(true);
@@ -1178,6 +1243,9 @@ export default function EnterScoresScreen() {
           </Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity onPress={handleDeleteMatch} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name="trash-outline" size={20} color="#4b5563" />
+          </TouchableOpacity>
           {IS_PAD && (
             <TouchableOpacity
               onPress={() => setBroadcastMode(b => !b)}
@@ -1382,11 +1450,11 @@ export default function EnterScoresScreen() {
                           const scoreStr = total > 0 ? (isStablefordMode ? `${total}pts` : `${total}`) : '—';
                           const isLeader = rank === 0 && topScore > 0;
                           return (
-                            <View key={id} style={s.lbRow}>
+                            <TouchableOpacity key={id} style={s.lbRow} onPress={() => setEditPlayerId(id)} activeOpacity={0.7}>
                               <Avatar name={firstName} color={teamColor} size={32} source={src} />
                               <Text style={[s.lbName, !isLeader && { opacity: 0.5 }]} numberOfLines={1}>{firstName}</Text>
                               <Text style={[s.lbPts, { color: isLeader ? GOLD : '#fff' }]}>{scoreStr}</Text>
-                            </View>
+                            </TouchableOpacity>
                           );
                         });
                       })()}
@@ -1598,25 +1666,41 @@ export default function EnterScoresScreen() {
               <Text style={s.summaryTitle}>SCORING BREAKDOWN</Text>
               {allPlayerIds.map(id => {
                 const holes = holeData[id] ?? {};
-                let eagles = 0, birdies = 0, pars = 0, bogeys = 0;
+                let eagles = 0, birdies = 0, pars = 0, bogeys = 0, doubles = 0;
                 for (const h of Object.values(holes)) {
                   const pts = h.pts ?? 0;
-                  if (pts >= 3) eagles++;
-                  else if (pts === 2) birdies++;
-                  else if (pts === 1) pars++;
-                  else bogeys++;
+                  if (pts >= 4) eagles++;
+                  else if (pts === 3) birdies++;
+                  else if (pts === 2) pars++;
+                  else if (pts === 1) bogeys++;
+                  else doubles++;
                 }
                 const holesPlayed = Object.keys(holes).length;
                 if (holesPlayed === 0) return null;
                 const firstName = (playerNames[id] ?? '?').split(' ')[0];
+                const tiles = [
+                  { label: 'EAGLE',  count: eagles,  bg: GOLD,      fg: '#000' },
+                  { label: 'BIRDIE', count: birdies, bg: GREEN,     fg: '#000' },
+                  { label: 'PAR',    count: pars,    bg: '#1e3a5f', fg: '#60a5fa' },
+                  { label: 'BOGEY',  count: bogeys,  bg: '#431407', fg: '#f97316' },
+                  { label: 'DBL+',   count: doubles, bg: '#450a0a', fg: RED },
+                ].filter(t => t.count > 0);
                 return (
-                  <View key={id} style={{ marginBottom: 12 }}>
-                    <Text style={[s.summaryName, { color: '#ffffff', marginBottom: 4 }]}>{firstName}</Text>
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
-                      {eagles  > 0 && <Text style={{ fontFamily: FFB, fontSize: 12, color: GOLD }}>{'🦅'} {eagles}</Text>}
-                      {birdies > 0 && <Text style={{ fontFamily: FFB, fontSize: 12, color: GREEN }}>{'🐦'} {birdies}</Text>}
-                      {pars    > 0 && <Text style={{ fontFamily: FFB, fontSize: 12, color: '#94a3b8' }}>PAR {pars}</Text>}
-                      {bogeys  > 0 && <Text style={{ fontFamily: FFB, fontSize: 12, color: RED }}>BOG {bogeys}</Text>}
+                  <View key={id} style={{ marginBottom: 16 }}>
+                    <Text style={{ fontFamily: FFB, fontSize: 13, color: '#fff', marginBottom: 8, letterSpacing: 0.5 }}>{firstName}</Text>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      {tiles.map(t => (
+                        <View key={t.label} style={{
+                          flex: 1, backgroundColor: t.bg, borderRadius: 10,
+                          paddingVertical: 10, alignItems: 'center',
+                        }}>
+                          <Text style={{ fontFamily: FFB, fontSize: 22, color: t.fg, lineHeight: 26 }}>{t.count}</Text>
+                          <Text style={{ fontFamily: FFB, fontSize: 8, color: t.fg, opacity: 0.8, letterSpacing: 1, marginTop: 2 }}>{t.label}</Text>
+                        </View>
+                      ))}
+                      {tiles.length === 0 && (
+                        <Text style={{ fontFamily: FF, fontSize: 12, color: '#444' }}>No scores yet</Text>
+                      )}
                     </View>
                   </View>
                 );
@@ -1746,6 +1830,7 @@ export default function EnterScoresScreen() {
           >
             <Text style={s.doneBtnText}>Done</Text>
           </TouchableOpacity>
+
         </ScrollView>
       )}
 
@@ -1754,6 +1839,85 @@ export default function EnterScoresScreen() {
           <ActivityIndicator color={GOLD} size="small" />
         </View>
       )}
+
+      {/* ── Edit player (round HCP / tee) ── */}
+      {editPlayerId !== null && (() => {
+        const name = playerNames[editPlayerId] ?? '?';
+        const src = playerAvatars[editPlayerId] ?? getPlayerAvatar(editPlayerId, 'normal');
+        const base = baseCompRef.current.find(c => c.player_id === editPlayerId);
+        const isHome = match?.home_player_ids.includes(editPlayerId);
+        const teamColor = isHome ? homeColor : awayColor;
+        return (
+          <Modal visible transparent animationType="slide" onRequestClose={() => setEditPlayerId(null)}>
+            <TouchableOpacity style={sh.overlay} activeOpacity={1} onPress={() => setEditPlayerId(null)} />
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+              <View style={[sh.sheet, { paddingBottom: 44 }]}>
+                <View style={sh.handle} />
+                {/* Player identity */}
+                <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                  <Avatar name={name.split(' ')[0]} color={teamColor} size={60} source={src} />
+                  <Text style={[sh.playerName, { marginTop: 10, fontSize: 18 }]}>{name}</Text>
+                  {base?.handicap_index != null && (
+                    <Text style={{ fontFamily: FF, fontSize: 12, color: '#666', marginTop: 2 }}>
+                      Profile HCP {base.handicap_index}
+                    </Text>
+                  )}
+                </View>
+
+                {/* HCP input */}
+                <Text style={{ fontFamily: FFB, fontSize: 11, letterSpacing: 1.5, color: '#888', marginBottom: 6 }}>ROUND HANDICAP</Text>
+                <TextInput
+                  style={[sh.hcpInput, { color: '#fff', borderColor: GOLD }]}
+                  value={editHcp}
+                  onChangeText={setEditHcp}
+                  keyboardType="decimal-pad"
+                  selectTextOnFocus
+                />
+
+                {/* Tee picker */}
+                <Text style={{ fontFamily: FFB, fontSize: 11, letterSpacing: 1.5, color: '#888', marginTop: 16, marginBottom: 8 }}>PLAYING TEES</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {TEE_OPTIONS.map(t => {
+                    const sel = editTee === t.label;
+                    return (
+                      <TouchableOpacity
+                        key={t.label}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7, borderColor: sel ? t.color : '#333', backgroundColor: sel ? `${t.color}20` : 'transparent' }}
+                        onPress={() => setEditTee(sel ? null : t.label)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: t.color }} />
+                        <Text style={{ fontFamily: FFB, fontSize: 13, color: sel ? t.color : '#888' }}>{t.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <Text style={{ fontFamily: FF, fontSize: 11, color: '#555', textAlign: 'center', marginTop: 16 }}>
+                  Changes apply to this round only
+                </Text>
+
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                  <TouchableOpacity
+                    style={{ flex: 1, borderWidth: 1, borderColor: '#333', borderRadius: 10, paddingVertical: 13, alignItems: 'center' }}
+                    onPress={() => setEditPlayerId(null)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ fontFamily: FFB, fontSize: 15, color: '#777' }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{ flex: 2, backgroundColor: GOLD, borderRadius: 10, paddingVertical: 13, alignItems: 'center' }}
+                    onPress={savePlayerOverride}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ fontFamily: FFB, fontSize: 15, color: '#000' }}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </KeyboardAvoidingView>
+          </Modal>
+        );
+      })()}
 
       {/* ── Score entry sheet ── */}
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
@@ -1795,111 +1959,177 @@ export default function EnterScoresScreen() {
             </View>
 
             {/* Scrollable score content */}
-            <ScrollView style={{ width: '100%' }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 32 }}>
-              {/* Score buttons */}
-              <Text style={sh.pickerLabel}>GROSS SCORE</Text>
-              <View style={sh.scoreGrid}>
-                {[1,2,3,4,5,6,7,8,9].map(n => {
-                  const on = selectedScore === n;
-                  const shots = modalPlayerId
-                    ? calcStrokesReceived(playerCourseHcp(modalPlayerId, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100), courseHole?.stroke_index ?? 18)
-                    : 0;
-                  const result = courseHole ? scoreVsPar(n, courseHole.par, shots) : 'par';
-                  const accent = SCORE_COLORS[result] ?? '#6b7280';
-                  const stablePts = calcStablefordPoints(n, courseHole?.par ?? 4, shots);
-                  return (
-                    <TouchableOpacity
-                      key={n}
-                      style={[sh.scoreBtn, on && { backgroundColor: accent, borderColor: accent }]}
-                      onPress={() => setSelectedScore(n)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[sh.scoreBtnText, on && { color: '#fff' }]}>{n}</Text>
-                      {on && <Text style={[sh.scoreDiff, { color: '#fff' }]}>{stablePts} pts</Text>}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+            {(() => {
+              const shots = modalPlayerId
+                ? calcStrokesReceived(playerCourseHcp(modalPlayerId, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100), courseHole?.stroke_index ?? 18)
+                : 0;
+              const par = courseHole?.par ?? 4;
+              const result = selectedScore ? scoreVsPar(selectedScore, par, shots) : null;
+              const accent = result ? (SCORE_COLORS[result] ?? '#6b7280') : '#1c1c1c';
+              const stablePts = selectedScore ? calcStablefordPoints(selectedScore, par, shots) : null;
+              const SCORE_LABELS: Record<string, string> = {
+                albatross: 'ALBATROSS', eagle: 'EAGLE', birdie: 'BIRDIE',
+                par: 'PAR', bogey: 'BOGEY', double: 'DOUBLE +',
+              };
+              const scoreLabel = result ? (SCORE_LABELS[result] ?? '') : '';
+              const showStats = modalPlayerId === myPlayerId;
 
-              {/* Fairway (myPlayerId or solo round, par 4+) */}
-              {(modalPlayerId === myPlayerId || allPlayerIds.length === 1) && courseHole && courseHole.par >= 4 && (
-                <>
-                  <Text style={sh.pickerLabel}>FAIRWAY</Text>
-                  <View style={sh.fairwayRow}>
-                    {(['left', 'centre', 'right'] as const).map(d => (
+              return (
+                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 28 }}>
+                  {/* ── Score hero ── */}
+                  <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 28 }}>
                       <TouchableOpacity
-                        key={d}
-                        style={[sh.fairwayBtn, selectedFairway === d && sh.fairwayBtnOn]}
-                        onPress={() => setSelectedFairway(prev => prev === d ? null : d)}
-                        activeOpacity={0.7}
+                        onPress={() => setSelectedScore(selectedScore === null ? par : Math.max(1, selectedScore - 1))}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                       >
-                        <Text style={[sh.fairwayText, selectedFairway === d && sh.fairwayTextOn]}>
-                          {d === 'left' ? '◀ Left' : d === 'centre' ? '● Centre' : 'Right ▶'}
+                        <Ionicons name="remove-circle" size={42} color={selectedScore && selectedScore > 1 ? '#555' : '#222'} />
+                      </TouchableOpacity>
+
+                      <View style={{
+                        width: 100, height: 100, borderRadius: 50,
+                        backgroundColor: selectedScore ? accent : '#111',
+                        borderWidth: 2, borderColor: selectedScore ? accent : '#2c2c2c',
+                        alignItems: 'center', justifyContent: 'center',
+                        shadowColor: selectedScore ? accent : 'transparent',
+                        shadowOffset: { width: 0, height: 0 }, shadowRadius: 20, shadowOpacity: 0.6,
+                        elevation: 10,
+                      }}>
+                        <Text style={{ fontFamily: FFB, fontSize: 50, color: selectedScore ? '#fff' : '#2c2c2c', lineHeight: 56 }}>
+                          {selectedScore ?? '?'}
                         </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </>
-              )}
+                      </View>
 
-              {/* Putts (myPlayerId or solo round) */}
-              {(modalPlayerId === myPlayerId || allPlayerIds.length === 1) && (
-                <>
-                  <Text style={sh.pickerLabel}>PUTTS</Text>
-                  <View style={sh.puttsRow}>
-                    {([1, 2, 3, 4] as const).map(n => (
                       <TouchableOpacity
-                        key={n}
-                        style={[sh.puttsBtn, selectedPutts === n && sh.puttsBtnOn]}
-                        onPress={() => setSelectedPutts(prev => prev === n ? null : n)}
-                        activeOpacity={0.7}
+                        onPress={() => setSelectedScore(selectedScore === null ? par : Math.min(12, selectedScore + 1))}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                       >
-                        <Text style={[sh.puttsText, selectedPutts === n && sh.puttsTextOn]}>{n === 4 ? '3+' : n}</Text>
+                        <Ionicons name="add-circle" size={42} color="#555" />
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                </>
-              )}
+                    </View>
 
-              {/* Extended stats: bunker / penalty / chips (myPlayerId or solo round) */}
-              {(modalPlayerId === myPlayerId || allPlayerIds.length === 1) && (
-                <>
-                  {[
-                    { label: 'BUNKER SHOTS', val: selectedBunker, set: setSelectedBunker },
-                    { label: 'PENALTY STROKES', val: selectedPenalty, set: setSelectedPenalty },
-                    { label: 'CHIP SHOTS', val: selectedChips, set: setSelectedChips },
-                  ].map(({ label, val, set }) => (
-                    <View key={label}>
-                      <Text style={sh.pickerLabel}>{label}</Text>
-                      <View style={sh.puttsRow}>
-                        {[0, 1, 2, 3].map(n => (
+                    <View style={{ alignItems: 'center', marginTop: 10, minHeight: 36 }}>
+                      {selectedScore ? (
+                        stablePts !== null
+                          ? <Text style={{ fontFamily: FFB, fontSize: 22, color: '#fff' }}>{stablePts}<Text style={{ fontFamily: FFB, fontSize: 13, color: '#fff' }}> pts</Text></Text>
+                          : null
+                      ) : (
+                        <Text style={{ fontFamily: FF, fontSize: 13, color: '#444' }}>tap a number or use arrows</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* ── Quick tap grid (2 rows × 5) ── */}
+                  {[[1,2,3,4,5],[6,7,8,9,10]].map((row, ri) => (
+                    <View key={ri} style={{ flexDirection: 'row', gap: 7, marginTop: ri === 0 ? 0 : 7 }}>
+                      {row.map(n => {
+                        const r = courseHole ? scoreVsPar(n, par, shots) : 'par';
+                        const a = SCORE_COLORS[r] ?? '#6b7280';
+                        const on = selectedScore === n;
+                        return (
                           <TouchableOpacity
                             key={n}
-                            style={[sh.puttsBtn, val === n && sh.puttsBtnOn]}
-                            onPress={() => set(n)}
+                            style={{
+                              flex: 1, height: 44, borderRadius: 10,
+                              backgroundColor: on ? a : '#111',
+                              borderWidth: 1.5, borderColor: on ? a : '#222',
+                              alignItems: 'center', justifyContent: 'center',
+                            }}
+                            onPress={() => setSelectedScore(n)}
                             activeOpacity={0.7}
                           >
-                            <Text style={[sh.puttsText, val === n && sh.puttsTextOn]}>{n === 3 ? '3+' : n}</Text>
+                            <Text style={{ fontFamily: FFB, fontSize: 16, color: on ? '#fff' : '#444' }}>{n}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ))}
+
+                  {/* ── Fairway ── */}
+                  {showStats && courseHole && courseHole.par >= 4 && (
+                    <>
+                      <Text style={[sh.pickerLabel, { marginTop: 18 }]}>FAIRWAY</Text>
+                      <View style={sh.fairwayRow}>
+                        {(['left', 'centre', 'right'] as const).map(d => (
+                          <TouchableOpacity
+                            key={d}
+                            style={[sh.fairwayBtn, selectedFairway === d && sh.fairwayBtnOn]}
+                            onPress={() => setSelectedFairway(prev => prev === d ? null : d)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[sh.fairwayText, selectedFairway === d && sh.fairwayTextOn]}>
+                              {d === 'left' ? '◀ Left' : d === 'centre' ? '● Centre' : 'Right ▶'}
+                            </Text>
                           </TouchableOpacity>
                         ))}
                       </View>
-                    </View>
-                  ))}
-                </>
-              )}
+                    </>
+                  )}
 
-              {/* Submit */}
-              <TouchableOpacity
-                style={[sh.submitBtn, !selectedScore && sh.submitBtnOff]}
-                onPress={submitPlayerScore}
-                disabled={!selectedScore}
-                activeOpacity={0.8}
-              >
-                <Text style={sh.submitText}>
-                  {modalPlayerIdx < allPlayerIds.length - 1 ? `Next Player →` : '✓ Save Hole'}
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
+                  {/* ── Compact stat cards (2×2 grid) ── */}
+                  {showStats && (
+                    <View style={{ marginTop: 18 }}>
+                      <Text style={sh.pickerLabel}>STATS</Text>
+                      {([
+                        [
+                          { label: 'PUTTS',   val: selectedPutts,   opts: [1,2,3,4] as number[], display: (n: number) => n === 4 ? '3+' : String(n) },
+                          { label: 'BUNKER',  val: selectedBunker,  opts: [0,1,2,3] as number[], display: (n: number) => n === 3 ? '3+' : String(n) },
+                        ],
+                        [
+                          { label: 'PENALTY', val: selectedPenalty, opts: [0,1,2,3] as number[], display: (n: number) => n === 3 ? '3+' : String(n) },
+                          { label: 'CHIPS',   val: selectedChips,   opts: [0,1,2,3] as number[], display: (n: number) => n === 3 ? '3+' : String(n) },
+                        ],
+                      ]).map((row, ri) => (
+                        <View key={ri} style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                          {row.map(({ label, val, opts, display }) => (
+                            <View key={label} style={{ flex: 1, backgroundColor: '#0a0a0a', borderRadius: 12, padding: 10, borderWidth: 1, borderColor: '#1c1c1c' }}>
+                              <Text style={{ fontFamily: FFB, fontSize: 9, color: '#555', letterSpacing: 1.5, marginBottom: 7 }}>{label}</Text>
+                              <View style={{ flexDirection: 'row', gap: 5 }}>
+                                {opts.map(n => {
+                                  const on = val === n;
+                                  return (
+                                    <TouchableOpacity
+                                      key={n}
+                                      style={{
+                                        flex: 1, height: 34, borderRadius: 8,
+                                        backgroundColor: on ? GOLD : '#151515',
+                                        borderWidth: 1, borderColor: on ? GOLD : '#222',
+                                        alignItems: 'center', justifyContent: 'center',
+                                      }}
+                                      onPress={() => {
+                                        if (label === 'PUTTS') setSelectedPutts(on ? null : n);
+                                        else if (label === 'BUNKER') setSelectedBunker(n);
+                                        else if (label === 'PENALTY') setSelectedPenalty(n);
+                                        else setSelectedChips(n);
+                                      }}
+                                      activeOpacity={0.7}
+                                    >
+                                      <Text style={{ fontFamily: FFB, fontSize: 12, color: on ? '#000' : '#444' }}>{display(n)}</Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* ── Submit ── */}
+                  <TouchableOpacity
+                    style={[sh.submitBtn, !selectedScore && sh.submitBtnOff, { marginTop: 20 }]}
+                    onPress={submitPlayerScore}
+                    disabled={!selectedScore}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={sh.submitText}>
+                      {modalPlayerIdx < allPlayerIds.length - 1 ? `Next Player →` : '✓ Save Hole'}
+                    </Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              );
+            })()}
           </View>
         </View>
       </Modal>
@@ -2100,7 +2330,7 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
 
         {/* Header row */}
         <View style={sc.headerRow}>
-          <Text style={[sc.cell, sc.labelCell, { color: '#fff' }]}>PLAYER</Text>
+          <Text style={[sc.cell, sc.labelCell, { color: '#fff' }]}>HOLE</Text>
           {holes.map(h => (
             <Text key={h} style={[sc.cell, sc.holeCell, holeChars[h-1] !== '.' && { color: '#ffffff' }]}>{h}</Text>
           ))}
@@ -2316,6 +2546,8 @@ const s = StyleSheet.create({
     alignItems: 'center', marginTop: 8, marginBottom: 32,
   },
   doneBtnText: { fontFamily: FFB, fontSize: 18, color: '#000' },
+  deleteLink:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 16, marginBottom: 8 },
+  deleteLinkText: { fontFamily: FFB, fontSize: 12, color: '#4b5563' },
 
   pageHint:       { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 8 },
   pageDot:        { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2c2c2c' },
@@ -2374,6 +2606,11 @@ const sh = StyleSheet.create({
   },
   playerName: { fontFamily: FFB, fontSize: 18, color: '#ffffff' },
   playerInfo: { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 2 },
+  hcpInput: {
+    borderWidth: 1, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 12,
+    fontFamily: FFB, fontSize: 16,
+  },
 
   shotBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,

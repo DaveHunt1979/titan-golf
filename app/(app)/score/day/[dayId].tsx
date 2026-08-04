@@ -42,6 +42,7 @@ export default function DayLobby() {
   const [groups,     setGroups]     = useState<GroupRow[]>([]);
   const [myId,       setMyId]       = useState<string | null>(null);
   const [myMatchId,  setMyMatchId]  = useState<string | null>(null);
+  const [isMashieDay, setIsMashieDay] = useState(false);
   const [joinCode,   setJoinCode]   = useState('');
   const [joining,    setJoining]    = useState(false);
   const [loading,    setLoading]    = useState(true);
@@ -67,7 +68,7 @@ export default function DayLobby() {
 
     const { data: matches } = await supabase
       .from('matches')
-      .select('id,home_player_ids,away_player_ids,round_format,hcp_allowance,counting_scores,status,holes_string,winner,result_str,home_name,away_name')
+      .select('id,home_player_ids,away_player_ids,round_format,hcp_allowance,counting_scores,status,holes_string,winner,result_str,home_name,away_name,group_code')
       .eq('day_id', dayId)
       .neq('status', 'cancelled');
 
@@ -120,6 +121,8 @@ export default function DayLobby() {
         playerMatchMap[id] = m.id;
       }
     }
+
+    setIsMashieDay((matches as any[]).some(m => !!m.group_code));
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -230,10 +233,24 @@ export default function DayLobby() {
           <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
           <Text style={s.headerSub}>GAME DAY</Text>
         </View>
-        <TouchableOpacity style={s.codeBtn} onPress={shareCode} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="share-outline" size={13} color={GOLD} />
-          <Text style={s.codeBtnText}>{day.join_code}</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity style={s.codeBtn} onPress={shareCode} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="share-outline" size={13} color={GOLD} />
+            <Text style={s.codeBtnText}>{day.join_code}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => Alert.alert('Delete Game Day?', 'This deletes all matches in this group and cannot be undone.', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Delete', style: 'destructive', onPress: async () => {
+                await supabase.from('matches').delete().eq('day_id', dayId);
+                router.replace('/(app)/' as any);
+              }},
+            ])}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="trash-outline" size={18} color="#4b5563" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Course info card */}
@@ -320,13 +337,13 @@ export default function DayLobby() {
                 }
 
                 const isMyGroup = g.match_id === myMatchId;
-                const canNavigate = isMyGroup || !myMatchId;
+                const canNavigate = !isMashieDay || isMyGroup || !myMatchId;
 
                 return (
                   <TouchableOpacity
                     key={g.match_id}
                     style={[s.groupCard, isMyGroup && s.groupCardMe, !canNavigate && { opacity: 0.6 }]}
-                    onPress={canNavigate ? () => router.push(`/(app)/score/${g.match_id}` as any) : undefined}
+                    onPress={canNavigate ? () => router.push(`/(app)/score/enter/${g.match_id}` as any) : undefined}
                     activeOpacity={canNavigate ? 0.8 : 1}
                     disabled={!canNavigate}
                   >
@@ -377,42 +394,44 @@ export default function DayLobby() {
         )}
       </ScrollView>
 
-      {/* Footer action */}
-      <View style={s.footer}>
-        {myMatchId ? (
-          <TouchableOpacity
-            style={s.actionBtn}
-            onPress={() => router.push(`/(app)/score/${myMatchId}` as any)}
-            activeOpacity={0.85}
-          >
-            <Text style={s.actionBtnText}>Score My Group</Text>
-            <Ionicons name="chevron-forward" size={20} color="#000" />
-          </TouchableOpacity>
-        ) : (
-          <View style={s.joinRow}>
-            <TextInput
-              style={s.joinInput}
-              placeholder="Group code"
-              placeholderTextColor="#555"
-              value={joinCode}
-              onChangeText={t => setJoinCode(t.toUpperCase())}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              maxLength={10}
-            />
+      {/* Footer action — only shown for Mashie days or when player has a match */}
+      {(myMatchId || isMashieDay) && (
+        <View style={s.footer}>
+          {myMatchId ? (
             <TouchableOpacity
-              style={[s.joinBtn, (!joinCode.trim() || joining) && { opacity: 0.4 }]}
-              onPress={joinGroup}
-              disabled={!joinCode.trim() || joining}
+              style={s.actionBtn}
+              onPress={() => router.push(`/(app)/score/${myMatchId}` as any)}
               activeOpacity={0.85}
             >
-              {joining
-                ? <ActivityIndicator size="small" color="#000" />
-                : <Text style={s.joinBtnText}>Join Group</Text>}
+              <Text style={s.actionBtnText}>Score My Group</Text>
+              <Ionicons name="chevron-forward" size={20} color="#000" />
             </TouchableOpacity>
-          </View>
-        )}
-      </View>
+          ) : (
+            <View style={s.joinRow}>
+              <TextInput
+                style={s.joinInput}
+                placeholder="Group code"
+                placeholderTextColor="#555"
+                value={joinCode}
+                onChangeText={t => setJoinCode(t.toUpperCase())}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                maxLength={10}
+              />
+              <TouchableOpacity
+                style={[s.joinBtn, (!joinCode.trim() || joining) && { opacity: 0.4 }]}
+                onPress={joinGroup}
+                disabled={!joinCode.trim() || joining}
+                activeOpacity={0.85}
+              >
+                {joining
+                  ? <ActivityIndicator size="small" color="#000" />
+                  : <Text style={s.joinBtnText}>Join Group</Text>}
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }

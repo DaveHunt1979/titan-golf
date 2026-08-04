@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, ActivityIndicator, Image, Dimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
@@ -7,6 +8,7 @@ import { supabase } from '../../../../src/lib/supabase';
 import { calcStrokesReceived, calcStablefordPoints, calcCourseHandicap } from '../../../../src/lib/scoring';
 import { speakPressure } from '../../../../src/lib/caddie';
 
+const { width: W } = Dimensions.get('window');
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
 const RED    = '#f87171';
@@ -299,35 +301,105 @@ export default function SwindleScore() {
       )}
 
       <ScrollView contentContainerStyle={s.gridWrap} showsVerticalScrollIndicator={false}>
-        {/* Score grid */}
-        <Text style={s.gridLabel}>SELECT SCORE</Text>
-        <View style={s.grid}>
-          {Array.from({ length: 12 }, (_, i) => i + 1).map(n => {
-            const pts     = courseHole ? calcStablefordPoints(n, courseHole.par, shots) : 0;
-            const net     = courseHole ? n - shots : n;
-            const relPar  = courseHole ? net - courseHole.par : 0;
-            const isSel   = selected === n;
-            const subLabel = isStroke
-              ? `net ${net > 0 ? net : '—'}`
-              : `${pts}pt${pts !== 1 ? 's' : ''}`;
-            const subCol   = isStroke
-              ? (relPar < 0 ? GOLD : relPar === 0 ? GREEN : relPar === 1 ? '#9ca3af' : RED)
-              : ptColor(pts);
-            return (
-              <TouchableOpacity
-                key={n}
-                style={[s.scoreBtn, isSel && s.scoreBtnActive]}
-                onPress={() => setSelected(n)}
-                activeOpacity={0.7}
-              >
-                <Text style={[s.scoreBtnNum, isSel && s.scoreBtnNumActive]}>{n}</Text>
-                {courseHole && (
-                  <Text style={[s.scoreBtnPts, { color: isSel ? '#000' : subCol }]}>{subLabel}</Text>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {/* ── Score hero ── */}
+        {(() => {
+          const par = courseHole?.par ?? 4;
+          const result = selected
+            ? (courseHole
+                ? (() => {
+                    const net = selected - shots - par;
+                    if (net <= -2) return 'eagle';
+                    if (net === -1) return 'birdie';
+                    if (net === 0) return 'par';
+                    if (net === 1) return 'bogey';
+                    return 'double';
+                  })()
+                : 'par')
+            : null;
+          const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: GREEN, par: '#3B82F6', bogey: '#f97316', double: RED };
+          const SCORE_LABELS: Record<string, string> = { eagle: 'EAGLE', birdie: 'BIRDIE', par: 'PAR', bogey: 'BOGEY', double: 'DOUBLE +' };
+          const accent = result ? (SCORE_COLORS[result] ?? '#6b7280') : '#1c1c1c';
+          const scoreLabel = result ? (SCORE_LABELS[result] ?? '') : '';
+          const pts = selected && courseHole ? calcStablefordPoints(selected, par, shots) : null;
+
+          return (
+            <>
+              <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 28 }}>
+                  <TouchableOpacity
+                    onPress={() => setSelected(Math.max(1, (selected ?? par) - 1))}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <Ionicons name="remove-circle" size={42} color={selected && selected > 1 ? '#555' : '#222'} />
+                  </TouchableOpacity>
+
+                  <View style={{
+                    width: 100, height: 100, borderRadius: 50,
+                    backgroundColor: selected ? accent : '#111',
+                    borderWidth: 2, borderColor: selected ? accent : '#2c2c2c',
+                    alignItems: 'center', justifyContent: 'center',
+                    shadowColor: selected ? accent : 'transparent',
+                    shadowOffset: { width: 0, height: 0 }, shadowRadius: 20, shadowOpacity: 0.6,
+                    elevation: 10,
+                  }}>
+                    <Text style={{ fontFamily: FFB, fontSize: 50, color: selected ? '#fff' : '#2c2c2c', lineHeight: 56 }}>
+                      {selected ?? '?'}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => setSelected(Math.min(12, (selected ?? par) + 1))}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <Ionicons name="add-circle" size={42} color="#555" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{ alignItems: 'center', marginTop: 10, minHeight: 36 }}>
+                  {selected ? (
+                    <>
+                      <Text style={{ fontFamily: FFB, fontSize: 14, color: accent, letterSpacing: 2 }}>{scoreLabel}</Text>
+                      {!isStroke && pts !== null && (
+                        <Text style={{ fontFamily: FF, fontSize: 12, color: '#555', marginTop: 2 }}>{pts} stableford pts</Text>
+                      )}
+                    </>
+                  ) : (
+                    <Text style={{ fontFamily: FF, fontSize: 13, color: '#444' }}>tap a number or use arrows</Text>
+                  )}
+                </View>
+              </View>
+
+              {/* Quick tap grid (2 rows × 5) */}
+              {[[1,2,3,4,5],[6,7,8,9,10]].map((row, ri) => (
+                <View key={ri} style={{ flexDirection: 'row', gap: 7, marginTop: ri === 0 ? 0 : 7 }}>
+                  {row.map(n => {
+                    const r = courseHole
+                      ? (() => { const net = n - shots - courseHole.par; if (net <= -2) return 'eagle'; if (net === -1) return 'birdie'; if (net === 0) return 'par'; if (net === 1) return 'bogey'; return 'double'; })()
+                      : 'par';
+                    const SCORE_COLORS2: Record<string, string> = { eagle: GOLD, birdie: GREEN, par: '#3B82F6', bogey: '#f97316', double: RED };
+                    const a = SCORE_COLORS2[r] ?? '#6b7280';
+                    const on = selected === n;
+                    return (
+                      <TouchableOpacity
+                        key={n}
+                        style={{
+                          flex: 1, height: 44, borderRadius: 10,
+                          backgroundColor: on ? a : '#111',
+                          borderWidth: 1.5, borderColor: on ? a : '#222',
+                          alignItems: 'center', justifyContent: 'center',
+                        }}
+                        onPress={() => setSelected(n)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={{ fontFamily: FFB, fontSize: 16, color: on ? '#fff' : '#444' }}>{n}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ))}
+            </>
+          );
+        })()}
 
         {/* Previous holes */}
         {saved.length > 0 && (

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Image, Modal, ScrollView,
+  Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,14 @@ import { resolveAvatar } from '../../../src/lib/assets';
 
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
+
+const TEE_OPTIONS = [
+  { label: 'Yellow', color: '#EAB308' },
+  { label: 'White',  color: '#D1D5DB' },
+  { label: 'Red',    color: '#EF4444' },
+  { label: 'Blue',   color: '#3B82F6' },
+  { label: 'Black',  color: '#6B7280' },
+];
 
 type GameMode =
   | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble'
@@ -21,6 +29,8 @@ interface Player {
   handicap_index: number;
   avatar_url?: string | null;
 }
+
+export type PlayerOverride = { hcp: number | null; tee: string | null };
 
 export interface BuiltMatch {
   home: string[];
@@ -99,7 +109,7 @@ export default function GroupBuilderSheet({
   teamSize: number;
   initialStartHole?: number;
   initialMatches?: BuiltMatch[];
-  onDone: (matches: BuiltMatch[]) => void;
+  onDone: (matches: BuiltMatch[], overrides: Record<string, PlayerOverride>) => void;
   onClose: () => void;
 }) {
   const dc = useDynamicColors();
@@ -111,6 +121,13 @@ export default function GroupBuilderSheet({
   const [pickTarget, setPickTarget] = useState<{ gi: number; si: number; side: 'home' | 'away' } | null>(null);
   const [holeGi,    setHoleGi]    = useState<number | null>(null);
   const [editName,  setEditName]  = useState<{ gi: number; si: number; side: 'home' | 'away'; val: string } | null>(null);
+  const [overrides, setOverrides] = useState<Record<string, PlayerOverride>>({});
+  const [profileTarget, setProfileTarget] = useState<{
+    playerId: string; fromPicker: boolean;
+    gi?: number; si?: number; side?: 'home' | 'away';
+  } | null>(null);
+  const [profileHcp, setProfileHcp] = useState('');
+  const [profileTee, setProfileTee] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -121,6 +138,8 @@ export default function GroupBuilderSheet({
       setPickTarget(null);
       setHoleGi(null);
       setEditName(null);
+      setOverrides({});
+      setProfileTarget(null);
     }
   }, [visible, mode, initialStartHole]);
 
@@ -204,6 +223,36 @@ export default function GroupBuilderSheet({
 
   const canDone = groups.some(g => g.slots.some(s => s.home.length > 0 || s.away.length > 0));
 
+  useEffect(() => {
+    if (!profileTarget) return;
+    const p = players.find(x => x.id === profileTarget.playerId);
+    const ov = overrides[profileTarget.playerId];
+    setProfileHcp(String(ov?.hcp ?? p?.handicap_index ?? ''));
+    setProfileTee(ov?.tee ?? null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileTarget?.playerId]);
+
+  function confirmProfile() {
+    if (!profileTarget) return;
+    const { playerId, fromPicker, gi, si, side } = profileTarget;
+    const parsedHcp = parseFloat(profileHcp);
+    const player = players.find(x => x.id === playerId);
+    const originalHcp = player?.handicap_index ?? 0;
+    const hcpVal = isNaN(parsedHcp) ? null : parsedHcp;
+    const hcpChanged = hcpVal !== null && hcpVal !== originalHcp;
+    if (hcpChanged || profileTee !== null) {
+      setOverrides(prev => ({ ...prev, [playerId]: { hcp: hcpChanged ? hcpVal : null, tee: profileTee } }));
+    } else {
+      setOverrides(prev => { const next = { ...prev }; delete next[playerId]; return next; });
+    }
+    if (fromPicker && gi !== undefined && si !== undefined && side) {
+      setGroups(prev => prev.map((g, i) => i !== gi ? g : {
+        ...g, slots: g.slots.map((s, j) => j !== si ? s : ({ ...s, [side]: [...s[side], playerId] })),
+      }));
+    }
+    setProfileTarget(null);
+  }
+
   // ── Sub-components ────────────────────────────────────────────
 
   function AvatarCircle({ player, size = 36 }: { player: Player; size?: number }) {
@@ -219,15 +268,26 @@ export default function GroupBuilderSheet({
   function FilledRow({ gi, si, side, pid }: { gi: number; si: number; side: 'home' | 'away'; pid: string }) {
     const p = players.find(x => x.id === pid);
     if (!p) return null;
+    const ov = overrides[pid];
+    const displayHcp = ov?.hcp ?? p.handicap_index;
+    const hasOverride = ov?.hcp != null || ov?.tee != null;
     return (
       <View style={[css.playerRow, { borderColor: dc.border }]}>
-        <AvatarCircle player={p} />
-        <View style={{ flex: 1 }}>
-          <Text style={[css.playerName, { color: dc.white }]} numberOfLines={1}>{p.display_name}</Text>
-          {p.handicap_index != null && (
-            <Text style={css.playerHcp}>HCP {p.handicap_index}</Text>
-          )}
-        </View>
+        <TouchableOpacity
+          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+          onPress={() => setProfileTarget({ playerId: pid, fromPicker: false })}
+          activeOpacity={0.7}
+        >
+          <AvatarCircle player={p} />
+          <View style={{ flex: 1 }}>
+            <Text style={[css.playerName, { color: dc.white }]} numberOfLines={1}>{p.display_name}</Text>
+            {displayHcp != null && (
+              <Text style={[css.playerHcp, hasOverride && { color: GOLD }]}>
+                {hasOverride ? '★ ' : ''}HCP {displayHcp}{ov?.tee ? ` · ${ov.tee}` : ''}
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => removePlayer(gi, si, side, pid)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="close-circle" size={20} color="#555" />
         </TouchableOpacity>
@@ -414,7 +474,7 @@ export default function GroupBuilderSheet({
           <Text style={[css.headerTitle, { color: dc.white }]}>PLAYERS</Text>
           <TouchableOpacity
             style={[css.doneBtn, !canDone && { opacity: 0.35 }]}
-            onPress={canDone ? () => onDone(buildResult()) : undefined}
+            onPress={canDone ? () => onDone(buildResult(), overrides) : undefined}
             activeOpacity={0.85}
           >
             <Text style={css.doneBtnText}>Done</Text>
@@ -502,6 +562,77 @@ export default function GroupBuilderSheet({
         </Modal>
       )}
 
+      {/* Mini player profile */}
+      {profileTarget !== null && (() => {
+        const profilePlayer = players.find(x => x.id === profileTarget.playerId);
+        if (!profilePlayer) return null;
+        return (
+          <Modal visible transparent animationType="slide" onRequestClose={() => setProfileTarget(null)}>
+            <TouchableOpacity style={css.overlay} activeOpacity={1} onPress={() => setProfileTarget(null)} />
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+              <View style={[css.subSheet, { backgroundColor: dc.card, paddingBottom: 44 }]}>
+                {/* Player identity */}
+                <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                  <AvatarCircle player={profilePlayer} size={60} />
+                  <Text style={[css.profileName, { color: dc.white }]}>{profilePlayer.display_name}</Text>
+                  <Text style={css.profileOrigHcp}>Profile HCP {profilePlayer.handicap_index}</Text>
+                </View>
+
+                {/* HCP override */}
+                <Text style={css.profileLabel}>ROUND HANDICAP</Text>
+                <TextInput
+                  style={[css.nameInput, { color: dc.white, borderColor: GOLD, marginTop: 6 }]}
+                  value={profileHcp}
+                  onChangeText={setProfileHcp}
+                  keyboardType="decimal-pad"
+                  selectTextOnFocus
+                />
+
+                {/* Tee picker */}
+                <Text style={[css.profileLabel, { marginTop: 16 }]}>PLAYING TEES</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                  {TEE_OPTIONS.map(t => {
+                    const selected = profileTee === t.label;
+                    return (
+                      <TouchableOpacity
+                        key={t.label}
+                        style={[css.teePill, { borderColor: selected ? t.color : dc.border, backgroundColor: selected ? `${t.color}20` : 'transparent' }]}
+                        onPress={() => setProfileTee(selected ? null : t.label)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[css.teeCircle, { backgroundColor: t.color }]} />
+                        <Text style={[css.teePillText, { color: selected ? t.color : '#888' }]}>{t.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <Text style={css.profileNote}>Changes apply to this round only</Text>
+
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                  <TouchableOpacity
+                    style={[css.profileBtn, { borderWidth: 1, borderColor: dc.border }]}
+                    onPress={() => setProfileTarget(null)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[css.profileBtnText, { color: '#777' }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[css.profileBtn, { backgroundColor: GOLD, flex: 2 }]}
+                    onPress={confirmProfile}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[css.profileBtnText, { color: '#000' }]}>
+                      {profileTarget.fromPicker ? 'Add to Round' : 'Save'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </KeyboardAvoidingView>
+          </Modal>
+        );
+      })()}
+
       {/* Player picker */}
       {pickTarget !== null && (
         <Modal visible transparent animationType="slide" onRequestClose={() => setPickTarget(null)}>
@@ -520,7 +651,11 @@ export default function GroupBuilderSheet({
                     <TouchableOpacity
                       key={p.id}
                       style={[css.subRow, { borderBottomColor: dc.border }]}
-                      onPress={() => addPlayerToSlot(p.id)}
+                      onPress={() => {
+                        const pt = pickTarget!;
+                        setPickTarget(null);
+                        setProfileTarget({ playerId: p.id, fromPicker: true, gi: pt.gi, si: pt.si, side: pt.side });
+                      }}
                       activeOpacity={0.7}
                     >
                       {src
@@ -631,4 +766,21 @@ const css = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 12,
     fontFamily: FFB, fontSize: 16, marginTop: 4,
   },
+
+  profileName:    { fontFamily: FFB, fontSize: 18, marginTop: 10 },
+  profileOrigHcp: { fontFamily: FF, fontSize: 12, color: '#666', marginTop: 2 },
+  profileLabel:   { fontFamily: FFB, fontSize: 11, letterSpacing: 1.5, color: '#888' },
+  profileNote:    { fontFamily: FF, fontSize: 11, color: '#555', textAlign: 'center', marginTop: 16 },
+  profileBtn: {
+    flex: 1, borderRadius: 10, paddingVertical: 13, alignItems: 'center', justifyContent: 'center',
+  },
+  profileBtnText: { fontFamily: FFB, fontSize: 15 },
+
+  teePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderWidth: 1, borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 7,
+  },
+  teeCircle: { width: 10, height: 10, borderRadius: 5 },
+  teePillText: { fontFamily: FFB, fontSize: 13 },
 });
