@@ -104,6 +104,9 @@ export default function SoloRoundScreen() {
   const [editingHole, setEditingHole] = useState<number | null>(null);
   const [selectedFairway, setSelectedFairway] = useState<'left' | 'centre' | 'right' | null>(null);
   const [selectedPutts, setSelectedPutts] = useState<number | null>(null);
+  const [selectedBunker, setSelectedBunker] = useState(0);
+  const [selectedPenalty, setSelectedPenalty] = useState(0);
+  const [selectedChips, setSelectedChips] = useState(0);
   const [sideGameModal, setSideGameModal] = useState<{ type: string; hole: number } | null>(null);
   const [sideGameResult, setSideGameResult] = useState('');
   const [sideGameWinner, setSideGameWinner] = useState<string | null>(null);
@@ -400,7 +403,7 @@ export default function SoloRoundScreen() {
     setMatch({ ...match, holes_string: newHolesStr, status: newStatus });
     setEditingHole(null);
 
-    if (selectedFairway !== null || selectedPutts !== null) {
+    if (selectedFairway !== null || selectedPutts !== null || selectedBunker > 0 || selectedPenalty > 0 || selectedChips > 0) {
       await supabase.from('hole_stats').upsert({
         match_id: matchId,
         player_id: match.home_player_ids[0],
@@ -408,12 +411,18 @@ export default function SoloRoundScreen() {
         fairway_hit: courseHole.par >= 4 ? (selectedFairway != null ? selectedFairway === 'centre' : null) : null,
         fairway_direction: courseHole.par >= 4 ? selectedFairway : null,
         putts: selectedPutts,
+        bunker_shots:    selectedBunker > 0 ? selectedBunker : null,
+        penalty_strokes: selectedPenalty > 0 ? selectedPenalty : null,
+        chip_shots:      selectedChips > 0 ? selectedChips : null,
       }, { onConflict: 'match_id,player_id,hole_number' });
     }
 
     setSelectedScore(null);
     setSelectedFairway(null);
     setSelectedPutts(null);
+    setSelectedBunker(0);
+    setSelectedPenalty(0);
+    setSelectedChips(0);
     setSaving(false);
 
     if (!editingHole) {
@@ -556,6 +565,9 @@ export default function SoloRoundScreen() {
                 setSelectedScore(sc?.gross ?? null);
                 setSelectedFairway(null);
                 setSelectedPutts(null);
+                setSelectedBunker(0);
+                setSelectedPenalty(0);
+                setSelectedChips(0);
                 setEditingHole(h);
                 setModalVisible(true);
               } : undefined}
@@ -640,7 +652,7 @@ export default function SoloRoundScreen() {
             {/* Main CTA */}
             <TouchableOpacity
               style={[s.ctaBtn, editingHole ? { backgroundColor: '#ffffff' } : null]}
-              onPress={() => { setSelectedScore(null); setSelectedFairway(null); setSelectedPutts(null); setModalVisible(true); }}
+              onPress={() => { setSelectedScore(null); setSelectedFairway(null); setSelectedPutts(null); setSelectedBunker(0); setSelectedPenalty(0); setSelectedChips(0); setModalVisible(true); }}
               disabled={saving}
               activeOpacity={0.85}
             >
@@ -875,6 +887,29 @@ export default function SoloRoundScreen() {
                   ))}
                 </View>
               </View>
+
+              {/* Bunker / Penalty / Chips */}
+              {[
+                { label: 'BUNKER SHOTS',    val: selectedBunker,  set: setSelectedBunker },
+                { label: 'PENALTY STROKES', val: selectedPenalty, set: setSelectedPenalty },
+                { label: 'CHIP SHOTS',      val: selectedChips,   set: setSelectedChips },
+              ].map(({ label, val, set }) => (
+                <View key={label} style={s.statSection}>
+                  <Text style={s.statSectionLabel}>{label}</Text>
+                  <View style={s.statBtnRow}>
+                    {([0, 1, 2, 3] as const).map(n => (
+                      <TouchableOpacity
+                        key={n}
+                        style={[s.statBtn, s.statBtnPutt, val === n && s.statBtnGold]}
+                        onPress={() => set(n)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[s.statBtnText, val === n && { color: '#ffffff' }]}>{n === 3 ? '3+' : n}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              ))}
 
               <TouchableOpacity
                 style={[s.submitBtn, !selectedScore && { opacity: 0.35 }]}

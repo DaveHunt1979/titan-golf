@@ -13,4 +13,5 @@ export function useDeviceLayout(): DeviceLayout {
 }
 
 // Static constant — safe to use outside component render (e.g. StyleSheet, IS_PAD checks)
-export const IS_PAD = Platform.OS === 'ios' && !!(Platform as any).isPad;
+export const IS_PAD    = Platform.OS === 'ios' && !!(Platform as any).isPad;
+export const SIDEBAR_W = 220;

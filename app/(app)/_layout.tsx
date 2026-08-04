@@ -6,7 +6,7 @@ import { supabase } from '../../src/lib/supabase';
 import { registerForPushNotifications } from '../../src/lib/notifications';
 import { titanLogo } from '../../src/lib/assets';
 import { SocietyThemeProvider, useSocietyTheme } from '../../src/lib/SocietyThemeContext';
-import { IS_PAD } from '../../src/lib/useDeviceLayout';
+import { IS_PAD, SIDEBAR_W } from '../../src/lib/useDeviceLayout';
 import IpadSidebar from '../../src/components/ipad/IpadSidebar';
 
 function TabIcon({ focused, children }: { focused: boolean; children: ReactNode }) {
@@ -29,7 +29,7 @@ function SplashOverlay({ onDone }: { onDone: () => void }) {
   const scale   = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(1)).current;
 
-  // Pulsate continuously
+  // Pulsate + hard fallback
   useEffect(() => {
     const pulse = Animated.loop(
       Animated.sequence([
@@ -38,23 +38,25 @@ function SplashOverlay({ onDone }: { onDone: () => void }) {
       ])
     );
     pulse.start();
-    // Safety fallback — never block the app forever
-    const fallback = setTimeout(onDone, 5000);
+    const fallback = setTimeout(() => onDone(), 2500);
     return () => { pulse.stop(); clearTimeout(fallback); };
   }, []);
 
-  // Fade out once society theme is loaded
+  // Fade out once society theme loaded
   useEffect(() => {
     if (!loaded) return;
     const timer = setTimeout(() => {
       Animated.timing(opacity, { toValue: 0, duration: 450, useNativeDriver: true })
         .start(() => onDone());
-    }, 1400);
+    }, 600);
     return () => clearTimeout(timer);
   }, [loaded]);
 
   return (
-    <Animated.View style={[splash.overlay, { backgroundColor: palette.bg, opacity }]}>
+    <Animated.View
+      pointerEvents="none"
+      style={[splash.overlay, { backgroundColor: palette.bg, opacity }]}
+    >
       <Animated.Image
         source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)}
         style={[splash.logo, { transform: [{ scale }] }]}
@@ -102,17 +104,19 @@ function AppLayoutInner() {
 
   const tabsEl = (
     <Tabs
-      tabBar={IS_PAD ? () => null : undefined}
       screenOptions={{
         headerShown: false,
+        ...(IS_PAD ? { sceneStyle: { marginLeft: SIDEBAR_W } } : {}),
+        tabBarStyle: IS_PAD
+          ? { display: 'none' }
+          : {
+              backgroundColor: '#0a0a0a',
+              borderTopColor: '#1c1c1c',
+              borderTopWidth: 1,
+              height: Platform.OS === 'ios' ? 88 : 64,
+              paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+            },
         ...(IS_PAD ? {} : {
-          tabBarStyle: {
-            backgroundColor: '#0a0a0a',
-            borderTopColor: '#1c1c1c',
-            borderTopWidth: 1,
-            height: Platform.OS === 'ios' ? 88 : 64,
-            paddingBottom: Platform.OS === 'ios' ? 28 : 8,
-          },
           tabBarActiveTintColor:   palette.accent,
           tabBarInactiveTintColor: '#4b5563',
           tabBarLabelStyle: {
@@ -189,12 +193,8 @@ function AppLayoutInner() {
 
   return (
     <View style={{ flex: 1 }}>
-      {IS_PAD ? (
-        <View style={{ flex: 1, flexDirection: 'row' }}>
-          <IpadSidebar isAdmin={isAdmin} avatarUrl={avatarUrl} />
-          <View style={{ flex: 1 }}>{tabsEl}</View>
-        </View>
-      ) : tabsEl}
+      {tabsEl}
+      {IS_PAD && <IpadSidebar isAdmin={isAdmin} avatarUrl={avatarUrl} />}
 
       {/* Persistent camera FAB */}
       <TouchableOpacity

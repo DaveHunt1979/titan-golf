@@ -17,7 +17,7 @@ import GroupBuilderSheet, { BuiltMatch } from './GroupBuilderSheet';
 
 // ── Constants ─────────────────────────────────────────────────
 
-type GameMode  = '4bbb' | 'singles' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble' | 'greensome' | 'foursomes' | 'modified_stableford' | 'par_bogey' | 'team_stableford' | 'best2from4' | 'best2from4_par3all';
+type GameMode  = '4bbb' | 'singles' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble' | 'greensome' | 'foursomes' | 'par_bogey' | 'team_stableford' | 'best2from4' | 'best2from4_par3all';
 type HolesMode = 'full18' | 'front9' | 'back9';
 
 interface Player      { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
@@ -36,7 +36,6 @@ const MODE_INFO: Record<GameMode, { label: string; sub: string; icon: keyof type
   'greensome':           { label: 'Greensomes',        sub: 'Best drive, then alternate',   icon: 'leaf-outline' },
   'stableford':          { label: 'Stableford',        sub: 'Points per hole',              icon: 'star-outline' },
   'medal':               { label: 'Medal',             sub: 'Stroke play',                  icon: 'medal-outline' },
-  'modified_stableford': { label: 'Mod Stableford',    sub: 'Eagle +8 · Birdie +4',         icon: 'trophy-outline' },
   'par_bogey':           { label: 'Par / Bogey',       sub: 'Win, halve or lose vs par',    icon: 'stats-chart-outline' },
   'skins':               { label: 'Skins',             sub: 'Per-hole prize pot',           icon: 'diamond-outline' },
   'scramble':            { label: 'Scramble',          sub: 'Team best ball',               icon: 'golf-outline' },
@@ -48,7 +47,7 @@ const MODE_INFO: Record<GameMode, { label: string; sub: string; icon: keyof type
 function getModeSections(gold: string): { label: string; accent: string; modes: GameMode[] }[] {
   return [
     { label: 'MATCHPLAY',    accent: gold,      modes: ['4bbb', 'singles'] },
-    { label: 'INDIVIDUAL',   accent: '#4ade80', modes: ['stableford', 'medal', 'modified_stableford', 'par_bogey'] },
+    { label: 'INDIVIDUAL',   accent: '#4ade80', modes: ['stableford', 'medal', 'par_bogey'] },
     { label: 'TEAM GAMES',   accent: '#f97316', modes: ['team_stableford'] },
     { label: 'MASHIE GOLF',  accent: '#a78bfa', modes: ['best2from4', 'best2from4_par3all'] },
   ];
@@ -610,7 +609,7 @@ export default function NewGameScreen() {
     })();
   }, [societyId, societyLoading]);
 
-  const isSolo    = ['stableford', 'medal', 'skins', 'scramble', 'modified_stableford', 'par_bogey'].includes(mode);
+  const isSolo    = ['stableford', 'medal', 'skins', 'scramble', 'par_bogey'].includes(mode);
   const isMashie  = mode === 'best2from4' || mode === 'best2from4_par3all';
   const maxPer = mode === 'team_stableford' ? teamSize
                : (mode === 'singles' || mode === 'nassau') ? 1
@@ -732,9 +731,13 @@ export default function NewGameScreen() {
 
       const results = await Promise.all(builtMatches.map(bm => {
         const extra = isMashie ? { group_code: genGroupCode() } : {};
+        const nameExtra = (bm.homeName || bm.awayName)
+          ? { home_name: bm.homeName || null, away_name: bm.awayName || null }
+          : {};
         return supabase.from('matches').insert({
           ...teamCommonFields,
           ...extra,
+          ...nameExtra,
           start_hole: bm.startHole,
           home_player_ids: bm.home,
           away_player_ids: bm.away,
@@ -1179,43 +1182,6 @@ export default function NewGameScreen() {
             </>
           )}
 
-        </View>
-
-        {/* ── GPS & Course Features ───────────────────────────── */}
-        <Text style={s.sectionLabel}>GPS & COURSE FEATURES</Text>
-        <View style={s.featuresGrid}>
-          <View style={s.featuresRow}>
-            <View style={s.featureCard}>
-              <View style={[s.featureIcon, { backgroundColor: 'rgba(34,197,94,0.12)', borderColor: 'rgba(34,197,94,0.25)' }]}>
-                <Ionicons name="navigate-circle-outline" size={24} color={GREEN} />
-              </View>
-              <Text style={s.featureTitle}>Live Yardages</Text>
-              <Text style={s.featureSub}>Real-time{'\n'}distances</Text>
-            </View>
-            <View style={s.featureCard}>
-              <View style={[s.featureIcon, { backgroundColor: `${GOLD}12`, borderColor: `${GOLD}30` }]}>
-                <Ionicons name="map-outline" size={24} color={GOLD} />
-              </View>
-              <Text style={s.featureTitle}>Hole Maps</Text>
-              <Text style={s.featureSub}>Detailed view{'\n'}of every hole</Text>
-            </View>
-          </View>
-          <View style={s.featuresRow}>
-            <View style={s.featureCard}>
-              <View style={[s.featureIcon, { backgroundColor: 'rgba(99,102,241,0.12)', borderColor: 'rgba(99,102,241,0.25)' }]}>
-                <Ionicons name="analytics-outline" size={24} color="#818cf8" />
-              </View>
-              <Text style={s.featureTitle}>Shot Tracking</Text>
-              <Text style={s.featureSub}>Track every{'\n'}shot</Text>
-            </View>
-            <TouchableOpacity style={s.featureCard} onPress={() => router.push('/(app)/rangefinder' as any)} activeOpacity={0.8}>
-              <View style={[s.featureIcon, { backgroundColor: 'rgba(239,68,68,0.10)', borderColor: 'rgba(239,68,68,0.22)' }]}>
-                <Ionicons name="scan-outline" size={24} color="#f87171" />
-              </View>
-              <Text style={s.featureTitle}>Rangefinder</Text>
-              <Text style={s.featureSub}>GPS pin-point{'\n'}accuracy</Text>
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* ── Ready to Play ───────────────────────────────────── */}

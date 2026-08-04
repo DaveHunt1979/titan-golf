@@ -18,7 +18,7 @@ const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 type DayInfo   = { id: string; join_code: string; course_name: string; course_par: number; day_date: string };
 type PlayerRow = { player_id: string; name: string; match_id: string; pts: number; holes: number; hcp: number };
-type GroupRow  = { match_id: string; format: string; player_names: string[]; status: string; holes_string: string; winner: string | null; result_str: string | null; home_player_ids: string[]; away_player_ids: string[]; home_pts: number; away_pts: number; };
+type GroupRow  = { match_id: string; format: string; player_names: string[]; home_name: string | null; away_name: string | null; status: string; holes_string: string; winner: string | null; result_str: string | null; home_player_ids: string[]; away_player_ids: string[]; home_pts: number; away_pts: number; };
 
 function InitialAvatar({ name, size = 38 }: { name: string; size?: number }) {
   return (
@@ -67,7 +67,7 @@ export default function DayLobby() {
 
     const { data: matches } = await supabase
       .from('matches')
-      .select('id,home_player_ids,away_player_ids,round_format,hcp_allowance,counting_scores,status,holes_string,winner,result_str')
+      .select('id,home_player_ids,away_player_ids,round_format,hcp_allowance,counting_scores,status,holes_string,winner,result_str,home_name,away_name')
       .eq('day_id', dayId)
       .neq('status', 'cancelled');
 
@@ -150,7 +150,9 @@ export default function DayLobby() {
       return {
         match_id:       m.id,
         format:         m.round_format ?? 'stableford',
-        player_names:   [...homeIds, ...awayIds].map(id => playerMap[id]?.name?.split(' ')[0] ?? '?'),
+        player_names:   [...homeIds, ...awayIds].map(id => playerMap[id]?.name ?? '?'),
+        home_name:      m.home_name ?? null,
+        away_name:      m.away_name ?? null,
         status:         m.status ?? 'upcoming',
         holes_string:   m.holes_string ?? '..................',
         winner:         m.winner ?? null,
@@ -280,7 +282,7 @@ export default function DayLobby() {
                     <InitialAvatar name={p.name} size={38} />
                     <View style={{ flex: 1, marginLeft: 12 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text style={[s.lbName, isFirst && { color: GOLD }]}>{p.name.split(' ')[0]}</Text>
+                        <Text style={[s.lbName, isFirst && { color: GOLD }]}>{p.name.split(' ').slice(0, 2).join(' ')}</Text>
                         {isMe && <View style={s.youBadge}><Text style={s.youBadgeText}>YOU</Text></View>}
                       </View>
                       <Text style={s.lbSub}>{p.holes} holes · hcp {p.hcp.toFixed(0)}</Text>
@@ -300,8 +302,8 @@ export default function DayLobby() {
             : groups.map((g, i) => {
                 const isMatchplay = g.format === 'nassau' || g.format === 'matchplay';
                 const hasTeams    = g.away_player_ids.length > 0;
-                const homeNames   = g.player_names.slice(0, g.home_player_ids.length);
-                const awayNames   = g.player_names.slice(g.home_player_ids.length);
+                const homeNames   = g.home_name ? [g.home_name] : g.player_names.slice(0, g.home_player_ids.length);
+                const awayNames   = g.away_name ? [g.away_name] : g.player_names.slice(g.home_player_ids.length);
 
                 let statusLabel = '';
                 let statusColor = GOLD;

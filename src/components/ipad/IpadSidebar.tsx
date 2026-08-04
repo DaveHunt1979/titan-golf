@@ -113,12 +113,17 @@ export default function IpadSidebar({ isAdmin, avatarUrl }: Props) {
 
 const s = StyleSheet.create({
   root: {
-    width:           SIDEBAR_W,
-    backgroundColor: '#0a0a0a',
+    position:         'absolute',
+    left:             0,
+    top:              0,
+    bottom:           0,
+    width:            SIDEBAR_W,
+    backgroundColor:  '#0a0a0a',
     borderRightWidth: 1,
-    paddingTop:      24,
-    paddingBottom:   28,
-    flexDirection:   'column',
+    paddingTop:       24,
+    paddingBottom:    28,
+    flexDirection:    'column',
+    zIndex:           20,
   },
   logoWrap: {
     paddingHorizontal: 18,

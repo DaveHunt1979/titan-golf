@@ -25,6 +25,8 @@ interface Player {
 export interface BuiltMatch {
   home: string[];
   away: string[];
+  homeName: string;
+  awayName: string;
   startHole: number;
 }
 
@@ -194,7 +196,7 @@ export default function GroupBuilderSheet({
     for (const g of groups) {
       for (const s of g.slots) {
         if (s.home.length + s.away.length > 0)
-          out.push({ home: s.home, away: s.away, startHole: g.startHole });
+          out.push({ home: s.home, away: s.away, homeName: s.homeName, awayName: s.awayName, startHole: g.startHole });
       }
     }
     return out;

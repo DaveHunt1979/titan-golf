@@ -49,12 +49,13 @@ export default function ScoreScreen() {
   const BORDER = dc.border;
   const { localLogo, logoUrl } = useSocietyTheme();
 
-  const [myPlayerId, setMyPlayerId]       = useState<string | null>(null);
-  const [matches, setMatches]             = useState<MatchWithDay[]>([]);
-  const [playerNames, setPlayerNames]     = useState<Record<string, string>>({});
-  const [playerAvatars, setPlayerAvatars] = useState<Record<string, string | null>>({});
-  const [loading, setLoading]             = useState(true);
-  const [refreshing, setRefreshing]       = useState(false);
+  const [myPlayerId, setMyPlayerId]             = useState<string | null>(null);
+  const [matches, setMatches]                   = useState<MatchWithDay[]>([]);
+  const [completedMatches, setCompletedMatches] = useState<MatchWithDay[]>([]);
+  const [playerNames, setPlayerNames]           = useState<Record<string, string>>({});
+  const [playerAvatars, setPlayerAvatars]       = useState<Record<string, string | null>>({});
+  const [loading, setLoading]                   = useState(true);
+  const [refreshing, setRefreshing]             = useState(false);
   const [dayCode, setDayCode]             = useState('');
   const [joiningDay, setJoiningDay]       = useState(false);
   const [activeDays, setActiveDays]       = useState<ActiveDay[]>([]);
@@ -117,7 +118,35 @@ export default function ScoreScreen() {
       );
       setMatches(matchData);
 
-      const allIds = [...new Set(matchData.flatMap(m => [...m.home_player_ids, ...m.away_player_ids]))];
+      // Fetch completed matches for history section
+      let completed: MatchWithDay[] = [];
+      if (pid) {
+        const [{ data: homeCompleted }, { data: awayCompleted }] = await Promise.all([
+          supabase
+            .from('matches')
+            .select('*,home_team:home_team_id(name,accent_color),away_team:away_team_id(name,accent_color),day:day_id(course_name,course_par)')
+            .eq('status', 'complete')
+            .contains('home_player_ids', [pid])
+            .order('created_at', { ascending: false })
+            .limit(10),
+          supabase
+            .from('matches')
+            .select('*,home_team:home_team_id(name,accent_color),away_team:away_team_id(name,accent_color),day:day_id(course_name,course_par)')
+            .eq('status', 'complete')
+            .contains('away_player_ids', [pid])
+            .order('created_at', { ascending: false })
+            .limit(10),
+        ]);
+        const merged = [...(homeCompleted as unknown as MatchWithDay[] ?? []), ...(awayCompleted as unknown as MatchWithDay[] ?? [])];
+        const seen = new Set<string>();
+        completed = merged
+          .filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; })
+          .sort((a, b) => new Date((b as any).created_at).getTime() - new Date((a as any).created_at).getTime())
+          .slice(0, 15);
+        setCompletedMatches(completed);
+      }
+
+      const allIds = [...new Set([...matchData, ...completed].flatMap(m => [...m.home_player_ids, ...m.away_player_ids]))];
       if (allIds.length > 0) {
         const { data: players } = await supabase.from('players').select('id,display_name,avatar_url').in('id', allIds);
         if (players) {
@@ -359,13 +388,21 @@ export default function ScoreScreen() {
             </>
           )}
 
+          {/* History */}
+          {completedMatches.length > 0 && (
+            <>
+              <SectionHead label="HISTORY" s={s} />
+              {completedMatches.map(m => <RoundCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} s={s} GOLD={GOLD} />)}
+            </>
+          )}
 
-          {!loading && matches.length === 0 && (
+          {!loading && matches.length === 0 && completedMatches.length === 0 && (
             <View style={s.emptyState}>
               <Ionicons name="golf-outline" size={40} color="#1c1c1c" />
               <Text style={s.emptyStateText}>No rounds yet — hit Start New Round to get going.</Text>
             </View>
           )}
+
 
           <View style={{ height: 40 }} />
         </View>

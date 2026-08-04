@@ -446,7 +446,7 @@ export default function EnterScoresScreen() {
     : Array.from({ length: 18 }, (_, i) => i + 1);
   // Reorder hole results to match play sequence so calcHoles reads them correctly
   const sequencedHolesStr = holeSequence.map(h => holeChars[h - 1] ?? '.').join('');
-  const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? 19;
+  const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? 18;
   const activeHole = editingHole ?? currentHole;
   const allHolesFilled = currentHole > 18;
   const isComplete = match?.status === 'complete';
@@ -1490,7 +1490,14 @@ export default function EnterScoresScreen() {
             {match.status === 'complete' ? (
               <TouchableOpacity
                 style={s.ctaBtn}
-                onPress={() => router.back()}
+                onPress={() => {
+                  const dayId = match?.day_id ?? (match as any)?.day?.id;
+                  if (dayId) {
+                    router.replace(`/(app)/score/day/${dayId}` as any);
+                  } else {
+                    router.replace('/(app)/' as any);
+                  }
+                }}
                 activeOpacity={0.85}
               >
                 <Ionicons name="checkmark-outline" size={20} color="#000000" />
@@ -1553,6 +1560,37 @@ export default function EnterScoresScreen() {
                     </Text>
                   </View>
                 ))}
+            </View>
+          )}
+
+          {(match.round_format === 'stableford' || match.secondary_format) && allPlayerIds.length > 0 && Object.keys(holeData).length > 0 && (
+            <View style={s.summaryCard}>
+              <Text style={s.summaryTitle}>SCORING BREAKDOWN</Text>
+              {allPlayerIds.map(id => {
+                const holes = holeData[id] ?? {};
+                let eagles = 0, birdies = 0, pars = 0, bogeys = 0;
+                for (const h of Object.values(holes)) {
+                  const pts = h.pts ?? 0;
+                  if (pts >= 3) eagles++;
+                  else if (pts === 2) birdies++;
+                  else if (pts === 1) pars++;
+                  else bogeys++;
+                }
+                const holesPlayed = Object.keys(holes).length;
+                if (holesPlayed === 0) return null;
+                const firstName = (playerNames[id] ?? '?').split(' ')[0];
+                return (
+                  <View key={id} style={{ marginBottom: 12 }}>
+                    <Text style={[s.summaryName, { color: '#ffffff', marginBottom: 4 }]}>{firstName}</Text>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      {eagles  > 0 && <Text style={{ fontFamily: FFB, fontSize: 12, color: GOLD }}>{'🦅'} {eagles}</Text>}
+                      {birdies > 0 && <Text style={{ fontFamily: FFB, fontSize: 12, color: GREEN }}>{'🐦'} {birdies}</Text>}
+                      {pars    > 0 && <Text style={{ fontFamily: FFB, fontSize: 12, color: '#94a3b8' }}>PAR {pars}</Text>}
+                      {bogeys  > 0 && <Text style={{ fontFamily: FFB, fontSize: 12, color: RED }}>BOG {bogeys}</Text>}
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           )}
 
@@ -1664,7 +1702,18 @@ export default function EnterScoresScreen() {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={s.doneBtn} onPress={() => router.back()} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={s.doneBtn}
+            onPress={() => {
+              const dayId = match?.day_id ?? (match as any)?.day?.id;
+              if (dayId) {
+                router.replace(`/(app)/score/day/${dayId}` as any);
+              } else {
+                router.replace('/(app)/' as any);
+              }
+            }}
+            activeOpacity={0.85}
+          >
             <Text style={s.doneBtnText}>Done</Text>
           </TouchableOpacity>
         </ScrollView>
