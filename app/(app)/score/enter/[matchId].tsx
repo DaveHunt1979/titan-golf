@@ -168,6 +168,7 @@ export default function EnterScoresScreen() {
   const [showConflicts, setShowConflicts] = useState(false);
   const [eagleAlert, setEagleAlert] = useState<{ type: EagleType; playerName: string; hole: number } | null>(null);
   const [continuingSecondary, setContinuingSecondary] = useState(false);
+  const [broadcastMode, setBroadcastMode] = useState(false);
   const { width: screenWidth } = useWindowDimensions();
   const pagerRef = useRef<ScrollView>(null);
   const holeStripRef = useRef<ScrollView>(null);
@@ -1161,8 +1162,8 @@ export default function EnterScoresScreen() {
   const formatLabel = isMatchplay ? 'Matchplay' : match.round_format === 'stableford' ? 'Stableford' : 'Stroke Play';
 
   return (
-    <View style={IS_PAD ? { flex: 1, flexDirection: 'row', backgroundColor: '#000' } : s.root}>
-      <View style={IS_PAD ? { width: 360, backgroundColor: '#000000', overflow: 'hidden' } : { flex: 1 }}>
+    <View style={(IS_PAD && broadcastMode) ? { flex: 1, flexDirection: 'row', backgroundColor: '#000' } : s.root}>
+      <View style={(IS_PAD && broadcastMode) ? { width: 360, backgroundColor: '#000000', overflow: 'hidden' } : { flex: 1 }}>
       <StatusBar style="light" />
 
       {/* ── Header ── */}
@@ -1176,13 +1177,42 @@ export default function EnterScoresScreen() {
             {match.day?.course_name ? `${match.day.course_name} · ${formatLabel}` : formatLabel}
           </Text>
         </View>
-        <TouchableOpacity
-          style={s.headerSide}
-          onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${currentHole}&fromMatchId=${matchId}` as any)}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="scan-outline" size={22} color={GOLD} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {IS_PAD && (
+            <TouchableOpacity
+              onPress={() => setBroadcastMode(b => !b)}
+              activeOpacity={0.8}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                backgroundColor: broadcastMode ? '#D4AF37' : 'rgba(212,175,55,0.15)',
+                borderWidth: 1,
+                borderColor: '#D4AF37',
+                borderRadius: 20,
+                paddingHorizontal: 12,
+                paddingVertical: 5,
+              }}
+            >
+              <Ionicons name="tv-outline" size={13} color={broadcastMode ? '#000' : '#D4AF37'} />
+              <Text style={{
+                fontFamily: 'JUSTSans-ExBold',
+                fontSize: 9,
+                color: broadcastMode ? '#000' : '#D4AF37',
+                letterSpacing: 1.5,
+              }}>
+                BROADCAST
+              </Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={s.headerSide}
+            onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${currentHole}&fromMatchId=${matchId}` as any)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="scan-outline" size={22} color={GOLD} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Sync status ── */}
@@ -2004,7 +2034,7 @@ export default function EnterScoresScreen() {
         onDismiss={() => setEagleAlert(null)}
       />
       </View>
-      {IS_PAD && (
+      {(IS_PAD && broadcastMode) && (
         <>
           <HoleInfoPanel
             holeNumber={activeHole}

@@ -90,7 +90,7 @@ export default function RangefinderScreen() {
   const { courseName: pCourse, holeNumber: pHole, fromMatchId } = useLocalSearchParams<{ courseName?: string; holeNumber?: string; fromMatchId?: string }>();
   const router = useRouter();
   const goBack = () => fromMatchId
-    ? router.navigate(`/(app)/score/enter/${fromMatchId}` as any)
+    ? router.replace(`/(app)/score/enter/${fromMatchId}` as any)
     : router.back();
   const dc = useDynamicColors();
   const { localLogo, logoUrl } = useSocietyTheme();

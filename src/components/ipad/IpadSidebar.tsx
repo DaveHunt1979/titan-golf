@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter, useSegments, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { titanLogo } from '../../lib/assets';
 import { useSocietyTheme } from '../../lib/SocietyThemeContext';
@@ -32,6 +32,8 @@ export default function IpadSidebar({ isAdmin, avatarUrl }: Props) {
   const { palette, localLogo, logoUrl } = useSocietyTheme();
   const router   = useRouter();
   const segments = useSegments() as string[];
+  const pathname = usePathname();
+  if (pathname.includes('rangefinder')) return null;
 
   const activeSeg = segments[1] as string | undefined;
   const isHome    = !activeSeg || activeSeg === 'index';

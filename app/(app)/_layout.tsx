@@ -177,7 +177,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="spectate/[matchId]"       options={{ href: null }} />
         <Tabs.Screen name="range/index"              options={{ href: null }} />
         <Tabs.Screen name="range/[sessionId]"        options={{ href: null }} />
-        <Tabs.Screen name="rangefinder/index"        options={{ href: null }} />
+        <Tabs.Screen name="rangefinder/index" options={{ href: null, sceneStyle: IS_PAD ? { marginLeft: 0 } : undefined }} />
         <Tabs.Screen name="records/index"             options={{ href: null }} />
         <Tabs.Screen name="swindle/create"           options={{ href: null }} />
         <Tabs.Screen name="swindle/[gameId]"         options={{ href: null }} />
