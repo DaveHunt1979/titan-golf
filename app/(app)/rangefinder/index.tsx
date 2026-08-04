@@ -260,11 +260,14 @@ export default function RangefinderScreen() {
   useEffect(() => {
     const centre = pins.centre;
     if (!mapRef.current || !centre) return;
-    const coords = player
-      ? [{ latitude: player.lat, longitude: player.lng }, { latitude: centre.lat, longitude: centre.lng }]
+    const tee = (hole?.tee_lat != null && hole?.tee_lng != null)
+      ? { latitude: hole.tee_lat!, longitude: hole.tee_lng! }
+      : null;
+    const coords = tee
+      ? [tee, { latitude: centre.lat, longitude: centre.lng }]
       : [{ latitude: centre.lat, longitude: centre.lng }];
     mapRef.current.fitToCoordinates(coords, {
-      edgePadding: { top: 80, right: 60, bottom: 80, left: 60 }, animated: true,
+      edgePadding: { top: 100, right: 80, bottom: 220, left: 100 }, animated: true,
     });
   }, [hole?.hole_number]);
 
@@ -410,7 +413,9 @@ export default function RangefinderScreen() {
   const dActive = distTo(activeTarget);
 
   const centre = pins.centre;
-  const initialRegion = centre
+  const initialRegion = teeOrigin
+    ? { latitude: teeOrigin.lat, longitude: teeOrigin.lng, latitudeDelta: 0.006, longitudeDelta: 0.006 }
+    : centre
     ? { latitude: centre.lat, longitude: centre.lng, latitudeDelta: 0.004, longitudeDelta: 0.004 }
     : undefined;
 
@@ -426,7 +431,10 @@ export default function RangefinderScreen() {
           </TouchableOpacity>
           <View style={s.headerCenter}>
             <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.headerLogo} resizeMode="contain" />
-            <Text style={s.headerSub}>RANGEFINDER</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Image source={titanLogo} style={{ width: 20, height: 20 }} resizeMode="contain" />
+              <Text style={s.headerSub}>TITAN GPS</Text>
+            </View>
           </View>
           <View style={s.headerSide} />
         </View>
@@ -496,7 +504,7 @@ export default function RangefinderScreen() {
   const effectiveDist = dActive !== null ? dActive + (elev?.adjustYards ?? 0) + windAdj : null;
   const clubRec = recommendClub(effectiveDist, clubAvgs);
 
-  const bottomPanelHeight = 120;
+  const bottomPanelHeight = 200;
 
   const teeYards = [
     { label: 'B', yards: hole?.blue_yards,   color: '#3b82f6' },
@@ -602,24 +610,34 @@ export default function RangefinderScreen() {
       {/* ── TOP HEADER ── */}
       <View style={s.topHeader}>
         <View style={s.headerRow}>
-          <TouchableOpacity onPress={goBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
+          <TouchableOpacity onPress={goBack} style={s.headerBackBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name="chevron-back" size={22} color="#fff" />
           </TouchableOpacity>
 
-          <View style={s.holeChip}>
-            <Text style={s.holeChipText}>
-              {hole
-                ? `HOLE ${String(hole.hole_number).padStart(2, '0')}  ·  Par ${hole.par}  ·  SI ${hole.stroke_index}`
-                : '—'}
-            </Text>
+          <View style={s.headerBrand}>
+            <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.headerBrandLogo} resizeMode="contain" />
+            <Text style={s.headerBrandText}>TITAN GPS</Text>
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={s.headerRight}>
             <View style={[s.gpsDot, { backgroundColor: gpsOk ? GREEN : '#f59e0b' }]} />
-            {weather && <Text style={s.gpsText}>{weather.temp}°</Text>}
+            {weather && <Text style={s.gpsText}>{weather.windSpeed}mph {cardinal(weather.windDir)}</Text>}
           </View>
         </View>
-        <Text style={s.courseChipText} numberOfLines={1}>{selectedCourse}</Text>
+
+        <View style={s.holeInfoRow}>
+          {hole ? (
+            <>
+              <Text style={s.holeInfoBig}>HOLE {String(hole.hole_number).padStart(2, '0')}</Text>
+              <Text style={s.holeInfoSep}>·</Text>
+              <Text style={s.holeInfoSub}>PAR {hole.par}</Text>
+              <Text style={s.holeInfoSep}>·</Text>
+              <Text style={s.holeInfoSub}>SI {hole.stroke_index}</Text>
+            </>
+          ) : (
+            <Text style={s.holeInfoSub}>{selectedCourse}</Text>
+          )}
+        </View>
       </View>
 
       {/* ── DISTANCE CARDS — left column ── */}
@@ -647,39 +665,9 @@ export default function RangefinderScreen() {
         })}
       </View>
 
-      {/* ── BIG ACTIVE YARDAGE ── */}
-      <View style={s.bigDistWrap}>
-        <Text style={s.bigDistNum}>{dActive !== null ? dActive : '—'}</Text>
-        <Text style={s.bigDistLabel}>{teeOrigin ? 'yds from tee' : 'yds from here'}</Text>
-        {(elev || windAdj !== 0) && effectiveDist !== null && (
-          <View style={s.elevChip}>
-            {elev ? (
-              <Ionicons
-                name={elev.diffFt >= 0 ? 'trending-up' : 'trending-down'}
-                size={13}
-                color={elev.diffFt >= 0 ? RED : GREEN}
-              />
-            ) : null}
-            <Text style={[s.elevText, { color: 'rgba(255,255,255,0.85)' }]}>
-              {[
-                elev ? (elev.diffFt >= 0 ? `↑${elev.diffFt}ft` : `↓${Math.abs(elev.diffFt)}ft`) : null,
-                windAdj !== 0 ? (windAdj > 0 ? `↑${windAdj}yd wind` : `↓${Math.abs(windAdj)}yd wind`) : null,
-              ].filter(Boolean).join('  ')}
-              {'  →  play '}
-              <Text style={{ color: GOLD, fontFamily: FFB }}>{effectiveDist}</Text>
-            </Text>
-          </View>
-        )}
-        {clubRec && (
-          <View style={s.clubChip2}>
-            <Text style={s.clubChipText}>🏌 {clubRec.club} · {clubRec.dist} yds</Text>
-          </View>
-        )}
-      </View>
-
       {/* ── WIND COMPASS ── */}
       {weather && (
-        <View style={[s.compassCircle, { bottom: bottomPanelHeight + 16 }]}>
+        <View style={[s.compassCircle, { bottom: bottomPanelHeight + 20, right: 16 }]}>
           <View style={[s.compassNeedle, { transform: [{ rotate: `${weather.windDir}deg` }] }]}>
             <View style={s.needleHead} />
             <View style={s.needleTail} />
@@ -689,8 +677,36 @@ export default function RangefinderScreen() {
         </View>
       )}
 
-      {/* ── BOTTOM OVERLAY PANEL ── */}
+      {/* ── BOTTOM PANEL ── */}
       <View style={s.bottomPanel}>
+        {/* Active distance — hero number */}
+        <View style={s.distHero}>
+          <Text style={s.distHeroNum}>{dActive !== null ? dActive : '—'}</Text>
+          <View style={s.distHeroMeta}>
+            <Text style={s.distHeroLabel}>
+              {activeTarget === 'front' ? 'FRONT' : activeTarget === 'back' ? 'BACK' : 'FLAG'}
+              {' · '}
+              {teeOrigin ? 'FROM TEE' : 'FROM HERE'}
+            </Text>
+            {(elev || windAdj !== 0) && effectiveDist !== null && (
+              <Text style={s.distHeroAdj}>
+                {[
+                  elev ? (elev.diffFt >= 0 ? `↑${elev.diffFt}ft` : `↓${Math.abs(elev.diffFt)}ft`) : null,
+                  windAdj !== 0 ? (windAdj > 0 ? `+${windAdj}yd` : `${windAdj}yd`) : null,
+                ].filter(Boolean).join(' · ')}
+                {' → play '}
+                <Text style={{ color: GOLD }}>{effectiveDist}</Text>
+                {' yds'}
+              </Text>
+            )}
+            {clubRec && (
+              <Text style={s.distHeroClub}>🏌 {clubRec.club} · {clubRec.dist} yds avg</Text>
+            )}
+          </View>
+        </View>
+
+        <View style={s.panelDivider} />
+
         {/* Hole navigation */}
         <View style={s.bottomHoleNav}>
           <TouchableOpacity
@@ -699,10 +715,11 @@ export default function RangefinderScreen() {
             disabled={holeIdx === 0}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={28} color={holeIdx === 0 ? '#333' : '#fff'} />
+            <Ionicons name="chevron-back" size={26} color={holeIdx === 0 ? '#333' : '#fff'} />
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setSelected(null)} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => setSelected(null)} activeOpacity={0.7} style={s.holeNavCenter}>
+            <Text style={s.holeNavLabel}>HOLE</Text>
             <Text style={s.holeNavNum}>{hole ? String(hole.hole_number).padStart(2, '0') : '—'}</Text>
           </TouchableOpacity>
 
@@ -712,7 +729,7 @@ export default function RangefinderScreen() {
             disabled={holeIdx >= holes.length - 1}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-forward" size={28} color={holeIdx >= holes.length - 1 ? '#333' : '#fff'} />
+            <Ionicons name="chevron-forward" size={26} color={holeIdx >= holes.length - 1 ? '#333' : '#fff'} />
           </TouchableOpacity>
         </View>
 
@@ -721,8 +738,9 @@ export default function RangefinderScreen() {
           <View style={s.yardageStrip}>
             {teeYards.map(ty => (
               <View key={ty.label} style={s.yardageChip}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ty.color, marginRight: 4 }} />
+                <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: ty.color, marginRight: 5 }} />
                 <Text style={s.yardageChipText}>{ty.yards}</Text>
+                <Text style={s.yardageChipLabel}> yds</Text>
               </View>
             ))}
           </View>
@@ -738,7 +756,7 @@ const s = StyleSheet.create({
   // ── Course selector ──────────────────────────────────────────────
   headerSide:   { width: 40, alignItems: 'center' },
   headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
-  headerLogo:   { width: 28, height: 28 },
+  headerLogo:   { width: 24, height: 24 },
   headerSub:    { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2.5 },
   selHeader: {
     flexDirection: 'row', alignItems: 'center',
@@ -754,145 +772,154 @@ const s = StyleSheet.create({
   giSearchBtn:  { paddingLeft: 10, height: 48, justifyContent: 'center' },
   giLocation:   { fontFamily: FF, fontSize: 12, marginTop: 2 },
 
-  // ── Full-screen map ──────────────────────────────────────────────
+  // ── Map ──────────────────────────────────────────────────────────
   mapFull: StyleSheet.absoluteFillObject,
 
-  // ── Pin dots on map ──────────────────────────────────────────────
+  // ── Pin dots ─────────────────────────────────────────────────────
   pinDot: {
     width: 28, height: 28, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.8, shadowRadius: 4,
   },
   pinDotText: { fontFamily: FFB, fontSize: 12, color: '#000' },
-
-  // ── Tee marker ───────────────────────────────────────────────────
   teeMarker: {
-    width: 12, height: 12,
-    backgroundColor: '#fff',
-    borderRadius: 2,
-    borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.5)',
+    width: 12, height: 12, backgroundColor: '#fff',
+    borderRadius: 2, borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.5)',
   },
 
   // ── Top header ───────────────────────────────────────────────────
   topHeader: {
     position: 'absolute', top: 0, left: 0, right: 0,
-    paddingTop: 56, paddingBottom: 10, paddingHorizontal: 16,
-    backgroundColor: 'rgba(0,0,0,0.72)',
+    paddingTop: 52, paddingBottom: 10, paddingHorizontal: 16,
+    backgroundColor: 'rgba(0,0,0,0.78)',
+    borderBottomWidth: 1, borderBottomColor: 'rgba(212,175,55,0.18)',
   },
   headerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  holeChip: {
-    flex: 1, alignItems: 'center', paddingHorizontal: 8,
+  headerBackBtn: { width: 36, alignItems: 'flex-start' },
+  headerBrand: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
   },
-  holeChipText: {
-    fontFamily: FFB, fontSize: 12, color: '#fff', letterSpacing: 1.5, textAlign: 'center',
-  },
-  courseChipText: {
-    fontFamily: FF, fontSize: 11, color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center', marginTop: 4, letterSpacing: 0.5,
-  },
-  gpsDot:  { width: 7, height: 7, borderRadius: 4 },
-  gpsText: { fontFamily: FFB, fontSize: 11, color: '#fff' },
+  headerBrandLogo: { width: 22, height: 22 },
+  headerBrandText: { fontFamily: FFB, fontSize: 13, color: GOLD, letterSpacing: 2.5 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 5, width: 90, justifyContent: 'flex-end' },
+  gpsDot:  { width: 7, height: 7, borderRadius: 3.5 },
+  gpsText: { fontFamily: FFB, fontSize: 10, color: 'rgba(255,255,255,0.6)' },
 
-  // ── Distance cards column ────────────────────────────────────────
+  holeInfoRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    marginTop: 8, gap: 6,
+  },
+  holeInfoBig: { fontFamily: FFB, fontSize: 13, color: '#fff', letterSpacing: 1.5 },
+  holeInfoSep: { fontFamily: FF, fontSize: 11, color: 'rgba(255,255,255,0.3)' },
+  holeInfoSub: { fontFamily: FF, fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 0.5 },
+
+  // ── Distance cards — left column ─────────────────────────────────
   distCol: {
-    position: 'absolute', left: 14, top: 140,
-    gap: 8,
+    position: 'absolute', left: 14, top: 145,
+    gap: 6,
   },
   distCard: {
-    width: 80, height: 72,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    width: 78, height: 70,
+    backgroundColor: 'rgba(0,0,0,0.68)',
     borderRadius: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center', justifyContent: 'center',
     gap: 2,
   },
   distCardActive: {
     borderColor: GOLD,
     borderWidth: 1.5,
+    backgroundColor: 'rgba(0,0,0,0.82)',
   },
-  distIcon:  { marginBottom: 2 },
+  distIcon:  { marginBottom: 1 },
   distNum:   { fontFamily: FFB, lineHeight: 24 },
-  distLabel: { fontFamily: FFB, fontSize: 9, letterSpacing: 1.2 },
+  distLabel: { fontFamily: FFB, fontSize: 8, letterSpacing: 1.5 },
 
-  // ── Big active yardage ───────────────────────────────────────────
-  bigDistWrap: {
-    position: 'absolute',
-    left: 0, right: 0,
-    top: '38%',
-    alignItems: 'center',
-  },
-  bigDistNum: {
-    fontFamily: FFB, fontSize: 72, color: '#fff',
-    lineHeight: 76, letterSpacing: -2,
-    textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8,
-  },
-  bigDistLabel: {
-    fontFamily: FF, fontSize: 14, color: 'rgba(255,255,255,0.5)',
-    letterSpacing: 1, marginTop: 2,
-  },
-  elevChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5,
-    marginTop: 8,
-  },
-  elevText: { fontFamily: FFB, fontSize: 11 },
-  clubChip2: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 14,
-    borderWidth: 1, borderColor: 'rgba(212,175,55,0.35)',
-    paddingHorizontal: 12, paddingVertical: 6,
-    marginTop: 6,
-  },
-  clubChipText: { fontFamily: FFB, fontSize: 13, color: GOLD },
-
-  // ── Wind compass circle ──────────────────────────────────────────
+  // ── Wind compass ─────────────────────────────────────────────────
   compassCircle: {
-    position: 'absolute', left: 16,
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    position: 'absolute',
+    width: 50, height: 50, borderRadius: 25,
+    backgroundColor: 'rgba(0,0,0,0.70)',
     borderWidth: 1.5, borderColor: GOLD,
     alignItems: 'center', justifyContent: 'center',
   },
   compassNeedle: {
-    position: 'absolute', width: 2, height: 32,
+    position: 'absolute', width: 2, height: 30,
     alignItems: 'center', justifyContent: 'space-between',
   },
   needleHead:    { width: 7, height: 7, borderRadius: 4, backgroundColor: GOLD },
   needleTail:    { width: 3, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.3)' },
   compassCentre: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#fff' },
-  compassLabel:  { position: 'absolute', bottom: 4, fontFamily: FFB, fontSize: 8, color: '#fff', letterSpacing: 1 },
+  compassLabel:  { position: 'absolute', bottom: 4, fontFamily: FFB, fontSize: 7, color: '#fff', letterSpacing: 1 },
 
-  // ── Bottom overlay panel ─────────────────────────────────────────
+  // ── Bottom panel ─────────────────────────────────────────────────
   bottomPanel: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: 'rgba(0,0,0,0.82)',
-    paddingBottom: 34, paddingTop: 12,
+    backgroundColor: 'rgba(5,5,5,0.92)',
+    borderTopWidth: 1, borderTopColor: 'rgba(212,175,55,0.22)',
+    paddingBottom: 36, paddingTop: 14,
     alignItems: 'center',
   },
+
+  // Active distance hero
+  distHero: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 24, gap: 14,
+    marginBottom: 4,
+  },
+  distHeroNum: {
+    fontFamily: FFB, fontSize: 54, color: '#fff',
+    lineHeight: 58, letterSpacing: -2,
+    textShadowColor: GOLD, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 12,
+  },
+  distHeroMeta: { flex: 1, gap: 3 },
+  distHeroLabel: {
+    fontFamily: FFB, fontSize: 10, color: GOLD, letterSpacing: 2,
+  },
+  distHeroAdj: {
+    fontFamily: FF, fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 16,
+  },
+  distHeroClub: {
+    fontFamily: FFB, fontSize: 12, color: GOLD,
+  },
+
+  panelDivider: {
+    width: '88%', height: 1,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    marginVertical: 10,
+  },
+
+  // Hole navigation
   bottomHoleNav: {
     flexDirection: 'row', alignItems: 'center',
     width: '100%', justifyContent: 'space-between',
     paddingHorizontal: 16,
   },
   holeNavArrow: {
-    width: 52, alignItems: 'center', justifyContent: 'center', paddingVertical: 4,
+    width: 48, alignItems: 'center', justifyContent: 'center', paddingVertical: 4,
+  },
+  holeNavCenter: { alignItems: 'center' },
+  holeNavLabel: {
+    fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2.5,
   },
   holeNavNum: {
-    fontFamily: FFB, fontSize: 52, color: '#fff',
-    lineHeight: 56, letterSpacing: -1,
+    fontFamily: FFB, fontSize: 38, color: '#fff',
+    lineHeight: 42, letterSpacing: -1,
   },
+
+  // Tee yardages
   yardageStrip: {
-    flexDirection: 'row', gap: 8,
+    flexDirection: 'row', gap: 6,
     marginTop: 8, paddingHorizontal: 16,
     flexWrap: 'wrap', justifyContent: 'center',
   },
   yardageChip: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
   },
   yardageChipText: { fontFamily: FFB, fontSize: 12, color: '#fff' },
+  yardageChipLabel: { fontFamily: FF, fontSize: 10, color: 'rgba(255,255,255,0.4)' },
 });
