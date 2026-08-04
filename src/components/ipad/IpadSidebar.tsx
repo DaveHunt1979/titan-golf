@@ -13,7 +13,7 @@ export const SIDEBAR_W = 220;
 
 const BASE_NAV = [
   { label: 'Home',         seg: undefined,       route: '/(app)/',             icon: 'home-outline'      },
-  { label: 'Play',         seg: 'games',         route: '/(app)/games/new',    icon: 'golf-outline'      },
+  { label: 'Play',         seg: 'games',         route: '/(app)/games',        icon: 'golf-outline'      },
   { label: 'Tour',         seg: 'tour',          route: '/(app)/tour',         icon: 'trophy-outline'    },
   { label: 'Rangefinder',  seg: 'rangefinder',   route: '/(app)/rangefinder',  icon: 'navigate-outline'  },
 ] as const;

@@ -144,6 +144,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="admin/concept-rangefinder" options={{ href: null }} />
         <Tabs.Screen name="admin/concept-swindle"      options={{ href: null }} />
         <Tabs.Screen name="admin/concept-swindle-game" options={{ href: null }} />
+        <Tabs.Screen name="games/index"              options={{ href: null }} />
         <Tabs.Screen name="games/new"                options={{ href: null }} />
         <Tabs.Screen name="games/GroupBuilderSheet"   options={{ href: null }} />
         <Tabs.Screen name="score/results/[matchId]"  options={{ href: null }} />

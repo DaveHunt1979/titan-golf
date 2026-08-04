@@ -30,7 +30,7 @@ function greet(): string {
 }
 
 const TILES = [
-  { key: 'play',      label: 'Play',        sub: 'Start a casual round',        icon: 'golf-outline'   as const, area: 'casual',  route: '/(app)/games/new' },
+  { key: 'play',      label: 'Play',        sub: 'Start a casual round',        icon: 'golf-outline'   as const, area: 'casual',  route: '/(app)/games' },
   { key: 'events',    label: 'Events',       sub: 'Tournaments & leagues',        icon: 'trophy-outline' as const, area: 'tour',    route: '/(app)/tour'    },
   { key: 'clubhouse', label: 'Clubhouse',    sub: 'Swindles & roll-ups',          icon: 'people-outline' as const, area: 'swindle', route: '/(app)/swindle' },
   { key: 'locker',    label: 'Locker Room',  sub: 'Stats, handicap & equipment',  icon: 'shield-outline' as const, area: 'casual',  route: '/(app)/profile' },
