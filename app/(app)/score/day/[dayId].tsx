@@ -343,7 +343,7 @@ export default function DayLobby() {
                   <TouchableOpacity
                     key={g.match_id}
                     style={[s.groupCard, isMyGroup && s.groupCardMe, !canNavigate && { opacity: 0.6 }]}
-                    onPress={canNavigate ? () => router.push(`/(app)/score/enter/${g.match_id}` as any) : undefined}
+                    onPress={canNavigate ? () => router.push((g.status === 'complete' ? `/(app)/score/${g.match_id}` : `/(app)/score/enter/${g.match_id}`) as any) : undefined}
                     activeOpacity={canNavigate ? 0.8 : 1}
                     disabled={!canNavigate}
                   >

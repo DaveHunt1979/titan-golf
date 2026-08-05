@@ -463,6 +463,11 @@ function RoundCard({ match, playerNames, playerAvatars, s, GOLD }: {
     <TouchableOpacity
       style={[s.card, isLive && s.cardLive, isComplete && s.cardComplete]}
       onPress={() => {
+        // Completed rounds go through the results/edit hub, never straight
+        // into a live scoring screen — and solo rounds have their own screen.
+        if (isComplete) { router.push(`/(app)/score/${match.id}` as any); return; }
+        if (isSolo) { router.push(`/(app)/score/solo/${match.id}` as any); return; }
+        if (match.day_id) { router.push(`/(app)/score/day/${match.day_id}` as any); return; }
         router.push(`/(app)/score/enter/${match.id}` as any);
       }}
       activeOpacity={0.75}

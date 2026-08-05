@@ -9,9 +9,12 @@ import { calcStrokesReceived, calcStablefordPoints, calcCourseHandicap } from '.
 import { speakPressure } from '../../../../src/lib/caddie';
 
 const { width: W } = Dimensions.get('window');
-const GOLD   = '#D4AF37';
-const GREEN  = '#4ade80';
-const RED    = '#f87171';
+const GOLD     = '#D4AF37';
+const GREEN    = '#4ade80';
+const RED      = '#f87171';
+const BLUE     = '#3b82f6';
+const DARKBLUE = '#1e3a8a';
+const PLAIN    = '#ffffff';
 const PURPLE = '#a78bfa';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
@@ -142,30 +145,16 @@ export default function SwindleScore() {
     }
   }
 
-  function ptColor(pts: number): string {
-    if (pts >= 4) return GOLD;
-    if (pts === 3) return GREEN;
-    if (pts === 2) return '#9ca3af';
-    if (pts === 1) return '#f97316';
-    return RED;
-  }
-
   function dotColor(sc: SavedScore): string {
-    if (isStroke) {
-      const ch = courseHoles.find(h => h.hole_number === sc.hole_number);
-      const net = ch ? sc.gross - calcStrokesReceived(playingHcp, ch.stroke_index) : sc.gross;
-      const rel = ch ? net - ch.par : 0;
-      if (rel <= -2) return 'rgba(212,175,55,0.85)';
-      if (rel === -1) return 'rgba(74,222,128,0.85)';
-      if (rel === 0)  return 'rgba(156,163,175,0.6)';
-      if (rel === 1)  return 'rgba(249,115,22,0.7)';
-      return 'rgba(248,113,113,0.7)';
-    }
-    if (sc.pts >= 4) return 'rgba(212,175,55,0.85)';
-    if (sc.pts === 3) return 'rgba(74,222,128,0.85)';
-    if (sc.pts === 2) return 'rgba(156,163,175,0.6)';
-    if (sc.pts === 1) return 'rgba(249,115,22,0.7)';
-    return 'rgba(248,113,113,0.7)';
+    // Gross strokes vs par only — handicap shots affect stableford points,
+    // not the eagle/birdie/par/bogey classification.
+    const ch = courseHoles.find(h => h.hole_number === sc.hole_number);
+    const rel = ch ? sc.gross - ch.par : 0;
+    if (rel <= -2) return 'rgba(212,175,55,0.85)';
+    if (rel === -1) return 'rgba(248,113,113,0.85)';
+    if (rel === 0)  return 'rgba(255,255,255,0.6)';
+    if (rel === 1)  return 'rgba(59,130,246,0.7)';
+    return 'rgba(30,58,138,0.7)';
   }
 
   // ── Complete screen ──────────────────────────────────────────────────────────
@@ -194,9 +183,9 @@ export default function SwindleScore() {
           <View style={s.summaryCard}>
             {saved.sort((a, b) => a.hole_number - b.hole_number).map(sc => {
               const ch = courseHoles.find(h => h.hole_number === sc.hole_number);
-              const color = isStroke
-                ? (() => { const net = ch ? sc.gross - calcStrokesReceived(playingHcp, ch.stroke_index) : sc.gross; const rel = ch ? net - ch.par : 0; return rel < 0 ? GOLD : rel === 0 ? GREEN : rel === 1 ? '#f97316' : RED; })()
-                : ptColor(sc.pts);
+              // Gross strokes vs par only — points are handicap-adjusted, the label isn't.
+              const rel = ch ? sc.gross - ch.par : 0;
+              const color = rel <= -2 ? GOLD : rel === -1 ? RED : rel === 0 ? PLAIN : rel === 1 ? BLUE : DARKBLUE;
               return (
                 <View key={sc.hole_number} style={s.summaryRow}>
                   <Text style={s.summaryHole}>H{sc.hole_number}</Text>
@@ -307,16 +296,16 @@ export default function SwindleScore() {
           const result = selected
             ? (courseHole
                 ? (() => {
-                    const net = selected - shots - par;
-                    if (net <= -2) return 'eagle';
-                    if (net === -1) return 'birdie';
-                    if (net === 0) return 'par';
-                    if (net === 1) return 'bogey';
+                    const diff = selected - par;
+                    if (diff <= -2) return 'eagle';
+                    if (diff === -1) return 'birdie';
+                    if (diff === 0) return 'par';
+                    if (diff === 1) return 'bogey';
                     return 'double';
                   })()
                 : 'par')
             : null;
-          const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: GREEN, par: '#3B82F6', bogey: '#f97316', double: RED };
+          const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: RED, par: PLAIN, bogey: BLUE, double: DARKBLUE };
           const SCORE_LABELS: Record<string, string> = { eagle: 'EAGLE', birdie: 'BIRDIE', par: 'PAR', bogey: 'BOGEY', double: 'DOUBLE +' };
           const accent = result ? (SCORE_COLORS[result] ?? '#6b7280') : '#1c1c1c';
           const scoreLabel = result ? (SCORE_LABELS[result] ?? '') : '';
@@ -342,7 +331,7 @@ export default function SwindleScore() {
                     shadowOffset: { width: 0, height: 0 }, shadowRadius: 20, shadowOpacity: 0.6,
                     elevation: 10,
                   }}>
-                    <Text style={{ fontFamily: FFB, fontSize: 50, color: selected ? '#fff' : '#2c2c2c', lineHeight: 56 }}>
+                    <Text style={{ fontFamily: FFB, fontSize: 50, color: selected ? (accent === PLAIN ? '#000' : '#fff') : '#2c2c2c', lineHeight: 56 }}>
                       {selected ?? '?'}
                     </Text>
                   </View>
@@ -374,9 +363,9 @@ export default function SwindleScore() {
                 <View key={ri} style={{ flexDirection: 'row', gap: 7, marginTop: ri === 0 ? 0 : 7 }}>
                   {row.map(n => {
                     const r = courseHole
-                      ? (() => { const net = n - shots - courseHole.par; if (net <= -2) return 'eagle'; if (net === -1) return 'birdie'; if (net === 0) return 'par'; if (net === 1) return 'bogey'; return 'double'; })()
+                      ? (() => { const diff = n - courseHole.par; if (diff <= -2) return 'eagle'; if (diff === -1) return 'birdie'; if (diff === 0) return 'par'; if (diff === 1) return 'bogey'; return 'double'; })()
                       : 'par';
-                    const SCORE_COLORS2: Record<string, string> = { eagle: GOLD, birdie: GREEN, par: '#3B82F6', bogey: '#f97316', double: RED };
+                    const SCORE_COLORS2: Record<string, string> = { eagle: GOLD, birdie: RED, par: PLAIN, bogey: BLUE, double: DARKBLUE };
                     const a = SCORE_COLORS2[r] ?? '#6b7280';
                     const on = selected === n;
                     return (
@@ -391,7 +380,7 @@ export default function SwindleScore() {
                         onPress={() => setSelected(n)}
                         activeOpacity={0.7}
                       >
-                        <Text style={{ fontFamily: FFB, fontSize: 16, color: on ? '#fff' : '#444' }}>{n}</Text>
+                        <Text style={{ fontFamily: FFB, fontSize: 16, color: on ? (a === PLAIN ? '#000' : '#fff') : '#fff' }}>{n}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -407,17 +396,9 @@ export default function SwindleScore() {
             <Text style={s.prevLabel}>PREVIOUS HOLES</Text>
             {saved.sort((a, b) => a.hole_number - b.hole_number).map(sc => {
               const ch = courseHoles.find(h => h.hole_number === sc.hole_number);
-              const color = isStroke
-                ? (() => {
-                    const net = ch ? sc.gross - calcStrokesReceived(playingHcp, ch.stroke_index) : sc.gross;
-                    const rel = ch ? net - ch.par : 0;
-                    if (rel <= -2) return GOLD;
-                    if (rel === -1) return GREEN;
-                    if (rel === 0)  return '#9ca3af';
-                    if (rel === 1)  return '#f97316';
-                    return RED;
-                  })()
-                : ptColor(sc.pts);
+              // Gross strokes vs par only — points are handicap-adjusted, the label isn't.
+              const rel = ch ? sc.gross - ch.par : 0;
+              const color = rel <= -2 ? GOLD : rel === -1 ? RED : rel === 0 ? PLAIN : rel === 1 ? BLUE : DARKBLUE;
               return (
                 <View key={sc.hole_number} style={s.prevRow}>
                   <Text style={s.prevHole}>H{sc.hole_number}</Text>

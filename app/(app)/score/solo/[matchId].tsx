@@ -22,20 +22,24 @@ import CaddieButton from '../../../../src/components/CaddieButton';
 import type { VoiceCommandResult } from '../../../../src/lib/voiceCommand';
 
 const { width: W } = Dimensions.get('window');
-const GOLD   = '#D4AF37';
-const GREEN  = '#4ade80';
-const RED    = '#f87171';
-const BLUE   = '#3b82f6';
-const ORANGE = '#f97316';
+const GOLD     = '#D4AF37';
+const GREEN    = '#4ade80';
+const RED      = '#f87171';
+const BLUE     = '#3b82f6';
+const ORANGE   = '#f97316';
+const DARKBLUE = '#1e3a8a';
+const PLAIN    = '#ffffff';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
-const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: GREEN, par: BLUE, bogey: ORANGE, double: RED };
+const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: RED, par: PLAIN, bogey: BLUE, double: DARKBLUE };
 
-function scoreVsPar(gross: number, par: number, shots: number): string {
-  const net = gross - shots;
-  const diff = net - par;
+function scoreVsPar(gross: number, par: number, _shots: number): string {
+  // Classified by gross strokes vs par only — handicap shots affect stableford
+  // points, not the eagle/birdie/par/bogey label (Rick: "points and stroke
+  // should remain separate").
+  const diff = gross - par;
   if (diff <= -2) return 'eagle';
   if (diff === -1) return 'birdie';
   if (diff === 0)  return 'par';
@@ -45,10 +49,10 @@ function scoreVsPar(gross: number, par: number, shots: number): string {
 
 function ptsColor(pts: number): string {
   if (pts >= 4) return GOLD;
-  if (pts === 3) return GREEN;
-  if (pts === 2) return BLUE;
-  if (pts === 1) return ORANGE;
-  return RED;
+  if (pts === 3) return RED;
+  if (pts === 2) return PLAIN;
+  if (pts === 1) return BLUE;
+  return DARKBLUE;
 }
 
 function Avatar({ name, size = 44, src }: { name: string; size?: number; src?: any }) {
@@ -189,6 +193,7 @@ export default function SoloRoundScreen() {
   }, {} as Record<number, string>);
   const currentSideGame = sideGameByHole[activeHole] ?? null;
   const voiceOff = !match?.side_games?.includes('voice:on');
+  const statsOff = !!match?.side_games?.includes('stats:off');
 
   const courseHole = courseHoles.find(h => h.hole_number === activeHole);
   const shots = courseHole ? calcStrokesReceived(courseHcp, courseHole.stroke_index) : 0;
@@ -574,7 +579,7 @@ export default function SoloRoundScreen() {
           const active = h === activeHole && !isComplete;
           const ch = courseHoles.find(x => x.hole_number === h);
           const sc = savedScores.find(sv => sv.hole_number === h);
-          const tc = done ? (isStableford ? ptsColor(sc?.pts ?? 0) : (sc ? (sc.gross - (ch?.par ?? 4) < 0 ? GREEN : sc.gross - (ch?.par ?? 4) === 0 ? BLUE : RED) : '#6b7280')) : 'transparent';
+          const tc = done ? (sc ? SCORE_COLORS[scoreVsPar(sc.gross, ch?.par ?? 4, 0)] : '#6b7280') : 'transparent';
           return (
             <TouchableOpacity
               key={h}
@@ -714,10 +719,10 @@ export default function SoloRoundScreen() {
               </Text>
               <View style={s.statGrid}>
                 {eagles  > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: GOLD }]}>{eagles}</Text><Text style={s.statLbl}>Eagle{eagles !== 1 ? 's' : ''}</Text></View>}
-                {birdies > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: GREEN }]}>{birdies}</Text><Text style={s.statLbl}>Birdie{birdies !== 1 ? 's' : ''}</Text></View>}
-                {pars    > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: BLUE }]}>{pars}</Text><Text style={s.statLbl}>Par{pars !== 1 ? 's' : ''}</Text></View>}
-                {bogeys  > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: ORANGE }]}>{bogeys}</Text><Text style={s.statLbl}>Bogey{bogeys !== 1 ? 's' : ''}</Text></View>}
-                {doubles > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: RED }]}>{doubles}</Text><Text style={s.statLbl}>Double{doubles !== 1 ? 's' : ''}+</Text></View>}
+                {birdies > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: RED }]}>{birdies}</Text><Text style={s.statLbl}>Birdie{birdies !== 1 ? 's' : ''}</Text></View>}
+                {pars    > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: PLAIN }]}>{pars}</Text><Text style={s.statLbl}>Par{pars !== 1 ? 's' : ''}</Text></View>}
+                {bogeys  > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: BLUE }]}>{bogeys}</Text><Text style={s.statLbl}>Bogey{bogeys !== 1 ? 's' : ''}</Text></View>}
+                {doubles > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: DARKBLUE }]}>{doubles}</Text><Text style={s.statLbl}>Double{doubles !== 1 ? 's' : ''}+</Text></View>}
               </View>
               {bestHole && worstHole && bestHole.hole_number !== worstHole.hole_number && (
                 <View style={s.bestWorstRow}>
@@ -785,10 +790,10 @@ export default function SoloRoundScreen() {
                     <Text style={s.scorecardHoleLabel}>GROSS</Text>
                     {half.map(h => {
                       const sv = halfScores.find(s => s.hole_number === h.hole_number);
-                      const diff = sv ? sv.gross - h.par : null;
+                      const cellColor = sv ? SCORE_COLORS[scoreVsPar(sv.gross, h.par, 0)] : null;
                       return (
-                        <View key={h.hole_number} style={[s.scorecardScoreCell, diff !== null && diff < 0 && { backgroundColor: `${GREEN}25` }, diff !== null && diff > 0 && { backgroundColor: `${RED}15` }]}>
-                          <Text style={[s.scorecardScoreText, diff !== null && diff < 0 && { color: GREEN }, diff !== null && diff > 0 && { color: RED }]}>{sv?.gross ?? '·'}</Text>
+                        <View key={h.hole_number} style={[s.scorecardScoreCell, cellColor && cellColor !== PLAIN && { backgroundColor: `${cellColor}25` }]}>
+                          <Text style={[s.scorecardScoreText, cellColor && { color: cellColor }]}>{sv?.gross ?? '·'}</Text>
                         </View>
                       );
                     })}
@@ -885,7 +890,7 @@ export default function SoloRoundScreen() {
                           shadowOffset: { width: 0, height: 0 }, shadowRadius: 20, shadowOpacity: 0.6,
                           elevation: 10,
                         }}>
-                          <Text style={{ fontFamily: FFB, fontSize: 50, color: selectedScore ? '#fff' : '#2c2c2c', lineHeight: 56 }}>
+                          <Text style={{ fontFamily: FFB, fontSize: 50, color: selectedScore ? (accent === PLAIN ? '#000' : '#fff') : '#2c2c2c', lineHeight: 56 }}>
                             {selectedScore ?? '?'}
                           </Text>
                         </View>
@@ -930,7 +935,7 @@ export default function SoloRoundScreen() {
                               onPress={() => setSelectedScore(n)}
                               activeOpacity={0.7}
                             >
-                              <Text style={{ fontFamily: FFB, fontSize: 16, color: on ? '#fff' : '#444' }}>{n}</Text>
+                              <Text style={{ fontFamily: FFB, fontSize: 16, color: on ? (a === PLAIN ? '#000' : '#fff') : '#fff' }}>{n}</Text>
                             </TouchableOpacity>
                           );
                         })}
@@ -938,7 +943,7 @@ export default function SoloRoundScreen() {
                     ))}
 
                     {/* Fairway */}
-                    {courseHole && courseHole.par >= 4 && (
+                    {!statsOff && courseHole && courseHole.par >= 4 && (
                       <>
                         <Text style={[s.statSectionLabel, { marginTop: 18 }]}>FAIRWAY</Text>
                         <View style={s.statBtnRow}>
@@ -957,7 +962,7 @@ export default function SoloRoundScreen() {
                     )}
 
                     {/* Compact 2×2 stat cards */}
-                    <View style={{ marginTop: 18 }}>
+                    {!statsOff && <View style={{ marginTop: 18 }}>
                       <Text style={s.statSectionLabel}>STATS</Text>
                       {([
                         [
@@ -993,7 +998,7 @@ export default function SoloRoundScreen() {
                                       }}
                                       activeOpacity={0.7}
                                     >
-                                      <Text style={{ fontFamily: FFB, fontSize: 12, color: on ? '#000' : '#444' }}>{display(n)}</Text>
+                                      <Text style={{ fontFamily: FFB, fontSize: 12, color: on ? '#000' : '#fff' }}>{display(n)}</Text>
                                     </TouchableOpacity>
                                   );
                                 })}
@@ -1002,7 +1007,7 @@ export default function SoloRoundScreen() {
                           ))}
                         </View>
                       ))}
-                    </View>
+                    </View>}
 
                     <TouchableOpacity
                       style={[s.submitBtn, !selectedScore && { opacity: 0.35 }, { marginTop: 20 }]}
@@ -1168,7 +1173,7 @@ const s = StyleSheet.create({
   holeStripWrap: { maxHeight: 72 },
   holeStrip:     { paddingHorizontal: 12, paddingVertical: 6, gap: 6, alignItems: 'center' },
   holeTile: { width: 42, height: 58, borderRadius: 10, backgroundColor: '#111111', borderWidth: 1, borderColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center', gap: 2 },
-  holeTileNum:   { fontFamily: FFB, fontSize: 14, color: '#4b5563' },
+  holeTileNum:   { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
   holeTilePar:   { fontFamily: FFB, fontSize: 9, color: '#333' },
   holeTilePts:   { fontFamily: FFB, fontSize: 11, marginTop: 1 },
   halfLabels:    { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 12, paddingBottom: 4 },

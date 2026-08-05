@@ -12,21 +12,32 @@ import { supabase } from '../../../src/lib/supabase';
 import { matchLabel, getEffectiveWinner, calcHoles } from '../../../src/lib/scoring';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
 
-const GOLD   = '#D4AF37';
-const GREEN  = '#4ade80';
-const RED    = '#f87171';
-const BLUE   = '#3b82f6';
-const ORANGE = '#f97316';
+const GOLD     = '#D4AF37';
+const GREEN    = '#4ade80';
+const RED      = '#f87171';
+const BLUE     = '#3b82f6';
+const ORANGE   = '#f97316';
+const DARKBLUE = '#1e3a8a';
+const PLAIN    = '#ffffff';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 function ptsColor(pts: number): string {
   if (pts >= 4) return GOLD;
-  if (pts === 3) return GREEN;
-  if (pts === 2) return BLUE;
-  if (pts === 1) return ORANGE;
-  return RED;
+  if (pts === 3) return RED;
+  if (pts === 2) return PLAIN;
+  if (pts === 1) return BLUE;
+  return DARKBLUE;
+}
+
+function scoreVsParColor(gross: number, par: number): string {
+  const diff = gross - par;
+  if (diff <= -2) return GOLD;
+  if (diff === -1) return RED;
+  if (diff === 0)  return PLAIN;
+  if (diff === 1)  return BLUE;
+  return DARKBLUE;
 }
 
 function Avatar({ name, color, size = 40, source }: { name: string; color: string; size?: number; source?: any }) {
@@ -343,8 +354,9 @@ export default function MatchDetailScreen() {
           else if (c === 'a') resultColor = awayColor;
           else if (c === 'f') resultColor = '#4b5563';
           else if (c === 'd') {
-            const bestPts = Math.max(0, ...allPlayerIds.map(id => stablefordForHole(id, h) ?? 0));
-            resultColor = bestPts > 0 ? ptsColor(bestPts) : '#22c55e';
+            const grosses = allPlayerIds.map(id => grossForHole(id, h)).filter((g): g is number => g != null);
+            const bestGross = grosses.length ? Math.min(...grosses) : null;
+            resultColor = bestGross !== null && ch ? scoreVsParColor(bestGross, ch.par) : PLAIN;
           }
           return (
             <View
@@ -358,7 +370,7 @@ export default function MatchDetailScreen() {
               <Text style={s.holeTilePar}>P{ch?.par ?? '?'}</Text>
               {isPlayed && isStrokePlay && (() => {
                 const best = Math.max(0, ...allPlayerIds.map(id => stablefordForHole(id, h) ?? 0));
-                return best > 0 ? <Text style={[s.holeTilePts, { color: ptsColor(best) }]}>{best}</Text> : null;
+                return best > 0 ? <Text style={[s.holeTilePts, { color: resultColor }]}>{best}</Text> : null;
               })()}
               {isPlayed && !isStrokePlay && (
                 <Text style={[s.holeTilePts, { color: resultColor }]}>
@@ -427,9 +439,8 @@ export default function MatchDetailScreen() {
                 const SL = 36; const SC = 26; const ST = 32;
 
                 const ScCell = ({ val, par: p }: { val: number | null; par: number | null }) => {
-                  const diff = val !== null && p !== null ? val - p : null;
-                  const bg = diff === null ? 'transparent' : diff < 0 ? `${GREEN}25` : diff === 0 ? '#1a1a1a' : `${RED}15`;
-                  const tc = diff === null ? '#333' : diff < 0 ? GREEN : diff === 0 ? '#fff' : RED;
+                  const tc = val !== null && p !== null ? scoreVsParColor(val, p) : '#333';
+                  const bg = val === null || p === null ? 'transparent' : tc === PLAIN ? '#1a1a1a' : `${tc}25`;
                   return (
                     <View style={{ width: SC, height: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderRadius: 4 }}>
                       <Text style={{ fontFamily: FFB, fontSize: 11, color: val ? tc : '#2a2a2a' }}>{val ?? '·'}</Text>
@@ -441,7 +452,7 @@ export default function MatchDetailScreen() {
                   <View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: '#1a1a1a', backgroundColor: '#0a0a0a' }}>
                       <Text style={{ width: SL, fontFamily: FFB, fontSize: 8, color: '#fff', paddingLeft: 8 }}>HOLE</Text>
-                      {holes.map(h => <Text key={h.hole_number} style={{ width: SC, fontFamily: FFB, fontSize: 10, color: gross(h.hole_number) ? '#ffffff' : '#444', textAlign: 'center' }}>{h.hole_number}</Text>)}
+                      {holes.map(h => <Text key={h.hole_number} style={{ width: SC, fontFamily: FFB, fontSize: 10, color: '#ffffff', textAlign: 'center' }}>{h.hole_number}</Text>)}
                       <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{outLabel}</Text>
                       {showTot && <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>TOT</Text>}
                     </View>
@@ -563,7 +574,7 @@ const s = StyleSheet.create({
     backgroundColor: '#111111', borderWidth: 1, borderColor: '#1c1c1c',
     alignItems: 'center', justifyContent: 'center', gap: 2,
   },
-  holeTileNum:  { fontFamily: FFB, fontSize: 14, color: '#4b5563' },
+  holeTileNum:  { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
   holeTilePar:  { fontFamily: FFB, fontSize: 9, color: '#333' },
   holeTilePts:  { fontFamily: FFB, fontSize: 11, marginTop: 1 },
 

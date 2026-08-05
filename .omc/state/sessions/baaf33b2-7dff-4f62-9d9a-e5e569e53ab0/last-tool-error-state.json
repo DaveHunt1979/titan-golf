@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"osascript -e 'tell application \\\"System Events\\\" to tell process \\\"Simulator\\\" to get {position, size} of window 1'\"}",
+  "error": "Exit code 1\n68:84: execution error: System Events got an error: osascript is not allowed assistive access. (-1719)",
+  "timestamp": "2026-08-04T14:32:39.193Z",
+  "retry_count": 2
+}

@@ -520,6 +520,7 @@ export default function NewGameScreen() {
   const [secondaryFormat, setSecondaryFormat] = useState<string | null>(null);
   const [holesMode, setHoles]               = useState<HolesMode>('full18');
   const [voiceEnabled, setVoiceEnabled]     = useState(false);
+  const [statsEnabled, setStatsEnabled]     = useState(true);
   const [ldActive, setLdActive]             = useState(false);
   const [npActive, setNpActive]             = useState(false);
   const [ldHole, setLdHole]                 = useState<number | null>(null);
@@ -560,7 +561,7 @@ export default function NewGameScreen() {
     setPair1([]); setPair2([]); setPairStep(1);
     setSelectedCourse(existingDayId && preselectedCourse ? preselectedCourse : null);
     setHcpAllowance(100); setSideGames([]); setSecondaryFormat(null);
-    setHoles('full18'); setVoiceEnabled(true); setLdActive(false); setNpActive(false);
+    setHoles('full18'); setVoiceEnabled(true); setStatsEnabled(true); setLdActive(false); setNpActive(false);
     setLdHole(null); setNtpHole(null); setCreating(false); setTakenPlayerIds([]);
     setTeamSize(2); setCounting(2); setNumTeams(2); setExtraTeams([]);
     setStartHole(1); setBuiltMatches(null);
@@ -706,6 +707,7 @@ export default function NewGameScreen() {
         ...(ldActive && ldHole ? [`Longest Drive:${ldHole}`] : []),
         ...(npActive && ntpHole ? [`Closest to Pin:${ntpHole}`] : []),
         ...(voiceEnabled ? ['voice:on'] : []),
+        ...(statsEnabled ? [] : ['stats:off']),
       ];
 
       const isTeamStableford = mode === 'team_stableford' || isMashie;
@@ -1085,6 +1087,14 @@ export default function NewGameScreen() {
           <SettingRow icon="mic-outline" label="Chip & Birdie" value={voiceEnabled ? 'On' : 'Off'} valueColor={voiceEnabled ? GOLD : '#6b7280'} onPress={() => setVoiceEnabled(v => !v)} s={s} GOLD={GOLD}>
             <View style={[s.toggle, voiceEnabled && s.toggleOn]}>
               <View style={[s.toggleThumb, voiceEnabled && s.toggleThumbOn]} />
+            </View>
+          </SettingRow>
+          <View style={s.settingDivider} />
+
+          {/* Track Stats */}
+          <SettingRow icon="analytics-outline" label="Track Stats" value={statsEnabled ? 'On' : 'Off'} valueColor={statsEnabled ? GOLD : '#6b7280'} onPress={() => setStatsEnabled(v => !v)} s={s} GOLD={GOLD}>
+            <View style={[s.toggle, statsEnabled && s.toggleOn]}>
+              <View style={[s.toggleThumb, statsEnabled && s.toggleThumbOn]} />
             </View>
           </SettingRow>
 

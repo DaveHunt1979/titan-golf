@@ -35,17 +35,19 @@ import HoleInfoPanel from '../../../../src/components/ipad/HoleInfoPanel';
 import LeaderboardPanel from '../../../../src/components/ipad/LeaderboardPanel';
 
 // ── Design tokens ──────────────────────────────────────────────
-const GOLD   = '#D4AF37';
-const GREEN  = '#4ade80';
-const RED    = '#f87171';
-const BLUE   = '#3b82f6';
-const ORANGE = '#f97316';
+const GOLD     = '#D4AF37';
+const GREEN    = '#4ade80';
+const RED      = '#f87171';
+const BLUE     = '#3b82f6';
+const ORANGE   = '#f97316';
+const DARKBLUE = '#1e3a8a';
+const PLAIN    = '#ffffff';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 const { width: W } = Dimensions.get('window');
 const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
-const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: GREEN, par: BLUE, bogey: ORANGE, double: RED };
+const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: RED, par: PLAIN, bogey: BLUE, double: DARKBLUE };
 
 const TEE_OPTIONS = [
   { label: 'Yellow', color: '#EAB308' },
@@ -55,9 +57,11 @@ const TEE_OPTIONS = [
   { label: 'Black',  color: '#6B7280' },
 ];
 
-function scoreVsPar(gross: number, par: number, shots: number): string {
-  const net = gross - shots;
-  const diff = net - par;
+function scoreVsPar(gross: number, par: number, _shots: number): string {
+  // Classified by gross strokes vs par only — handicap shots affect stableford
+  // points, not the eagle/birdie/par/bogey label (Rick: "points and stroke
+  // should remain separate").
+  const diff = gross - par;
   if (diff <= -2) return 'eagle';
   if (diff === -1) return 'birdie';
   if (diff === 0)  return 'par';
@@ -67,10 +71,10 @@ function scoreVsPar(gross: number, par: number, shots: number): string {
 
 function ptsColor(pts: number): string {
   if (pts >= 4) return GOLD;
-  if (pts === 3) return GREEN;
-  if (pts === 2) return BLUE;
-  if (pts === 1) return ORANGE;
-  return RED;
+  if (pts === 3) return RED;
+  if (pts === 2) return PLAIN;
+  if (pts === 1) return BLUE;
+  return DARKBLUE;
 }
 
 function Avatar({ name, color, size = 36, source }: { name: string; color: string; size?: number; source?: any }) {
@@ -468,9 +472,10 @@ export default function EnterScoresScreen() {
     : Array.from({ length: 18 }, (_, i) => i + 1);
   // Reorder hole results to match play sequence so calcHoles reads them correctly
   const sequencedHolesStr = holeSequence.map(h => holeChars[h - 1] ?? '.').join('');
-  const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? 18;
+  const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? 19;
   const activeHole = editingHole ?? currentHole;
   const allHolesFilled = currentHole > 18;
+  const safeCurrentHole = Math.min(currentHole, 18);
   const isComplete = match?.status === 'complete';
 
   let lastPlayedHole = 0;
@@ -493,12 +498,13 @@ export default function EnterScoresScreen() {
 
   const [coachLoading, setCoachLoading] = useState(false);
   const voiceOff = !match?.side_games?.includes('voice:on');
+  const statsOff = !!match?.side_games?.includes('stats:off');
 
   async function onCoachMe() {
     if (coachLoading || voiceOff) return;
     setCoachLoading(true);
     const firstNames = Object.values(playerNames).map(n => n.split(' ')[0]);
-    await speakHole(currentHole, courseHole?.par ?? null, holeYardage, courseHole?.stroke_index ?? null, firstNames);
+    await speakHole(safeCurrentHole, courseHole?.par ?? null, holeYardage, courseHole?.stroke_index ?? null, firstNames);
     setCoachLoading(false);
   }
 
@@ -1275,7 +1281,7 @@ export default function EnterScoresScreen() {
           )}
           <TouchableOpacity
             style={s.headerSide}
-            onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${currentHole}&fromMatchId=${matchId}` as any)}
+            onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${safeCurrentHole}&fromMatchId=${matchId}` as any)}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <Ionicons name="scan-outline" size={22} color={GOLD} />
@@ -1322,8 +1328,9 @@ export default function EnterScoresScreen() {
           else if (c === 'a') resultColor = awayColor;
           else if (c === 'f') resultColor = '#4b5563';
           else if (c === 'd') {
-            const bestPts = Math.max(0, ...allPlayerIds.map(id => holeData[id]?.[h]?.pts ?? 0));
-            resultColor = bestPts > 0 ? ptsColor(bestPts) : '#22c55e';
+            const grosses = allPlayerIds.map(id => holeData[id]?.[h]?.gross).filter((g): g is number => g != null);
+            const bestGross = grosses.length ? Math.min(...grosses) : null;
+            resultColor = bestGross !== null && ch ? SCORE_COLORS[scoreVsPar(bestGross, ch.par, 0)] : PLAIN;
           }
           return (
             <TouchableOpacity
@@ -1342,7 +1349,7 @@ export default function EnterScoresScreen() {
               <Text style={[s.holeTilePar, isActive && { color: `${GOLD}80` }]}>P{ch?.par ?? '?'}</Text>
               {isPlayed && isStrokePlay && (() => {
                 const bestPts = Math.max(0, ...allPlayerIds.map(id => holeData[id]?.[h]?.pts ?? 0));
-                return bestPts > 0 ? <Text style={[s.holeTilePts, { color: ptsColor(bestPts) }]}>{bestPts}</Text> : null;
+                return bestPts > 0 ? <Text style={[s.holeTilePts, { color: resultColor }]}>{bestPts}</Text> : null;
               })()}
               {isPlayed && !isStrokePlay && (
                 <Text style={[s.holeTilePts, { color: resultColor }]}>
@@ -1392,8 +1399,8 @@ export default function EnterScoresScreen() {
                 <View style={s.holeCardTop}>
                   {/* Hole number block */}
                   <View style={s.holeNumberBlock}>
-                    <Text style={s.holeWord}>HOLE</Text>
-                    <Text style={s.holeBig}>{activeHole}</Text>
+                    <Text style={s.holeWord}>{allHolesFilled && !editingHole ? 'ALL HOLES' : 'HOLE'}</Text>
+                    <Text style={s.holeBig}>{allHolesFilled && !editingHole ? '✓' : activeHole}</Text>
                     <View style={s.holeChips}>
                       {courseHole && (
                         <>
@@ -1478,7 +1485,7 @@ export default function EnterScoresScreen() {
                 <View style={s.actionsRow}>
                   <TouchableOpacity
                     style={s.actionBtn}
-                    onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${currentHole}&fromMatchId=${matchId}` as any)}
+                    onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${safeCurrentHole}&fromMatchId=${matchId}` as any)}
                     activeOpacity={0.7}
                   >
                     <Ionicons name="scan-outline" size={20} color={GOLD} />
@@ -1667,12 +1674,14 @@ export default function EnterScoresScreen() {
               {allPlayerIds.map(id => {
                 const holes = holeData[id] ?? {};
                 let eagles = 0, birdies = 0, pars = 0, bogeys = 0, doubles = 0;
-                for (const h of Object.values(holes)) {
-                  const pts = h.pts ?? 0;
-                  if (pts >= 4) eagles++;
-                  else if (pts === 3) birdies++;
-                  else if (pts === 2) pars++;
-                  else if (pts === 1) bogeys++;
+                for (const [holeNumStr, h] of Object.entries(holes)) {
+                  if (h.gross == null) continue;
+                  const ch = courseHoles.find(c => c.hole_number === Number(holeNumStr));
+                  const cat = scoreVsPar(h.gross, ch?.par ?? 4, 0);
+                  if (cat === 'eagle') eagles++;
+                  else if (cat === 'birdie') birdies++;
+                  else if (cat === 'par') pars++;
+                  else if (cat === 'bogey') bogeys++;
                   else doubles++;
                 }
                 const holesPlayed = Object.keys(holes).length;
@@ -1680,10 +1689,10 @@ export default function EnterScoresScreen() {
                 const firstName = (playerNames[id] ?? '?').split(' ')[0];
                 const tiles = [
                   { label: 'EAGLE',  count: eagles,  bg: GOLD,      fg: '#000' },
-                  { label: 'BIRDIE', count: birdies, bg: GREEN,     fg: '#000' },
-                  { label: 'PAR',    count: pars,    bg: '#1e3a5f', fg: '#60a5fa' },
-                  { label: 'BOGEY',  count: bogeys,  bg: '#431407', fg: '#f97316' },
-                  { label: 'DBL+',   count: doubles, bg: '#450a0a', fg: RED },
+                  { label: 'BIRDIE', count: birdies, bg: RED,       fg: '#000' },
+                  { label: 'PAR',    count: pars,    bg: '#262626', fg: PLAIN },
+                  { label: 'BOGEY',  count: bogeys,  bg: '#1e3a5f', fg: BLUE },
+                  { label: 'DBL+',   count: doubles, bg: '#1e1b4b', fg: DARKBLUE },
                 ].filter(t => t.count > 0);
                 return (
                   <View key={id} style={{ marginBottom: 16 }}>
@@ -1972,7 +1981,7 @@ export default function EnterScoresScreen() {
                 par: 'PAR', bogey: 'BOGEY', double: 'DOUBLE +',
               };
               const scoreLabel = result ? (SCORE_LABELS[result] ?? '') : '';
-              const showStats = modalPlayerId === myPlayerId;
+              const showStats = modalPlayerId === myPlayerId && !statsOff;
 
               return (
                 <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 28 }}>
@@ -1995,7 +2004,7 @@ export default function EnterScoresScreen() {
                         shadowOffset: { width: 0, height: 0 }, shadowRadius: 20, shadowOpacity: 0.6,
                         elevation: 10,
                       }}>
-                        <Text style={{ fontFamily: FFB, fontSize: 50, color: selectedScore ? '#fff' : '#2c2c2c', lineHeight: 56 }}>
+                        <Text style={{ fontFamily: FFB, fontSize: 50, color: selectedScore ? (accent === PLAIN ? '#000' : '#fff') : '#2c2c2c', lineHeight: 56 }}>
                           {selectedScore ?? '?'}
                         </Text>
                       </View>
@@ -2038,7 +2047,7 @@ export default function EnterScoresScreen() {
                             onPress={() => setSelectedScore(n)}
                             activeOpacity={0.7}
                           >
-                            <Text style={{ fontFamily: FFB, fontSize: 16, color: on ? '#fff' : '#444' }}>{n}</Text>
+                            <Text style={{ fontFamily: FFB, fontSize: 16, color: on ? (a === PLAIN ? '#000' : '#fff') : '#fff' }}>{n}</Text>
                           </TouchableOpacity>
                         );
                       })}
@@ -2104,7 +2113,7 @@ export default function EnterScoresScreen() {
                                       }}
                                       activeOpacity={0.7}
                                     >
-                                      <Text style={{ fontFamily: FFB, fontSize: 12, color: on ? '#000' : '#444' }}>{display(n)}</Text>
+                                      <Text style={{ fontFamily: FFB, fontSize: 12, color: on ? '#000' : '#fff' }}>{display(n)}</Text>
                                     </TouchableOpacity>
                                   );
                                 })}
@@ -2195,7 +2204,7 @@ export default function EnterScoresScreen() {
               </TouchableOpacity>
             </View>
             <View style={{ flex: 1 }}>
-              {matchId && <ShotLogger matchId={matchId} holeNumber={currentHole} />}
+              {matchId && <ShotLogger matchId={matchId} holeNumber={safeCurrentHole} />}
             </View>
           </View>
         </View>
@@ -2216,7 +2225,7 @@ export default function EnterScoresScreen() {
               <CaddieButton
                 context={{
                   playerName: myPlayerId ? (playerNames[myPlayerId] ?? 'Player') : 'Player',
-                  holeNumber: currentHole,
+                  holeNumber: safeCurrentHole,
                   par: courseHole.par,
                   yardage: holeYardage,
                   strokeIndex: courseHole.stroke_index,
@@ -2234,7 +2243,7 @@ export default function EnterScoresScreen() {
                     await supabase.from('shots').insert({
                       match_id: match.id,
                       player_id: myPlayerId,
-                      hole_number: currentHole,
+                      hole_number: safeCurrentHole,
                       club_short: result.action.club,
                       distance_yards: result.action.distance ?? null,
                       lat: gpsRef.current?.lat ?? null,
@@ -2381,9 +2390,10 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
                 const played = holeChars[h - 1] !== '.';
                 if (gross) totalGross += gross;
                 if (pts) totalPts += pts;
-                const cellColor = showPts && pts != null
-                  ? ptsColor(pts)
-                  : gross ? '#6b7280' : '#333';
+                const ch = courseHoles.find(c => c.hole_number === h);
+                const cellColor = gross != null && ch
+                  ? SCORE_COLORS[scoreVsPar(gross, ch.par, 0)]
+                  : gross ? PLAIN : '#333';
                 return (
                   <View key={h} style={[sc.cell, sc.holeCell, { gap: 2 }]}>
                     {gross ? (
@@ -2394,7 +2404,7 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
                           </Text>
                         </View>
                         {showPts && pts != null && (
-                          <Text style={[sc.ptsText, { color: '#555' }]}>{gross}</Text>
+                          <Text style={[sc.ptsText, { color: '#ffffff' }]}>{gross}</Text>
                         )}
                       </>
                     ) : (
