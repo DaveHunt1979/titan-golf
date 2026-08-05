@@ -13,7 +13,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 import { ensureDb } from '../../../src/lib/localDb';
-import { searchCourse, getCourseHoles, GICourseResult, GIHoleData } from '../../../src/lib/golfIntelligence';
+import { searchCourse, getCourseHoles, cleanCourseNameForSearch, GICourseResult, GIHoleData } from '../../../src/lib/golfIntelligence';
 
 const GOLD    = '#D4AF37'; // StyleSheet fallback
 const GREEN   = '#4ade80';
@@ -229,6 +229,11 @@ export default function RangefinderScreen() {
   // ── Reset GI mode when course is cleared ────────────────────────
   useEffect(() => {
     if (!selectedCourse) giMode.current = false;
+  }, [selectedCourse]);
+
+  // ── Seed the GI search box with a cleaned course name ────────────
+  useEffect(() => {
+    if (selectedCourse) setGiQuery(cleanCourseNameForSearch(selectedCourse));
   }, [selectedCourse]);
 
   // ── Load holes for selected course ───────────────────────────────

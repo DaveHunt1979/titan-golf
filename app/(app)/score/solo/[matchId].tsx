@@ -47,6 +47,10 @@ function scoreVsPar(gross: number, par: number, _shots: number): string {
   return 'double';
 }
 
+function isMissingMatchError(err: any): boolean {
+  return err?.code === '23503' || /foreign key/i.test(String(err?.message ?? ''));
+}
+
 function ptsColor(pts: number): string {
   if (pts >= 4) return GOLD;
   if (pts === 3) return RED;
@@ -100,6 +104,8 @@ export default function SoloRoundScreen() {
   const [courseHcp, setCourseHcp]     = useState(0);
   const [savedScores, setSavedScores] = useState<HoleScore[]>([]);
   const [loading, setLoading]         = useState(true);
+  const [loadError, setLoadError]     = useState(false);
+  const [retryTick, setRetryTick]     = useState(0);
   const [saving, setSaving]           = useState(false);
   const [recordsBroken, setRecordsBroken] = useState<BrokenRecord[]>([]);
   const [roundDone, setRoundDone]     = useState(false);
@@ -122,51 +128,62 @@ export default function SoloRoundScreen() {
 
   useEffect(() => {
     async function load() {
-      const { data: matchData } = await supabase
-        .from('matches')
-        .select('*, day:day_id(course_name,course_par,course_rating,slope_rating,day_number)')
-        .eq('id', matchId)
-        .single();
+      try {
+        const { data: matchData, error: matchErr } = await supabase
+          .from('matches')
+          .select('*, day:day_id(course_name,course_par,course_rating,slope_rating,day_number)')
+          .eq('id', matchId)
+          .single();
 
-      if (!matchData) { setLoading(false); return; }
-      const m = matchData as unknown as MatchInfo;
-      setMatch(m);
+        if (matchErr) throw matchErr;
+        if (!matchData) { setLoading(false); return; }
+        const m = matchData as unknown as MatchInfo;
+        setMatch(m);
 
-      const playerId = m.home_player_ids[0];
-      const [{ data: holesData }, { data: playerData }, { data: scoresData }] = await Promise.all([
-        m.day?.course_name
-          ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages').eq('course_name', m.day.course_name).order('hole_number')
-          : Promise.resolve({ data: [] }),
-        supabase.from('players').select('display_name,handicap_index,avatar_url').eq('id', playerId).single(),
-        supabase.from('match_holes').select('hole_number,gross_score,net_score,stableford_pts').eq('match_id', matchId).eq('player_id', playerId),
-      ]);
+        const playerId = m.home_player_ids[0];
+        const [{ data: holesData }, { data: playerData }, { data: scoresData }] = await Promise.all([
+          m.day?.course_name
+            ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages').eq('course_name', m.day.course_name).order('hole_number')
+            : Promise.resolve({ data: [] }),
+          supabase.from('players').select('display_name,handicap_index,avatar_url').eq('id', playerId).single(),
+          supabase.from('match_holes').select('hole_number,gross_score,net_score,stableford_pts').eq('match_id', matchId).eq('player_id', playerId),
+        ]);
 
-      if (holesData) setCourseHoles(holesData);
-      if (playerData) {
-        const p = playerData as any;
-        setPlayerName(p.display_name ?? '');
-        setAvatarUrl(p.avatar_url ?? null);
-        const hcp = p.handicap_index ?? 0;
-        setPlayerHcp(hcp);
-        if (m.day?.slope_rating && m.day?.course_rating && m.day?.course_par) {
-          setCourseHcp(calcCourseHandicap(hcp, m.day.slope_rating, m.day.course_rating, m.day.course_par));
-        } else {
-          setCourseHcp(Math.round(hcp));
+        if (holesData) setCourseHoles(holesData);
+        if (playerData) {
+          const p = playerData as any;
+          setPlayerName(p.display_name ?? '');
+          setAvatarUrl(p.avatar_url ?? null);
+          const hcp = p.handicap_index ?? 0;
+          setPlayerHcp(hcp);
+          if (m.day?.slope_rating && m.day?.course_rating && m.day?.course_par) {
+            setCourseHcp(calcCourseHandicap(hcp, m.day.slope_rating, m.day.course_rating, m.day.course_par));
+          } else {
+            setCourseHcp(Math.round(hcp));
+          }
         }
+        if (scoresData) {
+          setSavedScores((scoresData as any[]).map(r => ({
+            hole_number: r.hole_number,
+            gross: r.gross_score ?? 0,
+            net: r.net_score ?? 0,
+            pts: r.stableford_pts ?? 0,
+          })));
+        }
+        setRoundDone(m.status === 'complete');
+      } catch (e) {
+        console.error('solo round load failed:', e);
+        setLoadError(true);
+      } finally {
+        setLoading(false);
       }
-      if (scoresData) {
-        setSavedScores((scoresData as any[]).map(r => ({
-          hole_number: r.hole_number,
-          gross: r.gross_score ?? 0,
-          net: r.net_score ?? 0,
-          pts: r.stableford_pts ?? 0,
-        })));
-      }
-      if (m.status === 'complete') setRoundDone(true);
-      setLoading(false);
     }
+    setLoading(true);
+    setLoadError(false);
+    setRoundDone(false);
+    setSavedScores([]);
     load();
-  }, [matchId]);
+  }, [matchId, retryTick]);
 
   const matchRef         = useRef<MatchInfo | null>(null);
   const courseHolesRef   = useRef<CourseHole[]>([]);
@@ -364,8 +381,13 @@ export default function SoloRoundScreen() {
   async function onCoachMe() {
     if (coachLoading || voiceOff) return;
     setCoachLoading(true);
-    await speakHole(nextHole, courseHole?.par ?? null, holeYardage, courseHole?.stroke_index ?? null, playerName ? [playerName.split(' ')[0]] : []);
-    setCoachLoading(false);
+    try {
+      await speakHole(nextHole, courseHole?.par ?? null, holeYardage, courseHole?.stroke_index ?? null, playerName ? [playerName.split(' ')[0]] : []);
+    } catch (e) {
+      console.error('speakHole failed:', e);
+    } finally {
+      setCoachLoading(false);
+    }
   }
 
   async function saveScore() {
@@ -425,7 +447,15 @@ export default function SoloRoundScreen() {
         net_score: net,
         stableford_pts: pts,
       });
-      if (insErr) console.error('insert error:', insErr);
+      if (insErr) {
+        if (isMissingMatchError(insErr)) {
+          Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
+            { text: 'OK', onPress: () => router.replace('/(app)/' as any) },
+          ]);
+          return;
+        }
+        console.error('insert error:', insErr);
+      }
 
       const { error: matchErr } = await supabase.from('matches').update({
         holes_string: newHolesStr,
@@ -523,6 +553,14 @@ export default function SoloRoundScreen() {
     setSaving(false);
   }
 
+  if (loadError) return (
+    <View style={s.loading}>
+      <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16, marginBottom: 16 }}>Couldn't load this round.</Text>
+      <TouchableOpacity style={s.ctaBtn} onPress={() => setRetryTick(t => t + 1)} activeOpacity={0.85}>
+        <Text style={s.ctaBtnText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
   if (loading || !fontsLoaded) return (
     <View style={s.loading}><ActivityIndicator color={GOLD} size="large" /></View>
   );
@@ -552,7 +590,7 @@ export default function SoloRoundScreen() {
         </View>
         {!isComplete ? (
           <TouchableOpacity onPress={deleteMatch} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Ionicons name="trash-outline" size={20} color="#4b5563" />
+            <Ionicons name="trash-outline" size={20} color="#ffffff" />
           </TouchableOpacity>
         ) : <View style={s.headerSide} />}
       </View>
@@ -600,10 +638,10 @@ export default function SoloRoundScreen() {
               ]}
               activeOpacity={done ? 0.7 : 1}
             >
-              <Text style={[s.holeTileNum, done && { color: tc }, active && !done && { color: GOLD }]}>{h}</Text>
-              <Text style={s.holeTilePar}>P{ch?.par ?? '?'}</Text>
+              <Text allowFontScaling={false} style={[s.holeTileNum, done && { color: tc }, active && !done && { color: GOLD }]}>{h}</Text>
+              <Text allowFontScaling={false} style={s.holeTilePar}>P{ch?.par ?? '?'}</Text>
               {done && sc && (
-                <Text style={[s.holeTilePts, { color: tc }]}>
+                <Text allowFontScaling={false} style={[s.holeTilePts, { color: tc }]}>
                   {isStableford ? sc.pts : (sc.gross - (ch?.par ?? 4) === 0 ? 'E' : sc.gross - (ch?.par ?? 4) > 0 ? `+${sc.gross - (ch?.par ?? 4)}` : String(sc.gross - (ch?.par ?? 4)))}
                 </Text>
               )}
@@ -640,18 +678,23 @@ export default function SoloRoundScreen() {
               )}
               <View style={s.quickActions}>
                 <TouchableOpacity style={s.quickActionBtn} onPress={() => setShowRangeMap(true)} activeOpacity={0.7}>
-                  <Ionicons name="scan-outline" size={20} color="#6b7280" />
+                  <Ionicons name="scan-outline" size={20} color="#ffffff" />
                   <Text style={s.quickActionLbl}>RANGE</Text>
                 </TouchableOpacity>
                 <View style={s.quickActionSep} />
                 <TouchableOpacity style={s.quickActionBtn} onPress={() => setShowShotLogger(true)} activeOpacity={0.7}>
-                  <Ionicons name="analytics-outline" size={20} color="#6b7280" />
+                  <Ionicons name="analytics-outline" size={20} color="#ffffff" />
                   <Text style={s.quickActionLbl}>SHOTS</Text>
                 </TouchableOpacity>
                 <View style={s.quickActionSep} />
                 <TouchableOpacity style={s.quickActionBtn} onPress={() => setShowCaddieModal(true)} activeOpacity={0.7}>
                   <Ionicons name="mic-outline" size={20} color={GOLD} />
                   <Text style={[s.quickActionLbl, { color: GOLD }]}>CADDIE</Text>
+                </TouchableOpacity>
+                <View style={s.quickActionSep} />
+                <TouchableOpacity style={s.quickActionBtn} onPress={() => router.push('/(app)/camera' as any)} activeOpacity={0.7}>
+                  <Ionicons name="camera-outline" size={20} color="#ffffff" />
+                  <Text style={s.quickActionLbl}>CAMERA</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -690,7 +733,7 @@ export default function SoloRoundScreen() {
               </TouchableOpacity>
             ) : nextHole > 1 ? (
               <TouchableOpacity style={s.undoBtn} onPress={undoHole} disabled={saving}>
-                <Ionicons name="arrow-undo-outline" size={14} color="#4b5563" />
+                <Ionicons name="arrow-undo-outline" size={14} color="#ffffff" />
                 <Text style={s.undoBtnText}>Undo Hole {nextHole - 1}</Text>
               </TouchableOpacity>
             ) : null}
@@ -752,12 +795,12 @@ export default function SoloRoundScreen() {
               </TouchableOpacity>
               {nextHole > 1 && (
                 <TouchableOpacity style={s.undoBtn} onPress={undoHole} disabled={saving}>
-                  <Ionicons name="arrow-undo-outline" size={14} color="#4b5563" />
+                  <Ionicons name="arrow-undo-outline" size={14} color="#ffffff" />
                   <Text style={s.undoBtnText}>Undo Last Hole</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={s.deleteLink} onPress={deleteMatch}>
-                <Ionicons name="trash-outline" size={13} color="#4b5563" />
+                <Ionicons name="trash-outline" size={13} color="#ffffff" />
                 <Text style={s.deleteLinkText}>Delete Round</Text>
               </TouchableOpacity>
             </View>
@@ -777,36 +820,36 @@ export default function SoloRoundScreen() {
               return (
                 <View key={hi}>
                   <View style={s.scorecardRow}>
-                    <Text style={s.scorecardHoleLabel}>HOLE</Text>
-                    {half.map(h => <Text key={h.hole_number} style={[s.scorecardCell, { color: savedScores.find(sv => sv.hole_number === h.hole_number) ? '#ffffff' : '#2a2a2a' }]}>{h.hole_number}</Text>)}
-                    <Text style={s.scorecardTot}>{hi === 0 ? 'OUT' : 'IN'}</Text>
+                    <Text allowFontScaling={false} style={s.scorecardHoleLabel}>HOLE</Text>
+                    {half.map(h => <Text allowFontScaling={false} key={h.hole_number} style={[s.scorecardCell, { color: savedScores.find(sv => sv.hole_number === h.hole_number) ? '#ffffff' : '#2a2a2a' }]}>{h.hole_number}</Text>)}
+                    <Text allowFontScaling={false} style={s.scorecardTot}>{hi === 0 ? 'OUT' : 'IN'}</Text>
                   </View>
                   <View style={s.scorecardRow}>
-                    <Text style={s.scorecardHoleLabel}>PAR</Text>
-                    {half.map(h => <Text key={h.hole_number} style={[s.scorecardCell, { color: GOLD }]}>{h.par}</Text>)}
-                    <Text style={[s.scorecardTot, { color: GOLD }]}>{half.reduce((s, h) => s + h.par, 0)}</Text>
+                    <Text allowFontScaling={false} style={s.scorecardHoleLabel}>PAR</Text>
+                    {half.map(h => <Text allowFontScaling={false} key={h.hole_number} style={[s.scorecardCell, { color: GOLD }]}>{h.par}</Text>)}
+                    <Text allowFontScaling={false} style={[s.scorecardTot, { color: GOLD }]}>{half.reduce((s, h) => s + h.par, 0)}</Text>
                   </View>
                   <View style={s.scorecardRow}>
-                    <Text style={s.scorecardHoleLabel}>GROSS</Text>
+                    <Text allowFontScaling={false} style={s.scorecardHoleLabel}>GROSS</Text>
                     {half.map(h => {
                       const sv = halfScores.find(s => s.hole_number === h.hole_number);
                       const cellColor = sv ? SCORE_COLORS[scoreVsPar(sv.gross, h.par, 0)] : null;
                       return (
                         <View key={h.hole_number} style={[s.scorecardScoreCell, cellColor && cellColor !== PLAIN && { backgroundColor: `${cellColor}25` }]}>
-                          <Text style={[s.scorecardScoreText, cellColor && { color: cellColor }]}>{sv?.gross ?? '·'}</Text>
+                          <Text allowFontScaling={false} style={[s.scorecardScoreText, cellColor && { color: cellColor }]}>{sv?.gross ?? '·'}</Text>
                         </View>
                       );
                     })}
-                    <Text style={s.scorecardTot}>{halfScores.reduce((s, h) => s + h.gross, 0) || '·'}</Text>
+                    <Text allowFontScaling={false} style={s.scorecardTot}>{halfScores.reduce((s, h) => s + h.gross, 0) || '·'}</Text>
                   </View>
                   {isStableford && (
                     <View style={s.scorecardRow}>
-                      <Text style={s.scorecardHoleLabel}>PTS</Text>
+                      <Text allowFontScaling={false} style={s.scorecardHoleLabel}>PTS</Text>
                       {half.map(h => {
                         const sv = halfScores.find(s => s.hole_number === h.hole_number);
-                        return <Text key={h.hole_number} style={[s.scorecardCell, { color: sv ? ptsColor(sv.pts) : '#2a2a2a' }]}>{sv?.pts ?? '·'}</Text>;
+                        return <Text allowFontScaling={false} key={h.hole_number} style={[s.scorecardCell, { color: sv ? ptsColor(sv.pts) : '#2a2a2a' }]}>{sv?.pts ?? '·'}</Text>;
                       })}
-                      <Text style={[s.scorecardTot, { color: GOLD }]}>{halfScores.reduce((s, h) => s + h.pts, 0) || '·'}</Text>
+                      <Text allowFontScaling={false} style={[s.scorecardTot, { color: GOLD }]}>{halfScores.reduce((s, h) => s + h.pts, 0) || '·'}</Text>
                     </View>
                   )}
                   {hi === 0 && <View style={{ height: 1, backgroundColor: '#1a1a1a', marginVertical: 4 }} />}
@@ -818,7 +861,7 @@ export default function SoloRoundScreen() {
 
         {!isComplete && (
           <TouchableOpacity style={s.deleteLink} onPress={deleteMatch}>
-            <Ionicons name="trash-outline" size={13} color="#4b5563" />
+            <Ionicons name="trash-outline" size={13} color="#ffffff" />
             <Text style={s.deleteLinkText}>Delete Round</Text>
           </TouchableOpacity>
         )}
@@ -878,7 +921,7 @@ export default function SoloRoundScreen() {
                           onPress={() => setSelectedScore(selectedScore === null ? par : Math.max(1, selectedScore - 1))}
                           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                         >
-                          <Ionicons name="remove-circle" size={42} color={selectedScore && selectedScore > 1 ? '#555' : '#222'} />
+                          <Ionicons name="remove-circle" size={42} color={selectedScore && selectedScore > 1 ? '#ffffff' : '#555'} />
                         </TouchableOpacity>
 
                         <View style={{
@@ -899,7 +942,7 @@ export default function SoloRoundScreen() {
                           onPress={() => setSelectedScore(selectedScore === null ? par : Math.min(12, selectedScore + 1))}
                           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                         >
-                          <Ionicons name="add-circle" size={42} color="#555" />
+                          <Ionicons name="add-circle" size={42} color="#ffffff" />
                         </TouchableOpacity>
                       </View>
 
@@ -911,7 +954,7 @@ export default function SoloRoundScreen() {
                               : null}
                           </>
                         ) : (
-                          <Text style={{ fontFamily: FF, fontSize: 13, color: '#444' }}>tap a number or use arrows</Text>
+                          <Text style={{ fontFamily: FF, fontSize: 13, color: '#ffffff' }}>tap a number or use arrows</Text>
                         )}
                       </View>
                     </View>
@@ -977,7 +1020,7 @@ export default function SoloRoundScreen() {
                         <View key={ri} style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                           {row.map(({ label, val, opts, display }) => (
                             <View key={label} style={{ flex: 1, backgroundColor: '#0a0a0a', borderRadius: 12, padding: 10, borderWidth: 1, borderColor: '#1c1c1c' }}>
-                              <Text style={{ fontFamily: FFB, fontSize: 9, color: '#555', letterSpacing: 1.5, marginBottom: 7 }}>{label}</Text>
+                              <Text style={{ fontFamily: FFB, fontSize: 9, color: '#ffffff', letterSpacing: 1.5, marginBottom: 7 }}>{label}</Text>
                               <View style={{ flexDirection: 'row', gap: 5 }}>
                                 {opts.map(n => {
                                   const on = val === n;
@@ -1018,7 +1061,7 @@ export default function SoloRoundScreen() {
                       <Text style={s.submitBtnText}>{editingHole ? `Save Hole ${editingHole}` : `Save Hole ${nextHole}`}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setModalVisible(false)} style={{ paddingVertical: 14, alignItems: 'center' }}>
-                      <Text style={{ fontFamily: FFB, color: '#555', fontSize: 14 }}>Cancel</Text>
+                      <Text style={{ fontFamily: FFB, color: '#ffffff', fontSize: 14 }}>Cancel</Text>
                     </TouchableOpacity>
                   </>
                 );
@@ -1066,7 +1109,7 @@ export default function SoloRoundScreen() {
               <Ionicons name="scan-outline" size={16} color={GOLD} />
               <Text style={s.popupTitleText}>RANGE FINDER</Text>
               <TouchableOpacity onPress={() => setShowRangeMap(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-outline" size={22} color="#6b7280" />
+                <Ionicons name="close-outline" size={22} color="#ffffff" />
               </TouchableOpacity>
             </View>
             <View style={{ padding: 16 }}>
@@ -1085,7 +1128,7 @@ export default function SoloRoundScreen() {
               <Ionicons name="analytics-outline" size={16} color={GOLD} />
               <Text style={s.popupTitleText}>SHOT TRACKER</Text>
               <TouchableOpacity onPress={() => setShowShotLogger(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-outline" size={22} color="#6b7280" />
+                <Ionicons name="close-outline" size={22} color="#ffffff" />
               </TouchableOpacity>
             </View>
             <View style={{ flex: 1 }}>
@@ -1104,7 +1147,7 @@ export default function SoloRoundScreen() {
               <Ionicons name="mic-outline" size={16} color={GOLD} />
               <Text style={s.popupTitleText}>VOICE CADDIE</Text>
               <TouchableOpacity onPress={() => setShowCaddieModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-outline" size={22} color="#6b7280" />
+                <Ionicons name="close-outline" size={22} color="#ffffff" />
               </TouchableOpacity>
             </View>
             {courseHole && match && (
@@ -1174,10 +1217,10 @@ const s = StyleSheet.create({
   holeStrip:     { paddingHorizontal: 12, paddingVertical: 6, gap: 6, alignItems: 'center' },
   holeTile: { width: 42, height: 58, borderRadius: 10, backgroundColor: '#111111', borderWidth: 1, borderColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center', gap: 2 },
   holeTileNum:   { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
-  holeTilePar:   { fontFamily: FFB, fontSize: 9, color: '#333' },
+  holeTilePar:   { fontFamily: FFB, fontSize: 9, color: '#ffffff' },
   holeTilePts:   { fontFamily: FFB, fontSize: 11, marginTop: 1 },
   halfLabels:    { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 12, paddingBottom: 4 },
-  halfLabel:     { fontFamily: FFB, fontSize: 8, color: '#2a2a2a', letterSpacing: 1.5 },
+  halfLabel:     { fontFamily: FFB, fontSize: 8, color: '#ffffff', letterSpacing: 1.5 },
 
   scroll: { padding: 16, paddingBottom: 40 },
 
@@ -1201,9 +1244,9 @@ const s = StyleSheet.create({
   ctaBtnText: { fontFamily: FFB, fontSize: 17, color: '#000000' },
 
   undoBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
-  undoBtnText: { fontFamily: FFB, fontSize: 13, color: '#4b5563' },
+  undoBtnText: { fontFamily: FFB, fontSize: 13, color: '#ffffff' },
   deleteLink:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14 },
-  deleteLinkText: { fontFamily: FFB, fontSize: 12, color: '#4b5563' },
+  deleteLinkText: { fontFamily: FFB, fontSize: 12, color: '#ffffff' },
 
   completeCard:   { alignItems: 'center', paddingVertical: 32, gap: 8 },
   completeTitle:  { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 3, marginTop: 8 },
@@ -1224,7 +1267,7 @@ const s = StyleSheet.create({
   scorecardCard:    { backgroundColor: '#111111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginTop: 8, marginBottom: 8, padding: 10 },
   scorecardTitle:   { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 2, marginBottom: 8 },
   scorecardRow:     { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
-  scorecardHoleLabel: { width: 36, fontFamily: FFB, fontSize: 8, color: '#4b5563' },
+  scorecardHoleLabel: { width: 36, fontFamily: FFB, fontSize: 8, color: '#ffffff' },
   scorecardCell:    { flex: 1, fontFamily: FFB, fontSize: 10, textAlign: 'center' },
   scorecardTot:     { width: 30, fontFamily: FFB, fontSize: 10, color: '#ffffff', textAlign: 'center' },
   scorecardScoreCell:  { flex: 1, height: 20, borderRadius: 3, alignItems: 'center', justifyContent: 'center' },

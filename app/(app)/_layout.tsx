@@ -200,35 +200,10 @@ function AppLayoutInner() {
       {tabsEl}
       {IS_PAD && <IpadSidebar isAdmin={isAdmin} avatarUrl={avatarUrl} />}
 
-      {/* Persistent camera FAB */}
-      <TouchableOpacity
-        style={[fab.btn, { borderColor: palette.accent }, IS_PAD ? fab.btnPad : null]}
-        onPress={() => router.push('/(app)/camera' as any)}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="camera" size={22} color={palette.accent} />
-      </TouchableOpacity>
-
       {showSplash && <SplashOverlay onDone={() => setShowSplash(false)} />}
     </View>
   );
 }
-
-const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 64;
-
-const fab = StyleSheet.create({
-  btn: {
-    position: 'absolute', bottom: TAB_BAR_HEIGHT + 12, right: 16,
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#111', borderWidth: 1.5, borderColor: '#D4AF37',
-    alignItems: 'center', justifyContent: 'center',
-    zIndex: 100,
-  },
-  btnPad: {
-    bottom: 24,
-    right: 24,
-  },
-});
 
 const splash = StyleSheet.create({
   overlay: {

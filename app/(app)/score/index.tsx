@@ -70,7 +70,7 @@ export default function ScoreScreen() {
       .from('competition_days').select('id,course_name').eq('join_code', code).maybeSingle();
     setJoiningDay(false);
     if (!data) { Alert.alert('Not found', 'No game day with that code. Check with the organiser.'); return; }
-    router.push(`/(app)/score/day/${(data as any).id}` as any);
+    router.push(`/(app)/score/day/${(data as any).id}?spectate=1` as any);
   }
 
   async function loadMatches() {
@@ -428,7 +428,7 @@ function RoundCard({ match, playerNames, playerAvatars, s, GOLD }: {
   GOLD: string;
 }) {
   const router   = useRouter();
-  const isSolo   = match.away_player_ids.length === 0;
+  const isSolo   = match.away_player_ids.length === 0 && match.home_player_ids.length === 1;
   const isStroke = match.round_format === 'stableford' || match.round_format === 'medal';
   const winner   = getEffectiveWinner(match.status, match.winner, match.holes_string ?? '..................');
 
@@ -463,11 +463,10 @@ function RoundCard({ match, playerNames, playerAvatars, s, GOLD }: {
     <TouchableOpacity
       style={[s.card, isLive && s.cardLive, isComplete && s.cardComplete]}
       onPress={() => {
-        // Completed rounds go through the results/edit hub, never straight
-        // into a live scoring screen — and solo rounds have their own screen.
-        if (isComplete) { router.push(`/(app)/score/${match.id}` as any); return; }
+        // solo/enter render the full trophy + scoring-breakdown results view
+        // themselves once a round is complete — no separate results screen needed.
         if (isSolo) { router.push(`/(app)/score/solo/${match.id}` as any); return; }
-        if (match.day_id) { router.push(`/(app)/score/day/${match.day_id}` as any); return; }
+        if (!isComplete && match.day_id) { router.push(`/(app)/score/day/${match.day_id}` as any); return; }
         router.push(`/(app)/score/enter/${match.id}` as any);
       }}
       activeOpacity={0.75}

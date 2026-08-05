@@ -29,7 +29,8 @@ function InitialAvatar({ name, size = 38 }: { name: string; size?: number }) {
 }
 
 export default function DayLobby() {
-  const { dayId }  = useLocalSearchParams<{ dayId: string }>();
+  const { dayId, spectate } = useLocalSearchParams<{ dayId: string; spectate?: string }>();
+  const isSpectator = spectate === '1';
   const router     = useRouter();
 
   const [fontsLoaded] = useFonts({
@@ -211,7 +212,7 @@ export default function DayLobby() {
 
   function shareCode() {
     if (!day) return;
-    Share.share({ message: `Join our game at ${day.course_name}!\nEnter code ${day.join_code} in Titan Golf → Score tab → Join Game Day` });
+    Share.share({ message: `Follow our game at ${day.course_name}!\nEnter code ${day.join_code} in Titan Golf → Score tab → Join Game Day to spectate (view-only — you won't be able to enter scores).` });
   }
 
   if (loading || !fontsLoaded || !day) {
@@ -238,18 +239,20 @@ export default function DayLobby() {
             <Ionicons name="share-outline" size={13} color={GOLD} />
             <Text style={s.codeBtnText}>{day.join_code}</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => Alert.alert('Delete Game Day?', 'This deletes all matches in this group and cannot be undone.', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Delete', style: 'destructive', onPress: async () => {
-                await supabase.from('matches').delete().eq('day_id', dayId);
-                router.replace('/(app)/' as any);
-              }},
-            ])}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Ionicons name="trash-outline" size={18} color="#4b5563" />
-          </TouchableOpacity>
+          {!isSpectator && (
+            <TouchableOpacity
+              onPress={() => Alert.alert('Delete Game Day?', 'This deletes all matches in this group and cannot be undone.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: async () => {
+                  await supabase.from('matches').delete().eq('day_id', dayId);
+                  router.replace('/(app)/' as any);
+                }},
+              ])}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="trash-outline" size={18} color="#4b5563" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -343,7 +346,11 @@ export default function DayLobby() {
                   <TouchableOpacity
                     key={g.match_id}
                     style={[s.groupCard, isMyGroup && s.groupCardMe, !canNavigate && { opacity: 0.6 }]}
-                    onPress={canNavigate ? () => router.push((g.status === 'complete' ? `/(app)/score/${g.match_id}` : `/(app)/score/enter/${g.match_id}`) as any) : undefined}
+                    onPress={
+                      isSpectator
+                        ? () => router.push(`/(app)/spectate/${g.match_id}` as any)
+                        : canNavigate ? () => router.push(`/(app)/score/enter/${g.match_id}` as any) : undefined
+                    }
                     activeOpacity={canNavigate ? 0.8 : 1}
                     disabled={!canNavigate}
                   >
@@ -394,18 +401,39 @@ export default function DayLobby() {
         )}
       </ScrollView>
 
+      {/* Spectator note — code was shared as view-only, no scoring/join actions here */}
+      {isSpectator && (
+        <View style={s.footer}>
+          <View style={[s.actionBtn, { backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c' }]}>
+            <Ionicons name="eye-outline" size={16} color="#6b7280" style={{ marginRight: 6 }} />
+            <Text style={[s.actionBtnText, { color: '#6b7280' }]}>Viewing as spectator</Text>
+          </View>
+        </View>
+      )}
+
       {/* Footer action — only shown for Mashie days or when player has a match */}
-      {(myMatchId || isMashieDay) && (
+      {!isSpectator && (myMatchId || isMashieDay) && (
         <View style={s.footer}>
           {myMatchId ? (
-            <TouchableOpacity
-              style={s.actionBtn}
-              onPress={() => router.push(`/(app)/score/${myMatchId}` as any)}
-              activeOpacity={0.85}
-            >
-              <Text style={s.actionBtnText}>Score My Group</Text>
-              <Ionicons name="chevron-forward" size={20} color="#000" />
-            </TouchableOpacity>
+            groups.find(g => g.match_id === myMatchId)?.status === 'complete' ? (
+              <TouchableOpacity
+                style={s.actionBtn}
+                onPress={() => router.replace('/(app)/' as any)}
+                activeOpacity={0.85}
+              >
+                <Text style={s.actionBtnText}>Back to Main Menu</Text>
+                <Ionicons name="home" size={20} color="#000" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={s.actionBtn}
+                onPress={() => router.push(`/(app)/score/enter/${myMatchId}` as any)}
+                activeOpacity={0.85}
+              >
+                <Text style={s.actionBtnText}>Score My Group</Text>
+                <Ionicons name="chevron-forward" size={20} color="#000" />
+              </TouchableOpacity>
+            )
           ) : (
             <View style={s.joinRow}>
               <TextInput

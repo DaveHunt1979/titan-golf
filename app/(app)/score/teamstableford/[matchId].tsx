@@ -327,7 +327,7 @@ export default function TeamStablefordScreen() {
       <View style={s.root}>
         <StatusBar style="light" />
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.replace('/(app)/score' as any)} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={s.headerCenter}>

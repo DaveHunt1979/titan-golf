@@ -91,47 +91,58 @@ export default function MatchDetailScreen() {
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [cardPage, setCardPage] = useState(0);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const { width: screenWidth } = useWindowDimensions();
 
   async function load() {
-    const { data: matchData } = await supabase
-      .from('matches')
-      .select(`*, home_team:home_team_id(name,accent_color), away_team:away_team_id(name,accent_color), day:day_id(course_name,course_par,day_number,competition:competition_id(format))`)
-      .eq('id', matchId)
-      .single();
+    try {
+      const { data: matchData, error: matchErr } = await supabase
+        .from('matches')
+        .select(`*, home_team:home_team_id(name,accent_color), away_team:away_team_id(name,accent_color), day:day_id(course_name,course_par,day_number,competition:competition_id(format))`)
+        .eq('id', matchId)
+        .single();
 
-    if (!matchData) { setLoading(false); return; }
-    setMatch(matchData as unknown as MatchDetail);
+      if (matchErr) throw matchErr;
+      if (!matchData) { setLoading(false); return; }
+      setMatch(matchData as unknown as MatchDetail);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: p } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
-      if (p) setMyPlayerId((p as any).id);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: p } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
+        if (p) setMyPlayerId((p as any).id);
+      }
+
+      const allPlayerIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
+
+      const [{ data: holesData }, { data: courseHoleData }, { data: playersData }] = await Promise.all([
+        supabase.from('match_holes').select('*').eq('match_id', matchId),
+        matchData.day?.course_name
+          ? supabase.from('course_holes').select('*').eq('course_name', matchData.day.course_name).order('hole_number')
+          : Promise.resolve({ data: [] }),
+        allPlayerIds.length
+          ? supabase.from('players').select('id,display_name,avatar_url').in('id', allPlayerIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      if (holesData) setHoleResults(holesData);
+      if (courseHoleData) setCourseHoles(courseHoleData);
+      if (playersData) setPlayers(playersData);
+    } catch (e) {
+      console.error('match detail load failed:', e);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    const allPlayerIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
-
-    const [{ data: holesData }, { data: courseHoleData }, { data: playersData }] = await Promise.all([
-      supabase.from('match_holes').select('*').eq('match_id', matchId),
-      matchData.day?.course_name
-        ? supabase.from('course_holes').select('*').eq('course_name', matchData.day.course_name).order('hole_number')
-        : Promise.resolve({ data: [] }),
-      allPlayerIds.length
-        ? supabase.from('players').select('id,display_name,avatar_url').in('id', allPlayerIds)
-        : Promise.resolve({ data: [] }),
-    ]);
-
-    if (holesData) setHoleResults(holesData);
-    if (courseHoleData) setCourseHoles(courseHoleData);
-    if (playersData) setPlayers(playersData);
-    setLoading(false);
-    setRefreshing(false);
   }
 
   useEffect(() => {
+    setLoading(true);
+    setLoadError(false);
     load();
     const sub = supabase
       .channel(`match-${matchId}`)
@@ -139,7 +150,7 @@ export default function MatchDetailScreen() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'matches', filter: `id=eq.${matchId}` }, load)
       .subscribe();
     return () => { supabase.removeChannel(sub); };
-  }, [matchId]);
+  }, [matchId, retryTick]);
 
   function deleteMatch() {
     Alert.alert('Delete Game', 'Are you sure? This cannot be undone.', [
@@ -182,9 +193,11 @@ export default function MatchDetailScreen() {
   const holesPlayed = holeChars.filter(c => c !== '.').length;
   const holesLeft = 18 - holesPlayed;
 
+  const homeSideLabel = match?.home_team?.name ?? match?.home_player_ids.map(playerName).join(' & ') ?? 'Home';
+  const awaySideLabel = match?.away_team?.name ?? match?.away_player_ids.map(playerName).join(' & ') ?? 'Away';
   const statusText = isStrokePlay
     ? (spLeaderPts > 0 ? `${spLeaderName} leads · ${spLeaderPts}pts` : 'Not started')
-    : (status === 'complete' ? label : homeUp === 0 ? 'All Square' : homeUp > 0 ? `${match?.home_team?.name ?? 'Home'}  ${homeUp} Up` : `${match?.away_team?.name ?? 'Away'}  ${Math.abs(homeUp)} Up`);
+    : (status === 'complete' ? label : homeUp === 0 ? 'All Square' : homeUp > 0 ? `${homeSideLabel}  ${homeUp} Up` : `${awaySideLabel}  ${Math.abs(homeUp)} Up`);
   const statusColor = isStrokePlay ? GOLD : (currentlyAhead === 'home' ? homeColor : currentlyAhead === 'away' ? awayColor : '#ffffff');
   const statusSub = status === 'complete' ? 'Match complete' : holesPlayed === 0 ? 'Not started' : `${holesLeft} holes to play`;
 
@@ -194,6 +207,14 @@ export default function MatchDetailScreen() {
     return map[f] ?? f;
   })();
 
+  if (loadError) return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000', gap: 16, padding: 24 }}>
+      <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16 }}>Couldn't load this round.</Text>
+      <TouchableOpacity style={{ backgroundColor: GOLD, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 }} onPress={() => setRetryTick(t => t + 1)} activeOpacity={0.85}>
+        <Text style={{ fontFamily: FFB, color: '#000' }}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
   if (loading || !fontsLoaded) return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' }}>
       <ActivityIndicator color={GOLD} size="large" />
@@ -366,14 +387,14 @@ export default function MatchDetailScreen() {
                 isPlayed && { backgroundColor: `${resultColor}22`, borderColor: `${resultColor}60` },
               ]}
             >
-              <Text style={[s.holeTileNum, isPlayed && { color: resultColor }]}>{h}</Text>
-              <Text style={s.holeTilePar}>P{ch?.par ?? '?'}</Text>
+              <Text allowFontScaling={false} style={[s.holeTileNum, isPlayed && { color: resultColor }]}>{h}</Text>
+              <Text allowFontScaling={false} style={s.holeTilePar}>P{ch?.par ?? '?'}</Text>
               {isPlayed && isStrokePlay && (() => {
                 const best = Math.max(0, ...allPlayerIds.map(id => stablefordForHole(id, h) ?? 0));
-                return best > 0 ? <Text style={[s.holeTilePts, { color: resultColor }]}>{best}</Text> : null;
+                return best > 0 ? <Text allowFontScaling={false} style={[s.holeTilePts, { color: resultColor }]}>{best}</Text> : null;
               })()}
               {isPlayed && !isStrokePlay && (
-                <Text style={[s.holeTilePts, { color: resultColor }]}>
+                <Text allowFontScaling={false} style={[s.holeTilePts, { color: resultColor }]}>
                   {c === 'h' ? 'H' : c === 'a' ? 'A' : '='}
                 </Text>
               )}
@@ -443,7 +464,7 @@ export default function MatchDetailScreen() {
                   const bg = val === null || p === null ? 'transparent' : tc === PLAIN ? '#1a1a1a' : `${tc}25`;
                   return (
                     <View style={{ width: SC, height: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderRadius: 4 }}>
-                      <Text style={{ fontFamily: FFB, fontSize: 11, color: val ? tc : '#2a2a2a' }}>{val ?? '·'}</Text>
+                      <Text allowFontScaling={false} style={{ fontFamily: FFB, fontSize: 11, color: val ? tc : '#2a2a2a' }}>{val ?? '·'}</Text>
                     </View>
                   );
                 };
@@ -451,36 +472,36 @@ export default function MatchDetailScreen() {
                 const renderHalf = (holes: CourseHole[], outLabel: string, showTot: boolean) => (
                   <View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: '#1a1a1a', backgroundColor: '#0a0a0a' }}>
-                      <Text style={{ width: SL, fontFamily: FFB, fontSize: 8, color: '#fff', paddingLeft: 8 }}>HOLE</Text>
-                      {holes.map(h => <Text key={h.hole_number} style={{ width: SC, fontFamily: FFB, fontSize: 10, color: '#ffffff', textAlign: 'center' }}>{h.hole_number}</Text>)}
-                      <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{outLabel}</Text>
-                      {showTot && <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>TOT</Text>}
+                      <Text allowFontScaling={false} style={{ width: SL, fontFamily: FFB, fontSize: 8, color: '#fff', paddingLeft: 8 }}>HOLE</Text>
+                      {holes.map(h => <Text allowFontScaling={false} key={h.hole_number} style={{ width: SC, fontFamily: FFB, fontSize: 10, color: '#ffffff', textAlign: 'center' }}>{h.hole_number}</Text>)}
+                      <Text allowFontScaling={false} style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{outLabel}</Text>
+                      {showTot && <Text allowFontScaling={false} style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>TOT</Text>}
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}>
-                      <Text style={{ width: SL, fontFamily: FFB, fontSize: 8, color: '#444', paddingLeft: 8 }}>PAR</Text>
-                      {holes.map(h => <Text key={h.hole_number} style={{ width: SC, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{h.par}</Text>)}
-                      <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{holes.reduce((s, h) => s + h.par, 0)}</Text>
-                      {showTot && <Text style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{frontPar + backPar}</Text>}
+                      <Text allowFontScaling={false} style={{ width: SL, fontFamily: FFB, fontSize: 8, color: '#ffffff', paddingLeft: 8 }}>PAR</Text>
+                      {holes.map(h => <Text allowFontScaling={false} key={h.hole_number} style={{ width: SC, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{h.par}</Text>)}
+                      <Text allowFontScaling={false} style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{holes.reduce((s, h) => s + h.par, 0)}</Text>
+                      {showTot && <Text allowFontScaling={false} style={{ width: ST, fontFamily: FFB, fontSize: 9, color: GOLD, textAlign: 'center' }}>{frontPar + backPar}</Text>}
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 5 }}>
-                      <Text style={{ width: SL, fontFamily: FFB, fontSize: 9, color, paddingLeft: 8 }} numberOfLines={1}>{name}</Text>
+                      <Text allowFontScaling={false} style={{ width: SL, fontFamily: FFB, fontSize: 9, color, paddingLeft: 8 }} numberOfLines={1}>{name}</Text>
                       {holes.map(h => <ScCell key={h.hole_number} val={gross(h.hole_number)} par={h.par} />)}
-                      <Text style={{ width: ST, fontFamily: FFB, fontSize: 11, color: '#ffffff', textAlign: 'center' }}>
+                      <Text allowFontScaling={false} style={{ width: ST, fontFamily: FFB, fontSize: 11, color: '#ffffff', textAlign: 'center' }}>
                         {holes.reduce((s, h) => s + (gross(h.hole_number) ?? 0), 0) || '·'}
                       </Text>
-                      {showTot && <Text style={{ width: ST, fontFamily: FFB, fontSize: 11, color: GOLD, textAlign: 'center' }}>{totGross || '·'}</Text>}
+                      {showTot && <Text allowFontScaling={false} style={{ width: ST, fontFamily: FFB, fontSize: 11, color: GOLD, textAlign: 'center' }}>{totGross || '·'}</Text>}
                     </View>
                     {isStrokePlay && (
                       <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, backgroundColor: `${GOLD}06` }}>
-                        <Text style={{ width: SL, fontFamily: FFB, fontSize: 8, color: '#fff', paddingLeft: 8 }}>PTS</Text>
+                        <Text allowFontScaling={false} style={{ width: SL, fontFamily: FFB, fontSize: 8, color: '#fff', paddingLeft: 8 }}>PTS</Text>
                         {holes.map(h => {
                           const p = pts(h.hole_number);
-                          return <Text key={h.hole_number} style={{ width: SC, fontFamily: FFB, fontSize: 10, color: p ? ptsColor(p) : '#2a2a2a', textAlign: 'center' }}>{p ?? '·'}</Text>;
+                          return <Text allowFontScaling={false} key={h.hole_number} style={{ width: SC, fontFamily: FFB, fontSize: 10, color: p != null ? ptsColor(p) : '#2a2a2a', textAlign: 'center' }}>{p ?? '·'}</Text>;
                         })}
-                        <Text style={{ width: ST, fontFamily: FFB, fontSize: 11, color: GOLD, textAlign: 'center' }}>
+                        <Text allowFontScaling={false} style={{ width: ST, fontFamily: FFB, fontSize: 11, color: GOLD, textAlign: 'center' }}>
                           {holes.reduce((s, h) => s + (pts(h.hole_number) ?? 0), 0) || '·'}
                         </Text>
-                        {showTot && <Text style={{ width: ST, fontFamily: FFB, fontSize: 11, color: GOLD, textAlign: 'center' }}>{totPts || '·'}</Text>}
+                        {showTot && <Text allowFontScaling={false} style={{ width: ST, fontFamily: FFB, fontSize: 11, color: GOLD, textAlign: 'center' }}>{totPts || '·'}</Text>}
                       </View>
                     )}
                   </View>
@@ -515,7 +536,7 @@ export default function MatchDetailScreen() {
 
         {/* Delete */}
         <TouchableOpacity style={s.deleteBtn} onPress={deleteMatch} activeOpacity={0.7}>
-          <Ionicons name="trash-outline" size={14} color="#4b5563" />
+          <Ionicons name="trash-outline" size={14} color="#ffffff" />
           <Text style={s.deleteBtnText}>Delete Game</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -575,14 +596,14 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: 2,
   },
   holeTileNum:  { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
-  holeTilePar:  { fontFamily: FFB, fontSize: 9, color: '#333' },
+  holeTilePar:  { fontFamily: FFB, fontSize: 9, color: '#ffffff' },
   holeTilePts:  { fontFamily: FFB, fontSize: 11, marginTop: 1 },
 
   halfLabels: {
     flexDirection: 'row', justifyContent: 'space-around',
     paddingHorizontal: 12, paddingBottom: 4,
   },
-  halfLabel: { fontFamily: FFB, fontSize: 8, color: '#2a2a2a', letterSpacing: 1.5 },
+  halfLabel: { fontFamily: FFB, fontSize: 8, color: '#ffffff', letterSpacing: 1.5 },
 
   scroll: { padding: 16, paddingBottom: 24 },
 
@@ -613,7 +634,7 @@ const s = StyleSheet.create({
   pageDotActive: { backgroundColor: GOLD, width: 18 },
 
   deleteBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 20, marginTop: 8 },
-  deleteBtnText: { fontFamily: FFB, fontSize: 12, color: '#4b5563' },
+  deleteBtnText: { fontFamily: FFB, fontSize: 12, color: '#ffffff' },
 
   ctaWrap: { paddingHorizontal: 16, paddingBottom: 32, paddingTop: 8, backgroundColor: '#000000', borderTopWidth: 1, borderTopColor: '#111111' },
   ctaBtn: {

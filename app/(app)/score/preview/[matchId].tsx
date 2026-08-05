@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Image, ActivityIndicator, ScrollView,
+  Image, ActivityIndicator, ScrollView, Share,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -84,6 +84,14 @@ export default function MatchPreviewScreen() {
     load();
   }, [matchId]);
 
+  function shareCode() {
+    if (!dayCode) return;
+    const courseName = match?.day?.course_name ?? 'our round';
+    Share.share({
+      message: `Follow our game at ${courseName}!\nEnter code ${dayCode} in Titan Golf → Score tab → Join Game Day to spectate (view-only — you won't be able to enter scores).`,
+    });
+  }
+
   async function startRound() {
     if (teeing || !match) return;
     setTeeing(true);
@@ -92,7 +100,11 @@ export default function MatchPreviewScreen() {
       .filter(Boolean) as string[];
     const voiceOn = match.side_games?.includes('voice:on');
     if (voiceOn) {
-      await Promise.race([speakIntro(firstNames), new Promise(resolve => setTimeout(resolve, 6000))]);
+      try {
+        await Promise.race([speakIntro(firstNames), new Promise(resolve => setTimeout(resolve, 6000))]);
+      } catch (e) {
+        console.error('speakIntro failed:', e);
+      }
     }
     const dest = startHole && startHole !== '1'
       ? `/(app)/score/${matchId}?startHole=${startHole}`
@@ -203,8 +215,16 @@ export default function MatchPreviewScreen() {
         {dayCode && dayId && (
           <View style={s.dayCard}>
             <Text style={s.dayCardTitle}>GAME DAY</Text>
-            <Text style={s.dayCardSub}>Share this code so others can join the leaderboard</Text>
+            <Text style={s.dayCardSub}>Share this code so others can spectate — view-only, they can't enter scores</Text>
             <Text style={s.dayCode}>{dayCode}</Text>
+            <TouchableOpacity
+              style={[s.dayBtn, { backgroundColor: `${GOLD}15`, borderWidth: 1, borderColor: `${GOLD}40` }]}
+              onPress={shareCode}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="share-outline" size={14} color={GOLD} />
+              <Text style={s.dayBtnText}>Share Code</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={s.dayBtn}
               onPress={() => router.push(`/(app)/score/day/${dayId}` as any)}

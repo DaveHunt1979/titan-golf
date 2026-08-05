@@ -24,6 +24,7 @@ interface MatchDetail {
   winner: string | null;
   result_str: string | null;
   holes_string: string;
+  start_hole: number | null;
   is_singles: boolean;
   home_team_id: string | null;
   away_team_id: string | null;
@@ -159,7 +160,16 @@ export default function SpectateScreen() {
   const holeChars   = holesStr.split('');
   const { homeUp }  = calcHoles(holesStr);
   const holesPlayed = holeChars.filter(c => c !== '.').length;
-  const currentHole = Math.min(holesPlayed + 1, 18);
+  // Rounds don't always start at hole 1 — walk the actual play sequence (from
+  // start_hole, wrapping at 18) to find the true next unplayed hole, same as
+  // the live scoring screen does. Falls back to the first non-'.' position if
+  // start_hole isn't set.
+  const inferredStartHole = (() => { const i = holeChars.findIndex(c => c !== '.'); return i >= 0 ? i + 1 : 1; })();
+  const effectiveStartHole = match.start_hole ?? inferredStartHole;
+  const holeSequence = effectiveStartHole > 1
+    ? [...Array.from({ length: 19 - effectiveStartHole }, (_, i) => effectiveStartHole + i), ...Array.from({ length: effectiveStartHole - 1 }, (_, i) => i + 1)]
+    : Array.from({ length: 18 }, (_, i) => i + 1);
+  const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? 18;
   const status      = match.status;
   const winner      = getEffectiveWinner(status, match.winner, holesStr);
   const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';

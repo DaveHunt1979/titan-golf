@@ -87,12 +87,13 @@ export default function GamesLobbyScreen() {
     if (code.length !== 6) { Alert.alert('Enter the 6-character game code'); return; }
     setJoining(true);
 
-    // Try day join_code first
+    // Try day join_code first — this code is always view-only (spectator).
+    // To actually join as a scorer, use a per-match group code instead.
     const { data: day } = await supabase
       .from('competition_days').select('id').eq('join_code', code).maybeSingle();
     if (day) {
       setJoining(false);
-      router.push(`/(app)/score/day/${(day as any).id}` as any);
+      router.push(`/(app)/score/day/${(day as any).id}?spectate=1` as any);
       return;
     }
 

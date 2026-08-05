@@ -569,64 +569,68 @@ export default function GroupBuilderSheet({
         return (
           <Modal visible transparent animationType="slide" onRequestClose={() => setProfileTarget(null)}>
             <TouchableOpacity style={css.overlay} activeOpacity={1} onPress={() => setProfileTarget(null)} />
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
-              <View style={[css.subSheet, { backgroundColor: dc.card, paddingBottom: 44 }]}>
-                {/* Player identity */}
-                <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                  <AvatarCircle player={profilePlayer} size={60} />
-                  <Text style={[css.profileName, { color: dc.white }]}>{profilePlayer.display_name}</Text>
-                  <Text style={css.profileOrigHcp}>Profile HCP {profilePlayer.handicap_index}</Text>
-                </View>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '90%' }}>
+              <View style={[css.subSheet, { backgroundColor: dc.card, paddingBottom: 0 }]}>
+                <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 44 }} showsVerticalScrollIndicator={false}>
+                  {/* Player identity */}
+                  <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                    <AvatarCircle player={profilePlayer} size={60} />
+                    <Text style={[css.profileName, { color: dc.white }]}>{profilePlayer.display_name}</Text>
+                    <Text style={css.profileOrigHcp}>Profile HCP {profilePlayer.handicap_index}</Text>
+                  </View>
 
-                {/* HCP override */}
-                <Text style={css.profileLabel}>ROUND HANDICAP</Text>
-                <TextInput
-                  style={[css.nameInput, { color: dc.white, borderColor: GOLD, marginTop: 6 }]}
-                  value={profileHcp}
-                  onChangeText={setProfileHcp}
-                  keyboardType="decimal-pad"
-                  selectTextOnFocus
-                />
+                  {/* HCP override */}
+                  <Text style={css.profileLabel}>ROUND HANDICAP</Text>
+                  <TextInput
+                    style={[css.nameInput, { color: dc.white, borderColor: GOLD, marginTop: 6 }]}
+                    value={profileHcp}
+                    onChangeText={setProfileHcp}
+                    keyboardType="decimal-pad"
+                    selectTextOnFocus
+                    returnKeyType="done"
+                    blurOnSubmit
+                  />
 
-                {/* Tee picker */}
-                <Text style={[css.profileLabel, { marginTop: 16 }]}>PLAYING TEES</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                  {TEE_OPTIONS.map(t => {
-                    const selected = profileTee === t.label;
-                    return (
-                      <TouchableOpacity
-                        key={t.label}
-                        style={[css.teePill, { borderColor: selected ? t.color : dc.border, backgroundColor: selected ? `${t.color}20` : 'transparent' }]}
-                        onPress={() => setProfileTee(selected ? null : t.label)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[css.teeCircle, { backgroundColor: t.color }]} />
-                        <Text style={[css.teePillText, { color: selected ? t.color : '#888' }]}>{t.label}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                  {/* Tee picker */}
+                  <Text style={[css.profileLabel, { marginTop: 16 }]}>PLAYING TEES</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                    {TEE_OPTIONS.map(t => {
+                      const selected = profileTee === t.label;
+                      return (
+                        <TouchableOpacity
+                          key={t.label}
+                          style={[css.teePill, { borderColor: selected ? t.color : dc.border, backgroundColor: selected ? `${t.color}20` : 'transparent' }]}
+                          onPress={() => setProfileTee(selected ? null : t.label)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[css.teeCircle, { backgroundColor: t.color }]} />
+                          <Text style={[css.teePillText, { color: selected ? t.color : '#888' }]}>{t.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
 
-                <Text style={css.profileNote}>Changes apply to this round only</Text>
+                  <Text style={css.profileNote}>Changes apply to this round only</Text>
 
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
-                  <TouchableOpacity
-                    style={[css.profileBtn, { borderWidth: 1, borderColor: dc.border }]}
-                    onPress={() => setProfileTarget(null)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[css.profileBtnText, { color: '#777' }]}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[css.profileBtn, { backgroundColor: GOLD, flex: 2 }]}
-                    onPress={confirmProfile}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={[css.profileBtnText, { color: '#000' }]}>
-                      {profileTarget.fromPicker ? 'Add to Round' : 'Save'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                    <TouchableOpacity
+                      style={[css.profileBtn, { borderWidth: 1, borderColor: dc.border }]}
+                      onPress={() => setProfileTarget(null)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[css.profileBtnText, { color: '#777' }]}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[css.profileBtn, { backgroundColor: GOLD, flex: 2 }]}
+                      onPress={confirmProfile}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[css.profileBtnText, { color: '#000' }]}>
+                        {profileTarget.fromPicker ? 'Add to Round' : 'Save'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
               </View>
             </KeyboardAvoidingView>
           </Modal>
@@ -653,8 +657,10 @@ export default function GroupBuilderSheet({
                       style={[css.subRow, { borderBottomColor: dc.border }]}
                       onPress={() => {
                         const pt = pickTarget!;
+                        setGroups(prev => prev.map((g, i) => i !== pt.gi ? g : {
+                          ...g, slots: g.slots.map((s, j) => j !== pt.si ? s : ({ ...s, [pt.side]: [...s[pt.side], p.id] })),
+                        }));
                         setPickTarget(null);
-                        setProfileTarget({ playerId: p.id, fromPicker: true, gi: pt.gi, si: pt.si, side: pt.side });
                       }}
                       activeOpacity={0.7}
                     >

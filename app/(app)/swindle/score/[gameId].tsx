@@ -319,7 +319,7 @@ export default function SwindleScore() {
                     onPress={() => setSelected(Math.max(1, (selected ?? par) - 1))}
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   >
-                    <Ionicons name="remove-circle" size={42} color={selected && selected > 1 ? '#555' : '#222'} />
+                    <Ionicons name="remove-circle" size={42} color={selected && selected > 1 ? '#ffffff' : '#555'} />
                   </TouchableOpacity>
 
                   <View style={{
@@ -340,7 +340,7 @@ export default function SwindleScore() {
                     onPress={() => setSelected(Math.min(12, (selected ?? par) + 1))}
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   >
-                    <Ionicons name="add-circle" size={42} color="#555" />
+                    <Ionicons name="add-circle" size={42} color="#ffffff" />
                   </TouchableOpacity>
                 </View>
 
@@ -349,11 +349,11 @@ export default function SwindleScore() {
                     <>
                       <Text style={{ fontFamily: FFB, fontSize: 14, color: accent, letterSpacing: 2 }}>{scoreLabel}</Text>
                       {!isStroke && pts !== null && (
-                        <Text style={{ fontFamily: FF, fontSize: 12, color: '#555', marginTop: 2 }}>{pts} stableford pts</Text>
+                        <Text style={{ fontFamily: FF, fontSize: 12, color: '#ffffff', marginTop: 2 }}>{pts} stableford pts</Text>
                       )}
                     </>
                   ) : (
-                    <Text style={{ fontFamily: FF, fontSize: 13, color: '#444' }}>tap a number or use arrows</Text>
+                    <Text style={{ fontFamily: FF, fontSize: 13, color: '#ffffff' }}>tap a number or use arrows</Text>
                   )}
                 </View>
               </View>

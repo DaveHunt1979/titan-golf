@@ -517,10 +517,10 @@ export default function NewGameScreen() {
   const [selectedCourse, setSelectedCourse] = useState<string | null>(preselectedCourse ?? null);
   const [hcpAllowance, setHcpAllowance]     = useState<number>(100);
   const [sideGames, setSideGames]           = useState<string[]>([]);
-  const [secondaryFormat, setSecondaryFormat] = useState<string | null>(null);
+  const [secondaryFormat, setSecondaryFormat] = useState<string | null>('stableford');
   const [holesMode, setHoles]               = useState<HolesMode>('full18');
   const [voiceEnabled, setVoiceEnabled]     = useState(false);
-  const [statsEnabled, setStatsEnabled]     = useState(true);
+  const [statsEnabled, setStatsEnabled]     = useState(false);
   const [ldActive, setLdActive]             = useState(false);
   const [npActive, setNpActive]             = useState(false);
   const [ldHole, setLdHole]                 = useState<number | null>(null);
@@ -560,8 +560,8 @@ export default function NewGameScreen() {
     setMode((resumeMode as GameMode | undefined) ?? 'stableford');
     setPair1([]); setPair2([]); setPairStep(1);
     setSelectedCourse(existingDayId && preselectedCourse ? preselectedCourse : null);
-    setHcpAllowance(100); setSideGames([]); setSecondaryFormat(null);
-    setHoles('full18'); setVoiceEnabled(true); setStatsEnabled(true); setLdActive(false); setNpActive(false);
+    setHcpAllowance(100); setSideGames([]); setSecondaryFormat('stableford');
+    setHoles('full18'); setVoiceEnabled(false); setStatsEnabled(false); setLdActive(false); setNpActive(false);
     setLdHole(null); setNtpHole(null); setCreating(false); setTakenPlayerIds([]);
     setTeamSize(2); setCounting(2); setNumTeams(2); setExtraTeams([]);
     setStartHole(1); setBuiltMatches(null);

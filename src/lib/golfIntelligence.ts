@@ -29,12 +29,22 @@ export interface GICourseResult {
   location?: string;
 }
 
+// Local course names often carry a sub-course/scorecard suffix (e.g. "Wentworth
+// Club - Front & Back", "Woburn Golf Club - The Duke") that GI's own directory
+// doesn't use — strip it, plus the generic "Golf Club/Course/Links/Park" tail,
+// so the search term matches GI's canonical club name.
+export function cleanCourseNameForSearch(name: string): string {
+  const beforeDash = name.split(/\s+-\s+/)[0];
+  return beforeDash.replace(/\s*(golf\s*)?(club|course|links|park)?\s*$/i, '').trim();
+}
+
 export async function searchCourse(keywords: string, countryCode = 'GB'): Promise<GICourseResult[]> {
   const token = await getToken();
+  const cleanedKeywords = cleanCourseNameForSearch(keywords);
   const res = await fetch(`${BASE}/courses/searchCourseGroups`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ rows: 50, offset: 0, keywords, countryCode, regionCode: null, gpsCoordinate: null }),
+    body: JSON.stringify({ rows: 50, offset: 0, keywords: cleanedKeywords, countryCode, regionCode: null, gpsCoordinate: null }),
   });
   if (!res.ok) throw new Error(`GI search failed: ${res.status}`);
   const data = await res.json();

@@ -8,15 +8,21 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 
-const GOLD  = '#D4AF37';
-const GREEN = '#4ade80';
-const RED   = '#f87171';
+const GOLD     = '#D4AF37';
+const GREEN    = '#4ade80';
+const RED      = '#f87171';
+const BLUE     = '#3b82f6';
+const DARKBLUE = '#1e3a8a';
+const PLAIN    = '#ffffff';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
 
+interface Breakdown { eagles: number; birdies: number; pars: number; bogeys: number; doubles: number; }
+
 interface Round {
   matchId: string;
-  matchNumber: number;
+  isSolo: boolean;
+  createdAt: string;
   courseName: string;
   coursePar: number;
   playDate: string | null;
@@ -26,6 +32,17 @@ interface Round {
   fairwaysTracked: number;
   totalPutts: number;
   puttsTracked: number;
+  breakdown: Breakdown;
+}
+
+// Gross strokes vs par only — same classification used everywhere else in the app.
+function scoreVsPar(gross: number, par: number): 'eagle' | 'birdie' | 'par' | 'bogey' | 'double' {
+  const diff = gross - par;
+  if (diff <= -2) return 'eagle';
+  if (diff === -1) return 'birdie';
+  if (diff === 0)  return 'par';
+  if (diff === 1)  return 'bogey';
+  return 'double';
 }
 
 export default function RoundsScreen() {
@@ -54,27 +71,30 @@ export default function RoundsScreen() {
 
     const { data: matches } = await supabase
       .from('matches')
-      .select('id, match_number, day:day_id(play_date, course_name, course_par)')
+      .select('id, created_at, home_player_ids, away_player_ids, day:day_id(play_date, course_name, course_par)')
       .or(`home_player_ids.cs.{${pid}},away_player_ids.cs.{${pid}}`)
       .eq('status', 'complete');
 
     const matchIds = (matches ?? []).map((m: any) => m.id);
     if (matchIds.length === 0) { setLoading(false); return; }
 
-    const infoMap: Record<string, { matchNumber: number; courseName: string; coursePar: number; playDate: string | null }> = {};
+    const infoMap: Record<string, { createdAt: string; courseName: string; coursePar: number; playDate: string | null; isSolo: boolean }> = {};
     for (const m of (matches ?? []) as any[]) {
       infoMap[m.id] = {
-        matchNumber: m.match_number ?? 0,
+        isSolo:      (m.away_player_ids ?? []).length === 0 && (m.home_player_ids ?? []).length === 1,
+        createdAt:   m.created_at,
         courseName:  m.day?.course_name ?? 'Unknown Course',
         coursePar:   m.day?.course_par  ?? 72,
         playDate:    m.day?.play_date   ?? null,
       };
     }
 
-    const [holesRes, statsRes] = await Promise.all([
+    const courseNames = [...new Set(Object.values(infoMap).map(i => i.courseName))];
+
+    const [holesRes, statsRes, courseHolesRes] = await Promise.all([
       supabase
         .from('match_holes')
-        .select('match_id, gross_score')
+        .select('match_id, hole_number, gross_score')
         .eq('player_id', pid)
         .in('match_id', matchIds)
         .not('gross_score', 'is', null),
@@ -83,12 +103,35 @@ export default function RoundsScreen() {
         .select('match_id, fairway_hit, putts')
         .eq('player_id', pid)
         .in('match_id', matchIds),
+      courseNames.length
+        ? supabase.from('course_holes').select('course_name, hole_number, par').in('course_name', courseNames)
+        : Promise.resolve({ data: [] }),
     ]);
 
+    // course_name -> hole_number -> par
+    const parLookup: Record<string, Record<number, number>> = {};
+    for (const c of (courseHolesRes.data ?? []) as any[]) {
+      if (!parLookup[c.course_name]) parLookup[c.course_name] = {};
+      parLookup[c.course_name][c.hole_number] = c.par;
+    }
+
     const grossMap: Record<string, number[]> = {};
+    const breakdownMap: Record<string, Breakdown> = {};
     for (const r of (holesRes.data ?? []) as any[]) {
       if (!grossMap[r.match_id]) grossMap[r.match_id] = [];
       grossMap[r.match_id].push(r.gross_score);
+
+      const courseName = infoMap[r.match_id]?.courseName;
+      const par = courseName ? parLookup[courseName]?.[r.hole_number] : null;
+      if (par != null) {
+        if (!breakdownMap[r.match_id]) breakdownMap[r.match_id] = { eagles: 0, birdies: 0, pars: 0, bogeys: 0, doubles: 0 };
+        const cat = scoreVsPar(r.gross_score, par);
+        if (cat === 'eagle') breakdownMap[r.match_id].eagles++;
+        else if (cat === 'birdie') breakdownMap[r.match_id].birdies++;
+        else if (cat === 'par') breakdownMap[r.match_id].pars++;
+        else if (cat === 'bogey') breakdownMap[r.match_id].bogeys++;
+        else breakdownMap[r.match_id].doubles++;
+      }
     }
 
     const statMap: Record<string, { fh: number; ft: number; tp: number; pt: number }> = {};
@@ -112,7 +155,8 @@ export default function RoundsScreen() {
         const st = statMap[id] ?? { fh: 0, ft: 0, tp: 0, pt: 0 };
         return {
           matchId:          id,
-          matchNumber:      info.matchNumber,
+          isSolo:           info.isSolo,
+          createdAt:        info.createdAt,
           courseName:       info.courseName,
           coursePar:        info.coursePar,
           playDate:         info.playDate,
@@ -122,13 +166,14 @@ export default function RoundsScreen() {
           fairwaysTracked:  st.ft,
           totalPutts:       st.tp,
           puttsTracked:     st.pt,
+          breakdown:        breakdownMap[id] ?? { eagles: 0, birdies: 0, pars: 0, bogeys: 0, doubles: 0 },
         };
       });
 
     list.sort((a, b) => {
       if (a.playDate && b.playDate && a.playDate !== b.playDate)
         return b.playDate.localeCompare(a.playDate);
-      return b.matchNumber - a.matchNumber;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
     setRounds(list);
@@ -169,6 +214,7 @@ export default function RoundsScreen() {
       <ScrollView contentContainerStyle={ss.scroll} showsVerticalScrollIndicator={false}>
         {rounds.length === 0 ? (
           <View style={ss.empty}>
+            <Ionicons name="trophy-outline" size={40} color={GOLD} style={{ marginBottom: 12 }} />
             <Text style={ss.emptyTitle}>No rounds yet</Text>
             <Text style={ss.emptySub}>Complete a round to see your history here</Text>
           </View>
@@ -178,29 +224,53 @@ export default function RoundsScreen() {
             const avgPutts = r.puttsTracked > 0
               ? (r.totalPutts / r.puttsTracked).toFixed(1)
               : null;
+            const b = r.breakdown;
+            const badges = [
+              { label: 'EAGLE',  count: b.eagles,  bg: GOLD,      fg: '#000' },
+              { label: 'BIRDIE', count: b.birdies, bg: RED,       fg: '#000' },
+              { label: 'PAR',    count: b.pars,    bg: '#262626', fg: PLAIN },
+              { label: 'BOGEY',  count: b.bogeys,  bg: '#1e3a5f', fg: BLUE },
+              { label: 'DBL+',   count: b.doubles, bg: '#1e1b4b', fg: DARKBLUE },
+            ].filter(t => t.count > 0);
+
             return (
               <TouchableOpacity
                 key={r.matchId}
                 style={[ss.card, { backgroundColor: dc.card, borderColor: dc.border }]}
-                onPress={() => router.push(`/(app)/profile/round/${r.matchId}` as any)}
+                onPress={() => router.push((r.isSolo ? `/(app)/score/solo/${r.matchId}` : `/(app)/score/enter/${r.matchId}`) as any)}
                 activeOpacity={0.75}
               >
                 {/* Top row */}
                 <View style={ss.cardTop}>
                   <View style={{ flex: 1, marginRight: 12 }}>
-                    <Text style={ss.courseName} numberOfLines={1}>{r.courseName}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="trophy" size={13} color={GOLD} />
+                      <Text style={ss.courseName} numberOfLines={1}>{r.courseName}</Text>
+                    </View>
                     <Text style={ss.date}>{formatDate(r.playDate)}</Text>
                   </View>
                   <View style={ss.scoreBox}>
-                    <Text style={ss.gross}>{r.grossTotal}</Text>
+                    <Text allowFontScaling={false} style={ss.gross}>{r.grossTotal}</Text>
                     {diff !== null && (
-                      <Text style={[ss.toPar, { color: toParColor(diff) }]}>{toParStr(diff)}</Text>
+                      <Text allowFontScaling={false} style={[ss.toPar, { color: toParColor(diff) }]}>{toParStr(diff)}</Text>
                     )}
                     {r.holesPlayed < 18 && (
-                      <Text style={ss.holesTag}>NH</Text>
+                      <Text allowFontScaling={false} style={ss.holesTag}>NH</Text>
                     )}
                   </View>
                 </View>
+
+                {/* Scoring breakdown badges */}
+                {badges.length > 0 && (
+                  <View style={ss.badgeRow}>
+                    {badges.map(t => (
+                      <View key={t.label} style={[ss.badge, { backgroundColor: t.bg }]}>
+                        <Text allowFontScaling={false} style={[ss.badgeCount, { color: t.fg }]}>{t.count}</Text>
+                        <Text allowFontScaling={false} style={[ss.badgeLabel, { color: t.fg }]}>{t.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
 
                 {/* Stats chips */}
                 {(r.fairwaysTracked > 0 || r.puttsTracked > 0) && (
@@ -223,7 +293,7 @@ export default function RoundsScreen() {
 
                 {/* View hole-by-hole row */}
                 <View style={ss.drillRow}>
-                  <Text style={ss.drillLink}>View hole-by-hole</Text>
+                  <Text style={ss.drillLink}>View full scorecard</Text>
                   <Ionicons name="chevron-forward" size={14} color={dc.gold} />
                 </View>
               </TouchableOpacity>
@@ -249,7 +319,7 @@ function toParStr(n: number) {
 function toParColor(n: number) {
   if (n < 0) return GREEN;
   if (n > 5) return RED;
-  return '#aaa';
+  return '#ffffff';
 }
 
 const ss = StyleSheet.create({
@@ -294,7 +364,7 @@ const ss = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1c1c1c',
     padding: 14,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   cardTop: {
     flexDirection: 'row',
@@ -304,12 +374,13 @@ const ss = StyleSheet.create({
     fontFamily: FFB,
     fontSize: 15,
     color: '#fff',
-    marginBottom: 2,
+    flexShrink: 1,
   },
   date: {
     fontFamily: FFB,
     fontSize: 12,
     color: '#fff',
+    marginTop: 2,
   },
   scoreBox: {
     alignItems: 'flex-end',
@@ -328,6 +399,30 @@ const ss = StyleSheet.create({
     fontFamily: FFB,
     fontSize: 12,
     color: GOLD,
+  },
+
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 12,
+  },
+  badge: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  badgeCount: {
+    fontFamily: FFB,
+    fontSize: 16,
+    lineHeight: 19,
+  },
+  badgeLabel: {
+    fontFamily: FFB,
+    fontSize: 7,
+    letterSpacing: 0.5,
+    opacity: 0.85,
+    marginTop: 1,
   },
 
   chips: {
@@ -372,7 +467,7 @@ const ss = StyleSheet.create({
   emptySub: {
     fontFamily: FFB,
     fontSize: 13,
-    color: '#444',
+    color: '#ffffff',
     textAlign: 'center',
     marginTop: 8,
     paddingHorizontal: 32,

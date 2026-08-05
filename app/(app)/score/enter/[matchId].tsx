@@ -69,6 +69,10 @@ function scoreVsPar(gross: number, par: number, _shots: number): string {
   return 'double';
 }
 
+function isMissingMatchError(err: any): boolean {
+  return err?.code === '23503' || /foreign key/i.test(String(err?.message ?? ''));
+}
+
 function ptsColor(pts: number): string {
   if (pts >= 4) return GOLD;
   if (pts === 3) return RED;
@@ -147,6 +151,8 @@ export default function EnterScoresScreen() {
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
   const [playerAvatars, setPlayerAvatars] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
   const [saving, setSaving] = useState(false);
 
   const [editPlayerId, setEditPlayerId] = useState<string | null>(null);
@@ -211,30 +217,116 @@ export default function EnterScoresScreen() {
 
   useEffect(() => {
     async function load() {
-      // Try local pack first — instant display when offline or on slow networks
-      const pack = await getMatchPack(matchId);
-      if (pack) {
-        setMatch(pack.match as unknown as MatchInfo);
-        setCourseHoles(pack.courseHoles);
-        setCompPlayers(pack.compPlayers);
-        const names: Record<string, string> = {};
-        const avatars: Record<string, string | null> = {};
-        Object.entries(pack.players).forEach(([id, p]) => {
-          names[id] = p.display_name;
-          avatars[id] = p.avatar_url ?? null;
-        });
-        setPlayerNames(names);
-        setPlayerAvatars(avatars);
-        setLoading(false);
-        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle()
-            .then(({ data: row }) => { if (row) setMyPlayerId(row.id); });
-        });
-        return;
-      }
+      let hadPack = false;
+      try {
+        // Local pack gives an instant paint on a slow/offline connection, but
+        // it can be hours stale (14h TTL) and another device may have moved
+        // the round on since — e.g. someone else picked up scoring after you
+        // logged out. Never trust it as the final state: always follow up
+        // with a live network fetch below, which overwrites it once it lands.
+        const pack = await getMatchPack(matchId);
+        if (pack) {
+          hadPack = true;
+          setMatch(pack.match as unknown as MatchInfo);
+          setCourseHoles(pack.courseHoles);
+          setCompPlayers(pack.compPlayers);
+          const names: Record<string, string> = {};
+          const avatars: Record<string, string | null> = {};
+          Object.entries(pack.players).forEach(([id, p]) => {
+            names[id] = p.display_name;
+            avatars[id] = p.avatar_url ?? null;
+          });
+          setPlayerNames(names);
+          setPlayerAvatars(avatars);
+          setLoading(false);
+        }
 
-      // No pack — fetch from network
-      const { data: matchData } = await supabase
+        // Always hit the network for the live, authoritative state.
+        const { data: matchData, error: matchErr } = await supabase
+          .from('matches')
+          .select(`
+            *,
+            home_team:home_team_id(name,accent_color),
+            away_team:away_team_id(name,accent_color),
+            day:day_id(course_name,course_par,course_rating,slope_rating,day_number,competition:competition_id(format))
+          `)
+          .eq('id', matchId)
+          .single();
+
+        if (matchErr) throw matchErr;
+        if (!matchData) { setLoading(false); return; }
+        setMatch(matchData as unknown as MatchInfo);
+        // Detect secondary stableford continuation after a reload
+        if (matchData.round_format === 'matchplay' && matchData.secondary_format && matchData.status === 'in_progress') {
+          const { concluded } = calcHoles(matchData.holes_string ?? '..................');
+          if (concluded) setContinuingSecondary(true);
+        }
+
+        const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
+
+        const [{ data: holesData }, { data: compData }, { data: playersData }] = await Promise.all([
+          matchData.day?.course_name
+            ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages').eq('course_name', matchData.day.course_name).order('hole_number')
+            : Promise.resolve({ data: [] }),
+          matchData.competition_id && allIds.length
+            ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', matchData.competition_id).in('player_id', allIds)
+            : Promise.resolve({ data: [] }),
+          allIds.length
+            ? supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allIds)
+            : Promise.resolve({ data: [] }),
+        ]);
+
+        if (holesData) setCourseHoles(holesData);
+        if (playersData) {
+          const names: Record<string, string> = {};
+          const avatars: Record<string, string | null> = {};
+          const fallback: CompPlayer[] = [];
+          (playersData as any[]).forEach(p => {
+            names[p.id] = p.display_name;
+            avatars[p.id] = p.avatar_url ?? null;
+            fallback.push({ player_id: p.id, handicap_index: p.handicap_index ?? 0 });
+          });
+          setPlayerNames(names);
+          setPlayerAvatars(avatars);
+          const comp = compData as CompPlayer[] | null;
+          const rawComp = comp && comp.length > 0 ? comp : fallback;
+          baseCompRef.current = rawComp;
+          const povs = (matchData as any).player_overrides ?? {};
+          const effectiveComp = rawComp.map(cp => {
+            const ov = povs[cp.player_id];
+            return ov?.hcp != null ? { ...cp, handicap_index: ov.hcp } : cp;
+          });
+          setCompPlayers(effectiveComp);
+        }
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: playerRow } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
+          if (playerRow) setMyPlayerId(playerRow.id);
+        }
+      } catch (e) {
+        console.error('match load failed:', e);
+        // If we already painted a cached pack, keep showing it rather than
+        // replacing a perfectly good view with an error screen just because
+        // this follow-up network refresh failed.
+        if (!hadPack) setLoadError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    setLoading(true);
+    setLoadError(false);
+    load();
+  }, [matchId, retryTick]);
+
+  // Keep this screen live even while it's already open, so a hole entered
+  // from another device (or the other phone picking up scoring) shows up
+  // without needing to leave and reopen the round. This refreshes `match`
+  // directly (silently — no spinner) rather than going through the full
+  // load(), since re-running that on every hole save — including our own —
+  // would flash the whole screen to a loading state mid-interaction.
+  useEffect(() => {
+    async function refreshMatchSilently() {
+      const { data, error } = await supabase
         .from('matches')
         .select(`
           *,
@@ -244,59 +336,14 @@ export default function EnterScoresScreen() {
         `)
         .eq('id', matchId)
         .single();
-
-      if (!matchData) { setLoading(false); return; }
-      setMatch(matchData as unknown as MatchInfo);
-      // Detect secondary stableford continuation after a reload
-      if (matchData.round_format === 'matchplay' && matchData.secondary_format && matchData.status === 'in_progress') {
-        const { concluded } = calcHoles(matchData.holes_string ?? '..................');
-        if (concluded) setContinuingSecondary(true);
-      }
-
-      const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
-
-      const [{ data: holesData }, { data: compData }, { data: playersData }] = await Promise.all([
-        matchData.day?.course_name
-          ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages').eq('course_name', matchData.day.course_name).order('hole_number')
-          : Promise.resolve({ data: [] }),
-        matchData.competition_id && allIds.length
-          ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', matchData.competition_id).in('player_id', allIds)
-          : Promise.resolve({ data: [] }),
-        allIds.length
-          ? supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allIds)
-          : Promise.resolve({ data: [] }),
-      ]);
-
-      if (holesData) setCourseHoles(holesData);
-      if (playersData) {
-        const names: Record<string, string> = {};
-        const avatars: Record<string, string | null> = {};
-        const fallback: CompPlayer[] = [];
-        (playersData as any[]).forEach(p => {
-          names[p.id] = p.display_name;
-          avatars[p.id] = p.avatar_url ?? null;
-          fallback.push({ player_id: p.id, handicap_index: p.handicap_index ?? 0 });
-        });
-        setPlayerNames(names);
-        setPlayerAvatars(avatars);
-        const comp = compData as CompPlayer[] | null;
-        const rawComp = comp && comp.length > 0 ? comp : fallback;
-        baseCompRef.current = rawComp;
-        const povs = (matchData as any).player_overrides ?? {};
-        const effectiveComp = rawComp.map(cp => {
-          const ov = povs[cp.player_id];
-          return ov?.hcp != null ? { ...cp, handicap_index: ov.hcp } : cp;
-        });
-        setCompPlayers(effectiveComp);
-      }
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: playerRow } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
-        if (playerRow) setMyPlayerId(playerRow.id);
-      }
-      setLoading(false);
+      if (!error && data) setMatch(data as unknown as MatchInfo);
     }
-    load();
+    const sub = supabase
+      .channel(`enter-${matchId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches',    filter: `id=eq.${matchId}` },       refreshMatchSilently)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_holes', filter: `match_id=eq.${matchId}` }, refreshMatchSilently)
+      .subscribe();
+    return () => { supabase.removeChannel(sub); };
   }, [matchId]);
 
   // ── Apple Watch sync ────────────────────────────────────────────
@@ -504,8 +551,13 @@ export default function EnterScoresScreen() {
     if (coachLoading || voiceOff) return;
     setCoachLoading(true);
     const firstNames = Object.values(playerNames).map(n => n.split(' ')[0]);
-    await speakHole(safeCurrentHole, courseHole?.par ?? null, holeYardage, courseHole?.stroke_index ?? null, firstNames);
-    setCoachLoading(false);
+    try {
+      await speakHole(safeCurrentHole, courseHole?.par ?? null, holeYardage, courseHole?.stroke_index ?? null, firstNames);
+    } catch (e) {
+      console.error('speakHole failed:', e);
+    } finally {
+      setCoachLoading(false);
+    }
   }
 
   // Players receiving a shot on the current hole
@@ -681,6 +733,13 @@ export default function EnterScoresScreen() {
         const { error: updErr } = await supabase.from('matches').update(matchUpdate).eq('id', match.id);
         if (updErr) throw updErr;
       } catch (err: any) {
+        if (isMissingMatchError(err)) {
+          setSaving(false);
+          Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
+            { text: 'OK', onPress: () => router.replace('/(app)/' as any) },
+          ]);
+          return;
+        }
         if (!isNetworkError(err)) {
           setSaving(false);
           Alert.alert('Error', String(err.message ?? err));
@@ -858,6 +917,13 @@ export default function EnterScoresScreen() {
       const { error: updErr } = await supabase.from('matches').update(matchUpdate).eq('id', match.id);
       if (updErr) throw updErr;
     } catch (err: any) {
+      if (isMissingMatchError(err)) {
+        setSaving(false);
+        Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
+          { text: 'OK', onPress: () => router.replace('/(app)/' as any) },
+        ]);
+        return;
+      }
       if (!isNetworkError(err)) {
         setSaving(false);
         Alert.alert('Error', String(err.message ?? err));
@@ -1187,6 +1253,14 @@ export default function EnterScoresScreen() {
   }
 
   // ── Render ──────────────────────────────────────────────────────
+  if (loadError) return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000', gap: 16, padding: 24 }}>
+      <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16 }}>Couldn't load this round.</Text>
+      <TouchableOpacity style={s.ctaBtn} onPress={() => setRetryTick(t => t + 1)} activeOpacity={0.85}>
+        <Text style={s.ctaText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
   if (loading || !fontsLoaded) return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' }}>
       <ActivityIndicator color={GOLD} size="large" />
@@ -1250,7 +1324,7 @@ export default function EnterScoresScreen() {
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <TouchableOpacity onPress={handleDeleteMatch} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Ionicons name="trash-outline" size={20} color="#4b5563" />
+            <Ionicons name="trash-outline" size={20} color="#ffffff" />
           </TouchableOpacity>
           {IS_PAD && (
             <TouchableOpacity
@@ -1345,14 +1419,14 @@ export default function EnterScoresScreen() {
               }}
               activeOpacity={0.7}
             >
-              <Text style={[s.holeTileNum, isActive && { color: GOLD }]}>{h}</Text>
-              <Text style={[s.holeTilePar, isActive && { color: `${GOLD}80` }]}>P{ch?.par ?? '?'}</Text>
+              <Text allowFontScaling={false} style={[s.holeTileNum, isActive && { color: GOLD }]}>{h}</Text>
+              <Text allowFontScaling={false} style={[s.holeTilePar, isActive && { color: `${GOLD}80` }]}>P{ch?.par ?? '?'}</Text>
               {isPlayed && isStrokePlay && (() => {
                 const bestPts = Math.max(0, ...allPlayerIds.map(id => holeData[id]?.[h]?.pts ?? 0));
-                return bestPts > 0 ? <Text style={[s.holeTilePts, { color: resultColor }]}>{bestPts}</Text> : null;
+                return bestPts > 0 ? <Text allowFontScaling={false} style={[s.holeTilePts, { color: resultColor }]}>{bestPts}</Text> : null;
               })()}
               {isPlayed && !isStrokePlay && (
-                <Text style={[s.holeTilePts, { color: resultColor }]}>
+                <Text allowFontScaling={false} style={[s.holeTilePts, { color: resultColor }]}>
                   {c === 'h' ? 'H' : c === 'a' ? 'A' : '='}
                 </Text>
               )}
@@ -1399,8 +1473,17 @@ export default function EnterScoresScreen() {
                 <View style={s.holeCardTop}>
                   {/* Hole number block */}
                   <View style={s.holeNumberBlock}>
-                    <Text style={s.holeWord}>{allHolesFilled && !editingHole ? 'ALL HOLES' : 'HOLE'}</Text>
-                    <Text style={s.holeBig}>{allHolesFilled && !editingHole ? '✓' : activeHole}</Text>
+                    {allHolesFilled && !editingHole ? (
+                      <>
+                        <Ionicons name="trophy" size={48} color={GOLD} style={{ marginBottom: 6 }} />
+                        <Text style={[s.holeWord, { fontSize: 14 }]}>GAME ENDED</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={s.holeWord}>HOLE</Text>
+                        <Text style={s.holeBig}>{activeHole}</Text>
+                      </>
+                    )}
                     <View style={s.holeChips}>
                       {courseHole && (
                         <>
@@ -1619,17 +1702,29 @@ export default function EnterScoresScreen() {
                 <Text style={s.ctaText}>Complete Round</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity
-                style={[s.ctaBtn, saving && { opacity: 0.5 }]}
-                onPress={() => openScoreModal()}
-                disabled={saving}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="create-outline" size={20} color="#000000" />
-                <Text style={s.ctaText}>
-                  {editingHole ? `Edit Score · Hole ${editingHole}` : `Enter Score · Hole ${currentHole}`}
-                </Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  style={[s.ctaBtn, saving && { opacity: 0.5 }]}
+                  onPress={() => openScoreModal()}
+                  disabled={saving}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="create-outline" size={20} color="#000000" />
+                  <Text style={s.ctaText}>
+                    {editingHole ? `Edit Score · Hole ${editingHole}` : `Enter Score · Hole ${currentHole}`}
+                  </Text>
+                </TouchableOpacity>
+                {!editingHole && (
+                  <TouchableOpacity
+                    style={[s.undoBtn, { marginTop: 10, marginBottom: 0 }]}
+                    onPress={() => router.push(`/(app)/spectate/${matchId}` as any)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="eye-outline" size={16} color="#6b7280" />
+                    <Text style={s.undoBtnText}>Spectator — just watch, don't score</Text>
+                  </TouchableOpacity>
+                )}
+              </>
             )}
           </View>
         </>
@@ -1708,7 +1803,7 @@ export default function EnterScoresScreen() {
                         </View>
                       ))}
                       {tiles.length === 0 && (
-                        <Text style={{ fontFamily: FF, fontSize: 12, color: '#444' }}>No scores yet</Text>
+                        <Text style={{ fontFamily: FF, fontSize: 12, color: '#ffffff' }}>No scores yet</Text>
                       )}
                     </View>
                   </View>
@@ -1802,7 +1897,7 @@ export default function EnterScoresScreen() {
               )}
               disabled={saving}
             >
-              <Ionicons name="arrow-undo-outline" size={16} color="#6b7280" />
+              <Ionicons name="arrow-undo-outline" size={16} color="#ffffff" />
               <Text style={s.undoBtnText}>Correct Hole {lastPlayedHole}</Text>
             </TouchableOpacity>
           )}
@@ -1820,7 +1915,7 @@ export default function EnterScoresScreen() {
               )}
               disabled={saving}
             >
-              <Ionicons name="create-outline" size={16} color="#6b7280" />
+              <Ionicons name="create-outline" size={16} color="#ffffff" />
               <Text style={s.undoBtnText}>Edit Scores</Text>
             </TouchableOpacity>
           )}
@@ -1874,7 +1969,7 @@ export default function EnterScoresScreen() {
                 </View>
 
                 {/* HCP input */}
-                <Text style={{ fontFamily: FFB, fontSize: 11, letterSpacing: 1.5, color: '#888', marginBottom: 6 }}>ROUND HANDICAP</Text>
+                <Text style={{ fontFamily: FFB, fontSize: 11, letterSpacing: 1.5, color: '#ffffff', marginBottom: 6 }}>ROUND HANDICAP</Text>
                 <TextInput
                   style={[sh.hcpInput, { color: '#fff', borderColor: GOLD }]}
                   value={editHcp}
@@ -1884,7 +1979,7 @@ export default function EnterScoresScreen() {
                 />
 
                 {/* Tee picker */}
-                <Text style={{ fontFamily: FFB, fontSize: 11, letterSpacing: 1.5, color: '#888', marginTop: 16, marginBottom: 8 }}>PLAYING TEES</Text>
+                <Text style={{ fontFamily: FFB, fontSize: 11, letterSpacing: 1.5, color: '#ffffff', marginTop: 16, marginBottom: 8 }}>PLAYING TEES</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {TEE_OPTIONS.map(t => {
                     const sel = editTee === t.label;
@@ -1902,7 +1997,7 @@ export default function EnterScoresScreen() {
                   })}
                 </View>
 
-                <Text style={{ fontFamily: FF, fontSize: 11, color: '#555', textAlign: 'center', marginTop: 16 }}>
+                <Text style={{ fontFamily: FF, fontSize: 11, color: '#ffffff', textAlign: 'center', marginTop: 16 }}>
                   Changes apply to this round only
                 </Text>
 
@@ -1912,7 +2007,7 @@ export default function EnterScoresScreen() {
                     onPress={() => setEditPlayerId(null)}
                     activeOpacity={0.8}
                   >
-                    <Text style={{ fontFamily: FFB, fontSize: 15, color: '#777' }}>Cancel</Text>
+                    <Text style={{ fontFamily: FFB, fontSize: 15, color: '#ffffff' }}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={{ flex: 2, backgroundColor: GOLD, borderRadius: 10, paddingVertical: 13, alignItems: 'center' }}
@@ -1945,7 +2040,7 @@ export default function EnterScoresScreen() {
                 </Text>
               </View>
               <TouchableOpacity onPress={() => setModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={22} color="#6b7280" />
+                <Ionicons name="close" size={22} color="#ffffff" />
               </TouchableOpacity>
             </View>
 
@@ -1992,7 +2087,7 @@ export default function EnterScoresScreen() {
                         onPress={() => setSelectedScore(selectedScore === null ? par : Math.max(1, selectedScore - 1))}
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                       >
-                        <Ionicons name="remove-circle" size={42} color={selectedScore && selectedScore > 1 ? '#555' : '#222'} />
+                        <Ionicons name="remove-circle" size={42} color={selectedScore && selectedScore > 1 ? '#ffffff' : '#555'} />
                       </TouchableOpacity>
 
                       <View style={{
@@ -2013,7 +2108,7 @@ export default function EnterScoresScreen() {
                         onPress={() => setSelectedScore(selectedScore === null ? par : Math.min(12, selectedScore + 1))}
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                       >
-                        <Ionicons name="add-circle" size={42} color="#555" />
+                        <Ionicons name="add-circle" size={42} color="#ffffff" />
                       </TouchableOpacity>
                     </View>
 
@@ -2023,7 +2118,7 @@ export default function EnterScoresScreen() {
                           ? <Text style={{ fontFamily: FFB, fontSize: 22, color: '#fff' }}>{stablePts}<Text style={{ fontFamily: FFB, fontSize: 13, color: '#fff' }}> pts</Text></Text>
                           : null
                       ) : (
-                        <Text style={{ fontFamily: FF, fontSize: 13, color: '#444' }}>tap a number or use arrows</Text>
+                        <Text style={{ fontFamily: FF, fontSize: 13, color: '#ffffff' }}>tap a number or use arrows</Text>
                       )}
                     </View>
                   </View>
@@ -2092,7 +2187,7 @@ export default function EnterScoresScreen() {
                         <View key={ri} style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                           {row.map(({ label, val, opts, display }) => (
                             <View key={label} style={{ flex: 1, backgroundColor: '#0a0a0a', borderRadius: 12, padding: 10, borderWidth: 1, borderColor: '#1c1c1c' }}>
-                              <Text style={{ fontFamily: FFB, fontSize: 9, color: '#555', letterSpacing: 1.5, marginBottom: 7 }}>{label}</Text>
+                              <Text style={{ fontFamily: FFB, fontSize: 9, color: '#ffffff', letterSpacing: 1.5, marginBottom: 7 }}>{label}</Text>
                               <View style={{ flexDirection: 'row', gap: 5 }}>
                                 {opts.map(n => {
                                   const on = val === n;
@@ -2200,7 +2295,7 @@ export default function EnterScoresScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <Text style={{ fontFamily: FFB, fontSize: 16, color: '#ffffff', letterSpacing: 1 }}>SHOT TRACKER</Text>
               <TouchableOpacity onPress={() => setShowShotLogger(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={22} color="#6b7280" />
+                <Ionicons name="close" size={22} color="#ffffff" />
               </TouchableOpacity>
             </View>
             <View style={{ flex: 1 }}>
@@ -2218,7 +2313,7 @@ export default function EnterScoresScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <Text style={{ fontFamily: FFB, fontSize: 16, color: '#ffffff', letterSpacing: 1 }}>VOICE CADDIE</Text>
               <TouchableOpacity onPress={() => setShowCaddieModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={22} color="#6b7280" />
+                <Ionicons name="close" size={22} color="#ffffff" />
               </TouchableOpacity>
             </View>
             {courseHole && match && (
@@ -2261,7 +2356,7 @@ export default function EnterScoresScreen() {
       {recordsBroken.length > 0 && (
         <RecordCelebration
           records={recordsBroken}
-          onDismiss={() => { setRecordsBroken([]); router.replace(`/(app)/score/results/${matchId}` as any); }}
+          onDismiss={() => setRecordsBroken([])}
         />
       )}
 
@@ -2339,34 +2434,34 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
 
         {/* Header row */}
         <View style={sc.headerRow}>
-          <Text style={[sc.cell, sc.labelCell, { color: '#fff' }]}>HOLE</Text>
+          <Text allowFontScaling={false} style={[sc.cell, sc.labelCell, { color: '#fff' }]}>HOLE</Text>
           {holes.map(h => (
-            <Text key={h} style={[sc.cell, sc.holeCell, holeChars[h-1] !== '.' && { color: '#ffffff' }]}>{h}</Text>
+            <Text allowFontScaling={false} key={h} style={[sc.cell, sc.holeCell, holeChars[h-1] !== '.' && { color: '#ffffff' }]}>{h}</Text>
           ))}
-          <Text style={[sc.cell, sc.totalCell, { color: '#fff' }]}>TOT</Text>
+          <Text allowFontScaling={false} style={[sc.cell, sc.totalCell, { color: '#fff' }]}>TOT</Text>
         </View>
 
         {/* Par row */}
         {courseHoles.length > 0 && (
           <View style={[sc.row, { backgroundColor: '#0a0a0a' }]}>
-            <Text style={[sc.cell, sc.labelCell, { color: GOLD }]}>PAR</Text>
+            <Text allowFontScaling={false} style={[sc.cell, sc.labelCell, { color: GOLD }]}>PAR</Text>
             {holes.map(h => {
               const ch = courseHoles.find(c => c.hole_number === h);
-              return <Text key={h} style={[sc.cell, sc.holeCell, { color: GOLD }]}>{ch?.par ?? '—'}</Text>;
+              return <Text allowFontScaling={false} key={h} style={[sc.cell, sc.holeCell, { color: GOLD }]}>{ch?.par ?? '—'}</Text>;
             })}
-            <Text style={[sc.cell, sc.totalCell, { color: GOLD }]}>{totalPar || '—'}</Text>
+            <Text allowFontScaling={false} style={[sc.cell, sc.totalCell, { color: GOLD }]}>{totalPar || '—'}</Text>
           </View>
         )}
 
         {/* SI row */}
         {courseHoles.length > 0 && (
           <View style={sc.row}>
-            <Text style={[sc.cell, sc.labelCell, { color: '#fff' }]}>SI</Text>
+            <Text allowFontScaling={false} style={[sc.cell, sc.labelCell, { color: '#fff' }]}>SI</Text>
             {holes.map(h => {
               const ch = courseHoles.find(c => c.hole_number === h);
-              return <Text key={h} style={[sc.cell, sc.holeCell, { color: '#fff', fontSize: 9 }]}>{ch?.stroke_index ?? '—'}</Text>;
+              return <Text allowFontScaling={false} key={h} style={[sc.cell, sc.holeCell, { color: '#fff', fontSize: 9 }]}>{ch?.stroke_index ?? '—'}</Text>;
             })}
-            <Text style={[sc.cell, sc.totalCell, { color: '#fff' }]}>—</Text>
+            <Text allowFontScaling={false} style={[sc.cell, sc.totalCell, { color: '#fff' }]}>—</Text>
           </View>
         )}
 
@@ -2399,12 +2494,12 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
                     {gross ? (
                       <>
                         <View style={[sc.scorePill, { borderColor: `${cellColor}50`, backgroundColor: `${cellColor}12` }]}>
-                          <Text style={[sc.scorePillText, { color: cellColor }]}>
+                          <Text allowFontScaling={false} style={[sc.scorePillText, { color: cellColor }]}>
                             {showPts && pts != null ? pts : gross}
                           </Text>
                         </View>
                         {showPts && pts != null && (
-                          <Text style={[sc.ptsText, { color: '#ffffff' }]}>{gross}</Text>
+                          <Text allowFontScaling={false} style={[sc.ptsText, { color: '#ffffff' }]}>{gross}</Text>
                         )}
                       </>
                     ) : (
@@ -2415,7 +2510,7 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
                   </View>
                 );
               })}
-              <Text style={[sc.cell, sc.totalCell, { color: totalGross > 0 ? '#ffffff' : '#333' }]}>
+              <Text allowFontScaling={false} style={[sc.cell, sc.totalCell, { color: totalGross > 0 ? '#ffffff' : '#333' }]}>
                 {showPts && totalPts > 0 ? `${totalPts}` : totalGross > 0 ? `${totalGross}` : '—'}
               </Text>
             </View>
@@ -2425,17 +2520,17 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
         {/* Matchplay result row */}
         {!isStrokePlay && (
           <View style={[sc.row, { backgroundColor: '#0a0a0a', borderTopWidth: 1, borderTopColor: '#1a1a1a' }]}>
-            <Text style={[sc.cell, sc.labelCell, { color: '#fff' }]}>RESULT</Text>
+            <Text allowFontScaling={false} style={[sc.cell, sc.labelCell, { color: '#fff' }]}>RESULT</Text>
             {holes.map(h => {
               const c = holeChars[h - 1];
               const color = c === 'h' ? homeColor : c === 'a' ? awayColor : c === 'f' ? '#4b5563' : 'transparent';
               return (
-                <Text key={h} style={[sc.cell, sc.holeCell, { color, fontFamily: FFB }]}>
+                <Text allowFontScaling={false} key={h} style={[sc.cell, sc.holeCell, { color, fontFamily: FFB }]}>
                   {c === 'h' ? 'H' : c === 'a' ? 'A' : c === 'f' ? '=' : ''}
                 </Text>
               );
             })}
-            <Text style={[sc.cell, sc.totalCell]} />
+            <Text allowFontScaling={false} style={[sc.cell, sc.totalCell]} />
           </View>
         )}
 
@@ -2444,8 +2539,8 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
 
       {lastPlayedHole > 0 && (
         <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 16, flexDirection: 'row', justifyContent: 'center', gap: 6 }} onPress={onUndo} disabled={saving} activeOpacity={0.7}>
-          <Ionicons name="arrow-undo-outline" size={14} color="#444" />
-          <Text style={{ fontFamily: FFB, fontSize: 12, color: '#444' }}>Edit Hole {lastPlayedHole}</Text>
+          <Ionicons name="arrow-undo-outline" size={14} color="#ffffff" />
+          <Text style={{ fontFamily: FFB, fontSize: 12, color: '#ffffff' }}>Edit Hole {lastPlayedHole}</Text>
         </TouchableOpacity>
       )}
     </ScrollView>
@@ -2487,7 +2582,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-around',
     paddingHorizontal: 12, paddingBottom: 4,
   },
-  halfLabel: { fontFamily: FFB, fontSize: 8, color: '#2a2a2a', letterSpacing: 1.5 },
+  halfLabel: { fontFamily: FFB, fontSize: 8, color: '#ffffff', letterSpacing: 1.5 },
 
   pageContent: { padding: 16, paddingBottom: 24 },
 
@@ -2514,7 +2609,7 @@ const s = StyleSheet.create({
   lbRank:         { fontFamily: FFB, fontSize: 12, width: 18, textAlign: 'center' },
   lbName:         { flex: 1, fontFamily: FFB, fontSize: 13, color: '#ffffff' },
   lbPts:          { fontFamily: FFB, fontSize: 13 },
-  lbMore:         { fontFamily: FFB, fontSize: 11, color: '#555', textAlign: 'center', marginTop: 2 },
+  lbMore:         { fontFamily: FFB, fontSize: 11, color: '#ffffff', textAlign: 'center', marginTop: 2 },
 
   shotRow: {
     paddingHorizontal: 16, paddingVertical: 10,
@@ -2557,7 +2652,7 @@ const s = StyleSheet.create({
   },
   doneBtnText: { fontFamily: FFB, fontSize: 18, color: '#000' },
   deleteLink:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 16, marginBottom: 8 },
-  deleteLinkText: { fontFamily: FFB, fontSize: 12, color: '#4b5563' },
+  deleteLinkText: { fontFamily: FFB, fontSize: 12, color: '#ffffff' },
 
   pageHint:       { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 8 },
   pageDot:        { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2c2c2c' },
