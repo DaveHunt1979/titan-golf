@@ -50,7 +50,7 @@ export default function HomePage() {
           <span className="text-[#D4AF37]">finally done right.</span>
         </h1>
 
-        <p className="relative mt-6 max-w-2xl text-lg leading-relaxed text-slate-400">
+        <p className="relative mt-6 max-w-2xl text-lg leading-relaxed text-neutral-400">
           Titan Golf tracks every shot, runs every tournament format, and puts a full stats
           dashboard in your pocket — and on your screen. One platform, your whole society.
         </p>
@@ -58,13 +58,13 @@ export default function HomePage() {
         <div className="relative mt-10 flex flex-wrap items-center justify-center gap-4">
           <Link
             href="/auth/signup"
-            className="rounded-xl bg-[#D4AF37] px-8 py-4 text-base font-bold text-[#070b10] shadow-lg shadow-[#D4AF37]/20 transition-all hover:scale-105 hover:shadow-[#D4AF37]/30"
+            className="rounded-xl bg-[#D4AF37] px-8 py-4 text-base font-bold text-[#000000] shadow-lg shadow-[#D4AF37]/20 transition-all hover:scale-105 hover:shadow-[#D4AF37]/30"
           >
             Start for free
           </Link>
           <Link
             href="/demo"
-            className="rounded-xl border border-[#1e2d3d] px-8 py-4 text-base font-semibold text-slate-300 transition-colors hover:border-[#D4AF37]/40 hover:text-white"
+            className="rounded-xl border border-[#1c1c1c] px-8 py-4 text-base font-semibold text-neutral-300 transition-colors hover:border-[#D4AF37]/40 hover:text-white"
           >
             See the dashboard →
           </Link>
@@ -75,7 +75,7 @@ export default function HomePage() {
           {STATS.map((s) => (
             <div key={s.label} className="text-center">
               <div className="text-4xl font-black text-[#D4AF37]">{s.value}</div>
-              <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">{s.label}</div>
+              <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-neutral-500">{s.label}</div>
             </div>
           ))}
         </div>
@@ -84,13 +84,13 @@ export default function HomePage() {
       {/* Dashboard preview */}
       <section className="px-6 py-20">
         <div className="mx-auto max-w-screen-xl">
-          <div className="relative overflow-hidden rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-1 shadow-2xl">
+          <div className="relative overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] p-1 shadow-2xl">
             {/* Fake browser chrome */}
-            <div className="flex items-center gap-1.5 border-b border-[#1e2d3d] px-4 py-3">
+            <div className="flex items-center gap-1.5 border-b border-[#1c1c1c] px-4 py-3">
               <span className="h-3 w-3 rounded-full bg-[#f87171]" />
               <span className="h-3 w-3 rounded-full bg-[#fbbf24]" />
               <span className="h-3 w-3 rounded-full bg-[#4ade80]" />
-              <div className="ml-4 flex-1 rounded-md bg-[#070b10] px-3 py-1 text-xs text-slate-500">
+              <div className="ml-4 flex-1 rounded-md bg-[#000000] px-3 py-1 text-xs text-neutral-500">
                 titangolf.app/dashboard
               </div>
             </div>
@@ -99,32 +99,32 @@ export default function HomePage() {
             <div className="grid grid-cols-12 gap-3 p-4">
               {/* Left panel */}
               <div className="col-span-3 flex flex-col gap-3">
-                <div className="rounded-xl border border-[#1e2d3d] bg-[#070b10] p-4">
+                <div className="rounded-xl border border-[#1c1c1c] bg-[#000000] p-4">
                   <div className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Live Round</div>
                   <div className="text-2xl font-black text-white">Hole 14</div>
-                  <div className="text-sm text-slate-400">Par 4 · 387 yds</div>
-                  <div className="mt-4 flex justify-between text-xs text-slate-500">
+                  <div className="text-sm text-neutral-400">Par 4 · 387 yds</div>
+                  <div className="mt-4 flex justify-between text-xs text-neutral-500">
                     <span>Score</span><span className="font-bold text-white">+2</span>
                   </div>
-                  <div className="mt-1 flex justify-between text-xs text-slate-500">
+                  <div className="mt-1 flex justify-between text-xs text-neutral-500">
                     <span>Stableford</span><span className="font-bold text-[#4ade80]">32 pts</span>
                   </div>
-                  <div className="mt-1 flex justify-between text-xs text-slate-500">
+                  <div className="mt-1 flex justify-between text-xs text-neutral-500">
                     <span>Putts</span><span className="font-bold text-white">24</span>
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-[#1e2d3d] bg-[#070b10] p-4">
+                <div className="rounded-xl border border-[#1c1c1c] bg-[#000000] p-4">
                   <div className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Chip Says</div>
-                  <div className="text-sm leading-relaxed text-slate-300">
+                  <div className="text-sm leading-relaxed text-neutral-300">
                     "Try your 7-iron here. 165y carry, slight crosswind right. Your avg with 7I is 168y."
                   </div>
                 </div>
               </div>
 
               {/* Centre — course map placeholder */}
-              <div className="col-span-6 overflow-hidden rounded-xl border border-[#1e2d3d] bg-[#070b10]">
-                <div className="flex h-full min-h-[320px] flex-col items-center justify-center gap-3 text-slate-600">
+              <div className="col-span-6 overflow-hidden rounded-xl border border-[#1c1c1c] bg-[#000000]">
+                <div className="flex h-full min-h-[320px] flex-col items-center justify-center gap-3 text-neutral-600">
                   <div className="text-5xl">🗺️</div>
                   <div className="text-sm font-semibold">Aerial course map</div>
                   <div className="text-xs">Apple Maps / Mapbox · live shot tracking</div>
@@ -133,33 +133,33 @@ export default function HomePage() {
 
               {/* Right panel */}
               <div className="col-span-3 flex flex-col gap-3">
-                <div className="rounded-xl border border-[#1e2d3d] bg-[#070b10] p-4">
+                <div className="rounded-xl border border-[#1c1c1c] bg-[#000000] p-4">
                   <div className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Leaderboard</div>
                   {[
                     { name: 'Rick', pts: 38 },
                     { name: 'Dave', pts: 34 },
                     { name: 'Ross', pts: 29 },
                   ].map((p, i) => (
-                    <div key={p.name} className="flex items-center justify-between py-1.5 border-b border-[#1e2d3d] last:border-0">
+                    <div key={p.name} className="flex items-center justify-between py-1.5 border-b border-[#1c1c1c] last:border-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500">{i + 1}</span>
+                        <span className="text-xs text-neutral-500">{i + 1}</span>
                         <span className="text-sm font-semibold text-white">{p.name}</span>
                       </div>
-                      <span className={`text-sm font-bold ${i === 0 ? 'text-[#D4AF37]' : 'text-slate-300'}`}>{p.pts}pts</span>
+                      <span className={`text-sm font-bold ${i === 0 ? 'text-[#D4AF37]' : 'text-neutral-300'}`}>{p.pts}pts</span>
                     </div>
                   ))}
                 </div>
 
-                <div className="rounded-xl border border-[#1e2d3d] bg-[#070b10] p-4">
+                <div className="rounded-xl border border-[#1c1c1c] bg-[#000000] p-4">
                   <div className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Club Analytics</div>
                   {[
                     { club: '7I', carry: '165y', avg: '168y' },
                     { club: 'PW', carry: '130y', avg: '127y' },
                     { club: 'D', carry: '245y', avg: '251y' },
                   ].map((c) => (
-                    <div key={c.club} className="flex items-center justify-between py-1.5 border-b border-[#1e2d3d] last:border-0">
+                    <div key={c.club} className="flex items-center justify-between py-1.5 border-b border-[#1c1c1c] last:border-0">
                       <span className="text-xs font-bold text-[#D4AF37]">{c.club}</span>
-                      <span className="text-xs text-slate-400">carry {c.carry}</span>
+                      <span className="text-xs text-neutral-400">carry {c.carry}</span>
                       <span className="text-xs font-semibold text-white">avg {c.avg}</span>
                     </div>
                   ))}
@@ -181,11 +181,11 @@ export default function HomePage() {
             {FEATURES.map((f) => (
               <div
                 key={f.title}
-                className="group rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-6 transition-all hover:border-[#D4AF37]/30 hover:bg-[#121e2b]"
+                className="group rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6 transition-all hover:border-[#D4AF37]/30 hover:bg-[#1a1a1a]"
               >
                 <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/8 text-[#D4AF37]">{f.icon}</div>
                 <h3 className="mb-2 text-lg font-bold text-white">{f.title}</h3>
-                <p className="text-sm leading-relaxed text-slate-400">{f.desc}</p>
+                <p className="text-sm leading-relaxed text-neutral-400">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -200,12 +200,12 @@ export default function HomePage() {
               <Image src="/logo_trans.png" alt="Titan Golf" width={64} height={64} className="opacity-90" />
             </div>
             <h2 className="mb-4 text-4xl font-black text-white">Ready to tee off?</h2>
-            <p className="mb-8 text-slate-400">
+            <p className="mb-8 text-neutral-400">
               Free to start. No credit card. Download the iOS app and your society is live in minutes.
             </p>
             <Link
               href="/auth/signup"
-              className="inline-block rounded-xl bg-[#D4AF37] px-10 py-4 text-base font-bold text-[#070b10] shadow-lg shadow-[#D4AF37]/20 transition-all hover:scale-105"
+              className="inline-block rounded-xl bg-[#D4AF37] px-10 py-4 text-base font-bold text-[#000000] shadow-lg shadow-[#D4AF37]/20 transition-all hover:scale-105"
             >
               Create your society
             </Link>
@@ -214,7 +214,7 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-[#1e2d3d] px-6 py-8 text-center text-xs text-slate-600">
+      <footer className="border-t border-[#1c1c1c] px-6 py-8 text-center text-xs text-neutral-600">
         © 2026 Titan Golf · Built with ❤️ for golf societies
       </footer>
     </div>

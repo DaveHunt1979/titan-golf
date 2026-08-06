@@ -152,7 +152,7 @@ export default function StatsPage() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-32">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
-        <p className="text-sm text-slate-500">Loading your stats…</p>
+        <p className="text-sm text-neutral-500">Loading your stats…</p>
       </div>
     );
   }
@@ -160,10 +160,10 @@ export default function StatsPage() {
   if (!data) {
     return (
       <div className="mx-auto max-w-screen-xl px-6 py-12">
-        <div className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-12 text-center">
+        <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-12 text-center">
           <div className="mb-3 flex justify-center"><BarChart2 size={36} className="text-[#D4AF37]/40" /></div>
           <h3 className="text-lg font-bold text-white">No profile found</h3>
-          <p className="mt-1 text-sm text-slate-400">Open the Titan Golf app to set up your player profile.</p>
+          <p className="mt-1 text-sm text-neutral-400">Open the Titan Golf app to set up your player profile.</p>
         </div>
       </div>
     );
@@ -183,14 +183,14 @@ export default function StatsPage() {
       <div className="mb-10">
         <div className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Your golf</div>
         <h1 className="mt-1 text-5xl font-black text-white">My Stats</h1>
-        <p className="mt-2 text-slate-400">Club distances, scoring, putting and handicap trend.</p>
+        <p className="mt-2 text-neutral-400">Club distances, scoring, putting and handicap trend.</p>
       </div>
 
       {!hasAnything ? (
-        <div className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-12 text-center">
+        <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-12 text-center">
           <div className="mb-3 flex justify-center"><BarChart2 size={36} className="text-[#D4AF37]/40" /></div>
           <h3 className="text-lg font-bold text-white">No stats yet</h3>
-          <p className="mt-1 text-sm text-slate-400">Log some shots and rounds in the app to see your stats here.</p>
+          <p className="mt-1 text-sm text-neutral-400">Log some shots and rounds in the app to see your stats here.</p>
         </div>
       ) : (
         <div className="space-y-10">
@@ -202,9 +202,9 @@ export default function StatsPage() {
               { label: 'Shots logged', value: data.totalShots },
               { label: 'Avg putts / hole', value: data.avgPuttsPerHole != null ? data.avgPuttsPerHole.toFixed(2) : '—' },
             ].map(s => (
-              <div key={s.label} className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-5 text-center">
+              <div key={s.label} className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5 text-center">
                 <div className="text-3xl font-black text-white">{s.value}</div>
-                <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">{s.label}</div>
+                <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-neutral-500">{s.label}</div>
               </div>
             ))}
           </div>
@@ -213,19 +213,19 @@ export default function StatsPage() {
           {data.distances.length > 0 && (
             <section>
               <div className="mb-4 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Club Distances</div>
-              <div className="space-y-2.5 rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-5">
+              <div className="space-y-2.5 rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5">
                 {data.distances.map(d => {
-                  const color = CATEGORY_COLOR[d.category] ?? '#64748b';
+                  const color = CATEGORY_COLOR[d.category] ?? '#888888';
                   return (
                     <div key={d.short} className="grid grid-cols-[3rem_1fr_4.5rem] items-center gap-3">
                       <div className="text-sm font-bold text-white">{d.short}</div>
-                      <div className="h-6 overflow-hidden rounded-md bg-[#070b10]">
+                      <div className="h-6 overflow-hidden rounded-md bg-[#000000]">
                         <div
                           className="h-full rounded-md transition-all"
                           style={{ width: `${Math.max((d.avg / maxDist) * 100, 4)}%`, backgroundColor: color }}
                         />
                       </div>
-                      <div className="text-right text-sm font-black text-white">{d.avg}<span className="ml-1 text-xs font-normal text-slate-500">yd</span></div>
+                      <div className="text-right text-sm font-black text-white">{d.avg}<span className="ml-1 text-xs font-normal text-neutral-500">yd</span></div>
                     </div>
                   );
                 })}
@@ -237,19 +237,19 @@ export default function StatsPage() {
           {data.usage.length > 0 && (
             <section>
               <div className="mb-4 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Club Usage</div>
-              <div className="space-y-2.5 rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-5">
+              <div className="space-y-2.5 rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5">
                 {data.usage.map(u => {
-                  const color = CATEGORY_COLOR[u.category] ?? '#64748b';
+                  const color = CATEGORY_COLOR[u.category] ?? '#888888';
                   return (
                     <div key={u.short} className="grid grid-cols-[3rem_1fr_4.5rem] items-center gap-3">
                       <div className="text-sm font-bold text-white">{u.short}</div>
-                      <div className="h-6 overflow-hidden rounded-md bg-[#070b10]">
+                      <div className="h-6 overflow-hidden rounded-md bg-[#000000]">
                         <div
                           className="h-full rounded-md transition-all"
                           style={{ width: `${Math.max((u.count / maxUsage) * 100, 4)}%`, backgroundColor: color }}
                         />
                       </div>
-                      <div className="text-right text-sm font-black text-white">{u.count}<span className="ml-1 text-xs font-normal text-slate-500">shots</span></div>
+                      <div className="text-right text-sm font-black text-white">{u.count}<span className="ml-1 text-xs font-normal text-neutral-500">shots</span></div>
                     </div>
                   );
                 })}
@@ -265,16 +265,16 @@ export default function StatsPage() {
                 {[
                   { label: 'Eagle+', value: data.scoring.eagle, color: '#D4AF37' },
                   { label: 'Birdie', value: data.scoring.birdie, color: '#4ade80' },
-                  { label: 'Par', value: data.scoring.par, color: '#e2e8f0' },
+                  { label: 'Par', value: data.scoring.par, color: '#f5f5f5' },
                   { label: 'Bogey', value: data.scoring.bogey, color: '#f97316' },
                   { label: 'Dbl+', value: data.scoring.double, color: '#f87171' },
                 ].map(s => {
                   const pct = data.scoring.total ? Math.round((s.value / data.scoring.total) * 100) : 0;
                   return (
-                    <div key={s.label} className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-5 text-center">
+                    <div key={s.label} className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5 text-center">
                       <div className="text-3xl font-black" style={{ color: s.color }}>{s.value}</div>
-                      <div className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-500">{s.label}</div>
-                      <div className="mt-1 text-xs text-slate-600">{pct}%</div>
+                      <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">{s.label}</div>
+                      <div className="mt-1 text-xs text-neutral-600">{pct}%</div>
                     </div>
                   );
                 })}
@@ -289,15 +289,15 @@ export default function StatsPage() {
               <div className="grid grid-cols-3 gap-4">
                 {[
                   { label: '1-putt', value: data.putting.one, color: '#4ade80' },
-                  { label: '2-putt', value: data.putting.two, color: '#e2e8f0' },
+                  { label: '2-putt', value: data.putting.two, color: '#f5f5f5' },
                   { label: '3-putt+', value: data.putting.three, color: '#f87171' },
                 ].map(p => {
                   const pct = data.putting.total ? Math.round((p.value / data.putting.total) * 100) : 0;
                   return (
-                    <div key={p.label} className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-5 text-center">
+                    <div key={p.label} className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5 text-center">
                       <div className="text-3xl font-black" style={{ color: p.color }}>{p.value}</div>
-                      <div className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-500">{p.label}</div>
-                      <div className="mt-1 text-xs text-slate-600">{pct}%</div>
+                      <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">{p.label}</div>
+                      <div className="mt-1 text-xs text-neutral-600">{pct}%</div>
                     </div>
                   );
                 })}
@@ -319,13 +319,13 @@ export default function StatsPage() {
                   return (
                     <div
                       key={f.label}
-                      className={`rounded-2xl border bg-[#0f1923] p-5 text-center ${
-                        f.highlight ? 'border-[#4ade80]/40' : 'border-[#1e2d3d]'
+                      className={`rounded-2xl border bg-[#111111] p-5 text-center ${
+                        f.highlight ? 'border-[#4ade80]/40' : 'border-[#1c1c1c]'
                       }`}
                     >
                       <div className={`text-3xl font-black ${f.highlight ? 'text-[#4ade80]' : 'text-white'}`}>{f.value}</div>
-                      <div className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-500">{f.label}</div>
-                      <div className={`mt-1 text-xs ${f.highlight ? 'font-bold text-[#4ade80]' : 'text-slate-600'}`}>{pct}%</div>
+                      <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">{f.label}</div>
+                      <div className={`mt-1 text-xs ${f.highlight ? 'font-bold text-[#4ade80]' : 'text-neutral-600'}`}>{pct}%</div>
                     </div>
                   );
                 })}
@@ -371,21 +371,21 @@ function HandicapTrend({ points }: { points: HandicapPoint[] }) {
   return (
     <section>
       <div className="mb-4 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Handicap Trend</div>
-      <div className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-6">
+      <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6">
         <div className="mb-5 grid grid-cols-3 gap-4">
           <div className="text-center">
             <div className="text-2xl font-black text-white">{start.toFixed(1)}</div>
-            <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">Start</div>
+            <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-neutral-500">Start</div>
           </div>
           <div className="text-center">
-            <div className={`text-2xl font-black ${change === 0 ? 'text-slate-400' : improving ? 'text-[#4ade80]' : 'text-[#f87171]'}`}>
+            <div className={`text-2xl font-black ${change === 0 ? 'text-neutral-400' : improving ? 'text-[#4ade80]' : 'text-[#f87171]'}`}>
               {change === 0 ? '—' : `${improving ? '▼' : '▲'} ${Math.abs(change).toFixed(1)}`}
             </div>
-            <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">Change</div>
+            <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-neutral-500">Change</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-black text-[#D4AF37]">{current.toFixed(1)}</div>
-            <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">Current</div>
+            <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-neutral-500">Current</div>
           </div>
         </div>
 
@@ -395,7 +395,7 @@ function HandicapTrend({ points }: { points: HandicapPoint[] }) {
             // Improving = handicap dropped from prev to current.
             const segImproving = c.value < prev.value;
             const segFlat = c.value === prev.value;
-            const stroke = segFlat ? '#64748b' : segImproving ? '#4ade80' : '#f87171';
+            const stroke = segFlat ? '#888888' : segImproving ? '#4ade80' : '#f87171';
             return (
               <line
                 key={i}
@@ -408,7 +408,7 @@ function HandicapTrend({ points }: { points: HandicapPoint[] }) {
             <circle key={i} cx={c.x} cy={c.y} r={2.5} fill="#D4AF37" />
           ))}
         </svg>
-        <div className="mt-1 flex justify-between text-xs text-slate-500">
+        <div className="mt-1 flex justify-between text-xs text-neutral-500">
           <span>{start.toFixed(1)}</span>
           <span>{current.toFixed(1)}</span>
         </div>

@@ -1,9 +1,15 @@
 import type { Metadata } from 'next';
-import { Geist } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import Navbar from '@/components/Navbar';
 
-const geist = Geist({ subsets: ['latin'], variable: '--font-geist-sans' });
+const justSans = localFont({
+  src: [
+    { path: '../assets/fonts/JUSTSans-Regular.otf', weight: '400', style: 'normal' },
+    { path: '../assets/fonts/JUSTSans-ExBold.otf',  weight: '800', style: 'normal' },
+  ],
+  variable: '--font-justsans',
+});
 
 export const metadata: Metadata = {
   title: 'Titan Golf — Society Golf Platform',
@@ -12,8 +18,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={geist.variable}>
-      <body className="min-h-screen bg-[#070b10] text-white antialiased">
+    <html lang="en" className={justSans.variable}>
+      <body className="min-h-screen bg-black text-white antialiased">
         <Navbar />
         <main className="pt-16">{children}</main>
       </body>

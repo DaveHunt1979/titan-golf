@@ -107,29 +107,29 @@ export default async function RoundsPage() {
       <div className="mb-10">
         <div className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Your golf</div>
         <h1 className="mt-1 text-5xl font-black text-white">Round History</h1>
-        <p className="mt-2 text-slate-400">Every completed round with full scorecard totals.</p>
+        <p className="mt-2 text-neutral-400">Every completed round with full scorecard totals.</p>
       </div>
 
       {rounds.length === 0 ? (
-        <div className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-12 text-center">
+        <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-12 text-center">
           <div className="mb-3 flex justify-center"><Flag size={36} className="text-[#D4AF37]/40" /></div>
           <h3 className="text-lg font-bold text-white">No completed rounds yet</h3>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-neutral-400">
             Finish a round in the Titan Golf app and it will appear here.
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-[#1e2d3d]">
+        <div className="overflow-x-auto rounded-2xl border border-[#1c1c1c]">
           {/* Header */}
-          <div className="grid min-w-[58rem] grid-cols-[1fr_7rem_4rem_5rem_5rem_5rem_6rem_5rem_2rem] gap-4 border-b border-[#1e2d3d] bg-[#0f1923] px-5 py-3">
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Course</div>
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Date</div>
-            <div className="text-center text-xs font-bold uppercase tracking-widest text-slate-500">Holes</div>
-            <div className="text-center text-xs font-bold uppercase tracking-widest text-slate-500">Gross</div>
-            <div className="text-center text-xs font-bold uppercase tracking-widest text-slate-500">To Par</div>
-            <div className="text-center text-xs font-bold uppercase tracking-widest text-slate-500">Pts</div>
-            <div className="text-center text-xs font-bold uppercase tracking-widest text-slate-500">Fairway</div>
-            <div className="text-center text-xs font-bold uppercase tracking-widest text-slate-500">Putts</div>
+          <div className="grid min-w-[58rem] grid-cols-[1fr_7rem_4rem_5rem_5rem_5rem_6rem_5rem_2rem] gap-4 border-b border-[#1c1c1c] bg-[#111111] px-5 py-3">
+            <div className="text-xs font-bold uppercase tracking-widest text-neutral-500">Course</div>
+            <div className="text-xs font-bold uppercase tracking-widest text-neutral-500">Date</div>
+            <div className="text-center text-xs font-bold uppercase tracking-widest text-neutral-500">Holes</div>
+            <div className="text-center text-xs font-bold uppercase tracking-widest text-neutral-500">Gross</div>
+            <div className="text-center text-xs font-bold uppercase tracking-widest text-neutral-500">To Par</div>
+            <div className="text-center text-xs font-bold uppercase tracking-widest text-neutral-500">Pts</div>
+            <div className="text-center text-xs font-bold uppercase tracking-widest text-neutral-500">Fairway</div>
+            <div className="text-center text-xs font-bold uppercase tracking-widest text-neutral-500">Putts</div>
             <div />
           </div>
 
@@ -142,40 +142,40 @@ export default async function RoundsPage() {
               <Link
                 key={r.id}
                 href={`/rounds/${r.id}`}
-                className={`grid min-w-[58rem] grid-cols-[1fr_7rem_4rem_5rem_5rem_5rem_6rem_5rem_2rem] items-center gap-4 border-b border-[#1e2d3d] px-5 py-4 transition-colors last:border-0 hover:bg-white/5 ${
-                  isLeader ? 'bg-[#D4AF37]/5' : i % 2 === 0 ? 'bg-[#070b10]' : 'bg-[#0a0f17]'
+                className={`grid min-w-[58rem] grid-cols-[1fr_7rem_4rem_5rem_5rem_5rem_6rem_5rem_2rem] items-center gap-4 border-b border-[#1c1c1c] px-5 py-4 transition-colors last:border-0 hover:bg-white/5 ${
+                  isLeader ? 'bg-[#D4AF37]/5' : i % 2 === 0 ? 'bg-[#000000]' : 'bg-[#0a0a0a]'
                 }`}
               >
                 <div>
                   <div className={`text-sm font-semibold ${isLeader ? 'text-[#D4AF37]' : 'text-white'}`}>
                     {r.courseName}
                   </div>
-                  {r.dayNumber && <div className="text-xs text-slate-500">Day {r.dayNumber}</div>}
+                  {r.dayNumber && <div className="text-xs text-neutral-500">Day {r.dayNumber}</div>}
                 </div>
-                <div className="text-sm text-slate-400">{fmtDate(r.playDate)}</div>
-                <div className="text-center text-sm text-slate-400">{r.holesPlayed}</div>
+                <div className="text-sm text-neutral-400">{fmtDate(r.playDate)}</div>
+                <div className="text-center text-sm text-neutral-400">{r.holesPlayed}</div>
                 <div className="text-center text-sm font-semibold text-white">{r.grossTotal || '—'}</div>
                 <div className={`text-center text-sm font-bold ${
-                  r.toPar == null ? 'text-slate-600' : r.toPar <= 0 ? 'text-[#4ade80]' : 'text-[#f87171]'
+                  r.toPar == null ? 'text-neutral-600' : r.toPar <= 0 ? 'text-[#4ade80]' : 'text-[#f87171]'
                 }`}>
                   {fmtToPar(r.toPar)}
                 </div>
                 <div className={`text-center text-sm font-black ${isLeader ? 'text-[#D4AF37]' : 'text-[#D4AF37]'}`}>
                   {r.stablefordTotal || '—'}
                 </div>
-                <div className="text-center text-sm text-slate-400">
+                <div className="text-center text-sm text-neutral-400">
                   {fairwayPct == null ? '—' : (
                     <span>
                       <span className="font-semibold text-white">{fairwayPct}%</span>
-                      <span className="ml-1 text-xs text-slate-600">{r.fairwaysHit}/{r.fairwaysTracked}</span>
+                      <span className="ml-1 text-xs text-neutral-600">{r.fairwaysHit}/{r.fairwaysTracked}</span>
                     </span>
                   )}
                 </div>
-                <div className="text-center text-sm text-slate-400">
+                <div className="text-center text-sm text-neutral-400">
                   {r.avgPutts == null ? '—' : r.avgPutts.toFixed(1)}
                 </div>
                 <div className="flex justify-end">
-                  <ChevronRight size={16} className="text-slate-600" />
+                  <ChevronRight size={16} className="text-neutral-600" />
                 </div>
               </Link>
             );

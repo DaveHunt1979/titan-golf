@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #070b10;
-  --card: #0f1923;
-  --card-alt: #121e2b;
-  --border: #1e2d3d;
+  --bg: #000000;
+  --card: #111111;
+  --card-alt: #1a1a1a;
+  --border: #1c1c1c;
   --gold: #D4AF37;
   --gold-dim: rgba(212,175,55,0.08);
   --gold-border: rgba(212,175,55,0.25);
   --text: #ffffff;
-  --text-secondary: #94a3b8;
-  --text-muted: #475569;
+  --text-secondary: #aaaaaa;
+  --text-muted: #555555;
   --green: #4ade80;
   --red: #f87171;
 }
@@ -20,7 +20,7 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-justsans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 

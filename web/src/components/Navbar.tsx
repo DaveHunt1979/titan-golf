@@ -73,7 +73,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[#1e2d3d] bg-[#070b10]/95 backdrop-blur-md">
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[#1c1c1c] bg-[#000000]/95 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-screen-xl items-center justify-between px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3">
@@ -93,19 +93,19 @@ export default function Navbar() {
               onMouseEnter={() => setOpen(item.label)}
               onMouseLeave={() => setOpen(null)}
             >
-              <button className="flex items-center gap-1 rounded-md px-3 py-2 text-sm font-600 text-slate-300 transition-colors hover:bg-white/5 hover:text-white">
+              <button className="flex items-center gap-1 rounded-md px-3 py-2 text-sm font-600 text-neutral-300 transition-colors hover:bg-white/5 hover:text-white">
                 {item.label}
                 <svg className="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
               {open === item.label && (
-                <div className="absolute left-0 top-full mt-1 w-52 rounded-xl border border-[#1e2d3d] bg-[#0f1923] py-2 shadow-2xl">
+                <div className="absolute left-0 top-full mt-1 w-52 rounded-xl border border-[#1c1c1c] bg-[#111111] py-2 shadow-2xl">
                   {item.items.map((sub) => (
                     <Link
                       key={sub.label}
                       href={sub.href}
-                      className="block px-4 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-[#D4AF37]"
+                      className="block px-4 py-2 text-sm text-neutral-300 transition-colors hover:bg-white/5 hover:text-[#D4AF37]"
                     >
                       {sub.label}
                     </Link>
@@ -118,8 +118,8 @@ export default function Navbar() {
 
         {/* Shop */}
         <div className="hidden items-center md:flex">
-          <div className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-600 text-slate-300 cursor-default">
-            <ShoppingBag size={15} className="text-slate-400" />
+          <div className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-600 text-neutral-300 cursor-default">
+            <ShoppingBag size={15} className="text-neutral-400" />
             Shop
             <span className="rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#D4AF37]">
               Soon
@@ -140,7 +140,7 @@ export default function Navbar() {
               </Link>
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-2 rounded-lg bg-[#1e2d3d] px-4 py-2 text-sm font-700 text-slate-300 transition-colors hover:bg-[#263545] hover:text-white"
+                className="flex items-center gap-2 rounded-lg bg-[#1c1c1c] px-4 py-2 text-sm font-700 text-neutral-300 transition-colors hover:bg-[#262626] hover:text-white"
               >
                 <LogOut size={15} />
                 Sign Out
@@ -156,7 +156,7 @@ export default function Navbar() {
               </Link>
               <Link
                 href="/auth/signup"
-                className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-700 text-[#070b10] transition-opacity hover:opacity-90"
+                className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-700 text-[#000000] transition-opacity hover:opacity-90"
               >
                 Get Started
               </Link>

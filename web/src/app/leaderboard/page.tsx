@@ -97,7 +97,7 @@ export default function LeaderboardPage() {
   return (
     <div className="min-h-screen">
       {/* ── Header ─────────────────────────────────────────────── */}
-      <div className="border-b border-[#1e2d3d] bg-[#070b10] px-6 py-10">
+      <div className="border-b border-[#1c1c1c] bg-[#000000] px-6 py-10">
         <div className="mx-auto max-w-screen-lg">
           <div className="flex items-start justify-between">
             <div>
@@ -107,7 +107,7 @@ export default function LeaderboardPage() {
               </div>
               <h1 className="text-5xl font-black tracking-tight text-white">Leaderboard</h1>
               {lastUpdated && (
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-neutral-500">
                   Updated {lastUpdated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </p>
               )}
@@ -128,8 +128,8 @@ export default function LeaderboardPage() {
                 onClick={() => setTab(t)}
                 className={`rounded-lg px-5 py-2.5 text-sm font-bold transition-all ${
                   tab === t
-                    ? 'bg-[#D4AF37] text-[#070b10] shadow-lg shadow-[#D4AF37]/20'
-                    : 'border border-[#1e2d3d] text-slate-400 hover:border-[#D4AF37]/30 hover:text-white'
+                    ? 'bg-[#D4AF37] text-[#000000] shadow-lg shadow-[#D4AF37]/20'
+                    : 'border border-[#1c1c1c] text-neutral-400 hover:border-[#D4AF37]/30 hover:text-white'
                 }`}
               >
                 <span className="flex items-center gap-1.5">
@@ -147,7 +147,7 @@ export default function LeaderboardPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-4 py-24">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
-            <p className="text-sm text-slate-500">Loading scores…</p>
+            <p className="text-sm text-neutral-500">Loading scores…</p>
           </div>
         ) : tab === 'kronos' ? (
           <KronosTable rows={kronosRows} />
@@ -166,7 +166,7 @@ function KronosTable({ rows }: { rows: KronosRow[] }) {
       <div className="flex flex-col items-center gap-3 py-24 text-center">
         <Trophy size={48} className="text-[#D4AF37]/30" />
         <p className="text-lg font-bold text-white">No scores yet</p>
-        <p className="text-sm text-slate-500">Enter some rounds on the app and they&apos;ll appear here instantly.</p>
+        <p className="text-sm text-neutral-500">Enter some rounds on the app and they&apos;ll appear here instantly.</p>
       </div>
     );
   }
@@ -187,16 +187,16 @@ function KronosTable({ rows }: { rows: KronosRow[] }) {
                 className={`relative flex flex-col items-center rounded-2xl border p-6 text-center transition-all ${
                   isLeader
                     ? 'border-[#D4AF37]/50 bg-[#D4AF37]/8 shadow-xl shadow-[#D4AF37]/10 scale-105'
-                    : 'border-[#1e2d3d] bg-[#0f1923]'
+                    : 'border-[#1c1c1c] bg-[#111111]'
                 } ${visIdx === 1 ? 'order-2' : visIdx === 0 ? 'order-1' : 'order-3'}`}
               >
                 <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-full mx-auto" style={{ backgroundColor: `${MEDAL_COLORS[rank - 1] ?? '#333'}20`, border: `1.5px solid ${MEDAL_COLORS[rank - 1] ?? '#444'}` }}>
                   <span className="text-sm font-black" style={{ color: MEDAL_COLORS[rank - 1] ?? '#aaa' }}>{rank}</span>
                 </div>
                 <div className={`text-xl font-black ${isLeader ? 'text-[#D4AF37]' : 'text-white'}`}>{r.name}</div>
-                <div className={`mt-2 text-4xl font-black ${isLeader ? 'text-[#D4AF37]' : 'text-slate-300'}`}>{r.total}</div>
-                <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">pts</div>
-                <div className="mt-3 text-xs text-slate-600">{r.holes} holes played</div>
+                <div className={`mt-2 text-4xl font-black ${isLeader ? 'text-[#D4AF37]' : 'text-neutral-300'}`}>{r.total}</div>
+                <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-neutral-500">pts</div>
+                <div className="mt-3 text-xs text-neutral-600">{r.holes} holes played</div>
               </div>
             );
           })}
@@ -204,14 +204,14 @@ function KronosTable({ rows }: { rows: KronosRow[] }) {
       )}
 
       {/* Full table */}
-      <div className="overflow-hidden rounded-2xl border border-[#1e2d3d]">
+      <div className="overflow-hidden rounded-2xl border border-[#1c1c1c]">
         {/* Header */}
-        <div className="grid grid-cols-[2rem_1fr_5rem_5rem_6rem] gap-4 border-b border-[#1e2d3d] bg-[#0f1923] px-5 py-3">
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-500">#</div>
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Player</div>
-          <div className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Holes</div>
-          <div className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Pts</div>
-          <div className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Behind</div>
+        <div className="grid grid-cols-[2rem_1fr_5rem_5rem_6rem] gap-4 border-b border-[#1c1c1c] bg-[#111111] px-5 py-3">
+          <div className="text-xs font-bold uppercase tracking-widest text-neutral-500">#</div>
+          <div className="text-xs font-bold uppercase tracking-widest text-neutral-500">Player</div>
+          <div className="text-right text-xs font-bold uppercase tracking-widest text-neutral-500">Holes</div>
+          <div className="text-right text-xs font-bold uppercase tracking-widest text-neutral-500">Pts</div>
+          <div className="text-right text-xs font-bold uppercase tracking-widest text-neutral-500">Behind</div>
         </div>
 
         {rows.map((r, i) => {
@@ -219,17 +219,17 @@ function KronosTable({ rows }: { rows: KronosRow[] }) {
           return (
             <div
               key={r.playerId}
-              className={`grid grid-cols-[2rem_1fr_5rem_5rem_6rem] gap-4 border-b border-[#1e2d3d] px-5 py-4 transition-colors last:border-0 hover:bg-white/3 ${
-                i === 0 ? 'bg-[#D4AF37]/5' : 'bg-[#070b10]'
+              className={`grid grid-cols-[2rem_1fr_5rem_5rem_6rem] gap-4 border-b border-[#1c1c1c] px-5 py-4 transition-colors last:border-0 hover:bg-white/3 ${
+                i === 0 ? 'bg-[#D4AF37]/5' : 'bg-[#000000]'
               }`}
             >
-              <div className={`text-sm font-black ${i < 3 ? ['text-[#D4AF37]', 'text-slate-400', 'text-amber-600'][i] : 'text-slate-600'}`}>
+              <div className={`text-sm font-black ${i < 3 ? ['text-[#D4AF37]', 'text-neutral-400', 'text-amber-600'][i] : 'text-neutral-600'}`}>
                 {i + 1}
               </div>
               <div className={`text-sm font-bold ${i === 0 ? 'text-[#D4AF37]' : 'text-white'}`}>{r.name}</div>
-              <div className="text-right text-sm text-slate-400">{r.holes}</div>
+              <div className="text-right text-sm text-neutral-400">{r.holes}</div>
               <div className={`text-right text-sm font-black ${i === 0 ? 'text-[#D4AF37]' : 'text-white'}`}>{r.total}</div>
-              <div className="text-right text-sm text-slate-500">
+              <div className="text-right text-sm text-neutral-500">
                 {behind === null ? <span className="text-[#D4AF37] font-bold text-xs">LEADER</span> : `-${behind}`}
               </div>
             </div>
@@ -247,35 +247,35 @@ function TeamsTable({ rows }: { rows: TeamRow[] }) {
       <div className="flex flex-col items-center gap-3 py-24 text-center">
         <div className="text-5xl">⚔️</div>
         <p className="text-lg font-bold text-white">No team matches yet</p>
-        <p className="text-sm text-slate-500">Complete team matches and standings will update here in real time.</p>
+        <p className="text-sm text-neutral-500">Complete team matches and standings will update here in real time.</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#1e2d3d]">
-      <div className="grid grid-cols-[2rem_1fr_3.5rem_3.5rem_3.5rem_3.5rem_4rem] gap-3 border-b border-[#1e2d3d] bg-[#0f1923] px-5 py-3">
+    <div className="overflow-hidden rounded-2xl border border-[#1c1c1c]">
+      <div className="grid grid-cols-[2rem_1fr_3.5rem_3.5rem_3.5rem_3.5rem_4rem] gap-3 border-b border-[#1c1c1c] bg-[#111111] px-5 py-3">
         {['#', 'Team', 'P', 'W', 'H', 'L', 'PTS'].map(h => (
-          <div key={h} className={`text-xs font-bold uppercase tracking-widest text-slate-500 ${h !== '#' && h !== 'Team' ? 'text-center' : ''}`}>{h}</div>
+          <div key={h} className={`text-xs font-bold uppercase tracking-widest text-neutral-500 ${h !== '#' && h !== 'Team' ? 'text-center' : ''}`}>{h}</div>
         ))}
       </div>
 
       {rows.map((r, i) => (
         <div
           key={r.id}
-          className={`grid grid-cols-[2rem_1fr_3.5rem_3.5rem_3.5rem_3.5rem_4rem] items-center gap-3 border-b border-[#1e2d3d] px-5 py-4 transition-colors last:border-0 hover:bg-white/3 ${
-            i === 0 ? 'bg-[#D4AF37]/5' : 'bg-[#070b10]'
+          className={`grid grid-cols-[2rem_1fr_3.5rem_3.5rem_3.5rem_3.5rem_4rem] items-center gap-3 border-b border-[#1c1c1c] px-5 py-4 transition-colors last:border-0 hover:bg-white/3 ${
+            i === 0 ? 'bg-[#D4AF37]/5' : 'bg-[#000000]'
           }`}
         >
-          <div className={`text-sm font-black ${i === 0 ? 'text-[#D4AF37]' : 'text-slate-500'}`}>{i + 1}</div>
+          <div className={`text-sm font-black ${i === 0 ? 'text-[#D4AF37]' : 'text-neutral-500'}`}>{i + 1}</div>
           <div className="flex items-center gap-2.5">
             <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: r.accent_color ?? '#666' }} />
             <span className={`text-sm font-bold ${i === 0 ? 'text-[#D4AF37]' : 'text-white'}`}>{r.name}</span>
           </div>
-          <div className="text-center text-sm text-slate-400">{r.played}</div>
+          <div className="text-center text-sm text-neutral-400">{r.played}</div>
           <div className="text-center text-sm font-semibold text-[#4ade80]">{r.w}</div>
-          <div className="text-center text-sm text-slate-400">{r.h}</div>
-          <div className="text-center text-sm text-slate-400">{r.l}</div>
+          <div className="text-center text-sm text-neutral-400">{r.h}</div>
+          <div className="text-center text-sm text-neutral-400">{r.l}</div>
           <div className={`text-center text-sm font-black ${i === 0 ? 'text-[#D4AF37]' : 'text-white'}`}>{r.pts}</div>
         </div>
       ))}

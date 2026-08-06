@@ -110,14 +110,14 @@ export default function AdminCodesPage() {
         <Link href="/admin" className="text-sm text-[#D4AF37] hover:underline">← Back to Admin</Link>
         <div className="mt-6 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">{codes.societyName}</div>
         <h1 className="mt-1 text-5xl font-black text-white">Codes &amp; PINs</h1>
-        <p className="mt-2 text-slate-400">All join codes and PINs in one place. Share these with your players.</p>
+        <p className="mt-2 text-neutral-400">All join codes and PINs in one place. Share these with your players.</p>
       </div>
 
       {/* Society join PIN */}
       <section className="mb-8">
-        <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">Society Join PIN</h2>
-        <div className="rounded-2xl border border-[#D4AF37]/30 bg-[#0f1923] p-6">
-          <p className="mb-4 text-sm text-slate-400">New players enter this 6-digit PIN in the Titan Golf app to join your society.</p>
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-neutral-500">Society Join PIN</h2>
+        <div className="rounded-2xl border border-[#D4AF37]/30 bg-[#111111] p-6">
+          <p className="mb-4 text-sm text-neutral-400">New players enter this 6-digit PIN in the Titan Golf app to join your society.</p>
           <div className="flex items-center justify-between gap-4">
             <div className="text-5xl font-black tracking-[8px] text-[#D4AF37]">
               {codes.joinPin ? pinDisplay(codes.joinPin) : '——'}
@@ -135,7 +135,7 @@ export default function AdminCodesPage() {
               <button
                 onClick={regenerateJoinPin}
                 disabled={genning}
-                className="flex items-center gap-2 rounded-lg border border-[#1e2d3d] bg-[#070b10] px-4 py-2.5 text-sm font-bold text-slate-300 transition-colors hover:text-white disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg border border-[#1c1c1c] bg-[#000000] px-4 py-2.5 text-sm font-bold text-neutral-300 transition-colors hover:text-white disabled:opacity-50"
               >
                 <RefreshCw size={15} className={genning ? 'animate-spin' : ''} />
                 {genning ? 'Generating…' : (codes.joinPin ? 'Regenerate' : 'Generate PIN')}
@@ -143,8 +143,8 @@ export default function AdminCodesPage() {
             </div>
           </div>
           {codes.joinPin && (
-            <div className="mt-4 rounded-lg border border-[#1e2d3d] bg-[#070b10] px-4 py-3 text-sm text-slate-400">
-              Share message: <span className="text-slate-200">Join {codes.societyName} on Titan Golf — your PIN is: {pinDisplay(codes.joinPin)}</span>
+            <div className="mt-4 rounded-lg border border-[#1c1c1c] bg-[#000000] px-4 py-3 text-sm text-neutral-400">
+              Share message: <span className="text-neutral-200">Join {codes.societyName} on Titan Golf — your PIN is: {pinDisplay(codes.joinPin)}</span>
               <button onClick={() => copy(`Join ${codes.societyName} on Titan Golf — your PIN is: ${pinDisplay(codes.joinPin)}`, 'joinMsg')} className="ml-3 text-[#D4AF37] hover:underline text-xs">
                 {copied === 'joinMsg' ? '✓ Copied' : 'Copy message'}
               </button>
@@ -156,14 +156,14 @@ export default function AdminCodesPage() {
       {/* Active Tournament PIN */}
       {codes.activeTournamentName && (
         <section className="mb-8">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">Active Tournament PIN</h2>
-          <div className="rounded-2xl border border-[#4ade80]/30 bg-[#0f1923] p-6">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-neutral-500">Active Tournament PIN</h2>
+          <div className="rounded-2xl border border-[#4ade80]/30 bg-[#111111] p-6">
             <div className="mb-1 flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-[#4ade80] animate-pulse" />
               <span className="text-sm font-bold text-[#4ade80]">LIVE</span>
             </div>
             <div className="text-lg font-bold text-white">{codes.activeTournamentName}</div>
-            <p className="mt-1 mb-4 text-sm text-slate-400">Players enter this PIN to unlock the Tour tab in the app.</p>
+            <p className="mt-1 mb-4 text-sm text-neutral-400">Players enter this PIN to unlock the Tour tab in the app.</p>
             {codes.activeTournamentPin ? (
               <div className="flex items-center justify-between gap-4">
                 <div className="text-5xl font-black tracking-[8px] text-[#4ade80]">
@@ -178,7 +178,7 @@ export default function AdminCodesPage() {
                 </button>
               </div>
             ) : (
-              <p className="text-sm text-slate-500">No PIN set for this tournament.</p>
+              <p className="text-sm text-neutral-500">No PIN set for this tournament.</p>
             )}
           </div>
         </section>
@@ -186,19 +186,19 @@ export default function AdminCodesPage() {
 
       {/* Membership area codes */}
       <section className="mb-8">
-        <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">Membership Area Codes</h2>
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-neutral-500">Membership Area Codes</h2>
         <div className="grid gap-4 sm:grid-cols-3">
           {AREAS.map(area => (
             <div
               key={area.key}
-              className="rounded-2xl border bg-[#0f1923] p-6"
-              style={{ borderColor: area.code ? `${area.color}44` : '#1e2d3d' }}
+              className="rounded-2xl border bg-[#111111] p-6"
+              style={{ borderColor: area.code ? `${area.color}44` : '#1c1c1c' }}
             >
               <div className="mb-1 text-xs font-bold uppercase tracking-widest" style={{ color: area.color }}>{area.label}</div>
-              <div className="my-3 font-mono text-3xl font-black tracking-[4px]" style={{ color: area.code ? area.color : '#334155' }}>
+              <div className="my-3 font-mono text-3xl font-black tracking-[4px]" style={{ color: area.code ? area.color : '#333333' }}>
                 {area.code ?? '——'}
               </div>
-              <p className="mb-4 text-xs text-slate-500">{area.desc}</p>
+              <p className="mb-4 text-xs text-neutral-500">{area.desc}</p>
               {area.code ? (
                 <button
                   onClick={() => copy(area.code!, area.key)}
@@ -209,7 +209,7 @@ export default function AdminCodesPage() {
                   {copied === area.key ? 'Copied!' : 'Copy Code'}
                 </button>
               ) : (
-                <div className="rounded-lg border border-slate-700 px-3 py-2 text-center text-xs text-slate-600">
+                <div className="rounded-lg border border-neutral-700 px-3 py-2 text-center text-xs text-neutral-600">
                   Run membership_areas migration
                 </div>
               )}
@@ -218,7 +218,7 @@ export default function AdminCodesPage() {
         </div>
       </section>
 
-      <Link href="/tournament/archive" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-[#D4AF37] transition-colors">
+      <Link href="/tournament/archive" className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-[#D4AF37] transition-colors">
         <Share2 size={14} />
         View all tournaments &amp; their PINs →
       </Link>

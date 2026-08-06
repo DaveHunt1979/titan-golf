@@ -123,17 +123,17 @@ export default async function RoundDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="mx-auto max-w-screen-md px-6 py-12">
-      <Link href="/rounds" className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition-colors hover:text-[#D4AF37]">
+      <Link href="/rounds" className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-neutral-400 transition-colors hover:text-[#D4AF37]">
         <ArrowLeft size={16} /> Round History
       </Link>
 
       {/* ── Trophy card ───────────────────────────────────────── */}
-      <div className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-8 text-center">
+      <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-8 text-center">
         <Trophy size={48} className="mx-auto mb-3" style={{ color: GOLD }} />
-        <div className="text-xs font-bold uppercase tracking-widest text-slate-400">{courseName}</div>
-        <div className="mt-1 text-xs text-slate-500">{fmtDate(m.day?.play_date)}{holesToPlay < 18 ? ` · ${holesToPlay} holes` : ''}</div>
+        <div className="text-xs font-bold uppercase tracking-widest text-neutral-400">{courseName}</div>
+        <div className="mt-1 text-xs text-neutral-500">{fmtDate(m.day?.play_date)}{holesToPlay < 18 ? ` · ${holesToPlay} holes` : ''}</div>
         <div className="mt-4 text-5xl font-black" style={{ color: scoreColor }}>{finalScore}</div>
-        <div className="mt-1 text-sm font-semibold text-slate-400">
+        <div className="mt-1 text-sm font-semibold text-neutral-400">
           {isStableford ? `${grossTotal} gross · ${ptsTotal} pts` : `${grossTotal} gross`}
         </div>
 
@@ -146,9 +146,9 @@ export default async function RoundDetailPage({ params }: { params: Promise<{ id
             { n: bogeys,  label: 'Bogeys',  color: BLUE },
             { n: doubles, label: 'Dbl+',    color: DARKBLUE },
           ].map(s => (
-            <div key={s.label} className="rounded-xl border border-[#1e2d3d] bg-[#0a0f17] py-3">
+            <div key={s.label} className="rounded-xl border border-[#1c1c1c] bg-[#0a0a0a] py-3">
               <div className="text-2xl font-black" style={{ color: s.color }}>{s.n}</div>
-              <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">{s.label}</div>
+              <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-neutral-500">{s.label}</div>
             </div>
           ))}
         </div>
@@ -156,15 +156,15 @@ export default async function RoundDetailPage({ params }: { params: Promise<{ id
         {/* Best / Worst */}
         {bestHole && worstHole && bestHole.hole_number !== worstHole.hole_number && (
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-[#1e2d3d] bg-[#0a0f17] py-3">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Best</div>
+            <div className="rounded-xl border border-[#1c1c1c] bg-[#0a0a0a] py-3">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Best</div>
               <div className="mt-1 text-lg font-bold text-[#4ade80]">Hole {bestHole.hole_number}</div>
-              <div className="text-xs text-slate-400">{vsParLabel(bestHole.vsPar)}</div>
+              <div className="text-xs text-neutral-400">{vsParLabel(bestHole.vsPar)}</div>
             </div>
-            <div className="rounded-xl border border-[#1e2d3d] bg-[#0a0f17] py-3">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Worst</div>
+            <div className="rounded-xl border border-[#1c1c1c] bg-[#0a0a0a] py-3">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Worst</div>
               <div className="mt-1 text-lg font-bold text-[#f87171]">Hole {worstHole.hole_number}</div>
-              <div className="text-xs text-slate-400">{vsParLabel(worstHole.vsPar)}</div>
+              <div className="text-xs text-neutral-400">{vsParLabel(worstHole.vsPar)}</div>
             </div>
           </div>
         )}
@@ -188,8 +188,8 @@ export default async function RoundDetailPage({ params }: { params: Promise<{ id
 
       {/* ── Hole-by-hole scorecard ───────────────────────────── */}
       {halves.length > 0 && (
-        <div className="mt-6 rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-6">
-          <div className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">Scorecard</div>
+        <div className="mt-6 rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6">
+          <div className="mb-4 text-xs font-bold uppercase tracking-widest text-neutral-400">Scorecard</div>
           {halves.map((half, hi) => {
             const label = hi === 0 ? 'OUT' : 'IN';
             const halfPar = half.reduce((s, n) => s + (parByHole[n] ?? 0), 0);
@@ -197,21 +197,21 @@ export default async function RoundDetailPage({ params }: { params: Promise<{ id
             const halfGross = halfScores.reduce((s, h) => s + h.gross_score, 0);
             const halfPts = halfScores.reduce((s, h) => s + (h.stableford_pts ?? 0), 0);
             return (
-              <div key={hi} className={hi === 1 ? 'mt-4 border-t border-[#1e2d3d] pt-4' : ''}>
+              <div key={hi} className={hi === 1 ? 'mt-4 border-t border-[#1c1c1c] pt-4' : ''}>
                 <div className="grid gap-1" style={{ gridTemplateColumns: `4rem repeat(${half.length}, 1fr) 3.5rem` }}>
-                  <div className="text-[10px] font-bold uppercase text-slate-500">Hole</div>
+                  <div className="text-[10px] font-bold uppercase text-neutral-500">Hole</div>
                   {half.map(n => (
-                    <div key={n} className={`text-center text-xs font-bold ${scored.some(s => s.hole_number === n) ? 'text-white' : 'text-slate-700'}`}>{n}</div>
+                    <div key={n} className={`text-center text-xs font-bold ${scored.some(s => s.hole_number === n) ? 'text-white' : 'text-neutral-700'}`}>{n}</div>
                   ))}
-                  <div className="text-center text-[10px] font-bold uppercase text-slate-500">{label}</div>
+                  <div className="text-center text-[10px] font-bold uppercase text-neutral-500">{label}</div>
 
-                  <div className="text-[10px] font-bold uppercase text-slate-500">Par</div>
+                  <div className="text-[10px] font-bold uppercase text-neutral-500">Par</div>
                   {half.map(n => (
                     <div key={n} className="text-center text-xs font-bold" style={{ color: GOLD }}>{parByHole[n] ?? '—'}</div>
                   ))}
                   <div className="text-center text-xs font-bold" style={{ color: GOLD }}>{halfPar || '—'}</div>
 
-                  <div className="text-[10px] font-bold uppercase text-slate-500">Gross</div>
+                  <div className="text-[10px] font-bold uppercase text-neutral-500">Gross</div>
                   {half.map(n => {
                     const sv = scored.find(s => s.hole_number === n);
                     const cat = sv ? scoreVsPar(sv.gross_score, parByHole[n] ?? 0) : null;
@@ -230,7 +230,7 @@ export default async function RoundDetailPage({ params }: { params: Promise<{ id
 
                   {isStableford && (
                     <>
-                      <div className="text-[10px] font-bold uppercase text-slate-500">Pts</div>
+                      <div className="text-[10px] font-bold uppercase text-neutral-500">Pts</div>
                       {half.map(n => {
                         const sv = scored.find(s => s.hole_number === n);
                         return (

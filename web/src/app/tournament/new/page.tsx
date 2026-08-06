@@ -172,11 +172,11 @@ export default function NewTournamentPage() {
           </div>
           <div className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Tournament Created</div>
           <h1 className="mt-2 text-4xl font-black text-white">{created.name}</h1>
-          <p className="mt-3 text-slate-400">Share this PIN with your players. They enter it in the Titan Golf app to unlock the Tour tab.</p>
+          <p className="mt-3 text-neutral-400">Share this PIN with your players. They enter it in the Titan Golf app to unlock the Tour tab.</p>
 
           {/* Big PIN */}
           <div className="my-8 rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/8 p-8">
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Tournament PIN</div>
+            <div className="text-xs font-bold uppercase tracking-widest text-neutral-500">Tournament PIN</div>
             <div className="mt-3 text-7xl font-black tracking-[12px] text-[#D4AF37]">{created.pin}</div>
             <button
               onClick={copyPin}
@@ -187,15 +187,15 @@ export default function NewTournamentPage() {
             </button>
           </div>
 
-          <p className="mb-8 text-xs text-slate-500">
+          <p className="mb-8 text-xs text-neutral-500">
             The tournament is saved as a draft. Activate it from the admin panel when you're ready to start.
           </p>
 
           <div className="flex gap-3 justify-center">
-            <Link href="/admin" className="rounded-xl border border-[#1e2d3d] px-6 py-3 text-sm font-bold text-slate-300 transition-colors hover:text-white">
+            <Link href="/admin" className="rounded-xl border border-[#1c1c1c] px-6 py-3 text-sm font-bold text-neutral-300 transition-colors hover:text-white">
               Admin Panel
             </Link>
-            <Link href="/tournament/archive" className="rounded-xl bg-[#D4AF37] px-6 py-3 text-sm font-bold text-[#070b10] transition-opacity hover:opacity-90">
+            <Link href="/tournament/archive" className="rounded-xl bg-[#D4AF37] px-6 py-3 text-sm font-bold text-[#000000] transition-opacity hover:opacity-90">
               View Archive →
             </Link>
           </div>
@@ -215,19 +215,19 @@ export default function NewTournamentPage() {
         {/* Progress bar */}
         <div className="mt-6 flex gap-2">
           {STEPS.map((_, i) => (
-            <div key={i} className={`h-1 flex-1 rounded-full transition-all ${i <= step ? 'bg-[#D4AF37]' : 'bg-[#1e2d3d]'}`} />
+            <div key={i} className={`h-1 flex-1 rounded-full transition-all ${i <= step ? 'bg-[#D4AF37]' : 'bg-[#1c1c1c]'}`} />
           ))}
         </div>
         <div className="mt-3 flex items-baseline justify-between">
           <h1 className="text-4xl font-black text-white">{STEPS[step]}</h1>
-          <span className="text-xs font-bold text-slate-500">Step {step + 1} of {STEPS.length}</span>
+          <span className="text-xs font-bold text-neutral-500">Step {step + 1} of {STEPS.length}</span>
         </div>
       </div>
 
       {/* ── Step 0: Format ──────────────────────────────────── */}
       {step === 0 && (
         <div>
-          <p className="mb-6 text-slate-400">Pick the competition type. You can mix formats on different days.</p>
+          <p className="mb-6 text-neutral-400">Pick the competition type. You can mix formats on different days.</p>
           <div className="space-y-3">
             {COMP_FORMATS.map(f => (
               <button
@@ -238,13 +238,13 @@ export default function NewTournamentPage() {
                 className={`w-full rounded-2xl border px-6 py-5 text-left transition-all disabled:opacity-40 ${
                   selectedFormat === f.id
                     ? 'border-[#D4AF37]/50 bg-[#D4AF37]/8'
-                    : 'border-[#1e2d3d] bg-[#0f1923] hover:border-[#D4AF37]/20'
+                    : 'border-[#1c1c1c] bg-[#111111] hover:border-[#D4AF37]/20'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`flex-1 font-black ${selectedFormat === f.id ? 'text-[#D4AF37]' : 'text-white'}`}>{f.label}</div>
                   {!f.available && (
-                    <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    <span className="rounded-full border border-neutral-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
                       Coming Soon
                     </span>
                   )}
@@ -252,7 +252,7 @@ export default function NewTournamentPage() {
                     <span className="text-sm font-black text-[#D4AF37]">✓</span>
                   )}
                 </div>
-                <p className="mt-1 text-sm text-slate-400">{f.sub}</p>
+                <p className="mt-1 text-sm text-neutral-400">{f.sub}</p>
               </button>
             ))}
           </div>
@@ -262,36 +262,36 @@ export default function NewTournamentPage() {
       {/* ── Step 1: Details ─────────────────────────────────── */}
       {step === 1 && (
         <div className="space-y-6">
-          <p className="text-slate-400">Name it, set the year, and choose how many days you'll play.</p>
+          <p className="text-neutral-400">Name it, set the year, and choose how many days you'll play.</p>
 
           <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-400">Competition Name</label>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-neutral-400">Competition Name</label>
             <input
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="e.g. Titan Tour 2027"
-              className="w-full rounded-xl border border-[#1e2d3d] bg-[#0f1923] px-4 py-3 text-white placeholder-slate-600 focus:border-[#D4AF37]/40 focus:outline-none"
+              className="w-full rounded-xl border border-[#1c1c1c] bg-[#111111] px-4 py-3 text-white placeholder-neutral-600 focus:border-[#D4AF37]/40 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-400">Year</label>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-neutral-400">Year</label>
             <input
               type="number"
               value={year}
               onChange={e => setYear(e.target.value)}
               min="2020" max="2040"
-              className="w-full rounded-xl border border-[#1e2d3d] bg-[#0f1923] px-4 py-3 text-white focus:border-[#D4AF37]/40 focus:outline-none"
+              className="w-full rounded-xl border border-[#1c1c1c] bg-[#111111] px-4 py-3 text-white focus:border-[#D4AF37]/40 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-3 block text-xs font-bold uppercase tracking-widest text-slate-400">Number of Days</label>
+            <label className="mb-3 block text-xs font-bold uppercase tracking-widest text-neutral-400">Number of Days</label>
             <div className="flex items-center gap-4">
               <button
                 onClick={removeDay}
                 disabled={days.length <= 1}
-                className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#1e2d3d] bg-[#0f1923] text-2xl font-black text-[#D4AF37] disabled:opacity-30 hover:border-[#D4AF37]/30"
+                className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#1c1c1c] bg-[#111111] text-2xl font-black text-[#D4AF37] disabled:opacity-30 hover:border-[#D4AF37]/30"
               >
                 –
               </button>
@@ -301,21 +301,21 @@ export default function NewTournamentPage() {
               <button
                 onClick={addDay}
                 disabled={days.length >= 10}
-                className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#1e2d3d] bg-[#0f1923] text-2xl font-black text-[#D4AF37] disabled:opacity-30 hover:border-[#D4AF37]/30"
+                className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#1c1c1c] bg-[#111111] text-2xl font-black text-[#D4AF37] disabled:opacity-30 hover:border-[#D4AF37]/30"
               >
                 +
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 rounded-xl border border-[#1e2d3d] bg-[#0f1923] p-4">
+          <div className="flex items-center gap-4 rounded-xl border border-[#1c1c1c] bg-[#111111] p-4">
             <div className="flex-1">
               <div className="font-bold text-white">Include in Kronos Trophy</div>
-              <div className="mt-0.5 text-sm text-slate-400">Individual Stableford scores count toward the season leaderboard</div>
+              <div className="mt-0.5 text-sm text-neutral-400">Individual Stableford scores count toward the season leaderboard</div>
             </div>
             <button
               onClick={() => setIncludeInKronos(v => !v)}
-              className={`relative h-7 w-12 rounded-full transition-colors ${includeInKronos ? 'bg-[#D4AF37]' : 'bg-[#1e2d3d]'}`}
+              className={`relative h-7 w-12 rounded-full transition-colors ${includeInKronos ? 'bg-[#D4AF37]' : 'bg-[#1c1c1c]'}`}
             >
               <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${includeInKronos ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </button>
@@ -326,24 +326,24 @@ export default function NewTournamentPage() {
       {/* ── Step 2: Day Setup ───────────────────────────────── */}
       {step === 2 && (
         <div>
-          <p className="mb-6 text-slate-400">Set the course and format for each day. You can mix it up every year.</p>
+          <p className="mb-6 text-neutral-400">Set the course and format for each day. You can mix it up every year.</p>
           <div className="space-y-6">
             {days.map((day, i) => (
-              <div key={i} className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-6">
+              <div key={i} className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6">
                 <div className="mb-4 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Day {i + 1}</div>
 
                 <div className="mb-4">
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">Course</label>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-neutral-500">Course</label>
                   <input
                     value={day.courseName}
                     onChange={e => updateDay(i, { courseName: e.target.value })}
                     placeholder="e.g. West Cliffs"
-                    className="w-full rounded-xl border border-[#1e2d3d] bg-[#070b10] px-4 py-3 text-sm text-white placeholder-slate-600 focus:border-[#D4AF37]/40 focus:outline-none"
+                    className="w-full rounded-xl border border-[#1c1c1c] bg-[#000000] px-4 py-3 text-sm text-white placeholder-neutral-600 focus:border-[#D4AF37]/40 focus:outline-none"
                   />
                 </div>
 
                 <div className="mb-4">
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">Format</label>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-neutral-500">Format</label>
                   <div className="flex flex-wrap gap-2">
                     {DAY_FORMATS.map(f => (
                       <button
@@ -351,19 +351,19 @@ export default function NewTournamentPage() {
                         onClick={() => updateDay(i, { format: f.id })}
                         className={`rounded-xl border px-4 py-2 text-sm transition-all ${
                           day.format === f.id
-                            ? 'border-[#D4AF37] bg-[#D4AF37] font-bold text-[#070b10]'
-                            : 'border-[#1e2d3d] bg-[#070b10] text-slate-300 hover:border-[#D4AF37]/30'
+                            ? 'border-[#D4AF37] bg-[#D4AF37] font-bold text-[#000000]'
+                            : 'border-[#1c1c1c] bg-[#000000] text-neutral-300 hover:border-[#D4AF37]/30'
                         }`}
                       >
                         <div className="font-bold">{f.label}</div>
-                        <div className={`text-[10px] ${day.format === f.id ? 'text-[#070b10]/60' : 'text-slate-500'}`}>{f.sub}</div>
+                        <div className={`text-[10px] ${day.format === f.id ? 'text-[#000000]/60' : 'text-neutral-500'}`}>{f.sub}</div>
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">Handicap Allowance</label>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-neutral-500">Handicap Allowance</label>
                   <div className="grid grid-cols-4 gap-2">
                     {HCP_OPTIONS.map(h => (
                       <button
@@ -372,7 +372,7 @@ export default function NewTournamentPage() {
                         className={`rounded-xl border py-2.5 text-xs font-bold transition-all ${
                           day.hcpPct === h.pct
                             ? 'border-[#D4AF37]/50 bg-[#D4AF37]/10 text-[#D4AF37]'
-                            : 'border-[#1e2d3d] bg-[#070b10] text-slate-400 hover:border-[#D4AF37]/20'
+                            : 'border-[#1c1c1c] bg-[#000000] text-neutral-400 hover:border-[#D4AF37]/20'
                         }`}
                       >
                         {h.label}
@@ -389,9 +389,9 @@ export default function NewTournamentPage() {
       {/* ── Step 3: Review ──────────────────────────────────── */}
       {step === 3 && (
         <div>
-          <p className="mb-6 text-slate-400">Review your setup. The tournament is created as a draft — activate it from admin when ready.</p>
+          <p className="mb-6 text-neutral-400">Review your setup. The tournament is created as a draft — activate it from admin when ready.</p>
 
-          <div className="mb-4 overflow-hidden rounded-2xl border border-[#1e2d3d] bg-[#0f1923] divide-y divide-[#1e2d3d]">
+          <div className="mb-4 overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] divide-y divide-[#1c1c1c]">
             {[
               { key: 'Format',  val: formatDef?.label ?? '—' },
               { key: 'Name',    val: name.trim() || '—' },
@@ -400,19 +400,19 @@ export default function NewTournamentPage() {
               { key: 'Kronos',  val: includeInKronos ? '✓ Included' : 'Not included' },
             ].map(row => (
               <div key={row.key} className="flex items-center gap-6 px-6 py-4">
-                <span className="w-20 text-xs font-bold uppercase tracking-widest text-slate-500">{row.key}</span>
+                <span className="w-20 text-xs font-bold uppercase tracking-widest text-neutral-500">{row.key}</span>
                 <span className="flex-1 font-semibold text-white">{row.val}</span>
               </div>
             ))}
           </div>
 
-          <div className="mb-6 overflow-hidden rounded-2xl border border-[#1e2d3d] bg-[#0f1923] divide-y divide-[#1e2d3d]">
+          <div className="mb-6 overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] divide-y divide-[#1c1c1c]">
             {days.map((d, i) => {
               const fmt = DAY_FORMATS.find(f => f.id === d.format);
               return (
                 <div key={i} className="flex items-center gap-6 px-6 py-4">
                   <span className="w-20 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Day {i + 1}</span>
-                  <span className="flex-1 text-sm text-slate-300">
+                  <span className="flex-1 text-sm text-neutral-300">
                     {d.courseName || 'TBC'} · {fmt?.label} · {d.hcpPct}% hcp
                   </span>
                 </div>
@@ -429,11 +429,11 @@ export default function NewTournamentPage() {
       {/* ── Footer nav ──────────────────────────────────────── */}
       <div className="mt-8 flex gap-3">
         {step === 0 ? (
-          <Link href="/tournament/archive" className="rounded-xl border border-[#1e2d3d] px-6 py-4 text-sm font-bold text-slate-400 hover:text-white">
+          <Link href="/tournament/archive" className="rounded-xl border border-[#1c1c1c] px-6 py-4 text-sm font-bold text-neutral-400 hover:text-white">
             Cancel
           </Link>
         ) : (
-          <button onClick={() => setStep(s => s - 1)} className="rounded-xl border border-[#1e2d3d] px-6 py-4 text-sm font-bold text-slate-400 transition-colors hover:text-white">
+          <button onClick={() => setStep(s => s - 1)} className="rounded-xl border border-[#1c1c1c] px-6 py-4 text-sm font-bold text-neutral-400 transition-colors hover:text-white">
             ← Back
           </button>
         )}
@@ -441,7 +441,7 @@ export default function NewTournamentPage() {
           <button
             onClick={() => setStep(s => s + 1)}
             disabled={!canNext}
-            className="flex-1 rounded-xl bg-[#D4AF37] py-4 font-black text-[#070b10] transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="flex-1 rounded-xl bg-[#D4AF37] py-4 font-black text-[#000000] transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             Next →
           </button>
@@ -449,7 +449,7 @@ export default function NewTournamentPage() {
           <button
             onClick={create}
             disabled={creating}
-            className="flex-1 rounded-xl bg-[#D4AF37] py-4 font-black text-[#070b10] transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="flex-1 rounded-xl bg-[#D4AF37] py-4 font-black text-[#000000] transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {creating ? 'Creating…' : 'Create Tournament'}
           </button>

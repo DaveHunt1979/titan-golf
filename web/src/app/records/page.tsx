@@ -44,16 +44,16 @@ export default async function RecordsPage() {
     return (
       <div className="mx-auto max-w-screen-xl px-6 py-12">
         <RecordsHeader societyName={null} />
-        <div className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-12 text-center">
-          <div className="mb-3 flex justify-center"><Lock size={36} className="text-slate-600" /></div>
+        <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-12 text-center">
+          <div className="mb-3 flex justify-center"><Lock size={36} className="text-neutral-600" /></div>
           <h3 className="text-lg font-bold text-white">Sign in to see your society&apos;s records</h3>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-neutral-400">
             The Wall of Records shows champions and all-time bests for your golf society.
           </p>
           {!user && (
             <Link
               href="/auth/login"
-              className="mt-5 inline-block rounded-lg bg-[#D4AF37] px-5 py-2.5 text-sm font-bold text-[#070b10] transition-opacity hover:opacity-90"
+              className="mt-5 inline-block rounded-lg bg-[#D4AF37] px-5 py-2.5 text-sm font-bold text-[#000000] transition-opacity hover:opacity-90"
             >
               Sign in
             </Link>
@@ -162,10 +162,10 @@ export default async function RecordsPage() {
       <RecordsHeader societyName={(society as any)?.name ?? null} />
 
       {!hasAnything ? (
-        <div className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-12 text-center">
+        <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-12 text-center">
           <div className="mb-3 flex justify-center"><Trophy size={36} className="text-[#D4AF37]/40" /></div>
           <h3 className="text-lg font-bold text-white">No records yet</h3>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-neutral-400">
             Champions and all-time bests will appear here as rounds are played.
           </p>
         </div>
@@ -180,12 +180,12 @@ export default async function RecordsPage() {
                 {liveRecords.map(r => (
                   <div
                     key={r.label}
-                    className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-6 text-center"
+                    className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6 text-center"
                     style={{ borderColor: r.holder ? `${r.color}44` : undefined }}
                   >
                     <div className="mb-2 flex justify-center" style={{ color: r.color }}>{r.icon}</div>
                     <div className="text-3xl font-black" style={{ color: r.color }}>{r.value}</div>
-                    <div className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-500">{r.label}</div>
+                    <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">{r.label}</div>
                     <div className="mt-2 text-sm font-semibold text-white">{r.holder ?? '—'}</div>
                   </div>
                 ))}
@@ -202,22 +202,22 @@ export default async function RecordsPage() {
                   <div key={year}>
                     <div className="mb-3 flex items-center gap-3">
                       <span className="text-2xl font-black text-[#D4AF37]">{year}</span>
-                      <span className="h-px flex-1 bg-[#1e2d3d]" />
+                      <span className="h-px flex-1 bg-[#1c1c1c]" />
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {byYear[year].map((c, i) => (
                         <div
                           key={`${year}-${i}`}
-                          className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-6 transition-all hover:border-[#D4AF37]/30"
+                          className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6 transition-all hover:border-[#D4AF37]/30"
                         >
                           <div className="mb-3 flex"><Trophy size={24} className="text-[#D4AF37]/60" /></div>
                           <div className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">
                             {c.award_name ?? 'Award'}
                           </div>
                           <div className="mt-1 text-xl font-black text-white">{c.winner_name ?? '—'}</div>
-                          {c.detail && <div className="mt-2 text-sm text-slate-400">{c.detail}</div>}
+                          {c.detail && <div className="mt-2 text-sm text-neutral-400">{c.detail}</div>}
                           {c.winner_type && (
-                            <div className="mt-2 text-xs font-semibold uppercase tracking-widest text-slate-600">
+                            <div className="mt-2 text-xs font-semibold uppercase tracking-widest text-neutral-600">
                               {c.winner_type}
                             </div>
                           )}
@@ -246,7 +246,7 @@ function RecordsHeader({ societyName }: { societyName: string | null }) {
         <Trophy size={16} className="text-[#D4AF37]" />
         <span>Wall of Records</span>
       </h1>
-      <p className="mt-2 text-slate-400">Champions and all-time bests.</p>
+      <p className="mt-2 text-neutral-400">Champions and all-time bests.</p>
     </div>
   );
 }

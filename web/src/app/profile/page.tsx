@@ -232,7 +232,7 @@ export default function ProfilePage() {
 
   if (!player) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center text-slate-400">
+      <div className="flex min-h-[60vh] items-center justify-center text-neutral-400">
         No player profile found.
       </div>
     );
@@ -266,14 +266,14 @@ export default function ProfilePage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setEditing(false)}
-              className="flex items-center gap-2 rounded-lg border border-[#1e2d3d] px-4 py-2 text-sm font-bold text-slate-400 transition-colors hover:bg-white/5"
+              className="flex items-center gap-2 rounded-lg border border-[#1c1c1c] px-4 py-2 text-sm font-bold text-neutral-400 transition-colors hover:bg-white/5"
             >
               <X size={15} /> Cancel
             </button>
             <button
               onClick={saveProfile}
               disabled={saving}
-              className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#070b10] transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#000000] transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               <Save size={15} /> {saving ? 'Saving…' : 'Save'}
             </button>
@@ -282,7 +282,7 @@ export default function ProfilePage() {
       </div>
 
       {/* ── Profile hero ───────────────────────────────────── */}
-      <div className="mb-8 flex flex-col items-start gap-5 rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-6 sm:flex-row sm:items-center">
+      <div className="mb-8 flex flex-col items-start gap-5 rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6 sm:flex-row sm:items-center">
         <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 border-[#D4AF37]/40 bg-[#D4AF37]/10 text-3xl font-black text-[#D4AF37]">
           {initial}
         </div>
@@ -292,12 +292,12 @@ export default function ProfilePage() {
             <div className="mt-1 text-sm font-bold text-[#22c55e]">"{player.nickname}"</div>
           )}
           {joinedAt && (
-            <div className="mt-1 text-xs text-slate-500">
+            <div className="mt-1 text-xs text-neutral-500">
               Member since {new Date(joinedAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
             </div>
           )}
           {player.cdh_number && (
-            <div className="mt-1 text-xs text-slate-500">CDH: {player.cdh_number}</div>
+            <div className="mt-1 text-xs text-neutral-500">CDH: {player.cdh_number}</div>
           )}
         </div>
         <div className="flex gap-3">
@@ -305,16 +305,16 @@ export default function ProfilePage() {
             <div className="text-3xl font-black text-[#D4AF37]">
               {player.handicap_index != null ? Number(player.handicap_index).toFixed(1) : '—'}
             </div>
-            <div className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-500">Handicap</div>
+            <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">Handicap</div>
           </div>
-          <div className="rounded-xl border border-[#1e2d3d] bg-[#070b10] px-6 py-4 text-center">
+          <div className="rounded-xl border border-[#1c1c1c] bg-[#000000] px-6 py-4 text-center">
             <div className="text-3xl font-black text-white">{inBagCount}</div>
-            <div className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-500">In Bag</div>
+            <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">In Bag</div>
           </div>
           {stats.rounds > 0 && (
-            <div className="rounded-xl border border-[#1e2d3d] bg-[#070b10] px-6 py-4 text-center">
+            <div className="rounded-xl border border-[#1c1c1c] bg-[#000000] px-6 py-4 text-center">
               <div className="text-3xl font-black text-white">{stats.rounds}</div>
-              <div className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-500">Rounds</div>
+              <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">Rounds</div>
             </div>
           )}
         </div>
@@ -328,7 +328,7 @@ export default function ProfilePage() {
           {/* Profile details */}
           <section>
             <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Profile Details</h2>
-            <div className="overflow-hidden rounded-2xl border border-[#1e2d3d] bg-[#0f1923] divide-y divide-[#1e2d3d]">
+            <div className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] divide-y divide-[#1c1c1c]">
               <ProfileField label="Display Name"   value={name}     onChange={setName}     editing={editing} placeholder="Your name" />
               <ProfileField label="Nickname"        value={nickname} onChange={setNickname} editing={editing} placeholder='"The Machine"' />
               <ProfileField label="Handicap Index"  value={hcp}      onChange={setHcp}      editing={editing} placeholder="e.g. 14.2" type="number" />
@@ -363,9 +363,9 @@ export default function ProfilePage() {
                   { label: 'Average',    value: stats.avg  != null ? `${stats.avg} pts`  : '—' },
                   { label: 'Birdies',    value: stats.birdies },
                 ].map(s => (
-                  <div key={s.label} className="rounded-xl border border-[#1e2d3d] bg-[#0f1923] p-4 text-center">
+                  <div key={s.label} className="rounded-xl border border-[#1c1c1c] bg-[#111111] p-4 text-center">
                     <div className="text-2xl font-black text-white">{s.value}</div>
-                    <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">{s.label}</div>
+                    <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-neutral-500">{s.label}</div>
                   </div>
                 ))}
               </div>
@@ -375,7 +375,7 @@ export default function ProfilePage() {
           {/* Account */}
           <section>
             <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Account</h2>
-            <div className="overflow-hidden rounded-2xl border border-[#1e2d3d] bg-[#0f1923] divide-y divide-[#1e2d3d]">
+            <div className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] divide-y divide-[#1c1c1c]">
 
               {/* Change password */}
               <div>
@@ -389,32 +389,32 @@ export default function ProfilePage() {
                     </div>
                     <div className="text-left">
                       <div className="text-sm font-bold text-white">Change Password</div>
-                      <div className="text-xs text-slate-500">Update your login password</div>
+                      <div className="text-xs text-neutral-500">Update your login password</div>
                     </div>
                   </div>
-                  {showPw ? <ChevronDown size={16} className="text-slate-600" /> : <ChevronRight size={16} className="text-slate-600" />}
+                  {showPw ? <ChevronDown size={16} className="text-neutral-600" /> : <ChevronRight size={16} className="text-neutral-600" />}
                 </button>
                 {showPw && (
-                  <div className="space-y-3 border-t border-[#1e2d3d] px-5 py-4">
+                  <div className="space-y-3 border-t border-[#1c1c1c] px-5 py-4">
                     <input
                       type="password"
                       placeholder="New password (min 6 chars)"
                       value={newPw}
                       onChange={e => setNewPw(e.target.value)}
-                      className="w-full rounded-lg border border-[#1e2d3d] bg-[#070b10] px-4 py-3 text-sm text-white placeholder-slate-600 focus:border-[#D4AF37]/40 focus:outline-none"
+                      className="w-full rounded-lg border border-[#1c1c1c] bg-[#000000] px-4 py-3 text-sm text-white placeholder-neutral-600 focus:border-[#D4AF37]/40 focus:outline-none"
                     />
                     <input
                       type="password"
                       placeholder="Confirm new password"
                       value={confirmPw}
                       onChange={e => setConfirmPw(e.target.value)}
-                      className="w-full rounded-lg border border-[#1e2d3d] bg-[#070b10] px-4 py-3 text-sm text-white placeholder-slate-600 focus:border-[#D4AF37]/40 focus:outline-none"
+                      className="w-full rounded-lg border border-[#1c1c1c] bg-[#000000] px-4 py-3 text-sm text-white placeholder-neutral-600 focus:border-[#D4AF37]/40 focus:outline-none"
                     />
                     {pwError && <p className="text-xs text-[#f87171]">{pwError}</p>}
                     <button
                       onClick={changePassword}
                       disabled={pwSaving}
-                      className="w-full rounded-lg bg-[#D4AF37] py-2.5 text-sm font-bold text-[#070b10] transition-opacity hover:opacity-90 disabled:opacity-50"
+                      className="w-full rounded-lg bg-[#D4AF37] py-2.5 text-sm font-bold text-[#000000] transition-opacity hover:opacity-90 disabled:opacity-50"
                     >
                       {pwSaving ? 'Updating…' : 'Update Password'}
                     </button>
@@ -433,10 +433,10 @@ export default function ProfilePage() {
                   </div>
                   <div className="text-left">
                     <div className="text-sm font-bold text-red-400">Sign Out</div>
-                    <div className="text-xs text-slate-500">Sign out of Titan Golf web</div>
+                    <div className="text-xs text-neutral-500">Sign out of Titan Golf web</div>
                   </div>
                 </div>
-                <ChevronRight size={16} className="text-slate-600" />
+                <ChevronRight size={16} className="text-neutral-600" />
               </button>
             </div>
           </section>
@@ -451,10 +451,10 @@ export default function ProfilePage() {
               if (!group?.length) return null;
               return (
                 <div key={cat}>
-                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-neutral-500">
                     {CATEGORY_LABELS[cat]}
                   </div>
-                  <div className="overflow-hidden rounded-2xl border border-[#1e2d3d] bg-[#0f1923] divide-y divide-[#1e2d3d]">
+                  <div className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] divide-y divide-[#1c1c1c]">
                     {group.map(club => (
                       <ClubRow
                         key={club.id}
@@ -468,7 +468,7 @@ export default function ProfilePage() {
               );
             })}
           </div>
-          <p className="mt-4 text-center text-xs text-slate-600">
+          <p className="mt-4 text-center text-xs text-neutral-600">
             Tap the club code to toggle it in/out of your bag.
             Set brand &amp; model to enable distance tracking in the app.
             All changes sync instantly.
@@ -487,7 +487,7 @@ function ProfileField({ label, value, onChange, editing, placeholder, type = 'te
 }) {
   return (
     <div className="flex items-center gap-4 px-5 py-4">
-      <div className="w-36 shrink-0 text-xs font-bold uppercase tracking-widest text-slate-500">{label}</div>
+      <div className="w-36 shrink-0 text-xs font-bold uppercase tracking-widest text-neutral-500">{label}</div>
       {editing ? (
         <input
           type={type}
@@ -495,11 +495,11 @@ function ProfileField({ label, value, onChange, editing, placeholder, type = 'te
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           step={type === 'number' ? '0.1' : undefined}
-          className="flex-1 bg-transparent text-right text-sm text-white placeholder-slate-600 focus:outline-none"
+          className="flex-1 bg-transparent text-right text-sm text-white placeholder-neutral-600 focus:outline-none"
         />
       ) : (
         <div className="flex-1 text-right text-sm font-semibold text-white">
-          {value || <span className="text-slate-600">—</span>}
+          {value || <span className="text-neutral-600">—</span>}
         </div>
       )}
     </div>
@@ -542,7 +542,7 @@ function ClubRow({ club, onToggleBag, onSaveBrandModel }: {
         title={club.in_bag ? 'Remove from bag' : 'Add to bag'}
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-black transition-all ${
           club.in_bag
-            ? 'border-[#D4AF37] bg-[#D4AF37] text-[#070b10]'
+            ? 'border-[#D4AF37] bg-[#D4AF37] text-[#000000]'
             : 'border-[#D4AF37]/40 text-[#D4AF37] hover:border-[#D4AF37]'
         }`}
       >
@@ -556,7 +556,7 @@ function ClubRow({ club, onToggleBag, onSaveBrandModel }: {
           <select
             value={brand}
             onChange={e => handleBrandChange(e.target.value)}
-            className="rounded border border-[#1e2d3d] bg-[#070b10] px-2 py-1 text-xs text-slate-300 focus:border-[#D4AF37]/40 focus:outline-none max-w-[110px]"
+            className="rounded border border-[#1c1c1c] bg-[#000000] px-2 py-1 text-xs text-neutral-300 focus:border-[#D4AF37]/40 focus:outline-none max-w-[110px]"
           >
             <option value="">Brand…</option>
             {CLUB_BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
@@ -565,7 +565,7 @@ function ClubRow({ club, onToggleBag, onSaveBrandModel }: {
             <select
               value={model}
               onChange={e => handleModelChange(e.target.value)}
-              className="rounded border border-[#1e2d3d] bg-[#070b10] px-2 py-1 text-xs text-slate-300 focus:border-[#D4AF37]/40 focus:outline-none max-w-[140px]"
+              className="rounded border border-[#1c1c1c] bg-[#000000] px-2 py-1 text-xs text-neutral-300 focus:border-[#D4AF37]/40 focus:outline-none max-w-[140px]"
             >
               <option value="">Model…</option>
               {models.map(m => <option key={m} value={m}>{m}</option>)}

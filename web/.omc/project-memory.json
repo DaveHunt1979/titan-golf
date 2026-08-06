@@ -153,6 +153,12 @@
       "type": "file"
     },
     {
+      "path": "src/app/layout.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786017848822,
+      "type": "file"
+    },
+    {
       "path": "src/app/tournament/archive/page.tsx",
       "accessCount": 1,
       "lastAccessed": 1784272557974,
@@ -168,6 +174,12 @@
       "path": "src/app/rounds/[id]/page.tsx",
       "accessCount": 1,
       "lastAccessed": 1786017013607,
+      "type": "file"
+    },
+    {
+      "path": "src/app/globals.css",
+      "accessCount": 1,
+      "lastAccessed": 1786017864969,
       "type": "file"
     }
   ],

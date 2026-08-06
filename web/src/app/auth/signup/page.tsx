@@ -36,7 +36,7 @@ export default function SignupPage() {
         <div className="w-full max-w-sm text-center">
           <div className="mb-4 text-4xl">📧</div>
           <h2 className="mb-2 text-xl font-black text-white">Check your email</h2>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-neutral-400">
             We&apos;ve sent a confirmation link to <span className="text-white">{email}</span>.
             Click it to activate your account.
           </p>
@@ -55,11 +55,11 @@ export default function SignupPage() {
               <span className="text-[#D4AF37]">TITAN</span>
               <span className="text-white"> GOLF</span>
             </div>
-            <div className="mt-1 text-sm text-slate-400">Create your account</div>
+            <div className="mt-1 text-sm text-neutral-400">Create your account</div>
           </div>
         </div>
 
-        <form onSubmit={handleSignup} className="rounded-2xl border border-[#1e2d3d] bg-[#0f1923] p-8">
+        <form onSubmit={handleSignup} className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-8">
           {error && (
             <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
               {error}
@@ -67,7 +67,7 @@ export default function SignupPage() {
           )}
 
           <div className="mb-4">
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400">
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-neutral-400">
               Email
             </label>
             <input
@@ -76,12 +76,12 @@ export default function SignupPage() {
               onChange={e => setEmail(e.target.value)}
               required
               placeholder="you@example.com"
-              className="w-full rounded-lg border border-[#1e2d3d] bg-[#070b10] px-4 py-3 text-sm text-white placeholder-slate-600 outline-none transition-colors focus:border-[#D4AF37]/50 focus:ring-1 focus:ring-[#D4AF37]/20"
+              className="w-full rounded-lg border border-[#1c1c1c] bg-[#000000] px-4 py-3 text-sm text-white placeholder-neutral-600 outline-none transition-colors focus:border-[#D4AF37]/50 focus:ring-1 focus:ring-[#D4AF37]/20"
             />
           </div>
 
           <div className="mb-6">
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400">
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-neutral-400">
               Password
             </label>
             <input
@@ -91,20 +91,20 @@ export default function SignupPage() {
               required
               minLength={6}
               placeholder="••••••••"
-              className="w-full rounded-lg border border-[#1e2d3d] bg-[#070b10] px-4 py-3 text-sm text-white placeholder-slate-600 outline-none transition-colors focus:border-[#D4AF37]/50 focus:ring-1 focus:ring-[#D4AF37]/20"
+              className="w-full rounded-lg border border-[#1c1c1c] bg-[#000000] px-4 py-3 text-sm text-white placeholder-neutral-600 outline-none transition-colors focus:border-[#D4AF37]/50 focus:ring-1 focus:ring-[#D4AF37]/20"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-[#D4AF37] py-3 text-sm font-bold text-[#070b10] transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="w-full rounded-lg bg-[#D4AF37] py-3 text-sm font-bold text-[#000000] transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {loading ? 'Creating account…' : 'Create Account'}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
+        <p className="mt-6 text-center text-sm text-neutral-500">
           Already have an account?{' '}
           <Link href="/auth/login" className="font-semibold text-[#D4AF37] hover:underline">
             Sign in
