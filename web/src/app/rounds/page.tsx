@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { Flag } from 'lucide-react';
+import Link from 'next/link';
+import { Flag, ChevronRight } from 'lucide-react';
 
 interface RoundSummary {
   id: string;
@@ -120,7 +121,7 @@ export default async function RoundsPage() {
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-[#1e2d3d]">
           {/* Header */}
-          <div className="grid min-w-[56rem] grid-cols-[1fr_7rem_4rem_5rem_5rem_5rem_6rem_5rem] gap-4 border-b border-[#1e2d3d] bg-[#0f1923] px-5 py-3">
+          <div className="grid min-w-[58rem] grid-cols-[1fr_7rem_4rem_5rem_5rem_5rem_6rem_5rem_2rem] gap-4 border-b border-[#1e2d3d] bg-[#0f1923] px-5 py-3">
             <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Course</div>
             <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Date</div>
             <div className="text-center text-xs font-bold uppercase tracking-widest text-slate-500">Holes</div>
@@ -129,6 +130,7 @@ export default async function RoundsPage() {
             <div className="text-center text-xs font-bold uppercase tracking-widest text-slate-500">Pts</div>
             <div className="text-center text-xs font-bold uppercase tracking-widest text-slate-500">Fairway</div>
             <div className="text-center text-xs font-bold uppercase tracking-widest text-slate-500">Putts</div>
+            <div />
           </div>
 
           {rounds.map((r, i) => {
@@ -137,9 +139,10 @@ export default async function RoundsPage() {
               ? Math.round((r.fairwaysHit / r.fairwaysTracked) * 100)
               : null;
             return (
-              <div
+              <Link
                 key={r.id}
-                className={`grid min-w-[56rem] grid-cols-[1fr_7rem_4rem_5rem_5rem_5rem_6rem_5rem] items-center gap-4 border-b border-[#1e2d3d] px-5 py-4 transition-colors last:border-0 hover:bg-white/3 ${
+                href={`/rounds/${r.id}`}
+                className={`grid min-w-[58rem] grid-cols-[1fr_7rem_4rem_5rem_5rem_5rem_6rem_5rem_2rem] items-center gap-4 border-b border-[#1e2d3d] px-5 py-4 transition-colors last:border-0 hover:bg-white/5 ${
                   isLeader ? 'bg-[#D4AF37]/5' : i % 2 === 0 ? 'bg-[#070b10]' : 'bg-[#0a0f17]'
                 }`}
               >
@@ -171,7 +174,10 @@ export default async function RoundsPage() {
                 <div className="text-center text-sm text-slate-400">
                   {r.avgPutts == null ? '—' : r.avgPutts.toFixed(1)}
                 </div>
-              </div>
+                <div className="flex justify-end">
+                  <ChevronRight size={16} className="text-slate-600" />
+                </div>
+              </Link>
             );
           })}
         </div>
