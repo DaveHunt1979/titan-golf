@@ -8,8 +8,10 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
+import { uploadImage } from '../../../src/lib/uploadImage';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -123,7 +125,15 @@ export default function BuildTournamentScreen() {
   const [days, setDays]                     = useState<DayConfig[]>([]);
   const [ptsWin, setPtsWin]               = useState('1');
   const [ptsHalf, setPtsHalf]             = useState('0.5');
+  const [openingRounds, setOpeningRounds] = useState('3');
+  const [bonusPoints, setBonusPoints]     = useState('2');
   const [includeInKronos, setIncludeInKronos] = useState(false);
+  const [description, setDescription]     = useState('');
+  const [startDate, setStartDate]         = useState('');
+  const [endDate, setEndDate]             = useState('');
+  const [numTeams, setNumTeams]           = useState('2');
+  const [maxHandicap, setMaxHandicap]     = useState('');
+  const [logoUri, setLogoUri]             = useState<string | null>(null);
   const [creating, setCreating]             = useState(false);
 
   useFocusEffect(useCallback(() => {
@@ -134,7 +144,15 @@ export default function BuildTournamentScreen() {
     setDays([]);
     setPtsWin('1');
     setPtsHalf('0.5');
+    setOpeningRounds('3');
+    setBonusPoints('2');
     setIncludeInKronos(false);
+    setDescription('');
+    setStartDate('');
+    setEndDate('');
+    setNumTeams('2');
+    setMaxHandicap('');
+    setLogoUri(null);
     setCreating(false);
   }, []));
 
@@ -185,17 +203,41 @@ export default function BuildTournamentScreen() {
 
   const isMatchplay = selectedFormat === 'ryder_cup' || selectedFormat === 'team_matchplay';
 
+  async function pickLogo() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow access to your photo library to add a tournament logo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images', allowsEditing: true, aspect: [1, 1], quality: 0.7,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    setLogoUri(result.assets[0].uri);
+  }
+
   async function create() {
     if (!selectedFormat || !name.trim()) return;
     if (!societyId) { Alert.alert('Error', 'Society not found.'); return; }
+
+    const numTeamsN = parseInt(numTeams, 10) || 0;
+    if (isMatchplay && numTeamsN % 2 !== 0) {
+      Alert.alert('Number of teams must be even', 'Titan Tour and Ryder Cup formats need an even number of teams to pair up.');
+      return;
+    }
+
     setCreating(true);
 
     const winPts  = parseFloat(ptsWin)  || 1;
     const halfPts = parseFloat(ptsHalf) || 0.5;
+    const openingRoundsN = parseInt(openingRounds, 10) || 0;
+    const bonusPointsN   = parseFloat(bonusPoints) || 0;
+    const maxHandicapN   = maxHandicap.trim() ? parseFloat(maxHandicap) : null;
 
     const settings = {
       format_type: selectedFormat,
       num_days: days.length,
+      num_teams: isMatchplay ? numTeamsN : null,
       day_configs: days.map(d => ({ format: d.format, hcp_pct: d.hcpPct })),
     };
 
@@ -211,6 +253,12 @@ export default function BuildTournamentScreen() {
         tournament_type: tournamentType(selectedFormat),
         pts_win:         isMatchplay ? winPts  : 1,
         pts_half:        isMatchplay ? halfPts : 0.5,
+        opening_rounds:  isMatchplay ? openingRoundsN : 0,
+        bonus_points:    isMatchplay ? bonusPointsN   : 0,
+        description:     description.trim() || null,
+        start_date:      startDate.trim() || null,
+        end_date:        endDate.trim() || null,
+        max_handicap:    maxHandicapN,
         status:          'draft',
         settings,
         include_in_kronos: includeInKronos,
@@ -223,6 +271,15 @@ export default function BuildTournamentScreen() {
       setCreating(false);
       Alert.alert('Error', compErr?.message ?? 'Could not create competition');
       return;
+    }
+
+    if (logoUri) {
+      try {
+        const logoUrl = await uploadImage(logoUri, 'society-assets', `${societyId}/tournaments/${comp.id}.jpg`);
+        await supabase.from('competitions').update({ logo_url: logoUrl }).eq('id', comp.id);
+      } catch (e: any) {
+        Alert.alert('Logo upload failed', e?.message ?? 'The tournament was created, but the logo couldn\'t be uploaded. You can retry later.');
+      }
     }
 
     const dayRows = days.map((d, i) => ({
@@ -355,6 +412,41 @@ export default function BuildTournamentScreen() {
               maxLength={4}
             />
 
+            <Text style={styles.fieldLabel}>LOGO (OPTIONAL)</Text>
+            <TouchableOpacity style={styles.logoPicker} onPress={pickLogo} activeOpacity={0.8}>
+              {logoUri
+                ? <Image source={{ uri: logoUri }} style={styles.logoPreview} />
+                : <Text style={styles.logoPickerText}>+ Add tournament logo</Text>
+              }
+            </TouchableOpacity>
+
+            <Text style={styles.fieldLabel}>DESCRIPTION (OPTIONAL)</Text>
+            <TextInput
+              style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+              value={description}
+              onChangeText={setDescription}
+              placeholder="What's this tournament about?"
+              placeholderTextColor="#444"
+              multiline
+            />
+
+            <Text style={styles.fieldLabel}>START DATE (OPTIONAL)</Text>
+            <TextInput
+              style={styles.input}
+              value={startDate}
+              onChangeText={setStartDate}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#444"
+            />
+            <Text style={styles.fieldLabel}>END DATE (OPTIONAL)</Text>
+            <TextInput
+              style={styles.input}
+              value={endDate}
+              onChangeText={setEndDate}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#444"
+            />
+
             <Text style={styles.fieldLabel}>NUMBER OF DAYS</Text>
             <View style={styles.stepper}>
               <TouchableOpacity
@@ -376,6 +468,37 @@ export default function BuildTournamentScreen() {
 
             {isMatchplay && (
               <>
+                <Text style={styles.fieldLabel}>NUMBER OF TEAMS</Text>
+                <Text style={styles.stepSub}>Must be even so teams can pair up.</Text>
+                <View style={styles.stepper}>
+                  <TouchableOpacity
+                    style={[styles.stepperBtn, (parseInt(numTeams, 10) || 2) <= 2 && styles.stepperBtnOff]}
+                    onPress={() => setNumTeams(String(Math.max(2, (parseInt(numTeams, 10) || 2) - 2)))}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.stepperBtnText}>–</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.stepperValue}>{numTeams} teams</Text>
+                  <TouchableOpacity
+                    style={styles.stepperBtn}
+                    onPress={() => setNumTeams(String((parseInt(numTeams, 10) || 2) + 2))}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.stepperBtnText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.fieldLabel}>MAX HANDICAP (OPTIONAL)</Text>
+                <Text style={styles.stepSub}>Players above this play from the maximum instead of their full handicap.</Text>
+                <TextInput
+                  style={styles.input}
+                  value={maxHandicap}
+                  onChangeText={setMaxHandicap}
+                  placeholder="e.g. 18"
+                  placeholderTextColor="#444"
+                  keyboardType="decimal-pad"
+                />
+
                 <Text style={styles.fieldLabel}>POINTS — MATCH WIN</Text>
                 <TextInput
                   style={styles.input}
@@ -394,6 +517,26 @@ export default function BuildTournamentScreen() {
                   placeholderTextColor="#444"
                   keyboardType="decimal-pad"
                 />
+                <Text style={styles.fieldLabel}>OPENING ROUNDS</Text>
+                <Text style={styles.stepSub}>Each team's captain plays with a different teammate on each of these opening days, before pairings are drawn freely.</Text>
+                <TextInput
+                  style={styles.input}
+                  value={openingRounds}
+                  onChangeText={setOpeningRounds}
+                  placeholder="3"
+                  placeholderTextColor="#444"
+                  keyboardType="number-pad"
+                />
+                <Text style={styles.fieldLabel}>SWEEP BONUS</Text>
+                <Text style={styles.stepSub}>Extra points awarded to a team that wins every singles match on a day.</Text>
+                <TextInput
+                  style={styles.input}
+                  value={bonusPoints}
+                  onChangeText={setBonusPoints}
+                  placeholder="2"
+                  placeholderTextColor="#444"
+                  keyboardType="decimal-pad"
+                />
               </>
             )}
 
@@ -401,7 +544,7 @@ export default function BuildTournamentScreen() {
             <View style={styles.toggleRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.toggleLabel}>Include in Kronos Trophy</Text>
-                <Text style={styles.toggleSub}>Individual Stableford scores count toward the season leaderboard</Text>
+                <Text style={styles.toggleSub}>Individual Stableford scores count toward this tournament's Kronos standings</Text>
               </View>
               <Switch
                 value={includeInKronos}
@@ -484,7 +627,11 @@ export default function BuildTournamentScreen() {
               <ReviewRow label="Name" value={name.trim() || '—'} />
               <ReviewRow label="Year" value={year} />
               <ReviewRow label="Days" value={String(days.length)} />
+              {isMatchplay && <ReviewRow label="Teams" value={numTeams} />}
               {isMatchplay && <ReviewRow label="Points" value={`Win ${ptsWin} / Half ${ptsHalf}`} />}
+              {isMatchplay && <ReviewRow label="Opening Rounds" value={openingRounds} />}
+              {isMatchplay && <ReviewRow label="Sweep Bonus" value={bonusPoints} />}
+              {maxHandicap.trim() !== '' && <ReviewRow label="Max HCP" value={maxHandicap} />}
               <ReviewRow label="Kronos" value={includeInKronos ? '✓ Included' : 'Not included'} last />
             </View>
 
@@ -609,6 +756,13 @@ const styles = StyleSheet.create({
   stepperBtnOff: { opacity: 0.35 },
   stepperBtnText: { fontSize: 20, fontFamily: FFB, color: GOLD },
   stepperValue: { fontSize: 17, fontFamily: FFB, color: '#fff', minWidth: 88, textAlign: 'center' },
+
+  logoPicker: {
+    height: 90, borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c', borderStyle: 'dashed',
+    backgroundColor: '#111', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  },
+  logoPreview:    { width: '100%', height: '100%' },
+  logoPickerText: { fontFamily: FFB, fontSize: 13, color: GOLD },
 
   // Day cards
   dayCard: {

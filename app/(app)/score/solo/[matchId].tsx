@@ -78,6 +78,7 @@ interface MatchInfo {
   round_format: 'stableford' | 'medal';
   status: 'upcoming' | 'in_progress' | 'complete';
   holes_string: string;
+  holes_to_play: number | null;
   home_player_ids: string[];
   side_games: string[] | null;
   day: { course_name: string; course_par: number; course_rating: number; slope_rating: number; day_number: number } | null;
@@ -195,12 +196,17 @@ export default function SoloRoundScreen() {
   const holesStr    = match?.holes_string ?? '..................';
   const holeChars   = holesStr.split('');
   const scoredSet   = new Set(savedScores.map(s => s.hole_number));
-  const holeSequence = startHole > 1
+  const fullHoleSequence = startHole > 1
     ? [...Array.from({ length: 19 - startHole }, (_, i) => startHole + i), ...Array.from({ length: startHole - 1 }, (_, i) => i + 1)]
     : Array.from({ length: 18 }, (_, i) => i + 1);
-  const nextHole  = holeSequence.find(h => !scoredSet.has(h) && holeChars[h - 1] !== 'd') ?? (scoredSet.size >= 18 ? 19 : holeSequence.find(h => !scoredSet.has(h)) ?? 19);
+  // A 9-hole round (front or back) only ever plays the first N holes of the
+  // sequence — completion must stop there, not wrap into the unplayed 9.
+  const holesToPlay = match?.holes_to_play ?? 18;
+  const holeSequence = fullHoleSequence.slice(0, holesToPlay);
+  const lastSequenceHole = holeSequence[holeSequence.length - 1] ?? 18;
+  const nextHole  = holeSequence.find(h => !scoredSet.has(h) && holeChars[h - 1] !== 'd') ?? (scoredSet.size >= holesToPlay ? lastSequenceHole + 1 : holeSequence.find(h => !scoredSet.has(h)) ?? lastSequenceHole + 1);
   const activeHole = editingHole ?? nextHole;
-  const isComplete = roundDone || scoredSet.size >= 18;
+  const isComplete = roundDone || scoredSet.size >= holesToPlay;
   const isStableford = match?.round_format === 'stableford';
 
   const sideGameByHole = (match?.side_games ?? []).reduce((acc, sg) => {
@@ -283,8 +289,8 @@ export default function SoloRoundScreen() {
       const chars = [...m.holes_string.split('')];
       chars[hole - 1] = 'd';
       const newHolesStr = chars.join('');
-      const holesLeft   = newHolesStr.split('').filter(c => c === '.').length;
-      const newStatus   = holesLeft === 0 ? 'complete' : 'in_progress';
+      const scoredCount = newHolesStr.split('').filter(c => c !== '.').length;
+      const newStatus   = scoredCount >= (m.holes_to_play ?? 18) ? 'complete' : 'in_progress';
       const totalPtsSoFar   = scores.reduce((s, h) => s + h.pts,   0);
       const totalGrossSoFar = scores.reduce((s, h) => s + h.gross, 0);
       const parPlayedSoFar  = scores.reduce((s, h) => {
@@ -409,7 +415,7 @@ export default function SoloRoundScreen() {
     // Compute new state before any awaits
     const scoredHoles = new Set([...savedScores.map(s => s.hole_number), holeToSave]);
     const newHolesStr = Array.from({ length: 18 }, (_, i) => scoredHoles.has(i + 1) ? 'd' : '.').join('');
-    const newStatus   = scoredHoles.size >= 18 ? 'complete' : 'in_progress';
+    const newStatus   = scoredHoles.size >= holesToPlay ? 'complete' : 'in_progress';
     const result      = isStableford
       ? `${totalPts + pts} pts`
       : `${vsPar + gross - safePar >= 0 ? '+' : ''}${vsPar + gross - safePar}`;

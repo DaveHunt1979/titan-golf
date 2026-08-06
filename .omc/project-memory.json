@@ -256,14 +256,194 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 12,
-      "lastAccessed": 1785941278941,
+      "accessCount": 33,
+      "lastAccessed": 1785998489225,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 26,
+      "lastAccessed": 1786009615281,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/draw.tsx",
+      "accessCount": 13,
+      "lastAccessed": 1786010272308,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/index.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1786011979404,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 8,
+      "lastAccessed": 1785998578494,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/chat/index.tsx",
+      "accessCount": 8,
+      "lastAccessed": 1785999458384,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/branding.tsx",
+      "accessCount": 8,
+      "lastAccessed": 1786011466132,
       "type": "file"
     },
     {
       "path": "app/(app)/spectate/[matchId].tsx",
+      "accessCount": 7,
+      "lastAccessed": 1785998665269,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1785998158629,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 6,
+      "lastAccessed": 1786005672057,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1786011578161,
+      "type": "file"
+    },
+    {
+      "path": "src/components/ipad/IpadSidebar.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1785999559727,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/prizes.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1786009537667,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/players.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1785999343462,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/camera/index.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1785999508509,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/index.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1786011883628,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/profile/index.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1785999484717,
+      "type": "file"
+    },
+    {
+      "path": "app.json",
+      "accessCount": 3,
+      "lastAccessed": 1786000989448,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/hub-tournament.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786012021292,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/hub-platform.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786012044672,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-08-06 at 07.19.59.png",
       "accessCount": 1,
-      "lastAccessed": 1785941184615,
+      "lastAccessed": 1785997335727,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-08-06 at 07.20.09.png",
+      "accessCount": 1,
+      "lastAccessed": 1785997342661,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/useSociety.ts",
+      "accessCount": 1,
+      "lastAccessed": 1785997394996,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260806_holes_to_play.sql",
+      "accessCount": 1,
+      "lastAccessed": 1785998124547,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/concept-casual.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1785999372722,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/tournaments.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1786004868664,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/teams.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1786004944458,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/tour/day/[dayId].tsx",
+      "accessCount": 1,
+      "lastAccessed": 1786004990595,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260806b_tournament_engine_phase5.sql",
+      "accessCount": 1,
+      "lastAccessed": 1786005614060,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/uploadImage.ts",
+      "accessCount": 1,
+      "lastAccessed": 1786010066319,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260806c_tournament_engine_phase7.sql",
+      "accessCount": 1,
+      "lastAccessed": 1786010073558,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/supabase.ts",
+      "accessCount": 1,
+      "lastAccessed": 1786014252568,
       "type": "file"
     }
   ],

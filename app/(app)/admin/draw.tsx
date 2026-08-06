@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
+import { getStandings } from '../../../src/lib/scoring';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -47,6 +48,7 @@ type Tab = 'players' | 'draw' | 'activate';
 interface CompInfo {
   id: string; name: string; status: string;
   tournament_type: string; pts_win: number; pts_half: number;
+  opening_rounds: number; bonus_points: number; max_handicap: number | null;
 }
 interface DayRow {
   id: string; day_number: number; course_name: string | null;
@@ -54,13 +56,14 @@ interface DayRow {
 }
 interface CompPlayer {
   id: string; player_id: string; team_id: string | null; handicap_index: number | null;
-  display_name: string; avatar_url: string | null;
+  display_name: string; avatar_url: string | null; is_captain: boolean;
 }
 interface TeamRow { id: string; name: string; accent_color: string; }
 interface MatchRow {
   id: string; day_id: string; match_number: number | null;
   home_player_ids: string[]; away_player_ids: string[];
   home_team_id: string | null; away_team_id: string | null; status: string;
+  winner: string | null; result_str: string | null; holes_string: string; is_singles: boolean;
 }
 interface SocMember { player_id: string; display_name: string; handicap_index: number | null; }
 
@@ -82,6 +85,7 @@ export default function TournamentDrawScreen() {
   const [teams, setTeams]               = useState<TeamRow[]>([]);
   const [matches, setMatches]           = useState<MatchRow[]>([]);
   const [societyMembers, setSocietyMembers] = useState<SocMember[]>([]);
+  const [stablefordTotals, setStablefordTotals] = useState<Record<string, number>>({});
 
   const [addModal, setAddModal]         = useState(false);
   const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
@@ -99,13 +103,13 @@ export default function TournamentDrawScreen() {
       { data: teamsData },
       { data: matchData },
     ] = await Promise.all([
-      supabase.from('competitions').select('id,name,status,tournament_type,pts_win,pts_half').eq('id', competitionId).single(),
+      supabase.from('competitions').select('id,name,status,tournament_type,pts_win,pts_half,opening_rounds,bonus_points,max_handicap').eq('id', competitionId).single(),
       supabase.from('competition_days').select('id,day_number,course_name,day_format,hcp_pct').eq('competition_id', competitionId).order('day_number'),
       supabase.from('competition_players')
-        .select('id,player_id,team_id,handicap_index,players(display_name,avatar_url)')
+        .select('id,player_id,team_id,handicap_index,is_captain,players(display_name,avatar_url)')
         .eq('competition_id', competitionId),
       supabase.from('teams').select('id,name,accent_color').eq('society_id', societyId ?? '').order('sort_order'),
-      supabase.from('matches').select('id,day_id,match_number,home_player_ids,away_player_ids,home_team_id,away_team_id,status')
+      supabase.from('matches').select('id,day_id,match_number,home_player_ids,away_player_ids,home_team_id,away_team_id,status,winner,result_str,holes_string,is_singles')
         .eq('competition_id', competitionId).order('match_number'),
     ]);
 
@@ -116,9 +120,25 @@ export default function TournamentDrawScreen() {
       handicap_index: cp.handicap_index,
       display_name: cp.players?.display_name ?? '—',
       avatar_url: cp.players?.avatar_url ?? null,
+      is_captain: cp.is_captain ?? false,
     })));
     if (teamsData) setTeams(teamsData as TeamRow[]);
     if (matchData) setMatches(matchData as unknown as MatchRow[]);
+
+    // Cumulative Stableford so far this tournament, used to rank players for
+    // singles-draw pairing (best-vs-best across the two sides).
+    if (matchData && (matchData as any[]).length > 0) {
+      const matchIds = (matchData as any[]).map(m => m.id);
+      const { data: holesData } = await supabase
+        .from('match_holes').select('player_id,stableford_pts').in('match_id', matchIds);
+      const totals: Record<string, number> = {};
+      (holesData as any[] ?? []).forEach(h => {
+        if (h.stableford_pts != null) totals[h.player_id] = (totals[h.player_id] ?? 0) + h.stableford_pts;
+      });
+      setStablefordTotals(totals);
+    } else {
+      setStablefordTotals({});
+    }
     setLoading(false);
   }, [competitionId, societyId]);
 
@@ -155,11 +175,15 @@ export default function TournamentDrawScreen() {
     if (selectedToAdd.size === 0) { setAddModal(false); return; }
     setAdding(true);
     const member = societyMembers.filter(m => selectedToAdd.has(m.player_id));
+    const maxHcp = comp?.max_handicap ?? null;
     const rows = member.map(m => ({
       competition_id: competitionId,
       player_id: m.player_id,
       team_id: addTeam,
-      handicap_index: m.handicap_index,
+      // Players above the tournament's max handicap play from the max instead.
+      handicap_index: (maxHcp != null && m.handicap_index != null)
+        ? Math.min(m.handicap_index, maxHcp)
+        : m.handicap_index,
     }));
     const { error } = await supabase.from('competition_players').insert(rows);
     setAdding(false);
@@ -183,6 +207,37 @@ export default function TournamentDrawScreen() {
     await load();
   }
 
+  async function toggleCaptain(cp: CompPlayer) {
+    if (!cp.team_id) return;
+    if (cp.is_captain) {
+      await supabase.from('competition_players').update({ is_captain: false }).eq('id', cp.id);
+    } else {
+      // Only one captain per team — clear any existing captain on this team first.
+      await supabase.from('competition_players').update({ is_captain: false }).eq('competition_id', competitionId).eq('team_id', cp.team_id);
+      await supabase.from('competition_players').update({ is_captain: true }).eq('id', cp.id);
+    }
+    await load();
+  }
+
+  // Teammates a captain has already partnered with in a pairs match on an
+  // earlier opening-round day — used so the draw spreads the captain around
+  // the team instead of leaving pairing pure luck-of-the-shuffle.
+  function priorPartners(teamId: string, playerId: string, beforeDayNumber: number): Set<string> {
+    const openingRounds = comp?.opening_rounds ?? 0;
+    const partners = new Set<string>();
+    for (const m of matches) {
+      const day = days.find(d => d.id === m.day_id);
+      if (!day || day.day_number >= beforeDayNumber || day.day_number > openingRounds) continue;
+      if (m.home_team_id === teamId && m.home_player_ids.includes(playerId)) {
+        m.home_player_ids.forEach(pid => { if (pid !== playerId) partners.add(pid); });
+      }
+      if (m.away_team_id === teamId && m.away_player_ids.includes(playerId)) {
+        m.away_player_ids.forEach(pid => { if (pid !== playerId) partners.add(pid); });
+      }
+    }
+    return partners;
+  }
+
   async function generateDraw(day: DayRow) {
     const grouped: Record<string, string[]> = {};
     for (const cp of compPlayers) {
@@ -202,8 +257,36 @@ export default function TournamentDrawScreen() {
     const ppm       = isPairs ? 2 : 1;
     const roundFmt  = dayFormatToRoundFormat(df);
     const hcp       = day.hcp_pct ?? 100;
+    const isOpeningRound = day.day_number <= (comp?.opening_rounds ?? 0);
+    const maxDayNumber   = days.length > 0 ? Math.max(...days.map(d => d.day_number)) : day.day_number;
+    const isFinalDay      = day.day_number === maxDayNumber;
 
-    for (const tid of teamIds) grouped[tid] = shuffle(grouped[tid]);
+    // Order each team's roster for how this day should pair them:
+    // - Singles: best-to-worst by Stableford so far, so pairing by index
+    //   matches best-vs-best across the two sides (spec: auto-pair by rank).
+    // - Pairs, opening rounds: captain first, partnered with a teammate they
+    //   haven't played with yet this opening window; rest shuffled.
+    // - Everything else: pure shuffle, as before.
+    for (const tid of teamIds) {
+      const roster = grouped[tid];
+      if (isSingles) {
+        grouped[tid] = [...roster].sort((a, b) => (stablefordTotals[b] ?? 0) - (stablefordTotals[a] ?? 0));
+      } else if (isPairs && isOpeningRound) {
+        const captain = compPlayers.find(cp => cp.team_id === tid && cp.is_captain)?.player_id;
+        if (captain && roster.includes(captain)) {
+          const already = priorPartners(tid, captain, day.day_number);
+          const candidates = roster.filter(pid => pid !== captain && !already.has(pid));
+          const pool = candidates.length > 0 ? candidates : roster.filter(pid => pid !== captain);
+          const partner = shuffle(pool)[0];
+          const rest = shuffle(roster.filter(pid => pid !== captain && pid !== partner));
+          grouped[tid] = partner ? [captain, partner, ...rest] : shuffle(roster);
+        } else {
+          grouped[tid] = shuffle(roster);
+        }
+      } else {
+        grouped[tid] = shuffle(roster);
+      }
+    }
 
     const matchRows: any[] = [];
     let matchNum = 1;
@@ -226,6 +309,36 @@ export default function TournamentDrawScreen() {
           hcp_allowance:  hcp,
           status:         'upcoming',
         });
+      }
+    } else if (isFinalDay) {
+      // Final-day knockout: pair by current league position — 1st vs 2nd,
+      // 3rd vs 4th, etc. — rather than the round-robin rotation used earlier.
+      const standings = getStandings(
+        matches.filter(m => m.home_team_id && m.away_team_id) as any,
+        comp?.pts_win ?? 1, comp?.pts_half ?? 0.5,
+      );
+      const bracket = standings.map(s => s.teamId).filter(id => teamIds.includes(id));
+      for (const tid of teamIds) if (!bracket.includes(tid)) bracket.push(tid);
+
+      for (let i = 0; i < bracket.length - 1; i += 2) {
+        const tH = bracket[i]; const tA = bracket[i + 1];
+        const pH = grouped[tH] ?? []; const pA = grouped[tA] ?? [];
+        const n = Math.floor(Math.min(pH.length, pA.length) / ppm);
+        for (let j = 0; j < n; j++) {
+          matchRows.push({
+            competition_id: competitionId,
+            day_id:         day.id,
+            match_number:   matchNum++,
+            home_team_id:   tH,
+            away_team_id:   tA,
+            home_player_ids: isPairs ? [pH[j*2], pH[j*2+1]].filter(Boolean) : [pH[j]],
+            away_player_ids: isPairs ? [pA[j*2], pA[j*2+1]].filter(Boolean) : [pA[j]],
+            round_format:   roundFmt,
+            is_singles:     isSingles,
+            hcp_allowance:  hcp,
+            status:         'upcoming',
+          });
+        }
       }
     } else {
       // Round-robin: rotate fixture list by day_number so matchups vary each day
@@ -368,8 +481,19 @@ export default function TournamentDrawScreen() {
             ) : (
               compPlayers.map(cp => (
                 <View key={cp.id} style={s.playerRow}>
+                  <TouchableOpacity
+                    onPress={() => toggleCaptain(cp)}
+                    disabled={!cp.team_id}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons
+                      name={cp.is_captain ? 'star' : 'star-outline'}
+                      size={18}
+                      color={cp.is_captain ? GOLD : (cp.team_id ? '#555' : '#222')}
+                    />
+                  </TouchableOpacity>
                   <View style={s.playerInfo}>
-                    <Text style={s.playerName}>{cp.display_name}</Text>
+                    <Text style={s.playerName}>{cp.display_name}{cp.is_captain ? '  (C)' : ''}</Text>
                     {cp.handicap_index != null && (
                       <Text style={s.playerHcp}>HCP {cp.handicap_index}</Text>
                     )}

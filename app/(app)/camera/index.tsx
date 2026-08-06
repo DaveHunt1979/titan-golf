@@ -11,7 +11,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { getPlayerAvatar } from '../../../src/lib/assets';
+import { resolveAvatar } from '../../../src/lib/assets';
 
 // ── TITAN design tokens ───────────────────────────────────────
 const GOLD  = '#D4AF37';
@@ -287,16 +287,14 @@ export default function CameraScreen() {
   }
 
   // ── Camera layout (portrait / landscape) ─────────────────────
-  const avatar = info.playerId ? getPlayerAvatar(info.playerId, 'normal') : null;
+  const avatar = info.playerId ? resolveAvatar(info.playerId, info.avatarUrl) : null;
 
   const Banner = (
     <View style={[s.banner, isLandscape && s.bannerLandscape]}>
       <View style={s.bannerLeft}>
         {avatar
           ? <Image source={avatar} style={s.bannerAvatar} />
-          : info.avatarUrl
-            ? <Image source={{ uri: info.avatarUrl }} style={s.bannerAvatar} />
-            : <View style={[s.bannerAvatar, s.bannerAvatarFallback]}>
+          : <View style={[s.bannerAvatar, s.bannerAvatarFallback]}>
                 <Text style={s.bannerInitial}>{info.name?.[0] ?? '?'}</Text>
               </View>
         }

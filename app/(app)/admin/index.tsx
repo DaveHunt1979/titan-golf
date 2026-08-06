@@ -1,21 +1,30 @@
 import { useEffect, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity,
-  KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Share, Clipboard, Image,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity,
+  Alert, ActivityIndicator, Share, Clipboard, Image, useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
+import { IS_PAD } from '../../../src/lib/useDeviceLayout';
 
-const GOLD = '#D4AF37';
-const GREEN = '#4ade80';
-const RED = '#f87171';
+const GOLD   = '#D4AF37';
+const RED    = '#f87171';
+const PURPLE = '#a78bfa';
+const BLUE   = '#60a5fa';
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
+
+const BUCKETS = [
+  { key: 'swindle',    label: 'Swindle',    sub: 'Weekly games & money list',      icon: 'cash-outline'     as const, accent: PURPLE, route: '/(app)/admin/swindle' },
+  { key: 'tournament', label: 'Tournament', sub: 'Branding, teams & schedule',     icon: 'trophy-outline'   as const, accent: GOLD,   route: '/(app)/admin/hub-tournament' },
+  { key: 'platform',   label: 'Platform',   sub: 'Players, courses & the rest',    icon: 'settings-outline' as const, accent: BLUE,   route: '/(app)/admin/hub-platform' },
+] as const;
 
 export default function SocietyAdminScreen() {
   const [fontsLoaded] = useFonts({
@@ -26,17 +35,13 @@ export default function SocietyAdminScreen() {
   const router = useRouter();
   const dc = useDynamicColors();
   const { localLogo, logoUrl } = useSocietyTheme();
+  const { width: winW } = useWindowDimensions();
+  const contentW = IS_PAD ? winW - 220 : winW;
+  const tileW = Math.floor((contentW - 40 - 10) / 2);
   const { societyId, loading: societyLoading } = useAdminSociety();
   const [societyName, setSocietyName] = useState('');
-  const [instagramUrl, setInstagramUrl] = useState('');
-  const [joinPin, setJoinPin]           = useState('');
-  const [activeTournamentName, setActiveTournamentName] = useState('');
-  const [activeTournamentPin, setActiveTournamentPin]   = useState('');
-  const [casualCode, setCasualCode]   = useState('');
-  const [tourCode, setTourCode]       = useState('');
-  const [swindleCode, setSwindleCode] = useState('');
+  const [joinPin, setJoinPin]         = useState('');
   const [loading, setLoading]         = useState(true);
-  const [saving, setSaving]           = useState(false);
   const [deleting, setDeleting]       = useState(false);
 
   useEffect(() => {
@@ -44,21 +49,11 @@ export default function SocietyAdminScreen() {
     if (!societyId) { setLoading(false); return; }
     (async () => {
       try {
-        const [{ data }, { data: activeComp }] = await Promise.all([
-          supabase.from('societies').select('name, instagram_url, join_pin, casual_join_code, tour_join_code, swindle_join_code').eq('id', societyId).single(),
-          supabase.from('competitions').select('name, pin').eq('status', 'active').limit(1).single(),
-        ]);
+        const { data } = await supabase
+          .from('societies').select('name, join_pin').eq('id', societyId).single();
         if (data) {
           setSocietyName((data as any).name ?? '');
-          setInstagramUrl((data as any).instagram_url ?? '');
           setJoinPin(String((data as any).join_pin ?? '').replace(/[^0-9]/g, ''));
-          setCasualCode((data as any).casual_join_code ?? '');
-          setTourCode((data as any).tour_join_code ?? '');
-          setSwindleCode((data as any).swindle_join_code ?? '');
-        }
-        if (activeComp) {
-          setActiveTournamentName((activeComp as any).name ?? '');
-          setActiveTournamentPin(String((activeComp as any).pin ?? '').replace(/[^0-9]/g, ''));
         }
       } finally {
         setLoading(false);
@@ -119,49 +114,6 @@ export default function SocietyAdminScreen() {
     }
   }
 
-  async function shareTournamentPin() {
-    const formatted = activeTournamentPin.split('').join(' ');
-    try {
-      await Share.share({ message: `Join ${activeTournamentName} on Titan Golf — your tournament PIN is: ${formatted}` });
-    } catch {
-      Clipboard.setString(activeTournamentPin);
-      Alert.alert('Copied', 'Tournament PIN copied to clipboard.');
-    }
-  }
-
-  async function shareAreaCode(code: string, area: string) {
-    const msg = `Join ${societyName} on Titan Golf — ${area} code: ${code}`;
-    try {
-      await Share.share({ message: msg });
-    } catch {
-      Clipboard.setString(code);
-      Alert.alert('Copied', `${area} code copied to clipboard.`);
-    }
-  }
-
-  async function save() {
-    setSaving(true);
-    const raw = instagramUrl.trim();
-    let normalized = raw;
-    if (raw && !raw.startsWith('http')) {
-      const handle = raw.replace(/^@/, '');
-      normalized = `https://www.instagram.com/${handle}/`;
-    }
-
-    const { error } = await supabase
-      .from('societies')
-      .update({ instagram_url: normalized || null } as any)
-      .eq('id', societyId);
-
-    setSaving(false);
-    if (error) {
-      Alert.alert('Error', error.message);
-    } else {
-      setInstagramUrl(normalized);
-      Alert.alert('Saved', 'Society settings updated.');
-    }
-  }
-
   if (loading || societyLoading || !fontsLoaded) {
     return (
       <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
@@ -182,10 +134,7 @@ export default function SocietyAdminScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={[s.container, { backgroundColor: dc.bg }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
@@ -200,24 +149,18 @@ export default function SocietyAdminScreen() {
           <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.headerLogo} resizeMode="contain" />
           <Text style={[s.headerSub, { color: dc.gold }]}>ADMIN</Text>
         </View>
-        <TouchableOpacity onPress={save} disabled={saving}>
-          <Text style={[s.saveBtn, { color: dc.gold }, saving && { opacity: 0.4 }]}>
-            {saving ? 'Saving…' : 'Save'}
-          </Text>
-        </TouchableOpacity>
+        <View style={{ width: 60 }} />
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
       >
         {/* SOCIETY */}
         <View style={s.section}>
-          <Text style={[s.sectionLabel, { color: dc.cardText }]}>SOCIETY</Text>
           <View style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }]}>
-            <Text style={[s.cardLabel, { color: dc.cardText }]}>Name</Text>
+            <Text style={[s.cardLabel, { color: dc.cardText }]}>Society</Text>
             <Text style={[s.cardValue, { color: dc.cardText }]}>{societyName}</Text>
           </View>
           <View style={[s.card, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}>
@@ -241,255 +184,22 @@ export default function SocietyAdminScreen() {
           </View>
         </View>
 
-        {/* SOCIAL MEDIA */}
-        <View style={s.section}>
-          <Text style={[s.sectionLabel, { color: dc.cardText }]}>SOCIAL MEDIA</Text>
-          <View style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }]}>
-            <Text style={[s.cardLabel, { color: dc.cardText }]}>Instagram URL or Handle</Text>
-            <TextInput
-              style={[s.input, { backgroundColor: dc.card, borderColor: dc.border, color: dc.cardText }]}
-              value={instagramUrl}
-              onChangeText={setInstagramUrl}
-              placeholder="@yoursociety or full URL"
-              placeholderTextColor="#444"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-            <Text style={[s.hint, { color: dc.cardText }]}>
-              Enter @handle or https://www.instagram.com/yoursociety
-            </Text>
-          </View>
-        </View>
-
-        {/* BRANDING */}
-        <View style={s.section}>
-          <Text style={[s.sectionLabel, { color: dc.cardText }]}>BRANDING</Text>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border }]}
-            onPress={() => router.push('/(app)/admin/branding' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.cardText }]}>Society Branding</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Logo, name, tagline and colours</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
-            onPress={() => router.push('/(app)/admin/teams' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.cardText }]}>Manage Teams</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Add teams, set crests and colours</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* PLAYERS */}
-        <View style={s.section}>
-          <Text style={[s.sectionLabel, { color: dc.cardText }]}>PLAYERS</Text>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border }]}
-            onPress={() => router.push('/(app)/admin/players' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.cardText }]}>Manage Players</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>View roster, add players manually</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
-            onPress={() => router.push('/(app)/admin/groups' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.cardText }]}>Player Groups</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Named groups for quick game setup</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* CODES & PINS */}
-        <View style={s.section}>
-          <Text style={[s.sectionLabel, { color: dc.cardText }]}>CODES &amp; PINS</Text>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border }]}
-            onPress={() => router.push('/(app)/admin/codes' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.cardText }]}>All Codes &amp; PINs</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Join PIN, tournament PINs, area codes</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
-            onPress={() => router.push('/(app)/admin/membership' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.cardText }]}>Manage Player Access</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Toggle Casual / Tour / Swindle per player</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* COMPETITION TOOLS */}
-        <View style={s.section}>
-          <Text style={[s.sectionLabel, { color: dc.cardText }]}>COMPETITION TOOLS</Text>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border }]}
-            onPress={() => router.push('/(app)/admin/build' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.cardText }]}>Build a Tournament</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Create a new season competition</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
-            onPress={() => router.push('/(app)/admin/tournaments' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.cardText }]}>Tournament History</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>All competitions, champions &amp; PINs</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
-            onPress={() => router.push('/(app)/admin/courses' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.cardText }]}>Manage Courses</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Add courses and set hole par / stroke index</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
-            onPress={() => router.push('/(app)/admin/pins' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.cardText }]}>⛳ Green Pins</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Set green locations for satellite rangefinder</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border, marginTop: 8 }]}
-            onPress={() => router.push('/(app)/admin/info' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.cardText }]}>Edit Info Pack</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Update the tour info board</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.gold + '55', marginTop: 8 }]}
-            onPress={() => router.push('/(app)/records' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.gold }]}>🏆 Wall of Records</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>All-time society bests</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.gold + '55', marginTop: 8 }]}
-            onPress={() => router.push('/(app)/admin/transfers' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.gold }]}>Transfer Window</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Move players between teams or release them</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: '#a78bfa55', marginTop: 8 }]}
-            onPress={() => router.push('/(app)/admin/swindle' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: '#a78bfa' }]}>💰 Swindle Manager</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Games, results & season money list</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* PLATFORM */}
-        <View style={s.section}>
-          <Text style={[s.sectionLabel, { color: dc.cardText }]}>PLATFORM</Text>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border }]}
-            onPress={() => router.push('/(app)/admin/create-society' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.cardText }]}>Create New Society</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Onboard a new golf club to Titan</Text>
-            </View>
-            <Text style={[s.arrow, { color: dc.cardText }]}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Save Button */}
-        <TouchableOpacity
-          style={[s.saveButton, saving && { opacity: 0.5 }]}
-          onPress={save}
-          disabled={saving}
-          activeOpacity={0.8}
-        >
-          <Text style={s.saveButtonText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
-        </TouchableOpacity>
-
-        {/* CHAT */}
-        <View style={s.section}>
-          <Text style={[s.sectionLabel, { color: dc.cardText }]}>CHAT</Text>
-          <TouchableOpacity
-            style={[s.linkCard, { backgroundColor: dc.card, borderColor: dc.border }]}
-            onPress={() => Alert.alert(
-              'Clear All Chat?',
-              'This will delete all messages for everyone. Cannot be undone.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Clear Chat', style: 'destructive',
-                  onPress: async () => {
-                    const { error } = await supabase.from('messages').delete().gte('created_at', '2000-01-01');
-                    if (error) Alert.alert('Error', error.message);
-                    else Alert.alert('Done', 'Chat cleared.');
-                  },
-                },
-              ],
-            )}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.linkTitle, { color: dc.cardText }]}>Clear All Messages</Text>
-              <Text style={[s.linkSub, { color: dc.cardText }]}>Delete the entire chat history</Text>
-            </View>
-            <Text style={[s.arrow, { color: RED }]}>›</Text>
-          </TouchableOpacity>
+        {/* THE THREE BUCKETS — same square-tile language as the home screen grid */}
+        <View style={s.grid}>
+          {BUCKETS.map(b => (
+            <TouchableOpacity
+              key={b.key}
+              style={[s.tile, { width: tileW, backgroundColor: dc.card, borderColor: dc.border }]}
+              onPress={() => router.push(b.route as any)}
+              activeOpacity={0.75}
+            >
+              <View style={[s.tileIcon, { backgroundColor: `${b.accent}18`, borderColor: `${b.accent}55` }]}>
+                <Ionicons name={b.icon} size={24} color={b.accent} />
+              </View>
+              <Text style={[s.tileLabel, { color: dc.cardText }]} numberOfLines={1}>{b.label}</Text>
+              <Text style={[s.tileSub, { color: dc.textSecondary }]} numberOfLines={2}>{b.sub}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* DANGER ZONE */}
@@ -511,64 +221,41 @@ export default function SocietyAdminScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1 },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 60, paddingHorizontal: 20, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
+    borderBottomWidth: 1,
   },
   headerCenter: { alignItems: 'center' },
   headerLogo:   { width: 36, height: 36 },
-  headerSub:    { fontFamily: FFB, fontSize: 10, color: GOLD, letterSpacing: 2, marginTop: 2 },
-  back:         { fontFamily: FFB, fontSize: 14, color: GOLD },
-  saveBtn:      { fontFamily: FFB, fontSize: 14, color: GOLD },
+  headerSub:    { fontFamily: FFB, fontSize: 10, letterSpacing: 2, marginTop: 2 },
+  back:         { fontFamily: FFB, fontSize: 14 },
 
   scroll:  { padding: 20, paddingBottom: 60 },
   section: { marginBottom: 28 },
 
   sectionLabel: {
-    fontFamily: FFB, fontSize: 10, color: '#fff',
+    fontFamily: FFB, fontSize: 10,
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10,
   },
 
   card: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1c1c1c', padding: 16,
+    borderRadius: 14,
+    borderWidth: 1, padding: 16,
   },
   cardLabel: {
-    fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 1, marginBottom: 4,
+    fontFamily: FFB, fontSize: 10, letterSpacing: 1, marginBottom: 4,
     textTransform: 'uppercase',
   },
-  cardValue: { fontFamily: FFB, fontSize: 16, color: '#fff' },
-
-  input: {
-    backgroundColor: '#111', borderRadius: 12,
-    borderWidth: 1, borderColor: '#1c1c1c',
-    paddingHorizontal: 16, paddingVertical: 12,
-    fontFamily: FFB, fontSize: 15, color: '#fff', marginTop: 10,
-  },
-  hint: { fontFamily: FFB, fontSize: 12, color: '#fff', marginTop: 6 },
-
-  linkCard: {
-    backgroundColor: '#111', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1c1c1c', padding: 16,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  },
-  linkTitle: { fontFamily: FFB, fontSize: 15, color: '#fff', marginBottom: 2 },
-  linkSub:   { fontFamily: FFB, fontSize: 12, color: '#fff' },
-  arrow:     { fontSize: 22, color: '#fff' },
-
-  saveButton: {
-    backgroundColor: GOLD, borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center', marginBottom: 28,
-  },
-  saveButtonText: { fontFamily: FFB, fontSize: 16, color: '#000', letterSpacing: 0.5 },
+  cardValue: { fontFamily: FFB, fontSize: 16 },
+  hint: { fontFamily: FFB, fontSize: 12, marginTop: 6 },
 
   pinValue: { fontFamily: FFB, fontSize: 28, color: GOLD, letterSpacing: 6, marginTop: 4 },
   pinShareBtn: {
@@ -577,6 +264,20 @@ const s = StyleSheet.create({
     alignItems: 'center', borderWidth: 1, borderColor: GOLD + '55',
   },
   pinShareBtnText: { fontFamily: FFB, fontSize: 14, color: GOLD },
+
+  // Tile grid — matches the home screen's square-tile language exactly
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 28 },
+  tile: {
+    borderRadius: 14, padding: 16, gap: 6,
+    borderWidth: 1,
+  },
+  tileIcon: {
+    width: 44, height: 44, borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 2,
+  },
+  tileLabel: { fontFamily: FFB, fontSize: 15, letterSpacing: -0.2 },
+  tileSub:   { fontFamily: FFB, fontSize: 11, lineHeight: 15 },
 
   deleteCard: {
     backgroundColor: 'rgba(248,113,113,0.08)', borderRadius: 14,

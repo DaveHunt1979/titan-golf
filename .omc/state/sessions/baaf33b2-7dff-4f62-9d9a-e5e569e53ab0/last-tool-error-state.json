@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"/Users/davehunt/Desktop/titan-golf\\\" && for f in \\\"app/(app)/score/solo/[matchId].tsx\\\" \\\"app/(app)/score/enter/[matchId].tsx\\\" \\\"app/(app)/score/[matchId].tsx\\\" \\\"app/(app)/swindle/s...",
-  "error": "Exit code 1\n=== app/(app)/score/solo/[matchId].tsx ===\n=== app/(app)/score/enter/[matchId].tsx ===\n=== app/(app)/score/[matchId].tsx ===\n=== app/(app)/swindle/score/[gameId].tsx ===",
-  "timestamp": "2026-08-05T07:31:29.610Z",
+  "tool_input_preview": "{\"command\":\"grep -i \\\"DATABASE_URL\\\\|POSTGRES\\\\|DB_URL\\\" /Users/davehunt/Desktop/titan-golf/.env.local 2>/dev/null\\nwhich psql 2>/dev/null && echo \\\"psql available\\\"\"}",
+  "error": "Exit code 1\npsql not found",
+  "timestamp": "2026-08-06T11:03:54.103Z",
   "retry_count": 1
 }

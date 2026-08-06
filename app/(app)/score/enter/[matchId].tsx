@@ -102,6 +102,8 @@ interface MatchInfo {
   winner: string | null;
   result_str: string | null;
   holes_string: string;
+  start_hole: number | null;
+  holes_to_play: number | null;
   round_format: 'matchplay' | 'stableford' | 'medal';
   home_player_ids: string[];
   away_player_ids: string[];
@@ -258,7 +260,7 @@ export default function EnterScoresScreen() {
         setMatch(matchData as unknown as MatchInfo);
         // Detect secondary stableford continuation after a reload
         if (matchData.round_format === 'matchplay' && matchData.secondary_format && matchData.status === 'in_progress') {
-          const { concluded } = calcHoles(matchData.holes_string ?? '..................');
+          const { concluded } = calcHoles(matchData.holes_string ?? '..................', matchData.holes_to_play ?? 18);
           if (concluded) setContinuingSecondary(true);
         }
 
@@ -465,7 +467,8 @@ export default function EnterScoresScreen() {
     const chars = (match.holes_string ?? '..................').padEnd(18, '.').slice(0, 18).split('');
     chars[hole - 1] = holeResult;
     const newHolesStr = chars.join('');
-    const { homeUp, played, remaining, concluded } = calcHoles(newHolesStr);
+    const watchSeqStr = holeSequence.map(h => newHolesStr[h - 1] ?? '.').join('');
+    const { homeUp, played, remaining, concluded } = calcHoles(watchSeqStr, holesToPlay);
 
     let newStatus: 'upcoming' | 'in_progress' | 'complete' = 'in_progress';
     let winner: string | null = null;
@@ -475,7 +478,7 @@ export default function EnterScoresScreen() {
       newStatus = 'complete';
       winner = homeUp > 0 ? 'home' : 'away';
       result_str = `${Math.abs(homeUp)}&${remaining}`;
-    } else if (played === 18) {
+    } else if (played === holesToPlay) {
       newStatus = 'complete';
       if (homeUp === 0) { winner = 'half'; result_str = 'Halved'; }
       else { winner = homeUp > 0 ? 'home' : 'away'; result_str = `${Math.abs(homeUp)}UP`; }
@@ -513,15 +516,21 @@ export default function EnterScoresScreen() {
   const holeChars = holesStr.split('');
   // Infer start hole from first played hole in holes_string (fallback when URL param not present on re-entry)
   const inferredStartHole = (() => { const i = holeChars.findIndex(c => c !== '.'); return i >= 0 ? i + 1 : 1; })();
-  const effectiveStartHole = startHole > 1 ? startHole : Math.max(1, (match as any)?.start_hole ?? inferredStartHole);
-  const holeSequence = effectiveStartHole > 1
+  const effectiveStartHole = startHole > 1 ? startHole : Math.max(1, match?.start_hole ?? inferredStartHole);
+  const fullHoleSequence = effectiveStartHole > 1
     ? [...Array.from({ length: 19 - effectiveStartHole }, (_, i) => effectiveStartHole + i), ...Array.from({ length: effectiveStartHole - 1 }, (_, i) => i + 1)]
     : Array.from({ length: 18 }, (_, i) => i + 1);
+  // A 9-hole round (front or back) only plays the first N holes of the
+  // sequence — the rest are never meant to be scored, so completion and
+  // "next hole" must stop there instead of wrapping into the unplayed 9.
+  const holesToPlay = match?.holes_to_play ?? 18;
+  const holeSequence = fullHoleSequence.slice(0, holesToPlay);
   // Reorder hole results to match play sequence so calcHoles reads them correctly
   const sequencedHolesStr = holeSequence.map(h => holeChars[h - 1] ?? '.').join('');
-  const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? 19;
+  const lastSequenceHole = holeSequence[holeSequence.length - 1] ?? 18;
+  const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? (lastSequenceHole + 1);
   const activeHole = editingHole ?? currentHole;
-  const allHolesFilled = currentHole > 18;
+  const allHolesFilled = currentHole > lastSequenceHole;
   const safeCurrentHole = Math.min(currentHole, 18);
   const isComplete = match?.status === 'complete';
 
@@ -878,7 +887,8 @@ export default function EnterScoresScreen() {
     const chars = [...holeChars];
     chars[activeHole - 1] = holeResult;
     const newHolesStr = chars.join('');
-    const { homeUp, played, remaining, concluded } = calcHoles(newHolesStr);
+    const seqStr = holeSequence.map(h => newHolesStr[h - 1] ?? '.').join('');
+    const { homeUp, played, remaining, concluded } = calcHoles(seqStr, holesToPlay);
 
     let newStatus: 'upcoming' | 'in_progress' | 'complete' = 'in_progress';
     let winner: string | null = null;
@@ -888,14 +898,15 @@ export default function EnterScoresScreen() {
       newStatus = 'complete';
       winner = homeUp > 0 ? 'home' : 'away';
       result_str = `${Math.abs(homeUp)}&${remaining}`;
-    } else if (played === 18) {
+    } else if (played === holesToPlay) {
       newStatus = 'complete';
       if (homeUp === 0) { winner = 'half'; result_str = 'Halved'; }
       else { winner = homeUp > 0 ? 'home' : 'away'; result_str = `${Math.abs(homeUp)}UP`; }
     }
 
     if (continuingSecondary) {
-      // Secondary stableford phase — preserve matchplay result, complete only at 18
+      // Secondary stableford phase always continues to a full 18 regardless
+      // of the primary format's hole count — that's the point of "continue".
       newStatus = played === 18 ? 'complete' : 'in_progress';
       winner = match.winner;
       result_str = match.result_str;
@@ -989,7 +1000,7 @@ export default function EnterScoresScreen() {
         if (match.competition_id && newStatus !== 'complete' && [9, 12, 15].includes(activeHole)) {
           const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
           const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-          const { homeUp: newHomeUp } = calcHoles(newHolesStr);
+          const { homeUp: newHomeUp } = calcHoles(seqStr, holesToPlay);
           const at = activeHole === 9 ? 'the turn' : `hole ${activeHole}`;
           const scoreBody = newHomeUp > 0
             ? `${homeTeam} ${newHomeUp}UP at ${at}`
@@ -1058,7 +1069,7 @@ export default function EnterScoresScreen() {
       if (!editingHole && !wasAlreadyComplete && [9, 12, 15].includes(activeHole)) {
         const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
         const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-        const { homeUp: newHomeUp, remaining: newRemaining } = calcHoles(newHolesStr);
+        const { homeUp: newHomeUp, remaining: newRemaining } = calcHoles(seqStr, holesToPlay);
         if (!voiceOff) speakPressure({
           holeNumber: activeHole,
           holesLeft: newRemaining,
@@ -1288,7 +1299,7 @@ export default function EnterScoresScreen() {
     ? `${leaderName} leads · ${leaderPts}pts`
     : null;
   const { homeUp: liveHomeUp } = calcHoles(sequencedHolesStr);
-  const holesLeft = holeChars.filter(c => c === '.').length;
+  const holesLeft = sequencedHolesStr.split('').filter(c => c === '.').length;
 
   const statusBannerText = isMatchplay
     ? (liveHomeUp === 0 ? 'All Square' : liveHomeUp > 0 ? `${homeLabel}  ${Math.abs(liveHomeUp)} Up` : `${awayLabel}  ${Math.abs(liveHomeUp)} Up`)

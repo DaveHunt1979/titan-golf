@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
+import { resolveAvatar } from '../../../src/lib/assets';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
@@ -322,8 +323,8 @@ export default function PlayersScreen() {
             {/* Avatar + Change Photo */}
             <View style={s.avatarSection}>
               <TouchableOpacity onPress={pickPhoto} disabled={photoUploading} activeOpacity={0.8}>
-                {selected?.player.avatar_url ? (
-                  <Image source={{ uri: selected.player.avatar_url }} style={s.avatarLarge} />
+                {selected && resolveAvatar(selected.player.id, selected.player.avatar_url) ? (
+                  <Image source={resolveAvatar(selected.player.id, selected.player.avatar_url)} style={s.avatarLarge} />
                 ) : (
                   <View style={s.avatarLarge}>
                     <Text style={s.avatarLargeText}>{selected?.player.display_name[0]?.toUpperCase() ?? '?'}</Text>
@@ -432,11 +433,12 @@ function MemberRow({ member, isLast }: { member: Member; isLast: boolean }) {
   const initial = player.display_name[0]?.toUpperCase() ?? '?';
   const isOwner = role === 'owner';
   const isAdmin = role === 'admin';
+  const avatarSrc = resolveAvatar(player.id, player.avatar_url);
 
   return (
     <View style={[s.memberRow, !isLast && s.memberRowBorder]}>
-      {player.avatar_url ? (
-        <Image source={{ uri: player.avatar_url }} style={s.avatar} />
+      {avatarSrc ? (
+        <Image source={avatarSrc} style={s.avatar} />
       ) : (
         <View style={s.avatar}>
           <Text style={s.avatarText}>{initial}</Text>

@@ -720,6 +720,7 @@ export default function NewGameScreen() {
         status: 'in_progress',
         holes_string: '..................',
         start_hole: startHole,
+        holes_to_play: holesMode === 'full18' ? 18 : 9,
         is_singles: mode === 'singles',
         round_format: (mode === '4bbb' || mode === 'singles') ? 'matchplay' : isMashie ? 'team_stableford' : mode,
         hcp_allowance: hcpAllowance,
@@ -1280,7 +1281,16 @@ export default function NewGameScreen() {
       <CourseSheet visible={showCourse} courses={courses} selected={selectedCourse} onSelect={setSelectedCourse} onClose={() => setShowCourse(false)} ps={ps} GOLD={GOLD} />
       <PickerSheet
         visible={showHoles} title="Holes" options={HOLES_OPTIONS}
-        selected={holesMode} onSelect={setHoles} onClose={() => setShowHoles(false)}
+        selected={holesMode}
+        onSelect={(v: HolesMode) => {
+          setHoles(v);
+          // Back 9 only means something if play actually starts at hole 10 —
+          // nudge the default start hole along, but only when it's still at
+          // the untouched default so a deliberately custom start isn't clobbered.
+          if (v === 'back9' && startHole === 1) setStartHole(10);
+          else if (v !== 'back9' && startHole === 10) setStartHole(1);
+        }}
+        onClose={() => setShowHoles(false)}
         ps={ps} GOLD={GOLD}
       />
       <PickerSheet

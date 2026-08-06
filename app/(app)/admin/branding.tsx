@@ -94,6 +94,7 @@ export default function SocietyBrandingScreen() {
   const [secondaryHex,   setSecondaryHex]   = useState('#C4CEDB');
   const [logoUrl,        setLogoUrl]        = useState<string | null>(null);
   const [logoLocalUri,   setLogoLocalUri]   = useState<string | null>(null);
+  const [instagramUrl,   setInstagramUrl]   = useState('');
   const [loading,        setLoading]        = useState(true);
   const [saving,         setSaving]         = useState(false);
 
@@ -115,7 +116,7 @@ export default function SocietyBrandingScreen() {
     (async () => {
       const { data } = await supabase
         .from('societies')
-        .select('name, tagline, primary_color, secondary_color, logo_url')
+        .select('name, tagline, primary_color, secondary_color, logo_url, instagram_url')
         .eq('id', societyId)
         .single();
       if (data) {
@@ -127,6 +128,7 @@ export default function SocietyBrandingScreen() {
         setPrimaryColor(pc);   setPrimaryHex(pc);
         setSecondaryColor(sc); setSecondaryHex(sc);
         setLogoUrl(d.logo_url ?? null);
+        setInstagramUrl(d.instagram_url ?? '');
       }
       setLoading(false);
     })();
@@ -160,16 +162,23 @@ export default function SocietyBrandingScreen() {
       if (logoLocalUri) {
         finalLogoUrl = await uploadImage(logoLocalUri, 'society-assets', `${societyId}/logo.jpg`);
       }
+      const rawInsta = instagramUrl.trim();
+      let normalizedInsta = rawInsta;
+      if (rawInsta && !rawInsta.startsWith('http')) {
+        normalizedInsta = `https://www.instagram.com/${rawInsta.replace(/^@/, '')}/`;
+      }
       const { error } = await supabase.from('societies').update({
         name:            name.trim() || undefined,
         tagline:         tagline.trim() || null,
         primary_color:   primaryColor,
         secondary_color: secondaryColor,
         logo_url:        finalLogoUrl,
+        instagram_url:   normalizedInsta || null,
       } as any).eq('id', societyId);
       if (error) throw error;
       if (finalLogoUrl !== logoUrl) setLogoUrl(finalLogoUrl);
       setLogoLocalUri(null);
+      setInstagramUrl(normalizedInsta);
       Alert.alert('Saved ✓', 'Branding saved. Restart the app to see the new splash screen.');
     } catch (e: any) {
       Alert.alert('Error', e.message ?? 'Could not save.');
@@ -279,6 +288,24 @@ export default function SocietyBrandingScreen() {
             />
           </View>
           <Text style={s.hint}>Shown on the home screen · max 60 characters</Text>
+        </View>
+
+        {/* Social Media */}
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>SOCIAL MEDIA</Text>
+          <View style={s.inputCard}>
+            <TextInput
+              style={s.input}
+              value={instagramUrl}
+              onChangeText={setInstagramUrl}
+              placeholderTextColor="#444"
+              placeholder="@yoursociety or full URL"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+          </View>
+          <Text style={s.hint}>Enter @handle or https://www.instagram.com/yoursociety</Text>
         </View>
 
         {/* Background Colour */}

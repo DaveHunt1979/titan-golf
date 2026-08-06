@@ -10,7 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
-import { titanLogo } from '../../../src/lib/assets';
+import { titanLogo, resolveAvatar } from '../../../src/lib/assets';
 import type { Player } from '../../../src/types';
 import { getPendingCount } from '../../../src/lib/offlineQueue';
 
@@ -272,8 +272,8 @@ export default function ProfileScreen() {
             activeOpacity={editing ? 0.7 : 1}
             style={s.avatarWrap}
           >
-            {player?.avatar_url
-              ? <Image source={{ uri: player.avatar_url }} style={s.avatarImg} />
+            {player && resolveAvatar(player.id, player.avatar_url)
+              ? <Image source={resolveAvatar(player.id, player.avatar_url)} style={s.avatarImg} />
               : (
                 <View style={[s.avatarPlaceholder, { backgroundColor: `${dc.gold}18` }]}>
                   <Text style={[s.avatarInitial, { color: dc.gold }]}>{initial}</Text>

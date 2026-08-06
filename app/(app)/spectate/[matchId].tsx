@@ -25,6 +25,7 @@ interface MatchDetail {
   result_str: string | null;
   holes_string: string;
   start_hole: number | null;
+  holes_to_play: number | null;
   is_singles: boolean;
   home_team_id: string | null;
   away_team_id: string | null;
@@ -158,7 +159,8 @@ export default function SpectateScreen() {
 
   const holesStr    = match.holes_string ?? '..................';
   const holeChars   = holesStr.split('');
-  const { homeUp }  = calcHoles(holesStr);
+  const holesToPlay = match.holes_to_play ?? 18;
+  const { homeUp }  = calcHoles(holesStr, holesToPlay);
   const holesPlayed = holeChars.filter(c => c !== '.').length;
   // Rounds don't always start at hole 1 — walk the actual play sequence (from
   // start_hole, wrapping at 18) to find the true next unplayed hole, same as
@@ -166,16 +168,19 @@ export default function SpectateScreen() {
   // start_hole isn't set.
   const inferredStartHole = (() => { const i = holeChars.findIndex(c => c !== '.'); return i >= 0 ? i + 1 : 1; })();
   const effectiveStartHole = match.start_hole ?? inferredStartHole;
-  const holeSequence = effectiveStartHole > 1
+  const fullHoleSequence = effectiveStartHole > 1
     ? [...Array.from({ length: 19 - effectiveStartHole }, (_, i) => effectiveStartHole + i), ...Array.from({ length: effectiveStartHole - 1 }, (_, i) => i + 1)]
     : Array.from({ length: 18 }, (_, i) => i + 1);
-  const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? 18;
+  // A 9-hole round (front or back) only ever plays the first N holes of the
+  // sequence — "now playing" must stop there, not wrap into the unplayed 9.
+  const holeSequence = fullHoleSequence.slice(0, holesToPlay);
+  const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? (holeSequence[holeSequence.length - 1] ?? 18);
   const status      = match.status;
-  const winner      = getEffectiveWinner(status, match.winner, holesStr);
+  const winner      = getEffectiveWinner(status, match.winner, holesStr, holesToPlay);
   const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
   const label       = isStrokePlay
     ? (status === 'complete' ? (match.result_str ?? 'Complete') : status === 'upcoming' ? 'Upcoming' : (match.result_str ?? 'In Progress'))
-    : matchLabel(status, match.winner, match.result_str, holesStr);
+    : matchLabel(status, match.winner, match.result_str, holesStr, holesToPlay);
   const aheadSide   = status === 'complete' ? winner : homeUp > 0 ? 'home' : homeUp < 0 ? 'away' : null;
 
   const homeColor = match.home_team?.accent_color ?? GOLD;
@@ -286,7 +291,7 @@ export default function SpectateScreen() {
         </View>
 
         {/* ── Now Playing ── */}
-        {status === 'in_progress' && holesPlayed < 18 && (
+        {status === 'in_progress' && holesPlayed < holesToPlay && (
           <View style={s.nowCard}>
             <Text style={s.nowLabel}>NOW PLAYING</Text>
             <View style={s.nowRow}>

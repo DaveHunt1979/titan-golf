@@ -47,6 +47,8 @@ export default function AdminPrizesScreen() {
   ]);
   const [saving, setSaving]           = useState(false);
 
+  const [splitting, setSplitting] = useState(false);
+
   const load = useCallback(async () => {
     if (!competitionId) return;
     const [{ data: comp }, { data: cats }] = await Promise.all([
@@ -62,6 +64,44 @@ export default function AdminPrizesScreen() {
   }, [competitionId]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function autoSplitDivisions() {
+    const { data: cpData } = await supabase
+      .from('competition_players').select('handicap_index').eq('competition_id', competitionId);
+    const hcps = (cpData as any[] ?? [])
+      .map(cp => cp.handicap_index)
+      .filter((h): h is number => h != null)
+      .sort((a, b) => a - b);
+
+    if (hcps.length < 3) {
+      Alert.alert('Not enough players', 'Need at least 3 enrolled players with a handicap to auto-split into 3 divisions.');
+      return;
+    }
+
+    const n = hcps.length;
+    const div1Max = hcps[Math.floor(n / 3) - 1];
+    const div2Max = hcps[Math.floor((2 * n) / 3) - 1];
+
+    Alert.alert(
+      'Auto-Split into 3 Divisions?',
+      'This replaces any existing prize categories with 3 handicap divisions of roughly equal size, based on the players currently enrolled. Prize amounts will need to be re-entered.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Split', onPress: async () => {
+          setSplitting(true);
+          await supabase.from('prize_categories').delete().eq('competition_id', competitionId);
+          const { error } = await supabase.from('prize_categories').insert([
+            { competition_id: competitionId, name: 'Division 1', hcp_min: null,               hcp_max: div1Max,        display_order: 1 },
+            { competition_id: competitionId, name: 'Division 2', hcp_min: div1Max + 0.1,       hcp_max: div2Max,        display_order: 2 },
+            { competition_id: competitionId, name: 'Division 3', hcp_min: div2Max + 0.1,       hcp_max: null,           display_order: 3 },
+          ]);
+          setSplitting(false);
+          if (error) { Alert.alert('Error', error.message); return; }
+          await load();
+        }},
+      ]
+    );
+  }
 
   function openAdd() {
     setEditId(null);
@@ -186,6 +226,16 @@ export default function AdminPrizesScreen() {
         <Text style={s.intro}>
           Define handicap bands and prize money per position. Players are automatically placed in their category.
         </Text>
+
+        <TouchableOpacity style={s.splitBtn} onPress={autoSplitDivisions} disabled={splitting} activeOpacity={0.85}>
+          {splitting
+            ? <ActivityIndicator color={GOLD} size="small" />
+            : <>
+                <Ionicons name="git-branch-outline" size={16} color={GOLD} />
+                <Text style={s.splitBtnText}>AUTO-SPLIT INTO 3 DIVISIONS</Text>
+              </>
+          }
+        </TouchableOpacity>
 
         {categories.length === 0 ? (
           <View style={s.empty}>
@@ -358,6 +408,9 @@ const s = StyleSheet.create({
 
   addBtn:     { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: GOLD + '55', borderRadius: 12, paddingVertical: 14, justifyContent: 'center', marginTop: 8, backgroundColor: GOLD + '0D' },
   addBtnText: { fontFamily: FFB, fontSize: 13, color: GOLD, letterSpacing: 1 },
+
+  splitBtn:     { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#333', borderRadius: 12, paddingVertical: 12, justifyContent: 'center', marginBottom: 20 },
+  splitBtnText: { fontFamily: FFB, fontSize: 12, color: GOLD, letterSpacing: 0.5 },
 
   modal:       { flex: 1, backgroundColor: '#0a0a0a' },
   modalHeader: {

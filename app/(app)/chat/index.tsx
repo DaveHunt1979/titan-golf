@@ -8,6 +8,7 @@ import { useFonts } from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
+import { resolveAvatar } from '../../../src/lib/assets';
 
 const GOLD  = '#D4AF37';
 const FF    = 'JUSTSans';
@@ -58,10 +59,16 @@ export default function ChatScreen() {
       if (!player) { setLoading(false); return; }
       setMe(player as Me);
 
+      // .order + .limit(1) matches useSociety()'s lookup — a player with
+      // more than one society_members row (e.g. testing casual golf
+      // alongside the main society) would make a plain .maybeSingle() error
+      // out on 2+ rows, silently leaving sid null and the chat empty.
       const { data: membership } = await supabase
         .from('society_members')
         .select('society_id')
         .eq('player_id', player.id)
+        .order('society_id')
+        .limit(1)
         .maybeSingle();
       const sid = membership?.society_id ?? null;
       setSocietyId(sid);
@@ -111,7 +118,11 @@ export default function ChatScreen() {
     const content = text.trim();
     setText('');
     setSending(true);
-    await supabase.from('messages').insert({ player_id: me.id, content, society_id: societyId });
+    const { error } = await supabase.from('messages').insert({ player_id: me.id, content, society_id: societyId });
+    if (error) {
+      console.error('send message failed:', error);
+      setText(content);
+    }
     setSending(false);
   }
 
@@ -126,7 +137,7 @@ export default function ChatScreen() {
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isMe = item.player_id === me?.id;
     const name = item.player?.display_name?.split(' ')[0] ?? '?';
-    const avatar = item.player?.avatar_url;
+    const avatar = resolveAvatar(item.player_id, item.player?.avatar_url ?? null);
     const prev = messages[index + 1];
     const showAvatar = !prev || prev.player_id !== item.player_id;
 
@@ -135,7 +146,7 @@ export default function ChatScreen() {
         {!isMe && (
           showAvatar
             ? (avatar
-                ? <Image source={{ uri: avatar }} style={ss.avatar} />
+                ? <Image source={avatar} style={ss.avatar} />
                 : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{name[0]}</Text></View>)
             : <View style={ss.avatarSpacer} />
         )}
@@ -147,7 +158,7 @@ export default function ChatScreen() {
         {isMe && (
           showAvatar
             ? (avatar
-                ? <Image source={{ uri: avatar }} style={ss.avatar} />
+                ? <Image source={avatar} style={ss.avatar} />
                 : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{(me?.display_name ?? '?')[0]}</Text></View>)
             : <View style={ss.avatarSpacer} />
         )}
@@ -192,8 +203,8 @@ export default function ChatScreen() {
         />
 
         <View style={ss.inputRow}>
-          {me?.avatar_url
-            ? <Image source={{ uri: me.avatar_url }} style={ss.inputAvatar} />
+          {me && resolveAvatar(me.id, me.avatar_url)
+            ? <Image source={resolveAvatar(me.id, me.avatar_url)} style={ss.inputAvatar} />
             : <View style={[ss.inputAvatar, ss.avatarFallback]}>
                 <Text style={ss.avatarInitial}>{(me?.display_name ?? '?')[0]}</Text>
               </View>

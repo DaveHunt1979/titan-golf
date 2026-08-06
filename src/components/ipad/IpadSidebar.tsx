@@ -1,12 +1,13 @@
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { useRouter, useSegments, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { titanLogo } from '../../lib/assets';
+import { titanLogo, resolveAvatar } from '../../lib/assets';
 import { useSocietyTheme } from '../../lib/SocietyThemeContext';
 
 interface Props {
   isAdmin: boolean;
   avatarUrl: string | null;
+  playerId: string | null;
 }
 
 export const SIDEBAR_W = 220;
@@ -28,7 +29,7 @@ const BOTTOM_NAV = [
   { label: 'Profile', seg: 'profile', route: '/(app)/profile', icon: 'person-circle-outline' },
 ] as const;
 
-export default function IpadSidebar({ isAdmin, avatarUrl }: Props) {
+export default function IpadSidebar({ isAdmin, avatarUrl, playerId }: Props) {
   const { palette, localLogo, logoUrl } = useSocietyTheme();
   const router   = useRouter();
   const segments = useSegments() as string[];
@@ -99,13 +100,15 @@ export default function IpadSidebar({ isAdmin, avatarUrl }: Props) {
           <NavItem key={item.label} {...item} />
         ))}
         {/* Avatar chip */}
-        {avatarUrl && (
+        {playerId && (
           <TouchableOpacity
             style={s.avatarRow}
             onPress={() => router.push('/(app)/profile' as any)}
             activeOpacity={0.7}
           >
-            <Image source={{ uri: avatarUrl }} style={s.avatarImg} />
+            {resolveAvatar(playerId, avatarUrl)
+              ? <Image source={resolveAvatar(playerId, avatarUrl)} style={s.avatarImg} />
+              : <Ionicons name="person-circle-outline" size={32} color={palette.textSecondary} />}
           </TouchableOpacity>
         )}
       </View>

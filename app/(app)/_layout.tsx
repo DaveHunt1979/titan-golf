@@ -132,10 +132,13 @@ function AppLayoutInner() {
         <Tabs.Screen name="watch/index"    options={{ href: null }} />
         <Tabs.Screen name="chat/index"     options={{ href: null }} />
         <Tabs.Screen name="feed/index"     options={{ href: null }} />
+        <Tabs.Screen name="camera/index"   options={{ title: 'Camera',   tabBarIcon: ({ focused }) => <TabIcon focused={focused}><CameraIcon      color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="profile"  options={{ title: 'Profile',  tabBarIcon: ({ focused }) => <TabIcon focused={focused}><ProfileIcon     color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="admin/index"    options={{ href: isAdmin ? undefined : null, title: 'Admin', tabBarIcon: ({ focused }) => <TabIcon focused={focused}><AdminIcon color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="admin/build"              options={{ href: null }} />
         <Tabs.Screen name="admin/draw"               options={{ href: null }} />
+        <Tabs.Screen name="admin/hub-tournament"      options={{ href: null }} />
+        <Tabs.Screen name="admin/hub-platform"        options={{ href: null }} />
         <Tabs.Screen name="admin/prizes"             options={{ href: null }} />
         <Tabs.Screen name="admin/concept"            options={{ href: null }} />
         <Tabs.Screen name="admin/concept-locker"    options={{ href: null }} />
@@ -176,7 +179,6 @@ function AppLayoutInner() {
         <Tabs.Screen name="admin/tournaments"        options={{ href: null }} />
         <Tabs.Screen name="score/day/[dayId]"        options={{ href: null }} />
         <Tabs.Screen name="score/scan/[matchId]"     options={{ href: null }} />
-        <Tabs.Screen name="camera/index"             options={{ href: null }} />
         <Tabs.Screen name="spectate/[matchId]"       options={{ href: null }} />
         <Tabs.Screen name="range/index"              options={{ href: null }} />
         <Tabs.Screen name="range/[sessionId]"        options={{ href: null }} />
@@ -198,7 +200,7 @@ function AppLayoutInner() {
   return (
     <View style={{ flex: 1 }}>
       {tabsEl}
-      {IS_PAD && <IpadSidebar isAdmin={isAdmin} avatarUrl={avatarUrl} />}
+      {IS_PAD && <IpadSidebar isAdmin={isAdmin} avatarUrl={avatarUrl} playerId={playerId} />}
 
       {showSplash && <SplashOverlay onDone={() => setShowSplash(false)} />}
     </View>
@@ -292,6 +294,16 @@ function ProfileIcon({ color }: { color: string }) {
     <View style={{ width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: color }} />
     <View style={{ width: 18, height: 8, borderRadius: 9, borderWidth: 2, borderColor: color, borderBottomWidth: 0 }} />
   </View>;
+}
+function CameraIcon({ color }: { color: string }) {
+  return (
+    <View style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ position: 'absolute', top: 2, left: 7, width: 6, height: 2.5, backgroundColor: color, borderRadius: 1 }} />
+      <View style={{ width: 20, height: 14, borderRadius: 3, borderWidth: 2, borderColor: color, alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
+        <View style={{ width: 8, height: 8, borderRadius: 4, borderWidth: 2, borderColor: color }} />
+      </View>
+    </View>
+  );
 }
 function AdminIcon({ color }: { color: string }) {
   return <View style={{ alignItems: 'center', justifyContent: 'center', width: 22, height: 22, gap: 3 }}>
