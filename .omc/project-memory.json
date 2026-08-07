@@ -262,8 +262,8 @@
     },
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 26,
-      "lastAccessed": 1786009615281,
+      "accessCount": 28,
+      "lastAccessed": 1786083127322,
       "type": "file"
     },
     {
@@ -273,15 +273,21 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 12,
+      "lastAccessed": 1786083260547,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/admin/index.tsx",
       "accessCount": 9,
       "lastAccessed": 1786011979404,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 8,
-      "lastAccessed": 1785998578494,
+      "path": "app/(app)/tour/day/[dayId].tsx",
+      "accessCount": 9,
+      "lastAccessed": 1786083194623,
       "type": "file"
     },
     {
@@ -321,6 +327,18 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/index.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1786083081999,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/index.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1786083358336,
+      "type": "file"
+    },
+    {
       "path": "src/components/ipad/IpadSidebar.tsx",
       "accessCount": 5,
       "lastAccessed": 1785999559727,
@@ -345,12 +363,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/index.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1786011883628,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/profile/index.tsx",
       "accessCount": 3,
       "lastAccessed": 1785999484717,
@@ -372,6 +384,18 @@
       "path": "app/(app)/admin/hub-platform.tsx",
       "accessCount": 2,
       "lastAccessed": 1786012044672,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/preview/[matchId].tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786082754635,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/friends.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786083094825,
       "type": "file"
     },
     {
@@ -414,12 +438,6 @@
       "path": "app/(app)/admin/teams.tsx",
       "accessCount": 1,
       "lastAccessed": 1786004944458,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/tour/day/[dayId].tsx",
-      "accessCount": 1,
-      "lastAccessed": 1786004990595,
       "type": "file"
     },
     {

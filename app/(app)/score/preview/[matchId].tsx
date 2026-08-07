@@ -10,6 +10,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { speakIntro } from '../../../../src/lib/caddie';
+import { calcCourseHandicap } from '../../../../src/lib/scoring';
 
 const GOLD  = '#D4AF37';
 const FF    = 'JUSTSans';
@@ -24,7 +25,7 @@ interface MatchPreview {
   side_games: string[] | null;
   home_player_ids: string[];
   away_player_ids: string[];
-  day: { course_name: string; course_par: number } | null;
+  day: { course_name: string; course_par: number; course_rating: number | null; slope_rating: number | null } | null;
 }
 
 interface Player {
@@ -64,7 +65,7 @@ export default function MatchPreviewScreen() {
     async function load() {
       const { data: matchData } = await supabase
         .from('matches')
-        .select('*,day:day_id(course_name,course_par)')
+        .select('*,day:day_id(course_name,course_par,course_rating,slope_rating)')
         .eq('id', matchId)
         .single();
 
@@ -106,9 +107,13 @@ export default function MatchPreviewScreen() {
         console.error('speakIntro failed:', e);
       }
     }
-    const dest = startHole && startHole !== '1'
-      ? `/(app)/score/${matchId}?startHole=${startHole}`
-      : `/(app)/score/${matchId}`;
+    // enter/solo render the live scoring screen directly — the old hub route
+    // (score/[matchId]) is orphaned and no longer maintained, same fix as the
+    // other navigation call sites already routed around it.
+    const base = match.away_player_ids.length === 0
+      ? `/(app)/score/solo/${matchId}`
+      : `/(app)/score/enter/${matchId}`;
+    const dest = startHole && startHole !== '1' ? `${base}?startHole=${startHole}` : base;
     router.replace(dest as any);
   }
 
@@ -182,17 +187,17 @@ export default function MatchPreviewScreen() {
         {/* Players */}
         <View style={isSolo ? s.soloRow : s.matchupRow}>
           {isSolo ? (
-            homePlayers.map(p => <PlayerCard key={p.id} player={p} size={homePlayers.length > 2 ? 60 : 80} />)
+            homePlayers.map(p => <PlayerCard key={p.id} player={p} size={homePlayers.length > 2 ? 60 : 80} hcpAllowance={match.hcp_allowance} day={match.day} />)
           ) : (
             <>
               <View style={s.side}>
-                {homePlayers.map(p => <PlayerCard key={p.id} player={p} size={60} />)}
+                {homePlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} />)}
               </View>
               <View style={s.vsWrap}>
                 <Text style={s.vsText}>VS</Text>
               </View>
               <View style={s.side}>
-                {awayPlayers.map(p => <PlayerCard key={p.id} player={p} size={60} />)}
+                {awayPlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} />)}
               </View>
             </>
           )}
@@ -254,16 +259,30 @@ export default function MatchPreviewScreen() {
   );
 }
 
-function PlayerCard({ player, size }: { player: Player; size: number }) {
+function PlayerCard({ player, size, hcpAllowance, day }: {
+  player: Player; size: number; hcpAllowance: number | null; day: MatchPreview['day'];
+}) {
   const avatar = player.avatar_url ?? getPlayerAvatar(player.id, 'normal');
   const firstName = player.display_name.split(' ')[0];
+
+  // Same formula the live scoring screen uses, so this preview matches what
+  // actually happens hole-by-hole rather than showing the raw, un-cut index.
+  const allowance = hcpAllowance ?? 100;
+  const rawCourseHcp = (!day?.slope_rating || !day?.course_rating || !day?.course_par)
+    ? Math.round(player.handicap_index)
+    : calcCourseHandicap(player.handicap_index, day.slope_rating, day.course_rating, day.course_par);
+  const cutHcp = Math.round(rawCourseHcp * (allowance / 100));
+  const isCut = allowance !== 100;
+
   return (
     <View style={s.playerCard}>
       <View style={[s.avatarRing, { width: size + 6, height: size + 6, borderRadius: (size + 6) / 2 }]}>
         <Avatar name={firstName} size={size} src={avatar} />
       </View>
       <Text style={s.playerName}>{firstName}</Text>
-      <Text style={s.playerHcp}>Hcp {player.handicap_index}</Text>
+      <Text style={s.playerHcp}>
+        {isCut ? `Hcp ${player.handicap_index} → ${cutHcp}` : `Hcp ${player.handicap_index}`}
+      </Text>
     </View>
   );
 }

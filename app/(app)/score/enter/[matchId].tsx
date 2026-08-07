@@ -857,16 +857,19 @@ export default function EnterScoresScreen() {
     const holeResult: 'h' | 'a' | 'f' = homeNet < awayNet ? 'h' : awayNet < homeNet ? 'a' : 'f';
 
     const rows = allPlayerIds.map(id => {
-      const hcp = playerCourseHcp(id, compPlayers, day, match.hcp_allowance ?? 100);
-      const shots = calcStrokesReceived(hcp, si);
       const gross = scores[id] ?? null;
+      // The background Stableford side game always runs off full handicap —
+      // it's independent of whatever % allowance the primary matchplay match
+      // is using (Rick: "Side game should always be 100%").
+      const fullHcp = playerCourseHcp(id, compPlayers, day, 100);
+      const sideShots = calcStrokesReceived(fullHcp, si);
       return {
         match_id: matchId,
         player_id: id,
         hole_number: activeHole,
         score: holeResult,
         gross_score: gross,
-        stableford_pts: calcStablefordPoints(gross, par, shots),
+        stableford_pts: calcStablefordPoints(gross, par, sideShots),
       };
     });
 
@@ -2081,7 +2084,12 @@ export default function EnterScoresScreen() {
               const par = courseHole?.par ?? 4;
               const result = selectedScore ? scoreVsPar(selectedScore, par, shots) : null;
               const accent = result ? (SCORE_COLORS[result] ?? '#6b7280') : '#1c1c1c';
-              const stablePts = selectedScore ? calcStablefordPoints(selectedScore, par, shots) : null;
+              // Background Stableford side game is always full handicap — only
+              // pull in the matchplay % when it's the primary format itself.
+              const sideShots = modalPlayerId
+                ? calcStrokesReceived(playerCourseHcp(modalPlayerId, compPlayers, match?.day ?? null, isStrokePlay ? (match?.hcp_allowance ?? 100) : 100), courseHole?.stroke_index ?? 18)
+                : 0;
+              const stablePts = selectedScore ? calcStablefordPoints(selectedScore, par, sideShots) : null;
               const SCORE_LABELS: Record<string, string> = {
                 albatross: 'ALBATROSS', eagle: 'EAGLE', birdie: 'BIRDIE',
                 par: 'PAR', bogey: 'BOGEY', double: 'DOUBLE +',

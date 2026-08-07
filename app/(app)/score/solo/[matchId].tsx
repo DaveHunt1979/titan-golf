@@ -577,7 +577,7 @@ export default function SoloRoundScreen() {
   const formatLabel = isStableford ? 'Stableford' : 'Medal';
   const scoreDisplay = isStableford
     ? `${totalPts} pts`
-    : totalGross === 0 ? 'E'
+    : vsPar === 0 ? 'E'
     : vsPar > 0 ? `+${vsPar}` : `${vsPar}`;
   const scoreColor = isStableford ? GOLD : (vsPar < 0 ? GREEN : vsPar > 0 ? RED : '#ffffff');
 
@@ -764,7 +764,7 @@ export default function SoloRoundScreen() {
               <Text style={s.completeTitle}>ROUND COMPLETE</Text>
               <Text style={[s.completeScore, { color: scoreColor }]}>{scoreDisplay}</Text>
               <Text style={s.completeDetail}>
-                {isStableford ? `${totalGross} gross · ${totalPts} pts` : `${totalGross} gross`}
+                {isStableford ? `${totalGross} gross · ${totalPts} pts` : `${totalGross} gross · ${totalNet} net`}
               </Text>
               <View style={s.statGrid}>
                 {eagles  > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: GOLD }]}>{eagles}</Text><Text style={s.statLbl}>Eagle{eagles !== 1 ? 's' : ''}</Text></View>}

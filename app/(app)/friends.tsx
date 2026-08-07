@@ -159,7 +159,7 @@ export default function FriendsScreen() {
         {playing.length > 0 && (
           <Text style={s.sectionLabel}>ON A ROUND · {playing.length}</Text>
         )}
-        {playing.map(m => <MemberRow key={m.playerId} member={m} dc={dc} onPress={() => router.push(`/(app)/score/${m.matchId}` as any)} />)}
+        {playing.map(m => <MemberRow key={m.playerId} member={m} dc={dc} onPress={() => router.push(`/(app)/spectate/${m.matchId}` as any)} />)}
 
         {offline.length > 0 && (
           <Text style={[s.sectionLabel, { marginTop: playing.length > 0 ? 8 : 0 }]}>NOT PLAYING · {offline.length}</Text>

@@ -350,7 +350,7 @@ export default function HomeScreen() {
                   <TouchableOpacity
                     key={fr.playerId}
                     style={[s.friendCard, { backgroundColor: dc.card, borderColor: dc.border }]}
-                    onPress={() => router.push(`/(app)/score/${fr.matchId}` as any)}
+                    onPress={() => router.push(`/(app)/spectate/${fr.matchId}` as any)}
                     activeOpacity={0.8}
                   >
                     <View style={s.friendAvatar}>

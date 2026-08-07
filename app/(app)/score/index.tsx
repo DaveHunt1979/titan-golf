@@ -113,8 +113,12 @@ export default function ScoreScreen() {
     }
 
     if (!error && data) {
+      // Casual hub shows casual rounds only — tournament fixtures (competition_id
+      // set) already have their own home in the Tour tab, so keep them out of
+      // here rather than mixing the two (Dave: tournament games shouldn't show
+      // "if it's not casual golf").
       const matchData = (data as unknown as MatchWithDay[]).filter(m =>
-        !pid || m.home_player_ids.includes(pid) || m.away_player_ids.includes(pid)
+        !m.competition_id && (!pid || m.home_player_ids.includes(pid) || m.away_player_ids.includes(pid))
       );
       setMatches(matchData);
 
@@ -140,6 +144,7 @@ export default function ScoreScreen() {
         const merged = [...(homeCompleted as unknown as MatchWithDay[] ?? []), ...(awayCompleted as unknown as MatchWithDay[] ?? [])];
         const seen = new Set<string>();
         completed = merged
+          .filter(m => !m.competition_id)
           .filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; })
           .sort((a, b) => new Date((b as any).created_at).getTime() - new Date((a as any).created_at).getTime())
           .slice(0, 15);

@@ -33,6 +33,16 @@ export default function TourDayScreen() {
   const [playerAvatars, setPlayerAvatars] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
+      if (p) setMyPlayerId(p.id);
+    })();
+  }, []);
 
   const [fontsLoaded] = useFonts({
     [FF]: require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -151,6 +161,7 @@ export default function TourDayScreen() {
                 match={m}
                 playerNames={playerNames}
                 playerAvatars={playerAvatars}
+                myPlayerId={myPlayerId}
               />
             ))}
           </Section>
@@ -163,6 +174,7 @@ export default function TourDayScreen() {
                 match={m}
                 playerNames={playerNames}
                 playerAvatars={playerAvatars}
+                myPlayerId={myPlayerId}
               />
             ))}
           </Section>
@@ -175,6 +187,7 @@ export default function TourDayScreen() {
                 match={m}
                 playerNames={playerNames}
                 playerAvatars={playerAvatars}
+                myPlayerId={myPlayerId}
               />
             ))}
           </Section>
@@ -236,14 +249,20 @@ function MatchCard({
   match,
   playerNames,
   playerAvatars,
+  myPlayerId,
 }: {
   match: MatchWithTeams;
   playerNames: Record<string, string>;
   playerAvatars: Record<string, string | null>;
+  myPlayerId: string | null;
 }) {
   const router = useRouter();
   const isLive = match.status === 'in_progress';
   const isComplete = match.status === 'complete';
+  const isMyMatch = !!myPlayerId && ((match.home_player_ids ?? []).includes(myPlayerId) || (match.away_player_ids ?? []).includes(myPlayerId));
+  const matchDest = isMyMatch
+    ? ((match.away_player_ids ?? []).length === 0 ? `/(app)/score/solo/${match.id}` : `/(app)/score/enter/${match.id}`)
+    : `/(app)/spectate/${match.id}`;
 
   const winner = getEffectiveWinner(match.status, match.winner, match.holes_string ?? '..................');
   const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
@@ -301,7 +320,7 @@ function MatchCard({
   return (
     <TouchableOpacity
       style={[card.container, { borderColor: cardBorder }]}
-      onPress={() => router.push(`/(app)/score/${match.id}`)}
+      onPress={() => router.push(matchDest as any)}
       activeOpacity={0.75}
     >
       {/* Top meta row */}
