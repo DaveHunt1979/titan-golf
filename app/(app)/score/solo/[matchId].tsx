@@ -89,6 +89,7 @@ interface MatchInfo {
   holes_to_play: number | null;
   home_player_ids: string[];
   side_games: string[] | null;
+  day_id: string | null;
   day: { course_name: string; course_par: number; course_rating: number; slope_rating: number; day_number: number } | null;
 }
 
@@ -137,6 +138,7 @@ export default function SoloRoundScreen() {
 
   useEffect(() => {
     async function load() {
+      console.log('[solo.load] start', { matchId });
       try {
         const { data: matchData, error: matchErr } = await supabase
           .from('matches')
@@ -145,11 +147,13 @@ export default function SoloRoundScreen() {
           .single();
 
         if (matchErr) throw matchErr;
-        if (!matchData) { setLoading(false); return; }
+        if (!matchData) { console.warn('[solo.load] no match found', { matchId }); setLoading(false); return; }
         const m = matchData as unknown as MatchInfo;
+        console.log('[solo.load] match fetched', { matchId, status: m.status, round_format: m.round_format });
         setMatch(m);
 
         const playerId = m.home_player_ids[0];
+        console.log('[solo.load] fetching holes + player + scores...');
         const [{ data: holesData }, { data: playerData }, { data: scoresData }] = await Promise.all([
           m.day?.course_name
             ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages').eq('course_name', m.day.course_name).order('hole_number')
@@ -180,13 +184,16 @@ export default function SoloRoundScreen() {
           })));
         }
         setRoundDone(m.status === 'complete');
+        console.log('[solo.load] done', { matchId });
       } catch (e) {
-        console.error('solo round load failed:', e);
+        console.error('[solo.load] failed', { matchId }, e);
         setLoadError(true);
       } finally {
+        console.log('[solo.load] finally — clearing loading', { matchId });
         setLoading(false);
       }
     }
+    console.log('[solo] matchId changed, (re)loading', { matchId });
     setLoading(true);
     setLoadError(false);
     setRoundDone(false);
@@ -712,9 +719,13 @@ export default function SoloRoundScreen() {
                   <Text style={[s.quickActionLbl, { color: GOLD }]}>CADDIE</Text>
                 </TouchableOpacity>
                 <View style={s.quickActionSep} />
-                <TouchableOpacity style={s.quickActionBtn} onPress={() => router.push('/(app)/camera' as any)} activeOpacity={0.7}>
-                  <Ionicons name="camera-outline" size={20} color="#ffffff" />
-                  <Text style={s.quickActionLbl}>CAMERA</Text>
+                <TouchableOpacity
+                  style={s.quickActionBtn}
+                  onPress={() => match?.day_id && router.push(`/(app)/score/day/${match.day_id}` as any)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trophy-outline" size={20} color="#ffffff" />
+                  <Text style={s.quickActionLbl}>LEADERS</Text>
                 </TouchableOpacity>
               </View>
             </View>

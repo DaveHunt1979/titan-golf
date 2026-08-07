@@ -32,7 +32,6 @@ interface MatchWithDay extends Match {
   away_team: Pick<Team, 'name' | 'accent_color'> | null;
   day: { course_name: string; course_par: number } | null;
 }
-type ActiveDay = { id: string; course_name: string; join_code: string; day_date: string; player_count: number };
 
 export default function ScoreScreen() {
   const router = useRouter();
@@ -58,7 +57,6 @@ export default function ScoreScreen() {
   const [refreshing, setRefreshing]             = useState(false);
   const [dayCode, setDayCode]             = useState('');
   const [joiningDay, setJoiningDay]       = useState(false);
-  const [activeDays, setActiveDays]       = useState<ActiveDay[]>([]);
   const scrollRef = useRef<ScrollView>(null);
   useFocusEffect(useCallback(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, []));
 
@@ -83,34 +81,11 @@ export default function ScoreScreen() {
       }
     }
 
-    const today = new Date().toISOString().split('T')[0];
-
-    const [{ data, error }, { data: daysData }] = await Promise.all([
-      supabase
-        .from('matches')
-        .select('*,home_team:home_team_id(name,accent_color),away_team:away_team_id(name,accent_color),day:day_id(course_name,course_par)')
-        .in('status', ['in_progress', 'upcoming'])
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('competition_days')
-        .select('id,course_name,join_code,day_date,matches(home_player_ids,away_player_ids)')
-        .gte('day_date', today)
-        .order('day_date', { ascending: true })
-        .limit(20),
-    ]);
-
-    if (daysData) {
-      const days = (daysData as any[])
-        .filter(d => {
-          const allIds = (d.matches ?? []).flatMap((m: any) => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]);
-          return !pid || allIds.includes(pid);
-        })
-        .map(d => {
-          const allIds = new Set((d.matches ?? []).flatMap((m: any) => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]));
-          return { id: d.id, course_name: d.course_name, join_code: d.join_code, day_date: d.day_date, player_count: allIds.size };
-        });
-      setActiveDays(days);
-    }
+    const { data, error } = await supabase
+      .from('matches')
+      .select('*,home_team:home_team_id(name,accent_color),away_team:away_team_id(name,accent_color),day:day_id(course_name,course_par)')
+      .in('status', ['in_progress', 'upcoming'])
+      .order('created_at', { ascending: false });
 
     if (!error && data) {
       // Casual hub shows casual rounds only — tournament fixtures (competition_id
@@ -319,34 +294,6 @@ export default function ScoreScreen() {
 
           {loading && (
             <View style={s.centered}><ActivityIndicator color={GOLD} /></View>
-          )}
-
-          {/* Group Days */}
-          {activeDays.length > 0 && (
-            <>
-              <SectionHead label="GROUP DAYS" s={s} />
-              {activeDays.map(d => {
-                const isToday = d.day_date === new Date().toISOString().split('T')[0];
-                const label = isToday
-                  ? 'Today'
-                  : new Date(d.day_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-                return (
-                  <TouchableOpacity
-                    key={d.id}
-                    style={s.dayTile}
-                    onPress={() => router.push(`/(app)/score/day/${d.id}` as any)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.dayTileCourse}>{d.course_name}</Text>
-                      <Text style={s.dayTileSub}>{label}{d.player_count > 0 ? ` · ${d.player_count} players` : ''}</Text>
-                    </View>
-                    <View style={s.dayCodeBadge}><Text style={s.dayCodeText}>{d.join_code}</Text></View>
-                    <Ionicons name="chevron-forward" size={16} color={GOLD} />
-                  </TouchableOpacity>
-                );
-              })}
-            </>
           )}
 
           {/* Join a Day */}

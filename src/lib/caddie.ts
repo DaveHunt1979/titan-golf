@@ -4,9 +4,25 @@ import { Audio } from 'expo-av';
 
 let audioQueue: Promise<void> = Promise.resolve();
 
-// Queues audio so voices never overlap — each clip waits for the previous to finish
+// Queues audio so voices never overlap — each clip waits for the previous to
+// finish. This queue is module-level and outlives any individual match, so
+// every entry MUST settle on its own — if a single native playback ever
+// hangs (e.g. an interrupted/backgrounded audio session), an unbounded chain
+// here would wedge every future voice call, in every later game, until the
+// app is fully restarted. The timeout below guarantees that can't happen.
+function playWithTimeout(b64: string): Promise<void> {
+  return new Promise(resolve => {
+    let settled = false;
+    const done = () => { if (!settled) { settled = true; resolve(); } };
+    const timer = setTimeout(() => { console.warn('[caddie] audio playback timed out — unwedging queue'); done(); }, 15000);
+    _playAudio(b64)
+      .then(() => { clearTimeout(timer); done(); })
+      .catch(() => { clearTimeout(timer); done(); });
+  });
+}
+
 export function playBase64Audio(b64: string): Promise<void> {
-  audioQueue = audioQueue.then(() => _playAudio(b64)).catch(() => {});
+  audioQueue = audioQueue.then(() => playWithTimeout(b64));
   return audioQueue;
 }
 

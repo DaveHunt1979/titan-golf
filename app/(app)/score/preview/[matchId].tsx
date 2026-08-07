@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Image, ActivityIndicator, ScrollView, Share,
+  Image, ActivityIndicator, ScrollView, Share, Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -68,6 +68,7 @@ export default function MatchPreviewScreen() {
 
   useEffect(() => {
     async function load() {
+      console.log('[preview.load] start', { matchId });
       try {
         const { data: matchData, error: matchErr } = await supabase
           .from('matches')
@@ -76,11 +77,13 @@ export default function MatchPreviewScreen() {
           .single();
 
         if (matchErr) throw matchErr;
-        if (!matchData) { setLoadError(true); return; }
+        if (!matchData) { console.warn('[preview.load] no match found', { matchId }); setLoadError(true); return; }
+        console.log('[preview.load] match fetched', { matchId, status: matchData.status, round_format: matchData.round_format });
         setMatch(matchData as any);
 
         const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
         if (allIds.length) {
+          console.log('[preview.load] fetching players + competition_players...', { playerCount: allIds.length });
           const [{ data: playersData }, { data: compData }] = await Promise.all([
             supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allIds),
             matchData.competition_id
@@ -102,19 +105,23 @@ export default function MatchPreviewScreen() {
               return { ...p, handicap_index: ov ?? compHcp ?? p.handicap_index };
             });
             setPlayers(effective);
+            console.log('[preview.load] players resolved', { count: effective.length });
           }
         }
+        console.log('[preview.load] done', { matchId });
       } catch (e) {
         // Without this, any transient failure here — a network blip is the
         // likely case moments after finishing a previous round — left
         // `loading` stuck true forever: the exact "hangs on Tee Off" bug
         // Rick kept hitting starting a second round back to back.
-        console.error('preview load failed:', e);
+        console.error('[preview.load] failed', { matchId }, e);
         setLoadError(true);
       } finally {
+        console.log('[preview.load] finally — clearing loading', { matchId });
         setLoading(false);
       }
     }
+    console.log('[preview] matchId changed, (re)loading', { matchId, retryTick });
     setLoading(true);
     setLoadError(false);
     load();
@@ -130,26 +137,39 @@ export default function MatchPreviewScreen() {
 
   async function startRound() {
     if (teeing || !match) return;
+    console.log('[startRound] tapped', { matchId });
     setTeeing(true);
-    const firstNames = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])]
-      .map(id => players.find(p => p.id === id)?.display_name.split(' ')[0])
-      .filter(Boolean) as string[];
-    const voiceOn = match.side_games?.includes('voice:on');
-    if (voiceOn) {
-      try {
-        await Promise.race([speakIntro(firstNames), new Promise(resolve => setTimeout(resolve, 6000))]);
-      } catch (e) {
-        console.error('speakIntro failed:', e);
+    try {
+      const firstNames = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])]
+        .map(id => players.find(p => p.id === id)?.display_name.split(' ')[0])
+        .filter(Boolean) as string[];
+      const voiceOn = match.side_games?.includes('voice:on');
+      if (voiceOn) {
+        console.log('[startRound] voice intro starting (max 6s)...');
+        try {
+          await Promise.race([speakIntro(firstNames), new Promise(resolve => setTimeout(resolve, 6000))]);
+        } catch (e) {
+          console.error('speakIntro failed:', e);
+        }
+        console.log('[startRound] voice intro settled');
       }
+      // enter/solo render the live scoring screen directly — the old hub route
+      // (score/[matchId]) is orphaned and no longer maintained, same fix as the
+      // other navigation call sites already routed around it.
+      const base = match.away_player_ids.length === 0
+        ? `/(app)/score/solo/${matchId}`
+        : `/(app)/score/enter/${matchId}`;
+      const dest = startHole && startHole !== '1' ? `${base}?startHole=${startHole}` : base;
+      console.log('[startRound] navigating', { dest });
+      router.replace(dest as any);
+    } catch (e) {
+      // Without this, any exception here left `teeing` stuck true forever —
+      // the Tee Off button would spin permanently and, since startRound()
+      // early-returns while teeing is true, could never be retried.
+      console.error('[startRound] failed', { matchId }, e);
+      Alert.alert('Could not start round', 'Please try again.');
+      setTeeing(false);
     }
-    // enter/solo render the live scoring screen directly — the old hub route
-    // (score/[matchId]) is orphaned and no longer maintained, same fix as the
-    // other navigation call sites already routed around it.
-    const base = match.away_player_ids.length === 0
-      ? `/(app)/score/solo/${matchId}`
-      : `/(app)/score/enter/${matchId}`;
-    const dest = startHole && startHole !== '1' ? `${base}?startHole=${startHole}` : base;
-    router.replace(dest as any);
   }
 
   if (loadError) return (

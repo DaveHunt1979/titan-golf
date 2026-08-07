@@ -259,8 +259,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 89,
-      "lastAccessed": 1786099147191,
+      "accessCount": 109,
+      "lastAccessed": 1786108335864,
       "type": "file"
     },
     {
@@ -277,14 +277,26 @@
     },
     {
       "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 29,
-      "lastAccessed": 1786086568003,
+      "accessCount": 37,
+      "lastAccessed": 1786108371638,
       "type": "file"
     },
     {
       "path": "app/(app)/score/preview/[matchId].tsx",
+      "accessCount": 31,
+      "lastAccessed": 1786107823386,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/camera/index.tsx",
       "accessCount": 23,
-      "lastAccessed": 1786099183648,
+      "lastAccessed": 1786107082923,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 20,
+      "lastAccessed": 1786107758751,
       "type": "file"
     },
     {
@@ -294,9 +306,9 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 14,
-      "lastAccessed": 1786097437136,
+      "path": "app/(app)/score/index.tsx",
+      "accessCount": 16,
+      "lastAccessed": 1786108150007,
       "type": "file"
     },
     {
@@ -321,12 +333,6 @@
       "path": "app/(app)/admin/players.tsx",
       "accessCount": 9,
       "lastAccessed": 1786097458631,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/index.tsx",
-      "accessCount": 9,
-      "lastAccessed": 1786099010081,
       "type": "file"
     },
     {
@@ -372,21 +378,15 @@
       "type": "file"
     },
     {
+      "path": "app.json",
+      "accessCount": 6,
+      "lastAccessed": 1786108481788,
+      "type": "file"
+    },
+    {
       "path": "src/components/ipad/IpadSidebar.tsx",
       "accessCount": 5,
       "lastAccessed": 1785999559727,
-      "type": "file"
-    },
-    {
-      "path": "app.json",
-      "accessCount": 5,
-      "lastAccessed": 1786101720143,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/camera/index.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1785999508509,
       "type": "file"
     },
     {

@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { calcHoles } from '../../../../src/lib/scoring';
+import { resolveAvatar } from '../../../../src/lib/assets';
 
 const GOLD = '#D4AF37';
 const FF   = 'JUSTSans';
@@ -17,7 +18,7 @@ const FFB  = 'JUSTSans-ExBold';
 const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 type DayInfo   = { id: string; join_code: string; course_name: string; course_par: number; day_date: string };
-type PlayerRow = { player_id: string; name: string; match_id: string; pts: number; holes: number; hcp: number };
+type PlayerRow = { player_id: string; name: string; match_id: string; pts: number; holes: number; hcp: number; avatarUrl: string | null };
 type GroupRow  = { match_id: string; format: string; player_names: string[]; home_name: string | null; away_name: string | null; status: string; holes_string: string; winner: string | null; result_str: string | null; home_player_ids: string[]; away_player_ids: string[]; home_pts: number; away_pts: number; };
 
 function InitialAvatar({ name, size = 38 }: { name: string; size?: number }) {
@@ -26,6 +27,12 @@ function InitialAvatar({ name, size = 38 }: { name: string; size?: number }) {
       <Text style={{ fontFamily: FFB, fontSize: size * 0.38, color: GOLD }}>{(name || '?')[0].toUpperCase()}</Text>
     </View>
   );
+}
+
+function PlayerAvatar({ playerId, name, avatarUrl, size = 38 }: { playerId: string; name: string; avatarUrl: string | null; size?: number }) {
+  const src = resolveAvatar(playerId, avatarUrl);
+  if (!src) return <InitialAvatar name={name} size={size} />;
+  return <Image source={src} style={{ width: size, height: size, borderRadius: size / 2 }} />;
 }
 
 export default function DayLobby() {
@@ -79,16 +86,16 @@ export default function DayLobby() {
 
     const [{ data: playersData }, { data: holesData }] = await Promise.all([
       allPlayerIds.length
-        ? supabase.from('players').select('id,display_name,handicap_index').in('id', allPlayerIds)
+        ? supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allPlayerIds)
         : Promise.resolve({ data: [] }),
       supabase.from('match_holes')
         .select('match_id,player_id,stableford_pts,hole_number')
         .in('match_id', (matches as any[]).map(m => m.id)),
     ]);
 
-    const playerMap: Record<string, { name: string; hcp: number }> = {};
+    const playerMap: Record<string, { name: string; hcp: number; avatarUrl: string | null }> = {};
     for (const p of (playersData ?? []) as any[]) {
-      playerMap[p.id] = { name: p.display_name, hcp: p.handicap_index ?? 0 };
+      playerMap[p.id] = { name: p.display_name, hcp: p.handicap_index ?? 0, avatarUrl: p.avatar_url ?? null };
     }
 
     const holesByPlayer: Record<string, { pts: number; count: number }> = {};
@@ -138,6 +145,7 @@ export default function DayLobby() {
       hcp:       playerMap[id]?.hcp ?? 0,
       pts:       holesByPlayer[id]?.pts ?? 0,
       holes:     holesByPlayer[id]?.count ?? 0,
+      avatarUrl: playerMap[id]?.avatarUrl ?? null,
     })).sort((a, b) => b.pts - a.pts || b.holes - a.holes);
 
     const grps: GroupRow[] = (matches as any[]).map(m => {
@@ -299,7 +307,7 @@ export default function DayLobby() {
                 return (
                   <View key={p.player_id} style={[s.lbCard, isFirst && s.lbCardFirst, isMe && s.lbCardMe]}>
                     <Text style={[s.lbRank, { color: rankColor }]}>{rank + 1}</Text>
-                    <InitialAvatar name={p.name} size={38} />
+                    <PlayerAvatar playerId={p.player_id} name={p.name} avatarUrl={p.avatarUrl} size={38} />
                     <View style={{ flex: 1, marginLeft: 12 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         <Text style={[s.lbName, isFirst && { color: GOLD }]}>{p.name.split(' ').slice(0, 2).join(' ')}</Text>

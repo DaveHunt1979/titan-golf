@@ -685,6 +685,7 @@ export default function NewGameScreen() {
 
   async function createGame() {
     if (!selectedCourse || !societyId || creating) return;
+    console.log('[createGame] start', { mode, selectedCourse });
     setCreating(true);
     try {
       let resolvedDayId: string;
@@ -692,7 +693,9 @@ export default function NewGameScreen() {
 
       if (existingDayId) {
         resolvedDayId = existingDayId;
+        console.log('[createGame] using existing day', { resolvedDayId });
       } else {
+        console.log('[createGame] creating game day...');
         const { data: dayResult, error: dayErr } = await supabase.rpc('create_game_day_with_code', {
           p_society_id: societyId,
           p_course_name: selectedCourse,
@@ -701,6 +704,7 @@ export default function NewGameScreen() {
         const row = Array.isArray(dayResult) ? dayResult[0] : dayResult;
         resolvedDayId = row.day_id;
         dayCode = row.join_code;
+        console.log('[createGame] game day created', { resolvedDayId, dayCode });
       }
 
       const matchNum = Math.floor(Date.now() / 1000) % 100000;
@@ -736,6 +740,7 @@ export default function NewGameScreen() {
 
       if (!builtMatches || builtMatches.length === 0) throw new Error('No players selected');
 
+      console.log('[createGame] inserting matches...', { count: builtMatches.length });
       const results = await Promise.all(builtMatches.map(bm => {
         const extra = isMashie ? { group_code: genGroupCode() } : {};
         const nameExtra = (bm.homeName || bm.awayName)
@@ -760,6 +765,7 @@ export default function NewGameScreen() {
       if (firstResult.error || !firstResult.data) throw firstResult.error ?? new Error('Could not create game');
       newMatch = firstResult.data;
       firstMatchId = firstResult.data.id;
+      console.log('[createGame] matches inserted', { firstMatchId, matchIds: results.map(r => r.data?.id) });
       results.forEach(r => { if (r.data?.id) downloadMatchPack(r.data.id).catch(() => {}); });
 
       if (isMashie) {
@@ -788,10 +794,13 @@ export default function NewGameScreen() {
       setCreating(false);
 
       if (builtMatches.length > 1) {
+        console.log('[createGame] navigating to day', { resolvedDayId });
         router.push(`/(app)/score/day/${resolvedDayId}` as any);
       } else if (isTeamStableford) {
+        console.log('[createGame] navigating to teamstableford', { firstMatchId });
         router.push(`/(app)/score/teamstableford/${firstMatchId}` as any);
       } else if (existingDayId) {
+        console.log('[createGame] navigating to day (existing)', { resolvedDayId });
         router.push(`/(app)/score/day/${resolvedDayId}` as any);
       } else {
         const paramParts: string[] = [];
@@ -799,9 +808,11 @@ export default function NewGameScreen() {
         const sh = builtMatches[0].startHole;
         if (sh !== 1) paramParts.push(`startHole=${sh}`);
         const params = paramParts.length > 0 ? `?${paramParts.join('&')}` : '';
+        console.log('[createGame] navigating to preview', { firstMatchId, params });
         router.push(`/(app)/score/preview/${firstMatchId}${params}` as any);
       }
     } catch (e: any) {
+      console.error('[createGame] failed', e);
       Alert.alert('Error', e?.message ?? 'Could not create game');
       setCreating(false);
     }

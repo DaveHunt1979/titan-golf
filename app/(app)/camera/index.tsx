@@ -7,11 +7,14 @@ import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { captureRef } from 'react-native-view-shot';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { resolveAvatar } from '../../../src/lib/assets';
+
+const COMPOSE_WIDTH = 1080; // offscreen render width for the branded photo — good enough for social sharing without being wasteful
 
 // ── TITAN design tokens ───────────────────────────────────────
 const GOLD  = '#D4AF37';
@@ -33,7 +36,7 @@ interface PlayerInfo {
   name: string;
   avatarUrl: string | null;
   playerId: string | null;
-  tournament: string | null;
+  courseName: string | null;
   hole: number | null;
 }
 
@@ -66,8 +69,10 @@ export default function CameraScreen() {
   const menuAnim = useRef(new Animated.Value(0)).current;
 
   const [info, setInfo] = useState<PlayerInfo>({
-    name: '', avatarUrl: null, playerId: null, tournament: null, hole: null,
+    name: '', avatarUrl: null, playerId: null, courseName: null, hole: null,
   });
+  const [composing, setComposing] = useState<{ uri: string; width: number; height: number } | null>(null);
+  const composeRef = useRef<View>(null);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -100,30 +105,30 @@ export default function CameraScreen() {
         .maybeSingle();
       if (!player) return;
 
-      const { data: comp } = await supabase
-        .from('competitions')
-        .select('name')
-        .eq('is_active', true)
-        .maybeSingle();
-
-      // Find current hole if in an active match
+      // Course + current hole come from whatever live round the player is
+      // actually in right now — casual or tournament both carry a day_id
+      // with the real course, unlike the old "active competition" lookup
+      // which only ever matched tournament play and pulled the wrong name.
+      let courseName: string | null = null;
       let hole: number | null = null;
       const { data: match } = await supabase
         .from('matches')
-        .select('holes_string')
+        .select('holes_string, holes_to_play, day:day_id(course_name)')
         .eq('status', 'in_progress')
         .or(`home_player_ids.cs.{${player.id}},away_player_ids.cs.{${player.id}}`)
         .maybeSingle();
-      if (match?.holes_string) {
-        const played = (match.holes_string as string).split('').filter(c => c !== '.').length;
-        hole = Math.min(played + 1, 18);
+      if (match) {
+        courseName = (match as any).day?.course_name ?? null;
+        const holesToPlay = (match as any).holes_to_play ?? 18;
+        const played = (match.holes_string as string ?? '').split('').filter(c => c !== '.').length;
+        hole = Math.min(played + 1, holesToPlay);
       }
 
       setInfo({
         name:       player.display_name ?? '',
         avatarUrl:  player.avatar_url ?? null,
         playerId:   player.id,
-        tournament: comp?.name ?? null,
+        courseName,
         hole,
       });
     })();
@@ -158,9 +163,30 @@ export default function CameraScreen() {
     if (!cameraRef.current || !(await ensurePermissions())) return;
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 1 });
-      if (photo?.uri) setPreview({ uri: photo.uri, type: 'photo' });
+      if (!photo?.uri) return;
+      // Hand off to the offscreen compositor below rather than showing the
+      // raw photo directly — it burns the Titan branding footer into the
+      // image once the compose view has actually painted (see onComposeReady).
+      setComposing({ uri: photo.uri, width: photo.width, height: photo.height });
     } catch (e: any) {
       Alert.alert('Capture failed', e.message);
+    }
+  }
+
+  // Fires once the offscreen photo+branding view has finished rendering the
+  // captured photo (Image.onLoad, not just mount — the pixels must actually
+  // be painted or the snapshot below would capture a blank frame).
+  async function onComposeReady() {
+    if (!composeRef.current) return;
+    try {
+      await new Promise(r => requestAnimationFrame(r));
+      const uri = await captureRef(composeRef, { format: 'jpg', quality: 0.92 });
+      setPreview({ uri, type: 'photo' });
+    } catch (e) {
+      // Compositing failed — still give them the shot rather than losing it.
+      if (composing) setPreview({ uri: composing.uri, type: 'photo' });
+    } finally {
+      setComposing(null);
     }
   }
 
@@ -289,6 +315,23 @@ export default function CameraScreen() {
   // ── Camera layout (portrait / landscape) ─────────────────────
   const avatar = info.playerId ? resolveAvatar(info.playerId, info.avatarUrl) : null;
 
+  // Burned into every captured photo (and shown live while framing). Works
+  // with no active round too — just the logo, never fabricated course/hole.
+  // Positioning differs by context (live overlay sits above the controls;
+  // the offscreen composite needs to sit flush with the photo's own bottom
+  // edge), so this is just the visual bar — callers wrap it to position it.
+  const BrandFooterBar = (
+    <View style={s.brandFooter}>
+      <Image source={titanLogo} style={s.brandLogo} resizeMode="contain" />
+      {(info.courseName || info.hole) && (
+        <View style={s.brandTextWrap}>
+          {info.courseName && <Text style={s.brandCourse} numberOfLines={1}>{info.courseName}</Text>}
+          {info.hole && <Text style={s.brandHole}>HOLE {info.hole}</Text>}
+        </View>
+      )}
+    </View>
+  );
+
   const Banner = (
     <View style={[s.banner, isLandscape && s.bannerLandscape]}>
       <View style={s.bannerLeft}>
@@ -300,8 +343,8 @@ export default function CameraScreen() {
         }
         <View>
           <Text style={s.bannerName} numberOfLines={1}>{info.name || 'Player'}</Text>
-          {info.tournament && (
-            <Text style={s.bannerSub} numberOfLines={1}>{info.tournament}</Text>
+          {info.courseName && (
+            <Text style={s.bannerSub} numberOfLines={1}>{info.courseName}</Text>
           )}
         </View>
       </View>
@@ -414,8 +457,31 @@ export default function CameraScreen() {
       {/* Player banner */}
       {Banner}
 
+      {/* Branding footer — same content that gets burned into the photo,
+          shown live so the shot can be framed with it in mind. */}
+      <View style={s.brandFooterLiveWrap} pointerEvents="none">{BrandFooterBar}</View>
+
       {/* Camera controls */}
       {Controls}
+
+      {/* Offscreen photo + branding compositor — rendered far off-screen
+          (not hidden, since RN won't paint a hidden view for view-shot to
+          capture), torn down again once the composite has been captured. */}
+      {composing && (
+        <View
+          ref={composeRef}
+          collapsable={false}
+          style={{ position: 'absolute', top: -100000, left: 0, width: COMPOSE_WIDTH, height: COMPOSE_WIDTH * (composing.height / composing.width) }}
+        >
+          <Image
+            source={{ uri: composing.uri }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+            onLoad={onComposeReady}
+          />
+          <View style={s.brandFooterComposeWrap}>{BrandFooterBar}</View>
+        </View>
+      )}
     </View>
   );
 }
@@ -470,6 +536,26 @@ const s = StyleSheet.create({
   },
   bannerHoleLabel: { fontSize: 8, fontFamily: FFB, color: '#000', letterSpacing: 1 },
   bannerHoleNum:   { fontSize: 22, fontFamily: FFB, color: '#000', lineHeight: 24 },
+
+  // ── Titan branding footer — burned into every captured photo
+  brandFooterLiveWrap: {
+    position: 'absolute',
+    bottom: CONTROLS_HEIGHT + BANNER_HEIGHT,
+    left: 0, right: 0,
+  },
+  brandFooterComposeWrap: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+  },
+  brandFooter: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    paddingHorizontal: 16, paddingVertical: 10,
+  },
+  brandLogo:     { width: 28, height: 28 },
+  brandTextWrap: { flex: 1 },
+  brandCourse:   { fontSize: 13, fontFamily: FFB, color: '#fff' },
+  brandHole:     { fontSize: 11, fontFamily: FFB, color: GOLD, letterSpacing: 0.5, marginTop: 1 },
 
   // ── Slide-up menu
   menuBackdrop: {

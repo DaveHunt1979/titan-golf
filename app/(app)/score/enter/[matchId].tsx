@@ -57,6 +57,11 @@ const TEE_OPTIONS = [
   { label: 'Black',  color: '#6B7280' },
 ];
 
+function formatVsPar(n: number): string {
+  if (n === 0) return 'E';
+  return n > 0 ? `+${n}` : `${n}`;
+}
+
 function scoreVsPar(gross: number, par: number, _shots: number): string {
   // Classified by gross strokes vs par only — handicap shots affect stableford
   // points, not the eagle/birdie/par/bogey label (Rick: "points and stroke
@@ -220,6 +225,7 @@ export default function EnterScoresScreen() {
 
   useEffect(() => {
     async function load() {
+      console.log('[enter.load] start', { matchId });
       let hadPack = false;
       try {
         // Local pack gives an instant paint on a slow/offline connection, but
@@ -230,6 +236,7 @@ export default function EnterScoresScreen() {
         const pack = await getMatchPack(matchId);
         if (pack) {
           hadPack = true;
+          console.log('[enter.load] local pack found — instant paint');
           setMatch(pack.match as unknown as MatchInfo);
           setCourseHoles(pack.courseHoles);
           setCompPlayers(pack.compPlayers);
@@ -242,9 +249,12 @@ export default function EnterScoresScreen() {
           setPlayerNames(names);
           setPlayerAvatars(avatars);
           setLoading(false);
+        } else {
+          console.log('[enter.load] no local pack — cold load');
         }
 
         // Always hit the network for the live, authoritative state.
+        console.log('[enter.load] fetching match from network...');
         const { data: matchData, error: matchErr } = await supabase
           .from('matches')
           .select(`
@@ -257,7 +267,8 @@ export default function EnterScoresScreen() {
           .single();
 
         if (matchErr) throw matchErr;
-        if (!matchData) { setLoading(false); return; }
+        if (!matchData) { console.warn('[enter.load] no match found', { matchId }); setLoading(false); return; }
+        console.log('[enter.load] match fetched', { matchId, status: matchData.status, round_format: matchData.round_format, handicap_method: (matchData as any).handicap_method });
         setMatch(matchData as unknown as MatchInfo);
         // Detect secondary stableford continuation after a reload
         if (matchData.round_format === 'matchplay' && matchData.secondary_format && matchData.status === 'in_progress') {
@@ -267,6 +278,7 @@ export default function EnterScoresScreen() {
 
         const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
 
+        console.log('[enter.load] fetching holes + competition_players + players...', { playerCount: allIds.length });
         const [{ data: holesData }, { data: compData }, { data: playersData }] = await Promise.all([
           matchData.day?.course_name
             ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages').eq('course_name', matchData.day.course_name).order('hole_number')
@@ -306,22 +318,26 @@ export default function EnterScoresScreen() {
             return ov?.hcp != null ? { ...cp, handicap_index: ov.hcp } : cp;
           });
           setCompPlayers(effectiveComp);
+          console.log('[enter.load] holes/players/handicaps resolved', { holes: holesData?.length ?? 0, players: (playersData as any[]).length });
         }
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: playerRow } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
           if (playerRow) setMyPlayerId(playerRow.id);
         }
+        console.log('[enter.load] done', { matchId });
       } catch (e) {
-        console.error('match load failed:', e);
+        console.error('[enter.load] failed', { matchId }, e);
         // If we already painted a cached pack, keep showing it rather than
         // replacing a perfectly good view with an error screen just because
         // this follow-up network refresh failed.
         if (!hadPack) setLoadError(true);
       } finally {
+        console.log('[enter.load] finally — clearing loading', { matchId });
         setLoading(false);
       }
     }
+    console.log('[enter] matchId changed, (re)loading', { matchId, retryTick });
     setLoading(true);
     setLoadError(false);
     load();
@@ -347,12 +363,16 @@ export default function EnterScoresScreen() {
         .single();
       if (!error && data) setMatch(data as unknown as MatchInfo);
     }
+    console.log('[enter.realtime] subscribing', { channel: `enter-${matchId}` });
     const sub = supabase
       .channel(`enter-${matchId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'matches',    filter: `id=eq.${matchId}` },       refreshMatchSilently)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'match_holes', filter: `match_id=eq.${matchId}` }, refreshMatchSilently)
       .subscribe();
-    return () => { supabase.removeChannel(sub); };
+    return () => {
+      console.log('[enter.realtime] unsubscribing', { channel: `enter-${matchId}` });
+      supabase.removeChannel(sub);
+    };
   }, [matchId]);
 
   // ── Apple Watch sync ────────────────────────────────────────────
@@ -1151,6 +1171,7 @@ export default function EnterScoresScreen() {
 
     loadDayBoard();
 
+    console.log('[enter.dayBoardRealtime] subscribing', { channel: `day-lb-${dayId}` });
     const sub = supabase
       .channel(`day-lb-${dayId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'match_holes' }, () => {
@@ -1158,7 +1179,10 @@ export default function EnterScoresScreen() {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(sub); };
+    return () => {
+      console.log('[enter.dayBoardRealtime] unsubscribing', { channel: `day-lb-${dayId}` });
+      supabase.removeChannel(sub);
+    };
   }, [match?.day_id]);
 
   // ── Undo last hole ──────────────────────────────────────────────
@@ -1579,15 +1603,31 @@ export default function EnterScoresScreen() {
                   ) : allPlayerIds.length > 1 ? (
                     <View style={s.leaderboard}>
                       {(() => {
+                        const isMedal = match.round_format === 'medal';
+                        // Medal is stroke play — ranked by actual gross-vs-par, never
+                        // by the background stableford_pts total (that's a different
+                        // number, kept only for the independent side game/stats).
+                        const parByHole: Record<number, number> = {};
+                        courseHoles.forEach(h => { parByHole[h.hole_number] = h.par; });
+                        const medalStats: Record<string, { vsPar: number; played: number }> = {};
+                        if (isMedal) {
+                          allPlayerIds.forEach(id => {
+                            const entries = Object.entries(holeData[id] ?? {}).filter(([, d]) => d.gross != null);
+                            const vsPar = entries.reduce((sum, [h, d]) => sum + ((d.gross ?? 0) - (parByHole[Number(h)] ?? 0)), 0);
+                            medalStats[id] = { vsPar, played: entries.length };
+                          });
+                        }
                         const sorted = [...allPlayerIds].sort((a, b) => {
+                          if (isMedal) {
+                            const aPlayed = medalStats[a]?.played ?? 0;
+                            const bPlayed = medalStats[b]?.played ?? 0;
+                            if (aPlayed === 0 && bPlayed === 0) return 0;
+                            if (aPlayed === 0) return 1;
+                            if (bPlayed === 0) return -1;
+                            return (medalStats[a]?.vsPar ?? 0) - (medalStats[b]?.vsPar ?? 0);
+                          }
                           const aVal = playerTotals[a] ?? 0;
                           const bVal = playerTotals[b] ?? 0;
-                          if (match.round_format === 'medal') {
-                            if (aVal === 0 && bVal === 0) return 0;
-                            if (aVal === 0) return 1;
-                            if (bVal === 0) return -1;
-                            return aVal - bVal;
-                          }
                           return bVal - aVal;
                         });
                         const topScore = playerTotals[sorted[0]] ?? 0;
@@ -1597,9 +1637,13 @@ export default function EnterScoresScreen() {
                           const src = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
                           const firstName = (playerNames[id] ?? '?').split(' ')[0];
                           const total = playerTotals[id] ?? 0;
-                          const isStablefordMode = isStrokePlay || !!match.secondary_format;
-                          const scoreStr = total > 0 ? (isStablefordMode ? `${total}pts` : `${total}`) : '—';
-                          const isLeader = rank === 0 && topScore > 0;
+                          const isStablefordMode = (isStrokePlay && !isMedal) || !!match.secondary_format;
+                          const scoreStr = isMedal
+                            ? ((medalStats[id]?.played ?? 0) > 0 ? formatVsPar(medalStats[id].vsPar) : '—')
+                            : (total > 0 ? (isStablefordMode ? `${total}pts` : `${total}`) : '—');
+                          const isLeader = isMedal
+                            ? rank === 0 && (medalStats[id]?.played ?? 0) > 0
+                            : rank === 0 && topScore > 0;
                           return (
                             <TouchableOpacity key={id} style={s.lbRow} onPress={() => setEditPlayerId(id)} activeOpacity={0.7}>
                               <Avatar name={firstName} color={teamColor} size={32} source={src} />
@@ -2183,7 +2227,16 @@ export default function EnterScoresScreen() {
                     <View style={{ alignItems: 'center', marginTop: 10, minHeight: 36 }}>
                       {selectedScore ? (
                         stablePts !== null
-                          ? <Text style={{ fontFamily: FFB, fontSize: 22, color: '#fff' }}>{stablePts}<Text style={{ fontFamily: FFB, fontSize: 13, color: '#fff' }}> pts</Text></Text>
+                          ? (
+                            <>
+                              {isMatchplay && (
+                                <Text style={{ fontFamily: FF, fontSize: 10, color: '#9ca3af', letterSpacing: 1, marginBottom: 2 }}>
+                                  STABLEFORD SIDE GAME
+                                </Text>
+                              )}
+                              <Text style={{ fontFamily: FFB, fontSize: 22, color: '#fff' }}>{stablePts}<Text style={{ fontFamily: FFB, fontSize: 13, color: '#fff' }}> pts</Text></Text>
+                            </>
+                          )
                           : null
                       ) : (
                         <Text style={{ fontFamily: FF, fontSize: 13, color: '#ffffff' }}>tap a number or use arrows</Text>
