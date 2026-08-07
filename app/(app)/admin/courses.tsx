@@ -10,7 +10,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { searchUKClubs, getUKClub, clubLocation, type UKClub } from '../../../src/lib/ukgolf';
 import { scanScorecardFromCamera, scanScorecardFromLibrary, type ScannedCourse } from '../../../src/lib/scanScorecard';
-import { searchCourse, getCourseHoles, type GICourseResult } from '../../../src/lib/golfIntelligence';
+import { searchCourse, getCourseHoles, type GICourseResult, type GIHoleData } from '../../../src/lib/golfIntelligence';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
@@ -24,6 +24,36 @@ interface HoleConfig { par: 3 | 4 | 5; si: string; teeYardages: Record<string, n
 
 function defaultHoles(): HoleConfig[] {
   return Array.from({ length: 18 }, (_, i) => ({ par: 4 as 3 | 4 | 5, si: String(i + 1), teeYardages: {} }));
+}
+
+// Fills gaps left by the scorecard scan/manual entry using Golf Intelligence
+// data — never overwrites a tee yardage that's already present, and only
+// takes GI's stroke index where the current value still looks like the
+// untouched positional default (1-18 in hole order).
+function mergeGIScorecard(current: HoleConfig[], giHoles: GIHoleData[]): { holes: HoleConfig[]; filledCount: number } {
+  const giMap = new Map(giHoles.map(h => [h.holeNumber, h]));
+  let filledCount = 0;
+  const holes = current.map((h, i) => {
+    const gi = giMap.get(i + 1);
+    if (!gi) return h;
+    let changed = false;
+    const teeYardages = { ...h.teeYardages };
+    const giYards: Record<string, number | null | undefined> = {
+      yellow: gi.yellow_yards, white: gi.white_yards, blue: gi.blue_yards, red: gi.red_yards,
+    };
+    (['yellow', 'white', 'blue', 'red'] as const).forEach(color => {
+      if (teeYardages[color] == null && giYards[color] != null) {
+        teeYardages[color] = giYards[color] as number;
+        changed = true;
+      }
+    });
+    const isDefaultSi = h.si === String(i + 1);
+    const si = (isDefaultSi && gi.strokeIndex != null) ? String(gi.strokeIndex) : h.si;
+    if (si !== h.si) changed = true;
+    if (changed) filledCount++;
+    return { ...h, si, teeYardages };
+  });
+  return { holes, filledCount };
 }
 
 export default function CoursesScreen() {
@@ -311,27 +341,42 @@ export default function CoursesScreen() {
       try {
         const giHoles = await getCourseHoles(r.publicId);
         if (giHoles.length === 0) {
-          Alert.alert('No GPS data', 'Golf Intelligence has no hole GPS data for this course yet.');
+          Alert.alert('No data', 'Golf Intelligence has no hole data for this course yet.');
           return;
         }
+        // GI also carries par/SI/tee yardages — fill in whatever the scanner
+        // missed rather than blindly overwrite anything already scanned or
+        // manually entered.
+        const { holes: mergedHoles, filledCount } = mergeGIScorecard(holes, giHoles);
+        setHoles(mergedHoles);
+        const filledNote = filledCount > 0
+          ? ` — filled missing yardage/SI on ${filledCount} hole${filledCount === 1 ? '' : 's'}`
+          : '';
         if (editingName) {
           await Promise.all(
-            giHoles.map(h =>
-              supabase.from('course_holes')
-                .update({ green_lat: h.green_lat, green_lng: h.green_lng })
+            giHoles.map(h => {
+              const mh = mergedHoles[h.holeNumber - 1];
+              return supabase.from('course_holes')
+                .update({
+                  green_lat:    h.green_lat,
+                  green_lng:    h.green_lng,
+                  stroke_index: parseInt(mh.si, 10) || h.holeNumber,
+                  tee_yardages: mh.teeYardages,
+                  yardage:      mh.teeYardages.white ?? mh.teeYardages.yellow ?? null,
+                })
                 .eq('course_name', editingName)
-                .eq('hole_number', h.holeNumber),
-            ),
+                .eq('hole_number', h.holeNumber);
+            }),
           );
-          Alert.alert('GPS Downloaded', `${giHoles.length} holes updated with GPS coordinates. The rangefinder is now active for this course.`);
+          Alert.alert('Golf Intelligence Imported', `${giHoles.length} holes updated with GPS${filledNote}. The rangefinder is now active for this course.`);
         } else {
           const gps: Record<number, { lat: number; lng: number }> = {};
           giHoles.forEach(h => { gps[h.holeNumber] = { lat: h.green_lat, lng: h.green_lng }; });
           setGiGPS(gps);
-          Alert.alert('GPS Ready', `${giHoles.length} holes loaded. GPS will be saved when you tap Save.`);
+          Alert.alert('Golf Intelligence Ready', `${giHoles.length} holes loaded${filledNote}. Check the data below and tap Save.`);
         }
       } catch {
-        Alert.alert('Error', 'Could not download GPS data. Try again.');
+        Alert.alert('Error', 'Could not download data from Golf Intelligence. Try again.');
       } finally {
         setGiLoading(false);
       }
@@ -665,14 +710,14 @@ export default function CoursesScreen() {
                 >
                   {giLoading
                     ? <ActivityIndicator color={GOLD} size="small" />
-                    : <Text style={s.scanBtnText}>📡  Download GPS</Text>
+                    : <Text style={s.scanBtnText}>📡  Golf Intelligence</Text>
                   }
                 </TouchableOpacity>
               </View>
               {scanning && <Text style={s.scanHint}>Reading scorecard with AI — this takes a few seconds…</Text>}
               {Object.keys(giGPS).length > 0 && (
                 <Text style={[s.scanHint, { color: GREEN }]}>
-                  ✓ GPS loaded for {Object.keys(giGPS).length} holes — will save with course
+                  ✓ GPS + scorecard loaded for {Object.keys(giGPS).length} holes — will save with course
                 </Text>
               )}
 

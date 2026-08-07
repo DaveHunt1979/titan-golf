@@ -81,14 +81,16 @@ export function formatStrokeHoles(
   courseHoles: { hole_number: number; stroke_index: number }[]
 ): string {
   if (courseHoles.length === 0) return '';
-  const oneShot: number[] = [];
-  const twoShot: number[] = [];
+  // Grouped by exact stroke count so handicaps above 36 (a third stroke on
+  // the hardest holes) still render correctly instead of capping at "×2".
+  const byCount = new Map<number, number[]>();
   for (const h of courseHoles) {
     const strokes = calcStrokesReceived(courseHandicap, h.stroke_index);
-    if (strokes === 1) oneShot.push(h.hole_number);
-    else if (strokes >= 2) twoShot.push(h.hole_number);
+    if (strokes < 1) continue;
+    if (!byCount.has(strokes)) byCount.set(strokes, []);
+    byCount.get(strokes)!.push(h.hole_number);
   }
-  if (oneShot.length === 0 && twoShot.length === 0) return 'Off Scratch';
+  if (byCount.size === 0) return 'Off Scratch';
 
   const rangify = (nums: number[]) => {
     const sorted = [...nums].sort((a, b) => a - b);
@@ -103,8 +105,12 @@ export function formatStrokeHoles(
     return ranges.join(', ');
   };
 
-  let out = `Holes ${rangify([...oneShot, ...twoShot])}`;
-  if (twoShot.length > 0) out += ` (×2: ${rangify(twoShot)})`;
+  const allHoles = [...byCount.values()].flat();
+  let out = `Holes ${rangify(allHoles)}`;
+  const extras = [...byCount.entries()].filter(([count]) => count >= 2).sort((a, b) => a[0] - b[0]);
+  if (extras.length > 0) {
+    out += ` (${extras.map(([count, holes]) => `×${count}: ${rangify(holes)}`).join(', ')})`;
+  }
   return out;
 }
 

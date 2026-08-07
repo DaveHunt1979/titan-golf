@@ -259,8 +259,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 73,
-      "lastAccessed": 1786097648569,
+      "accessCount": 89,
+      "lastAccessed": 1786099147191,
       "type": "file"
     },
     {
@@ -282,15 +282,15 @@
       "type": "file"
     },
     {
-      "path": "src/lib/scoring.ts",
-      "accessCount": 16,
-      "lastAccessed": 1786095571970,
+      "path": "app/(app)/score/preview/[matchId].tsx",
+      "accessCount": 23,
+      "lastAccessed": 1786099183648,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/preview/[matchId].tsx",
-      "accessCount": 16,
-      "lastAccessed": 1786097484691,
+      "path": "src/lib/scoring.ts",
+      "accessCount": 19,
+      "lastAccessed": 1786098760299,
       "type": "file"
     },
     {
@@ -324,6 +324,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/score/index.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1786099010081,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/chat/index.tsx",
       "accessCount": 8,
       "lastAccessed": 1785999458384,
@@ -333,12 +339,6 @@
       "path": "app/(app)/admin/branding.tsx",
       "accessCount": 8,
       "lastAccessed": 1786011466132,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/index.tsx",
-      "accessCount": 8,
-      "lastAccessed": 1786086921279,
       "type": "file"
     },
     {
@@ -378,15 +378,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/camera/index.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1785999508509,
+      "path": "app.json",
+      "accessCount": 5,
+      "lastAccessed": 1786101720143,
       "type": "file"
     },
     {
-      "path": "app.json",
+      "path": "app/(app)/camera/index.tsx",
       "accessCount": 4,
-      "lastAccessed": 1786085097329,
+      "lastAccessed": 1785999508509,
       "type": "file"
     },
     {
@@ -411,6 +411,12 @@
       "path": "supabase/migrations/20260807_handicap_method.sql",
       "accessCount": 3,
       "lastAccessed": 1786096185680,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260807b_admin_update_avatar.sql",
+      "accessCount": 3,
+      "lastAccessed": 1786098691827,
       "type": "file"
     },
     {
@@ -441,6 +447,12 @@
       "path": "supabase/fix_join_claim_player.sql",
       "accessCount": 2,
       "lastAccessed": 1786097444918,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/offlinePack.ts",
+      "accessCount": 2,
+      "lastAccessed": 1786098968947,
       "type": "file"
     },
     {
@@ -540,21 +552,9 @@
       "type": "file"
     },
     {
-      "path": "supabase/migrations/20260807b_admin_update_avatar.sql",
-      "accessCount": 1,
-      "lastAccessed": 1786096743855,
-      "type": "file"
-    },
-    {
       "path": "supabase/add_avatars_bucket.sql",
       "accessCount": 1,
       "lastAccessed": 1786096764620,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/offlinePack.ts",
-      "accessCount": 1,
-      "lastAccessed": 1786097507860,
       "type": "file"
     }
   ],

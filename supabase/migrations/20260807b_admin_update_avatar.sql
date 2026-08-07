@@ -2,6 +2,14 @@
 -- picker fell back to a raw `players` table update — which RLS silently
 -- drops to 0 rows affected (no error) whenever the admin edits someone
 -- else's photo, since only the row's own owner can update it directly.
+--
+-- CREATE OR REPLACE cannot change an existing function's argument list — a
+-- different signature creates a second overload instead of replacing it, so
+-- the old 5-arg version must be dropped first or admin_update_player(...)
+-- calls that satisfy both (e.g. the existing email/handicap save, which
+-- never passes p_avatar_url) become ambiguous and error.
+DROP FUNCTION IF EXISTS admin_update_player(UUID, UUID, TEXT, TEXT, NUMERIC);
+
 CREATE OR REPLACE FUNCTION admin_update_player(
   p_society_id   UUID,
   p_player_id    UUID,

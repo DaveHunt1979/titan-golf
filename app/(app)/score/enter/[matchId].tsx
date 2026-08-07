@@ -291,8 +291,14 @@ export default function EnterScoresScreen() {
           });
           setPlayerNames(names);
           setPlayerAvatars(avatars);
+          // Merge per-player rather than all-or-nothing: a player in the
+          // match but not enrolled in competition_players (or with a null
+          // handicap there) must still fall back to their own raw index,
+          // not silently play off scratch just because SOME other player in
+          // the match has a competition_players row.
           const comp = compData as CompPlayer[] | null;
-          const rawComp = comp && comp.length > 0 ? comp : fallback;
+          const compMap = new Map((comp ?? []).map(cp => [cp.player_id, cp]));
+          const rawComp = fallback.map(f => compMap.get(f.player_id) ?? f);
           baseCompRef.current = rawComp;
           const povs = (matchData as any).player_overrides ?? {};
           const effectiveComp = rawComp.map(cp => {
@@ -542,6 +548,9 @@ export default function EnterScoresScreen() {
 
   const allPlayerIds = match ? [...match.home_player_ids, ...match.away_player_ids] : [];
   const courseHole = courseHoles.find(h => h.hole_number === activeHole);
+  // For the stroke-allocation panel: a front-9/back-9 round never plays the
+  // other 9, so those holes shouldn't appear in a player's stroke list.
+  const playedCourseHoles = courseHoles.filter(h => holeSequence.includes(h.hole_number));
   const holeYardage = courseHole
     ? ((teeColor && courseHole.tee_yardages?.[teeColor]) || courseHole.yardage || null)
     : null;
@@ -1302,6 +1311,12 @@ export default function EnterScoresScreen() {
   const homeLabel = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const awayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const isMatchplay = match.round_format === 'matchplay';
+  // The inline SHOT-badge panel only actually renders when the single-group
+  // matchplay branch wins the leaderboard ternary below — on a multi-group
+  // tournament day (dayBoard.length > 1) the ALL GROUPS panel wins instead,
+  // so the "Gets a shot" banner must still show or the indicator vanishes
+  // entirely for every tournament matchplay day.
+  const showInlineShots = dayBoard.length <= 1 && allPlayerIds.length > 1 && isMatchplay;
 
   const sortedLeaders = [...allPlayerIds].sort((a, b) => (playerTotals[b] ?? 0) - (playerTotals[a] ?? 0));
   const leaderId = sortedLeaders[0];
@@ -1538,7 +1553,7 @@ export default function EnterScoresScreen() {
                         <Text style={s.lbMore}>+{dayBoard.length - 6} more</Text>
                       )}
                     </View>
-                  ) : allPlayerIds.length > 1 && isMatchplay ? (
+                  ) : showInlineShots ? (
                     <View style={s.leaderboard}>
                       {allPlayerIds.map(id => {
                         const isHome = match.home_player_ids.includes(id);
@@ -1556,7 +1571,7 @@ export default function EnterScoresScreen() {
                                 <Text style={s.shotPillText}>SHOT</Text>
                               </View>
                             )}
-                            <Text style={s.lbStrokes} numberOfLines={1}>{formatStrokeHoles(hcp, courseHoles)}</Text>
+                            <Text style={s.lbStrokes} numberOfLines={2}>{formatStrokeHoles(hcp, playedCourseHoles)}</Text>
                           </TouchableOpacity>
                         );
                       })}
@@ -1598,9 +1613,10 @@ export default function EnterScoresScreen() {
                   ) : null}
                 </View>
 
-                {/* Gets a shot — shown here only outside Matchplay; Matchplay shows
-                    it inline as a SHOT badge per player in the panel above. */}
-                {shotPlayerIds.length > 0 && !isMatchplay && (
+                {/* Gets a shot — shown here whenever the inline SHOT-badge panel
+                    above isn't the one rendering (non-Matchplay formats, or a
+                    multi-group tournament day where ALL GROUPS wins instead). */}
+                {shotPlayerIds.length > 0 && !showInlineShots && (
                   <View style={s.shotRow}>
                     <View style={s.shotBadge}>
                       <Ionicons name="golf-outline" size={12} color={GOLD} />
@@ -2661,7 +2677,7 @@ const s = StyleSheet.create({
   lbRank:         { fontFamily: FFB, fontSize: 12, width: 18, textAlign: 'center' },
   lbName:         { flex: 1, fontFamily: FFB, fontSize: 13, color: '#ffffff' },
   lbPts:          { fontFamily: FFB, fontSize: 13 },
-  lbStrokes:      { fontFamily: FFB, fontSize: 11, color: '#9ca3af', maxWidth: 90, textAlign: 'right' },
+  lbStrokes:      { fontFamily: FFB, fontSize: 10, color: '#9ca3af', maxWidth: 120, textAlign: 'right', lineHeight: 13 },
   lbMore:         { fontFamily: FFB, fontSize: 11, color: '#ffffff', textAlign: 'center', marginTop: 2 },
   shotPill: {
     backgroundColor: GOLD, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2,

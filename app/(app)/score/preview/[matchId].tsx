@@ -62,48 +62,63 @@ export default function MatchPreviewScreen() {
   const [match, setMatch] = useState<MatchPreview | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
   const [teeing, setTeeing] = useState(false);
 
   useEffect(() => {
     async function load() {
-      const { data: matchData } = await supabase
-        .from('matches')
-        .select('*,day:day_id(course_name,course_par,course_rating,slope_rating)')
-        .eq('id', matchId)
-        .single();
+      try {
+        const { data: matchData, error: matchErr } = await supabase
+          .from('matches')
+          .select('*,day:day_id(course_name,course_par,course_rating,slope_rating)')
+          .eq('id', matchId)
+          .single();
 
-      if (!matchData) { setLoading(false); return; }
-      setMatch(matchData as any);
+        if (matchErr) throw matchErr;
+        if (!matchData) { setLoadError(true); return; }
+        setMatch(matchData as any);
 
-      const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
-      if (allIds.length) {
-        const [{ data: playersData }, { data: compData }] = await Promise.all([
-          supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allIds),
-          matchData.competition_id
-            ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', matchData.competition_id).in('player_id', allIds)
-            : Promise.resolve({ data: [] as { player_id: string; handicap_index: number }[] }),
-        ]);
-        if (playersData) {
-          // Same precedence the live scoring screen uses: competition_players
-          // (which already has max_handicap capping applied at enrollment)
-          // wins over the raw player record, then a per-match override on
-          // top of that — otherwise this preview can show a different
-          // handicap than what actually applies once scoring starts.
-          const compByPlayer: Record<string, number> = {};
-          (compData ?? []).forEach(cp => { compByPlayer[cp.player_id] = cp.handicap_index; });
-          const overrides = matchData.player_overrides ?? {};
-          const effective = (playersData as Player[]).map(p => {
-            const ov = overrides[p.id]?.hcp;
-            const compHcp = compByPlayer[p.id];
-            return { ...p, handicap_index: ov ?? compHcp ?? p.handicap_index };
-          });
-          setPlayers(effective);
+        const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
+        if (allIds.length) {
+          const [{ data: playersData }, { data: compData }] = await Promise.all([
+            supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allIds),
+            matchData.competition_id
+              ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', matchData.competition_id).in('player_id', allIds)
+              : Promise.resolve({ data: [] as { player_id: string; handicap_index: number }[] }),
+          ]);
+          if (playersData) {
+            // Same precedence the live scoring screen uses: competition_players
+            // (which already has max_handicap capping applied at enrollment)
+            // wins over the raw player record, then a per-match override on
+            // top of that — otherwise this preview can show a different
+            // handicap than what actually applies once scoring starts.
+            const compByPlayer: Record<string, number> = {};
+            (compData ?? []).forEach(cp => { compByPlayer[cp.player_id] = cp.handicap_index; });
+            const overrides = matchData.player_overrides ?? {};
+            const effective = (playersData as Player[]).map(p => {
+              const ov = overrides[p.id]?.hcp;
+              const compHcp = compByPlayer[p.id];
+              return { ...p, handicap_index: ov ?? compHcp ?? p.handicap_index };
+            });
+            setPlayers(effective);
+          }
         }
+      } catch (e) {
+        // Without this, any transient failure here — a network blip is the
+        // likely case moments after finishing a previous round — left
+        // `loading` stuck true forever: the exact "hangs on Tee Off" bug
+        // Rick kept hitting starting a second round back to back.
+        console.error('preview load failed:', e);
+        setLoadError(true);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
+    setLoading(true);
+    setLoadError(false);
     load();
-  }, [matchId]);
+  }, [matchId, retryTick]);
 
   function shareCode() {
     if (!dayCode) return;
@@ -136,6 +151,15 @@ export default function MatchPreviewScreen() {
     const dest = startHole && startHole !== '1' ? `${base}?startHole=${startHole}` : base;
     router.replace(dest as any);
   }
+
+  if (loadError) return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000', gap: 16, padding: 24 }}>
+      <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16 }}>Couldn't load this round.</Text>
+      <TouchableOpacity style={s.teeBtn} onPress={() => setRetryTick(t => t + 1)} activeOpacity={0.85}>
+        <Text style={s.teeBtnText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   if (loading || !fontsLoaded) return (
     <View style={s.loading}>
