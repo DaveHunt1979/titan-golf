@@ -11,7 +11,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import {
   calcHoles, matchLabel, calcCourseHandicap,
-  calcStrokesReceived, calcStablefordPoints,
+  calcStrokesReceived, calcStablefordPoints, formatStrokeHoles,
 } from '../../../../src/lib/scoring';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { speakHole, speakPressure } from '../../../../src/lib/caddie';
@@ -112,6 +112,7 @@ interface MatchInfo {
   side_games: string[] | null;
   secondary_format: string | null;
   hcp_allowance: number | null;
+  handicap_method: string | null;
   player_overrides: Record<string, { hcp?: number; tee?: string }> | null;
   day_id: string | null;
   day: {
@@ -569,12 +570,21 @@ export default function EnterScoresScreen() {
     }
   }
 
+  // Effective handicap used for matchplay stroke allocation. Standard method
+  // is just the %-cut course handicap; 4BBB Stroke Matchplay instead plays
+  // the lowest cut handicap in the match off scratch and gives everyone else
+  // shots relative to that (Rick's spec — never applies to the Stableford
+  // side game, which always stays on each player's own full handicap).
+  function matchplayHcp(id: string): number {
+    const base = playerCourseHcp(id, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100);
+    if (match?.handicap_method !== 'relative_low') return base;
+    const groupHcps = allPlayerIds.map(pid => playerCourseHcp(pid, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100));
+    return Math.max(0, base - Math.min(...groupHcps));
+  }
+
   // Players receiving a shot on the current hole
   const shotPlayerIds = courseHole
-    ? allPlayerIds.filter(id => {
-        const hcp = playerCourseHcp(id, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100);
-        return calcStrokesReceived(hcp, courseHole.stroke_index) >= 1;
-      })
+    ? allPlayerIds.filter(id => calcStrokesReceived(matchplayHcp(id), courseHole.stroke_index) >= 1)
     : [];
 
   const modalPlayerId = allPlayerIds[modalPlayerIdx] ?? null;
@@ -847,8 +857,7 @@ export default function EnterScoresScreen() {
 
     // ── Match play branch ────────────────────────────────────────────
     const getNetScore = (id: string) => {
-      const hcp = playerCourseHcp(id, compPlayers, day, match.hcp_allowance ?? 100);
-      const shots = calcStrokesReceived(hcp, si);
+      const shots = calcStrokesReceived(matchplayHcp(id), si);
       return (scores[id] ?? 99) - shots;
     };
 
@@ -1529,6 +1538,29 @@ export default function EnterScoresScreen() {
                         <Text style={s.lbMore}>+{dayBoard.length - 6} more</Text>
                       )}
                     </View>
+                  ) : allPlayerIds.length > 1 && isMatchplay ? (
+                    <View style={s.leaderboard}>
+                      {allPlayerIds.map(id => {
+                        const isHome = match.home_player_ids.includes(id);
+                        const teamColor = isHome ? homeColor : awayColor;
+                        const src = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
+                        const firstName = (playerNames[id] ?? '?').split(' ')[0];
+                        const hcp = matchplayHcp(id);
+                        const getsShotHere = shotPlayerIds.includes(id);
+                        return (
+                          <TouchableOpacity key={id} style={s.lbRow} onPress={() => setEditPlayerId(id)} activeOpacity={0.7}>
+                            <Avatar name={firstName} color={teamColor} size={32} source={src} />
+                            <Text style={s.lbName} numberOfLines={1}>{firstName}</Text>
+                            {getsShotHere && (
+                              <View style={s.shotPill}>
+                                <Text style={s.shotPillText}>SHOT</Text>
+                              </View>
+                            )}
+                            <Text style={s.lbStrokes} numberOfLines={1}>{formatStrokeHoles(hcp, courseHoles)}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
                   ) : allPlayerIds.length > 1 ? (
                     <View style={s.leaderboard}>
                       {(() => {
@@ -1566,8 +1598,9 @@ export default function EnterScoresScreen() {
                   ) : null}
                 </View>
 
-                {/* Gets a shot */}
-                {shotPlayerIds.length > 0 && (
+                {/* Gets a shot — shown here only outside Matchplay; Matchplay shows
+                    it inline as a SHOT badge per player in the panel above. */}
+                {shotPlayerIds.length > 0 && !isMatchplay && (
                   <View style={s.shotRow}>
                     <View style={s.shotBadge}>
                       <Ionicons name="golf-outline" size={12} color={GOLD} />
@@ -2079,7 +2112,7 @@ export default function EnterScoresScreen() {
             {/* Scrollable score content */}
             {(() => {
               const shots = modalPlayerId
-                ? calcStrokesReceived(playerCourseHcp(modalPlayerId, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100), courseHole?.stroke_index ?? 18)
+                ? calcStrokesReceived(matchplayHcp(modalPlayerId), courseHole?.stroke_index ?? 18)
                 : 0;
               const par = courseHole?.par ?? 4;
               const result = selectedScore ? scoreVsPar(selectedScore, par, shots) : null;
@@ -2628,7 +2661,12 @@ const s = StyleSheet.create({
   lbRank:         { fontFamily: FFB, fontSize: 12, width: 18, textAlign: 'center' },
   lbName:         { flex: 1, fontFamily: FFB, fontSize: 13, color: '#ffffff' },
   lbPts:          { fontFamily: FFB, fontSize: 13 },
+  lbStrokes:      { fontFamily: FFB, fontSize: 11, color: '#9ca3af', maxWidth: 90, textAlign: 'right' },
   lbMore:         { fontFamily: FFB, fontSize: 11, color: '#ffffff', textAlign: 'center', marginTop: 2 },
+  shotPill: {
+    backgroundColor: GOLD, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2,
+  },
+  shotPillText: { fontFamily: FFB, fontSize: 9, color: '#000', letterSpacing: 0.5 },
 
   shotRow: {
     paddingHorizontal: 16, paddingVertical: 10,

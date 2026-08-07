@@ -51,6 +51,14 @@ function isMissingMatchError(err: any): boolean {
   return err?.code === '23503' || /foreign key/i.test(String(err?.message ?? ''));
 }
 
+// Shared vs-par formatter — 'E' for level par, otherwise signed. Single
+// source so this can't drift out of sync between sites the way the round-
+// complete card and the saved result_str did (one showed "0", one showed "E").
+function formatVsPar(n: number): string {
+  if (n === 0) return 'E';
+  return n > 0 ? `+${n}` : `${n}`;
+}
+
 function ptsColor(pts: number): string {
   if (pts >= 4) return GOLD;
   if (pts === 3) return RED;
@@ -418,7 +426,7 @@ export default function SoloRoundScreen() {
     const newStatus   = scoredHoles.size >= holesToPlay ? 'complete' : 'in_progress';
     const result      = isStableford
       ? `${totalPts + pts} pts`
-      : `${vsPar + gross - safePar >= 0 ? '+' : ''}${vsPar + gross - safePar}`;
+      : formatVsPar(vsPar + gross - safePar);
 
     // ── Update UI immediately (no await before this) ──
     setModalVisible(false);
@@ -460,7 +468,14 @@ export default function SoloRoundScreen() {
           ]);
           return;
         }
+        // Don't let the match row get marked as if this hole saved when it
+        // didn't (e.g. an RLS rejection) — the score already shows in the UI
+        // optimistically, but silently continuing here would also mark the
+        // round complete/progressed with no match_holes row behind it, and
+        // the score would vanish next time this screen loads.
         console.error('insert error:', insErr);
+        Alert.alert('Save failed', 'That score didn\'t save — check your connection and try again.');
+        return;
       }
 
       const { error: matchErr } = await supabase.from('matches').update({
@@ -577,8 +592,7 @@ export default function SoloRoundScreen() {
   const formatLabel = isStableford ? 'Stableford' : 'Medal';
   const scoreDisplay = isStableford
     ? `${totalPts} pts`
-    : vsPar === 0 ? 'E'
-    : vsPar > 0 ? `+${vsPar}` : `${vsPar}`;
+    : formatVsPar(vsPar);
   const scoreColor = isStableford ? GOLD : (vsPar < 0 ? GREEN : vsPar > 0 ? RED : '#ffffff');
 
   return (
@@ -757,7 +771,6 @@ export default function SoloRoundScreen() {
           const bestHole  = holesWithPar.length ? holesWithPar.reduce((b, h) => h.vsPar < b.vsPar ? h : b) : null;
           const worstHole = holesWithPar.length ? holesWithPar.reduce((b, h) => h.vsPar > b.vsPar ? h : b) : null;
           const vsParLabel = (v: number) => v <= -2 ? 'Eagle+' : v === -1 ? 'Birdie' : v === 0 ? 'Par' : v === 1 ? 'Bogey' : v === 2 ? 'Double' : 'Triple+';
-          const finalScore = isStableford ? `${totalPts} pts` : `${vsPar >= 0 ? '+' : ''}${vsPar}`;
           return (
             <View style={s.completeCard}>
               <Ionicons name="trophy" size={48} color={GOLD} />
@@ -790,7 +803,7 @@ export default function SoloRoundScreen() {
               <TouchableOpacity
                 style={[s.ctaBtn, { marginTop: 16, alignSelf: 'stretch' }]}
                 onPress={async () => {
-                  const fs = isStableford ? `${totalPts} pts` : `${vsPar >= 0 ? '+' : ''}${vsPar}`;
+                  const fs = isStableford ? `${totalPts} pts` : formatVsPar(vsPar);
                   if (playerName && !voiceOff) await speakOutro(playerName.split(' ')[0], fs);
                   router.back();
                 }}

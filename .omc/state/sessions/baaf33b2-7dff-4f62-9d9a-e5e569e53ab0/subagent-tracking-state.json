@@ -633,10 +633,50 @@
       "synthetic": true,
       "telemetry_status": "unmatched_stop",
       "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    },
+    {
+      "agent_id": "atitan-golf-audit-f5bb14fbb2b22ebb",
+      "agent_type": "titan-golf-audit",
+      "started_at": "2026-08-07T07:01:31.685Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-07T07:02:49.047Z",
+      "duration_ms": 77362
+    },
+    {
+      "agent_id": "a5e04f2fa109ff18d",
+      "agent_type": "untracked-native-fork",
+      "started_at": "2026-08-07T07:00:22.415Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-07T07:00:22.415Z",
+      "synthetic": true,
+      "telemetry_status": "unmatched_stop",
+      "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    },
+    {
+      "agent_id": "a291830b2c80a9d73",
+      "agent_type": "untracked-native-fork",
+      "started_at": "2026-08-07T07:06:38.128Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-07T07:06:38.128Z",
+      "synthetic": true,
+      "telemetry_status": "unmatched_stop",
+      "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    },
+    {
+      "agent_id": "aaudit-b101-8a5ac949930020d6",
+      "agent_type": "audit-b101",
+      "started_at": "2026-08-07T10:15:51.761Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-07T10:16:39.737Z",
+      "duration_ms": 47976
     }
   ],
-  "total_spawned": 2,
-  "total_completed": 60,
+  "total_spawned": 6,
+  "total_completed": 67,
   "total_failed": 0,
-  "last_updated": "2026-08-07T06:21:15.347Z"
+  "last_updated": "2026-08-07T10:16:39.839Z"
 }

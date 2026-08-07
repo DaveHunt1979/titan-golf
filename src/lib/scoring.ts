@@ -74,6 +74,40 @@ export function calcStrokesReceived(
   return Math.floor(courseHandicap / 18) + (strokeIndex <= courseHandicap % 18 ? 1 : 0);
 }
 
+// Which physical holes a player gets a stroke on, for display on the
+// matchplay screen (e.g. "Holes 1-8, 11") instead of raw Stableford points.
+export function formatStrokeHoles(
+  courseHandicap: number,
+  courseHoles: { hole_number: number; stroke_index: number }[]
+): string {
+  if (courseHoles.length === 0) return '';
+  const oneShot: number[] = [];
+  const twoShot: number[] = [];
+  for (const h of courseHoles) {
+    const strokes = calcStrokesReceived(courseHandicap, h.stroke_index);
+    if (strokes === 1) oneShot.push(h.hole_number);
+    else if (strokes >= 2) twoShot.push(h.hole_number);
+  }
+  if (oneShot.length === 0 && twoShot.length === 0) return 'Off Scratch';
+
+  const rangify = (nums: number[]) => {
+    const sorted = [...nums].sort((a, b) => a - b);
+    const ranges: string[] = [];
+    let start = sorted[0], prev = sorted[0];
+    for (let i = 1; i <= sorted.length; i++) {
+      const cur = sorted[i];
+      if (cur === prev + 1) { prev = cur; continue; }
+      ranges.push(start === prev ? `${start}` : `${start}-${prev}`);
+      start = cur; prev = cur;
+    }
+    return ranges.join(', ');
+  };
+
+  let out = `Holes ${rangify([...oneShot, ...twoShot])}`;
+  if (twoShot.length > 0) out += ` (×2: ${rangify(twoShot)})`;
+  return out;
+}
+
 export function calcStablefordPoints(
   gross: number | null,
   par: number,
@@ -115,6 +149,7 @@ export function getStandings(
     result_str: string | null;
     holes_string: string;
     is_singles: boolean;
+    holes_to_play?: number | null;
   }>,
   ptsWin = 1,
   ptsHalf = 0.5,
@@ -136,16 +171,24 @@ export function getStandings(
   };
 
   // Tie-break rung 2 ("team placed above opponent"): if two teams are still
-  // level after points + combined Stableford, whoever won the head-to-head
-  // match between them ranks above the other.
+  // level after points + combined Stableford, whoever won more head-to-head
+  // matches between them ranks above the other. Aggregated across every match
+  // between the pair (not just whichever happened to run last), since a
+  // 2-team tournament plays the same fixture repeatedly across days.
   const h2hKey = (a: string, b: string) => [a, b].sort().join('|');
-  const h2hWinner = new Map<string, string>();
+  const h2hWins = new Map<string, Map<string, number>>();
+  const recordH2h = (pairKey: string, winnerId: string) => {
+    if (!h2hWins.has(pairKey)) h2hWins.set(pairKey, new Map());
+    const rec = h2hWins.get(pairKey)!;
+    rec.set(winnerId, (rec.get(winnerId) ?? 0) + 1);
+  };
 
   for (const m of matches) {
     const winner = getEffectiveWinner(
       m.status as 'upcoming' | 'in_progress' | 'complete',
       m.winner,
-      m.holes_string ?? '..................'
+      m.holes_string ?? '..................',
+      m.holes_to_play ?? 18
     );
     if (!winner) continue;
 
@@ -160,20 +203,64 @@ export function getStandings(
     } else if (winner === 'home') {
       home.pts += ptsWin; home.w++;
       away.l++;
-      h2hWinner.set(h2hKey(m.home_team_id, m.away_team_id), m.home_team_id);
+      recordH2h(h2hKey(m.home_team_id, m.away_team_id), m.home_team_id);
     } else {
       away.pts += ptsWin; away.w++;
       home.l++;
-      h2hWinner.set(h2hKey(m.home_team_id, m.away_team_id), m.away_team_id);
+      recordH2h(h2hKey(m.home_team_id, m.away_team_id), m.away_team_id);
     }
   }
 
   return Array.from(teamMap.values()).sort((a, b) => {
     if (b.pts !== a.pts) return b.pts - a.pts;
     if (b.stableford !== a.stableford) return b.stableford - a.stableford;
-    const h2h = h2hWinner.get(h2hKey(a.teamId, b.teamId));
-    if (h2h === a.teamId) return -1;
-    if (h2h === b.teamId) return 1;
+    const rec = h2hWins.get(h2hKey(a.teamId, b.teamId));
+    if (rec) {
+      const aWins = rec.get(a.teamId) ?? 0;
+      const bWins = rec.get(b.teamId) ?? 0;
+      if (aWins !== bWins) return bWins - aWins;
+    }
     return b.w - a.w;
   });
+}
+
+// Bonus points for sweeping every singles match on a day (e.g. winning all 4
+// singles matches) — shared by the Tour leaderboard and the tournament draw
+// screen's final-day knockout seeding, which must never compute this
+// differently or the two screens can show contradictory team positions.
+export function calcSweepBonus(
+  matches: Array<{
+    day_id: string | null;
+    home_team_id: string | null;
+    away_team_id: string | null;
+    status: string;
+    winner: string | null;
+    holes_string: string;
+    holes_to_play?: number | null;
+  }>,
+  singlesDayIds: Set<string>,
+  bonusPoints: number,
+): Record<string, number> {
+  const bonusPts: Record<string, number> = {};
+  const singlesByDay: Record<string, typeof matches> = {};
+  matches.forEach(m => {
+    if (!m.day_id || !singlesDayIds.has(m.day_id) || !m.home_team_id || !m.away_team_id) return;
+    (singlesByDay[m.day_id] ??= []).push(m);
+  });
+  Object.values(singlesByDay).forEach(dayMatches => {
+    const homeTeam = dayMatches[0].home_team_id!;
+    const awayTeam = dayMatches[0].away_team_id!;
+    const sameFixture = dayMatches.every(m => m.home_team_id === homeTeam && m.away_team_id === awayTeam);
+    if (!sameFixture) return;
+    const winners = dayMatches.map(m => getEffectiveWinner(
+      m.status as 'upcoming' | 'in_progress' | 'complete',
+      m.winner,
+      m.holes_string ?? '..................',
+      m.holes_to_play ?? 18
+    ));
+    if (winners.some(w => !w || w === 'half')) return;
+    if (winners.every(w => w === 'home')) bonusPts[homeTeam] = (bonusPts[homeTeam] ?? 0) + bonusPoints;
+    else if (winners.every(w => w === 'away')) bonusPts[awayTeam] = (bonusPts[awayTeam] ?? 0) + bonusPoints;
+  });
+  return bonusPts;
 }

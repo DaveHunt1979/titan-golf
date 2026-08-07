@@ -139,7 +139,14 @@ export default function PlayersScreen() {
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(`${selected.player.id}.jpg`);
       const avatarUrl = `${publicUrl}?t=${Date.now()}`;
-      const { error: dbError } = await supabase.from('players').update({ avatar_url: avatarUrl }).eq('id', selected.player.id);
+      // Must go through the admin RPC, not a raw table update — RLS only lets
+      // a player update their own row, so an admin editing someone else's
+      // photo would otherwise silently match 0 rows (no error, nothing saved).
+      const { error: dbError } = await supabase.rpc('admin_update_player', {
+        p_society_id: societyId!,
+        p_player_id: selected.player.id,
+        p_avatar_url: avatarUrl,
+      });
       if (dbError) throw dbError;
       setSelected(prev => prev ? { ...prev, player: { ...prev.player, avatar_url: avatarUrl } } : prev);
       load();

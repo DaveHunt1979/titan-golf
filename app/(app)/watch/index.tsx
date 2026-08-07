@@ -27,6 +27,7 @@ interface MatchRow {
   winner: string | null;
   result_str: string | null;
   holes_string: string;
+  holes_to_play: number | null;
   is_singles: boolean;
   home_team_id: string | null;
   away_team_id: string | null;
@@ -218,11 +219,12 @@ function MatchCard({ match, firstName, getAvatar, onWatch }: {
   const dc = useDynamicColors();
   const holesStr    = match.holes_string ?? '..................';
   const holeChars   = holesStr.split('');
-  const { homeUp }  = calcHoles(holesStr);
+  const holesToPlay = match.holes_to_play ?? 18;
+  const { homeUp }  = calcHoles(holesStr, holesToPlay);
   const holesPlayed = holeChars.filter(c => c !== '.').length;
   const status      = match.status;
-  const winner      = getEffectiveWinner(status, match.winner, holesStr);
-  const label       = matchLabel(status, match.winner, match.result_str, holesStr);
+  const winner      = getEffectiveWinner(status, match.winner, holesStr, holesToPlay);
+  const label       = matchLabel(status, match.winner, match.result_str, holesStr, holesToPlay);
   const aheadSide   = status === 'complete' ? winner : homeUp > 0 ? 'home' : homeUp < 0 ? 'away' : null;
 
   const homeColor = match.home_team?.accent_color ?? GOLD;

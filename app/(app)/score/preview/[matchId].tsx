@@ -19,12 +19,15 @@ const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface MatchPreview {
   id: string;
+  competition_id: string | null;
   round_format: string | null;
   is_singles: boolean;
   hcp_allowance: number | null;
+  handicap_method: string | null;
   side_games: string[] | null;
   home_player_ids: string[];
   away_player_ids: string[];
+  player_overrides: Record<string, { hcp?: number; tee?: string }> | null;
   day: { course_name: string; course_par: number; course_rating: number | null; slope_rating: number | null } | null;
 }
 
@@ -74,11 +77,28 @@ export default function MatchPreviewScreen() {
 
       const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
       if (allIds.length) {
-        const { data: playersData } = await supabase
-          .from('players')
-          .select('id,display_name,handicap_index,avatar_url')
-          .in('id', allIds);
-        if (playersData) setPlayers(playersData as Player[]);
+        const [{ data: playersData }, { data: compData }] = await Promise.all([
+          supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allIds),
+          matchData.competition_id
+            ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', matchData.competition_id).in('player_id', allIds)
+            : Promise.resolve({ data: [] as { player_id: string; handicap_index: number }[] }),
+        ]);
+        if (playersData) {
+          // Same precedence the live scoring screen uses: competition_players
+          // (which already has max_handicap capping applied at enrollment)
+          // wins over the raw player record, then a per-match override on
+          // top of that — otherwise this preview can show a different
+          // handicap than what actually applies once scoring starts.
+          const compByPlayer: Record<string, number> = {};
+          (compData ?? []).forEach(cp => { compByPlayer[cp.player_id] = cp.handicap_index; });
+          const overrides = matchData.player_overrides ?? {};
+          const effective = (playersData as Player[]).map(p => {
+            const ov = overrides[p.id]?.hcp;
+            const compHcp = compByPlayer[p.id];
+            return { ...p, handicap_index: ov ?? compHcp ?? p.handicap_index };
+          });
+          setPlayers(effective);
+        }
       }
       setLoading(false);
     }
@@ -129,6 +149,19 @@ export default function MatchPreviewScreen() {
   const homePlayers = match.home_player_ids.map(id => players.find(p => p.id === id)).filter(Boolean) as Player[];
   const awayPlayers = match.away_player_ids.map(id => players.find(p => p.id === id)).filter(Boolean) as Player[];
   const isSolo = match.away_player_ids.length === 0;
+
+  // 4BBB Stroke Matchplay: the lowest cut handicap in the whole match plays
+  // off scratch, everyone else's shots are relative to that (Rick's spec).
+  const isRelativeHcp = match.handicap_method === 'relative_low';
+  const groupLowestCutHcp = isRelativeHcp
+    ? Math.min(...[...homePlayers, ...awayPlayers].map(p => {
+        const allowance = match.hcp_allowance ?? 100;
+        const raw = (!match.day?.slope_rating || !match.day?.course_rating || !match.day?.course_par)
+          ? Math.round(p.handicap_index)
+          : calcCourseHandicap(p.handicap_index, match.day.slope_rating, match.day.course_rating, match.day.course_par);
+        return Math.round(raw * (allowance / 100));
+      }))
+    : 0;
 
   const modeName = (() => {
     const map: Record<string, string> = {
@@ -187,17 +220,17 @@ export default function MatchPreviewScreen() {
         {/* Players */}
         <View style={isSolo ? s.soloRow : s.matchupRow}>
           {isSolo ? (
-            homePlayers.map(p => <PlayerCard key={p.id} player={p} size={homePlayers.length > 2 ? 60 : 80} hcpAllowance={match.hcp_allowance} day={match.day} />)
+            homePlayers.map(p => <PlayerCard key={p.id} player={p} size={homePlayers.length > 2 ? 60 : 80} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} />)
           ) : (
             <>
               <View style={s.side}>
-                {homePlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} />)}
+                {homePlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} />)}
               </View>
               <View style={s.vsWrap}>
                 <Text style={s.vsText}>VS</Text>
               </View>
               <View style={s.side}>
-                {awayPlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} />)}
+                {awayPlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} />)}
               </View>
             </>
           )}
@@ -259,8 +292,9 @@ export default function MatchPreviewScreen() {
   );
 }
 
-function PlayerCard({ player, size, hcpAllowance, day }: {
+function PlayerCard({ player, size, hcpAllowance, day, isRelativeHcp, groupLowestCutHcp }: {
   player: Player; size: number; hcpAllowance: number | null; day: MatchPreview['day'];
+  isRelativeHcp?: boolean; groupLowestCutHcp?: number;
 }) {
   const avatar = player.avatar_url ?? getPlayerAvatar(player.id, 'normal');
   const firstName = player.display_name.split(' ')[0];
@@ -274,6 +308,10 @@ function PlayerCard({ player, size, hcpAllowance, day }: {
   const cutHcp = Math.round(rawCourseHcp * (allowance / 100));
   const isCut = allowance !== 100;
 
+  // 4BBB Stroke Matchplay: shots actually received once the group's lowest
+  // cut handicap is subtracted (that player plays off scratch).
+  const shotsReceived = isRelativeHcp ? Math.max(0, cutHcp - (groupLowestCutHcp ?? 0)) : null;
+
   return (
     <View style={s.playerCard}>
       <View style={[s.avatarRing, { width: size + 6, height: size + 6, borderRadius: (size + 6) / 2 }]}>
@@ -281,7 +319,9 @@ function PlayerCard({ player, size, hcpAllowance, day }: {
       </View>
       <Text style={s.playerName}>{firstName}</Text>
       <Text style={s.playerHcp}>
-        {isCut ? `Hcp ${player.handicap_index} → ${cutHcp}` : `Hcp ${player.handicap_index}`}
+        {shotsReceived !== null
+          ? `Playing Hcp ${cutHcp} · ${shotsReceived} shot${shotsReceived === 1 ? '' : 's'}`
+          : isCut ? `Playing Hcp ${cutHcp} (Idx ${player.handicap_index})` : `Hcp ${player.handicap_index}`}
       </Text>
     </View>
   );

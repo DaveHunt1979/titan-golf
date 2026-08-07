@@ -78,9 +78,17 @@ export default function AdminPrizesScreen() {
       return;
     }
 
-    const n = hcps.length;
-    const div1Max = hcps[Math.floor(n / 3) - 1];
-    const div2Max = hcps[Math.floor((2 * n) / 3) - 1];
+    // Cut on distinct handicap values, not raw sorted position — otherwise a
+    // tie sitting on a tercile boundary produces a division with hcp_min >
+    // hcp_max that no player can ever match (and its prize money never pays out).
+    const distinctHcps = [...new Set(hcps)];
+    if (distinctHcps.length < 3) {
+      Alert.alert('Not enough handicap variety', 'Need at least 3 different handicap values among enrolled players to split into 3 meaningful divisions.');
+      return;
+    }
+    const dn = distinctHcps.length;
+    const div1Max = distinctHcps[Math.floor(dn / 3) - 1];
+    const div2Max = distinctHcps[Math.floor((2 * dn) / 3) - 1];
 
     Alert.alert(
       'Auto-Split into 3 Divisions?',
@@ -89,15 +97,20 @@ export default function AdminPrizesScreen() {
         { text: 'Cancel', style: 'cancel' },
         { text: 'Split', onPress: async () => {
           setSplitting(true);
-          await supabase.from('prize_categories').delete().eq('competition_id', competitionId);
-          const { error } = await supabase.from('prize_categories').insert([
-            { competition_id: competitionId, name: 'Division 1', hcp_min: null,               hcp_max: div1Max,        display_order: 1 },
-            { competition_id: competitionId, name: 'Division 2', hcp_min: div1Max + 0.1,       hcp_max: div2Max,        display_order: 2 },
-            { competition_id: competitionId, name: 'Division 3', hcp_min: div2Max + 0.1,       hcp_max: null,           display_order: 3 },
-          ]);
-          setSplitting(false);
-          if (error) { Alert.alert('Error', error.message); return; }
-          await load();
+          try {
+            await supabase.from('prize_categories').delete().eq('competition_id', competitionId);
+            const { error } = await supabase.from('prize_categories').insert([
+              { competition_id: competitionId, name: 'Division 1', hcp_min: null,               hcp_max: div1Max,        display_order: 1 },
+              { competition_id: competitionId, name: 'Division 2', hcp_min: div1Max + 0.1,       hcp_max: div2Max,        display_order: 2 },
+              { competition_id: competitionId, name: 'Division 3', hcp_min: div2Max + 0.1,       hcp_max: null,           display_order: 3 },
+            ]);
+            if (error) { Alert.alert('Error', error.message); return; }
+            await load();
+          } catch (e: any) {
+            Alert.alert('Error', e?.message ?? 'Could not split into divisions.');
+          } finally {
+            setSplitting(false);
+          }
         }},
       ]
     );

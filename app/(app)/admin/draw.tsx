@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
-import { getStandings } from '../../../src/lib/scoring';
+import { getStandings, calcSweepBonus } from '../../../src/lib/scoring';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -19,19 +19,24 @@ const FFB   = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const DAY_FORMAT_LABELS: Record<string, string> = {
-  four_bbb: '4BBB', foursomes: 'Foursomes', greensomes: 'Greensomes',
+  four_bbb: '4BBB', four_bbb_stroke: '4BBB Stroke', foursomes: 'Foursomes', greensomes: 'Greensomes',
   singles: 'Singles', stableford: 'Stableford', medal: 'Medal', scramble: 'Scramble',
   '4bbb': '4BBB',
 };
 
 function dayFormatToRoundFormat(df: string): string {
-  if (df === '4bbb' || df === 'four_bbb') return 'bbb';
-  if (df === 'foursomes') return 'foursomes';
-  if (df === 'greensomes') return 'greensome';
   if (df === 'stableford') return 'stableford';
   if (df === 'medal') return 'medal';
   if (df === 'scramble') return 'scramble';
+  // 4bbb / four_bbb / four_bbb_stroke / foursomes / greensomes / singles are
+  // all matchplay (win/halve/lose by hole) as far as the live scoring screen
+  // is concerned — it only ever checks for 'matchplay' | 'stableford' | 'medal',
+  // so anything else here silently loses the format label and status banner.
   return 'matchplay';
+}
+
+function dayFormatToHandicapMethod(df: string): string {
+  return df === 'four_bbb_stroke' ? 'relative_low' : 'individual';
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -49,6 +54,7 @@ interface CompInfo {
   id: string; name: string; status: string;
   tournament_type: string; pts_win: number; pts_half: number;
   opening_rounds: number; bonus_points: number; max_handicap: number | null;
+  settings: { num_teams?: number | null } | null;
 }
 interface DayRow {
   id: string; day_number: number; course_name: string | null;
@@ -103,7 +109,7 @@ export default function TournamentDrawScreen() {
       { data: teamsData },
       { data: matchData },
     ] = await Promise.all([
-      supabase.from('competitions').select('id,name,status,tournament_type,pts_win,pts_half,opening_rounds,bonus_points,max_handicap').eq('id', competitionId).single(),
+      supabase.from('competitions').select('id,name,status,tournament_type,pts_win,pts_half,opening_rounds,bonus_points,max_handicap,settings').eq('id', competitionId).single(),
       supabase.from('competition_days').select('id,day_number,course_name,day_format,hcp_pct').eq('competition_id', competitionId).order('day_number'),
       supabase.from('competition_players')
         .select('id,player_id,team_id,handicap_index,is_captain,players(display_name,avatar_url)')
@@ -174,25 +180,44 @@ export default function TournamentDrawScreen() {
   async function confirmAddPlayers() {
     if (selectedToAdd.size === 0) { setAddModal(false); return; }
     setAdding(true);
-    const member = societyMembers.filter(m => selectedToAdd.has(m.player_id));
-    const maxHcp = comp?.max_handicap ?? null;
-    const rows = member.map(m => ({
-      competition_id: competitionId,
-      player_id: m.player_id,
-      team_id: addTeam,
-      // Players above the tournament's max handicap play from the max instead.
-      handicap_index: (maxHcp != null && m.handicap_index != null)
-        ? Math.min(m.handicap_index, maxHcp)
-        : m.handicap_index,
-    }));
-    const { error } = await supabase.from('competition_players').insert(rows);
-    setAdding(false);
-    if (error) { Alert.alert('Error', error.message); return; }
-    setAddModal(false);
-    await load();
+    try {
+      const member = societyMembers.filter(m => selectedToAdd.has(m.player_id));
+      const maxHcp = comp?.max_handicap ?? null;
+      const rows = member.map(m => ({
+        competition_id: competitionId,
+        player_id: m.player_id,
+        team_id: addTeam,
+        // Players above the tournament's max handicap play from the max instead.
+        handicap_index: (maxHcp != null && m.handicap_index != null)
+          ? Math.min(m.handicap_index, maxHcp)
+          : m.handicap_index,
+      }));
+      const { error } = await supabase.from('competition_players').insert(rows);
+      if (error) { Alert.alert('Error', error.message); return; }
+      setAddModal(false);
+      await load();
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Could not add players.');
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  // Generated matches store player IDs directly on the match row (not a live
+  // reference to competition_players), so removing/reassigning a player here
+  // wouldn't update matches already drawn — they'd keep scoring for a team
+  // they've left, or a departed player would stay playable. Block instead of
+  // silently leaving the draw inconsistent; the admin should clear and
+  // regenerate the affected day(s) first.
+  function playerInGeneratedMatch(playerId: string): boolean {
+    return matches.some(m => m.home_player_ids.includes(playerId) || m.away_player_ids.includes(playerId));
   }
 
   async function removePlayer(cp: CompPlayer) {
+    if (playerInGeneratedMatch(cp.player_id)) {
+      Alert.alert('Already in a generated match', `${cp.display_name} is in a match that's already been drawn. Clear that day's draw first, then remove them.`);
+      return;
+    }
     Alert.alert('Remove player?', cp.display_name, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: async () => {
@@ -203,6 +228,10 @@ export default function TournamentDrawScreen() {
   }
 
   async function changeTeam(cp: CompPlayer, teamId: string | null) {
+    if (playerInGeneratedMatch(cp.player_id)) {
+      Alert.alert('Already in a generated match', `${cp.display_name} is in a match that's already been drawn. Clear that day's draw first, then change their team.`);
+      return;
+    }
     await supabase.from('competition_players').update({ team_id: teamId }).eq('id', cp.id);
     await load();
   }
@@ -239,6 +268,9 @@ export default function TournamentDrawScreen() {
   }
 
   async function generateDraw(day: DayRow) {
+    // Guard re-entrancy directly rather than relying only on the button's
+    // disabled state, which can race on a fast double-tap before re-render.
+    if (generating) return;
     const grouped: Record<string, string[]> = {};
     for (const cp of compPlayers) {
       if (!cp.team_id) continue;
@@ -253,9 +285,10 @@ export default function TournamentDrawScreen() {
 
     const df = day.day_format ?? 'singles';
     const isSingles = df === 'singles';
-    const isPairs   = ['4bbb', 'four_bbb', 'foursomes', 'greensomes'].includes(df);
+    const isPairs   = ['4bbb', 'four_bbb', 'four_bbb_stroke', 'foursomes', 'greensomes'].includes(df);
     const ppm       = isPairs ? 2 : 1;
     const roundFmt  = dayFormatToRoundFormat(df);
+    const handicapMethod = dayFormatToHandicapMethod(df);
     const hcp       = day.hcp_pct ?? 100;
     const isOpeningRound = day.day_number <= (comp?.opening_rounds ?? 0);
     const maxDayNumber   = days.length > 0 ? Math.max(...days.map(d => d.day_number)) : day.day_number;
@@ -307,15 +340,27 @@ export default function TournamentDrawScreen() {
           round_format:   roundFmt,
           is_singles:     isSingles,
           hcp_allowance:  hcp,
+          handicap_method: handicapMethod,
           status:         'upcoming',
         });
       }
     } else if (isFinalDay) {
       // Final-day knockout: pair by current league position — 1st vs 2nd,
       // 3rd vs 4th, etc. — rather than the round-robin rotation used earlier.
+      // Must feed getStandings the exact same tie-break inputs the Tour tab
+      // leaderboard uses, or the two screens can show contradictory
+      // positions on the day it matters most.
+      const singlesDayIds = new Set(days.filter(d => d.day_format === 'singles').map(d => d.id));
+      const bonusPts = calcSweepBonus(matches as any, singlesDayIds, comp?.bonus_points ?? 2);
+      const teamStableford: Record<string, number> = {};
+      compPlayers.forEach(cp => {
+        if (!cp.team_id) return;
+        teamStableford[cp.team_id] = (teamStableford[cp.team_id] ?? 0) + (stablefordTotals[cp.player_id] ?? 0);
+      });
       const standings = getStandings(
         matches.filter(m => m.home_team_id && m.away_team_id) as any,
         comp?.pts_win ?? 1, comp?.pts_half ?? 0.5,
+        teamStableford, bonusPts,
       );
       const bracket = standings.map(s => s.teamId).filter(id => teamIds.includes(id));
       for (const tid of teamIds) if (!bracket.includes(tid)) bracket.push(tid);
@@ -336,20 +381,29 @@ export default function TournamentDrawScreen() {
             round_format:   roundFmt,
             is_singles:     isSingles,
             hcp_allowance:  hcp,
+          handicap_method: handicapMethod,
             status:         'upcoming',
           });
         }
       }
     } else {
-      // Round-robin: rotate fixture list by day_number so matchups vary each day
-      const rot = (day.day_number - 1) % Math.max(1, teamIds.length - 1);
-      const inner = [...teamIds.slice(1)];
+      // Round-robin: rotate fixture list by day_number so matchups vary each
+      // day (the "circle method"). Odd team counts get a "bye" placeholder
+      // added to the circle so every real team still gets a fair rotation —
+      // without it, whichever team lands in the middle each day is silently
+      // dropped, which for 3 teams means two of them never play each other
+      // all tournament while the third plays every single day.
+      const hasBye = teamIds.length % 2 !== 0;
+      const scheduleIds: (string | null)[] = hasBye ? [...teamIds, null] : [...teamIds];
+      const rot = (day.day_number - 1) % Math.max(1, scheduleIds.length - 1);
+      const inner = [...scheduleIds.slice(1)];
       for (let r = 0; r < rot; r++) inner.push(inner.shift()!);
-      const rotated = [teamIds[0], ...inner];
+      const rotated = [scheduleIds[0], ...inner];
 
       for (let i = 0; i < Math.floor(rotated.length / 2); i++) {
         const tH = rotated[i];
         const tA = rotated[rotated.length - 1 - i];
+        if (!tH || !tA) continue; // one side is the bye this day
         const pH = grouped[tH] ?? []; const pA = grouped[tA] ?? [];
         const n = Math.floor(Math.min(pH.length, pA.length) / ppm);
         for (let j = 0; j < n; j++) {
@@ -364,6 +418,7 @@ export default function TournamentDrawScreen() {
             round_format:   roundFmt,
             is_singles:     isSingles,
             hcp_allowance:  hcp,
+          handicap_method: handicapMethod,
             status:         'upcoming',
           });
         }
@@ -376,10 +431,15 @@ export default function TournamentDrawScreen() {
     }
 
     setGenerating(day.id);
-    const { error } = await supabase.from('matches').insert(matchRows);
-    setGenerating(null);
-    if (error) { Alert.alert('Error', error.message); return; }
-    await load();
+    try {
+      const { error } = await supabase.from('matches').insert(matchRows);
+      if (error) { Alert.alert('Error', error.message); return; }
+      await load();
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Could not generate the draw.');
+    } finally {
+      setGenerating(null);
+    }
   }
 
   async function clearDay(day: DayRow) {
@@ -402,11 +462,16 @@ export default function TournamentDrawScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Activate', onPress: async () => {
         setActivating(true);
-        const { error } = await supabase.from('competitions').update({ status: 'active' }).eq('id', competitionId);
-        setActivating(false);
-        if (error) { Alert.alert('Error', error.message); return; }
-        await load();
-        Alert.alert('Tournament Live!', `${comp?.name} is now active. Share the PIN with players.`);
+        try {
+          const { error } = await supabase.from('competitions').update({ status: 'active' }).eq('id', competitionId);
+          if (error) { Alert.alert('Error', error.message); return; }
+          await load();
+          Alert.alert('Tournament Live!', `${comp?.name} is now active. Share the PIN with players.`);
+        } catch (e: any) {
+          Alert.alert('Error', e?.message ?? 'Could not activate the tournament.');
+        } finally {
+          setActivating(false);
+        }
       }},
     ]);
   }
@@ -419,6 +484,9 @@ export default function TournamentDrawScreen() {
   );
 
   const unassigned = compPlayers.filter(cp => !cp.team_id);
+  const teamsWithPlayers = new Set(compPlayers.map(cp => cp.team_id).filter(Boolean)).size;
+  const configuredTeams = comp?.settings?.num_teams ?? null;
+  const teamCountMismatch = configuredTeams != null && teamsWithPlayers > 0 && teamsWithPlayers !== configuredTeams;
   const daysWithMatches = new Set(matches.map(m => m.day_id));
   const allDaysHaveMatches = days.length > 0 && days.every(d => daysWithMatches.has(d.id));
 
@@ -471,6 +539,12 @@ export default function TournamentDrawScreen() {
               <View style={[s.warnBanner]}>
                 <Ionicons name="warning-outline" size={14} color={GOLD} />
                 <Text style={s.warnText}>{unassigned.length} player{unassigned.length !== 1 ? 's' : ''} not assigned to a team</Text>
+              </View>
+            )}
+            {teamCountMismatch && (
+              <View style={[s.warnBanner]}>
+                <Ionicons name="warning-outline" size={14} color={GOLD} />
+                <Text style={s.warnText}>Set up for {configuredTeams} teams, but only {teamsWithPlayers} have players assigned</Text>
               </View>
             )}
 

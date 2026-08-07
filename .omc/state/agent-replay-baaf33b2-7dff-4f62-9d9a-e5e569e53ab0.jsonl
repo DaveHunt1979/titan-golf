@@ -60,3 +60,14 @@
 {"t":0,"agent":"a99b985","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
 {"t":0,"agent":"a203249","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
 {"t":0,"agent":"aaec072","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"atitan-","agent_type":"titan-golf-audit","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ab03e06","agent_type":"titan-golf-audit","event":"agent_stop","success":true,"duration_ms":10956}
+{"t":0,"agent":"a5e04f2","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"atitan-","agent_type":"titan-golf-audit","event":"agent_stop","success":true,"duration_ms":776849}
+{"t":0,"agent":"atitan-","agent_type":"titan-golf-audit","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"atitan-","agent_type":"titan-golf-audit","event":"agent_stop","success":true,"duration_ms":77362}
+{"t":0,"agent":"a291830","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"aaudit-","agent_type":"audit-b101","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aaudit-","agent_type":"audit-b101","event":"agent_stop","success":true,"duration_ms":460320}
+{"t":0,"agent":"aaudit-","agent_type":"audit-b101","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aaudit-","agent_type":"audit-b101","event":"agent_stop","success":true,"duration_ms":47976}

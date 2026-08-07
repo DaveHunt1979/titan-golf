@@ -264,11 +264,11 @@ function MatchCard({
     ? ((match.away_player_ids ?? []).length === 0 ? `/(app)/score/solo/${match.id}` : `/(app)/score/enter/${match.id}`)
     : `/(app)/spectate/${match.id}`;
 
-  const winner = getEffectiveWinner(match.status, match.winner, match.holes_string ?? '..................');
+  const winner = getEffectiveWinner(match.status, match.winner, match.holes_string ?? '..................', match.holes_to_play ?? 18);
   const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
   const label = isStrokePlay
     ? (isComplete ? (match.result_str ?? 'Complete') : match.status === 'upcoming' ? 'Upcoming' : (match.result_str ?? 'In Progress'))
-    : matchLabel(match.status, match.winner, match.result_str, match.holes_string ?? '..................');
+    : matchLabel(match.status, match.winner, match.result_str, match.holes_string ?? '..................', match.holes_to_play ?? 18);
 
   const homeWon = winner === 'home';
   const awayWon = winner === 'away';

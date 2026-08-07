@@ -22,7 +22,7 @@ const FFB    = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 type FormatId = 'team_matchplay' | 'ryder_cup' | 'stableford' | 'medal' | 'knockout';
-type DayFormatId = 'four_bbb' | 'foursomes' | 'greensomes' | 'singles' | 'stableford' | 'medal' | 'scramble';
+type DayFormatId = 'four_bbb' | 'four_bbb_stroke' | 'foursomes' | 'greensomes' | 'singles' | 'stableford' | 'medal' | 'scramble';
 
 interface CompFormat {
   id: FormatId;
@@ -83,7 +83,8 @@ const COMP_FORMATS: CompFormat[] = [
 ];
 
 const DAY_FORMATS: Array<{ id: DayFormatId; label: string; sub: string }> = [
-  { id: 'four_bbb',   label: '4BBB',       sub: 'Best ball pairs' },
+  { id: 'four_bbb',        label: '4BBB',        sub: 'Best ball pairs' },
+  { id: 'four_bbb_stroke', label: '4BBB Stroke', sub: 'Best ball, relative handicap' },
   { id: 'foursomes',  label: 'Foursomes',  sub: 'Alternate shot' },
   { id: 'greensomes', label: 'Greensomes', sub: 'Pick best drive' },
   { id: 'singles',    label: 'Singles',    sub: '1v1 matchplay' },
@@ -226,6 +227,18 @@ export default function BuildTournamentScreen() {
       return;
     }
 
+    // Free-text dates go straight to DATE columns — anything not in this
+    // shape fails the whole competition insert with a raw Postgres error.
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    if (startDate.trim() && !dateRe.test(startDate.trim())) {
+      Alert.alert('Invalid start date', 'Enter the start date as YYYY-MM-DD, e.g. 2028-08-06.');
+      return;
+    }
+    if (endDate.trim() && !dateRe.test(endDate.trim())) {
+      Alert.alert('Invalid end date', 'Enter the end date as YYYY-MM-DD, e.g. 2028-08-10.');
+      return;
+    }
+
     setCreating(true);
 
     const winPts  = parseFloat(ptsWin)  || 1;
@@ -241,7 +254,15 @@ export default function BuildTournamentScreen() {
       day_configs: days.map(d => ({ format: d.format, hcp_pct: d.hcpPct })),
     };
 
-    const pin = String(1000 + Math.floor(Math.random() * 9000));
+    // A collision makes verifyPin's .single() lookup fail as "Wrong PIN" for
+    // whichever tournament loses the race — worth a few retries rather than
+    // trusting a single random draw not to repeat an existing active PIN.
+    let pin = String(1000 + Math.floor(Math.random() * 9000));
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data: existing } = await supabase.from('competitions').select('id').eq('pin', pin).limit(1).maybeSingle();
+      if (!existing) break;
+      pin = String(1000 + Math.floor(Math.random() * 9000));
+    }
 
     const { data: comp, error: compErr } = await supabase
       .from('competitions')

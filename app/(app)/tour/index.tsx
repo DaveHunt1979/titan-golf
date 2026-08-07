@@ -9,7 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../../src/lib/supabase';
-import { getStandings, getEffectiveWinner } from '../../../src/lib/scoring';
+import { getStandings, getEffectiveWinner, calcSweepBonus } from '../../../src/lib/scoring';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { teamLogos } from '../../../src/lib/assets';
 import type { Competition, CompetitionDay, Match, Team, Champion, Notification } from '../../../src/types';
@@ -146,17 +146,13 @@ export default function TourScreen() {
       { data: daysData },
       { data: matchesData },
       { data: teamsData },
-      { data: holesData },
-      { data: playersData },
       { data: champsData },
       { data: cpData },
       { data: catsData },
     ] = await Promise.all([
       supabase.from('competition_days').select('*').eq('competition_id', compId).order('day_number'),
       supabase.from('matches').select('*').eq('competition_id', compId).order('match_number'),
-      supabase.from('teams').select('*').order('sort_order'),
-      supabase.from('match_holes').select('player_id,stableford_pts,match_id,hole_number'),
-      supabase.from('players').select('id,display_name'),
+      supabase.from('teams').select('*').eq('society_id', SOCIETY_ID ?? '').order('sort_order'),
       supabase.from('champions').select('*').order('year', { ascending: false }),
       supabase.from('competition_players')
         .select('player_id,team_id,handicap_index,players(display_name)')
@@ -171,9 +167,26 @@ export default function TourScreen() {
     if (matchesData) setMatches(matchesData as Match[]);
     if (teamsData)   setTeams(teamsData as Team[]);
     if (champsData)  setChampions(champsData as Champion[]);
-    if (playersData) setPlayers(playersData as any[]);
     const cats = (catsData ?? []) as unknown as PrizeCat[];
     setPrizeCats(cats);
+
+    // match_holes/players were previously fetched with no scope at all (every
+    // hole ever played, every player in the app) — scope to this
+    // tournament's own matches/enrollment now that we know their IDs.
+    const matchIds = (matchesData as any[] ?? []).map(m => m.id);
+    const allPlayerIds = [...new Set([
+      ...(matchesData as any[] ?? []).flatMap(m => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]),
+      ...((cpData as any[] ?? []).map(cp => cp.player_id)),
+    ])];
+    const [{ data: holesData }, { data: playersData }] = await Promise.all([
+      matchIds.length
+        ? supabase.from('match_holes').select('player_id,stableford_pts,match_id,hole_number').in('match_id', matchIds)
+        : Promise.resolve({ data: [] as any[] }),
+      allPlayerIds.length
+        ? supabase.from('players').select('id,display_name').in('id', allPlayerIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+    if (playersData) setPlayers(playersData as any[]);
 
     // Kronos is this tournament's own individual championship — cumulative
     // Stableford across only this tournament's rounds, not a season-wide
@@ -270,11 +283,14 @@ export default function TourScreen() {
       const overallWinnerId = includeInKronos && sorted.length > 0 ? sorted[0].player_id : null;
       if (overallWinnerId) sorted[0].is_overall_winner = true;
 
-      // Assign each player to their prize category
+      // Assign each player to their prize category. A player with no
+      // handicap on record shouldn't be silently defaulted into the highest
+      // (or any) division — leave them uncategorized rather than guessing.
       const localCats = (catsData ?? []) as unknown as PrizeCat[];
       sorted.forEach(entry => {
+        if (entry.handicap_index == null) return;
+        const hcp = entry.handicap_index;
         const cat = localCats.find(c => {
-          const hcp = entry.handicap_index ?? 999;
           const okMin = c.hcp_min == null || hcp >= c.hcp_min;
           const okMax = c.hcp_max == null || hcp <= c.hcp_max;
           return okMin && okMax;
@@ -375,30 +391,35 @@ export default function TourScreen() {
     ]);
   }
 
+  // ── No active tournament ────────────────────────────────────────────
+  // Must come before any derived data below, since that block dereferences
+  // `competition` directly — this used to sit after it and crash the moment
+  // the active tournament completed (competition briefly null).
+  if (!competition) return (
+    <View style={{ flex: 1, backgroundColor: dc.bg }}>
+      <StatusBar style="light" />
+      <View style={[st.titanHeader, { backgroundColor: dc.bg, borderBottomColor: dc.border }]}>
+        <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={st.titanLogoImg} resizeMode="contain" />
+        <Text style={st.titanSubtitle}>THE TOUR</Text>
+      </View>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <Text style={{ fontSize: 56, marginBottom: 20 }}>🏆</Text>
+        <Text style={{ fontSize: 28, fontFamily: FFB, color: '#fff', marginBottom: 10, textAlign: 'center' }}>
+          Coming Soon
+        </Text>
+        <Text style={{ fontSize: 14, fontFamily: FF, color: '#555', textAlign: 'center', lineHeight: 22 }}>
+          No tournament is running right now.{'\n'}Check back when your next event is live.
+        </Text>
+      </View>
+    </View>
+  );
+
   // ── Derived data ────────────────────────────────────────────────────
 
-  // Bonus points for sweeping every singles match on a day (spec default 2,
-  // configurable via competitions.bonus_points). Only counts as a sweep when
-  // every match that day is complete, decisive (no halves), and the same two
-  // teams face off across all of them.
-  const bonusPts: Record<string, number> = {};
+  // Bonus points for sweeping every singles match on a day — shared with
+  // admin/draw.tsx's final-day knockout seeding so they can't disagree.
   const singlesDayIds = new Set(days.filter(d => d.day_format === 'singles').map(d => d.id));
-  const singlesByDay: Record<string, Match[]> = {};
-  (matches as Match[]).forEach(m => {
-    if (!m.day_id || !singlesDayIds.has(m.day_id) || !m.home_team_id || !m.away_team_id) return;
-    (singlesByDay[m.day_id] ??= []).push(m);
-  });
-  Object.values(singlesByDay).forEach(dayMatches => {
-    const homeTeam = dayMatches[0].home_team_id!;
-    const awayTeam = dayMatches[0].away_team_id!;
-    const sameFixture = dayMatches.every(m => m.home_team_id === homeTeam && m.away_team_id === awayTeam);
-    if (!sameFixture) return;
-    const winners = dayMatches.map(m => getEffectiveWinner(m.status, m.winner, m.holes_string ?? '..................'));
-    if (winners.some(w => !w || w === 'half')) return;
-    const bonus = (competition as any).bonus_points ?? 2;
-    if (winners.every(w => w === 'home')) bonusPts[homeTeam] = (bonusPts[homeTeam] ?? 0) + bonus;
-    else if (winners.every(w => w === 'away')) bonusPts[awayTeam] = (bonusPts[awayTeam] ?? 0) + bonus;
-  });
+  const bonusPts = calcSweepBonus(matches as Match[], singlesDayIds, (competition as any).bonus_points ?? 2);
 
   const standings = getStandings(
     (matches as any[]).filter((m: any) => m.home_team_id && m.away_team_id),
@@ -442,26 +463,6 @@ export default function TourScreen() {
       ) ?? null
     : null;
   const myMatchActive = myMatch && (myMatch.status === 'upcoming' || myMatch.status === 'in_progress');
-
-  // ── No active tournament ────────────────────────────────────────────
-  if (!competition) return (
-    <View style={{ flex: 1, backgroundColor: dc.bg }}>
-      <StatusBar style="light" />
-      <View style={[st.titanHeader, { backgroundColor: dc.bg, borderBottomColor: dc.border }]}>
-        <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={st.titanLogoImg} resizeMode="contain" />
-        <Text style={st.titanSubtitle}>THE TOUR</Text>
-      </View>
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-        <Text style={{ fontSize: 56, marginBottom: 20 }}>🏆</Text>
-        <Text style={{ fontSize: 28, fontFamily: FFB, color: '#fff', marginBottom: 10, textAlign: 'center' }}>
-          Coming Soon
-        </Text>
-        <Text style={{ fontSize: 14, fontFamily: FF, color: '#555', textAlign: 'center', lineHeight: 22 }}>
-          No tournament is running right now.{'\n'}Check back when your next event is live.
-        </Text>
-      </View>
-    </View>
-  );
 
   // ── PIN entry ───────────────────────────────────────────────────────
   if (joinedId !== competition.id) return (

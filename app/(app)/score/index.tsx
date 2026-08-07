@@ -435,13 +435,13 @@ function RoundCard({ match, playerNames, playerAvatars, s, GOLD }: {
   const router   = useRouter();
   const isSolo   = match.away_player_ids.length === 0 && match.home_player_ids.length === 1;
   const isStroke = match.round_format === 'stableford' || match.round_format === 'medal';
-  const winner   = getEffectiveWinner(match.status, match.winner, match.holes_string ?? '..................');
+  const winner   = getEffectiveWinner(match.status, match.winner, match.holes_string ?? '..................', match.holes_to_play ?? 18);
 
   const resultStr = (isSolo || isStroke)
     ? (match.status === 'complete'  ? (match.result_str ?? 'Complete')
       : match.status === 'upcoming' ? 'Upcoming'
       : (match.result_str ?? 'In Progress'))
-    : matchLabel(match.status, match.winner, match.result_str, match.holes_string ?? '..................');
+    : matchLabel(match.status, match.winner, match.result_str, match.holes_string ?? '..................', match.holes_to_play ?? 18);
 
   const homeWon   = winner === 'home';
   const awayWon   = winner === 'away';

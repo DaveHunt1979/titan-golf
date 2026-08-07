@@ -21,7 +21,7 @@ const TEE_OPTIONS = [
 type GameMode =
   | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble'
   | 'greensome' | 'foursomes' | 'modified_stableford' | 'par_bogey'
-  | 'singles' | '4bbb' | 'team_stableford' | 'best2from4' | 'best2from4_par3all';
+  | 'singles' | '4bbb' | '4bbb_stroke' | 'team_stableford' | 'best2from4' | 'best2from4_par3all';
 
 interface Player {
   id: string;
@@ -57,7 +57,7 @@ interface GroupState {
 
 function getLayout(mode: GameMode): LayoutType {
   if (mode === 'singles' || mode === 'nassau') return 'singles';
-  if (mode === '4bbb' || mode === 'greensome' || mode === 'foursomes') return 'twoteam';
+  if (mode === '4bbb' || mode === '4bbb_stroke' || mode === 'greensome' || mode === 'foursomes') return 'twoteam';
   if (mode === 'best2from4' || mode === 'best2from4_par3all') return 'mashie';
   if (mode === 'team_stableford') return 'twoteam';
   return 'individual';
@@ -65,13 +65,13 @@ function getLayout(mode: GameMode): LayoutType {
 
 function getPlayersPerTeam(mode: GameMode, teamSize: number): number {
   if (mode === 'singles' || mode === 'nassau') return 1;
-  if (mode === '4bbb' || mode === 'greensome' || mode === 'foursomes') return 2;
+  if (mode === '4bbb' || mode === '4bbb_stroke' || mode === 'greensome' || mode === 'foursomes') return 2;
   if (mode === 'team_stableford') return teamSize;
   return 4;
 }
 
 function makeFreshSlot(slotIdx: number, mode: GameMode): MatchSlot {
-  const isTeam = mode === '4bbb' || mode === 'team_stableford';
+  const isTeam = mode === '4bbb' || mode === '4bbb_stroke' || mode === 'team_stableford';
   return {
     home: [],
     away: [],
@@ -94,8 +94,8 @@ function restoreGroups(matches: BuiltMatch[], m: GameMode): GroupState[] {
     slots: [{
       home: bm.home,
       away: bm.away,
-      homeName: (m === '4bbb' || m === 'team_stableford') ? 'Team A' : '',
-      awayName: (m === '4bbb' || m === 'team_stableford') ? 'Team B' : '',
+      homeName: (m === '4bbb' || m === '4bbb_stroke' || m === 'team_stableford') ? 'Team A' : '',
+      awayName: (m === '4bbb' || m === '4bbb_stroke' || m === 'team_stableford') ? 'Team B' : '',
     }],
   }));
 }
@@ -365,7 +365,7 @@ export default function GroupBuilderSheet({
 
   function TwoTeamBody({ gi }: { gi: number }) {
     const slot    = groups[gi].slots[0];
-    const canEdit = mode === '4bbb' || mode === 'team_stableford';
+    const canEdit = mode === '4bbb' || mode === '4bbb_stroke' || mode === 'team_stableford';
     return (
       <View style={{ gap: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>

@@ -17,7 +17,7 @@ import GroupBuilderSheet, { BuiltMatch, PlayerOverride } from './GroupBuilderShe
 
 // ── Constants ─────────────────────────────────────────────────
 
-type GameMode  = '4bbb' | 'singles' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble' | 'greensome' | 'foursomes' | 'par_bogey' | 'team_stableford' | 'best2from4' | 'best2from4_par3all';
+type GameMode  = '4bbb' | '4bbb_stroke' | 'singles' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble' | 'greensome' | 'foursomes' | 'par_bogey' | 'team_stableford' | 'best2from4' | 'best2from4_par3all';
 type HolesMode = 'full18' | 'front9' | 'back9';
 
 interface Player      { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
@@ -30,6 +30,7 @@ const FFB   = 'JUSTSans-ExBold';
 
 const MODE_INFO: Record<GameMode, { label: string; sub: string; icon: keyof typeof Ionicons.glyphMap }> = {
   '4bbb':                { label: '4BBB',             sub: 'Best ball pairs',              icon: 'people-outline' },
+  '4bbb_stroke':         { label: '4BBB Stroke',      sub: 'Best ball, relative handicap',  icon: 'people-outline' },
   'singles':             { label: 'Singles',           sub: 'Head to head matchplay',       icon: 'person-outline' },
   'nassau':              { label: 'Nassau',            sub: 'Front / Back / Overall',       icon: 'cash-outline' },
   'foursomes':           { label: 'Foursomes',         sub: 'Alternate shot matchplay',     icon: 'swap-horizontal-outline' },
@@ -46,7 +47,7 @@ const MODE_INFO: Record<GameMode, { label: string; sub: string; icon: keyof type
 
 function getModeSections(gold: string): { label: string; accent: string; modes: GameMode[] }[] {
   return [
-    { label: 'MATCHPLAY',    accent: gold,      modes: ['4bbb', 'singles'] },
+    { label: 'MATCHPLAY',    accent: gold,      modes: ['4bbb', '4bbb_stroke', 'singles'] },
     { label: 'INDIVIDUAL',   accent: '#4ade80', modes: ['stableford', 'medal', 'par_bogey'] },
     { label: 'TEAM GAMES',   accent: '#f97316', modes: ['team_stableford'] },
     { label: 'MASHIE GOLF',  accent: '#a78bfa', modes: ['best2from4', 'best2from4_par3all'] },
@@ -722,8 +723,9 @@ export default function NewGameScreen() {
         start_hole: startHole,
         holes_to_play: holesMode === 'full18' ? 18 : 9,
         is_singles: mode === 'singles',
-        round_format: (mode === '4bbb' || mode === 'singles') ? 'matchplay' : isMashie ? 'team_stableford' : mode,
+        round_format: (mode === '4bbb' || mode === '4bbb_stroke' || mode === 'singles') ? 'matchplay' : isMashie ? 'team_stableford' : mode,
         hcp_allowance: hcpAllowance,
+        handicap_method: mode === '4bbb_stroke' ? 'relative_low' : 'individual',
         side_games: mode === 'best2from4_par3all' ? [...sideGamesList, 'par3all'] : sideGamesList,
         secondary_format: secondaryFormat,
         ...(isTeamStableford ? { team_size: isMashie ? 4 : teamSize, counting_scores: isMashie ? 2 : countingScores } : {}),

@@ -72,6 +72,7 @@ export interface Match {
   winner: 'home' | 'away' | 'half' | null;
   result_str: string | null;
   holes_string: string;
+  holes_to_play: number | null;
   is_singles: boolean;
   round_format: 'matchplay' | 'stableford' | 'medal';
   hcp_allowance: number;
