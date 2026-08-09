@@ -198,6 +198,14 @@ export default function SoloRoundScreen() {
     setLoadError(false);
     setRoundDone(false);
     setSavedScores([]);
+    // This screen is a Tabs.Screen — React Navigation keeps it mounted across
+    // dynamic-param navigations instead of remounting, so blocking state left
+    // over from a PREVIOUS round (a save still "in flight", or the coach
+    // button's own spinner) would otherwise carry into the next round's very
+    // first render. round/savedScores were already reset above; these two
+    // weren't.
+    setSaving(false);
+    setCoachLoading(false);
     load();
   }, [matchId, retryTick]);
 

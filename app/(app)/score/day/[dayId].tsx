@@ -349,6 +349,16 @@ export default function DayLobby() {
 
                 const isMyGroup = g.match_id === myMatchId;
                 const canNavigate = !isMashieDay || isMyGroup || !myMatchId;
+                // Mashie/team formats have their own scoring engine — routing
+                // them into the matchplay screen instead left the group
+                // pairing/drop logic out entirely and just looked like a
+                // generic stroke-play screen (Rick: "throws you into a
+                // stroke play game which is wrong").
+                const groupDest = g.format === 'team_stableford'
+                  ? `/(app)/score/teamstableford/${g.match_id}`
+                  : !hasTeams
+                    ? `/(app)/score/solo/${g.match_id}`
+                    : `/(app)/score/enter/${g.match_id}`;
 
                 return (
                   <TouchableOpacity
@@ -357,7 +367,7 @@ export default function DayLobby() {
                     onPress={
                       isSpectator
                         ? () => router.push(`/(app)/spectate/${g.match_id}` as any)
-                        : canNavigate ? () => router.push(`/(app)/score/enter/${g.match_id}` as any) : undefined
+                        : canNavigate ? () => router.push(groupDest as any) : undefined
                     }
                     activeOpacity={canNavigate ? 0.8 : 1}
                     disabled={!canNavigate}
@@ -435,7 +445,15 @@ export default function DayLobby() {
             ) : (
               <TouchableOpacity
                 style={s.actionBtn}
-                onPress={() => router.push(`/(app)/score/enter/${myMatchId}` as any)}
+                onPress={() => {
+                  const myGroup = groups.find(g => g.match_id === myMatchId);
+                  const dest = myGroup?.format === 'team_stableford'
+                    ? `/(app)/score/teamstableford/${myMatchId}`
+                    : (myGroup?.away_player_ids.length ?? 0) === 0
+                      ? `/(app)/score/solo/${myMatchId}`
+                      : `/(app)/score/enter/${myMatchId}`;
+                  router.push(dest as any);
+                }}
                 activeOpacity={0.85}
               >
                 <Text style={s.actionBtnText}>Score My Group</Text>

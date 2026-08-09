@@ -90,6 +90,17 @@ export async function getCourseHoles(publicId: string): Promise<GIHoleData[]> {
   const gpsData = await gpsRes.json().catch(() => null);
   const scData = await scRes.json().catch(() => null);
 
+  // Rick reported GI "only giving up GPS data, not course data" for a course
+  // he'd just re-imported — logging the raw shape here so the next attempt
+  // gives concrete evidence of what GI's scorecard endpoint actually
+  // returned for that course, rather than guessing again blind.
+  console.log('[GI] getCourseHoles raw shapes', {
+    publicId,
+    gpsTopLevelKeys: gpsData ? Object.keys(gpsData) : null,
+    scTopLevelKeys: scData ? Object.keys(scData) : null,
+    scSample: scData ? JSON.stringify(scData).slice(0, 500) : null,
+  });
+
   const layout = gpsData?.layouts?.[0];
   const gpsMap: Record<number, {
     lat: number; lng: number;
@@ -117,7 +128,20 @@ export async function getCourseHoles(publicId: string): Promise<GIHoleData[]> {
     }
   }
 
-  const scHoles: any[] = scData?.layouts?.[0]?.holes ?? scData?.holes ?? scData?.data?.holes ?? [];
+  // Try every layout GI returns, not just the first — if that one happens to
+  // be a 9-hole loop or otherwise lacks a `.holes` array, index [0] alone
+  // would silently come back empty even though later layouts have the data.
+  const scLayoutHoles = Array.isArray(scData?.layouts)
+    ? scData.layouts.map((l: any) => l?.holes).find((h: any) => Array.isArray(h) && h.length > 0)
+    : null;
+  const scHoles: any[] = scLayoutHoles
+    ?? scData?.holes
+    ?? scData?.data?.holes
+    ?? scData?.scorecard?.holes
+    ?? scData?.courses?.[0]?.holes
+    ?? (Array.isArray(scData) ? scData : [])
+    ?? [];
+  console.log('[GI] scHoles resolved', { publicId, count: scHoles.length, gpsHoleCount: Object.keys(gpsMap).length });
   const parSiMap: Record<number, {
     par: number; si: number;
     yellow_yards?: number | null; white_yards?: number | null;

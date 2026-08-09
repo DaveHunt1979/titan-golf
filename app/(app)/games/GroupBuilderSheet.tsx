@@ -88,6 +88,24 @@ function incrementTime(t: string, mins: number): string {
 
 function restoreGroups(matches: BuiltMatch[], m: GameMode): GroupState[] {
   if (matches.length === 0) return [];
+  if (getLayout(m) === 'individual') {
+    // buildResult() splits individual-format players into one match per
+    // player (see there for why) — undo that back into shared group slots
+    // here, grouping by startHole, or re-opening this editor would show
+    // players who picked the same group as if they'd been split into
+    // separate groups.
+    const byStartHole = new Map<number, string[]>();
+    for (const bm of matches) {
+      const list = byStartHole.get(bm.startHole) ?? [];
+      list.push(...bm.home);
+      byStartHole.set(bm.startHole, list);
+    }
+    return [...byStartHole.entries()].map(([startHole, home], i) => ({
+      startHole,
+      teeTime: incrementTime('10:00', i * 10),
+      slots: [{ home, away: [], homeName: '', awayName: '' }],
+    }));
+  }
   return matches.map((bm, i) => ({
     startHole: bm.startHole,
     teeTime: incrementTime('10:00', i * 10),
@@ -214,8 +232,21 @@ export default function GroupBuilderSheet({
     const out: BuiltMatch[] = [];
     for (const g of groups) {
       for (const s of g.slots) {
-        if (s.home.length + s.away.length > 0)
+        if (s.home.length + s.away.length === 0) continue;
+        if (layout === 'individual') {
+          // Individual formats (Stableford/Medal/etc.) let several players
+          // share one playing-group slot, but each still scores their OWN
+          // separate round — they are not one shared match. Every match
+          // created from this screen previously crammed all of them into a
+          // single match's home_player_ids, and solo/[matchId].tsx only
+          // ever reads home_player_ids[0], so every player after the first
+          // was silently dropped the moment the round started.
+          for (const pid of s.home) {
+            out.push({ home: [pid], away: [], homeName: '', awayName: '', startHole: g.startHole });
+          }
+        } else {
           out.push({ home: s.home, away: s.away, homeName: s.homeName, awayName: s.awayName, startHole: g.startHole });
+        }
       }
     }
     return out;

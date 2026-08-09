@@ -21,7 +21,7 @@ const heroCourse = require('../../../assets/startround_gfx.png');
 
 const FORMAT_LABELS: Record<string, string> = {
   stableford: 'Stableford', medal: 'Medal', singles: 'Singles Matchplay',
-  '4bbb': '4BBB Matchplay', skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf',
+  '4bbb': '4BBB Stableford', skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf',
   scramble: 'Scramble', greensomes: 'Greensomes', bbb: 'BBB',
   foursomes: 'Foursomes', modified_stableford: 'Modified Stableford',
   par_bogey: 'Par / Bogey', chacha: 'ChaChaCha',

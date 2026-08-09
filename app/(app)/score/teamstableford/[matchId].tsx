@@ -394,7 +394,7 @@ export default function TeamStablefordScreen() {
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
-          <Text style={s.headerSub}>{isMashieGroup ? `MASHIE · BEST ${baseCountN} FROM ${teamSize}` : 'TEAM STABLEFORD'}</Text>
+          <Text style={s.headerSub}>{isMashieGroup ? `BEST ${baseCountN} FROM ${teamSize}` : 'TEAM STABLEFORD'}</Text>
         </View>
         <TouchableOpacity onPress={confirmDelete} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="trash-outline" size={20} color="#555" />

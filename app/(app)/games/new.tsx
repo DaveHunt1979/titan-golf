@@ -29,7 +29,7 @@ const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
 
 const MODE_INFO: Record<GameMode, { label: string; sub: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  '4bbb':                { label: '4BBB',             sub: 'Best ball pairs',              icon: 'people-outline' },
+  '4bbb':                { label: '4BBB Stableford',  sub: 'Best ball pairs',              icon: 'people-outline' },
   '4bbb_stroke':         { label: '4BBB Stroke',      sub: 'Best ball, relative handicap',  icon: 'people-outline' },
   'singles':             { label: 'Singles',           sub: 'Head to head matchplay',       icon: 'person-outline' },
   'nassau':              { label: 'Nassau',            sub: 'Front / Back / Overall',       icon: 'cash-outline' },
@@ -48,7 +48,10 @@ const MODE_INFO: Record<GameMode, { label: string; sub: string; icon: keyof type
 function getModeSections(gold: string): { label: string; accent: string; modes: GameMode[] }[] {
   return [
     { label: 'MATCHPLAY',    accent: gold,      modes: ['4bbb', '4bbb_stroke', 'singles'] },
-    { label: 'INDIVIDUAL',   accent: '#4ade80', modes: ['stableford', 'medal', 'par_bogey'] },
+    // Par/Bogey pulled from the picker for now (Rick) — leave the mode itself
+    // intact so any existing games using it keep working, just don't let
+    // new ones be started until it's ready.
+    { label: 'INDIVIDUAL',   accent: '#4ade80', modes: ['stableford', 'medal'] },
     { label: 'TEAM GAMES',   accent: '#f97316', modes: ['team_stableford'] },
     { label: 'MASHIE GOLF',  accent: '#a78bfa', modes: ['best2from4', 'best2from4_par3all'] },
   ];
@@ -778,7 +781,7 @@ export default function NewGameScreen() {
         }).join('\n');
         setCreating(false);
         Alert.alert(
-          'Mashie groups created!',
+          'Groups created!',
           `Share each group code so players can score their own group:\n\n${groupSummary}\n\nRick shares the codes — each group of 4 can only score themselves.`,
           [
             {

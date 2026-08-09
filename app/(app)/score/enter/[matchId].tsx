@@ -340,6 +340,13 @@ export default function EnterScoresScreen() {
     console.log('[enter] matchId changed, (re)loading', { matchId, retryTick });
     setLoading(true);
     setLoadError(false);
+    // This screen is a Tabs.Screen — React Navigation keeps it mounted across
+    // dynamic-param navigations instead of remounting, so any blocking state
+    // left over from a PREVIOUS round (a save still "in flight" when the
+    // player left, or the coach button's own spinner) would otherwise carry
+    // straight into the next round's very first render.
+    setSaving(false);
+    setCoachLoading(false);
     load();
   }, [matchId, retryTick]);
 
@@ -1584,17 +1591,29 @@ export default function EnterScoresScreen() {
                         const teamColor = isHome ? homeColor : awayColor;
                         const src = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
                         const firstName = (playerNames[id] ?? '?').split(' ')[0];
+                        // Short 3-letter form here specifically — this row's
+                        // real estate is for the stroke-hole list, not the
+                        // name (Rick: show first 3 letters "in the where you
+                        // get shots area", full name stays everywhere else).
+                        const shortName = firstName.slice(0, 3);
                         const hcp = matchplayHcp(id);
                         const getsShotHere = shotPlayerIds.includes(id);
+                        // Stacked layout, not a single cramped row — "how many
+                        // shots you're getting" is important enough to need
+                        // its own full-width line rather than being squeezed
+                        // into a narrow trailing column (Rick: "needs to fit
+                        // better as it's very important").
                         return (
-                          <TouchableOpacity key={id} style={s.lbRow} onPress={() => setEditPlayerId(id)} activeOpacity={0.7}>
-                            <Avatar name={firstName} color={teamColor} size={32} source={src} />
-                            <Text style={s.lbName} numberOfLines={1}>{firstName}</Text>
-                            {getsShotHere && (
-                              <View style={s.shotPill}>
-                                <Text style={s.shotPillText}>SHOT</Text>
-                              </View>
-                            )}
+                          <TouchableOpacity key={id} style={s.lbRowStacked} onPress={() => setEditPlayerId(id)} activeOpacity={0.7}>
+                            <View style={s.lbRowTop}>
+                              <Avatar name={firstName} color={teamColor} size={28} source={src} />
+                              <Text style={s.lbName} numberOfLines={1}>{shortName}</Text>
+                              {getsShotHere && (
+                                <View style={s.shotPill}>
+                                  <Text style={s.shotPillText}>SHOT</Text>
+                                </View>
+                              )}
+                            </View>
                             <Text style={s.lbStrokes} numberOfLines={2}>{formatStrokeHoles(hcp, playedCourseHoles)}</Text>
                           </TouchableOpacity>
                         );
@@ -2182,7 +2201,14 @@ export default function EnterScoresScreen() {
               const sideShots = modalPlayerId
                 ? calcStrokesReceived(playerCourseHcp(modalPlayerId, compPlayers, match?.day ?? null, isStrokePlay ? (match?.hcp_allowance ?? 100) : 100), courseHole?.stroke_index ?? 18)
                 : 0;
-              const stablePts = selectedScore ? calcStablefordPoints(selectedScore, par, sideShots) : null;
+              // On a matchplay match, the background Stableford is an OPT-IN
+              // 2nd game (match.secondary_format) — if the organiser left it
+              // off, don't compute/show it here at all (Rick: "I have
+              // selected stableford side game off and it's still displaying
+              // as on"). For a Stableford/Medal-primary match there's no
+              // separate toggle — the points ARE the main game.
+              const showSidePts = isMatchplay ? !!match.secondary_format : true;
+              const stablePts = (showSidePts && selectedScore) ? calcStablefordPoints(selectedScore, par, sideShots) : null;
               const SCORE_LABELS: Record<string, string> = {
                 albatross: 'ALBATROSS', eagle: 'EAGLE', birdie: 'BIRDIE',
                 par: 'PAR', bogey: 'BOGEY', double: 'DOUBLE +',
@@ -2727,10 +2753,12 @@ const s = StyleSheet.create({
   leaderboard:    { flex: 1, justifyContent: 'center', gap: 10 },
   lbGroupHeader:  { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2, marginBottom: 2 },
   lbRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  lbRowStacked:   { gap: 3, paddingVertical: 2 },
+  lbRowTop:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
   lbRank:         { fontFamily: FFB, fontSize: 12, width: 18, textAlign: 'center' },
   lbName:         { flex: 1, fontFamily: FFB, fontSize: 13, color: '#ffffff' },
   lbPts:          { fontFamily: FFB, fontSize: 13 },
-  lbStrokes:      { fontFamily: FFB, fontSize: 10, color: '#9ca3af', maxWidth: 120, textAlign: 'right', lineHeight: 13 },
+  lbStrokes:      { fontFamily: FFB, fontSize: 11, color: '#9ca3af', textAlign: 'left', lineHeight: 15, marginLeft: 36 },
   lbMore:         { fontFamily: FFB, fontSize: 11, color: '#ffffff', textAlign: 'center', marginTop: 2 },
   shotPill: {
     backgroundColor: GOLD, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2,

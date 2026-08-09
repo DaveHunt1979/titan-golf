@@ -154,9 +154,19 @@ function AppLayoutInner() {
         <Tabs.Screen name="games/GroupBuilderSheet"   options={{ href: null }} />
         <Tabs.Screen name="score/results/[matchId]"  options={{ href: null }} />
         <Tabs.Screen name="score/[matchId]"          options={{ href: null }} />
-        <Tabs.Screen name="score/enter/[matchId]"    options={{ href: null }} />
-        <Tabs.Screen name="score/preview/[matchId]"  options={{ href: null }} />
-        <Tabs.Screen name="score/solo/[matchId]"     options={{ href: null }} />
+        {/* getId: the Tabs navigator otherwise keeps a screen's component
+            instance mounted across dynamic-param navigations — visiting the
+            same route name with a different [matchId] just re-renders with
+            new params rather than mounting fresh. That's the root cause
+            behind Rick's "hangs starting a 2nd round" reports: leftover
+            state (e.g. a button's own loading flag) from the previous match
+            was still there on the very first render of the next one. Keying
+            the screen by matchId forces a real unmount+remount whenever it
+            changes, on top of the explicit state resets already added in
+            each screen's own load effect. */}
+        <Tabs.Screen name="score/enter/[matchId]"    options={{ href: null }} getId={({ params }) => params?.matchId as string | undefined} />
+        <Tabs.Screen name="score/preview/[matchId]"  options={{ href: null }} getId={({ params }) => params?.matchId as string | undefined} />
+        <Tabs.Screen name="score/solo/[matchId]"     options={{ href: null }} getId={({ params }) => params?.matchId as string | undefined} />
         <Tabs.Screen name="score/skins/[matchId]"    options={{ href: null }} />
         <Tabs.Screen name="score/nassau/[matchId]"   options={{ href: null }} />
         <Tabs.Screen name="score/wolf/[matchId]"     options={{ href: null }} />
