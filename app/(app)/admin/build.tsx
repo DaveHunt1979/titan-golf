@@ -83,7 +83,7 @@ const COMP_FORMATS: CompFormat[] = [
 ];
 
 const DAY_FORMATS: Array<{ id: DayFormatId; label: string; sub: string }> = [
-  { id: 'four_bbb',        label: '4BBB Stableford', sub: 'Best ball pairs' },
+  { id: 'four_bbb',        label: '4BBB',        sub: 'Best ball pairs' },
   { id: 'four_bbb_stroke', label: '4BBB Stroke', sub: 'Best ball, relative handicap' },
   { id: 'foursomes',  label: 'Foursomes',  sub: 'Alternate shot' },
   { id: 'greensomes', label: 'Greensomes', sub: 'Pick best drive' },

@@ -22,7 +22,6 @@ const titanLogo = require('../../../../assets/TitanAppLogo.png');
 interface Match {
   id: string;
   day_id: string | null;
-  competition_id: string | null;
   round_format: string | null;
   home_player_ids: string[];
   away_player_ids: string[];
@@ -31,7 +30,6 @@ interface Match {
   side_games: string[] | null;
   hcp_allowance: number | null;
   status: string;
-  player_overrides: Record<string, { hcp: number | null; tee: string | null }> | null;
   day: { course_name: string; course_par: number } | null;
 }
 
@@ -108,7 +106,7 @@ export default function TeamStablefordScreen() {
 
       const allIds = [...((matchData as any).home_player_ids ?? []), ...((matchData as any).away_player_ids ?? [])];
 
-      const [playersRes, holesRes, scoresRes, compRes] = await Promise.all([
+      const [playersRes, holesRes, scoresRes] = await Promise.all([
         allIds.length
           ? supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allIds)
           : { data: [] },
@@ -118,26 +116,9 @@ export default function TeamStablefordScreen() {
         allIds.length
           ? supabase.from('match_holes').select('hole_number,player_id,gross_score').eq('match_id', matchId).in('player_id', allIds)
           : { data: [] },
-        (matchData as any).competition_id && allIds.length
-          ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', (matchData as any).competition_id).in('player_id', allIds)
-          : { data: [] },
       ]);
 
-      if (playersRes.data) {
-        // Same override precedence as score/enter/[matchId].tsx: a per-game
-        // HCP override beats the competition-enrolled handicap, which beats
-        // the raw profile value. Without this, an override set at Tee Off
-        // silently reverted to the profile HCP once scoring started, because
-        // this screen only ever read the raw profile value.
-        const compMap = new Map(((compRes.data ?? []) as any[]).map(cp => [cp.player_id, cp.handicap_index]));
-        const povs = (matchData as any).player_overrides ?? {};
-        const effective = (playersRes.data as Player[]).map(p => {
-          const ov = povs[p.id]?.hcp;
-          const compHcp = compMap.get(p.id);
-          return { ...p, handicap_index: ov ?? compHcp ?? p.handicap_index };
-        });
-        setPlayers(effective);
-      }
+      if (playersRes.data) setPlayers(playersRes.data as Player[]);
       if (holesRes.data) setCourseHoles(holesRes.data as CourseHole[]);
 
       if (scoresRes.data && scoresRes.data.length > 0) {
@@ -413,7 +394,7 @@ export default function TeamStablefordScreen() {
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
-          <Text style={s.headerSub}>{isMashieGroup ? `BEST ${baseCountN} FROM ${teamSize}` : 'TEAM STABLEFORD'}</Text>
+          <Text style={s.headerSub}>{isMashieGroup ? `MASHIE · BEST ${baseCountN} FROM ${teamSize}` : 'TEAM STABLEFORD'}</Text>
         </View>
         <TouchableOpacity onPress={confirmDelete} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="trash-outline" size={20} color="#555" />

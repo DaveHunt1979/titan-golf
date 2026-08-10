@@ -15,7 +15,7 @@ const FFB = 'JUSTSans-ExBold';
 
 const FORMAT_LABELS: Record<string, string> = {
   stableford: 'Stableford', medal: 'Medal', singles: 'Singles Matchplay',
-  '4bbb': '4BBB Stableford', skins: 'Skins', nassau: 'Nassau',
+  '4bbb': '4BBB', skins: 'Skins', nassau: 'Nassau',
   scramble: 'Scramble', greensome: 'Greensomes', foursomes: 'Foursomes',
   par_bogey: 'Par / Bogey', team_stableford: 'Team Stableford',
   best2from4: 'Best 2 From 4', best2from4_par3all: 'Best 2 From 4 (Par 3s)',

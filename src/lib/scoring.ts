@@ -106,8 +106,7 @@ export function formatStrokeHoles(
   };
 
   const allHoles = [...byCount.values()].flat();
-  const label = allHoles.length === 1 ? 'Hole' : 'Holes';
-  let out = `${label} ${rangify(allHoles)}`;
+  let out = `Holes ${rangify(allHoles)}`;
   const extras = [...byCount.entries()].filter(([count]) => count >= 2).sort((a, b) => a[0] - b[0]);
   if (extras.length > 0) {
     out += ` (${extras.map(([count, holes]) => `×${count}: ${rangify(holes)}`).join(', ')})`;

@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"/Users/davehunt/Desktop/titan-golf\\\" && echo \\\"--- git status ---\\\" && git status --short && echo \\\"--- app/(app)/score/group exists? ---\\\" && ls \\\"app/(app)/score/group\\\" 2>&1 && ech...",
+  "error": "Exit code 1\n--- git status ---\n M .omc/project-memory.json\n D .omc/state/agent-replay-baaf33b2-7dff-4f62-9d9a-e5e569e53ab0.jsonl\n M .omc/state/hud-stdin-cache.json\n M .omc/state/idle-notif-cooldown.json\n M .omc/state/session-end-jobs/discovery.json\n M .omc/state/sessions/baaf33b2-7dff-4f62-9d9a-e5e569e53ab0/mission-state.json\n M .omc/state/sessions/baaf33b2-7dff-4f62-9d9a-e5e569e53ab0/pre-tool-advisory-throttle.json\n D .omc/state/sessions/baaf33b2-7dff-4f62-9d9a-e5e569e53ab0/session-started.json...",
+  "timestamp": "2026-08-10T13:48:21.244Z",
+  "retry_count": 1
+}

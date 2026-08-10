@@ -214,7 +214,7 @@ export default function CodesScreen() {
         {/* Mashie group codes */}
         {mashieGroups.length > 0 && (
           <>
-            <Text style={[s.sectionLabel, { color: dc.cardText, marginTop: 24 }]}>GROUP CODES</Text>
+            <Text style={[s.sectionLabel, { color: dc.cardText, marginTop: 24 }]}>MASHIE GROUP CODES</Text>
             <View style={[s.card, { backgroundColor: dc.card, borderColor: '#a78bfa44' }]}>
               <Text style={[s.cardHint, { color: dc.cardText, marginBottom: 12 }]}>
                 Share each code with the group — they can only score their own 4.
@@ -226,7 +226,7 @@ export default function CodesScreen() {
                     <Text style={[s.areaCode, { color: '#a78bfa', fontSize: 22, letterSpacing: 4 }]}>{g.groupCode}</Text>
                     <TouchableOpacity
                       style={[s.shareBtn, { flex: 0, borderColor: '#a78bfa55', backgroundColor: '#a78bfa15', paddingHorizontal: 14 }]}
-                      onPress={() => shareText(`Your group code: ${g.groupCode} — ${g.playerNames}`, g.groupCode)}
+                      onPress={() => shareText(`Your Mashie group code: ${g.groupCode} — ${g.playerNames}`, g.groupCode)}
                       activeOpacity={0.8}
                     >
                       <Text style={[s.shareBtnText, { color: '#a78bfa' }]}>Share</Text>

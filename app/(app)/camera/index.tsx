@@ -109,24 +109,13 @@ export default function CameraScreen() {
       // actually in right now — casual or tournament both carry a day_id
       // with the real course, unlike the old "active competition" lookup
       // which only ever matched tournament play and pulled the wrong name.
-      // "in_progress" alone isn't enough, though — a round that was played
-      // (or abandoned mid-test) and never explicitly finished stays
-      // in_progress in the DB forever, so without a recency check the
-      // camera would show that stale round's course/hole indefinitely (Dave
-      // spotted this — "apparently we were on hole 15" days/hours later).
-      // Only trust a match started within the last 12 hours as genuinely
-      // "live right now"; pick the most recent if more than one qualifies.
       let courseName: string | null = null;
       let hole: number | null = null;
-      const liveCutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
       const { data: match } = await supabase
         .from('matches')
         .select('holes_string, holes_to_play, day:day_id(course_name)')
         .eq('status', 'in_progress')
-        .gte('created_at', liveCutoff)
         .or(`home_player_ids.cs.{${player.id}},away_player_ids.cs.{${player.id}}`)
-        .order('created_at', { ascending: false })
-        .limit(1)
         .maybeSingle();
       if (match) {
         courseName = (match as any).day?.course_name ?? null;
@@ -326,31 +315,43 @@ export default function CameraScreen() {
   // ── Camera layout (portrait / landscape) ─────────────────────
   const avatar = info.playerId ? resolveAvatar(info.playerId, info.avatarUrl) : null;
 
-  // Burned into every captured photo (and shown live while framing) — one
-  // single banner, not two, so portrait and landscape (and spectator vs
-  // playing your own round) always carry exactly the same information:
-  // Titan branding, player photo + name, course, current hole. Works with
-  // no active round too — just the logo, never fabricated course/hole/name.
+  // Burned into every captured photo (and shown live while framing). Works
+  // with no active round too — just the logo, never fabricated course/hole.
   // Positioning differs by context (live overlay sits above the controls;
   // the offscreen composite needs to sit flush with the photo's own bottom
   // edge), so this is just the visual bar — callers wrap it to position it.
   const BrandFooterBar = (
     <View style={s.brandFooter}>
       <Image source={titanLogo} style={s.brandLogo} resizeMode="contain" />
-      {avatar
-        ? <Image source={avatar} style={s.brandAvatar} />
-        : <View style={[s.brandAvatar, s.brandAvatarFallback]}>
-            <Text style={s.brandAvatarInitial}>{info.name?.[0]?.toUpperCase() ?? '?'}</Text>
-          </View>
-      }
-      <View style={s.brandTextWrap}>
-        <Text style={s.brandName} numberOfLines={1}>{info.name || 'Player'}</Text>
-        {info.courseName && <Text style={s.brandCourse} numberOfLines={1}>{info.courseName}</Text>}
+      {(info.courseName || info.hole) && (
+        <View style={s.brandTextWrap}>
+          {info.courseName && <Text style={s.brandCourse} numberOfLines={1}>{info.courseName}</Text>}
+          {info.hole && <Text style={s.brandHole}>HOLE {info.hole}</Text>}
+        </View>
+      )}
+    </View>
+  );
+
+  const Banner = (
+    <View style={[s.banner, isLandscape && s.bannerLandscape]}>
+      <View style={s.bannerLeft}>
+        {avatar
+          ? <Image source={avatar} style={s.bannerAvatar} />
+          : <View style={[s.bannerAvatar, s.bannerAvatarFallback]}>
+                <Text style={s.bannerInitial}>{info.name?.[0] ?? '?'}</Text>
+              </View>
+        }
+        <View>
+          <Text style={s.bannerName} numberOfLines={1}>{info.name || 'Player'}</Text>
+          {info.courseName && (
+            <Text style={s.bannerSub} numberOfLines={1}>{info.courseName}</Text>
+          )}
+        </View>
       </View>
       {info.hole && (
-        <View style={s.brandHoleChip}>
-          <Text style={s.brandHoleLabel}>HOLE</Text>
-          <Text style={s.brandHoleNum}>{info.hole}</Text>
+        <View style={s.bannerHoleChip}>
+          <Text style={s.bannerHoleLabel}>HOLE</Text>
+          <Text style={s.bannerHoleNum}>{info.hole}</Text>
         </View>
       )}
     </View>
@@ -453,12 +454,12 @@ export default function CameraScreen() {
         <Text style={s.closeBtnText}>✕</Text>
       </TouchableOpacity>
 
+      {/* Player banner */}
+      {Banner}
+
       {/* Branding footer — same content that gets burned into the photo,
-          shown live so the shot can be framed with it in mind. One banner,
-          same info, in both portrait and landscape. */}
-      <View style={[s.brandFooterLiveWrap, isLandscape && s.brandFooterLiveWrapLandscape]} pointerEvents="none">
-        {BrandFooterBar}
-      </View>
+          shown live so the shot can be framed with it in mind. */}
+      <View style={s.brandFooterLiveWrap} pointerEvents="none">{BrandFooterBar}</View>
 
       {/* Camera controls */}
       {Controls}
@@ -485,6 +486,7 @@ export default function CameraScreen() {
   );
 }
 
+const BANNER_HEIGHT   = 72;
 const CONTROLS_HEIGHT = 140;
 
 const s = StyleSheet.create({
@@ -506,16 +508,40 @@ const s = StyleSheet.create({
   },
   closeBtnText: { fontSize: 16, fontFamily: FFB, color: '#fff' },
 
-  // ── Titan branding footer — burned into every captured photo, and the
-  // only info banner on this screen (portrait and landscape both use it,
-  // same content, so there's nothing to fall out of sync between them).
-  brandFooterLiveWrap: {
+  // ── Banner
+  banner: {
     position: 'absolute',
     bottom: CONTROLS_HEIGHT,
     left: 0, right: 0,
+    height: BANNER_HEIGHT,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
   },
-  brandFooterLiveWrapLandscape: {
-    bottom: 0, right: 120, left: 0, top: 'auto' as any,
+  bannerLandscape: {
+    bottom: 0, right: 120, top: 'auto' as any,
+    height: 60,
+  },
+  bannerLeft:      { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  bannerAvatar:    { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: GOLD },
+  bannerAvatarFallback: { backgroundColor: 'rgba(212,175,55,0.25)', alignItems: 'center', justifyContent: 'center' },
+  bannerInitial:   { fontSize: 18, fontFamily: FFB, color: GOLD },
+  bannerName:      { fontSize: 15, fontFamily: FFB, color: '#fff' },
+  bannerSub:       { fontSize: 11, fontFamily: FFB, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  bannerHoleChip:  {
+    alignItems: 'center', backgroundColor: GOLD,
+    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, minWidth: 44,
+  },
+  bannerHoleLabel: { fontSize: 8, fontFamily: FFB, color: '#000', letterSpacing: 1 },
+  bannerHoleNum:   { fontSize: 22, fontFamily: FFB, color: '#000', lineHeight: 24 },
+
+  // ── Titan branding footer — burned into every captured photo
+  brandFooterLiveWrap: {
+    position: 'absolute',
+    bottom: CONTROLS_HEIGHT + BANNER_HEIGHT,
+    left: 0, right: 0,
   },
   brandFooterComposeWrap: {
     position: 'absolute',
@@ -523,22 +549,13 @@ const s = StyleSheet.create({
   },
   brandFooter: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: 'rgba(0,0,0,0.78)',
+    backgroundColor: 'rgba(0,0,0,0.75)',
     paddingHorizontal: 16, paddingVertical: 10,
   },
-  brandLogo:     { width: 26, height: 26 },
-  brandAvatar:   { width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: GOLD },
-  brandAvatarFallback: { backgroundColor: 'rgba(212,175,55,0.25)', alignItems: 'center', justifyContent: 'center' },
-  brandAvatarInitial: { fontSize: 15, fontFamily: FFB, color: GOLD },
+  brandLogo:     { width: 28, height: 28 },
   brandTextWrap: { flex: 1 },
-  brandName:     { fontSize: 14, fontFamily: FFB, color: '#fff' },
-  brandCourse:   { fontSize: 11, fontFamily: FFB, color: 'rgba(255,255,255,0.7)', marginTop: 1 },
-  brandHoleChip: {
-    alignItems: 'center', backgroundColor: GOLD,
-    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, minWidth: 40,
-  },
-  brandHoleLabel: { fontSize: 8, fontFamily: FFB, color: '#000', letterSpacing: 1 },
-  brandHoleNum:   { fontSize: 18, fontFamily: FFB, color: '#000', lineHeight: 20 },
+  brandCourse:   { fontSize: 13, fontFamily: FFB, color: '#fff' },
+  brandHole:     { fontSize: 11, fontFamily: FFB, color: GOLD, letterSpacing: 0.5, marginTop: 1 },
 
   // ── Slide-up menu
   menuBackdrop: {

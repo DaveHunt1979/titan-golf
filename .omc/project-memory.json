@@ -258,21 +258,63 @@
   },
   "hotPaths": [
     {
-      "path": "app/(app)/score/day/[dayId].tsx",
-      "accessCount": 7,
-      "lastAccessed": 1786340016494,
+      "path": "app/(app)/score/group/[matchId].tsx",
+      "accessCount": 52,
+      "lastAccessed": 1786364225209,
       "type": "file"
     },
     {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 6,
-      "lastAccessed": 1786342140753,
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 29,
+      "lastAccessed": 1786357867387,
       "type": "file"
     },
     {
       "path": "app/(app)/score/index.tsx",
+      "accessCount": 24,
+      "lastAccessed": 1786363760351,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/spectate/[matchId].tsx",
+      "accessCount": 22,
+      "lastAccessed": 1786358372742,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/day/[dayId].tsx",
+      "accessCount": 12,
+      "lastAccessed": 1786353254907,
+      "type": "file"
+    },
+    {
+      "path": "app.json",
+      "accessCount": 10,
+      "lastAccessed": 1786359220021,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1786346008317,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf.xcodeproj/project.pbxproj",
+      "accessCount": 7,
+      "lastAccessed": 1786351086168,
+      "type": "file"
+    },
+    {
+      "path": "app/_layout.tsx",
       "accessCount": 5,
-      "lastAccessed": 1786342776725,
+      "lastAccessed": 1786344221166,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 5,
+      "lastAccessed": 1786357326927,
       "type": "file"
     },
     {
@@ -282,21 +324,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/solo/[matchId].tsx",
+      "path": "app/(app)/score/preview/[matchId].tsx",
       "accessCount": 4,
-      "lastAccessed": 1786340574633,
+      "lastAccessed": 1786348110609,
       "type": "file"
     },
     {
       "path": "app/(app)/score/teamstableford/[matchId].tsx",
       "accessCount": 3,
       "lastAccessed": 1786340677728,
-      "type": "file"
-    },
-    {
-      "path": "app/_layout.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1786340977768,
       "type": "file"
     },
     {
@@ -324,9 +360,33 @@
       "type": "file"
     },
     {
-      "path": "app.json",
+      "path": "app/(app)/_layout.tsx",
       "accessCount": 2,
-      "lastAccessed": 1786342914789,
+      "lastAccessed": 1786348042364,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/IMG_6088 wrong.PNG",
+      "accessCount": 2,
+      "lastAccessed": 1786352949298,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/IMG_6089 what it should look like.PNG",
+      "accessCount": 2,
+      "lastAccessed": 1786352949635,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/IMG_6062.PNG",
+      "accessCount": 2,
+      "lastAccessed": 1786357221088,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 2,
+      "lastAccessed": 1786357256921,
       "type": "file"
     },
     {
@@ -366,12 +426,6 @@
       "type": "file"
     },
     {
-      "path": "screenshots/IMG_6062.PNG",
-      "accessCount": 1,
-      "lastAccessed": 1786339429009,
-      "type": "file"
-    },
-    {
       "path": "screenshots/IMG_6064.PNG",
       "accessCount": 1,
       "lastAccessed": 1786339429308,
@@ -381,24 +435,6 @@
       "path": "app/(app)/index.tsx",
       "accessCount": 1,
       "lastAccessed": 1786340331186,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/_layout.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1786340350250,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/preview/[matchId].tsx",
-      "accessCount": 1,
-      "lastAccessed": 1786340470114,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 1,
-      "lastAccessed": 1786340654622,
       "type": "file"
     },
     {
@@ -420,9 +456,21 @@
       "type": "file"
     },
     {
-      "path": "ios/titangolf.xcodeproj/project.pbxproj",
+      "path": "src/lib/watch.ts",
       "accessCount": 1,
-      "lastAccessed": 1786342920899,
+      "lastAccessed": 1786348693536,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-08-10 at 10.14.48.png",
+      "accessCount": 1,
+      "lastAccessed": 1786353403674,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-08-10 at 12.49.40.png",
+      "accessCount": 1,
+      "lastAccessed": 1786362761234,
       "type": "file"
     }
   ],

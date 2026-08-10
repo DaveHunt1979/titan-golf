@@ -10,7 +10,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { speakIntro } from '../../../../src/lib/caddie';
-import { calcCourseHandicap, formatStrokeHoles } from '../../../../src/lib/scoring';
+import { calcCourseHandicap } from '../../../../src/lib/scoring';
 
 const GOLD  = '#D4AF37';
 const FF    = 'JUSTSans';
@@ -61,7 +61,6 @@ export default function MatchPreviewScreen() {
 
   const [match, setMatch] = useState<MatchPreview | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [courseHoles, setCourseHoles] = useState<{ hole_number: number; stroke_index: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [retryTick, setRetryTick] = useState(0);
@@ -81,18 +80,6 @@ export default function MatchPreviewScreen() {
         if (!matchData) { console.warn('[preview.load] no match found', { matchId }); setLoadError(true); return; }
         console.log('[preview.load] match fetched', { matchId, status: matchData.status, round_format: matchData.round_format });
         setMatch(matchData as any);
-
-        // Needed so matchplay previews can show which holes each player
-        // gets a shot on, not just the headline handicap number (Rick: "we
-        // should even have what holes you get shots on... in all the match
-        // play formats").
-        if (matchData.day?.course_name) {
-          const { data: holesData } = await supabase
-            .from('course_holes')
-            .select('hole_number,stroke_index')
-            .eq('course_name', matchData.day.course_name);
-          if (holesData) setCourseHoles(holesData);
-        }
 
         const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
         if (allIds.length) {
@@ -137,14 +124,6 @@ export default function MatchPreviewScreen() {
     console.log('[preview] matchId changed, (re)loading', { matchId, retryTick });
     setLoading(true);
     setLoadError(false);
-    // This screen is a Tabs.Screen (app/(app)/_layout.tsx) — React Navigation
-    // keeps it mounted across dynamic-param navigations rather than
-    // remounting, so `teeing` from a PREVIOUS round's successful Tee Off tap
-    // would otherwise still read true on the very first render of the next
-    // one: the button (and its gold spinner) would render as if mid-tap
-    // before the player has touched anything. Must reset explicitly here —
-    // this is almost certainly Rick's "hangs starting a 2nd round" bug.
-    setTeeing(false);
     load();
   }, [matchId, retryTick]);
 
@@ -217,7 +196,6 @@ export default function MatchPreviewScreen() {
 
   // 4BBB Stroke Matchplay: the lowest cut handicap in the whole match plays
   // off scratch, everyone else's shots are relative to that (Rick's spec).
-  const isMatchplay = match.round_format === 'matchplay';
   const isRelativeHcp = match.handicap_method === 'relative_low';
   const groupLowestCutHcp = isRelativeHcp
     ? Math.min(...[...homePlayers, ...awayPlayers].map(p => {
@@ -286,17 +264,17 @@ export default function MatchPreviewScreen() {
         {/* Players */}
         <View style={isSolo ? s.soloRow : s.matchupRow}>
           {isSolo ? (
-            homePlayers.map(p => <PlayerCard key={p.id} player={p} size={homePlayers.length > 2 ? 60 : 80} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} isMatchplay={isMatchplay} courseHoles={courseHoles} />)
+            homePlayers.map(p => <PlayerCard key={p.id} player={p} size={homePlayers.length > 2 ? 60 : 80} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} />)
           ) : (
             <>
               <View style={s.side}>
-                {homePlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} isMatchplay={isMatchplay} courseHoles={courseHoles} />)}
+                {homePlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} />)}
               </View>
               <View style={s.vsWrap}>
                 <Text style={s.vsText}>VS</Text>
               </View>
               <View style={s.side}>
-                {awayPlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} isMatchplay={isMatchplay} courseHoles={courseHoles} />)}
+                {awayPlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} />)}
               </View>
             </>
           )}
@@ -358,10 +336,9 @@ export default function MatchPreviewScreen() {
   );
 }
 
-function PlayerCard({ player, size, hcpAllowance, day, isRelativeHcp, groupLowestCutHcp, isMatchplay, courseHoles }: {
+function PlayerCard({ player, size, hcpAllowance, day, isRelativeHcp, groupLowestCutHcp }: {
   player: Player; size: number; hcpAllowance: number | null; day: MatchPreview['day'];
   isRelativeHcp?: boolean; groupLowestCutHcp?: number;
-  isMatchplay?: boolean; courseHoles?: { hole_number: number; stroke_index: number }[];
 }) {
   const avatar = player.avatar_url ?? getPlayerAvatar(player.id, 'normal');
   const firstName = player.display_name.split(' ')[0];
@@ -378,13 +355,6 @@ function PlayerCard({ player, size, hcpAllowance, day, isRelativeHcp, groupLowes
   // 4BBB Stroke Matchplay: shots actually received once the group's lowest
   // cut handicap is subtracted (that player plays off scratch).
   const shotsReceived = isRelativeHcp ? Math.max(0, cutHcp - (groupLowestCutHcp ?? 0)) : null;
-  // The handicap actually used for stroke allocation in the match itself —
-  // relative_low subtracts the group's lowest, every other matchplay method
-  // just uses the player's own cut handicap.
-  const effectiveHcp = shotsReceived ?? cutHcp;
-  const strokeHolesText = (isMatchplay && courseHoles && courseHoles.length > 0)
-    ? formatStrokeHoles(effectiveHcp, courseHoles)
-    : null;
 
   return (
     <View style={s.playerCard}>
@@ -397,9 +367,6 @@ function PlayerCard({ player, size, hcpAllowance, day, isRelativeHcp, groupLowes
           ? `Playing Hcp ${cutHcp} · ${shotsReceived} shot${shotsReceived === 1 ? '' : 's'}`
           : isCut ? `Playing Hcp ${cutHcp} (Idx ${player.handicap_index})` : `Hcp ${player.handicap_index}`}
       </Text>
-      {strokeHolesText && (
-        <Text style={s.playerStrokeHoles} numberOfLines={2}>{strokeHolesText}</Text>
-      )}
     </View>
   );
 }
@@ -445,7 +412,6 @@ const s = StyleSheet.create({
   avatarRing: { borderWidth: 2, borderColor: `${GOLD}40`, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   playerName: { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
   playerHcp:  { fontFamily: FFB, fontSize: 12, color: '#fff' },
-  playerStrokeHoles: { fontFamily: FFB, fontSize: 11, color: GOLD, textAlign: 'center', maxWidth: 130 },
 
   detailCard: {
     backgroundColor: '#111111', borderRadius: 14,

@@ -62,22 +62,7 @@ export default function RootLayout() {
     proceededRef.current = true;
     gateRef.current = 'open';
     setGate('open');
-    const hasSession = authResultRef.current.hasSession;
-    if (hasSession) {
-      // Force the Home tab specifically on this very first boot, ignoring
-      // whatever sub-route segmentsRef may already show — expo-router
-      // registers an NSUserActivity (ios/titangolf/Info.plist
-      // NSUserActivityTypes) that iOS uses to relaunch the app at the last
-      // URL it was on, which after a background/foreground cycle (or the OS
-      // killing the app for memory while backgrounded — common mid-round on
-      // the course) can be a transient screen like score/preview instead of
-      // the dashboard. There's no push-notification deep-linking in this app
-      // to preserve, so overriding it here is safe. redirect() below still
-      // handles '/(auth)' correctly for the unauthenticated case.
-      routerRef.current.replace('/(app)');
-    } else {
-      redirect(false);
-    }
+    redirect(authResultRef.current.hasSession);
   }
 
   function onAuthResolved(hasSession: boolean) {

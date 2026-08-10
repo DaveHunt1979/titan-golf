@@ -21,7 +21,7 @@ const heroCourse = require('../../../assets/startround_gfx.png');
 
 const FORMAT_LABELS: Record<string, string> = {
   stableford: 'Stableford', medal: 'Medal', singles: 'Singles Matchplay',
-  '4bbb': '4BBB Stableford', skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf',
+  '4bbb': '4BBB Matchplay', skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf',
   scramble: 'Scramble', greensomes: 'Greensomes', bbb: 'BBB',
   foursomes: 'Foursomes', modified_stableford: 'Modified Stableford',
   par_bogey: 'Par / Bogey', chacha: 'ChaChaCha',
@@ -53,7 +53,6 @@ export default function ScoreScreen() {
   const [completedMatches, setCompletedMatches] = useState<MatchWithDay[]>([]);
   const [playerNames, setPlayerNames]           = useState<Record<string, string>>({});
   const [playerAvatars, setPlayerAvatars]       = useState<Record<string, string | null>>({});
-  const [groupPlayerCounts, setGroupPlayerCounts] = useState<Record<string, number>>({});
   const [loading, setLoading]                   = useState(true);
   const [refreshing, setRefreshing]             = useState(false);
   const [dayCode, setDayCode]             = useState('');
@@ -97,28 +96,6 @@ export default function ScoreScreen() {
         !m.competition_id && (!pid || m.home_player_ids.includes(pid) || m.away_player_ids.includes(pid))
       );
       setMatches(matchData);
-
-      // Individual formats (Stableford/Medal/etc.) insert one match row per
-      // player sharing a group_code (see games/new.tsx) — this row alone
-      // always looks "solo" (1 home player, 0 away), even when the player
-      // has groupmates on other rows. Without checking for groupmates here,
-      // RoundCard routed straight into the lone player's own scoring screen
-      // instead of the shared Game Day group view.
-      const groupCodes = [...new Set(matchData.map(m => (m as any).group_code).filter(Boolean))];
-      if (groupCodes.length > 0) {
-        const { data: groupRows } = await supabase
-          .from('matches')
-          .select('group_code,home_player_ids')
-          .in('group_code', groupCodes)
-          .neq('status', 'cancelled');
-        const counts: Record<string, number> = {};
-        for (const r of (groupRows ?? []) as any[]) {
-          counts[r.group_code] = (counts[r.group_code] ?? 0) + (r.home_player_ids?.length ?? 0);
-        }
-        setGroupPlayerCounts(counts);
-      } else {
-        setGroupPlayerCounts({});
-      }
 
       // Fetch completed matches for history section
       let completed: MatchWithDay[] = [];
@@ -351,7 +328,7 @@ export default function ScoreScreen() {
           {live.length > 0 && (
             <>
               <SectionHead label="LIVE NOW" live s={s} />
-              {live.map(m => <RoundCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} groupPlayerCounts={groupPlayerCounts} s={s} GOLD={GOLD} />)}
+              {live.map(m => <RoundCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} s={s} GOLD={GOLD} />)}
             </>
           )}
 
@@ -359,7 +336,7 @@ export default function ScoreScreen() {
           {upcoming.length > 0 && (
             <>
               <SectionHead label="UPCOMING" s={s} />
-              {upcoming.map(m => <RoundCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} groupPlayerCounts={groupPlayerCounts} s={s} GOLD={GOLD} />)}
+              {upcoming.map(m => <RoundCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} s={s} GOLD={GOLD} />)}
             </>
           )}
 
@@ -367,7 +344,7 @@ export default function ScoreScreen() {
           {completedMatches.length > 0 && (
             <>
               <SectionHead label="HISTORY" s={s} />
-              {completedMatches.map(m => <RoundCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} groupPlayerCounts={groupPlayerCounts} s={s} GOLD={GOLD} />)}
+              {completedMatches.map(m => <RoundCard key={m.id} match={m} playerNames={playerNames} playerAvatars={playerAvatars} s={s} GOLD={GOLD} />)}
             </>
           )}
 
@@ -395,18 +372,15 @@ function SectionHead({ label, live, s }: { label: string; live?: boolean; s: any
   );
 }
 
-function RoundCard({ match, playerNames, playerAvatars, groupPlayerCounts, s, GOLD }: {
+function RoundCard({ match, playerNames, playerAvatars, s, GOLD }: {
   match: MatchWithDay;
   playerNames: Record<string, string>;
   playerAvatars: Record<string, string | null>;
-  groupPlayerCounts: Record<string, number>;
   s: any;
   GOLD: string;
 }) {
   const router   = useRouter();
-  const groupCode = (match as any).group_code as string | null | undefined;
-  const hasGroupmates = !!groupCode && (groupPlayerCounts[groupCode] ?? 0) > 1;
-  const isSolo   = match.away_player_ids.length === 0 && match.home_player_ids.length === 1 && !hasGroupmates;
+  const isSolo   = match.away_player_ids.length === 0 && match.home_player_ids.length === 1;
   const isStroke = match.round_format === 'stableford' || match.round_format === 'medal';
   const winner   = getEffectiveWinner(match.status, match.winner, match.holes_string ?? '..................', match.holes_to_play ?? 18);
 

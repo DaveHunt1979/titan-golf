@@ -93,10 +93,7 @@ export default function ChaChaScreen() {
     if (playersRes.data) {
       const info: PlayerInfo[] = ids.map(id => {
         const p = (playersRes.data as any[]).find(x => x.id === id);
-        // Per-game HCP override (set at Tee Off) must beat the raw profile
-        // value here too — see score/solo and score/enter for the same fix.
-        const ov = (m as any).player_overrides?.[id]?.hcp;
-        const hcpIdx = ov ?? p?.handicap_index ?? 0;
+        const hcpIdx = p?.handicap_index ?? 0;
         const courseHcp = day
           ? calcCourseHandicap(hcpIdx, day.slope_rating, day.course_rating, day.course_par)
           : Math.round(hcpIdx);
