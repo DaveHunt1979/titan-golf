@@ -90,6 +90,7 @@ interface MatchInfo {
   home_player_ids: string[];
   side_games: string[] | null;
   day_id: string | null;
+  player_overrides: Record<string, { hcp: number | null; tee: string | null }> | null;
   day: { course_name: string; course_par: number; course_rating: number; slope_rating: number; day_number: number } | null;
 }
 
@@ -154,12 +155,15 @@ export default function SoloRoundScreen() {
 
         const playerId = m.home_player_ids[0];
         console.log('[solo.load] fetching holes + player + scores...');
-        const [{ data: holesData }, { data: playerData }, { data: scoresData }] = await Promise.all([
+        const [{ data: holesData }, { data: playerData }, { data: scoresData }, { data: compData }] = await Promise.all([
           m.day?.course_name
             ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages').eq('course_name', m.day.course_name).order('hole_number')
             : Promise.resolve({ data: [] }),
           supabase.from('players').select('display_name,handicap_index,avatar_url').eq('id', playerId).single(),
           supabase.from('match_holes').select('hole_number,gross_score,net_score,stableford_pts').eq('match_id', matchId).eq('player_id', playerId),
+          m.competition_id
+            ? supabase.from('competition_players').select('handicap_index').eq('competition_id', m.competition_id).eq('player_id', playerId).maybeSingle()
+            : Promise.resolve({ data: null as { handicap_index: number } | null }),
         ]);
 
         if (holesData) setCourseHoles(holesData);
@@ -167,7 +171,15 @@ export default function SoloRoundScreen() {
           const p = playerData as any;
           setPlayerName(p.display_name ?? '');
           setAvatarUrl(p.avatar_url ?? null);
-          const hcp = p.handicap_index ?? 0;
+          // Same override precedence as score/preview/[matchId].tsx: a
+          // per-game HCP override beats the competition-enrolled handicap,
+          // which beats the raw profile value. Without this, the override
+          // shown at Tee Off (preview screen) silently reverted to the
+          // player's profile HCP the moment scoring actually started,
+          // because this screen only ever read the profile value.
+          const ov = m.player_overrides?.[playerId]?.hcp;
+          const compHcp = compData?.handicap_index;
+          const hcp = ov ?? compHcp ?? (p.handicap_index ?? 0);
           setPlayerHcp(hcp);
           if (m.day?.slope_rating && m.day?.course_rating && m.day?.course_par) {
             setCourseHcp(calcCourseHandicap(hcp, m.day.slope_rating, m.day.course_rating, m.day.course_par));

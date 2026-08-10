@@ -38,6 +38,7 @@ export interface BuiltMatch {
   homeName: string;
   awayName: string;
   startHole: number;
+  groupKey: number;
 }
 
 type LayoutType = 'individual' | 'singles' | 'twoteam' | 'mashie';
@@ -55,7 +56,7 @@ interface GroupState {
   slots: MatchSlot[];
 }
 
-function getLayout(mode: GameMode): LayoutType {
+export function getLayout(mode: GameMode): LayoutType {
   if (mode === 'singles' || mode === 'nassau') return 'singles';
   if (mode === '4bbb' || mode === '4bbb_stroke' || mode === 'greensome' || mode === 'foursomes') return 'twoteam';
   if (mode === 'best2from4' || mode === 'best2from4_par3all') return 'mashie';
@@ -91,20 +92,24 @@ function restoreGroups(matches: BuiltMatch[], m: GameMode): GroupState[] {
   if (getLayout(m) === 'individual') {
     // buildResult() splits individual-format players into one match per
     // player (see there for why) — undo that back into shared group slots
-    // here, grouping by startHole, or re-opening this editor would show
-    // players who picked the same group as if they'd been split into
-    // separate groups.
-    const byStartHole = new Map<number, string[]>();
+    // here, grouping by groupKey (the originating visual group), or
+    // re-opening this editor would show players who picked the same group
+    // as if they'd been split into separate groups. Grouping by startHole
+    // instead would be wrong whenever two different groups tee off the
+    // same hole.
+    const byGroupKey = new Map<number, { startHole: number; home: string[] }>();
     for (const bm of matches) {
-      const list = byStartHole.get(bm.startHole) ?? [];
-      list.push(...bm.home);
-      byStartHole.set(bm.startHole, list);
+      const entry = byGroupKey.get(bm.groupKey) ?? { startHole: bm.startHole, home: [] };
+      entry.home.push(...bm.home);
+      byGroupKey.set(bm.groupKey, entry);
     }
-    return [...byStartHole.entries()].map(([startHole, home], i) => ({
-      startHole,
-      teeTime: incrementTime('10:00', i * 10),
-      slots: [{ home, away: [], homeName: '', awayName: '' }],
-    }));
+    return [...byGroupKey.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([, entry], i) => ({
+        startHole: entry.startHole,
+        teeTime: incrementTime('10:00', i * 10),
+        slots: [{ home: entry.home, away: [], homeName: '', awayName: '' }],
+      }));
   }
   return matches.map((bm, i) => ({
     startHole: bm.startHole,
@@ -230,7 +235,7 @@ export default function GroupBuilderSheet({
 
   function buildResult(): BuiltMatch[] {
     const out: BuiltMatch[] = [];
-    for (const g of groups) {
+    groups.forEach((g, groupKey) => {
       for (const s of g.slots) {
         if (s.home.length + s.away.length === 0) continue;
         if (layout === 'individual') {
@@ -240,15 +245,18 @@ export default function GroupBuilderSheet({
           // created from this screen previously crammed all of them into a
           // single match's home_player_ids, and solo/[matchId].tsx only
           // ever reads home_player_ids[0], so every player after the first
-          // was silently dropped the moment the round started.
+          // was silently dropped the moment the round started. Each player
+          // still gets their own match row, but shares groupKey with the
+          // rest of this slot so the caller can tag them with the same
+          // group_code and the Game Day screen can display them together.
           for (const pid of s.home) {
-            out.push({ home: [pid], away: [], homeName: '', awayName: '', startHole: g.startHole });
+            out.push({ home: [pid], away: [], homeName: '', awayName: '', startHole: g.startHole, groupKey });
           }
         } else {
-          out.push({ home: s.home, away: s.away, homeName: s.homeName, awayName: s.awayName, startHole: g.startHole });
+          out.push({ home: s.home, away: s.away, homeName: s.homeName, awayName: s.awayName, startHole: g.startHole, groupKey });
         }
       }
-    }
+    });
     return out;
   }
 

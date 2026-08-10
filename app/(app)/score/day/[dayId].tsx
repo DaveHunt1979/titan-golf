@@ -19,7 +19,7 @@ const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 type DayInfo   = { id: string; join_code: string; course_name: string; course_par: number; day_date: string };
 type PlayerRow = { player_id: string; name: string; match_id: string; pts: number; holes: number; hcp: number; avatarUrl: string | null };
-type GroupRow  = { match_id: string; format: string; player_names: string[]; home_name: string | null; away_name: string | null; status: string; holes_string: string; winner: string | null; result_str: string | null; home_player_ids: string[]; away_player_ids: string[]; home_pts: number; away_pts: number; };
+type GroupRow  = { match_id: string; match_ids: string[]; format: string; player_names: string[]; home_name: string | null; away_name: string | null; status: string; holes_string: string; winner: string | null; result_str: string | null; home_player_ids: string[]; away_player_ids: string[]; home_pts: number; away_pts: number; };
 
 function InitialAvatar({ name, size = 38 }: { name: string; size?: number }) {
   return (
@@ -130,7 +130,11 @@ export default function DayLobby() {
       }
     }
 
-    setIsMashieDay((matches as any[]).some(m => !!m.group_code));
+    // Individual formats (Stableford/Medal/etc.) now also carry a shared
+    // group_code (one match row per player, tagged so this screen can
+    // display them together) — Mashie is distinguished by having several
+    // players packed into ONE row instead, so gate on both.
+    setIsMashieDay((matches as any[]).some(m => !!m.group_code && (m.home_player_ids?.length ?? 0) > 1));
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -148,27 +152,42 @@ export default function DayLobby() {
       avatarUrl: playerMap[id]?.avatarUrl ?? null,
     })).sort((a, b) => b.pts - a.pts || b.holes - a.holes);
 
-    const grps: GroupRow[] = (matches as any[]).map(m => {
-      const homeIds: string[] = m.home_player_ids ?? [];
-      const awayIds: string[] = m.away_player_ids ?? [];
-      const countN: number | null = m.counting_scores ?? null;
+    // Individual-format matches share a group_code across several one-player
+    // rows (see games/new.tsx) — merge those back into a single displayed
+    // group. Anything without a group_code (or Mashie/team rows, which are
+    // already one row per group) falls back to its own match id as the key,
+    // so it renders as its own singleton group same as before.
+    const byGroupCode = new Map<string, any[]>();
+    for (const m of matches as any[]) {
+      const key = m.group_code ?? m.id;
+      const list = byGroupCode.get(key) ?? [];
+      list.push(m);
+      byGroupCode.set(key, list);
+    }
+
+    const grps: GroupRow[] = [...byGroupCode.values()].map(rows => {
+      const first = rows[0];
+      const homeIds: string[] = rows.flatMap(m => m.home_player_ids ?? []);
+      const awayIds: string[] = rows.flatMap(m => m.away_player_ids ?? []);
+      const countN: number | null = first.counting_scores ?? null;
       // Use per-hole drop logic for team formats, raw sum for individual
-      const homePts = countN
-        ? teamScore(m.id, homeIds, countN)
-        : homeIds.reduce((s, id) => s + (holesByPlayer[id]?.pts ?? 0), 0);
-      const awayPts = countN
-        ? teamScore(m.id, awayIds, countN)
-        : awayIds.reduce((s, id) => s + (holesByPlayer[id]?.pts ?? 0), 0);
+      const homePts = rows.reduce((sum, m) => sum + (countN
+        ? teamScore(m.id, m.home_player_ids ?? [], countN)
+        : (m.home_player_ids ?? []).reduce((s: number, id: string) => s + (holesByPlayer[id]?.pts ?? 0), 0)), 0);
+      const awayPts = rows.reduce((sum, m) => sum + (countN
+        ? teamScore(m.id, m.away_player_ids ?? [], countN)
+        : (m.away_player_ids ?? []).reduce((s: number, id: string) => s + (holesByPlayer[id]?.pts ?? 0), 0)), 0);
       return {
-        match_id:       m.id,
-        format:         m.round_format ?? 'stableford',
+        match_id:       first.id,
+        match_ids:      rows.map(m => m.id),
+        format:         first.round_format ?? 'stableford',
         player_names:   [...homeIds, ...awayIds].map(id => playerMap[id]?.name ?? '?'),
-        home_name:      m.home_name ?? null,
-        away_name:      m.away_name ?? null,
-        status:         m.status ?? 'upcoming',
-        holes_string:   m.holes_string ?? '..................',
-        winner:         m.winner ?? null,
-        result_str:     m.result_str ?? null,
+        home_name:      first.home_name ?? null,
+        away_name:      first.away_name ?? null,
+        status:         rows.every(m => m.status === 'complete') ? 'complete' : (first.status ?? 'upcoming'),
+        holes_string:   first.holes_string ?? '..................',
+        winner:         first.winner ?? null,
+        result_str:     first.result_str ?? null,
         home_player_ids: homeIds,
         away_player_ids: awayIds,
         home_pts: homePts,
@@ -187,12 +206,16 @@ export default function DayLobby() {
     if (!code || !myId) return;
     setJoining(true);
     try {
-      const { data: match } = await supabase
+      // group_code is no longer unique per row — individual formats (see
+      // load()) now share one code across several one-player match rows,
+      // so this join-by-code flow (Mashie-only in practice) must tolerate
+      // that instead of erroring via maybeSingle() on multiple matches.
+      const { data: matchesFound } = await supabase
         .from('matches')
         .select('id, home_player_ids')
         .eq('group_code', code)
-        .eq('day_id', dayId)
-        .maybeSingle();
+        .eq('day_id', dayId);
+      const match = matchesFound && matchesFound.length === 1 ? matchesFound[0] : null;
       if (!match) {
         Alert.alert('Not found', 'No group found with that code — double-check with Rick and try again.');
         return;
@@ -347,17 +370,22 @@ export default function DayLobby() {
                   }
                 }
 
-                const isMyGroup = g.match_id === myMatchId;
+                const isMyGroup = !!myMatchId && g.match_ids.includes(myMatchId);
                 const canNavigate = !isMashieDay || isMyGroup || !myMatchId;
                 // Mashie/team formats have their own scoring engine — routing
                 // them into the matchplay screen instead left the group
                 // pairing/drop logic out entirely and just looked like a
                 // generic stroke-play screen (Rick: "throws you into a
                 // stroke play game which is wrong").
+                // Individual formats merge several players' matches into one
+                // card (see grouping above) — each still scores their OWN
+                // match row, so a member tapping their group must land on
+                // THEIR match, not just the group's first row.
+                const soloDest = isMyGroup ? myMatchId! : g.match_id;
                 const groupDest = g.format === 'team_stableford'
                   ? `/(app)/score/teamstableford/${g.match_id}`
                   : !hasTeams
-                    ? `/(app)/score/solo/${g.match_id}`
+                    ? `/(app)/score/solo/${soloDest}`
                     : `/(app)/score/enter/${g.match_id}`;
 
                 return (
@@ -433,7 +461,7 @@ export default function DayLobby() {
       {!isSpectator && (myMatchId || isMashieDay) && (
         <View style={s.footer}>
           {myMatchId ? (
-            groups.find(g => g.match_id === myMatchId)?.status === 'complete' ? (
+            groups.find(g => g.match_ids.includes(myMatchId))?.status === 'complete' ? (
               <TouchableOpacity
                 style={s.actionBtn}
                 onPress={() => router.replace('/(app)/' as any)}
@@ -446,7 +474,7 @@ export default function DayLobby() {
               <TouchableOpacity
                 style={s.actionBtn}
                 onPress={() => {
-                  const myGroup = groups.find(g => g.match_id === myMatchId);
+                  const myGroup = groups.find(g => g.match_ids.includes(myMatchId));
                   const dest = myGroup?.format === 'team_stableford'
                     ? `/(app)/score/teamstableford/${myMatchId}`
                     : (myGroup?.away_player_ids.length ?? 0) === 0

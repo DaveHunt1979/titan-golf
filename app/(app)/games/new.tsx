@@ -13,7 +13,7 @@ import { useSociety } from '../../../src/lib/useSociety';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { getPlayerAvatar } from '../../../src/lib/assets';
 import { downloadMatchPack } from '../../../src/lib/offlinePack';
-import GroupBuilderSheet, { BuiltMatch, PlayerOverride } from './GroupBuilderSheet';
+import GroupBuilderSheet, { BuiltMatch, PlayerOverride, getLayout } from './GroupBuilderSheet';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -667,13 +667,18 @@ export default function NewGameScreen() {
 
   const playersLabel = (() => {
     if (!builtMatches || builtMatches.length === 0) return 'Add players';
-    const allPlayerIds = new Set(builtMatches.flatMap(m => [...m.home, ...m.away]));
-    if (builtMatches.length === 1) {
-      const ids = [...builtMatches[0].home, ...builtMatches[0].away];
-      const names = ids.map(id => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '?');
+    const allPlayerIds = [...new Set(builtMatches.flatMap(m => [...m.home, ...m.away]))];
+    // builtMatches.length is a count of MATCH ROWS, not visual groups —
+    // individual formats (Stableford/Medal/etc.) create one row per player
+    // sharing a group (see GroupBuilderSheet.buildResult), so 2 players in
+    // one group used to show here as "2 players · 2 groups". groupKey is
+    // shared across rows from the same group, so count distinct keys instead.
+    const groupCount = new Set(builtMatches.map(m => m.groupKey)).size;
+    if (groupCount === 1) {
+      const names = allPlayerIds.map(id => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '?');
       return names.length <= 2 ? names.join(' & ') : `${names[0]} +${names.length - 1} more`;
     }
-    return `${allPlayerIds.size} players · ${builtMatches.length} groups`;
+    return `${allPlayerIds.length} players · ${groupCount} groups`;
   })();
 
   const formatLabel  = MODE_INFO[mode]?.label ?? 'Stableford';
@@ -744,8 +749,24 @@ export default function NewGameScreen() {
       if (!builtMatches || builtMatches.length === 0) throw new Error('No players selected');
 
       console.log('[createGame] inserting matches...', { count: builtMatches.length });
+      // Individual formats (Stableford/Medal/etc.) insert one match row per
+      // player (see GroupBuilderSheet.buildResult), so players who picked
+      // the same group need a shared group_code — otherwise the Game Day
+      // screen has no way to tell they should render as one group instead
+      // of one per player. Mashie already generates its own per-row code
+      // below since each of its groups is already a single row.
+      const individualGroupCodes = new Map<number, string>();
+      if (getLayout(mode) === 'individual') {
+        for (const bm of builtMatches) {
+          if (!individualGroupCodes.has(bm.groupKey)) individualGroupCodes.set(bm.groupKey, genGroupCode());
+        }
+      }
       const results = await Promise.all(builtMatches.map(bm => {
-        const extra = isMashie ? { group_code: genGroupCode() } : {};
+        const extra = isMashie
+          ? { group_code: genGroupCode() }
+          : individualGroupCodes.has(bm.groupKey)
+            ? { group_code: individualGroupCodes.get(bm.groupKey) }
+            : {};
         const nameExtra = (bm.homeName || bm.awayName)
           ? { home_name: bm.homeName || null, away_name: bm.awayName || null }
           : {};
