@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { matchLabel, getEffectiveWinner, calcHoles } from '../../../src/lib/scoring';
+import { matchLabel, getEffectiveWinner, calcHoles, calcCourseHandicap, formatStrokeHoles } from '../../../src/lib/scoring';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
 
 const GOLD  = '#D4AF37';
@@ -32,13 +32,30 @@ interface MatchDetail {
   home_player_ids: string[];
   away_player_ids: string[];
   round_format: 'matchplay' | 'stableford' | 'medal';
+  competition_id: string | null;
+  hcp_allowance: number | null;
+  handicap_method: string | null;
+  player_overrides: Record<string, { hcp?: number; tee?: string }> | null;
   home_team: { name: string; accent_color: string } | null;
   away_team: { name: string; accent_color: string } | null;
-  day: { course_name: string | null; day_number: number; competition_id: string } | null;
+  day: { course_name: string | null; day_number: number; competition_id: string; course_par: number | null; course_rating: number | null; slope_rating: number | null } | null;
 }
 
-interface Player     { id: string; display_name: string; avatar_url?: string | null; }
+interface Player     { id: string; display_name: string; avatar_url?: string | null; handicap_index: number; }
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
+interface CompPlayer { player_id: string; handicap_index: number; }
+
+// Same formula as score/enter/[matchId].tsx's playerCourseHcp — Rick was
+// explicit that the calculation must not change, only where it's displayed,
+// so this is copied verbatim rather than approximated.
+function playerCourseHcp(playerId: string, compPlayers: CompPlayer[], day: MatchDetail['day'], hcpAllowance: number = 100): number {
+  const cp = compPlayers.find(c => c.player_id === playerId);
+  const hcpIndex = cp?.handicap_index ?? 0;
+  const raw = (!day?.slope_rating || !day?.course_rating || !day?.course_par)
+    ? Math.round(hcpIndex)
+    : calcCourseHandicap(hcpIndex, day.slope_rating, day.course_rating, day.course_par);
+  return Math.round(raw * (hcpAllowance / 100));
+}
 
 function SideAvatar({ playerIds, team, teamId, size, getFirstName, getAvatar }: {
   playerIds: string[];
@@ -83,6 +100,7 @@ export default function SpectateScreen() {
   const [compName, setCompName]       = useState('');
   const [players, setPlayers]         = useState<Player[]>([]);
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
+  const [compPlayers, setCompPlayers] = useState<CompPlayer[]>([]);
   const [loading, setLoading]         = useState(true);
   const pulse = useRef(new Animated.Value(1)).current;
 
@@ -105,7 +123,7 @@ export default function SpectateScreen() {
   const load = useCallback(async () => {
     const { data: matchData } = await supabase
       .from('matches')
-      .select('*, home_team:home_team_id(name,accent_color), away_team:away_team_id(name,accent_color), day:day_id(course_name,day_number,competition_id)')
+      .select('*, home_team:home_team_id(name,accent_color), away_team:away_team_id(name,accent_color), day:day_id(course_name,day_number,competition_id,course_par,course_rating,slope_rating)')
       .eq('id', matchId)
       .single();
 
@@ -116,9 +134,9 @@ export default function SpectateScreen() {
     const courseName = (matchData as any).day?.course_name;
     const compId     = (matchData as any).day?.competition_id;
 
-    const [{ data: pd }, { data: cd }, { data: compData }] = await Promise.all([
+    const [{ data: pd }, { data: cd }, { data: compData }, { data: cpData }] = await Promise.all([
       allIds.length
-        ? supabase.from('players').select('id,display_name,avatar_url').in('id', allIds)
+        ? supabase.from('players').select('id,display_name,avatar_url,handicap_index').in('id', allIds)
         : Promise.resolve({ data: [] }),
       courseName
         ? supabase.from('course_holes').select('hole_number,par,stroke_index').eq('course_name', courseName).order('hole_number')
@@ -126,9 +144,27 @@ export default function SpectateScreen() {
       compId
         ? supabase.from('competitions').select('name').eq('id', compId).single()
         : Promise.resolve({ data: null }),
+      // Same precedence as score/enter/[matchId].tsx: competition_players
+      // (max_handicap-capped) wins over the raw player record, then a
+      // per-match override on top — otherwise a spectator sees a different
+      // handicap/stroke allocation than the match is actually using.
+      (matchData as any).competition_id && allIds.length
+        ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', (matchData as any).competition_id).in('player_id', allIds)
+        : Promise.resolve({ data: [] as CompPlayer[] }),
     ]);
 
-    if (pd)       setPlayers(pd);
+    if (pd) {
+      setPlayers(pd);
+      const compMap = new Map((cpData ?? []).map(cp => [cp.player_id, cp]));
+      const fallback: CompPlayer[] = (pd as Player[]).map(p => ({ player_id: p.id, handicap_index: p.handicap_index ?? 0 }));
+      const rawComp = fallback.map(f => compMap.get(f.player_id) ?? f);
+      const overrides = (matchData as any).player_overrides ?? {};
+      const effectiveComp = rawComp.map(cp => {
+        const ov = overrides[cp.player_id]?.hcp;
+        return ov != null ? { ...cp, handicap_index: ov } : cp;
+      });
+      setCompPlayers(effectiveComp);
+    }
     if (cd)       setCourseHoles(cd);
     if (compData) setCompName((compData as any).name ?? '');
     setLoading(false);
@@ -193,6 +229,27 @@ export default function SpectateScreen() {
   const aheadLabel = aheadSide === 'home' ? homeLabel : aheadSide === 'away' ? awayLabel : null;
   const aheadColor = aheadSide === 'home' ? homeColor : aheadSide === 'away' ? awayColor : '#555';
   const currentCourseHole = courseHoles.find(h => h.hole_number === currentHole);
+
+  // Rick: the detailed player-by-player shot panel from the 4BBB/Matchplay
+  // screen must show here too, for every format, not a simplified version —
+  // "the only difference with Spectator Mode is that the spectator cannot
+  // enter or change scores." Same calculation as score/enter/[matchId].tsx's
+  // matchplayHcp, just read-only here.
+  const allPlayerIds = [...match.home_player_ids, ...match.away_player_ids];
+  const playedCourseHoles = courseHoles.filter(h => holeSequence.includes(h.hole_number));
+  const showStrokeAllocation = allPlayerIds.length > 1 && playedCourseHoles.length > 0 && players.length > 0;
+  const strokeAllocation = showStrokeAllocation
+    ? (() => {
+        const cutHcpFor = (id: string) => playerCourseHcp(id, compPlayers, match.day, match.hcp_allowance ?? 100);
+        const isRelativeHcp = match.handicap_method === 'relative_low';
+        const groupLowest = isRelativeHcp ? Math.min(...allPlayerIds.map(cutHcpFor)) : 0;
+        return allPlayerIds.map(id => {
+          const cutHcp = cutHcpFor(id);
+          const effectiveHcp = isRelativeHcp ? Math.max(0, cutHcp - groupLowest) : cutHcp;
+          return { id, text: formatStrokeHoles(effectiveHcp, playedCourseHoles) };
+        });
+      })()
+    : [];
 
   return (
     <View style={s.container}>
@@ -303,6 +360,25 @@ export default function SpectateScreen() {
                 </View>
               )}
             </View>
+          </View>
+        )}
+
+        {/* ── Shot allocation — same detailed panel as score/enter, every
+            format, not a simplified spectator-only version ── */}
+        {showStrokeAllocation && (
+          <View style={s.strokeCard}>
+            <Text style={s.strokeTitle}>SHOT ALLOCATION</Text>
+            {strokeAllocation.map(({ id, text }) => {
+              const isHome = match.home_player_ids.includes(id);
+              const shortName = firstName(id).slice(0, 3);
+              return (
+                <View key={id} style={s.strokeRow}>
+                  <SideAvatar playerIds={[id]} team={null} teamId={null} size={28} getFirstName={firstName} getAvatar={getAvatar} />
+                  <Text style={[s.strokeName, { color: isHome ? homeColor : awayColor }]} numberOfLines={1}>{shortName}</Text>
+                  <Text style={s.strokeText} numberOfLines={2}>{text}</Text>
+                </View>
+              );
+            })}
           </View>
         )}
 
@@ -460,6 +536,17 @@ const s = StyleSheet.create({
   nowLabel: { fontSize: 11, fontFamily: FFB, color: GOLD, letterSpacing: 2, marginBottom: 6 },
   nowRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   nowHole:  { fontSize: 20, fontFamily: FFB, color: '#fff' },
+
+  /* Shot allocation */
+  strokeCard: {
+    backgroundColor: '#111', borderRadius: 10,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 14, marginBottom: 12, gap: 10,
+  },
+  strokeTitle: { fontSize: 11, fontFamily: FFB, color: GOLD, letterSpacing: 2, marginBottom: 2 },
+  strokeRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  strokeName:  { width: 40, fontSize: 13, fontFamily: FFB },
+  strokeText:  { flex: 1, fontSize: 12, fontFamily: FFB, color: '#fff' },
 
   /* Grid card */
   gridCard: {

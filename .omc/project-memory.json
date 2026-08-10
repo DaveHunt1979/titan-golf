@@ -264,6 +264,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/spectate/[matchId].tsx",
+      "accessCount": 34,
+      "lastAccessed": 1786379754459,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/score/solo/[matchId].tsx",
       "accessCount": 29,
       "lastAccessed": 1786357867387,
@@ -276,12 +282,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/spectate/[matchId].tsx",
-      "accessCount": 22,
-      "lastAccessed": 1786358372742,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/score/day/[dayId].tsx",
       "accessCount": 12,
       "lastAccessed": 1786353254907,
@@ -289,14 +289,26 @@
     },
     {
       "path": "app.json",
+      "accessCount": 12,
+      "lastAccessed": 1786379892205,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/enter/[matchId].tsx",
       "accessCount": 10,
-      "lastAccessed": 1786359220021,
+      "lastAccessed": 1786379606323,
       "type": "file"
     },
     {
       "path": "app/(app)/games/new.tsx",
       "accessCount": 9,
       "lastAccessed": 1786346008317,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/preview/[matchId].tsx",
+      "accessCount": 8,
+      "lastAccessed": 1786379094349,
       "type": "file"
     },
     {
@@ -312,21 +324,9 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 5,
-      "lastAccessed": 1786357326927,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/games/GroupBuilderSheet.tsx",
       "accessCount": 4,
       "lastAccessed": 1786339929803,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/preview/[matchId].tsx",
-      "accessCount": 4,
-      "lastAccessed": 1786348110609,
       "type": "file"
     },
     {
@@ -471,6 +471,12 @@
       "path": "screenshots/Screenshot 2026-08-10 at 12.49.40.png",
       "accessCount": 1,
       "lastAccessed": 1786362761234,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/caddie.ts",
+      "accessCount": 1,
+      "lastAccessed": 1786379014234,
       "type": "file"
     }
   ],

@@ -124,6 +124,15 @@ export default function MatchPreviewScreen() {
     console.log('[preview] matchId changed, (re)loading', { matchId, retryTick });
     setLoading(true);
     setLoadError(false);
+    // This screen is a Tabs.Screen with no `getId`, so React Navigation keeps
+    // the same mounted instance across different matches instead of
+    // remounting — `teeing` only ever gets reset on startRound()'s error
+    // path, never on success (a successful tap just navigates away), so a
+    // PREVIOUS round's successful Tee Off left it stuck true forever. The
+    // very next round's preview screen inherited that and showed the
+    // Tee Off button permanently spinning without ever being tapped — the
+    // "starting a second game" bug, same class as solo.tsx's `saving` reset.
+    setTeeing(false);
     load();
   }, [matchId, retryTick]);
 

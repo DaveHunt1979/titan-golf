@@ -1335,12 +1335,13 @@ export default function EnterScoresScreen() {
   const homeLabel = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const awayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const isMatchplay = match.round_format === 'matchplay';
-  // The inline SHOT-badge panel only actually renders when the single-group
-  // matchplay branch wins the leaderboard ternary below — on a multi-group
-  // tournament day (dayBoard.length > 1) the ALL GROUPS panel wins instead,
-  // so the "Gets a shot" banner must still show or the indicator vanishes
-  // entirely for every tournament matchplay day.
-  const showInlineShots = dayBoard.length <= 1 && allPlayerIds.length > 1 && isMatchplay;
+  // Rick: the detailed player-by-player shot panel (this is the reference
+  // "4BBB" look) should show for every multi-player format, not just
+  // matchplay — Stableford/Medal groups were falling back to the simplified
+  // "Gets a shot: X, Y" banner below instead, which he doesn't want anymore.
+  // On a multi-group tournament day (dayBoard.length > 1) the ALL GROUPS
+  // panel still wins instead, so that banner still covers that one case.
+  const showInlineShots = dayBoard.length <= 1 && allPlayerIds.length > 1;
 
   const sortedLeaders = [...allPlayerIds].sort((a, b) => (playerTotals[b] ?? 0) - (playerTotals[a] ?? 0));
   const leaderId = sortedLeaders[0];
@@ -1584,12 +1585,16 @@ export default function EnterScoresScreen() {
                         const teamColor = isHome ? homeColor : awayColor;
                         const src = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
                         const firstName = (playerNames[id] ?? '?').split(' ')[0];
+                        // Rick: shorten to first 3 letters here specifically —
+                        // this row's real estate is for the stroke-hole list,
+                        // not the name.
+                        const shortName = firstName.slice(0, 3);
                         const hcp = matchplayHcp(id);
                         const getsShotHere = shotPlayerIds.includes(id);
                         return (
                           <TouchableOpacity key={id} style={s.lbRow} onPress={() => setEditPlayerId(id)} activeOpacity={0.7}>
                             <Avatar name={firstName} color={teamColor} size={32} source={src} />
-                            <Text style={s.lbName} numberOfLines={1}>{firstName}</Text>
+                            <Text style={s.lbName} numberOfLines={1}>{shortName}</Text>
                             {getsShotHere && (
                               <View style={s.shotPill}>
                                 <Text style={s.shotPillText}>SHOT</Text>
