@@ -256,6 +256,12 @@
   },
   "hotPaths": [
     {
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 60,
+      "lastAccessed": 1786459185055,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/score/group/[matchId].tsx",
       "accessCount": 52,
       "lastAccessed": 1786364225209,
@@ -263,14 +269,14 @@
     },
     {
       "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 37,
-      "lastAccessed": 1786427794316,
+      "accessCount": 50,
+      "lastAccessed": 1786457964755,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 36,
-      "lastAccessed": 1786428365528,
+      "path": "app/(app)/score/day/[dayId].tsx",
+      "accessCount": 40,
+      "lastAccessed": 1786453752618,
       "type": "file"
     },
     {
@@ -280,21 +286,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/day/[dayId].tsx",
-      "accessCount": 31,
-      "lastAccessed": 1786438780178,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/score/index.tsx",
-      "accessCount": 29,
-      "lastAccessed": 1786438880685,
+      "accessCount": 34,
+      "lastAccessed": 1786440005948,
       "type": "file"
     },
     {
       "path": "app.json",
-      "accessCount": 19,
-      "lastAccessed": 1786439124619,
+      "accessCount": 21,
+      "lastAccessed": 1786459273726,
       "type": "file"
     },
     {
@@ -304,21 +304,27 @@
       "type": "file"
     },
     {
+      "path": "ios/titangolf.xcodeproj/project.pbxproj",
+      "accessCount": 15,
+      "lastAccessed": 1786459282605,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/score/preview/[matchId].tsx",
       "accessCount": 14,
       "lastAccessed": 1786438932536,
       "type": "file"
     },
     {
-      "path": "ios/titangolf.xcodeproj/project.pbxproj",
-      "accessCount": 13,
-      "lastAccessed": 1786439130409,
+      "path": "app/(app)/score/teamstableford/[matchId].tsx",
+      "accessCount": 14,
+      "lastAccessed": 1786440090757,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/teamstableford/[matchId].tsx",
-      "accessCount": 11,
-      "lastAccessed": 1786438339758,
+      "path": "app/_layout.tsx",
+      "accessCount": 10,
+      "lastAccessed": 1786448772646,
       "type": "file"
     },
     {
@@ -340,12 +346,6 @@
       "type": "file"
     },
     {
-      "path": "app/_layout.tsx",
-      "accessCount": 5,
-      "lastAccessed": 1786344221166,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/games/GroupBuilderSheet.tsx",
       "accessCount": 5,
       "lastAccessed": 1786426899079,
@@ -355,6 +355,12 @@
       "path": "src/lib/scoring.ts",
       "accessCount": 3,
       "lastAccessed": 1786427325371,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/index.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1786439815111,
       "type": "file"
     },
     {
@@ -523,12 +529,6 @@
       "path": "screenshots/Screenshot 2026-08-11 at 07.18.23.png",
       "accessCount": 1,
       "lastAccessed": 1786429150021,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/games/index.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1786429250979,
       "type": "file"
     },
     {

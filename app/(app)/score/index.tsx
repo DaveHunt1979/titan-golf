@@ -24,7 +24,7 @@ const FORMAT_LABELS: Record<string, string> = {
   '4bbb': '4BBB Stableford', skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf',
   scramble: 'Scramble', greensomes: 'Greensomes', bbb: 'BBB',
   foursomes: 'Foursomes', modified_stableford: 'Modified Stableford',
-  par_bogey: 'Par / Bogey', chacha: 'ChaChaCha',
+  par_bogey: 'Par / Bogey', chacha: 'ChaChaCha', team_stableford: 'Team Stableford',
 };
 
 interface MatchWithDay extends Match {
@@ -395,7 +395,12 @@ function RoundCard({ match, playerNames, playerAvatars, s, GOLD }: {
   const fn        = (id: string) => (playerNames[id] ?? '?').split(' ')[0];
   const homeLabel = match.home_team?.name ?? match.home_player_ids.map(fn).join(' & ');
   const awayLabel = match.away_team?.name ?? match.away_player_ids.map(fn).join(' & ');
-  const fmtLabel  = FORMAT_LABELS[match.round_format ?? ''] ?? (match.round_format ?? 'Golf');
+  // Mashie also stores as round_format 'team_stableford' — same field the
+  // plain Team Stableford format uses — so it needs the same away-side +
+  // team-size check score/preview/[matchId].tsx already uses to label it
+  // correctly instead of falling back to the generic map entry.
+  const isMashieMatch = (match.round_format as string) === 'team_stableford' && match.away_player_ids.length === 0 && ((match as any).team_size ?? 2) >= 4;
+  const fmtLabel  = isMashieMatch ? 'Mashie Golf' : FORMAT_LABELS[match.round_format ?? ''] ?? (match.round_format ?? 'Golf');
   const isLive     = match.status === 'in_progress';
   const isComplete = match.status === 'complete';
 

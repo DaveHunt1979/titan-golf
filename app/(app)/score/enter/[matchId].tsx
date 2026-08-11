@@ -29,7 +29,7 @@ import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
 import EagleAlert, { type EagleType } from '../../../../src/components/EagleAlert';
 import { IS_PAD } from '../../../../src/lib/useDeviceLayout';
-import HoleInfoPanel from '../../../../src/components/ipad/HoleInfoPanel';
+import GPSPanel from '../../../../src/components/ipad/GPSPanel';
 import LeaderboardPanel from '../../../../src/components/ipad/LeaderboardPanel';
 
 // ── Design tokens ──────────────────────────────────────────────
@@ -555,7 +555,18 @@ export default function EnterScoresScreen() {
   const lastSequenceHole = holeSequence[holeSequence.length - 1] ?? 18;
   const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? (lastSequenceHole + 1);
   const activeHole = editingHole ?? currentHole;
-  const allHolesFilled = currentHole > lastSequenceHole;
+  // Not `currentHole > lastSequenceHole` — lastSequenceHole is the literal
+  // hole NUMBER at the last position of the play order, which is smaller
+  // than currentHole for any wrapped (start hole > 1) sequence (e.g. a
+  // hole-5 start plays ...17,18,1,2,3,4 — last position is hole 4, a lower
+  // number than the 5-18 holes played earlier). Comparing raw hole numbers
+  // there made every shifted-start round look complete from the first hole.
+  // Also not `!holeSequence.includes(currentHole)` — the "all done" fallback
+  // value (lastSequenceHole + 1) can coincidentally equal the sequence's own
+  // start hole (e.g. start hole 5 wraps to last-position hole 4, fallback 5),
+  // which IS in holeSequence, so that check would wrongly say "not filled"
+  // for a genuinely complete round starting on hole 5. Count directly instead.
+  const allHolesFilled = holeSequence.every(h => holeChars[h - 1] !== '.');
   const safeCurrentHole = Math.min(currentHole, 18);
   const isComplete = match?.status === 'complete';
 
@@ -1366,8 +1377,13 @@ export default function EnterScoresScreen() {
   const leaderId = sortedLeaders[0];
   const leaderPts = leaderId ? (playerTotals[leaderId] ?? 0) : 0;
   const leaderName = leaderId ? (playerNames[leaderId] ?? '').split(' ')[0] : null;
+  // Single-player Stableford: "Ricky leads · 16pts" doesn't make sense with
+  // nobody to lead against — just the points, the sub-line below already
+  // shows "N holes to play". Stableford only, per Rick's spec — Medal (also
+  // isStrokePlay) keeps its existing wording untouched.
+  const isSinglePlayerStableford = match.round_format === 'stableford' && allPlayerIds.length === 1;
   const leaderStatusText = leaderPts > 0 && (isStrokePlay || match.secondary_format)
-    ? `${leaderName} leads · ${leaderPts}pts`
+    ? (isSinglePlayerStableford ? `${leaderPts}pts` : `${leaderName} leads · ${leaderPts}pts`)
     : null;
   const { homeUp: liveHomeUp } = calcHoles(sequencedHolesStr);
   const holesLeft = sequencedHolesStr.split('').filter(c => c === '.').length;
@@ -1576,7 +1592,7 @@ export default function EnterScoresScreen() {
               <View style={s.holeCard}>
                 <View style={s.holeCardTop}>
                   {/* Hole number block */}
-                  <View style={s.holeNumberBlock}>
+                  <View style={[s.holeNumberBlock, isSinglePlayerStableford && { width: 170 }]}>
                     {allHolesFilled && !editingHole ? (
                       <>
                         <Ionicons name="trophy" size={48} color={GOLD} style={{ marginBottom: 6 }} />
@@ -1585,15 +1601,15 @@ export default function EnterScoresScreen() {
                     ) : (
                       <>
                         <Text style={s.holeWord}>HOLE</Text>
-                        <Text style={s.holeBig}>{activeHole}</Text>
+                        <Text style={[s.holeBig, isSinglePlayerStableford && s.holeBigSolo]}>{activeHole}</Text>
                       </>
                     )}
                     <View style={s.holeChips}>
                       {courseHole && (
                         <>
-                          <View style={s.holeChip}><Text style={s.holeChipText}>Par {courseHole.par}</Text></View>
-                          <View style={s.holeChip}><Text style={s.holeChipText}>SI {courseHole.stroke_index}</Text></View>
-                          {holeYardage ? <View style={s.holeChip}><Text style={s.holeChipText}>{holeYardage}y</Text></View> : null}
+                          <View style={[s.holeChip, isSinglePlayerStableford && s.holeChipSolo]}><Text style={[s.holeChipText, isSinglePlayerStableford && s.holeChipTextSolo]}>Par {courseHole.par}</Text></View>
+                          <View style={[s.holeChip, isSinglePlayerStableford && s.holeChipSolo]}><Text style={[s.holeChipText, isSinglePlayerStableford && s.holeChipTextSolo]}>SI {courseHole.stroke_index}</Text></View>
+                          {holeYardage ? <View style={[s.holeChip, isSinglePlayerStableford && s.holeChipSolo]}><Text style={[s.holeChipText, isSinglePlayerStableford && s.holeChipTextSolo]}>{holeYardage} YARDS</Text></View> : null}
                         </>
                       )}
                     </View>
@@ -1699,6 +1715,20 @@ export default function EnterScoresScreen() {
                           );
                         });
                       })()}
+                    </View>
+                  ) : isSinglePlayerStableford ? (
+                    <View style={s.soloStatBlock}>
+                      <Avatar
+                        name={playerNames[allPlayerIds[0]] ?? '?'}
+                        color={homeColor}
+                        size={44}
+                        source={playerAvatars[allPlayerIds[0]] ?? getPlayerAvatar(allPlayerIds[0], 'normal')}
+                      />
+                      <Text style={s.soloStatName} numberOfLines={1}>
+                        {(playerNames[allPlayerIds[0]] ?? '?').split(' ')[0].toUpperCase()}
+                      </Text>
+                      <Text style={s.soloStatPts}>{playerTotals[allPlayerIds[0]] ?? 0}</Text>
+                      <Text style={s.soloStatPtsLabel}>PTS</Text>
                     </View>
                   ) : null}
                 </View>
@@ -2476,13 +2506,13 @@ export default function EnterScoresScreen() {
       </View>
       {(IS_PAD && broadcastMode) && (
         <>
-          <HoleInfoPanel
+          <GPSPanel
+            courseName={match?.day?.course_name ?? null}
             holeNumber={activeHole}
             par={courseHole?.par ?? null}
             strokeIndex={courseHole?.stroke_index ?? null}
             yardage={courseHole?.yardage ?? null}
             teeYardages={courseHole?.tee_yardages ?? null}
-            onRangefinder={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${activeHole}&fromMatchId=${matchId}` as any)}
           />
           <LeaderboardPanel
             allPlayerIds={allPlayerIds}
@@ -2708,8 +2738,17 @@ const s = StyleSheet.create({
     paddingHorizontal: 6, paddingVertical: 2,
   },
   holeChipText: { fontFamily: FFB, fontSize: 10, color: '#fff' },
+  // Single-player Stableford — bigger, more prominent hole info per Rick's
+  // spec, since there's a whole empty right-hand side to fill otherwise.
+  holeBigSolo:     { fontSize: 88, lineHeight: 92 },
+  holeChipSolo:    { paddingHorizontal: 9, paddingVertical: 4 },
+  holeChipTextSolo:{ fontSize: 12 },
 
   leaderboard:    { flex: 1, justifyContent: 'center', gap: 10 },
+  soloStatBlock:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  soloStatName:   { fontFamily: FFB, fontSize: 13, color: '#9ca3af', letterSpacing: 1.5, marginTop: 6 },
+  soloStatPts:    { fontFamily: FFB, fontSize: 40, color: GOLD, lineHeight: 44 },
+  soloStatPtsLabel: { fontFamily: FFB, fontSize: 11, color: '#9ca3af', letterSpacing: 2 },
   lbGroupHeader:  { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2, marginBottom: 2 },
   lbRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
   lbRank:         { fontFamily: FFB, fontSize: 12, width: 18, textAlign: 'center' },

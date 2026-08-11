@@ -79,7 +79,7 @@ export default function DayLobby() {
 
     const { data: matches } = await supabase
       .from('matches')
-      .select('id,home_player_ids,away_player_ids,round_format,hcp_allowance,counting_scores,status,holes_string,winner,result_str,home_name,away_name,group_code')
+      .select('id,home_player_ids,away_player_ids,round_format,hcp_allowance,counting_scores,side_games,status,holes_string,winner,result_str,home_name,away_name,group_code')
       .eq('day_id', dayId)
       .neq('status', 'cancelled');
 
@@ -87,14 +87,23 @@ export default function DayLobby() {
 
     const allPlayerIds = [...new Set((matches as any[]).flatMap(m => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]))];
 
-    const [{ data: playersData }, { data: holesData }] = await Promise.all([
+    const [{ data: playersData }, { data: holesData }, { data: courseHolesData }] = await Promise.all([
       allPlayerIds.length
         ? supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allPlayerIds)
         : Promise.resolve({ data: [] }),
       supabase.from('match_holes')
         .select('match_id,player_id,stableford_pts,hole_number')
         .in('match_id', (matches as any[]).map(m => m.id)),
+      // Needed for the "Best 2 From 4 (Par 3s)" Mashie variant — all scores
+      // count on a par-3 hole instead of just the best 2, so teamScore below
+      // needs each hole's par, not just the points already fetched above.
+      (dayData as any).course_name
+        ? supabase.from('course_holes').select('hole_number,par').eq('course_name', (dayData as any).course_name)
+        : Promise.resolve({ data: [] }),
     ]);
+
+    const holeParMap: Record<number, number> = {};
+    for (const h of (courseHolesData ?? []) as any[]) holeParMap[h.hole_number] = h.par;
 
     const playerMap: Record<string, { name: string; hcp: number; avatarUrl: string | null }> = {};
     for (const p of (playersData ?? []) as any[]) {
@@ -113,14 +122,21 @@ export default function DayLobby() {
       matchHolePts[h.match_id][h.hole_number][h.player_id] = h.stableford_pts ?? 0;
     }
 
-    function teamScore(matchId: string, playerIds: string[], countN: number): number {
+    function teamScore(matchId: string, playerIds: string[], countN: number, par3all: boolean): number {
       let total = 0;
-      for (const holePts of Object.values(matchHolePts[matchId] ?? {})) {
+      for (const [holeNumStr, holePts] of Object.entries(matchHolePts[matchId] ?? {})) {
+        const isPar3 = holeParMap[Number(holeNumStr)] === 3;
+        // "Best 2 From 4 (Par 3s)" — every available score counts on a par-3
+        // hole instead of just the best N (Rick: "no best 2 calculation on a
+        // Par 3"). A countN at or above the player count already means
+        // "everyone" without a separate branch, same trick teamstableford's
+        // own computeTeamHole already uses.
+        const effectiveN = (par3all && isPar3) ? playerIds.length : countN;
         const entered = playerIds
           .filter(id => holePts[id] !== undefined)
           .map(id => holePts[id])
           .sort((a, b) => b - a)
-          .slice(0, countN);
+          .slice(0, effectiveN);
         total += entered.reduce((s, p) => s + p, 0);
       }
       return total;
@@ -155,12 +171,13 @@ export default function DayLobby() {
       const homeIds: string[] = m.home_player_ids ?? [];
       const awayIds: string[] = m.away_player_ids ?? [];
       const countN: number | null = m.counting_scores ?? null;
+      const par3all: boolean = m.side_games?.includes('par3all') ?? false;
       // Use per-hole drop logic for team formats, raw sum for individual
       const homePts = countN
-        ? teamScore(m.id, homeIds, countN)
+        ? teamScore(m.id, homeIds, countN, par3all)
         : homeIds.reduce((s, id) => s + (holesByPlayer[id]?.pts ?? 0), 0);
       const awayPts = countN
-        ? teamScore(m.id, awayIds, countN)
+        ? teamScore(m.id, awayIds, countN, par3all)
         : awayIds.reduce((s, id) => s + (holesByPlayer[id]?.pts ?? 0), 0);
       return {
         match_id:       m.id,
@@ -365,7 +382,11 @@ export default function DayLobby() {
                       isSpectator
                         ? () => router.push(`/(app)/spectate/${g.match_id}` as any)
                         : canNavigate
-                          ? () => router.push((g.format === 'team_stableford' ? `/(app)/score/teamstableford/${g.match_id}` : `/(app)/score/enter/${g.match_id}`) as any)
+                          ? () => router.push((
+                              g.format === 'team_stableford' ? `/(app)/score/teamstableford/${g.match_id}`
+                              : g.away_player_ids.length === 0 && g.home_player_ids.length === 1 ? `/(app)/score/solo/${g.match_id}`
+                              : `/(app)/score/enter/${g.match_id}`
+                            ) as any)
                           : undefined
                     }
                     activeOpacity={canNavigate ? 0.8 : 1}
@@ -458,7 +479,13 @@ export default function DayLobby() {
             ) : (
               <TouchableOpacity
                 style={s.actionBtn}
-                onPress={() => router.push((groups.find(g => g.match_id === myMatchId)?.format === 'team_stableford' ? `/(app)/score/teamstableford/${myMatchId}` : `/(app)/score/enter/${myMatchId}`) as any)}
+                onPress={() => {
+                  const myGroup = groups.find(g => g.match_id === myMatchId);
+                  const dest = myGroup?.format === 'team_stableford' ? `/(app)/score/teamstableford/${myMatchId}`
+                    : myGroup && myGroup.away_player_ids.length === 0 && myGroup.home_player_ids.length === 1 ? `/(app)/score/solo/${myMatchId}`
+                    : `/(app)/score/enter/${myMatchId}`;
+                  router.push(dest as any);
+                }}
                 activeOpacity={0.85}
               >
                 <Text style={s.actionBtnText}>Score My Group</Text>

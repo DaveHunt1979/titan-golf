@@ -18,6 +18,9 @@ import ShotLogger from '../../../../src/components/ShotLogger';
 import RecordCelebration from '../../../../src/components/RecordCelebration';
 import { checkAndUpdateRecords, type BrokenRecord } from '../../../../src/lib/records';
 import { sendSoloMatchToWatch, clearSoloMatchFromWatch, onWatchSoloScoreEntry, onWatchRequestsState } from '../../../../src/lib/watch';
+import { IS_PAD } from '../../../../src/lib/useDeviceLayout';
+import GPSPanel from '../../../../src/components/ipad/GPSPanel';
+import LeaderboardPanel from '../../../../src/components/ipad/LeaderboardPanel';
 
 const { width: W } = Dimensions.get('window');
 const GOLD     = '#D4AF37';
@@ -84,6 +87,7 @@ interface MatchInfo {
   round_format: 'stableford' | 'medal';
   status: 'upcoming' | 'in_progress' | 'complete';
   holes_string: string;
+  start_hole: number | null;
   holes_to_play: number | null;
   home_player_ids: string[];
   side_games: string[] | null;
@@ -117,6 +121,7 @@ export default function SoloRoundScreen() {
   const [saving, setSaving]           = useState(false);
   const [recordsBroken, setRecordsBroken] = useState<BrokenRecord[]>([]);
   const [roundDone, setRoundDone]     = useState(false);
+  const [broadcastMode, setBroadcastMode] = useState(false);
 
   const [coachLoading, setCoachLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -208,8 +213,14 @@ export default function SoloRoundScreen() {
   const holesStr    = match?.holes_string ?? '..................';
   const holeChars   = holesStr.split('');
   const scoredSet   = new Set(savedScores.map(s => s.hole_number));
-  const fullHoleSequence = startHole > 1
-    ? [...Array.from({ length: 19 - startHole }, (_, i) => startHole + i), ...Array.from({ length: startHole - 1 }, (_, i) => i + 1)]
+  // Infer start hole from first played hole in holes_string (fallback when the
+  // ?startHole= URL param isn't present on re-entry — e.g. backing out to the
+  // main menu and reopening the round loses it, which silently reset the
+  // sequence to a plain 1-18 order and looked like hole 12 "hadn't saved").
+  const inferredStartHole = (() => { const i = holeChars.findIndex(c => c !== '.'); return i >= 0 ? i + 1 : 1; })();
+  const effectiveStartHole = startHole > 1 ? startHole : Math.max(1, match?.start_hole ?? inferredStartHole);
+  const fullHoleSequence = effectiveStartHole > 1
+    ? [...Array.from({ length: 19 - effectiveStartHole }, (_, i) => effectiveStartHole + i), ...Array.from({ length: effectiveStartHole - 1 }, (_, i) => i + 1)]
     : Array.from({ length: 18 }, (_, i) => i + 1);
   // A 9-hole round (front or back) only ever plays the first N holes of the
   // sequence — completion must stop there, not wrap into the unplayed 9.
@@ -600,7 +611,8 @@ export default function SoloRoundScreen() {
   const scoreColor = isStableford ? GOLD : (vsPar < 0 ? GREEN : vsPar > 0 ? RED : '#ffffff');
 
   return (
-    <View style={s.root}>
+    <View style={(IS_PAD && broadcastMode) ? { flex: 1, flexDirection: 'row', backgroundColor: '#000' } : s.root}>
+      <View style={(IS_PAD && broadcastMode) ? { width: 360, backgroundColor: '#000000', overflow: 'hidden' } : { flex: 1 }}>
       <StatusBar style="light" />
 
       {/* ── Header ── */}
@@ -612,11 +624,40 @@ export default function SoloRoundScreen() {
           <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
           <Text style={s.headerSub} numberOfLines={1}>{match.day?.course_name ?? 'Course'} · {formatLabel}</Text>
         </View>
-        {!isComplete ? (
-          <TouchableOpacity onPress={deleteMatch} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Ionicons name="trash-outline" size={20} color="#ffffff" />
-          </TouchableOpacity>
-        ) : <View style={s.headerSide} />}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {!isComplete && (
+            <TouchableOpacity onPress={deleteMatch} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Ionicons name="trash-outline" size={20} color="#ffffff" />
+            </TouchableOpacity>
+          )}
+          {IS_PAD && (
+            <TouchableOpacity
+              onPress={() => setBroadcastMode(b => !b)}
+              activeOpacity={0.8}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                backgroundColor: broadcastMode ? '#D4AF37' : 'rgba(212,175,55,0.15)',
+                borderWidth: 1,
+                borderColor: '#D4AF37',
+                borderRadius: 20,
+                paddingHorizontal: 12,
+                paddingVertical: 5,
+              }}
+            >
+              <Ionicons name="tv-outline" size={13} color={broadcastMode ? '#000' : '#D4AF37'} />
+              <Text style={{
+                fontFamily: 'JUSTSans-ExBold',
+                fontSize: 9,
+                color: broadcastMode ? '#000' : '#D4AF37',
+                letterSpacing: 1.5,
+              }}>
+                BROADCAST
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* ── Player + score ── */}
@@ -1165,6 +1206,33 @@ export default function SoloRoundScreen() {
           records={recordsBroken}
           onDismiss={() => { setRecordsBroken([]); router.back(); }}
         />
+      )}
+      </View>
+      {(IS_PAD && broadcastMode) && (
+        <>
+          <GPSPanel
+            courseName={match?.day?.course_name ?? null}
+            holeNumber={activeHole}
+            par={courseHole?.par ?? null}
+            strokeIndex={courseHole?.stroke_index ?? null}
+            yardage={holeYardage}
+            teeYardages={courseHole?.tee_yardages ?? null}
+          />
+          <LeaderboardPanel
+            allPlayerIds={match ? match.home_player_ids : []}
+            playerNames={match ? { [match.home_player_ids[0]]: playerName } : {}}
+            playerTotals={match ? { [match.home_player_ids[0]]: totalPts } : {}}
+            matchHomeIds={match ? match.home_player_ids : []}
+            homeColor={GOLD}
+            awayColor={GOLD}
+            holeChars={holeChars}
+            isStrokePlay={isStableford}
+            isMatchplay={false}
+            liveHomeUp={0}
+            homeLabel={playerName}
+            awayLabel=""
+          />
+        </>
       )}
     </View>
   );

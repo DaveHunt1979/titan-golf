@@ -357,7 +357,9 @@ export default function TeamStablefordScreen() {
                 <Text style={[s.winnerScore, { color: BLUE }]}>{awayTotal}</Text>
               </View>
             )}
-            <Text style={s.winnerSub}>Best {countN} of {teamSize} per hole</Text>
+            <Text style={s.winnerSub}>
+              {par3all ? `Best ${baseCountN} of ${teamSize} per hole · all scores count on Par 3s` : `Best ${baseCountN} of ${teamSize} per hole`}
+            </Text>
           </View>
 
           <Text style={s.teamLabel}>TEAM A</Text>
