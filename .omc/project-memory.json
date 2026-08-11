@@ -293,8 +293,8 @@
     },
     {
       "path": "app.json",
-      "accessCount": 15,
-      "lastAccessed": 1786427563011,
+      "accessCount": 16,
+      "lastAccessed": 1786428629017,
       "type": "file"
     },
     {
@@ -304,15 +304,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 9,
-      "lastAccessed": 1786346008317,
+      "path": "ios/titangolf.xcodeproj/project.pbxproj",
+      "accessCount": 10,
+      "lastAccessed": 1786428632402,
       "type": "file"
     },
     {
-      "path": "ios/titangolf.xcodeproj/project.pbxproj",
+      "path": "app/(app)/games/new.tsx",
       "accessCount": 9,
-      "lastAccessed": 1786427564117,
+      "lastAccessed": 1786346008317,
       "type": "file"
     },
     {
