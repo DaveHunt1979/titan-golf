@@ -603,7 +603,7 @@ function TeamSection({
       <View style={ts.header}>
         <View style={[ts.accent, { backgroundColor: color }]} />
         <Text style={[ts.label, { color }]}>{label}</Text>
-        {holeResult.teamTotal > 0 && (
+        {holeResult.results.some(r => r.entered) && (
           <Text style={[ts.holePts, { color }]}>{holeResult.teamTotal} pts</Text>
         )}
       </View>

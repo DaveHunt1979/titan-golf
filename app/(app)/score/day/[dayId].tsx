@@ -288,7 +288,7 @@ export default function DayLobby() {
             activeOpacity={0.7}
           >
             <Text style={[s.tabLabel, tab === t && s.tabLabelActive]}>
-              {t === 'scores' ? `MATCHES · ${groups.length}` : `STABLEFORD · ${players.length}`}
+              {t === 'scores' ? `MATCHES · ${groups.length}` : `STABLEFORD SIDE GAME · ${players.length}`}
             </Text>
           </TouchableOpacity>
         ))}

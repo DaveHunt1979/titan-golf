@@ -280,21 +280,21 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/score/day/[dayId].tsx",
+      "accessCount": 27,
+      "lastAccessed": 1786432252395,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/score/index.tsx",
       "accessCount": 26,
       "lastAccessed": 1786429249889,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/day/[dayId].tsx",
-      "accessCount": 24,
-      "lastAccessed": 1786427485567,
-      "type": "file"
-    },
-    {
       "path": "app.json",
-      "accessCount": 17,
-      "lastAccessed": 1786429502864,
+      "accessCount": 18,
+      "lastAccessed": 1786432462141,
       "type": "file"
     },
     {
@@ -305,14 +305,20 @@
     },
     {
       "path": "ios/titangolf.xcodeproj/project.pbxproj",
-      "accessCount": 11,
-      "lastAccessed": 1786429506996,
+      "accessCount": 12,
+      "lastAccessed": 1786432466840,
       "type": "file"
     },
     {
       "path": "app/(app)/score/preview/[matchId].tsx",
       "accessCount": 10,
       "lastAccessed": 1786426734940,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/teamstableford/[matchId].tsx",
+      "accessCount": 9,
+      "lastAccessed": 1786432371023,
       "type": "file"
     },
     {
@@ -337,12 +343,6 @@
       "path": "app/(app)/tour/day/[dayId].tsx",
       "accessCount": 4,
       "lastAccessed": 1786427335210,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/teamstableford/[matchId].tsx",
-      "accessCount": 3,
-      "lastAccessed": 1786340677728,
       "type": "file"
     },
     {
@@ -547,6 +547,12 @@
       "path": "src/lib/useAdminSociety.ts",
       "accessCount": 1,
       "lastAccessed": 1786429413237,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-08-11 at 08.06.09.png",
+      "accessCount": 1,
+      "lastAccessed": 1786432036908,
       "type": "file"
     }
   ],
