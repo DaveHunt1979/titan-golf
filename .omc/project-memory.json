@@ -281,8 +281,8 @@
     },
     {
       "path": "app/(app)/score/index.tsx",
-      "accessCount": 24,
-      "lastAccessed": 1786363760351,
+      "accessCount": 26,
+      "lastAccessed": 1786429249889,
       "type": "file"
     },
     {
@@ -293,8 +293,20 @@
     },
     {
       "path": "app.json",
-      "accessCount": 16,
-      "lastAccessed": 1786428629017,
+      "accessCount": 17,
+      "lastAccessed": 1786429502864,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 13,
+      "lastAccessed": 1786429378904,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf.xcodeproj/project.pbxproj",
+      "accessCount": 11,
+      "lastAccessed": 1786429506996,
       "type": "file"
     },
     {
@@ -304,15 +316,9 @@
       "type": "file"
     },
     {
-      "path": "ios/titangolf.xcodeproj/project.pbxproj",
-      "accessCount": 10,
-      "lastAccessed": 1786428632402,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 9,
-      "lastAccessed": 1786346008317,
+      "path": "app/(app)/admin/players.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1786429329749,
       "type": "file"
     },
     {
@@ -493,6 +499,54 @@
       "path": "screenshots/Screenshot 2026-08-11 at 06.45.56.png",
       "accessCount": 1,
       "lastAccessed": 1786427305744,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-08-11 at 07.17.10.png",
+      "accessCount": 1,
+      "lastAccessed": 1786429148825,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-08-11 at 07.17.17.png",
+      "accessCount": 1,
+      "lastAccessed": 1786429149342,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-08-11 at 07.17.22.png",
+      "accessCount": 1,
+      "lastAccessed": 1786429149955,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-08-11 at 07.18.23.png",
+      "accessCount": 1,
+      "lastAccessed": 1786429150021,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/index.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1786429250979,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/draw.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1786429252060,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/courses.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1786429356567,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/useAdminSociety.ts",
+      "accessCount": 1,
+      "lastAccessed": 1786429413237,
       "type": "file"
     }
   ],

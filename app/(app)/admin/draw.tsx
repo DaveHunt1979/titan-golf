@@ -21,7 +21,7 @@ const titanLogo = require('../../../assets/TitanAppLogo.png');
 const DAY_FORMAT_LABELS: Record<string, string> = {
   four_bbb: '4BBB', four_bbb_stroke: '4BBB Stroke', foursomes: 'Foursomes', greensomes: 'Greensomes',
   singles: 'Singles', stableford: 'Stableford', medal: 'Medal', scramble: 'Scramble',
-  '4bbb': '4BBB',
+  '4bbb': '4BBB Stableford',
 };
 
 function dayFormatToRoundFormat(df: string): string {

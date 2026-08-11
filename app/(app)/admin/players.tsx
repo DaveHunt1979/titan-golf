@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
@@ -475,6 +476,7 @@ function MemberRow({ member, isLast }: { member: Member; isLast: boolean }) {
           ]}>{role}</Text>
         </View>
       </View>
+      <Ionicons name="chevron-forward" size={16} color="#444" style={{ marginLeft: 8 }} />
     </View>
   );
 }
