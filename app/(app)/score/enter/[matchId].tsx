@@ -22,8 +22,6 @@ import { checkAndUpdateRecords, type BrokenRecord } from '../../../../src/lib/re
 import { sendMatchNotification } from '../../../../src/lib/notifications';
 import { sendMatchToWatch, clearMatchFromWatch, onWatchScoreEntry, onWatchRequestsState } from '../../../../src/lib/watch';
 import { startLiveActivity, updateLiveActivity, endLiveActivity } from '../../../../src/lib/liveActivity';
-import CaddieButton from '../../../../src/components/CaddieButton';
-import type { VoiceCommandResult } from '../../../../src/lib/voiceCommand';
 import { enqueueHole, isNetworkError } from '../../../../src/lib/offlineQueue';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
@@ -110,6 +108,7 @@ interface MatchInfo {
   start_hole: number | null;
   holes_to_play: number | null;
   round_format: 'matchplay' | 'stableford' | 'medal';
+  is_singles: boolean;
   home_player_ids: string[];
   away_player_ids: string[];
   home_team: { name: string; accent_color: string } | null;
@@ -189,7 +188,6 @@ export default function EnterScoresScreen() {
   const [sideGameResult, setSideGameResult] = useState('');
   const [sideGameWinner, setSideGameWinner] = useState<string | null>(null);
   const [showShotLogger, setShowShotLogger] = useState(false);
-  const [showCaddieModal, setShowCaddieModal] = useState(false);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [playerTotals, setPlayerTotals] = useState<Record<string, number>>({});
   const [holeData, setHoleData] = useState<Record<string, Record<number, { gross: number | null; pts: number | null }>>>({});
@@ -890,9 +888,30 @@ export default function EnterScoresScreen() {
       return (scores[id] ?? 99) - shots;
     };
 
-    const homeNet = Math.min(...match.home_player_ids.map(getNetScore));
-    const awayNet = Math.min(...match.away_player_ids.map(getNetScore));
-    const holeResult: 'h' | 'a' | 'f' = homeNet < awayNet ? 'h' : awayNet < homeNet ? 'a' : 'f';
+    // Main 4BBB Stableford (best-ball, points-based — not 4BBB Stroke
+    // Matchplay, which stays net-strokes) decides the hole winner by each
+    // side's best individual Stableford points at the MAIN game's own
+    // handicap allowance — never the 100%-handicap background side game
+    // (Rick: "two independent scoring calculations"). Comparing points this
+    // way also automatically satisfies "a 0-point score can never win a
+    // hole": points can't go negative, so 0 vs anything >0 always loses,
+    // and 0-0 halves like any other tie.
+    const isStablefordBestBall = match.round_format === 'matchplay' && !match.is_singles && match.handicap_method !== 'relative_low';
+
+    let holeResult: 'h' | 'a' | 'f';
+    if (isStablefordBestBall) {
+      const getMainPts = (id: string) => {
+        const shots = calcStrokesReceived(matchplayHcp(id), si);
+        return calcStablefordPoints(scores[id] ?? 99, par, shots);
+      };
+      const homeBestPts = Math.max(...match.home_player_ids.map(getMainPts));
+      const awayBestPts = Math.max(...match.away_player_ids.map(getMainPts));
+      holeResult = homeBestPts > awayBestPts ? 'h' : awayBestPts > homeBestPts ? 'a' : 'f';
+    } else {
+      const homeNet = Math.min(...match.home_player_ids.map(getNetScore));
+      const awayNet = Math.min(...match.away_player_ids.map(getNetScore));
+      holeResult = homeNet < awayNet ? 'h' : awayNet < homeNet ? 'a' : 'f';
+    }
 
     const rows = allPlayerIds.map(id => {
       const gross = scores[id] ?? null;
@@ -1369,6 +1388,28 @@ export default function EnterScoresScreen() {
 
   const formatLabel = isMatchplay ? 'Matchplay' : match.round_format === 'stableford' ? 'Stableford' : 'Stroke Play';
 
+  // holeData[...].pts is the background 100%-handicap Stableford Side Game
+  // value — it must stay untouched everywhere it already feeds playerTotals/
+  // the "2nd Game" banner and final leaderboard above. This is a MAIN-GAME-
+  // only copy, recomputed off the same stored gross scores at the match's
+  // own handicap allowance, purely for the live Scorecard's pts cells below
+  // (Rick: "Side Game must never visually overwrite the main game").
+  const mainPtsHoleData = isStrokePlay ? holeData : (() => {
+    const out: typeof holeData = {};
+    for (const id of allPlayerIds) {
+      out[id] = {};
+      for (const [holeStr, rec] of Object.entries(holeData[id] ?? {})) {
+        const h = Number(holeStr);
+        const ch = courseHoles.find(c => c.hole_number === h);
+        const mainPts = (rec.gross != null && ch)
+          ? calcStablefordPoints(rec.gross, ch.par, calcStrokesReceived(matchplayHcp(id), ch.stroke_index))
+          : null;
+        out[id][h] = { gross: rec.gross, pts: mainPts };
+      }
+    }
+    return out;
+  })();
+
   return (
     <View style={(IS_PAD && broadcastMode) ? { flex: 1, flexDirection: 'row', backgroundColor: '#000' } : s.root}>
       <View style={(IS_PAD && broadcastMode) ? { width: 360, backgroundColor: '#000000', overflow: 'hidden' } : { flex: 1 }}>
@@ -1692,11 +1733,6 @@ export default function EnterScoresScreen() {
                     <Text style={s.actionLabel}>SHOTS</Text>
                   </TouchableOpacity>
                   <View style={s.actionSep} />
-                  <TouchableOpacity style={s.actionBtn} onPress={() => setShowCaddieModal(true)} activeOpacity={0.7}>
-                    <Ionicons name="mic-outline" size={20} color={GOLD} />
-                    <Text style={s.actionLabel}>CADDIE</Text>
-                  </TouchableOpacity>
-                  <View style={s.actionSep} />
                   <TouchableOpacity
                     style={s.actionBtn}
                     onPress={() => match.day_id && router.push(`/(app)/score/day/${match.day_id}` as any)}
@@ -1749,7 +1785,7 @@ export default function EnterScoresScreen() {
               startHole={1}
               allPlayerIds={allPlayerIds}
               playerNames={playerNames}
-              holeData={holeData}
+              holeData={mainPtsHoleData}
               courseHoles={courseHoles}
               matchHomeIds={match.home_player_ids}
               holeChars={holeChars}
@@ -1769,7 +1805,7 @@ export default function EnterScoresScreen() {
               startHole={10}
               allPlayerIds={allPlayerIds}
               playerNames={playerNames}
-              holeData={holeData}
+              holeData={mainPtsHoleData}
               courseHoles={courseHoles}
               matchHomeIds={match.home_player_ids}
               holeChars={holeChars}
@@ -2182,12 +2218,11 @@ export default function EnterScoresScreen() {
               const par = courseHole?.par ?? 4;
               const result = selectedScore ? scoreVsPar(selectedScore, par, shots) : null;
               const accent = result ? (SCORE_COLORS[result] ?? '#6b7280') : '#1c1c1c';
-              // Background Stableford side game is always full handicap — only
-              // pull in the matchplay % when it's the primary format itself.
-              const sideShots = modalPlayerId
-                ? calcStrokesReceived(playerCourseHcp(modalPlayerId, compPlayers, match?.day ?? null, isStrokePlay ? (match?.hcp_allowance ?? 100) : 100), courseHole?.stroke_index ?? 18)
-                : 0;
-              const stablePts = selectedScore ? calcStablefordPoints(selectedScore, par, sideShots) : null;
+              // MAIN GAME points only — `shots` above already uses matchplayHcp
+              // (the match's own hcp_allowance). The background Stableford side
+              // game always runs off 100% handicap separately and must never be
+              // shown here (Rick: "must never visually overwrite the main game").
+              const stablePts = selectedScore ? calcStablefordPoints(selectedScore, par, shots) : null;
               const SCORE_LABELS: Record<string, string> = {
                 albatross: 'ALBATROSS', eagle: 'EAGLE', birdie: 'BIRDIE',
                 par: 'PAR', bogey: 'BOGEY', double: 'DOUBLE +',
@@ -2233,14 +2268,7 @@ export default function EnterScoresScreen() {
                       {selectedScore ? (
                         stablePts !== null
                           ? (
-                            <>
-                              {isMatchplay && (
-                                <Text style={{ fontFamily: FF, fontSize: 10, color: '#9ca3af', letterSpacing: 1, marginBottom: 2 }}>
-                                  STABLEFORD SIDE GAME
-                                </Text>
-                              )}
-                              <Text style={{ fontFamily: FFB, fontSize: 22, color: '#fff' }}>{stablePts}<Text style={{ fontFamily: FFB, fontSize: 13, color: '#fff' }}> pts</Text></Text>
-                            </>
+                            <Text style={{ fontFamily: FFB, fontSize: 22, color: '#fff' }}>{stablePts}<Text style={{ fontFamily: FFB, fontSize: 13, color: '#fff' }}> pts</Text></Text>
                           )
                           : null
                       ) : (
@@ -2429,54 +2457,6 @@ export default function EnterScoresScreen() {
             </View>
           </View>
         </View>
-      </Modal>
-
-      {/* ── Voice caddie ── */}
-      <Modal visible={showCaddieModal} transparent animationType="slide" onRequestClose={() => setShowCaddieModal(false)}>
-        <TouchableOpacity style={sh.overlay} activeOpacity={1} onPress={() => setShowCaddieModal(false)}>
-          <View style={[sh.sheet, { paddingBottom: 32 }]} onStartShouldSetResponder={() => true}>
-            <View style={sh.handle} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <Text style={{ fontFamily: FFB, fontSize: 16, color: '#ffffff', letterSpacing: 1 }}>VOICE CADDIE</Text>
-              <TouchableOpacity onPress={() => setShowCaddieModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={22} color="#ffffff" />
-              </TouchableOpacity>
-            </View>
-            {courseHole && match && (
-              <CaddieButton
-                context={{
-                  playerName: myPlayerId ? (playerNames[myPlayerId] ?? 'Player') : 'Player',
-                  holeNumber: safeCurrentHole,
-                  par: courseHole.par,
-                  yardage: holeYardage,
-                  strokeIndex: courseHole.stroke_index,
-                  format: match.round_format,
-                  holesCompleted: holeChars.filter(c => c !== '.').length,
-                  runningScore: (() => {
-                    const up = holeChars.reduce((n, c) => n + (c === 'h' ? 1 : c === 'a' ? -1 : 0), 0);
-                    const left = holeChars.filter(c => c === '.').length;
-                    if (up === 0) return 'All Square';
-                    return `${Math.abs(up)}UP with ${left} to play`;
-                  })(),
-                }}
-                onAction={async (result: VoiceCommandResult) => {
-                  if (result.action?.type === 'log_shot' && result.action.club && myPlayerId) {
-                    await supabase.from('shots').insert({
-                      match_id: match.id,
-                      player_id: myPlayerId,
-                      hole_number: safeCurrentHole,
-                      club_short: result.action.club,
-                      distance_yards: result.action.distance ?? null,
-                      lat: gpsRef.current?.lat ?? null,
-                      lng: gpsRef.current?.lng ?? null,
-                    });
-                    setShowCaddieModal(false);
-                  }
-                }}
-              />
-            )}
-          </View>
-        </TouchableOpacity>
       </Modal>
 
       {recordsBroken.length > 0 && (

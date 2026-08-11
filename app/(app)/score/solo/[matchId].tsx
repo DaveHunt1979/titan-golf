@@ -18,8 +18,6 @@ import ShotLogger from '../../../../src/components/ShotLogger';
 import RecordCelebration from '../../../../src/components/RecordCelebration';
 import { checkAndUpdateRecords, type BrokenRecord } from '../../../../src/lib/records';
 import { sendSoloMatchToWatch, clearSoloMatchFromWatch, onWatchSoloScoreEntry, onWatchRequestsState } from '../../../../src/lib/watch';
-import CaddieButton from '../../../../src/components/CaddieButton';
-import type { VoiceCommandResult } from '../../../../src/lib/voiceCommand';
 
 const { width: W } = Dimensions.get('window');
 const GOLD     = '#D4AF37';
@@ -134,7 +132,6 @@ export default function SoloRoundScreen() {
   const [sideGameWinner, setSideGameWinner] = useState<string | null>(null);
   const [showRangeMap, setShowRangeMap]     = useState(false);
   const [showShotLogger, setShowShotLogger] = useState(false);
-  const [showCaddieModal, setShowCaddieModal] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -714,11 +711,6 @@ export default function SoloRoundScreen() {
                   <Text style={s.quickActionLbl}>SHOTS</Text>
                 </TouchableOpacity>
                 <View style={s.quickActionSep} />
-                <TouchableOpacity style={s.quickActionBtn} onPress={() => setShowCaddieModal(true)} activeOpacity={0.7}>
-                  <Ionicons name="mic-outline" size={20} color={GOLD} />
-                  <Text style={[s.quickActionLbl, { color: GOLD }]}>CADDIE</Text>
-                </TouchableOpacity>
-                <View style={s.quickActionSep} />
                 <TouchableOpacity
                   style={s.quickActionBtn}
                   onPress={() => match?.day_id && router.push(`/(app)/score/day/${match.day_id}` as any)}
@@ -1166,54 +1158,6 @@ export default function SoloRoundScreen() {
             </View>
           </View>
         </View>
-      </Modal>
-
-      {/* ── Voice caddie ── */}
-      <Modal visible={showCaddieModal} transparent animationType="slide" onRequestClose={() => setShowCaddieModal(false)}>
-        <TouchableOpacity style={s.popupOverlay} activeOpacity={1} onPress={() => setShowCaddieModal(false)}>
-          <View style={s.popupSheet} onStartShouldSetResponder={() => true}>
-            <View style={s.sheetHandle} />
-            <View style={[s.popupTitleRow, { marginBottom: 16 }]}>
-              <Ionicons name="mic-outline" size={16} color={GOLD} />
-              <Text style={s.popupTitleText}>VOICE CADDIE</Text>
-              <TouchableOpacity onPress={() => setShowCaddieModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-outline" size={22} color="#ffffff" />
-              </TouchableOpacity>
-            </View>
-            {courseHole && match && (
-              <CaddieButton
-                context={{
-                  playerName,
-                  holeNumber: nextHole,
-                  par: courseHole.par,
-                  strokeIndex: courseHole.stroke_index,
-                  format: match.round_format,
-                  holesCompleted: savedScores.length,
-                  runningScore: isStableford
-                    ? `${totalPts} pts`
-                    : vsPar === 0 ? 'level par' : `${vsPar > 0 ? '+' : ''}${vsPar}`,
-                }}
-                onAction={async (result: VoiceCommandResult) => {
-                  if (result.action?.type === 'log_shot' && result.action.club) {
-                    const playerId = match.home_player_ids[0];
-                    if (playerId) {
-                      await supabase.from('shots').insert({
-                        match_id: match.id,
-                        player_id: playerId,
-                        hole_number: nextHole,
-                        club_short: result.action.club,
-                        distance_yards: result.action.distance ?? null,
-                        lat: gpsRef.current?.lat ?? null,
-                        lng: gpsRef.current?.lng ?? null,
-                      });
-                      setShowCaddieModal(false);
-                    }
-                  }
-                }}
-              />
-            )}
-          </View>
-        </TouchableOpacity>
       </Modal>
 
       {recordsBroken.length > 0 && (

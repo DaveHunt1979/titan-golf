@@ -262,15 +262,21 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/spectate/[matchId].tsx",
-      "accessCount": 34,
-      "lastAccessed": 1786379754459,
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 37,
+      "lastAccessed": 1786427794316,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 30,
-      "lastAccessed": 1786426665415,
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 36,
+      "lastAccessed": 1786428365528,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/spectate/[matchId].tsx",
+      "accessCount": 34,
+      "lastAccessed": 1786379754459,
       "type": "file"
     },
     {
@@ -289,12 +295,6 @@
       "path": "app.json",
       "accessCount": 15,
       "lastAccessed": 1786427563011,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 10,
-      "lastAccessed": 1786379606323,
       "type": "file"
     },
     {
