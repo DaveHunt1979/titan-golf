@@ -419,6 +419,7 @@ function RoundCard({ match, playerNames, playerAvatars, s, GOLD }: {
         // themselves once a round is complete — no separate results screen needed.
         if (isSolo) { router.push(`/(app)/score/solo/${match.id}` as any); return; }
         if (!isComplete && match.day_id) { router.push(`/(app)/score/day/${match.day_id}` as any); return; }
+        if ((match.round_format as string) === 'team_stableford') { router.push(`/(app)/score/teamstableford/${match.id}` as any); return; }
         router.push(`/(app)/score/enter/${match.id}` as any);
       }}
       activeOpacity={0.75}

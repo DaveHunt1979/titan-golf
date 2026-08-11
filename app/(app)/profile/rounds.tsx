@@ -22,6 +22,7 @@ interface Breakdown { eagles: number; birdies: number; pars: number; bogeys: num
 interface Round {
   matchId: string;
   isSolo: boolean;
+  roundFormat: string | null;
   createdAt: string;
   courseName: string;
   coursePar: number;
@@ -71,17 +72,18 @@ export default function RoundsScreen() {
 
     const { data: matches } = await supabase
       .from('matches')
-      .select('id, created_at, home_player_ids, away_player_ids, day:day_id(play_date, course_name, course_par)')
+      .select('id, created_at, round_format, home_player_ids, away_player_ids, day:day_id(play_date, course_name, course_par)')
       .or(`home_player_ids.cs.{${pid}},away_player_ids.cs.{${pid}}`)
       .eq('status', 'complete');
 
     const matchIds = (matches ?? []).map((m: any) => m.id);
     if (matchIds.length === 0) { setLoading(false); return; }
 
-    const infoMap: Record<string, { createdAt: string; courseName: string; coursePar: number; playDate: string | null; isSolo: boolean }> = {};
+    const infoMap: Record<string, { createdAt: string; courseName: string; coursePar: number; playDate: string | null; isSolo: boolean; roundFormat: string | null }> = {};
     for (const m of (matches ?? []) as any[]) {
       infoMap[m.id] = {
         isSolo:      (m.away_player_ids ?? []).length === 0 && (m.home_player_ids ?? []).length === 1,
+        roundFormat: m.round_format ?? null,
         createdAt:   m.created_at,
         courseName:  m.day?.course_name ?? 'Unknown Course',
         coursePar:   m.day?.course_par  ?? 72,
@@ -156,6 +158,7 @@ export default function RoundsScreen() {
         return {
           matchId:          id,
           isSolo:           info.isSolo,
+          roundFormat:      info.roundFormat,
           createdAt:        info.createdAt,
           courseName:       info.courseName,
           coursePar:        info.coursePar,
@@ -237,7 +240,7 @@ export default function RoundsScreen() {
               <TouchableOpacity
                 key={r.matchId}
                 style={[ss.card, { backgroundColor: dc.card, borderColor: dc.border }]}
-                onPress={() => router.push((r.isSolo ? `/(app)/score/solo/${r.matchId}` : `/(app)/score/enter/${r.matchId}`) as any)}
+                onPress={() => router.push((r.roundFormat === 'team_stableford' ? `/(app)/score/teamstableford/${r.matchId}` : r.isSolo ? `/(app)/score/solo/${r.matchId}` : `/(app)/score/enter/${r.matchId}`) as any)}
                 activeOpacity={0.75}
               >
                 {/* Top row */}

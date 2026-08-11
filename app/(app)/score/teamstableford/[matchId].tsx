@@ -272,7 +272,7 @@ export default function TeamStablefordScreen() {
     const front9   = Array.from({ length: Math.min(9, totalHoles) }, (_, i) => i + 1);
     const back9    = Array.from({ length: Math.max(0, totalHoles - 9) }, (_, i) => i + 10);
 
-    function PlayerScoreRow({ playerId, holes, color }: { playerId: string; holes: number[]; color: string }) {
+    function PlayerScoreRow({ playerId, teamIds, holes, color }: { playerId: string; teamIds: string[]; holes: number[]; color: string }) {
       const p = players.find(pl => pl.id === playerId);
       if (!p) return null;
       const total = holes.reduce((s, h) => s + (getPts(playerId, h) ?? 0), 0);
@@ -281,7 +281,12 @@ export default function TeamStablefordScreen() {
           <Text style={[s.scName, { flex: 2 }]} numberOfLines={1}>{p.display_name.split(' ')[0]}</Text>
           {holes.map(h => {
             const pts = getPts(playerId, h);
-            const col = pts === null ? '#333' : pts >= 4 ? BLUE : pts === 3 ? GREEN : pts === 0 ? '#333' : '#aaa';
+            // Same "dropped" grey the live scoring badge already uses (ts.badgeDropped)
+            // for a hole where this player wasn't one of the best N counted for the
+            // team — Rick: the scorecard was showing raw Stableford scores with no way
+            // to tell which two actually counted that hole.
+            const counted = computeTeamHole(teamIds, h).results.find(r => r.playerId === playerId)?.counted ?? false;
+            const col = pts === null ? '#333' : !counted ? '#555' : pts >= 4 ? BLUE : pts === 3 ? GREEN : pts === 0 ? '#333' : '#aaa';
             return <Text key={h} style={[s.scCell, { color: col }]}>{pts ?? '—'}</Text>;
           })}
           <Text style={[s.scCell, { color }]}>{total}</Text>
@@ -297,7 +302,7 @@ export default function TeamStablefordScreen() {
             {front9.map(h => <Text key={h} style={s.scHdr}>{h}</Text>)}
             <Text style={[s.scHdr, { color }]}>OUT</Text>
           </View>
-          {ids.map(id => <PlayerScoreRow key={id} playerId={id} holes={front9} color={color} />)}
+          {ids.map(id => <PlayerScoreRow key={id} playerId={id} teamIds={ids} holes={front9} color={color} />)}
           {back9.length > 0 && (
             <>
               <View style={[s.scHeaderRow, { marginTop: 10 }]}>
@@ -305,7 +310,7 @@ export default function TeamStablefordScreen() {
                 {back9.map(h => <Text key={h} style={s.scHdr}>{h}</Text>)}
                 <Text style={[s.scHdr, { color }]}>IN</Text>
               </View>
-              {ids.map(id => <PlayerScoreRow key={id + '_b'} playerId={id} holes={back9} color={color} />)}
+              {ids.map(id => <PlayerScoreRow key={id + '_b'} playerId={id} teamIds={ids} holes={back9} color={color} />)}
             </>
           )}
           <View style={[s.scRow, { borderTopWidth: 1, borderTopColor: '#222', marginTop: 6, paddingTop: 8 }]}>

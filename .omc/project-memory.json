@@ -281,50 +281,62 @@
     },
     {
       "path": "app/(app)/score/day/[dayId].tsx",
-      "accessCount": 27,
-      "lastAccessed": 1786432252395,
+      "accessCount": 31,
+      "lastAccessed": 1786438780178,
       "type": "file"
     },
     {
       "path": "app/(app)/score/index.tsx",
-      "accessCount": 26,
-      "lastAccessed": 1786429249889,
+      "accessCount": 29,
+      "lastAccessed": 1786438880685,
       "type": "file"
     },
     {
       "path": "app.json",
-      "accessCount": 18,
-      "lastAccessed": 1786432462141,
+      "accessCount": 19,
+      "lastAccessed": 1786439124619,
       "type": "file"
     },
     {
       "path": "app/(app)/games/new.tsx",
-      "accessCount": 13,
-      "lastAccessed": 1786429378904,
-      "type": "file"
-    },
-    {
-      "path": "ios/titangolf.xcodeproj/project.pbxproj",
-      "accessCount": 12,
-      "lastAccessed": 1786432466840,
+      "accessCount": 16,
+      "lastAccessed": 1786438904276,
       "type": "file"
     },
     {
       "path": "app/(app)/score/preview/[matchId].tsx",
-      "accessCount": 10,
-      "lastAccessed": 1786426734940,
+      "accessCount": 14,
+      "lastAccessed": 1786438932536,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf.xcodeproj/project.pbxproj",
+      "accessCount": 13,
+      "lastAccessed": 1786439130409,
       "type": "file"
     },
     {
       "path": "app/(app)/score/teamstableford/[matchId].tsx",
-      "accessCount": 9,
-      "lastAccessed": 1786432371023,
+      "accessCount": 11,
+      "lastAccessed": 1786438339758,
       "type": "file"
     },
     {
       "path": "app/(app)/admin/players.tsx",
       "accessCount": 6,
       "lastAccessed": 1786429329749,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1786438826977,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/tour/day/[dayId].tsx",
+      "accessCount": 6,
+      "lastAccessed": 1786438835584,
       "type": "file"
     },
     {
@@ -337,12 +349,6 @@
       "path": "app/(app)/games/GroupBuilderSheet.tsx",
       "accessCount": 5,
       "lastAccessed": 1786426899079,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/tour/day/[dayId].tsx",
-      "accessCount": 4,
-      "lastAccessed": 1786427335210,
       "type": "file"
     },
     {
@@ -397,12 +403,6 @@
       "path": "screenshots/IMG_6062.PNG",
       "accessCount": 2,
       "lastAccessed": 1786357221088,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/tour/index.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1786426735100,
       "type": "file"
     },
     {

@@ -364,7 +364,9 @@ export default function DayLobby() {
                     onPress={
                       isSpectator
                         ? () => router.push(`/(app)/spectate/${g.match_id}` as any)
-                        : canNavigate ? () => router.push(`/(app)/score/enter/${g.match_id}` as any) : undefined
+                        : canNavigate
+                          ? () => router.push((g.format === 'team_stableford' ? `/(app)/score/teamstableford/${g.match_id}` : `/(app)/score/enter/${g.match_id}`) as any)
+                          : undefined
                     }
                     activeOpacity={canNavigate ? 0.8 : 1}
                     disabled={!canNavigate}
@@ -456,7 +458,7 @@ export default function DayLobby() {
             ) : (
               <TouchableOpacity
                 style={s.actionBtn}
-                onPress={() => router.push(`/(app)/score/enter/${myMatchId}` as any)}
+                onPress={() => router.push((groups.find(g => g.match_id === myMatchId)?.format === 'team_stableford' ? `/(app)/score/teamstableford/${myMatchId}` : `/(app)/score/enter/${myMatchId}`) as any)}
                 activeOpacity={0.85}
               >
                 <Text style={s.actionBtnText}>Score My Group</Text>

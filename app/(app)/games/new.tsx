@@ -769,25 +769,10 @@ export default function NewGameScreen() {
       results.forEach(r => { if (r.data?.id) downloadMatchPack(r.data.id).catch(() => {}); });
 
       if (isMashie) {
-        const groupSummary = results.map((r, i) => {
-          const teamNames = builtMatches[i].home
-            .map(id => players.find(p => p.id === id)?.display_name.split(' ')[0] ?? '')
-            .join(', ');
-          const code = (r.data as any)?.group_code ?? '—';
-          return `Group ${i + 1} (${teamNames}): ${code}`;
-        }).join('\n');
+        // Group codes are already visible in Admin → Codes ("MASHIE GROUP CODES")
+        // — Dave no longer wants the extra popup here, just go straight to the day.
         setCreating(false);
-        Alert.alert(
-          'Mashie groups created!',
-          `Share each group code so players can score their own group:\n\n${groupSummary}\n\nRick shares the codes — each group of 4 can only score themselves.`,
-          [
-            {
-              text: "Let's Play",
-              style: 'default',
-              onPress: () => router.push(`/(app)/score/day/${resolvedDayId}` as any),
-            },
-          ]
-        );
+        router.push(`/(app)/score/day/${resolvedDayId}` as any);
         return;
       }
 

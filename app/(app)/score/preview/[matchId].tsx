@@ -22,6 +22,7 @@ interface MatchPreview {
   competition_id: string | null;
   round_format: string | null;
   is_singles: boolean;
+  team_size: number | null;
   hcp_allowance: number | null;
   handicap_method: string | null;
   side_games: string[] | null;
@@ -162,12 +163,14 @@ export default function MatchPreviewScreen() {
         }
         console.log('[startRound] voice intro settled');
       }
-      // enter/solo render the live scoring screen directly — the old hub route
-      // (score/[matchId]) is orphaned and no longer maintained, same fix as the
-      // other navigation call sites already routed around it.
-      const base = match.away_player_ids.length === 0 && match.home_player_ids.length === 1
-        ? `/(app)/score/solo/${matchId}`
-        : `/(app)/score/enter/${matchId}`;
+      // enter/solo/teamstableford render the live scoring screen directly — the
+      // old hub route (score/[matchId]) is orphaned and no longer maintained,
+      // same fix as the other navigation call sites already routed around it.
+      const base = match.round_format === 'team_stableford'
+        ? `/(app)/score/teamstableford/${matchId}`
+        : match.away_player_ids.length === 0 && match.home_player_ids.length === 1
+          ? `/(app)/score/solo/${matchId}`
+          : `/(app)/score/enter/${matchId}`;
       const dest = startHole && startHole !== '1' ? `${base}?startHole=${startHole}` : base;
       console.log('[startRound] navigating', { dest });
       router.replace(dest as any);
@@ -217,6 +220,13 @@ export default function MatchPreviewScreen() {
     : 0;
 
   const modeName = (() => {
+    // Mashie (Best 2 From 4) also stores as round_format 'team_stableford' —
+    // same field the plain Team Stableford format uses — so it needs its own
+    // check here, same signal score/teamstableford/[matchId].tsx uses to tell
+    // the two apart (Mashie: no away side, up to a 4-player single group).
+    if (match.round_format === 'team_stableford' && match.away_player_ids.length === 0 && (match.team_size ?? 2) >= 4) {
+      return 'Mashie Golf';
+    }
     const map: Record<string, string> = {
       stableford: 'Stableford', medal: 'Medal', matchplay: 'Matchplay',
       skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf', scramble: 'Scramble',

@@ -592,7 +592,7 @@ export default function TourScreen() {
           }}
           onPress={() => router.push(
             myMatch.status === 'in_progress'
-              ? `/(app)/score/enter/${myMatch.id}` as any
+              ? ((myMatch as any).round_format === 'team_stableford' ? `/(app)/score/teamstableford/${myMatch.id}` : `/(app)/score/enter/${myMatch.id}`) as any
               : `/(app)/score/preview/${myMatch.id}` as any
           )}
           activeOpacity={0.88}
@@ -821,7 +821,9 @@ export default function TourScreen() {
                     const isComplete  = m.status === 'complete';
                     const isMyMatch = !!myPlayerId && ((m.home_player_ids ?? []).includes(myPlayerId) || (m.away_player_ids ?? []).includes(myPlayerId));
                     const matchDest = isMyMatch
-                      ? ((m.away_player_ids ?? []).length === 0 && (m.home_player_ids ?? []).length === 1 ? `/(app)/score/solo/${m.id}` : `/(app)/score/enter/${m.id}`)
+                      ? ((m as any).round_format === 'team_stableford'
+                          ? `/(app)/score/teamstableford/${m.id}`
+                          : (m.away_player_ids ?? []).length === 0 && (m.home_player_ids ?? []).length === 1 ? `/(app)/score/solo/${m.id}` : `/(app)/score/enter/${m.id}`)
                       : `/(app)/spectate/${m.id}`;
                     return (
                       <TouchableOpacity
