@@ -17,6 +17,9 @@ const FF   = 'JUSTSans';
 const FFB  = 'JUSTSans-ExBold';
 const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
+// Setup screen's default, never-renamed team labels — see homeNames/awayNames below.
+const DEFAULT_TEAM_NAMES = new Set(['Team A', 'Team B', 'Team C', 'Team D']);
+
 type DayInfo   = { id: string; join_code: string; course_name: string; course_par: number; day_date: string };
 type PlayerRow = { player_id: string; name: string; match_id: string; pts: number; holes: number; hcp: number; avatarUrl: string | null };
 type GroupRow  = { match_id: string; format: string; player_names: string[]; home_name: string | null; away_name: string | null; status: string; holes_string: string; winner: string | null; result_str: string | null; home_player_ids: string[]; away_player_ids: string[]; home_pts: number; away_pts: number; };
@@ -330,8 +333,12 @@ export default function DayLobby() {
             : groups.map((g, i) => {
                 const isMatchplay = g.format === 'nassau' || g.format === 'matchplay';
                 const hasTeams    = g.away_player_ids.length > 0;
-                const homeNames   = g.home_name ? [g.home_name] : g.player_names.slice(0, g.home_player_ids.length);
-                const awayNames   = g.away_name ? [g.away_name] : g.player_names.slice(g.home_player_ids.length);
+                // home_name/away_name default to "Team A"/"Team B" (etc.) at setup time
+                // and get saved even when never actually renamed — only trust them as a
+                // real label once Rick/Dave has typed something else in, otherwise show
+                // the actual players (same as the live scoring screen already does).
+                const homeNames   = g.home_name && !DEFAULT_TEAM_NAMES.has(g.home_name) ? [g.home_name] : g.player_names.slice(0, g.home_player_ids.length);
+                const awayNames   = g.away_name && !DEFAULT_TEAM_NAMES.has(g.away_name) ? [g.away_name] : g.player_names.slice(g.home_player_ids.length);
 
                 let statusLabel = '';
                 let statusColor = GOLD;
@@ -381,7 +388,14 @@ export default function DayLobby() {
 
                       {hasTeams ? (
                         <View style={s.matchRow}>
-                          <Text style={[s.groupPlayers, { flex: 1 }]}>{homeNames.join(' & ')}</Text>
+                          <View style={[s.teamSide, { flex: 1 }]}>
+                            <View style={s.teamAvatars}>
+                              {g.home_player_ids.map((id, pi) => (
+                                <PlayerAvatar key={id} playerId={id} name={homeNames[pi] ?? '?'} avatarUrl={null} size={22} />
+                              ))}
+                            </View>
+                            <Text style={s.groupPlayers} numberOfLines={1}>{homeNames.join(' & ')}</Text>
+                          </View>
                           {isMatchplay ? (
                             <View style={[s.statusChip, { borderColor: `${statusColor}50`, backgroundColor: `${statusColor}15` }]}>
                               <Text style={[s.statusChipText, { color: statusColor }]}>{statusLabel}</Text>
@@ -391,7 +405,14 @@ export default function DayLobby() {
                               <Text style={s.ptsScoreText}>{g.home_pts} - {g.away_pts}</Text>
                             </View>
                           )}
-                          <Text style={[s.groupPlayers, { flex: 1, textAlign: 'right' }]}>{awayNames.join(' & ')}</Text>
+                          <View style={[s.teamSide, { flex: 1, justifyContent: 'flex-end' }]}>
+                            <Text style={[s.groupPlayers, { textAlign: 'right' }]} numberOfLines={1}>{awayNames.join(' & ')}</Text>
+                            <View style={s.teamAvatars}>
+                              {g.away_player_ids.map((id, pi) => (
+                                <PlayerAvatar key={id} playerId={id} name={awayNames[pi] ?? '?'} avatarUrl={null} size={22} />
+                              ))}
+                            </View>
+                          </View>
                         </View>
                       ) : (
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -520,6 +541,8 @@ const s = StyleSheet.create({
   yourGroupText: { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 1 },
 
   matchRow:      { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  teamSide:      { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  teamAvatars:   { flexDirection: 'row', gap: 4 },
   statusChip:    { borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, alignItems: 'center', minWidth: 46 },
   statusChipText:{ fontFamily: FFB, fontSize: 10, letterSpacing: 1 },
   ptsScoreChip:  { backgroundColor: '#1c1c1c', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 },

@@ -261,7 +261,7 @@ function MatchCard({
   const isComplete = match.status === 'complete';
   const isMyMatch = !!myPlayerId && ((match.home_player_ids ?? []).includes(myPlayerId) || (match.away_player_ids ?? []).includes(myPlayerId));
   const matchDest = isMyMatch
-    ? ((match.away_player_ids ?? []).length === 0 ? `/(app)/score/solo/${match.id}` : `/(app)/score/enter/${match.id}`)
+    ? ((match.away_player_ids ?? []).length === 0 && (match.home_player_ids ?? []).length === 1 ? `/(app)/score/solo/${match.id}` : `/(app)/score/enter/${match.id}`)
     : `/(app)/spectate/${match.id}`;
 
   const winner = getEffectiveWinner(match.status, match.winner, match.holes_string ?? '..................', match.holes_to_play ?? 18);

@@ -821,7 +821,7 @@ export default function TourScreen() {
                     const isComplete  = m.status === 'complete';
                     const isMyMatch = !!myPlayerId && ((m.home_player_ids ?? []).includes(myPlayerId) || (m.away_player_ids ?? []).includes(myPlayerId));
                     const matchDest = isMyMatch
-                      ? ((m.away_player_ids ?? []).length === 0 ? `/(app)/score/solo/${m.id}` : `/(app)/score/enter/${m.id}`)
+                      ? ((m.away_player_ids ?? []).length === 0 && (m.home_player_ids ?? []).length === 1 ? `/(app)/score/solo/${m.id}` : `/(app)/score/enter/${m.id}`)
                       : `/(app)/spectate/${m.id}`;
                     return (
                       <TouchableOpacity

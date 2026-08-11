@@ -165,7 +165,7 @@ export default function MatchPreviewScreen() {
       // enter/solo render the live scoring screen directly — the old hub route
       // (score/[matchId]) is orphaned and no longer maintained, same fix as the
       // other navigation call sites already routed around it.
-      const base = match.away_player_ids.length === 0
+      const base = match.away_player_ids.length === 0 && match.home_player_ids.length === 1
         ? `/(app)/score/solo/${matchId}`
         : `/(app)/score/enter/${matchId}`;
       const dest = startHole && startHole !== '1' ? `${base}?startHole=${startHole}` : base;
