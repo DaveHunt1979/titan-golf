@@ -1471,7 +1471,25 @@ export default function EnterScoresScreen() {
 
       {/* ── Header ── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity
+          onPress={() => {
+            // router.back() pops whatever's on top of the native stack,
+            // which differs by how this screen was reached (Day screen
+            // pushes straight in; Preview replaces itself with this
+            // screen) — same round_format, different exit depending on
+            // setup flow. Go to an explicit destination instead so the
+            // exit path is identical for every format, same as the
+            // "Done Editing" CTA below.
+            const dayId = match?.day_id ?? (match as any)?.day?.id;
+            if (dayId) {
+              router.replace(`/(app)/score/day/${dayId}` as any);
+            } else {
+              router.replace('/(app)/' as any);
+            }
+          }}
+          style={s.headerSide}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
           <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>

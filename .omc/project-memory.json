@@ -257,8 +257,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 120,
-      "lastAccessed": 1786526867987,
+      "accessCount": 125,
+      "lastAccessed": 1786529981433,
       "type": "file"
     },
     {
@@ -281,8 +281,8 @@
     },
     {
       "path": "app/(app)/score/day/[dayId].tsx",
-      "accessCount": 41,
-      "lastAccessed": 1786520664687,
+      "accessCount": 42,
+      "lastAccessed": 1786529746323,
       "type": "file"
     },
     {
@@ -298,15 +298,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/teamstableford/[matchId].tsx",
-      "accessCount": 19,
-      "lastAccessed": 1786520665130,
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 21,
+      "lastAccessed": 1786529850806,
       "type": "file"
     },
     {
-      "path": "app/(app)/games/new.tsx",
+      "path": "app/(app)/score/teamstableford/[matchId].tsx",
       "accessCount": 19,
-      "lastAccessed": 1786523758968,
+      "lastAccessed": 1786520665130,
       "type": "file"
     },
     {
@@ -317,8 +317,8 @@
     },
     {
       "path": "app/(app)/score/preview/[matchId].tsx",
-      "accessCount": 16,
-      "lastAccessed": 1786520684680,
+      "accessCount": 17,
+      "lastAccessed": 1786529792886,
       "type": "file"
     },
     {

@@ -127,10 +127,52 @@
       "synthetic": true,
       "telemetry_status": "unmatched_stop",
       "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    },
+    {
+      "agent_id": "ac4474995734f6e1b",
+      "agent_type": "untracked-native-fork",
+      "started_at": "2026-08-12T09:38:50.496Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-12T09:38:50.496Z",
+      "synthetic": true,
+      "telemetry_status": "unmatched_stop",
+      "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    },
+    {
+      "agent_id": "a4e08b7a9e22b8446",
+      "agent_type": "Explore",
+      "started_at": "2026-08-12T10:15:13.664Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-12T10:18:59.116Z",
+      "duration_ms": 225452
+    },
+    {
+      "agent_id": "a49645e0cd991c1da",
+      "agent_type": "untracked-native-fork",
+      "started_at": "2026-08-12T10:20:41.058Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-12T10:20:41.058Z",
+      "synthetic": true,
+      "telemetry_status": "unmatched_stop",
+      "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    },
+    {
+      "agent_id": "a06eb5d5958e09ae9",
+      "agent_type": "untracked-native-fork",
+      "started_at": "2026-08-12T10:23:41.251Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-12T10:23:41.251Z",
+      "synthetic": true,
+      "telemetry_status": "unmatched_stop",
+      "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
     }
   ],
-  "total_spawned": 2,
-  "total_completed": 12,
+  "total_spawned": 3,
+  "total_completed": 16,
   "total_failed": 0,
-  "last_updated": "2026-08-12T09:30:37.000Z"
+  "last_updated": "2026-08-12T10:23:41.353Z"
 }
