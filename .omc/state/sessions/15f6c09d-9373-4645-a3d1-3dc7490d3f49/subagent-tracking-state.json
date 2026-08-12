@@ -231,10 +231,30 @@
       "synthetic": true,
       "telemetry_status": "unmatched_stop",
       "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    },
+    {
+      "agent_id": "abe6c057df29e1020",
+      "agent_type": "Explore",
+      "started_at": "2026-08-12T11:42:25.760Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-12T11:44:08.302Z",
+      "duration_ms": 102542
+    },
+    {
+      "agent_id": "ad52a0e38ddf10661",
+      "agent_type": "untracked-native-fork",
+      "started_at": "2026-08-12T12:10:04.624Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-12T12:10:04.624Z",
+      "synthetic": true,
+      "telemetry_status": "unmatched_stop",
+      "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
     }
   ],
-  "total_spawned": 5,
-  "total_completed": 22,
+  "total_spawned": 6,
+  "total_completed": 24,
   "total_failed": 0,
-  "last_updated": "2026-08-12T11:04:14.941Z"
+  "last_updated": "2026-08-12T12:10:04.727Z"
 }

@@ -735,6 +735,7 @@ export default function NewGameScreen() {
         home_team_id: null,
         away_team_id: null,
         status: 'in_progress',
+        started_at: new Date().toISOString(),
         holes_string: '..................',
         start_hole: startHole,
         holes_to_play: holesMode === 'full18' ? 18 : 9,

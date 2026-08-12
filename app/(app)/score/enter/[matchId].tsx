@@ -28,6 +28,7 @@ import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
 import { initials } from '../../../../src/lib/playerDisplay';
+import { formatRoundDuration } from '../../../../src/lib/roundTimer';
 import EagleAlert, { type EagleType } from '../../../../src/components/EagleAlert';
 import { IS_PAD } from '../../../../src/lib/useDeviceLayout';
 import GPSPanel from '../../../../src/components/ipad/GPSPanel';
@@ -119,6 +120,8 @@ interface MatchInfo {
   hcp_allowance: number | null;
   handicap_method: string | null;
   player_overrides: Record<string, { hcp?: number; tee?: string }> | null;
+  started_at: string | null;
+  completed_at: string | null;
   day_id: string | null;
   day: {
     course_name: string;
@@ -510,11 +513,15 @@ export default function EnterScoresScreen() {
       else { winner = homeUp > 0 ? 'home' : 'away'; result_str = `${Math.abs(homeUp)}UP`; }
     }
 
+    const timerFields: { started_at?: string; completed_at?: string } = {};
+    if (!match.started_at) timerFields.started_at = new Date().toISOString();
+    if (newStatus === 'complete' && !match.completed_at) timerFields.completed_at = new Date().toISOString();
+
     await supabase.from('matches')
-      .update({ holes_string: newHolesStr, status: newStatus, winner, result_str })
+      .update({ holes_string: newHolesStr, status: newStatus, winner, result_str, ...timerFields })
       .eq('id', match.id);
 
-    setMatch({ ...match, holes_string: newHolesStr, status: newStatus, winner, result_str });
+    setMatch({ ...match, holes_string: newHolesStr, status: newStatus, winner, result_str, ...timerFields });
 
     if (match.competition_id && newStatus !== 'complete' && [9, 12, 15].includes(hole)) {
       const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
@@ -778,9 +785,10 @@ export default function EnterScoresScreen() {
       const holesPlayed = newHolesStr.split('').filter(c => c !== '.').length;
       const isAlreadyComplete = match.status === 'complete';
       const newStatus: 'upcoming' | 'in_progress' | 'complete' = isAlreadyComplete ? 'complete' : 'in_progress';
+      const startedAtField = !match.started_at ? { started_at: new Date().toISOString() } : {};
       const matchUpdate = isAlreadyComplete
-        ? { holes_string: newHolesStr, status: 'complete' as const, winner: match.winner, result_str: match.result_str }
-        : { holes_string: newHolesStr, status: 'in_progress' as const, winner: null as null, result_str: null as null };
+        ? { holes_string: newHolesStr, status: 'complete' as const, winner: match.winner, result_str: match.result_str, ...startedAtField }
+        : { holes_string: newHolesStr, status: 'in_progress' as const, winner: null as null, result_str: null as null, ...startedAtField };
 
       // Try drain before saving
       if (pendingCount > 0) await syncStatus.syncNow();
@@ -992,7 +1000,10 @@ export default function EnterScoresScreen() {
       result_str = match.result_str;
     }
 
-    const matchUpdate = { holes_string: newHolesStr, status: newStatus, winner, result_str };
+    const timerFields2: { started_at?: string; completed_at?: string } = {};
+    if (!match.started_at) timerFields2.started_at = new Date().toISOString();
+    if (newStatus === 'complete' && !match.completed_at) timerFields2.completed_at = new Date().toISOString();
+    const matchUpdate = { holes_string: newHolesStr, status: newStatus, winner, result_str, ...timerFields2 };
 
     // Try drain before saving
     if (pendingCount > 0) await syncStatus.syncNow();
@@ -1330,7 +1341,10 @@ export default function EnterScoresScreen() {
     if (!match || saving) return;
     setSaving(true);
     try {
-      const matchUpdate = { status: 'complete' as const, winner: null, result_str: 'Complete' };
+      const matchUpdate = {
+        status: 'complete' as const, winner: null, result_str: 'Complete',
+        ...(match.completed_at ? {} : { completed_at: new Date().toISOString() }),
+      };
       const { error } = await supabase.from('matches').update(matchUpdate).eq('id', match.id);
       if (error) throw error;
       setMatch({ ...match, ...matchUpdate });
@@ -1375,6 +1389,7 @@ export default function EnterScoresScreen() {
   const awayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const isMatchplay = match.round_format === 'matchplay';
   const isMedal = match.round_format === 'medal';
+  const roundDuration = formatRoundDuration(match.started_at, match.completed_at);
   // Rick: the detailed player-by-player shot panel (this is the reference
   // "4BBB" look) should show for every multi-player format, not just
   // matchplay — Stableford/Medal groups were falling back to the simplified
@@ -1983,6 +1998,7 @@ export default function EnterScoresScreen() {
                 ? 'Match Halved'
                 : `${match.winner === 'home' ? homeLabel : awayLabel} Win`}
             </Text>
+            {roundDuration && <Text style={s.completeDuration}>Round time: {roundDuration}</Text>}
           </View>
 
           {(match.round_format === 'stableford' || match.secondary_format) && allPlayerIds.length > 0 && (
@@ -2901,6 +2917,7 @@ const s = StyleSheet.create({
   completeTitle: { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 3, marginBottom: 8 },
   completeResult: { fontFamily: FFB, fontSize: 56, color: GOLD, letterSpacing: 2 },
   completeWinner: { fontFamily: FFB, fontSize: 18, color: '#ffffff', marginTop: 4 },
+  completeDuration: { fontFamily: FFB, fontSize: 12, color: '#9ca3af', marginTop: 10 },
 
   summaryCard: {
     marginHorizontal: 16, marginBottom: 12,

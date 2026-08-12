@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"grep -rn \\\"tournament_type\\\" \\\"/Users/davehunt/Desktop/titan-golf/app\\\" \\\"/Users/davehunt/Desktop/titan-golf/lib\\\" \\\"/Users/davehunt/Desktop/titan-golf/utils\\\" 2>/dev/null\",\"description\":\"...",
-  "error": "Exit code 2\n/Users/davehunt/Desktop/titan-golf/app/(app)/admin/build.tsx:274:        tournament_type: tournamentType(selectedFormat),\n/Users/davehunt/Desktop/titan-golf/app/(app)/admin/draw.tsx:55:  tournament_type: string; pts_win: number; pts_half: number;\n/Users/davehunt/Desktop/titan-golf/app/(app)/admin/draw.tsx:112:      supabase.from('competitions').select('id,name,status,tournament_type,pts_win,pts_half,opening_rounds,bonus_points,max_handicap,settings').eq('id', competitionId).single(),...",
-  "timestamp": "2026-08-12T10:57:17.572Z",
+  "tool_input_preview": "{\"command\":\"cd /Users/davehunt/Desktop/titan-golf\\nsupabase db push 2>&1\",\"description\":\"Push the round-timer migration to the live Supabase project\"}",
+  "error": "Exit code 1\nInitialising login role...\nConnecting to remote database...\nSkipping migration 20260806b_tournament_engine_phase5.sql... (file name must match pattern \"<timestamp>_name.sql\")\nSkipping migration 20260806c_tournament_engine_phase7.sql... (file name must match pattern \"<timestamp>_name.sql\")\nSkipping migration 20260807b_admin_update_avatar.sql... (file name must match pattern \"<timestamp>_name.sql\")\nDo you want to push these migrations to the remote database?\n • 20260705_casual_rls.sql\n...",
+  "timestamp": "2026-08-12T11:47:27.837Z",
   "retry_count": 1
 }

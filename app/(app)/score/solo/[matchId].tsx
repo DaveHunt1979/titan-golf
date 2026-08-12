@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { formatRoundDuration } from '../../../../src/lib/roundTimer';
 import { resolveAvatar } from '../../../../src/lib/assets';
 import { sendMatchNotification } from '../../../../src/lib/notifications';
 import { speakHole, speakIntro, speakBack9, speakOutro } from '../../../../src/lib/caddie';
@@ -91,6 +92,8 @@ interface MatchInfo {
   holes_to_play: number | null;
   home_player_ids: string[];
   side_games: string[] | null;
+  started_at: string | null;
+  completed_at: string | null;
   day_id: string | null;
   day: { course_name: string; course_par: number; course_rating: number; slope_rating: number; day_number: number } | null;
 }
@@ -324,9 +327,12 @@ export default function SoloRoundScreen() {
       const result = isStb
         ? `${totalPtsSoFar + pts} pts`
         : `${vsParNew >= 0 ? '+' : ''}${vsParNew}`;
-      await supabase.from('matches').update({ holes_string: newHolesStr, status: newStatus, result_str: result }).eq('id', m.id);
+      const timerFields: { started_at?: string; completed_at?: string } = {};
+      if (!m.started_at) timerFields.started_at = new Date().toISOString();
+      if (newStatus === 'complete' && !m.completed_at) timerFields.completed_at = new Date().toISOString();
+      await supabase.from('matches').update({ holes_string: newHolesStr, status: newStatus, result_str: result, ...timerFields }).eq('id', m.id);
       setSavedScores(prev => [...prev.filter(h => h.hole_number !== hole), { hole_number: hole, gross: score, net, pts }]);
-      setMatch(prev => prev ? { ...prev, holes_string: newHolesStr, status: newStatus } : prev);
+      setMatch(prev => prev ? { ...prev, holes_string: newHolesStr, status: newStatus, ...timerFields } : prev);
       setSaving(false);
       if (newStatus === 'complete') {
         const broken = await checkAndUpdateRecords(matchId as string, m.home_player_ids[0]);
@@ -493,12 +499,17 @@ export default function SoloRoundScreen() {
         return;
       }
 
+      const timerFields2: { started_at?: string; completed_at?: string } = {};
+      if (!match.started_at) timerFields2.started_at = new Date().toISOString();
+      if (newStatus === 'complete' && !match.completed_at) timerFields2.completed_at = new Date().toISOString();
       const { error: matchErr } = await supabase.from('matches').update({
         holes_string: newHolesStr,
         status: newStatus,
         result_str: result,
+        ...timerFields2,
       }).eq('id', matchId);
       if (matchErr) console.error('match update error:', matchErr);
+      else if (Object.keys(timerFields2).length) setMatch(prev => prev ? { ...prev, ...timerFields2 } : prev);
 
       if (snapFairway !== null || snapPutts !== null || snapBunker > 0 || snapPenalty > 0 || snapChips > 0) {
         await supabase.from('hole_stats').upsert({
@@ -803,6 +814,7 @@ export default function SoloRoundScreen() {
             ) : null}
           </>
         ) : (() => {
+          const roundDuration = formatRoundDuration(match?.started_at ?? null, match?.completed_at ?? null);
           const holesWithPar = savedScores.map(sv => {
             const ch = courseHoles.find(c => c.hole_number === sv.hole_number);
             return { ...sv, par: ch?.par ?? 0, vsPar: sv.gross - (ch?.par ?? 0) };
@@ -823,6 +835,7 @@ export default function SoloRoundScreen() {
               <Text style={s.completeDetail}>
                 {isStableford ? `${totalGross} gross · ${totalPts} pts` : `${totalGross} gross · ${totalNet} net`}
               </Text>
+              {roundDuration && <Text style={s.completeDuration}>Round time: {roundDuration}</Text>}
               <View style={s.statGrid}>
                 {eagles  > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: GOLD }]}>{eagles}</Text><Text style={s.statLbl}>Eagle{eagles !== 1 ? 's' : ''}</Text></View>}
                 {birdies > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: RED }]}>{birdies}</Text><Text style={s.statLbl}>Birdie{birdies !== 1 ? 's' : ''}</Text></View>}
@@ -1294,6 +1307,7 @@ const s = StyleSheet.create({
   completeTitle:  { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 3, marginTop: 8 },
   completeScore:  { fontFamily: FFB, fontSize: 60, letterSpacing: -1 },
   completeDetail: { fontFamily: FFB, fontSize: 13, color: '#fff' },
+  completeDuration: { fontFamily: FFB, fontSize: 12, color: '#9ca3af', marginTop: 6 },
   statGrid:     { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 20, marginBottom: 8 },
   statBox:      { alignItems: 'center', minWidth: 68, backgroundColor: '#111111', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: '#1c1c1c' },
   statVal:      { fontFamily: FFB, fontSize: 24 },
