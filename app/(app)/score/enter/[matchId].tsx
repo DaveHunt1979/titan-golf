@@ -1769,8 +1769,15 @@ export default function EnterScoresScreen() {
                     which naturally pushes RANGE/SHOTS/LEADERS down. */}
                 {showInlineShots && (() => {
                   const isStablefordScoreMode = match.round_format === 'stableford';
+                  // Medal already ranked by raw gross-vs-par here — Matchplay
+                  // (Singles/4BBB/4BBB Stroke) reaches this same generic
+                  // screen too but fell through to a blank '—' row for every
+                  // player. Every non-Stableford variation now gets that same
+                  // vsPar ranking: it's the plain scratch score, so it can
+                  // never leak a side game's points into the main-game table.
+                  const isVsParMode = !isStablefordScoreMode;
                   const sorted = [...allPlayerIds].sort((a, b) => {
-                    if (isMedal) {
+                    if (isVsParMode) {
                       const aPlayed = medalStats[a]?.played ?? 0;
                       const bPlayed = medalStats[b]?.played ?? 0;
                       if (aPlayed === 0 && bPlayed === 0) return 0;
@@ -1778,10 +1785,6 @@ export default function EnterScoresScreen() {
                       if (bPlayed === 0) return -1;
                       return (medalStats[a]?.vsPar ?? 0) - (medalStats[b]?.vsPar ?? 0);
                     }
-                    // playerTotals is the background side game's own tally
-                    // for every non-Stableford format — never sort by it,
-                    // or side-game standing leaks into main-game rank order.
-                    if (!isStablefordScoreMode) return 0;
                     return (playerTotals[b] ?? 0) - (playerTotals[a] ?? 0);
                   });
                   const topScore = playerTotals[sorted[0]] ?? 0;
@@ -1794,12 +1797,12 @@ export default function EnterScoresScreen() {
                         const src = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
                         const firstName = (playerNames[id] ?? '?').split(' ')[0];
                         const total = playerTotals[id] ?? 0;
-                        const scoreStr = isMedal
+                        const scoreStr = isVsParMode
                           ? ((medalStats[id]?.played ?? 0) > 0 ? formatVsPar(medalStats[id].vsPar) : '—')
-                          : (isStablefordScoreMode && total > 0 ? `${total}pts` : '—');
-                        const isLeader = isMedal
+                          : (total > 0 ? `${total}pts` : '—');
+                        const isLeader = isVsParMode
                           ? rank === 0 && (medalStats[id]?.played ?? 0) > 0
-                          : rank === 0 && isStablefordScoreMode && topScore > 0;
+                          : rank === 0 && topScore > 0;
                         return (
                           <TouchableOpacity key={id} style={s.lbRow} onPress={() => setEditPlayerId(id)} activeOpacity={0.7}>
                             <Text style={[s.lbRank, { color: isLeader ? GOLD : '#555' }]}>{rank + 1}</Text>

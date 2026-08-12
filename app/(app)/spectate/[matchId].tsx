@@ -33,6 +33,7 @@ interface MatchDetail {
   home_player_ids: string[];
   away_player_ids: string[];
   round_format: 'matchplay' | 'stableford' | 'medal' | 'team_stableford';
+  secondary_format: string | null;
   competition_id: string | null;
   hcp_allowance: number | null;
   handicap_method: string | null;
@@ -526,6 +527,34 @@ export default function SpectateScreen() {
           </View>
         )}
 
+        {/* ── Side game / Stableford leaderboard — mirrors score/enter's own
+            "2ND GAME" summary. Spectator Mode had no standings for the
+            secondary Stableford game at all (Matchplay/Medal groups), or for
+            a multi-player plain-Stableford group beyond the per-player pts on
+            the hero cards above — gated the same way score/enter gates its
+            own version so it only shows where a game actually exists. ── */}
+        {(match.round_format === 'stableford' || !!match.secondary_format) && allPlayerIds.length > 1 && (
+          <View style={s.lbCard}>
+            <Text style={s.lbTitle}>
+              {match.secondary_format ? '2ND GAME · STABLEFORD' : 'STABLEFORD LEADERBOARD'}
+            </Text>
+            {[...allPlayerIds]
+              .sort((a, b) => (stablefordTotals[b] ?? 0) - (stablefordTotals[a] ?? 0))
+              .map((id, rank) => {
+                const total = stablefordTotals[id] ?? 0;
+                const isLeader = rank === 0 && total > 0;
+                return (
+                  <View key={id} style={s.lbRow}>
+                    <Text style={[s.lbRank, { color: isLeader ? GOLD : '#555' }]}>{rank + 1}</Text>
+                    <SideAvatar playerIds={[id]} team={null} teamId={null} size={28} getFirstName={firstName} getAvatar={getAvatar} />
+                    <Text style={[s.lbName, !isLeader && { opacity: 0.6 }]} numberOfLines={1}>{firstName(id)}</Text>
+                    <Text style={[s.lbPts, { color: isLeader ? GOLD : '#fff' }]}>{total > 0 ? `${total}pts` : '—'}</Text>
+                  </View>
+                );
+              })}
+          </View>
+        )}
+
         {/* ── Shot allocation — same detailed panel as score/enter, every
             format, not a simplified spectator-only version ── */}
         {showStrokeAllocation && (
@@ -714,6 +743,18 @@ const s = StyleSheet.create({
   nowLabel: { fontSize: 11, fontFamily: FFB, color: GOLD, letterSpacing: 2, marginBottom: 6 },
   nowRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   nowHole:  { fontSize: 20, fontFamily: FFB, color: '#fff' },
+
+  /* Side game / Stableford leaderboard */
+  lbCard: {
+    backgroundColor: '#111', borderRadius: 10,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 14, marginBottom: 12,
+  },
+  lbTitle: { fontSize: 11, fontFamily: FFB, color: GOLD, letterSpacing: 2, marginBottom: 10 },
+  lbRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  lbRank:  { width: 18, fontSize: 13, fontFamily: FFB, textAlign: 'center' },
+  lbName:  { flex: 1, fontSize: 13, fontFamily: FFB, color: '#fff' },
+  lbPts:   { fontSize: 14, fontFamily: FFB },
 
   /* Shot allocation */
   strokeCard: {

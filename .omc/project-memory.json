@@ -257,14 +257,14 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 170,
-      "lastAccessed": 1786539007623,
+      "accessCount": 177,
+      "lastAccessed": 1786546086108,
       "type": "file"
     },
     {
       "path": "app/(app)/spectate/[matchId].tsx",
-      "accessCount": 95,
-      "lastAccessed": 1786530753714,
+      "accessCount": 100,
+      "lastAccessed": 1786545706946,
       "type": "file"
     },
     {
@@ -281,8 +281,8 @@
     },
     {
       "path": "app/(app)/score/day/[dayId].tsx",
-      "accessCount": 42,
-      "lastAccessed": 1786529746323,
+      "accessCount": 48,
+      "lastAccessed": 1786545351377,
       "type": "file"
     },
     {

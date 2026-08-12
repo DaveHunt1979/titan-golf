@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Share,
   StyleSheet, RefreshControl, ActivityIndicator, Image,
   TextInput, Alert,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
@@ -60,7 +60,12 @@ export default function DayLobby() {
   const [refreshing, setRefreshing] = useState(false);
   const [tab,        setTab]        = useState<'leaderboard' | 'scores'>('scores');
 
-  useEffect(() => { init(); }, [dayId]);
+  // Plain mount-only fetch went stale when this screen was already sitting
+  // in the nav stack (e.g. reached again via the score-entry "Done" button's
+  // router.replace) — the footer kept reading the pre-completion match
+  // status and looped players back into "Score My Group" instead of
+  // "Back to Main Menu". Refetch on focus like every other screen does.
+  useFocusEffect(useCallback(() => { init(); }, [dayId]));
 
   async function init() {
     const { data: { user } } = await supabase.auth.getUser();
