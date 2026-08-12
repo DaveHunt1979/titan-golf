@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"xcrun simctl get_app_container A7E0D0A4-417B-4300-8A81-D2581C05ED1F com.titangolf.app app 2>&1\",\"description\":\"Check if titan golf app is installed on the booted simulator\"}",
+  "error": "Exit code 2\nAn error was encountered processing the command (domain=NSPOSIXErrorDomain, code=2):\nThe operation couldn’t be completed. No such file or directory\nNo such file or directory",
+  "timestamp": "2026-08-12T07:16:06.266Z",
+  "retry_count": 2
+}

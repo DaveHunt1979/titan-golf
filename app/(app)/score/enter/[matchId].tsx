@@ -27,6 +27,7 @@ import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
+import { initials } from '../../../../src/lib/playerDisplay';
 import EagleAlert, { type EagleType } from '../../../../src/components/EagleAlert';
 import { IS_PAD } from '../../../../src/lib/useDeviceLayout';
 import GPSPanel from '../../../../src/components/ipad/GPSPanel';
@@ -1642,16 +1643,17 @@ export default function EnterScoresScreen() {
                         const teamColor = isHome ? homeColor : awayColor;
                         const src = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
                         const firstName = (playerNames[id] ?? '?').split(' ')[0];
-                        // Rick: shorten to first 3 letters here specifically —
-                        // this row's real estate is for the stroke-hole list,
-                        // not the name.
-                        const shortName = firstName.slice(0, 3);
+                        const shortName = initials(playerNames[id] ?? '?');
                         const hcp = matchplayHcp(id);
                         const getsShotHere = shotPlayerIds.includes(id);
                         return (
                           <TouchableOpacity key={id} style={s.lbRow} onPress={() => setEditPlayerId(id)} activeOpacity={0.7}>
                             <Avatar name={firstName} color={teamColor} size={32} source={src} />
-                            <Text style={s.lbName} numberOfLines={1}>{shortName}</Text>
+                            {/* Fixed-width initials (not flex, unlike the
+                                other s.lbName rows) — always 2 characters,
+                                so the freed width goes to the stroke-holes
+                                text instead. */}
+                            <Text style={[s.lbName, { flex: 0, width: 32 }]} numberOfLines={1}>{shortName}</Text>
                             {getsShotHere && (
                               <View style={s.shotPill}>
                                 <Text style={s.shotPillText}>SHOT</Text>
@@ -2729,7 +2731,10 @@ const s = StyleSheet.create({
   },
   holeCardTop:     { flexDirection: 'row', padding: 16, gap: 12 },
   holeCardDivider: { width: 1, backgroundColor: '#1c1c1c' },
-  holeNumberBlock: { width: 110, alignItems: 'flex-start', justifyContent: 'center', gap: 6 },
+  // Just wide enough for a comfortable 2-digit hole number (18 is the
+  // widest we ever show) — was 110, which starved the player rows next to
+  // it of width they needed for full names.
+  holeNumberBlock: { width: 80, alignItems: 'flex-start', justifyContent: 'center', gap: 6 },
   holeWord:        { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 2 },
   holeBig:         { fontFamily: FFB, fontSize: 64, color: '#ffffff', lineHeight: 68, letterSpacing: -2 },
   holeChips:       { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
@@ -2754,7 +2759,7 @@ const s = StyleSheet.create({
   lbRank:         { fontFamily: FFB, fontSize: 12, width: 18, textAlign: 'center' },
   lbName:         { flex: 1, fontFamily: FFB, fontSize: 13, color: '#ffffff' },
   lbPts:          { fontFamily: FFB, fontSize: 13 },
-  lbStrokes:      { fontFamily: FFB, fontSize: 10, color: '#9ca3af', maxWidth: 120, textAlign: 'right', lineHeight: 13 },
+  lbStrokes:      { flex: 1, fontFamily: FFB, fontSize: 10, color: '#9ca3af', textAlign: 'right', lineHeight: 13 },
   lbMore:         { fontFamily: FFB, fontSize: 11, color: '#ffffff', textAlign: 'center', marginTop: 2 },
   shotPill: {
     backgroundColor: GOLD, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2,
