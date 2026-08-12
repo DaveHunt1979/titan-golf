@@ -742,6 +742,11 @@ export default function EnterScoresScreen() {
         const shots = calcStrokesReceived(hcp, si);
         const gross = scores[id] ?? null;
         const net = gross !== null ? gross - shots : null;
+        // Medal with the Stableford side game switched off (secondary_format
+        // null) shouldn't compute Stableford points at all — Rick: "clicked
+        // off Stableford and it is running the side game" — the side game
+        // itself (when it IS on) keeps this exact calculation, untouched.
+        const needsStablefordPts = match.round_format === 'stableford' || !!match.secondary_format;
         return {
           match_id: matchId,
           player_id: id,
@@ -749,7 +754,7 @@ export default function EnterScoresScreen() {
           score: 'd',
           gross_score: gross,
           net_score: net,
-          stableford_pts: calcStablefordPoints(gross, par, shots),
+          stableford_pts: needsStablefordPts ? calcStablefordPoints(gross, par, shots) : null,
         };
       });
 
@@ -932,13 +937,16 @@ export default function EnterScoresScreen() {
       // is using (Rick: "Side game should always be 100%").
       const fullHcp = playerCourseHcp(id, compPlayers, day, 100);
       const sideShots = calcStrokesReceived(fullHcp, si);
+      // Same as the stroke-play write path: only compute this when the
+      // side game is actually switched on (secondary_format set) — toggling
+      // it off must mean it stops running, not just stops being shown.
       return {
         match_id: matchId,
         player_id: id,
         hole_number: activeHole,
         score: holeResult,
         gross_score: gross,
-        stableford_pts: calcStablefordPoints(gross, par, sideShots),
+        stableford_pts: match.secondary_format ? calcStablefordPoints(gross, par, sideShots) : null,
       };
     });
 
@@ -1366,6 +1374,7 @@ export default function EnterScoresScreen() {
   const homeLabel = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const awayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
   const isMatchplay = match.round_format === 'matchplay';
+  const isMedal = match.round_format === 'medal';
   // Rick: the detailed player-by-player shot panel (this is the reference
   // "4BBB" look) should show for every multi-player format, not just
   // matchplay — Stableford/Medal groups were falling back to the simplified
@@ -1380,12 +1389,40 @@ export default function EnterScoresScreen() {
   const leaderName = leaderId ? (playerNames[leaderId] ?? '').split(' ')[0] : null;
   // Single-player Stableford: "Ricky leads · 16pts" doesn't make sense with
   // nobody to lead against — just the points, the sub-line below already
-  // shows "N holes to play". Stableford only, per Rick's spec — Medal (also
-  // isStrokePlay) keeps its existing wording untouched.
+  // shows "N holes to play". Stableford only.
   const isSinglePlayerStableford = match.round_format === 'stableford' && allPlayerIds.length === 1;
-  const leaderStatusText = leaderPts > 0 && (isStrokePlay || match.secondary_format)
-    ? (isSinglePlayerStableford ? `${leaderPts}pts` : `${leaderName} leads · ${leaderPts}pts`)
+
+  // Medal is stroke play — ranked by gross-vs-par, never by the
+  // stableford_pts sum `playerTotals` holds (that column always exists for
+  // the independent side game/stats, main-game vs side-game, same
+  // distinction the Scorecard and score-entry modal below make). Adding
+  // more players must not turn Medal into a Stableford-scored game.
+  const medalParByHole: Record<number, number> = {};
+  courseHoles.forEach(h => { medalParByHole[h.hole_number] = h.par; });
+  const medalStats: Record<string, { vsPar: number; played: number }> = {};
+  for (const id of allPlayerIds) {
+    const entries = Object.entries(holeData[id] ?? {}).filter(([, d]) => d.gross != null);
+    medalStats[id] = {
+      vsPar: entries.reduce((sum, [h, d]) => sum + ((d.gross ?? 0) - (medalParByHole[Number(h)] ?? 0)), 0),
+      played: entries.length,
+    };
+  }
+  const medalPlayedIds = allPlayerIds.filter(id => (medalStats[id]?.played ?? 0) > 0);
+  const medalLeaderId = medalPlayedIds.length
+    ? medalPlayedIds.reduce((best, id) => (medalStats[id].vsPar < medalStats[best].vsPar ? id : best), medalPlayedIds[0])
     : null;
+  const medalLeaderName = medalLeaderId ? (playerNames[medalLeaderId] ?? '').split(' ')[0] : null;
+  const medalLeaderText = medalLeaderId
+    ? (allPlayerIds.length === 1
+        ? formatVsPar(medalStats[medalLeaderId].vsPar)
+        : `${medalLeaderName} leads · ${formatVsPar(medalStats[medalLeaderId].vsPar)}`)
+    : null;
+
+  const leaderStatusText = isMedal
+    ? medalLeaderText
+    : (leaderPts > 0 && (isStrokePlay || match.secondary_format)
+        ? (isSinglePlayerStableford ? `${leaderPts}pts` : `${leaderName} leads · ${leaderPts}pts`)
+        : null);
   const { homeUp: liveHomeUp } = calcHoles(sequencedHolesStr);
   const holesLeft = sequencedHolesStr.split('').filter(c => c === '.').length;
 
@@ -1659,64 +1696,10 @@ export default function EnterScoresScreen() {
                                 <Text style={s.shotPillText}>SHOT</Text>
                               </View>
                             )}
-                            <Text style={s.lbStrokes} numberOfLines={2}>{formatStrokeHoles(hcp, playedCourseHoles)}</Text>
+                            <Text style={s.lbStrokes} numberOfLines={3}>{formatStrokeHoles(hcp, playedCourseHoles)}</Text>
                           </TouchableOpacity>
                         );
                       })}
-                    </View>
-                  ) : allPlayerIds.length > 1 ? (
-                    <View style={s.leaderboard}>
-                      {(() => {
-                        const isMedal = match.round_format === 'medal';
-                        // Medal is stroke play — ranked by actual gross-vs-par, never
-                        // by the background stableford_pts total (that's a different
-                        // number, kept only for the independent side game/stats).
-                        const parByHole: Record<number, number> = {};
-                        courseHoles.forEach(h => { parByHole[h.hole_number] = h.par; });
-                        const medalStats: Record<string, { vsPar: number; played: number }> = {};
-                        if (isMedal) {
-                          allPlayerIds.forEach(id => {
-                            const entries = Object.entries(holeData[id] ?? {}).filter(([, d]) => d.gross != null);
-                            const vsPar = entries.reduce((sum, [h, d]) => sum + ((d.gross ?? 0) - (parByHole[Number(h)] ?? 0)), 0);
-                            medalStats[id] = { vsPar, played: entries.length };
-                          });
-                        }
-                        const sorted = [...allPlayerIds].sort((a, b) => {
-                          if (isMedal) {
-                            const aPlayed = medalStats[a]?.played ?? 0;
-                            const bPlayed = medalStats[b]?.played ?? 0;
-                            if (aPlayed === 0 && bPlayed === 0) return 0;
-                            if (aPlayed === 0) return 1;
-                            if (bPlayed === 0) return -1;
-                            return (medalStats[a]?.vsPar ?? 0) - (medalStats[b]?.vsPar ?? 0);
-                          }
-                          const aVal = playerTotals[a] ?? 0;
-                          const bVal = playerTotals[b] ?? 0;
-                          return bVal - aVal;
-                        });
-                        const topScore = playerTotals[sorted[0]] ?? 0;
-                        return sorted.map((id, rank) => {
-                          const isHome = match.home_player_ids.includes(id);
-                          const teamColor = isHome ? homeColor : awayColor;
-                          const src = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
-                          const firstName = (playerNames[id] ?? '?').split(' ')[0];
-                          const total = playerTotals[id] ?? 0;
-                          const isStablefordMode = (isStrokePlay && !isMedal) || !!match.secondary_format;
-                          const scoreStr = isMedal
-                            ? ((medalStats[id]?.played ?? 0) > 0 ? formatVsPar(medalStats[id].vsPar) : '—')
-                            : (total > 0 ? (isStablefordMode ? `${total}pts` : `${total}`) : '—');
-                          const isLeader = isMedal
-                            ? rank === 0 && (medalStats[id]?.played ?? 0) > 0
-                            : rank === 0 && topScore > 0;
-                          return (
-                            <TouchableOpacity key={id} style={s.lbRow} onPress={() => setEditPlayerId(id)} activeOpacity={0.7}>
-                              <Avatar name={firstName} color={teamColor} size={32} source={src} />
-                              <Text style={[s.lbName, !isLeader && { opacity: 0.5 }]} numberOfLines={1}>{firstName}</Text>
-                              <Text style={[s.lbPts, { color: isLeader ? GOLD : '#fff' }]}>{scoreStr}</Text>
-                            </TouchableOpacity>
-                          );
-                        });
-                      })()}
                     </View>
                   ) : isSinglePlayerStableford ? (
                     <View style={s.soloStatBlock}>
@@ -1734,6 +1717,56 @@ export default function EnterScoresScreen() {
                     </View>
                   ) : null}
                 </View>
+
+                {/* Mini leaderboard — Rick: this used to show here before the
+                    SHOT-badge panel took over; wants it back underneath as
+                    its own compact table (not replacing the SHOT panel),
+                    which naturally pushes RANGE/SHOTS/LEADERS down. */}
+                {showInlineShots && (() => {
+                  const isStablefordScoreMode = match.round_format === 'stableford';
+                  const sorted = [...allPlayerIds].sort((a, b) => {
+                    if (isMedal) {
+                      const aPlayed = medalStats[a]?.played ?? 0;
+                      const bPlayed = medalStats[b]?.played ?? 0;
+                      if (aPlayed === 0 && bPlayed === 0) return 0;
+                      if (aPlayed === 0) return 1;
+                      if (bPlayed === 0) return -1;
+                      return (medalStats[a]?.vsPar ?? 0) - (medalStats[b]?.vsPar ?? 0);
+                    }
+                    // playerTotals is the background side game's own tally
+                    // for every non-Stableford format — never sort by it,
+                    // or side-game standing leaks into main-game rank order.
+                    if (!isStablefordScoreMode) return 0;
+                    return (playerTotals[b] ?? 0) - (playerTotals[a] ?? 0);
+                  });
+                  const topScore = playerTotals[sorted[0]] ?? 0;
+                  return (
+                    <View style={s.miniLb}>
+                      <Text style={s.lbGroupHeader}>LEADERBOARD</Text>
+                      {sorted.map((id, rank) => {
+                        const isHome = match.home_player_ids.includes(id);
+                        const teamColor = isHome ? homeColor : awayColor;
+                        const src = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
+                        const firstName = (playerNames[id] ?? '?').split(' ')[0];
+                        const total = playerTotals[id] ?? 0;
+                        const scoreStr = isMedal
+                          ? ((medalStats[id]?.played ?? 0) > 0 ? formatVsPar(medalStats[id].vsPar) : '—')
+                          : (isStablefordScoreMode && total > 0 ? `${total}pts` : '—');
+                        const isLeader = isMedal
+                          ? rank === 0 && (medalStats[id]?.played ?? 0) > 0
+                          : rank === 0 && isStablefordScoreMode && topScore > 0;
+                        return (
+                          <TouchableOpacity key={id} style={s.lbRow} onPress={() => setEditPlayerId(id)} activeOpacity={0.7}>
+                            <Text style={[s.lbRank, { color: isLeader ? GOLD : '#555' }]}>{rank + 1}</Text>
+                            <Avatar name={firstName} color={teamColor} size={28} source={src} />
+                            <Text style={[s.lbName, !isLeader && { opacity: 0.5 }]} numberOfLines={1}>{firstName}</Text>
+                            <Text style={[s.lbPts, { color: isLeader ? GOLD : '#fff' }]}>{scoreStr}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  );
+                })()}
 
                 {/* Gets a shot — shown here whenever the inline SHOT-badge panel
                     above isn't the one rendering (non-Matchplay formats, or a
@@ -2298,11 +2331,15 @@ export default function EnterScoresScreen() {
 
                     <View style={{ alignItems: 'center', marginTop: 10, minHeight: 36 }}>
                       {selectedScore ? (
-                        stablePts !== null
-                          ? (
-                            <Text style={{ fontFamily: FFB, fontSize: 22, color: '#fff' }}>{stablePts}<Text style={{ fontFamily: FFB, fontSize: 13, color: '#fff' }}> pts</Text></Text>
-                          )
-                          : null
+                        isMedal
+                          ? (scoreLabel ? (
+                              <Text style={{ fontFamily: FFB, fontSize: 16, color: '#fff', letterSpacing: 1 }}>{scoreLabel}</Text>
+                            ) : null)
+                          : stablePts !== null
+                            ? (
+                              <Text style={{ fontFamily: FFB, fontSize: 22, color: '#fff' }}>{stablePts}<Text style={{ fontFamily: FFB, fontSize: 13, color: '#fff' }}> pts</Text></Text>
+                            )
+                            : null
                       ) : (
                         <Text style={{ fontFamily: FF, fontSize: 13, color: '#ffffff' }}>tap a number or use arrows</Text>
                       )}
@@ -2563,7 +2600,12 @@ function Scorecard({ startHole, allPlayerIds, playerNames, holeData, courseHoles
     const ch = courseHoles.find(c => c.hole_number === h);
     return a + (ch?.par ?? 0);
   }, 0);
-  const showPts = roundFormat === 'stableford' || !!secondaryFormat;
+  // Medal must always show gross strokes here, even with a Stableford side
+  // game attached — the side game's points belong in its own "2ND GAME"
+  // summary, never in the main Medal scorecard. secondaryFormat only flips
+  // this on for Matchplay (the existing 4BBB Stroke Matchplay + side-game
+  // inline-points feature).
+  const showPts = roundFormat === 'stableford' || (roundFormat === 'matchplay' && !!secondaryFormat);
 
   return (
     <ScrollView style={{ width: screenWidth }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
@@ -2766,6 +2808,10 @@ const s = StyleSheet.create({
   },
   shotPillText: { fontFamily: FFB, fontSize: 9, color: '#000', letterSpacing: 0.5 },
 
+  miniLb: {
+    paddingHorizontal: 16, paddingVertical: 12, gap: 8,
+    borderTopWidth: 1, borderTopColor: '#1a1a1a',
+  },
   shotRow: {
     paddingHorizontal: 16, paddingVertical: 10,
     borderTopWidth: 1, borderTopColor: '#1a1a1a',

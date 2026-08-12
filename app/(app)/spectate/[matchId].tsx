@@ -533,7 +533,7 @@ export default function SpectateScreen() {
                       <Text style={s.shotPillText}>SHOT</Text>
                     </View>
                   )}
-                  <Text style={s.strokeText} numberOfLines={2}>{text}</Text>
+                  <Text style={s.strokeText} numberOfLines={3}>{text}</Text>
                 </View>
               );
             })}
