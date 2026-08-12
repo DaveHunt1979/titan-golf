@@ -257,14 +257,14 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 125,
-      "lastAccessed": 1786529981433,
+      "accessCount": 127,
+      "lastAccessed": 1786530599404,
       "type": "file"
     },
     {
       "path": "app/(app)/spectate/[matchId].tsx",
-      "accessCount": 92,
-      "lastAccessed": 1786526209931,
+      "accessCount": 95,
+      "lastAccessed": 1786530753714,
       "type": "file"
     },
     {
@@ -292,15 +292,15 @@
       "type": "file"
     },
     {
-      "path": "app.json",
-      "accessCount": 24,
-      "lastAccessed": 1786521136656,
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 29,
+      "lastAccessed": 1786530690461,
       "type": "file"
     },
     {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 21,
-      "lastAccessed": 1786529850806,
+      "path": "app.json",
+      "accessCount": 24,
+      "lastAccessed": 1786521136656,
       "type": "file"
     },
     {
@@ -361,6 +361,12 @@
       "path": "app/(app)/games/index.tsx",
       "accessCount": 3,
       "lastAccessed": 1786439815111,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/courses.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1786530594593,
       "type": "file"
     },
     {
@@ -535,12 +541,6 @@
       "path": "app/(app)/admin/draw.tsx",
       "accessCount": 1,
       "lastAccessed": 1786429252060,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/admin/courses.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1786429356567,
       "type": "file"
     },
     {

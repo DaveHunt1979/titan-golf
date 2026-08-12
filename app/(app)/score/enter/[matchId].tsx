@@ -1657,7 +1657,19 @@ export default function EnterScoresScreen() {
                     ) : (
                       <>
                         <Text style={s.holeWord}>HOLE</Text>
-                        <Text style={[s.holeBig, isSinglePlayerStableford && s.holeBigSolo]}>{activeHole}</Text>
+                        {/* Force one line regardless of the device's text-
+                            size/zoom setting — without this, a 2-digit hole
+                            number can wrap into a digit stacked on a digit
+                            when Dynamic Type is scaled up. */}
+                        <Text
+                          style={[s.holeBig, isSinglePlayerStableford && s.holeBigSolo]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.5}
+                          allowFontScaling={false}
+                        >
+                          {activeHole}
+                        </Text>
                       </>
                     )}
                     <View style={s.holeChips}>

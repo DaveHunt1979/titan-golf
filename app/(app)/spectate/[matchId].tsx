@@ -434,14 +434,24 @@ export default function SpectateScreen() {
                   top-of-name card per player instead of the two-team
                   layout (same pattern as score/preview's isSolo branch). */}
               <View style={s.heroSoloRow}>
-                {match.home_player_ids.map(id => (
-                  <View key={id} style={s.heroPlayerCard}>
-                    <View style={s.heroPlayerAvatarRing}>
-                      <SideAvatar playerIds={[id]} team={null} teamId={null} size={52} getFirstName={firstName} getAvatar={getAvatar} />
+                {match.home_player_ids.map(id => {
+                  // Main-game score under the name — vs-par for Medal
+                  // (never Stableford points, per the Medal fix), points
+                  // for Stableford/Team Stableford.
+                  const medalStat = medalStats[id];
+                  const playerScore = isMedal
+                    ? ((medalStat?.played ?? 0) > 0 ? formatVsPar(medalStat.vsPar) : '—')
+                    : ((stablefordTotals[id] ?? 0) > 0 ? `${stablefordTotals[id]} PTS` : '—');
+                  return (
+                    <View key={id} style={s.heroPlayerCard}>
+                      <View style={s.heroPlayerAvatarRing}>
+                        <SideAvatar playerIds={[id]} team={null} teamId={null} size={52} getFirstName={firstName} getAvatar={getAvatar} />
+                      </View>
+                      <Text style={s.heroPlayerName} numberOfLines={1}>{firstName(id)}</Text>
+                      <Text style={s.heroPlayerScore} numberOfLines={1}>{playerScore}</Text>
                     </View>
-                    <Text style={s.heroPlayerName} numberOfLines={1}>{firstName(id)}</Text>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             </>
           ) : (
@@ -679,6 +689,7 @@ const s = StyleSheet.create({
   heroPlayerCard:       { alignItems: 'center', gap: 6, width: 66 },
   heroPlayerAvatarRing: { borderRadius: 29, borderWidth: 2, borderColor: `${GOLD}40`, padding: 2 },
   heroPlayerName:       { fontSize: 13, fontFamily: FFB, color: '#fff' },
+  heroPlayerScore:      { fontSize: 15, fontFamily: FFB, color: GOLD },
   heroSoloStatus:       { alignItems: 'center', marginBottom: 14 },
 
   heroCenter: { alignItems: 'center', paddingHorizontal: 8, paddingTop: 8, minWidth: 72 },

@@ -21,7 +21,7 @@ type GameMode  = '4bbb' | '4bbb_stroke' | 'singles' | 'stableford' | 'medal' | '
 type HolesMode = 'full18' | 'front9' | 'back9';
 
 interface Player      { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
-interface CourseItem  { name: string; par: number; }
+interface CourseItem  { name: string; par: number; hasGps: boolean; }
 interface PlayerGroup { id: string; name: string; player_ids: string[]; }
 
 const GREEN = '#22c55e';
@@ -448,7 +448,10 @@ function CourseSheet({
             const on = item.name === selected;
             return (
               <TouchableOpacity style={ps.sheetRow} onPress={() => { onSelect(item.name); onClose(); setSearch(''); }} activeOpacity={0.7}>
-                <Text style={[ps.sheetOpt, on && ps.sheetOptOn]}>{item.name}</Text>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[ps.sheetOpt, on && ps.sheetOptOn]} numberOfLines={1}>{item.name}</Text>
+                  {item.hasGps && <Ionicons name="location" size={13} color={GOLD} />}
+                </View>
                 <Text style={ps.courseParLabel}>Par {item.par}</Text>
                 {on && <Ionicons name="checkmark" size={16} color={GOLD} style={{ marginLeft: 6 }} />}
               </TouchableOpacity>
@@ -591,11 +594,20 @@ export default function NewGameScreen() {
 
   useEffect(() => {
     if (societyLoading) return;
-    supabase.from('course_holes').select('course_name, par').then(({ data }) => {
+    // green_lat/green_lng populated (via the admin GPS download tool) is
+    // the same signal the rangefinder itself checks for — a course "has
+    // GPS data" once at least one hole carries it.
+    supabase.from('course_holes').select('course_name, par, green_lat, green_lng').then(({ data }) => {
       if (data) {
-        const map: Record<string, number> = {};
-        for (const row of data as any[]) map[row.course_name] = (map[row.course_name] ?? 0) + row.par;
-        setCourses(Object.entries(map).map(([name, par]) => ({ name, par })).sort((a, b) => a.name.localeCompare(b.name)));
+        const parMap: Record<string, number> = {};
+        const gpsMap: Record<string, boolean> = {};
+        for (const row of data as any[]) {
+          parMap[row.course_name] = (parMap[row.course_name] ?? 0) + row.par;
+          if (row.green_lat != null && row.green_lng != null) gpsMap[row.course_name] = true;
+        }
+        setCourses(Object.entries(parMap)
+          .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name] }))
+          .sort((a, b) => a.name.localeCompare(b.name)));
       }
       setLoadingCourses(false);
     });
