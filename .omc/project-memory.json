@@ -334,15 +334,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/players.tsx",
-      "accessCount": 6,
-      "lastAccessed": 1786429329749,
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1786532285743,
       "type": "file"
     },
     {
-      "path": "app/(app)/tour/index.tsx",
+      "path": "app/(app)/admin/players.tsx",
       "accessCount": 6,
-      "lastAccessed": 1786438826977,
+      "lastAccessed": 1786429329749,
       "type": "file"
     },
     {
@@ -415,6 +415,12 @@
       "path": "screenshots/IMG_6062.PNG",
       "accessCount": 2,
       "lastAccessed": 1786357221088,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/draw.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786532256060,
       "type": "file"
     },
     {
@@ -535,12 +541,6 @@
       "path": "screenshots/Screenshot 2026-08-11 at 07.18.23.png",
       "accessCount": 1,
       "lastAccessed": 1786429150021,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/admin/draw.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1786429252060,
       "type": "file"
     },
     {

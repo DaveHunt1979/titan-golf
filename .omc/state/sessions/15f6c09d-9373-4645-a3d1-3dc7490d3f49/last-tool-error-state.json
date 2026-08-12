@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"grep -rln \\\"GroupBuilder\\\\|BuiltMatch\\\" /Users/davehunt/Desktop/titan-golf/app /Users/davehunt/Desktop/titan-golf/components 2>/dev/null\"}",
-  "error": "Exit code 2\n/Users/davehunt/Desktop/titan-golf/app/(app)/_layout.tsx\n/Users/davehunt/Desktop/titan-golf/app/(app)/games/GroupBuilderSheet.tsx\n/Users/davehunt/Desktop/titan-golf/app/(app)/games/new.tsx",
-  "timestamp": "2026-08-12T10:17:55.225Z",
+  "tool_input_preview": "{\"command\":\"grep -rn \\\"tournament_type\\\" \\\"/Users/davehunt/Desktop/titan-golf/app\\\" \\\"/Users/davehunt/Desktop/titan-golf/lib\\\" \\\"/Users/davehunt/Desktop/titan-golf/utils\\\" 2>/dev/null\",\"description\":\"...",
+  "error": "Exit code 2\n/Users/davehunt/Desktop/titan-golf/app/(app)/admin/build.tsx:274:        tournament_type: tournamentType(selectedFormat),\n/Users/davehunt/Desktop/titan-golf/app/(app)/admin/draw.tsx:55:  tournament_type: string; pts_win: number; pts_half: number;\n/Users/davehunt/Desktop/titan-golf/app/(app)/admin/draw.tsx:112:      supabase.from('competitions').select('id,name,status,tournament_type,pts_win,pts_half,opening_rounds,bonus_points,max_handicap,settings').eq('id', competitionId).single(),...",
+  "timestamp": "2026-08-12T10:57:17.572Z",
   "retry_count": 1
 }
