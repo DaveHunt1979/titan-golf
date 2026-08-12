@@ -2143,6 +2143,29 @@ export default function EnterScoresScreen() {
             </View>
           </View>
 
+          {/* Done comes first — the obvious next step once you've checked the
+              scorecard. Correct Hole / Edit Scores (below) both reopen the
+              round, and used to sit above Done with no visual distinction
+              from it, which read as "no way to just finish" (Rick, Stableford). */}
+          <TouchableOpacity
+            style={s.doneBtn}
+            onPress={() => {
+              const dayId = match?.day_id ?? (match as any)?.day?.id;
+              if (dayId) {
+                router.replace(`/(app)/score/day/${dayId}` as any);
+              } else {
+                router.replace('/(app)/' as any);
+              }
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={s.doneBtnText}>Done</Text>
+          </TouchableOpacity>
+
+          {(lastPlayedHole > 0 || isStrokePlay) && (
+            <Text style={s.fixMistakeLabel}>Made a mistake?</Text>
+          )}
+
           {lastPlayedHole > 0 && (
             <TouchableOpacity
               style={s.undoBtn}
@@ -2178,21 +2201,6 @@ export default function EnterScoresScreen() {
               <Text style={s.undoBtnText}>Edit Scores</Text>
             </TouchableOpacity>
           )}
-
-          <TouchableOpacity
-            style={s.doneBtn}
-            onPress={() => {
-              const dayId = match?.day_id ?? (match as any)?.day?.id;
-              if (dayId) {
-                router.replace(`/(app)/score/day/${dayId}` as any);
-              } else {
-                router.replace('/(app)/' as any);
-              }
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={s.doneBtnText}>Done</Text>
-          </TouchableOpacity>
 
         </ScrollView>
       )}
@@ -2898,6 +2906,7 @@ const s = StyleSheet.create({
     alignItems: 'center', marginTop: 8, marginBottom: 32,
   },
   doneBtnText: { fontFamily: FFB, fontSize: 18, color: '#000' },
+  fixMistakeLabel: { fontFamily: FFB, fontSize: 11, color: '#6b7280', textAlign: 'center', marginBottom: 8, letterSpacing: 0.5 },
   deleteLink:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 16, marginBottom: 8 },
   deleteLinkText: { fontFamily: FFB, fontSize: 12, color: '#ffffff' },
 
