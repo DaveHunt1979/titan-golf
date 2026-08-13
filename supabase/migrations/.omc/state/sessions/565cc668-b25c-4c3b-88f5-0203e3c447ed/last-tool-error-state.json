@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"mv /tmp/titan_migrations_stash/20260812_round_timer.sql supabase/migrations/ && ls supabase/migrations\"}",
+  "error": "Exit code 1\nmv: rename /tmp/titan_migrations_stash/20260812_round_timer.sql to supabase/migrations/: No such file or directory",
+  "timestamp": "2026-08-13T10:23:36.693Z",
+  "retry_count": 1
+}

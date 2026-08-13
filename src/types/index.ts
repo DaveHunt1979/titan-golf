@@ -20,6 +20,7 @@ export interface Player {
   nickname: string | null;
   cdh_number: string | null;
   bag: Record<string, { brand?: string; model?: string }> | null;
+  t_tag: string | null;
 }
 
 export interface Team {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
   ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, Modal, Switch,
+  Clipboard,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -99,6 +100,12 @@ export default function ProfileScreen() {
   }
 
   function cancelEdit() { setEditing(false); }
+
+  function copyTag() {
+    if (!player?.t_tag) return;
+    Clipboard.setString(`@${player.t_tag}`);
+    Alert.alert('Copied', `@${player.t_tag} copied to clipboard.`);
+  }
 
   async function pickImage() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -297,6 +304,12 @@ export default function ProfileScreen() {
               <View style={s.eliteDot} />
               <Text style={s.eliteText}>{player?.nickname ? `"${player.nickname}"` : `${themeSocietyName} Member`}</Text>
             </View>
+            {player?.t_tag && (
+              <TouchableOpacity style={s.tagRow} onPress={copyTag} activeOpacity={0.7} hitSlop={HIT}>
+                <Text style={[s.tagText, { color: dc.gold }]}>@{player.t_tag}</Text>
+                <Ionicons name="copy-outline" size={12} color={dc.gold} />
+              </TouchableOpacity>
+            )}
             <View style={s.statsRow}>
               <View style={s.statBox}>
                 <Text style={s.statLabel}>HANDICAP</Text>
@@ -675,6 +688,8 @@ function makeStyles(dc: { white: string; bg: string; card: string; border: strin
     badgeRow:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
     eliteDot:     { width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN },
     eliteText:    { fontFamily: FFB, fontSize: 12, color: GREEN },
+    tagRow:       { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
+    tagText:      { fontFamily: FFB, fontSize: 12, letterSpacing: 0.3 },
     statsRow:     { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
     statBox:      { flex: 1, gap: 2 },
     statDivider:  { width: 1, height: 28, backgroundColor: dc.border, marginHorizontal: 12 },
