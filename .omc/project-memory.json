@@ -257,8 +257,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 177,
-      "lastAccessed": 1786546086108,
+      "accessCount": 182,
+      "lastAccessed": 1786607979789,
       "type": "file"
     },
     {
@@ -299,8 +299,8 @@
     },
     {
       "path": "app.json",
-      "accessCount": 25,
-      "lastAccessed": 1786536889478,
+      "accessCount": 27,
+      "lastAccessed": 1786608038678,
       "type": "file"
     },
     {
@@ -310,21 +310,27 @@
       "type": "file"
     },
     {
+      "path": "ios/titangolf.xcodeproj/project.pbxproj",
+      "accessCount": 20,
+      "lastAccessed": 1786608050428,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/score/preview/[matchId].tsx",
       "accessCount": 18,
       "lastAccessed": 1786534968841,
       "type": "file"
     },
     {
-      "path": "ios/titangolf.xcodeproj/project.pbxproj",
-      "accessCount": 18,
-      "lastAccessed": 1786536876957,
-      "type": "file"
-    },
-    {
       "path": "app/_layout.tsx",
       "accessCount": 10,
       "lastAccessed": 1786448772646,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/courses.tsx",
+      "accessCount": 10,
+      "lastAccessed": 1786609555340,
       "type": "file"
     },
     {
@@ -361,12 +367,6 @@
       "path": "app/(app)/games/index.tsx",
       "accessCount": 3,
       "lastAccessed": 1786439815111,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/admin/courses.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1786530594593,
       "type": "file"
     },
     {

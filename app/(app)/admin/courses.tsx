@@ -453,27 +453,35 @@ export default function CoursesScreen() {
     }
   }
 
-  function confirmDelete() {
-    if (!editingName) return;
+  // Shared by the modal's "Delete Course" button and the quick trash icon on
+  // each list row — Rick/Dave have look-alike duplicate courses that were
+  // only reachable for deletion via the full edit flow (tap row → Next →
+  // scroll to bottom), which made it slow to pick the right one to remove.
+  function deleteCourse(name: string) {
     Alert.alert(
-      `Delete "${editingName}"?`,
-      'This removes all hole data for this course.',
+      `Delete "${name}"?`,
+      'This permanently removes all hole data for this course.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete', style: 'destructive',
           onPress: async () => {
             setSaving(true);
-            const { error } = await supabase.from('course_holes').delete().eq('course_name', editingName);
-            if (!error) await supabase.from('courses').delete().eq('name', editingName);
+            const { error } = await supabase.from('course_holes').delete().eq('course_name', name);
+            if (!error) await supabase.from('courses').delete().eq('name', name);
             setSaving(false);
             if (error) { Alert.alert('Error', error.message); return; }
-            setModal(false);
+            if (editingName === name) setModal(false);
             await loadCourses();
           },
         },
       ],
     );
+  }
+
+  function confirmDelete() {
+    if (!editingName) return;
+    deleteCourse(editingName);
   }
 
   const front9Par = holes.slice(0, 9).reduce((s, h) => s + h.par, 0);
@@ -547,23 +555,33 @@ export default function CoursesScreen() {
           return (
             <>
               {filtered.map(c => (
-                <TouchableOpacity
-                  key={c.name}
-                  style={s.courseRow}
-                  onPress={() => openEdit(c.name)}
-                  activeOpacity={0.7}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.courseName}>{c.name}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={s.courseMeta}>{c.holeCount} holes · Par {c.par}</Text>
-                      {c.incomplete && (
-                        <Text style={s.incompleteTag}>⚠️ Card needed</Text>
-                      )}
+                <View key={c.name} style={s.courseRow}>
+                  <TouchableOpacity
+                    style={s.courseRowContent}
+                    onPress={() => openEdit(c.name)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.courseName}>{c.name}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={s.courseMeta}>{c.holeCount} holes · Par {c.par}</Text>
+                        {c.incomplete && (
+                          <Text style={s.incompleteTag}>⚠️ Card needed</Text>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                  <Text style={s.arrow}>›</Text>
-                </TouchableOpacity>
+                    <Text style={s.arrow}>›</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => deleteCourse(c.name)}
+                    disabled={saving}
+                    hitSlop={hit}
+                    style={s.rowDeleteBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={s.rowDeleteIcon}>🗑</Text>
+                  </TouchableOpacity>
+                </View>
               ))}
               {!searchQuery && (
                 <TouchableOpacity style={s.addRowBtn} onPress={openNew} activeOpacity={0.8}>
@@ -842,10 +860,13 @@ const s = StyleSheet.create({
     paddingVertical: 14, paddingHorizontal: 16,
     marginBottom: 10,
   },
+  courseRowContent: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   courseName:    { fontSize: 15, fontFamily: FFB, color: '#fff' },
   courseMeta:    { fontSize: 12, fontFamily: FFB, color: '#fff', marginTop: 2 },
   incompleteTag: { fontSize: 12, color: '#f59e0b', fontFamily: FFB },
   arrow:         { fontSize: 22, color: '#fff' },
+  rowDeleteBtn:  { paddingLeft: 14, marginLeft: 2 },
+  rowDeleteIcon: { fontSize: 18 },
 
   addRowBtn: {
     backgroundColor: '#111', borderRadius: 14,
