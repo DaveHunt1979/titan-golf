@@ -280,6 +280,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 51,
+      "lastAccessed": 1786625022254,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/score/day/[dayId].tsx",
       "accessCount": 48,
       "lastAccessed": 1786545351377,
@@ -292,27 +298,27 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 33,
-      "lastAccessed": 1786615796984,
+      "path": "app.json",
+      "accessCount": 29,
+      "lastAccessed": 1786626398371,
       "type": "file"
     },
     {
-      "path": "app.json",
-      "accessCount": 27,
-      "lastAccessed": 1786608038678,
+      "path": "app/(app)/games/GroupBuilderSheet.tsx",
+      "accessCount": 25,
+      "lastAccessed": 1786625043273,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf.xcodeproj/project.pbxproj",
+      "accessCount": 24,
+      "lastAccessed": 1786626406494,
       "type": "file"
     },
     {
       "path": "app/(app)/score/teamstableford/[matchId].tsx",
       "accessCount": 20,
       "lastAccessed": 1786535006427,
-      "type": "file"
-    },
-    {
-      "path": "ios/titangolf.xcodeproj/project.pbxproj",
-      "accessCount": 20,
-      "lastAccessed": 1786608050428,
       "type": "file"
     },
     {
@@ -323,8 +329,8 @@
     },
     {
       "path": "app/_layout.tsx",
-      "accessCount": 10,
-      "lastAccessed": 1786448772646,
+      "accessCount": 11,
+      "lastAccessed": 1786619398498,
       "type": "file"
     },
     {
@@ -352,12 +358,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/games/GroupBuilderSheet.tsx",
-      "accessCount": 6,
-      "lastAccessed": 1786615803691,
-      "type": "file"
-    },
-    {
       "path": "src/lib/scoring.ts",
       "accessCount": 4,
       "lastAccessed": 1786518335244,
@@ -367,6 +367,12 @@
       "path": "app/(app)/games/index.tsx",
       "accessCount": 3,
       "lastAccessed": 1786439815111,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1786619579839,
       "type": "file"
     },
     {
@@ -391,12 +397,6 @@
       "path": "ios/Podfile",
       "accessCount": 2,
       "lastAccessed": 1786341148047,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/_layout.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1786348042364,
       "type": "file"
     },
     {

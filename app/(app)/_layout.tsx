@@ -193,6 +193,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="admin/groups"             options={{ href: null }} />
         <Tabs.Screen name="admin/codes"              options={{ href: null }} />
         <Tabs.Screen name="friends"                  options={{ href: null }} />
+        <Tabs.Screen name="add/[tag]"                options={{ href: null }} />
         <Tabs.Screen name="join" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>
   );

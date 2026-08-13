@@ -13,6 +13,7 @@ import { useSociety } from '../../../src/lib/useSociety';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { getPlayerAvatar } from '../../../src/lib/assets';
 import { downloadMatchPack } from '../../../src/lib/offlinePack';
+import { fetchFavouriteIds, fetchRecentlyPlayedWithIds, toggleFavourite } from '../../../src/lib/playerTiers';
 import GroupBuilderSheet, { BuiltMatch, PlayerOverride } from './GroupBuilderSheet';
 
 // ── Constants ─────────────────────────────────────────────────
@@ -538,6 +539,10 @@ export default function NewGameScreen() {
   // Data
   const [players, setPlayers]           = useState<Player[]>([]);
   const [groups,  setGroups]            = useState<PlayerGroup[]>([]);
+  const [favouriteIds, setFavouriteIds] = useState<Set<string>>(new Set());
+  const [recentIds,    setRecentIds]    = useState<string[]>([]);
+  const [myPlayerId,   setMyPlayerId]   = useState<string | null>(null);
+  const [friendOnlyIds, setFriendOnlyIds] = useState<Set<string>>(new Set());
   const [loadingPlayers, setLoadingPlayers] = useState(true);
   const [courses, setCourses]           = useState<CourseItem[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
@@ -614,15 +619,73 @@ export default function NewGameScreen() {
     if (!societyId) { setLoadingPlayers(false); return; }
     (async () => {
       const { data: members } = await supabase.from('society_members').select('player_id').eq('society_id', societyId);
-      if (!members || members.length === 0) { setLoadingPlayers(false); return; }
-      const ids = (members as any[]).map(m => m.player_id);
-      const { data } = await supabase.from('players').select('id, display_name, handicap_index, avatar_url').in('id', ids).order('display_name');
-      if (data) setPlayers(data as Player[]);
-      setLoadingPlayers(false);
+      const societyIds = new Set((members ?? []).map((m: any) => m.player_id as string));
+
+      let societyPlayers: Player[] = [];
+      if (societyIds.size > 0) {
+        const { data } = await supabase
+          .from('players').select('id, display_name, handicap_index, avatar_url')
+          .in('id', Array.from(societyIds)).order('display_name');
+        societyPlayers = (data ?? []) as Player[];
+      }
+
       const { data: groupData } = await supabase.from('player_groups').select('id,name,player_ids').eq('society_id', societyId).order('name');
       if (groupData) setGroups(groupData as PlayerGroup[]);
+
+      // Favourites/recently-played/private-library "friends" all key off the
+      // logged-in user's own id — fetched here (not a separate parallel
+      // effect) so the final setPlayers below can't race the society fetch
+      // above and silently drop the merged-in friends.
+      const { data: { user } } = await supabase.auth.getUser();
+      let allPlayers = societyPlayers;
+      const friendIds = new Set<string>();
+      if (user) {
+        const { data: me } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
+        if (me) {
+          const myId = (me as any).id;
+          setMyPlayerId(myId);
+          const [favIds, recentPlayed, libRes] = await Promise.all([
+            fetchFavouriteIds(myId),
+            fetchRecentlyPlayedWithIds(myId),
+            supabase.rpc('get_my_player_library'),
+          ]);
+          setFavouriteIds(favIds);
+          setRecentIds(recentPlayed);
+
+          // Someone in your private library who isn't a society member (e.g.
+          // added by T-Tag from elsewhere) was previously invisible here —
+          // fold real, non-guest library entries in as their own "Friends"
+          // tier below Society Players.
+          const extraFriends: Player[] = [];
+          for (const e of (libRes.data ?? []) as any[]) {
+            if (e.is_guest || !e.member_player_id || societyIds.has(e.member_player_id)) continue;
+            friendIds.add(e.member_player_id);
+            extraFriends.push({
+              id: e.member_player_id,
+              display_name: e.display_name,
+              handicap_index: e.handicap_index,
+              avatar_url: e.avatar_url,
+            });
+          }
+          allPlayers = [...societyPlayers, ...extraFriends];
+        }
+      }
+      setPlayers(allPlayers);
+      setFriendOnlyIds(friendIds);
+      setLoadingPlayers(false);
     })();
   }, [societyId, societyLoading]);
+
+  async function handleToggleFavourite(targetId: string, makeFav: boolean) {
+    if (!myPlayerId) return;
+    setFavouriteIds(prev => {
+      const next = new Set(prev);
+      if (makeFav) next.add(targetId); else next.delete(targetId);
+      return next;
+    });
+    const err = await toggleFavourite(myPlayerId, targetId, makeFav);
+    if (err) Alert.alert('Error', err);
+  }
 
   const isSolo    = ['stableford', 'medal', 'skins', 'scramble', 'par_bogey'].includes(mode);
   const isMashie  = mode === 'best2from4' || mode === 'best2from4_par3all';
@@ -1286,6 +1349,11 @@ export default function NewGameScreen() {
         teamSize={teamSize}
         initialStartHole={startHole}
         initialMatches={builtMatches ?? undefined}
+        favouriteIds={favouriteIds}
+        recentIds={recentIds}
+        myPlayerId={myPlayerId}
+        friendOnlyIds={friendOnlyIds}
+        onToggleFavourite={handleToggleFavourite}
         onDone={handleGroupBuilderDone}
         onClose={() => setShowGroupBuilder(false)}
       />

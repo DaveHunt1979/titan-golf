@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { resolveAvatar } from '../../../src/lib/assets';
+import { partitionIntoTiers } from '../../../src/lib/playerTiers';
 
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
@@ -101,7 +102,8 @@ function restoreGroups(matches: BuiltMatch[], m: GameMode): GroupState[] {
 }
 
 export default function GroupBuilderSheet({
-  visible, mode, players, teamSize, initialStartHole, initialMatches, onDone, onClose,
+  visible, mode, players, teamSize, initialStartHole, initialMatches,
+  favouriteIds, recentIds, myPlayerId, friendOnlyIds, onToggleFavourite, onDone, onClose,
 }: {
   visible: boolean;
   mode: GameMode;
@@ -109,6 +111,11 @@ export default function GroupBuilderSheet({
   teamSize: number;
   initialStartHole?: number;
   initialMatches?: BuiltMatch[];
+  favouriteIds?: Set<string>;
+  recentIds?: string[];
+  myPlayerId?: string | null;
+  friendOnlyIds?: Set<string>;
+  onToggleFavourite?: (targetId: string, makeFavourite: boolean) => void;
   onDone: (matches: BuiltMatch[], overrides: Record<string, PlayerOverride>) => void;
   onClose: () => void;
 }) {
@@ -156,6 +163,31 @@ export default function GroupBuilderSheet({
     if (!pickTarget) return players;
     return players.filter(p => !usedIds.has(p.id));
   }, [pickTarget, players, usedIds]);
+
+  // Same favourites/recently-played engine as the Player Library screen —
+  // Rick wanted regular playing partners surfaced ahead of scrolling the
+  // full society roster every time a group is built. Dave: "I'm playing,
+  // I'm picking me first" — the logged-in player gets their own section
+  // pinned above even Favourites, not just folded into that tier.
+  const pickerSections = useMemo(() => {
+    const me = myPlayerId ? availablePlayers.find(p => p.id === myPlayerId) : undefined;
+    const rankable = me ? availablePlayers.filter(p => p.id !== myPlayerId) : availablePlayers;
+    const { favourites, recent, rest } = partitionIntoTiers(rankable, favouriteIds ?? new Set(), recentIds ?? []);
+    // Players in the private library but not a society member (e.g. added
+    // by T-Tag from elsewhere) were previously invisible in this picker
+    // entirely — their own tier below Society Players, not folded in.
+    const fIds = friendOnlyIds ?? new Set<string>();
+    const friends = rest.filter(p => fIds.has(p.id));
+    const society = rest.filter(p => !fIds.has(p.id));
+    const hasTiers = favourites.length > 0 || recent.length > 0;
+    return [
+      { label: me ? 'YOU' : null, items: me ? [me] : [] },
+      { label: favourites.length > 0 ? 'FAVOURITES' : null, items: favourites },
+      { label: recent.length > 0 ? 'RECENTLY PLAYED WITH' : null, items: recent },
+      { label: hasTiers ? 'SOCIETY PLAYERS' : null, items: society },
+      { label: friends.length > 0 ? 'FRIENDS' : null, items: friends },
+    ].filter(sec => sec.items.length > 0);
+  }, [availablePlayers, favouriteIds, recentIds, myPlayerId, friendOnlyIds]);
 
   // ── Mutators ─────────────────────────────────────────────────
 
@@ -649,36 +681,55 @@ export default function GroupBuilderSheet({
             <ScrollView showsVerticalScrollIndicator={false}>
               {availablePlayers.length === 0
                 ? <Text style={{ color: '#555', textAlign: 'center', padding: 20, fontFamily: FF }}>No players available</Text>
-                : availablePlayers.map(p => {
-                  const src = resolveAvatar(p.id, p.avatar_url);
-                  return (
-                    <TouchableOpacity
-                      key={p.id}
-                      style={[css.subRow, { borderBottomColor: dc.border }]}
-                      onPress={() => {
-                        const pt = pickTarget!;
-                        setGroups(prev => prev.map((g, i) => i !== pt.gi ? g : {
-                          ...g, slots: g.slots.map((s, j) => j !== pt.si ? s : ({ ...s, [pt.side]: [...s[pt.side], p.id] })),
-                        }));
-                        setPickTarget(null);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      {src
-                        ? <Image source={src} style={css.pickerAvatar} />
-                        : (
-                          <View style={[css.pickerAvatar, { backgroundColor: `${GOLD}20`, alignItems: 'center', justifyContent: 'center' }]}>
-                            <Text style={{ fontFamily: FFB, fontSize: 15, color: GOLD }}>{p.display_name[0]}</Text>
-                          </View>
-                        )
-                      }
-                      <View style={{ flex: 1 }}>
-                        <Text style={[css.playerName, { color: dc.white }]}>{p.display_name}</Text>
-                        {p.handicap_index != null && <Text style={css.playerHcp}>HCP {p.handicap_index}</Text>}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
+                : pickerSections.map(section => (
+                  <View key={section.label ?? 'plain'}>
+                    {section.label && (
+                      <Text style={[css.subSectionLabel, { color: GOLD }]}>{section.label}</Text>
+                    )}
+                    {section.items.map(p => {
+                      const src = resolveAvatar(p.id, p.avatar_url);
+                      const isFav = (favouriteIds ?? new Set()).has(p.id);
+                      return (
+                        <View key={p.id} style={[css.subRow, { borderBottomColor: dc.border }]}>
+                          <TouchableOpacity
+                            style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                            onPress={() => {
+                              const pt = pickTarget!;
+                              setGroups(prev => prev.map((g, i) => i !== pt.gi ? g : {
+                                ...g, slots: g.slots.map((s, j) => j !== pt.si ? s : ({ ...s, [pt.side]: [...s[pt.side], p.id] })),
+                              }));
+                              setPickTarget(null);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            {src
+                              ? <Image source={src} style={css.pickerAvatar} />
+                              : (
+                                <View style={[css.pickerAvatar, { backgroundColor: `${GOLD}20`, alignItems: 'center', justifyContent: 'center' }]}>
+                                  <Text style={{ fontFamily: FFB, fontSize: 15, color: GOLD }}>{p.display_name[0]}</Text>
+                                </View>
+                              )
+                            }
+                            <View style={{ flex: 1 }}>
+                              <Text style={[css.playerName, { color: dc.white }]}>{p.display_name}</Text>
+                              {p.handicap_index != null && <Text style={css.playerHcp}>HCP {p.handicap_index}</Text>}
+                            </View>
+                          </TouchableOpacity>
+                          {onToggleFavourite && p.id !== myPlayerId && (
+                            <TouchableOpacity
+                              onPress={() => onToggleFavourite(p.id, !isFav)}
+                              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                              style={{ paddingLeft: 12 }}
+                              activeOpacity={0.7}
+                            >
+                              <Ionicons name={isFav ? 'star' : 'star-outline'} size={18} color={GOLD} />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))
               }
             </ScrollView>
             <TouchableOpacity style={css.subCancel} onPress={() => setPickTarget(null)}>
@@ -762,6 +813,7 @@ const css = StyleSheet.create({
     marginBottom: 12, paddingBottom: 10, borderBottomWidth: 1,
   },
   subRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, borderBottomWidth: 1, gap: 12 },
+  subSectionLabel: { fontFamily: FFB, fontSize: 10, letterSpacing: 1.5, marginTop: 10, marginBottom: 4 },
   subRowText: { fontFamily: FFB, fontSize: 15, flex: 1 },
   subCancel:  { paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   subCancelText: { fontFamily: FFB, fontSize: 16 },

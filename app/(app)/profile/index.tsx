@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
   ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, Modal, Switch,
-  Clipboard,
+  Clipboard, Share,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -46,7 +46,6 @@ export default function ProfileScreen() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [syncingHcp,     setSyncingHcp]     = useState(false);
   const [notifCount,     setNotifCount]     = useState(0);
-  const [showClubs,      setShowClubs]      = useState(false);
 
   // Password modal
   const [showPwModal, setShowPwModal] = useState(false);
@@ -105,6 +104,17 @@ export default function ProfileScreen() {
     if (!player?.t_tag) return;
     Clipboard.setString(`@${player.t_tag}`);
     Alert.alert('Copied', `@${player.t_tag} copied to clipboard.`);
+  }
+
+  async function shareTag() {
+    if (!player?.t_tag) return;
+    const link = `titangolf://add/${player.t_tag}`;
+    const message = `⛳ Add me on Titan Golf\n\n${player.display_name}\nT-Tag: @${player.t_tag}\n\nTap below to add me to your Player Library:\n${link}`;
+    try {
+      await Share.share({ message });
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'Could not open share sheet.');
+    }
   }
 
   async function pickImage() {
@@ -361,66 +371,17 @@ export default function ProfileScreen() {
           </>
         ) : (
           <>
-            {/* ── READ: My Bag ── */}
-            <TouchableOpacity style={s.bagHeader} onPress={() => setShowClubs(v => !v)} activeOpacity={0.8}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.bagTitle}>My Bag</Text>
-                <Text style={s.bagSubtitle}>{showClubs ? 'Tap a club to edit or assign NFC' : `${clubs.length} club${clubs.length !== 1 ? 's' : ''} in your bag`}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <TouchableOpacity
-                  style={[s.addClubBtn, { borderColor: dc.gold }]}
-                  onPress={() => router.push('/(app)/profile/bag' as any)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="options-outline" size={14} color={dc.gold} />
-                  <Text style={[s.addClubText, { color: dc.gold }]}>Manage</Text>
-                </TouchableOpacity>
-                <Ionicons name={showClubs ? 'chevron-up' : 'chevron-down'} size={18} color={dc.gold} />
-              </View>
-            </TouchableOpacity>
-
-            {showClubs && <View style={[s.clubList, { backgroundColor: dc.card, borderColor: dc.border }]}>
-              {clubs.length === 0 ? (
-                <TouchableOpacity
-                  style={s.emptyBag}
-                  onPress={() => router.push('/(app)/profile/bag' as any)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="golf-outline" size={28} color="#333" style={{ marginBottom: 8 }} />
-                  <Text style={s.emptyBagText}>No clubs in your bag yet</Text>
-                  <Text style={s.emptyBagSub}>Tap Manage to set up your bag</Text>
-                </TouchableOpacity>
-              ) : (
-                clubs.map((club, idx) => (
-                  <TouchableOpacity
-                    key={club.id}
-                    style={[s.clubRow, idx === clubs.length - 1 && s.clubRowLast]}
-                    onPress={() => router.push(`/(app)/profile/club/${club.id}` as any)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[s.clubIconWrap, { backgroundColor: `${dc.gold}0d`, borderColor: `${dc.gold}25` }]}>
-                      <Ionicons name="golf-outline" size={15} color={dc.gold} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.clubName}>{club.name}</Text>
-                      {club.brand
-                        ? <Text style={s.clubBrand}>{club.brand}{club.model ? ` · ${club.model}` : ''}</Text>
-                        : <Text style={s.clubBrandEmpty}>Tap to set brand</Text>
-                      }
-                    </View>
-                    {club.nfc_tag_id
-                      ? (
-                        <View style={s.nfcBadge}>
-                          <Text style={s.nfcText}>NFC</Text>
-                        </View>
-                      ) : null
-                    }
-                    <Ionicons name="chevron-forward" size={14} color="#444" />
-                  </TouchableOpacity>
-                ))
-              )}
-            </View>}
+            {/* ── READ: Share T-Tag ── */}
+            {player?.t_tag && (
+              <TouchableOpacity
+                style={[s.shareTagBtn, { borderColor: `${dc.gold}44` }]}
+                onPress={shareTag}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="share-social-outline" size={16} color={dc.gold} />
+                <Text style={[s.shareTagBtnText, { color: dc.gold }]}>Share My T-Tag</Text>
+              </TouchableOpacity>
+            )}
 
             {/* ── READ: Quick links ── */}
             <View style={[s.quickLinks, { backgroundColor: dc.card, borderColor: dc.border }]}>
@@ -715,47 +676,12 @@ function makeStyles(dc: { white: string; bg: string; card: string; border: strin
     },
     divider: { height: 1, backgroundColor: dc.border, marginHorizontal: 16 },
 
-    bagHeader: {
-      flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
-      paddingHorizontal: 16, marginBottom: 10,
+    shareTagBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      marginHorizontal: 16, borderRadius: 12, borderWidth: 1,
+      paddingVertical: 12, marginBottom: 20,
     },
-    bagTitle:    { fontFamily: FFB, fontSize: 18, color: dc.white, marginBottom: 2 },
-    bagSubtitle: { fontFamily: FF, fontSize: 11, color: dc.white },
-    addClubBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      borderWidth: 1, borderColor: GOLD, borderRadius: 20,
-      paddingHorizontal: 12, paddingVertical: 7,
-    },
-    addClubText: { fontFamily: FFB, fontSize: 12, color: GOLD },
-
-    clubList: {
-      marginHorizontal: 16, backgroundColor: dc.card,
-      borderRadius: 14, borderWidth: 1, borderColor: dc.border,
-      overflow: 'hidden', marginBottom: 20,
-    },
-    clubRow: {
-      flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: 14, paddingVertical: 14,
-      borderBottomWidth: 1, borderBottomColor: dc.border, gap: 12,
-    },
-    clubRowLast:  { borderBottomWidth: 0 },
-    clubIconWrap: {
-      width: 32, height: 32, borderRadius: 8,
-      backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}25`,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    clubName:       { fontFamily: FFB, fontSize: 15, color: dc.white },
-    clubBrand:      { fontFamily: FFB, fontSize: 11, color: dc.white, marginTop: 1 },
-    clubBrandEmpty: { fontFamily: FFB, fontSize: 11, color: '#333', marginTop: 1 },
-    nfcBadge: {
-      borderWidth: 1, borderColor: `${GOLD}60`, borderRadius: 20,
-      paddingHorizontal: 8, paddingVertical: 3,
-      backgroundColor: `${GOLD}0d`, marginRight: 4,
-    },
-    nfcText: { fontFamily: FFB, fontSize: 10, color: GOLD, letterSpacing: 0.5 },
-    emptyBag:     { paddingVertical: 32, alignItems: 'center' },
-    emptyBagText: { fontFamily: FFB, fontSize: 14, color: dc.white },
-    emptyBagSub:  { fontFamily: FFB, fontSize: 12, color: '#444', marginTop: 4 },
+    shareTagBtnText: { fontFamily: FFB, fontSize: 14 },
 
     quickLinks: {
       marginHorizontal: 16, marginBottom: 16, backgroundColor: dc.card,
