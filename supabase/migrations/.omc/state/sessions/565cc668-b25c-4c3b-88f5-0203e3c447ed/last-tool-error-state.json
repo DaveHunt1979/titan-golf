@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"mv /tmp/titan_migrations_stash/20260812_round_timer.sql supabase/migrations/ && ls supabase/migrations\"}",
-  "error": "Exit code 1\nmv: rename /tmp/titan_migrations_stash/20260812_round_timer.sql to supabase/migrations/: No such file or directory",
-  "timestamp": "2026-08-13T10:23:36.693Z",
-  "retry_count": 1
+  "tool_input_preview": "{\"command\":\"supabase db query --linked \\\"SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;\\\" 2>&1\"}",
+  "error": "Exit code 1\nCannot find project ref. Have you run supabase link?\nTry rerunning the command with --debug to troubleshoot the error.",
+  "timestamp": "2026-08-13T10:34:41.580Z",
+  "retry_count": 2
 }

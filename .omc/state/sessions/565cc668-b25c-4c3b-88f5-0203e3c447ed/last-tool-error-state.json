@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"supabase db query \\\"SELECT count(*) AS total, count(t_tag) AS tagged, count(DISTINCT t_tag) AS distinct_tags FROM players;\\\" 2>&1\"}",
-  "error": "Exit code 1\nConnecting to local database...\nfailed to connect to postgres: failed to connect to `host=127.0.0.1 user=postgres database=postgres`: dial error (dial tcp 127.0.0.1:54322: connect: connection refused)\nMake sure your local IP is allowed in Network Restrictions and Network Bans.\nhttps://supabase.com/dashboard/project/_/database/settings",
-  "timestamp": "2026-08-13T10:24:50.801Z",
+  "tool_input_preview": "{\"command\":\"supabase db push --yes 2>&1\"}",
+  "error": "Exit code 1\nInitialising login role...\nConnecting to remote database...\nRemote migration versions not found in local migrations directory.\n\nMake sure your local git repo is up-to-date. If the error persists, try repairing the migration history table:\nsupabase migration repair --status reverted 20260813\n\nAnd update local migrations to match remote database:\nsupabase db pull",
+  "timestamp": "2026-08-13T10:35:20.324Z",
   "retry_count": 1
 }

@@ -453,6 +453,13 @@ export default function ProfileScreen() {
               />
               <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
               <QuickLink
+                icon="people-outline"
+                title="Player Library"
+                sub="People you play with — private to you"
+                onPress={() => router.push('/(app)/profile/library' as any)}
+              />
+              <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
+              <QuickLink
                 icon="navigate-outline"
                 title="Caddie"
                 sub="GPS, yardages & distances"
