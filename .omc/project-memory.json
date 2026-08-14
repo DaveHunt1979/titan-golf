@@ -305,8 +305,8 @@
     },
     {
       "path": "app/(app)/games/GroupBuilderSheet.tsx",
-      "accessCount": 25,
-      "lastAccessed": 1786625043273,
+      "accessCount": 26,
+      "lastAccessed": 1786628159695,
       "type": "file"
     },
     {
@@ -340,15 +340,21 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/tour/day/[dayId].tsx",
-      "accessCount": 7,
-      "lastAccessed": 1786514219478,
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1786628150468,
       "type": "file"
     },
     {
-      "path": "app/(app)/tour/index.tsx",
+      "path": "app/(app)/admin/draw.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1786628458653,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/tour/day/[dayId].tsx",
       "accessCount": 7,
-      "lastAccessed": 1786532285743,
+      "lastAccessed": 1786514219478,
       "type": "file"
     },
     {
@@ -415,12 +421,6 @@
       "path": "screenshots/IMG_6062.PNG",
       "accessCount": 2,
       "lastAccessed": 1786357221088,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/admin/draw.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1786532256060,
       "type": "file"
     },
     {

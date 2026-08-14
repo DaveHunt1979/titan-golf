@@ -171,10 +171,37 @@
       "synthetic": true,
       "telemetry_status": "unmatched_stop",
       "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    },
+    {
+      "agent_id": "a9dc29874431bdec8",
+      "agent_type": "untracked-native-fork",
+      "started_at": "2026-08-13T13:41:19.442Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-13T13:41:19.442Z",
+      "synthetic": true,
+      "telemetry_status": "unmatched_stop",
+      "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    },
+    {
+      "agent_id": "aaudit-tournament-core-745ea8fad7bd7087",
+      "agent_type": "audit-tournament-core",
+      "started_at": "2026-08-14T05:40:42.446Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-14T05:41:22.933Z",
+      "duration_ms": 40487
+    },
+    {
+      "agent_id": "aaudit-swindle-157e7689ccb602ed",
+      "agent_type": "audit-swindle",
+      "started_at": "2026-08-13T13:46:34.797Z",
+      "parent_mode": "none",
+      "status": "running"
     }
   ],
-  "total_spawned": 2,
-  "total_completed": 18,
+  "total_spawned": 6,
+  "total_completed": 22,
   "total_failed": 0,
-  "last_updated": "2026-08-13T13:02:59.162Z"
+  "last_updated": "2026-08-14T05:41:23.036Z"
 }

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-13T13:02:59.060Z",
+  "updatedAt": "2026-08-14T05:41:22.933Z",
   "missions": [
     {
       "id": "session:565cc668-b25c-4c3b-88f5-0203e3c447ed:none",
@@ -7,15 +7,15 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-08-13T10:08:40.932Z",
-      "updatedAt": "2026-08-13T13:02:59.060Z",
-      "status": "done",
-      "workerCount": 2,
+      "updatedAt": "2026-08-14T05:41:22.933Z",
+      "status": "running",
+      "workerCount": 4,
       "taskCounts": {
-        "total": 2,
+        "total": 4,
         "pending": 0,
         "blocked": 0,
-        "inProgress": 0,
-        "completed": 2,
+        "inProgress": 1,
+        "completed": 3,
         "failed": 0
       },
       "agents": [
@@ -27,7 +27,7 @@
           "currentStep": null,
           "latestUpdate": "completed",
           "completedSummary": null,
-          "updatedAt": "2026-08-13T13:02:59.060Z"
+          "updatedAt": "2026-08-13T13:41:19.442Z"
         },
         {
           "name": "Explore:a704e6e",
@@ -38,112 +38,60 @@
           "latestUpdate": "completed",
           "completedSummary": null,
           "updatedAt": "2026-08-13T11:49:54.591Z"
+        },
+        {
+          "name": "audit-tournament-core:aaudit-",
+          "role": "audit-tournament-core",
+          "ownership": "aaudit-tournament-core-745ea8fad7bd7087",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-14T05:41:22.933Z"
+        },
+        {
+          "name": "audit-swindle:aaudit-",
+          "role": "audit-swindle",
+          "ownership": "aaudit-swindle-157e7689ccb602ed",
+          "status": "running",
+          "currentStep": null,
+          "latestUpdate": null,
+          "completedSummary": null,
+          "updatedAt": "2026-08-13T13:46:34.797Z"
         }
       ],
       "timeline": [
         {
-          "id": "session-stop:a20d88f99d9aac6c7:2026-08-13T10:11:26.573Z",
-          "at": "2026-08-13T10:11:26.573Z",
-          "kind": "completion",
-          "agent": "Explore:adfaa82",
-          "detail": "completed",
-          "sourceKey": "session-stop:a20d88f99d9aac6c7"
-        },
-        {
-          "id": "session-stop:adfaa82e202a6debf:2026-08-13T10:11:54.980Z",
-          "at": "2026-08-13T10:11:54.980Z",
-          "kind": "completion",
-          "agent": "Explore:adfaa82",
-          "detail": "completed",
-          "sourceKey": "session-stop:adfaa82e202a6debf"
-        },
-        {
-          "id": "session-start:a704e6e6f06cfc451:2026-08-13T11:47:16.636Z",
-          "at": "2026-08-13T11:47:16.636Z",
+          "id": "session-start:aaudit-tournament-core-745ea8fad7bd7087:2026-08-14T05:39:54.090Z",
+          "at": "2026-08-14T05:39:54.090Z",
           "kind": "update",
-          "agent": "Explore:a704e6e",
-          "detail": "started Explore:a704e6e",
-          "sourceKey": "session-start:a704e6e6f06cfc451"
+          "agent": "audit-tournament-core:aaudit-",
+          "detail": "started audit-tournament-core:aaudit-",
+          "sourceKey": "session-start:aaudit-tournament-core-745ea8fad7bd7087"
         },
         {
-          "id": "session-stop:aa96333ed638cb8ec:2026-08-13T11:47:49.613Z",
-          "at": "2026-08-13T11:47:49.613Z",
+          "id": "session-stop:aaudit-tournament-core-745ea8fad7bd7087:2026-08-14T05:40:28.673Z",
+          "at": "2026-08-14T05:40:28.673Z",
           "kind": "completion",
-          "agent": "Explore:adfaa82",
+          "agent": "audit-tournament-core:aaudit-",
           "detail": "completed",
-          "sourceKey": "session-stop:aa96333ed638cb8ec"
+          "sourceKey": "session-stop:aaudit-tournament-core-745ea8fad7bd7087"
         },
         {
-          "id": "session-stop:a99d9eacedc410245:2026-08-13T11:48:22.226Z",
-          "at": "2026-08-13T11:48:22.226Z",
-          "kind": "completion",
-          "agent": "Explore:adfaa82",
-          "detail": "completed",
-          "sourceKey": "session-stop:a99d9eacedc410245"
+          "id": "session-start:aaudit-tournament-core-745ea8fad7bd7087:2026-08-14T05:40:42.446Z",
+          "at": "2026-08-14T05:40:42.446Z",
+          "kind": "update",
+          "agent": "audit-tournament-core:aaudit-",
+          "detail": "started audit-tournament-core:aaudit-",
+          "sourceKey": "session-start:aaudit-tournament-core-745ea8fad7bd7087"
         },
         {
-          "id": "session-stop:a4fbdf6ae8c513679:2026-08-13T11:48:55.702Z",
-          "at": "2026-08-13T11:48:55.702Z",
+          "id": "session-stop:aaudit-tournament-core-745ea8fad7bd7087:2026-08-14T05:41:22.933Z",
+          "at": "2026-08-14T05:41:22.933Z",
           "kind": "completion",
-          "agent": "Explore:adfaa82",
+          "agent": "audit-tournament-core:aaudit-",
           "detail": "completed",
-          "sourceKey": "session-stop:a4fbdf6ae8c513679"
-        },
-        {
-          "id": "session-stop:a616878e9e6284ec1:2026-08-13T11:49:28.640Z",
-          "at": "2026-08-13T11:49:28.640Z",
-          "kind": "completion",
-          "agent": "Explore:adfaa82",
-          "detail": "completed",
-          "sourceKey": "session-stop:a616878e9e6284ec1"
-        },
-        {
-          "id": "session-stop:a704e6e6f06cfc451:2026-08-13T11:49:54.591Z",
-          "at": "2026-08-13T11:49:54.591Z",
-          "kind": "completion",
-          "agent": "Explore:a704e6e",
-          "detail": "completed",
-          "sourceKey": "session-stop:a704e6e6f06cfc451"
-        },
-        {
-          "id": "session-stop:a6d451e2404771cdb:2026-08-13T12:29:42.701Z",
-          "at": "2026-08-13T12:29:42.701Z",
-          "kind": "completion",
-          "agent": "Explore:adfaa82",
-          "detail": "completed",
-          "sourceKey": "session-stop:a6d451e2404771cdb"
-        },
-        {
-          "id": "session-stop:a0d6f9db4f20998b7:2026-08-13T12:35:09.402Z",
-          "at": "2026-08-13T12:35:09.402Z",
-          "kind": "completion",
-          "agent": "Explore:adfaa82",
-          "detail": "completed",
-          "sourceKey": "session-stop:a0d6f9db4f20998b7"
-        },
-        {
-          "id": "session-stop:ae4ad767a3da0b45b:2026-08-13T12:38:52.061Z",
-          "at": "2026-08-13T12:38:52.061Z",
-          "kind": "completion",
-          "agent": "Explore:adfaa82",
-          "detail": "completed",
-          "sourceKey": "session-stop:ae4ad767a3da0b45b"
-        },
-        {
-          "id": "session-stop:a82cb06f93cd9a413:2026-08-13T12:47:31.566Z",
-          "at": "2026-08-13T12:47:31.566Z",
-          "kind": "completion",
-          "agent": "Explore:adfaa82",
-          "detail": "completed",
-          "sourceKey": "session-stop:a82cb06f93cd9a413"
-        },
-        {
-          "id": "session-stop:a0b1cdab5f16fb8e2:2026-08-13T13:02:59.060Z",
-          "at": "2026-08-13T13:02:59.060Z",
-          "kind": "completion",
-          "agent": "Explore:adfaa82",
-          "detail": "completed",
-          "sourceKey": "session-stop:a0b1cdab5f16fb8e2"
+          "sourceKey": "session-stop:aaudit-tournament-core-745ea8fad7bd7087"
         }
       ]
     }

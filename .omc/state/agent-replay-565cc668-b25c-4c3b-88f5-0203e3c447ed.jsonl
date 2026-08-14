@@ -18,3 +18,11 @@
 {"t":0,"agent":"ae4ad76","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
 {"t":0,"agent":"a82cb06","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
 {"t":0,"agent":"a0b1cda","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"a9dc298","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"aaudit-","agent_type":"audit-tournament-core","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aaudit-","agent_type":"audit-swindle","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aaudit-","agent_type":"audit-tournament-core","event":"agent_stop","success":true,"duration_ms":137734}
+{"t":0,"agent":"aaudit-","agent_type":"audit-tournament-core","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aaudit-","agent_type":"audit-tournament-core","event":"agent_stop","success":true,"duration_ms":34583}
+{"t":0,"agent":"aaudit-","agent_type":"audit-tournament-core","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aaudit-","agent_type":"audit-tournament-core","event":"agent_stop","success":true,"duration_ms":40487}

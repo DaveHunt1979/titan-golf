@@ -271,6 +271,60 @@ export default function TournamentDrawScreen() {
     // Guard re-entrancy directly rather than relying only on the button's
     // disabled state, which can race on a fast double-tap before re-render.
     if (generating) return;
+
+    const df = day.day_format ?? 'singles';
+    const roundFmt  = dayFormatToRoundFormat(df);
+    const handicapMethod = dayFormatToHandicapMethod(df);
+    const hcp       = day.hcp_pct ?? 100;
+
+    // Individual Stableford / Stroke Play days have no opponent to pair
+    // against — Rick: "singles tournament that runs exactly like the
+    // stableford team version but singles only." Every player just posts
+    // their own card in a group of up to 4, the exact same shape a normal
+    // multi-player Casual Round group already uses (everyone in
+    // home_player_ids, away side empty — see isSolo checks elsewhere).
+    // No team assignment needed at all, so this skips the team-grouping
+    // logic below entirely rather than forcing an artificial 1v1 pairing.
+    const isIndividual = df === 'stableford' || df === 'medal';
+    if (isIndividual) {
+      const allPlayerIds = compPlayers.map(cp => cp.player_id);
+      if (allPlayerIds.length === 0) {
+        Alert.alert('No players', 'Enrol players before generating the draw.');
+        return;
+      }
+      const GROUP_SIZE = 4;
+      const shuffled = shuffle(allPlayerIds);
+      const groups: string[][] = [];
+      for (let i = 0; i < shuffled.length; i += GROUP_SIZE) {
+        groups.push(shuffled.slice(i, i + GROUP_SIZE));
+      }
+      const matchRows = groups.map((group, idx) => ({
+        competition_id:  competitionId,
+        day_id:          day.id,
+        match_number:    idx + 1,
+        home_team_id:    null,
+        away_team_id:    null,
+        home_player_ids: group,
+        away_player_ids: [],
+        round_format:    roundFmt,
+        is_singles:      false,
+        hcp_allowance:   hcp,
+        handicap_method: handicapMethod,
+        status:          'upcoming',
+      }));
+      setGenerating(day.id);
+      try {
+        const { error } = await supabase.from('matches').insert(matchRows);
+        if (error) { Alert.alert('Error', error.message); return; }
+        await load();
+      } catch (e: any) {
+        Alert.alert('Error', e?.message ?? 'Could not generate the draw.');
+      } finally {
+        setGenerating(null);
+      }
+      return;
+    }
+
     const grouped: Record<string, string[]> = {};
     for (const cp of compPlayers) {
       if (!cp.team_id) continue;
@@ -283,13 +337,9 @@ export default function TournamentDrawScreen() {
       return;
     }
 
-    const df = day.day_format ?? 'singles';
     const isSingles = df === 'singles';
     const isPairs   = ['4bbb', 'four_bbb', 'four_bbb_stroke', 'foursomes', 'greensomes'].includes(df);
     const ppm       = isPairs ? 2 : 1;
-    const roundFmt  = dayFormatToRoundFormat(df);
-    const handicapMethod = dayFormatToHandicapMethod(df);
-    const hcp       = day.hcp_pct ?? 100;
     const isOpeningRound = day.day_number <= (comp?.opening_rounds ?? 0);
     const maxDayNumber   = days.length > 0 ? Math.max(...days.map(d => d.day_number)) : day.day_number;
     const isFinalDay      = day.day_number === maxDayNumber;
@@ -666,6 +716,17 @@ export default function TournamentDrawScreen() {
                   {dayMatches.length > 0 && (
                     <View style={s.matchList}>
                       {dayMatches.map((m, idx) => {
+                        // Individual Stableford/Medal groups have no away
+                        // side at all (see generateDraw's isIndividual
+                        // branch) — show it as one plain group, not a "vs".
+                        if (m.away_player_ids.length === 0 && !m.away_team_id) {
+                          const groupNames = m.home_player_ids.map(id => playerNames[id]?.split(' ')[0] ?? '?').join(', ');
+                          return (
+                            <View key={m.id} style={[s.matchItem, idx > 0 && { borderTopWidth: 1, borderTopColor: '#1c1c1c' }]}>
+                              <Text style={[s.matchTeam, { color: '#fff', flex: 1 }]}>{groupNames}</Text>
+                            </View>
+                          );
+                        }
                         const homeName = teams.find(t => t.id === m.home_team_id)?.name
                           ?? m.home_player_ids.map(id => playerNames[id]?.split(' ')[0] ?? '?').join(' & ');
                         const awayName = teams.find(t => t.id === m.away_team_id)?.name
