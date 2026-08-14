@@ -31,7 +31,7 @@ function greet(): string {
 
 const TILES = [
   { key: 'play',      label: 'Play',        sub: 'Start a casual round',        icon: 'golf-outline'   as const, area: 'casual',  route: '/(app)/score' },
-  { key: 'events',    label: 'Events',       sub: 'Tournaments & leagues',        icon: 'trophy-outline' as const, area: 'tour',    route: '/(app)/tour'    },
+  { key: 'events',    label: 'Tournaments',  sub: 'Tournaments & leagues',        icon: 'trophy-outline' as const, area: 'tour',    route: '/(app)/tour'    },
   { key: 'clubhouse', label: 'Clubhouse',    sub: 'Swindles & roll-ups',          icon: 'people-outline' as const, area: 'swindle', route: '/(app)/swindle' },
   { key: 'locker',    label: 'Locker Room',  sub: 'Stats, handicap & equipment',  icon: 'shield-outline' as const, area: 'casual',  route: '/(app)/profile' },
 ] as const;
@@ -61,7 +61,6 @@ export default function HomeScreen() {
   const [isPrivileged,   setIsPrivileged]   = useState(false);
   const [unread,         setUnread]         = useState(0);
   const [casualCount,    setCasualCount]    = useState(0);
-  const [tourName,       setTourName]       = useState<string | null>(null);
   const [tourLive,       setTourLive]       = useState(0);
   const [swindleName,    setSwindleName]    = useState<string | null>(null);
   const [swindleCount,   setSwindleCount]   = useState(0);
@@ -70,22 +69,26 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, []));
 
   async function checkUnread(pid: string | null) {
+    if (!SOCIETY_ID) return;
     const lastRead = await AsyncStorage.getItem(CHAT_READ_KEY);
     const since = lastRead ?? new Date(0).toISOString();
-    let q = supabase.from('messages').select('*', { count: 'exact', head: true }).gt('created_at', since);
+    let q = supabase.from('messages').select('*', { count: 'exact', head: true })
+      .eq('society_id', SOCIETY_ID).eq('channel', 'general').gt('created_at', since);
     if (pid) q = q.neq('player_id', pid);
     const { count } = await q;
     setUnread(count ?? 0);
   }
 
   useEffect(() => {
+    if (!SOCIETY_ID) return;
     const sub = supabase.channel('home-chat-badge')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        if ((payload.new as any).player_id !== playerId) setUnread(prev => prev + 1);
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `society_id=eq.${SOCIETY_ID}` }, (payload) => {
+        const row = payload.new as any;
+        if (row.channel === 'general' && row.player_id !== playerId) setUnread(prev => prev + 1);
       })
       .subscribe();
     return () => { supabase.removeChannel(sub); };
-  }, [playerId]);
+  }, [playerId, SOCIETY_ID]);
 
   useFocusEffect(useCallback(() => { checkUnread(playerId); }, [playerId]));
 
@@ -124,19 +127,16 @@ export default function HomeScreen() {
       : supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'in_progress').is('competition_id', null).eq('id', 'none');
 
     const [
-      { data: comp },
       { count: casual },
       { count: tourCount },
       { data: swindleData },
     ] = await Promise.all([
-      supabase.from('competitions').select('id,name').eq('status', 'active').neq('format', 'casual').limit(1).single(),
       casualQuery,
       supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'in_progress').not('competition_id', 'is', null),
       supabase.from('swindle_games').select('name,swindle_entries(count)').eq('status', 'open').order('created_at', { ascending: false }).limit(1).single(),
     ]);
 
     setCasualCount(casual ?? 0);
-    setTourName((comp as any)?.name ?? null);
     setTourLive(tourCount ?? 0);
     setSwindleName((swindleData as any)?.name ?? null);
     setSwindleCount((swindleData as any)?.swindle_entries?.[0]?.count ?? 0);
@@ -215,7 +215,7 @@ export default function HomeScreen() {
 
   const tileSub = (key: string, def: string): string => {
     if (key === 'play'     ) return casualCount  > 0 ? `${casualCount} game${casualCount !== 1 ? 's' : ''} in progress` : def;
-    if (key === 'events'   ) return tourName      ? tourName      : (tourLive    > 0 ? `${tourLive} matches live`                  : def);
+    if (key === 'events'   ) return '';
     if (key === 'clubhouse') return swindleName   ? `${swindleName}${swindleCount > 0 ? ` · ${swindleCount} in` : ''}`             : def;
     return def;
   };
@@ -388,6 +388,15 @@ export default function HomeScreen() {
             <QuickBtn icon="ribbon-outline"      label="Records" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/records' as any)} />
             <QuickBtn icon="time-outline"        label="History" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/profile/rounds' as any)} />
             <QuickBtn icon="bag-outline"         label="Shop"    cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => Linking.openURL('https://titangolf-web.vercel.app/')} />
+          </View>
+
+          {/* ── Up & Coming row — first card is live (society trips), the
+              other three are inert placeholders for future features ── */}
+          <View style={[s.quickRow, { marginTop: 8 }]}>
+            <QuickBtn icon="card-outline"      label="Up & Coming"  cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/trips' as any)} />
+            <QuickBtn icon="ellipsis-horizontal-outline" label="Coming Soon" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => {}} />
+            <QuickBtn icon="ellipsis-horizontal-outline" label="Coming Soon" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => {}} />
+            <QuickBtn icon="ellipsis-horizontal-outline" label="Coming Soon" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => {}} />
           </View>
 
           <View style={{ height: 32 }} />

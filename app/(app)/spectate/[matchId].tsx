@@ -363,7 +363,7 @@ export default function SpectateScreen() {
   const strokeAllocation = showStrokeAllocation
     ? (() => {
         const cutHcpFor = (id: string) => playerCourseHcp(id, compPlayers, match.day, match.hcp_allowance ?? 100);
-        const isRelativeHcp = match.handicap_method === 'relative_low';
+        const isRelativeHcp = match.handicap_method === 'relative_low' || match.handicap_method === 'relative_low_stableford';
         const groupLowest = isRelativeHcp ? Math.min(...allPlayerIds.map(cutHcpFor)) : 0;
         return allPlayerIds.map(id => {
           const cutHcp = cutHcpFor(id);

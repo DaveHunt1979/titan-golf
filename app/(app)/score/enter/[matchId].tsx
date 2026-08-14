@@ -617,13 +617,14 @@ export default function EnterScoresScreen() {
   }
 
   // Effective handicap used for matchplay stroke allocation. Standard method
-  // is just the %-cut course handicap; 4BBB Stroke Matchplay instead plays
-  // the lowest cut handicap in the match off scratch and gives everyone else
-  // shots relative to that (Rick's spec — never applies to the Stableford
-  // side game, which always stays on each player's own full handicap).
+  // is just the %-cut course handicap; 4BBB Stroke Matchplay and 4BBB
+  // Stableford (main game only) instead play the lowest cut handicap in the
+  // fourball off scratch and give everyone else shots relative to that
+  // (Rick's spec — never applies to the Stableford side game, which always
+  // stays on each player's own full handicap).
   function matchplayHcp(id: string): number {
     const base = playerCourseHcp(id, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100);
-    if (match?.handicap_method !== 'relative_low') return base;
+    if (match?.handicap_method !== 'relative_low' && match?.handicap_method !== 'relative_low_stableford') return base;
     const groupHcps = allPlayerIds.map(pid => playerCourseHcp(pid, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100));
     return Math.max(0, base - Math.min(...groupHcps));
   }

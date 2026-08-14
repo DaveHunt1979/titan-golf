@@ -805,7 +805,7 @@ export default function NewGameScreen() {
         is_singles: mode === 'singles',
         round_format: (mode === '4bbb' || mode === '4bbb_stroke' || mode === 'singles') ? 'matchplay' : isMashie ? 'team_stableford' : mode,
         hcp_allowance: hcpAllowance,
-        handicap_method: mode === '4bbb_stroke' ? 'relative_low' : 'individual',
+        handicap_method: mode === '4bbb_stroke' ? 'relative_low' : mode === '4bbb' ? 'relative_low_stableford' : 'individual',
         side_games: mode === 'best2from4_par3all' ? [...sideGamesList, 'par3all'] : sideGamesList,
         secondary_format: secondaryFormat,
         ...(isTeamStableford ? { team_size: isMashie ? 4 : teamSize, counting_scores: isMashie ? 2 : countingScores } : {}),

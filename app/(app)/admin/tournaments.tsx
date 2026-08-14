@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
+import ConfirmDialog from '../../../src/components/ConfirmDialog';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
@@ -42,6 +43,8 @@ export default function AdminTournaments() {
   const [champions, setChampions]   = useState<Champion[]>([]);
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Competition | null>(null);
+  const [deleting, setDeleting]         = useState(false);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -75,6 +78,18 @@ export default function AdminTournaments() {
       <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
     </View>
   );
+
+  async function deleteTournament() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    // competition_players/competition_days/matches/match_holes all cascade
+    // off competitions(id) ON DELETE CASCADE — see supabase/schema.sql.
+    const { error } = await supabase.from('competitions').delete().eq('id', deleteTarget.id);
+    setDeleting(false);
+    setDeleteTarget(null);
+    if (error) { Alert.alert('Error', error.message); return; }
+    load();
+  }
 
   function sharePin(comp: Competition) {
     const pin = String(comp.pin ?? '').replace(/[^0-9]/g, '');
@@ -171,7 +186,7 @@ export default function AdminTournaments() {
         {active.length > 0 && (
           <View style={s.section}>
             <Text style={s.sectionLabel}>ACTIVE</Text>
-            {active.map(c => <CompCard key={c.id} comp={c} onSharePin={() => sharePin(c)} onManage={() => router.push(`/(app)/admin/draw?id=${c.id}` as any)} />)}
+            {active.map(c => <CompCard key={c.id} comp={c} onSharePin={() => sharePin(c)} onManage={() => router.push(`/(app)/admin/draw?id=${c.id}` as any)} onDelete={() => setDeleteTarget(c)} />)}
           </View>
         )}
 
@@ -179,7 +194,7 @@ export default function AdminTournaments() {
         {draft.length > 0 && (
           <View style={s.section}>
             <Text style={s.sectionLabel}>DRAFT</Text>
-            {draft.map(c => <CompCard key={c.id} comp={c} onSharePin={() => sharePin(c)} onManage={() => router.push(`/(app)/admin/draw?id=${c.id}` as any)} />)}
+            {draft.map(c => <CompCard key={c.id} comp={c} onSharePin={() => sharePin(c)} onManage={() => router.push(`/(app)/admin/draw?id=${c.id}` as any)} onDelete={() => setDeleteTarget(c)} />)}
           </View>
         )}
 
@@ -187,7 +202,7 @@ export default function AdminTournaments() {
         {completed.length > 0 && (
           <View style={s.section}>
             <Text style={s.sectionLabel}>COMPLETED</Text>
-            {completed.map(c => <CompCard key={c.id} comp={c} onSharePin={() => sharePin(c)} />)}
+            {completed.map(c => <CompCard key={c.id} comp={c} onSharePin={() => sharePin(c)} onDelete={() => setDeleteTarget(c)} />)}
           </View>
         )}
 
@@ -199,11 +214,21 @@ export default function AdminTournaments() {
           </View>
         )}
       </ScrollView>
+
+      <ConfirmDialog
+        visible={deleteTarget !== null}
+        title="Delete Tournament"
+        message={`Delete "${deleteTarget?.name}"? This removes all its days, matches and scores. This cannot be undone.`}
+        confirmLabel={deleting ? 'Deleting…' : 'Delete Tournament'}
+        destructive
+        onConfirm={deleteTournament}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </View>
   );
 }
 
-function CompCard({ comp, onSharePin, onManage }: { comp: Competition; onSharePin: () => void; onManage?: () => void }) {
+function CompCard({ comp, onSharePin, onManage, onDelete }: { comp: Competition; onSharePin: () => void; onManage?: () => void; onDelete: () => void }) {
   const statusColor =
     comp.status === 'active'   ? GREEN :
     comp.status === 'complete' ? GOLD  : '#555';
@@ -249,6 +274,9 @@ function CompCard({ comp, onSharePin, onManage }: { comp: Competition; onSharePi
           <Text style={s.manageBtnText}>MANAGE DRAW</Text>
         </TouchableOpacity>
       )}
+      <TouchableOpacity style={s.deleteBtn} onPress={onDelete} activeOpacity={0.8}>
+        <Text style={s.deleteBtnText}>Delete</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -336,6 +364,8 @@ const s = StyleSheet.create({
 
   manageBtn:     { marginTop: 10, backgroundColor: GOLD + '1A', borderWidth: 1, borderColor: GOLD + '55', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   manageBtnText: { fontFamily: FFB, fontSize: 12, color: GOLD, letterSpacing: 1 },
+  deleteBtn:     { marginTop: 8, backgroundColor: RED + '14', borderWidth: 1, borderColor: RED + '40', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  deleteBtnText: { fontFamily: FFB, fontSize: 12, color: RED, letterSpacing: 1 },
 
   empty:      { alignItems: 'center', paddingTop: 80, gap: 10 },
   emptyEmoji: { fontSize: 48 },

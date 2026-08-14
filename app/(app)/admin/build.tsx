@@ -1,13 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   View, Text, ScrollView, StyleSheet, TextInput,
   TouchableOpacity, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert, Switch, Image,
+  ActivityIndicator, Alert, Switch, Image, Modal, FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
@@ -22,7 +23,10 @@ const FFB    = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 type FormatId = 'team_matchplay' | 'ryder_cup' | 'stableford' | 'medal' | 'knockout';
-type DayFormatId = 'four_bbb' | 'four_bbb_stroke' | 'foursomes' | 'greensomes' | 'singles' | 'stableford' | 'medal' | 'scramble';
+// Only formats that actually have a working Casual Round engine behind them —
+// Foursomes/Greensomes/Scramble were listed here but never got real scoring
+// support in score/enter/[matchId].tsx, so they're deliberately not offered.
+type DayFormatId = 'four_bbb' | 'four_bbb_stroke' | 'singles' | 'stableford' | 'medal';
 
 interface CompFormat {
   id: FormatId;
@@ -85,12 +89,9 @@ const COMP_FORMATS: CompFormat[] = [
 const DAY_FORMATS: Array<{ id: DayFormatId; label: string; sub: string }> = [
   { id: 'four_bbb',        label: '4BBB Stableford', sub: 'Best ball pairs' },
   { id: 'four_bbb_stroke', label: '4BBB Stroke', sub: 'Best ball, relative handicap' },
-  { id: 'foursomes',  label: 'Foursomes',  sub: 'Alternate shot' },
-  { id: 'greensomes', label: 'Greensomes', sub: 'Pick best drive' },
   { id: 'singles',    label: 'Singles',    sub: '1v1 matchplay' },
   { id: 'stableford', label: 'Stableford', sub: 'Points per hole' },
   { id: 'medal',      label: 'Medal',      sub: 'Stroke play' },
-  { id: 'scramble',   label: 'Scramble',   sub: 'Team scramble' },
 ];
 
 const HCP_OPTIONS = [
@@ -107,6 +108,8 @@ interface DayConfig {
   format: DayFormatId;
   hcpPct: number;
 }
+
+interface CourseItem { name: string; par: number; hasGps: boolean; }
 
 const STEPS = ['Format', 'Details', 'Days', 'Review'];
 
@@ -136,6 +139,27 @@ export default function BuildTournamentScreen() {
   const [maxHandicap, setMaxHandicap]     = useState('');
   const [logoUri, setLogoUri]             = useState<string | null>(null);
   const [creating, setCreating]             = useState(false);
+  const [courses, setCourses]             = useState<CourseItem[]>([]);
+  const [courseSheetDay, setCourseSheetDay] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Same course list Casual Round's picker uses — course_holes.course_name
+    // is the real link key (day_format scoring reads course_holes by this
+    // exact string), so picking from here instead of free-typing is what
+    // keeps a tournament day's holes/par/stroke-index actually linked up.
+    supabase.from('course_holes').select('course_name, par, green_lat, green_lng').then(({ data }) => {
+      if (!data) return;
+      const parMap: Record<string, number> = {};
+      const gpsMap: Record<string, boolean> = {};
+      for (const row of data as any[]) {
+        parMap[row.course_name] = (parMap[row.course_name] ?? 0) + row.par;
+        if (row.green_lat != null && row.green_lng != null) gpsMap[row.course_name] = true;
+      }
+      setCourses(Object.entries(parMap)
+        .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name] }))
+        .sort((a, b) => a.name.localeCompare(b.name)));
+    });
+  }, []);
 
   useFocusEffect(useCallback(() => {
     setStep(0);
@@ -587,14 +611,16 @@ export default function BuildTournamentScreen() {
                 <Text style={styles.dayLabel}>DAY {i + 1}</Text>
 
                 <Text style={styles.fieldLabel}>COURSE</Text>
-                <TextInput
-                  style={styles.input}
-                  value={day.courseName}
-                  onChangeText={v => updateDay(i, { courseName: v })}
-                  placeholder="e.g. West Cliffs"
-                  placeholderTextColor="#444"
-                  autoCapitalize="words"
-                />
+                <TouchableOpacity
+                  style={styles.courseInput}
+                  onPress={() => setCourseSheetDay(i)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={day.courseName ? styles.courseInputText : styles.courseInputPlaceholder}>
+                    {day.courseName || 'Select a course…'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color="#666" />
+                </TouchableOpacity>
 
                 <Text style={styles.fieldLabel}>FORMAT</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
@@ -699,7 +725,65 @@ export default function BuildTournamentScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      <CourseSheet
+        visible={courseSheetDay !== null}
+        courses={courses}
+        selected={courseSheetDay !== null ? days[courseSheetDay]?.courseName ?? null : null}
+        onSelect={name => { if (courseSheetDay !== null) updateDay(courseSheetDay, { courseName: name }); }}
+        onClose={() => setCourseSheetDay(null)}
+      />
     </KeyboardAvoidingView>
+  );
+}
+
+function CourseSheet({
+  visible, courses, selected, onSelect, onClose,
+}: {
+  visible: boolean; courses: CourseItem[]; selected: string | null;
+  onSelect: (name: string) => void; onClose: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const filtered = courses.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={sheetStyles.overlay} activeOpacity={1} onPress={onClose} />
+      <View style={sheetStyles.sheet}>
+        <View style={sheetStyles.handle} />
+        <Text style={sheetStyles.sheetTitle}>Select Course</Text>
+        <TextInput
+          style={sheetStyles.searchInput}
+          placeholder="Search courses…"
+          placeholderTextColor="#555"
+          value={search}
+          onChangeText={setSearch}
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+        />
+        <FlatList
+          data={filtered}
+          keyExtractor={c => c.name}
+          style={{ flexGrow: 0, maxHeight: 360 }}
+          ListEmptyComponent={<Text style={sheetStyles.emptyText}>No courses in the database yet — add one in Admin → Courses first.</Text>}
+          renderItem={({ item }) => {
+            const on = item.name === selected;
+            return (
+              <TouchableOpacity style={sheetStyles.sheetRow} onPress={() => { onSelect(item.name); onClose(); setSearch(''); }} activeOpacity={0.7}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[sheetStyles.sheetOpt, on && { color: GOLD }]} numberOfLines={1}>{item.name}</Text>
+                  {item.hasGps && <Ionicons name="location" size={13} color={GOLD} />}
+                </View>
+                <Text style={sheetStyles.courseParLabel}>Par {item.par}</Text>
+                {on && <Ionicons name="checkmark" size={16} color={GOLD} style={{ marginLeft: 6 }} />}
+              </TouchableOpacity>
+            );
+          }}
+        />
+        <TouchableOpacity style={sheetStyles.cancelBtn} onPress={() => { onClose(); setSearch(''); }} activeOpacity={0.7}>
+          <Text style={sheetStyles.cancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
   );
 }
 
@@ -767,6 +851,13 @@ const styles = StyleSheet.create({
     borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12,
     fontSize: 15, fontFamily: FFB, color: '#fff',
   },
+  courseInput: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12,
+  },
+  courseInputText:        { fontSize: 15, fontFamily: FFB, color: '#fff' },
+  courseInputPlaceholder: { fontSize: 15, fontFamily: FFB, color: '#444' },
 
   // Stepper
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 6 },
@@ -840,4 +931,29 @@ const styles = StyleSheet.create({
   nextBtn: { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   nextBtnOff: { opacity: 0.35 },
   nextBtnText: { fontSize: 15, fontFamily: FFB, color: '#000' },
+});
+
+const sheetStyles = StyleSheet.create({
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+  sheet: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: '#111', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingBottom: 34, paddingHorizontal: 16,
+  },
+  handle: {
+    width: 36, height: 4, borderRadius: 2, backgroundColor: '#333',
+    alignSelf: 'center', marginVertical: 12,
+  },
+  sheetTitle: { fontFamily: FFB, fontSize: 18, color: '#fff', marginBottom: 8, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  sheetRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
+  sheetOpt:   { fontFamily: FFB, fontSize: 16, color: '#fff' },
+  cancelBtn:  { marginTop: 12, alignItems: 'center', paddingVertical: 14 },
+  cancelText: { fontFamily: FFB, fontSize: 16, color: '#fff' },
+  courseParLabel: { fontFamily: FFB, fontSize: 12, color: '#fff' },
+  searchInput: {
+    backgroundColor: '#1a1a1a', borderRadius: 10, borderWidth: 1, borderColor: '#2a2a2a',
+    paddingHorizontal: 12, paddingVertical: 10, color: '#fff',
+    fontFamily: FFB, fontSize: 15, marginBottom: 8,
+  },
+  emptyText: { fontFamily: FFB, fontSize: 13, color: '#666', textAlign: 'center', paddingVertical: 24 },
 });

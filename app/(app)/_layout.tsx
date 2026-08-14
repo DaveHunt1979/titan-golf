@@ -130,7 +130,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="tour/index"     options={{ href: null }} />
         <Tabs.Screen name="swindle/index"  options={{ href: null }} />
         <Tabs.Screen name="watch/index"    options={{ href: null }} />
-        <Tabs.Screen name="chat/index"     options={{ href: null }} />
+        <Tabs.Screen name="chat"           options={{ href: null }} />
         <Tabs.Screen name="feed/index"     options={{ href: null }} />
         <Tabs.Screen name="camera/index"   options={{ title: 'Camera',   tabBarIcon: ({ focused }) => <TabIcon focused={focused}><CameraIcon      color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="profile"  options={{ title: 'Profile',  tabBarIcon: ({ focused }) => <TabIcon focused={focused}><ProfileIcon     color={ic(focused)} /></TabIcon> }} />
@@ -184,6 +184,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="range/[sessionId]"        options={{ href: null }} />
         <Tabs.Screen name="rangefinder/index" options={{ href: null, sceneStyle: IS_PAD ? { marginLeft: 0 } : undefined }} />
         <Tabs.Screen name="records/index"             options={{ href: null }} />
+        <Tabs.Screen name="trips"                     options={{ href: null }} />
         <Tabs.Screen name="swindle/create"           options={{ href: null }} />
         <Tabs.Screen name="swindle/[gameId]"         options={{ href: null }} />
         <Tabs.Screen name="swindle/score/[gameId]"   options={{ href: null }} />

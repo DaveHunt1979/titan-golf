@@ -206,9 +206,10 @@ export default function MatchPreviewScreen() {
   const awayPlayers = match.away_player_ids.map(id => players.find(p => p.id === id)).filter(Boolean) as Player[];
   const isSolo = match.away_player_ids.length === 0;
 
-  // 4BBB Stroke Matchplay: the lowest cut handicap in the whole match plays
-  // off scratch, everyone else's shots are relative to that (Rick's spec).
-  const isRelativeHcp = match.handicap_method === 'relative_low';
+  // 4BBB Stroke Matchplay and 4BBB Stableford (main game): the lowest cut
+  // handicap in the whole match plays off scratch, everyone else's shots
+  // are relative to that (Rick's spec).
+  const isRelativeHcp = match.handicap_method === 'relative_low' || match.handicap_method === 'relative_low_stableford';
   const groupLowestCutHcp = isRelativeHcp
     ? Math.min(...[...homePlayers, ...awayPlayers].map(p => {
         const allowance = match.hcp_allowance ?? 100;

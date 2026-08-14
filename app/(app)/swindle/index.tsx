@@ -3,9 +3,11 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert,
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
+import { useChatUnread } from '../../../src/lib/useChatUnread';
 
 const GOLD   = '#D4AF37';
 const PURPLE = '#a78bfa';
@@ -35,6 +37,7 @@ export default function SwindleIndex() {
   const { localLogo, logoUrl, societyId } = useSocietyTheme() as any;
   const [games,    setGames]    = useState<Game[]>([]);
   const [myId,     setMyId]     = useState<string | null>(null);
+  const chatUnread = useChatUnread('swindle', societyId, myId);
   const [loading,  setLoading]  = useState(true);
   const [joinCode, setJoinCode] = useState('');
   const [joining,  setJoining]  = useState(false);
@@ -194,7 +197,16 @@ export default function SwindleIndex() {
           <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.logo} />
           <Text style={[s.headerSub, { color: dc.cardText }]}>THE SWINDLE</Text>
         </View>
-        <View style={s.headerSide} />
+        <View style={[s.headerSide, { alignItems: 'flex-end' }]}>
+          <TouchableOpacity onPress={() => router.push('/(app)/chat/swindle' as any)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="chatbubbles-outline" size={22} color={dc.gold} />
+            {chatUnread > 0 && (
+              <View style={s.chatBadge}>
+                <Text style={s.chatBadgeText}>{chatUnread > 9 ? '9+' : chatUnread}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Join by code row */}
@@ -329,6 +341,12 @@ const s = StyleSheet.create({
   // Header
   header:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 },
   headerSide:    { flex: 1 },
+  chatBadge: {
+    position: 'absolute', top: -4, right: -6,
+    minWidth: 16, height: 16, borderRadius: 8,
+    backgroundColor: '#D4AF37', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
+  },
+  chatBadgeText: { fontFamily: FFB, fontSize: 9, color: '#000' },
   headerCenter:  { alignItems: 'center', gap: 4 },
   logo:          { width: 28, height: 28 },
   headerSub:     { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 2 },

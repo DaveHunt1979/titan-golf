@@ -12,6 +12,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { getStandings, getEffectiveWinner, calcSweepBonus } from '../../../src/lib/scoring';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { teamLogos } from '../../../src/lib/assets';
+import { useChatUnread } from '../../../src/lib/useChatUnread';
 import type { Competition, CompetitionDay, Match, Team, Champion, Notification } from '../../../src/types';
 
 // ── TITAN constants ───────────────────────────────────────────────────
@@ -108,6 +109,7 @@ export default function TourScreen() {
   const [kronosRows, setKronosRows]   = useState<{ playerId: string; name: string; total: number; holes: number }[]>([]);
   const [champions, setChampions]     = useState<Champion[]>([]);
   const [myPlayerId, setMyPlayerId]   = useState<string | null>(null);
+  const chatUnread = useChatUnread('tour', SOCIETY_ID, myPlayerId);
   const [loading, setLoading]         = useState(true);
   const [refreshing, setRefreshing]   = useState(false);
   const [selectedSection, setSelectedSection] = useState<'matches' | 'standings' | 'info' | 'social' | 'players' | null>(null);
@@ -1038,6 +1040,24 @@ export default function TourScreen() {
           }
           showsVerticalScrollIndicator={false}
         >
+          <TouchableOpacity
+            style={[st.chatBanner, { backgroundColor: dc.card, borderColor: dc.border }]}
+            onPress={() => router.push('/(app)/chat/tour' as any)}
+            activeOpacity={0.8}
+          >
+            <Text style={{ fontSize: 22 }}>💬</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[st.chatBannerLabel, { color: dc.cardText }]}>Tournament Chat</Text>
+              <Text style={[st.chatBannerSub, { color: dc.textSecondary }]}>Message everyone in the tour</Text>
+            </View>
+            {chatUnread > 0 && (
+              <View style={st.chatBannerBadge}>
+                <Text style={st.chatBannerBadgeText}>{chatUnread > 9 ? '9+' : chatUnread}</Text>
+              </View>
+            )}
+            <Text style={{ fontSize: 20, color: dc.textSecondary, fontFamily: 'JUSTSans-ExBold', fontWeight: '300' }}>›</Text>
+          </TouchableOpacity>
+
           <Text style={st.sectionHeader}>LIVE FEED</Text>
           {notifications.length === 0 && (
             <View style={infoStyles.empty}>
@@ -1102,6 +1122,18 @@ const st = StyleSheet.create({
     fontSize: 10, fontFamily: 'JUSTSans-ExBold', letterSpacing: 1.5,
     color: '#fff', paddingVertical: 10, marginTop: 8,
   },
+
+  chatBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 4,
+  },
+  chatBannerLabel: { fontSize: 14, fontFamily: 'JUSTSans-ExBold' },
+  chatBannerSub:   { fontSize: 11, fontFamily: 'JUSTSans-ExBold', marginTop: 2 },
+  chatBannerBadge: {
+    minWidth: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#D4AF37', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5,
+  },
+  chatBannerBadgeText: { fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: '#000' },
 
   // Table
   tableHeader: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 8, marginBottom: 6 },

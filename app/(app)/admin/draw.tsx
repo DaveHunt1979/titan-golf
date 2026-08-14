@@ -36,7 +36,13 @@ function dayFormatToRoundFormat(df: string): string {
 }
 
 function dayFormatToHandicapMethod(df: string): string {
-  return df === 'four_bbb_stroke' ? 'relative_low' : 'individual';
+  if (df === 'four_bbb_stroke') return 'relative_low';
+  // 4BBB Stableford also plays the lowest Playing Handicap in the fourball
+  // off scratch, same method as 4BBB Stroke — but keeps its own distinct
+  // value so it doesn't collide with Foursomes/Greensomes, which also map
+  // to round_format 'matchplay' + is_singles false and must stay untouched.
+  if (df === 'four_bbb') return 'relative_low_stableford';
+  return 'individual';
 }
 
 function shuffle<T>(arr: T[]): T[] {
