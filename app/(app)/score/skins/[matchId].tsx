@@ -3,7 +3,13 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Scr
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
+import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
+import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
+import { getMatchPack } from '../../../../src/lib/offlinePack';
+import SyncBar from '../../../../src/components/SyncBar';
+import ConflictSheet from '../../../../src/components/ConflictSheet';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
@@ -45,6 +51,9 @@ export default function SkinsScreen() {
   const [holeIdx, setHoleIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
+  const syncStatus = useSyncStatus();
+  const pendingCount = syncStatus.pendingCount;
+  const [showConflicts, setShowConflicts] = useState(false);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -61,6 +70,20 @@ export default function SkinsScreen() {
   );
 
   async function load() {
+    // Local pack gives an instant paint on a slow/offline connection, but it
+    // can be hours stale (14h TTL) and another device may have moved the round
+    // on since. Never treat it as final — the live fetch below always follows
+    // and overwrites it once it lands.
+    const pack = await getMatchPack(matchId);
+    if (pack) {
+      setMatch(pack.match as Match);
+      setHoles(pack.courseHoles as CourseHole[]);
+      const pn: Record<string, string> = {};
+      Object.entries(pack.players).forEach(([id, p]) => { pn[id] = p.display_name.split(' ')[0]; });
+      setNames(pn);
+      setLoading(false);
+    }
+
     const { data: m } = await supabase.from('matches').select('*,day:day_id(course_name)').eq('id', matchId).single();
     if (!m) { setLoading(false); return; }
     setMatch(m as any);
@@ -90,18 +113,43 @@ export default function SkinsScreen() {
     setScores(prev => ({ ...prev, [pid]: { ...(prev[pid] ?? {}), [hole.hole_number]: Math.max(1, v) } }));
   }
 
-  async function save() {
-    if (!match || !hole || saving) return;
+  async function save(): Promise<boolean> {
+    if (!match || !hole || saving) return false;
     setSaving(true);
-    for (const pid of players) {
-      const g = scores[pid]?.[hole.hole_number] ?? hole.par;
-      await supabase.from('match_holes').upsert({ match_id: matchId, player_id: pid, hole_number: hole.hole_number, gross_score: g }, { onConflict: 'match_id,player_id,hole_number' });
-    }
+    const insertRows = players.map(pid => ({
+      match_id: matchId,
+      player_id: pid,
+      hole_number: hole.hole_number,
+      gross_score: scores[pid]?.[hole.hole_number] ?? hole.par,
+    }));
+
+    // Try drain before saving
+    if (pendingCount > 0) await syncStatus.syncNow();
+
+    const result = await saveHoleWithOfflineFallback({
+      matchId: matchId as string,
+      holeNumber: hole.hole_number,
+      insertRows,
+      matchUpdate: {},
+    });
     setSaving(false);
+
+    if (result.outcome === 'missing_match') {
+      Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
+        { text: 'OK', onPress: () => router.replace('/(app)/' as any) },
+      ]);
+      return false;
+    }
+    if (result.outcome === 'error') {
+      Alert.alert('Error', String(result.error?.message ?? result.error));
+      return false;
+    }
+    if (result.outcome === 'saved_offline') syncStatus.syncNow();
+    return true;
   }
 
   async function next() {
-    await save();
+    if (!(await save())) return;
     if (holeIdx < holes.length - 1) { setHoleIdx(holeIdx + 1); return; }
     await supabase.from('matches').update({ status: 'complete' }).eq('id', matchId);
     const { skins } = calcSkins(players, scores, holes);
@@ -137,6 +185,16 @@ export default function SkinsScreen() {
         </View>
         <View style={{ width: 60 }} />
       </View>
+
+      {/* ── Sync status ── */}
+      <SyncBar status={syncStatus} onConflictsPress={() => setShowConflicts(true)} />
+      <ConflictSheet
+        visible={showConflicts}
+        conflicts={syncStatus.conflicts}
+        playerNames={names}
+        onResolve={async (id, useServer) => { await syncStatus.resolveAndRefresh(id, useServer); }}
+        onClose={() => setShowConflicts(false)}
+      />
 
       {/* Skins tally */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tallyScroll}>
@@ -174,6 +232,12 @@ export default function SkinsScreen() {
 
       {/* Per-player score entry */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.playersWrap}>
+        {pendingCount > 0 && (
+          <View style={s.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={13} color="#fff" />
+            <Text style={s.offlineBannerText}>{pendingCount} score{pendingCount !== 1 ? 's' : ''} saved offline — will sync when connected</Text>
+          </View>
+        )}
         {players.map(pid => {
           const sc = getScore(pid);
           return (
@@ -204,7 +268,7 @@ export default function SkinsScreen() {
       <View style={s.nav}>
         <TouchableOpacity
           style={[s.navBtn, holeIdx === 0 && s.dim]}
-          onPress={async () => { await save(); setHoleIdx(Math.max(0, holeIdx - 1)); }}
+          onPress={async () => { if (!(await save())) return; setHoleIdx(Math.max(0, holeIdx - 1)); }}
           disabled={holeIdx === 0 || saving}
           activeOpacity={0.7}
         >
@@ -255,6 +319,10 @@ const s = StyleSheet.create({
   holeMeta:        { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 3 },
   // Players
   playersWrap:     { padding: 20, gap: 12 },
+
+  // Offline banner
+  offlineBanner:     { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1c1c1c', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  offlineBannerText: { flex: 1, fontFamily: FFB, fontSize: 11, color: '#fff' },
   playerCard:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', paddingHorizontal: 16, paddingVertical: 14 },
   playerName:      { fontSize: 15, fontFamily: FFB, color: '#fff', flex: 1 },
   stepper:         { flexDirection: 'row', alignItems: 'center', gap: 12 },

@@ -10,6 +10,11 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
+import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
+import { getMatchPack } from '../../../../src/lib/offlinePack';
+import SyncBar from '../../../../src/components/SyncBar';
+import ConflictSheet from '../../../../src/components/ConflictSheet';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -89,11 +94,33 @@ export default function TeamStablefordScreen() {
   const [currentHole, setCurrentHole] = useState(1);
   const [loading, setLoading]       = useState(true);
   const [showComplete, setShowComplete] = useState(false);
+  const syncStatus = useSyncStatus();
+  const pendingCount = syncStatus.pendingCount;
+  const [showConflicts, setShowConflicts] = useState(false);
 
   const holeStripRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     async function load() {
+      // Local pack gives an instant paint on a slow/offline connection, but it
+      // can be hours stale (14h TTL) and another device may have moved the
+      // round on since. Never trust it as the final state: the live fetch
+      // below always follows and overwrites it. Entered scores aren't in the
+      // pack, so `scores` and `currentHole` stay empty/hole 1 until it lands.
+      const pack = await getMatchPack(matchId);
+      if (pack) {
+        setMatch(pack.match as Match);
+        setCourseHoles(pack.courseHoles as CourseHole[]);
+        setPlayers(Object.entries(pack.players).map(([id, p]) => ({
+          id,
+          display_name: p.display_name,
+          handicap_index: p.handicap_index,
+          avatar_url: p.avatar_url,
+        })));
+        if ((pack.match as Match).status === 'complete') setShowComplete(true);
+        setLoading(false);
+      }
+
       const { data: matchData } = await supabase
         .from('matches')
         .select('*,day:day_id(course_name,course_par)')
@@ -179,34 +206,63 @@ export default function TeamStablefordScreen() {
     const existing = scores[playerId]?.[currentHole] ?? null;
     const newGross = existing === gross ? null : gross;
 
-    setScores(prev => ({
-      ...prev,
-      [playerId]: { ...(prev[playerId] ?? {}), [currentHole]: newGross },
-    }));
+    const nextScores: ScoreMap = {
+      ...scores,
+      [playerId]: { ...(scores[playerId] ?? {}), [currentHole]: newGross },
+    };
+    setScores(nextScores);
 
-    await supabase.from('match_holes').delete()
-      .eq('match_id', matchId).eq('player_id', playerId).eq('hole_number', currentHole);
-
-    if (newGross !== null) {
-      const player = players.find(p => p.id === playerId);
-      const hole = courseHoles.find(h => h.hole_number === currentHole);
+    // The offline queue is keyed by match+hole and its replay clears the whole
+    // hole before re-inserting, so writing only the tapped player would drop
+    // everyone else's score for this hole on sync. Send the hole's full set of
+    // rows every time, using the same per-player maths as before.
+    const holeInfo = courseHoles.find(h => h.hole_number === currentHole);
+    const insertRows = players.flatMap(p => {
+      const g = nextScores[p.id]?.[currentHole] ?? null;
+      if (g === null) return [];
       let pts = 0;
-      let netScore = newGross;
-      if (player && hole) {
-        const adjHcp = Math.round(player.handicap_index * ((match?.hcp_allowance ?? 100) / 100));
-        const strokes = calcStrokesReceived(adjHcp, hole.stroke_index);
-        pts = calcStablefordPoints(newGross, hole.par, strokes);
-        netScore = newGross - strokes;
+      let netScore = g;
+      if (holeInfo) {
+        const adjHcp = Math.round(p.handicap_index * ((match?.hcp_allowance ?? 100) / 100));
+        const strokes = calcStrokesReceived(adjHcp, holeInfo.stroke_index);
+        pts = calcStablefordPoints(g, holeInfo.par, strokes);
+        netScore = g - strokes;
       }
-      await supabase.from('match_holes').insert({
+      return [{
         match_id: matchId,
-        player_id: playerId,
+        player_id: p.id,
         hole_number: currentHole,
-        gross_score: newGross,
+        gross_score: g,
         net_score: netScore,
         stableford_pts: pts,
-      });
+      }];
+    });
+
+    // Drain anything already queued before adding to it, so scores land in the
+    // order they were entered once signal comes back.
+    if (pendingCount > 0) await syncStatus.syncNow();
+
+    // This screen only writes the match row when the round is completed, so a
+    // per-hole save has nothing to update there.
+    const result = await saveHoleWithOfflineFallback({
+      matchId: matchId as string,
+      holeNumber: currentHole,
+      insertRows,
+      matchUpdate: {},
+    });
+
+    if (result.outcome === 'missing_match') {
+      Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
+        { text: 'OK', onPress: () => router.replace('/(app)/score' as any) },
+      ]);
+      return;
     }
+    if (result.outcome === 'error') {
+      console.error('save error:', result.error);
+      Alert.alert('Save failed', 'That score didn\'t save — check your connection and try again.');
+      return;
+    }
+    if (result.outcome === 'saved_offline') syncStatus.syncNow();
   }
 
   async function completeRound() {
@@ -407,6 +463,23 @@ export default function TeamStablefordScreen() {
           <Ionicons name="trash-outline" size={20} color="#555" />
         </TouchableOpacity>
       </View>
+
+      {/* Sync status */}
+      <SyncBar status={syncStatus} onConflictsPress={() => setShowConflicts(true)} />
+      <ConflictSheet
+        visible={showConflicts}
+        conflicts={syncStatus.conflicts}
+        playerNames={Object.fromEntries(players.map(p => [p.id, p.display_name]))}
+        onResolve={async (id, useServer) => { await syncStatus.resolveAndRefresh(id, useServer); }}
+        onClose={() => setShowConflicts(false)}
+      />
+
+      {pendingCount > 0 && (
+        <View style={s.offlineBanner}>
+          <Ionicons name="cloud-offline-outline" size={13} color="#fff" />
+          <Text style={s.offlineBannerText}>{pendingCount} score{pendingCount !== 1 ? 's' : ''} saved offline — will sync when connected</Text>
+        </View>
+      )}
 
       {/* Team totals bar */}
       {isMashieGroup ? (
@@ -687,6 +760,8 @@ const s = StyleSheet.create({
   headerLogo:   { width: 28, height: 28 },
   headerSub:    { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2.5 },
 
+  offlineBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1c1c1c', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginHorizontal: 16, marginBottom: 8 },
+  offlineBannerText: { flex: 1, fontFamily: 'JUSTSans-ExBold', fontSize: 11, color: '#fff' },
   totalsBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 4, backgroundColor: '#111', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden' },
   totalBlock: { flex: 1, padding: 12 },
   totalBlockWin:  { borderRightWidth: 2, borderRightColor: `${GOLD}30` },

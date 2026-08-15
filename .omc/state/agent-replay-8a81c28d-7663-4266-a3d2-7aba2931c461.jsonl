@@ -1,0 +1,41 @@
+{"t":0,"agent":"a391975","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"aofflin","agent_type":"offline-solo-team","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aofflin","agent_type":"offline-bbb-chacha-modified","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aofflin","agent_type":"offline-nassau-parbogey-scramble-skins-wolf","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aofflin","agent_type":"offline-spectate-gps","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aofflin","agent_type":"offline-spectate-gps","event":"agent_stop","success":true,"duration_ms":188676}
+{"t":0,"agent":"aofflin","agent_type":"offline-spectate-gps","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"adc7cf2","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"aofflin","agent_type":"offline-spectate-gps","event":"agent_stop","success":true,"duration_ms":31548}
+{"t":0,"agent":"aofflin","agent_type":"offline-spectate-gps","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aofflin","agent_type":"offline-bbb-chacha-modified","event":"agent_stop","success":true,"duration_ms":284618}
+{"t":0,"agent":"aofflin","agent_type":"offline-bbb-chacha-modified","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aofflin","agent_type":"offline-spectate-gps","event":"agent_stop","success":true,"duration_ms":19105}
+{"t":0,"agent":"aofflin","agent_type":"offline-bbb-chacha-modified","event":"agent_stop","success":true,"duration_ms":11936}
+{"t":0,"agent":"aofflin","agent_type":"offline-solo-team","event":"agent_stop","success":true,"duration_ms":338314}
+{"t":0,"agent":"aofflin","agent_type":"offline-solo-team","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aofflin","agent_type":"offline-bbb-chacha-modified","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aofflin","agent_type":"offline-spectate-gps","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aofflin","agent_type":"offline-bbb-chacha-modified","event":"agent_stop","success":true,"duration_ms":12078}
+{"t":0,"agent":"aofflin","agent_type":"offline-bbb-chacha-modified","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aofflin","agent_type":"offline-solo-team","event":"agent_stop","success":true,"duration_ms":48834}
+{"t":0,"agent":"aofflin","agent_type":"offline-solo-team","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ae000c1","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"aofflin","agent_type":"offline-spectate-gps","event":"agent_stop","success":true,"duration_ms":51434}
+{"t":0,"agent":"aofflin","agent_type":"offline-bbb-chacha-modified","event":"agent_stop","success":true,"duration_ms":39440}
+{"t":0,"agent":"aofflin","agent_type":"offline-nassau-parbogey-scramble-skins-wolf","event":"agent_stop","success":true,"duration_ms":387485}
+{"t":0,"agent":"aofflin","agent_type":"offline-nassau-parbogey-scramble-skins-wolf","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a2cc32c","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"aofflin","agent_type":"offline-spectate-gps","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a7a0384","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"aofflin","agent_type":"offline-nassau-parbogey-scramble-skins-wolf","event":"agent_stop","success":true,"duration_ms":19079}
+{"t":0,"agent":"aofflin","agent_type":"offline-nassau-parbogey-scramble-skins-wolf","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ab416be","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"aofflin","agent_type":"offline-solo-team","event":"agent_stop","success":true,"duration_ms":62518}
+{"t":0,"agent":"aofflin","agent_type":"offline-spectate-gps","event":"agent_stop","success":true,"duration_ms":41932}
+{"t":0,"agent":"af455ee","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"aofflin","agent_type":"offline-spectate-gps","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aofflin","agent_type":"offline-nassau-parbogey-scramble-skins-wolf","event":"agent_stop","success":true,"duration_ms":45692}
+{"t":0,"agent":"aofflin","agent_type":"offline-nassau-parbogey-scramble-skins-wolf","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aofflin","agent_type":"offline-spectate-gps","event":"agent_stop","success":true,"duration_ms":52317}
+{"t":0,"agent":"aofflin","agent_type":"offline-nassau-parbogey-scramble-skins-wolf","event":"agent_stop","success":true,"duration_ms":34072}

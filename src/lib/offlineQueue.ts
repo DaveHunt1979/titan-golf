@@ -167,8 +167,10 @@ export async function drainQueue(): Promise<{ drained: number; remaining: number
         if (statRows.length > 0) {
           await supabase.from('hole_stats').upsert(statRows, { onConflict: 'match_id,player_id,hole_number' });
         }
-        const { error } = await supabase.from('matches').update(matchUpdate).eq('id', row.match_id);
-        if (error) throw error;
+        if (Object.keys(matchUpdate).length > 0) {
+          const { error } = await supabase.from('matches').update(matchUpdate).eq('id', row.match_id);
+          if (error) throw error;
+        }
 
         await db.runAsync('DELETE FROM offline_queue WHERE id = ?', [row.id]);
         drained++;
@@ -228,7 +230,9 @@ export async function resolveConflict(conflictId: string, useServer: boolean): P
       await supabase.from('match_holes').delete()
         .eq('match_id', conflict.match_id).eq('hole_number', conflict.hole_number);
       if (insertRows.length > 0) await supabase.from('match_holes').insert(insertRows);
-      await supabase.from('matches').update(matchUpdate).eq('id', conflict.match_id);
+      if (Object.keys(matchUpdate).length > 0) {
+        await supabase.from('matches').update(matchUpdate).eq('id', conflict.match_id);
+      }
     }
 
     await db.runAsync('DELETE FROM offline_queue WHERE match_id = ? AND hole_number = ?',

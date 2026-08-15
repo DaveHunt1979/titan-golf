@@ -3,7 +3,13 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Scr
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
+import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
+import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
+import { getMatchPack } from '../../../../src/lib/offlinePack';
+import SyncBar from '../../../../src/components/SyncBar';
+import ConflictSheet from '../../../../src/components/ConflictSheet';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -61,11 +67,16 @@ export default function WolfScreen() {
   const [phase, setPhase]       = useState<'pick' | 'score'>('pick');
   // Cumulative points
   const [cumPoints, setCumPoints] = useState<Record<string, number>>({});
+  const syncStatus = useSyncStatus();
+  const pendingCount = syncStatus.pendingCount;
+  const [showConflicts, setShowConflicts] = useState(false);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
     'JUSTSans-ExBold': require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
+
+  useEffect(() => { load(); }, [matchId]);
 
   if (loading || !fontsLoaded) return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
@@ -74,9 +85,27 @@ export default function WolfScreen() {
     </View>
   );
 
-  useEffect(() => { load(); }, [matchId]);
-
   async function load() {
+    // Local pack gives an instant paint on a slow/offline connection, but it
+    // can be hours stale (14h TTL) and another device may have moved the round
+    // on since. Never treat it as final — the live fetch below always follows
+    // and overwrites it once it lands.
+    const pack = await getMatchPack(matchId);
+    if (pack) {
+      setMatch(pack.match as Match);
+      setHoles(pack.courseHoles as CourseHole[]);
+      const pn: Record<string, string> = {};
+      const pc: Record<string, number> = {};
+      Object.entries(pack.players).forEach(([id, p]) => { pn[id] = p.display_name.split(' ')[0]; pc[id] = 0; });
+      setNames(pn);
+      setCumPoints(pc);
+      try {
+        const parsed = JSON.parse(pack.match?.result_str ?? '');
+        if (parsed.wolf) setWolfDecisions(parsed.wolf);
+      } catch {}
+      setLoading(false);
+    }
+
     const { data: m } = await supabase.from('matches').select('*,day:day_id(course_name)').eq('id', matchId).single();
     if (!m) { setLoading(false); return; }
     setMatch(m as any);
@@ -122,19 +151,43 @@ export default function WolfScreen() {
     setScores(prev => ({ ...prev, [pid]: { ...(prev[pid] ?? {}), [hole.hole_number]: Math.max(1, v) } }));
   }
 
-  async function saveHole() {
-    if (!match || !hole || saving) return;
+  async function saveHole(): Promise<boolean> {
+    if (!match || !hole || saving) return false;
     setSaving(true);
-    for (const pid of players) {
-      const g = scores[pid]?.[hole.hole_number] ?? hole.par;
-      await supabase.from('match_holes').upsert({ match_id: matchId, player_id: pid, hole_number: hole.hole_number, gross_score: g }, { onConflict: 'match_id,player_id,hole_number' });
-    }
+    const insertRows = players.map(pid => ({
+      match_id: matchId,
+      player_id: pid,
+      hole_number: hole.hole_number,
+      gross_score: scores[pid]?.[hole.hole_number] ?? hole.par,
+    }));
     const { data: existing } = await supabase.from('matches').select('result_str').eq('id', matchId).single();
     let parsed: any = {};
     try { if ((existing as any)?.result_str) parsed = JSON.parse((existing as any).result_str); } catch {}
     parsed.wolf = wolfDecisions;
-    await supabase.from('matches').update({ result_str: JSON.stringify(parsed) }).eq('id', matchId);
+
+    // Try drain before saving
+    if (pendingCount > 0) await syncStatus.syncNow();
+
+    const result = await saveHoleWithOfflineFallback({
+      matchId: matchId as string,
+      holeNumber: hole.hole_number,
+      insertRows,
+      matchUpdate: { result_str: JSON.stringify(parsed) },
+    });
     setSaving(false);
+
+    if (result.outcome === 'missing_match') {
+      Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
+        { text: 'OK', onPress: () => router.replace('/(app)/' as any) },
+      ]);
+      return false;
+    }
+    if (result.outcome === 'error') {
+      Alert.alert('Error', String(result.error?.message ?? result.error));
+      return false;
+    }
+    if (result.outcome === 'saved_offline') syncStatus.syncNow();
+    return true;
   }
 
   async function nextHole() {
@@ -145,9 +198,9 @@ export default function WolfScreen() {
     const holePts = wolfPoints(players, wolfId, partnerId, hScores);
     const newCum = { ...cumPoints };
     players.forEach(id => { newCum[id] = (newCum[id] ?? 0) + (holePts[id] ?? 0); });
-    setCumPoints(newCum);
 
-    await saveHole();
+    if (!(await saveHole())) return;
+    setCumPoints(newCum);
 
     if (holeIdx < holes.length - 1) {
       setHoleIdx(holeIdx + 1);
@@ -177,6 +230,23 @@ export default function WolfScreen() {
         </View>
         <View style={s.headerSpacer} />
       </View>
+
+      {/* ── Sync status ── */}
+      <SyncBar status={syncStatus} onConflictsPress={() => setShowConflicts(true)} />
+      <ConflictSheet
+        visible={showConflicts}
+        conflicts={syncStatus.conflicts}
+        playerNames={names}
+        onResolve={async (id, useServer) => { await syncStatus.resolveAndRefresh(id, useServer); }}
+        onClose={() => setShowConflicts(false)}
+      />
+
+      {pendingCount > 0 && (
+        <View style={s.offlineBanner}>
+          <Ionicons name="cloud-offline-outline" size={13} color="#fff" />
+          <Text style={s.offlineBannerText}>{pendingCount} score{pendingCount !== 1 ? 's' : ''} saved offline — will sync when connected</Text>
+        </View>
+      )}
 
       {/* Cumulative points tally */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tallyScroll}>
@@ -273,6 +343,10 @@ const s = StyleSheet.create({
   headerLogo:      { width: 28, height: 28, marginBottom: 3 },
   headerSub:       { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
   headerSpacer:    { minWidth: 60 },
+  // Offline banner
+  offlineBanner:     { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1c1c1c', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginHorizontal: 16, marginTop: 12 },
+  offlineBannerText: { flex: 1, fontFamily: FFB, fontSize: 11, color: '#fff' },
+
   tallyScroll:     { maxHeight: 90, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
   tally:           { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 10, alignItems: 'center' },
   tallyItem:       { alignItems: 'center', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', paddingHorizontal: 14, paddingVertical: 8, minWidth: 64 },

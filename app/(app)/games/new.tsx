@@ -12,7 +12,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useSociety } from '../../../src/lib/useSociety';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { getPlayerAvatar } from '../../../src/lib/assets';
-import { downloadMatchPack } from '../../../src/lib/offlinePack';
+import { downloadMatchPack, downloadCourseGps } from '../../../src/lib/offlinePack';
 import { fetchFavouriteIds, fetchRecentlyPlayedWithIds, toggleFavourite } from '../../../src/lib/playerTiers';
 import GroupBuilderSheet, { BuiltMatch, PlayerOverride } from './GroupBuilderSheet';
 
@@ -843,6 +843,10 @@ export default function NewGameScreen() {
       firstMatchId = firstResult.data.id;
       console.log('[createGame] matches inserted', { firstMatchId, matchIds: results.map(r => r.data?.id) });
       results.forEach(r => { if (r.data?.id) downloadMatchPack(r.data.id).catch(() => {}); });
+      // Signal is at its best right now (clubhouse), so grab the course's GPS
+      // data too — otherwise rangefinder only tries on first use, out on the
+      // course, where it can be too weak to ever complete.
+      downloadCourseGps(selectedCourse).catch(() => {});
 
       if (isMashie) {
         // Group codes are already visible in Admin → Codes ("MASHIE GROUP CODES")

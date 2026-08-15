@@ -19,6 +19,11 @@ import ShotLogger from '../../../../src/components/ShotLogger';
 import RecordCelebration from '../../../../src/components/RecordCelebration';
 import { checkAndUpdateRecords, type BrokenRecord } from '../../../../src/lib/records';
 import { sendSoloMatchToWatch, clearSoloMatchFromWatch, onWatchSoloScoreEntry, onWatchRequestsState } from '../../../../src/lib/watch';
+import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
+import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
+import { getMatchPack } from '../../../../src/lib/offlinePack';
+import SyncBar from '../../../../src/components/SyncBar';
+import ConflictSheet from '../../../../src/components/ConflictSheet';
 import { IS_PAD } from '../../../../src/lib/useDeviceLayout';
 import GPSPanel from '../../../../src/components/ipad/GPSPanel';
 import LeaderboardPanel from '../../../../src/components/ipad/LeaderboardPanel';
@@ -47,10 +52,6 @@ function scoreVsPar(gross: number, par: number, _shots: number): string {
   if (diff === 0)  return 'par';
   if (diff === 1)  return 'bogey';
   return 'double';
-}
-
-function isMissingMatchError(err: any): boolean {
-  return err?.code === '23503' || /foreign key/i.test(String(err?.message ?? ''));
 }
 
 // Shared vs-par formatter — 'E' for level par, otherwise signed. Single
@@ -140,11 +141,47 @@ export default function SoloRoundScreen() {
   const [sideGameWinner, setSideGameWinner] = useState<string | null>(null);
   const [showRangeMap, setShowRangeMap]     = useState(false);
   const [showShotLogger, setShowShotLogger] = useState(false);
+  const syncStatus = useSyncStatus();
+  const pendingCount = syncStatus.pendingCount;
+  const [showConflicts, setShowConflicts] = useState(false);
 
   useEffect(() => {
     async function load() {
       console.log('[solo.load] start', { matchId });
+      let hadPack = false;
       try {
+        // Local pack gives an instant paint on a slow/offline connection, but
+        // it can be hours stale (14h TTL) and another device may have moved
+        // the round on since. Never trust it as the final state: always follow
+        // up with the live network fetch below, which overwrites it once it
+        // lands. Saved scores aren't in the pack — holes_string still marks
+        // which holes are done, so the hole strip and "next hole" land right.
+        const pack = await getMatchPack(matchId);
+        if (pack) {
+          hadPack = true;
+          console.log('[solo.load] local pack found — instant paint');
+          const pm = pack.match as MatchInfo;
+          setMatch(pm);
+          setCourseHoles(pack.courseHoles);
+          const pid = pm.home_player_ids?.[0];
+          const pp = pid ? pack.players[pid] : null;
+          if (pp) {
+            setPlayerName(pp.display_name ?? '');
+            setAvatarUrl(pp.avatar_url ?? null);
+            const hcp = pp.handicap_index ?? 0;
+            setPlayerHcp(hcp);
+            setCourseHcp(
+              pm.day?.slope_rating && pm.day?.course_rating && pm.day?.course_par
+                ? calcCourseHandicap(hcp, pm.day.slope_rating, pm.day.course_rating, pm.day.course_par)
+                : Math.round(hcp)
+            );
+          }
+          setRoundDone(pm.status === 'complete');
+          setLoading(false);
+        } else {
+          console.log('[solo.load] no local pack — cold load');
+        }
+
         const { data: matchData, error: matchErr } = await supabase
           .from('matches')
           .select('*, day:day_id(course_name,course_par,course_rating,slope_rating,day_number)')
@@ -192,7 +229,9 @@ export default function SoloRoundScreen() {
         console.log('[solo.load] done', { matchId });
       } catch (e) {
         console.error('[solo.load] failed', { matchId }, e);
-        setLoadError(true);
+        // Keep a painted cached pack on screen rather than replacing a
+        // perfectly good view with an error just because this refresh failed.
+        if (!hadPack) setLoadError(true);
       } finally {
         console.log('[solo.load] finally — clearing loading', { matchId });
         setLoading(false);
@@ -472,47 +511,29 @@ export default function SoloRoundScreen() {
     // ── Persist to Supabase in background ──
     setSaving(true);
     try {
-      await supabase.from('match_holes').delete().eq('match_id', matchId).eq('hole_number', holeToSave);
-      const { error: insErr } = await supabase.from('match_holes').insert({
-        match_id: matchId,
-        player_id: match.home_player_ids[0],
-        hole_number: holeToSave,
-        score: null,
-        gross_score: gross,
-        net_score: net,
-        stableford_pts: pts,
-      });
-      if (insErr) {
-        if (isMissingMatchError(insErr)) {
-          Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
-            { text: 'OK', onPress: () => router.replace('/(app)/' as any) },
-          ]);
-          return;
-        }
-        // Don't let the match row get marked as if this hole saved when it
-        // didn't (e.g. an RLS rejection) — the score already shows in the UI
-        // optimistically, but silently continuing here would also mark the
-        // round complete/progressed with no match_holes row behind it, and
-        // the score would vanish next time this screen loads.
-        console.error('insert error:', insErr);
-        Alert.alert('Save failed', 'That score didn\'t save — check your connection and try again.');
-        return;
-      }
-
       const timerFields2: { started_at?: string; completed_at?: string } = {};
       if (!match.started_at) timerFields2.started_at = new Date().toISOString();
       if (newStatus === 'complete' && !match.completed_at) timerFields2.completed_at = new Date().toISOString();
-      const { error: matchErr } = await supabase.from('matches').update({
-        holes_string: newHolesStr,
-        status: newStatus,
-        result_str: result,
-        ...timerFields2,
-      }).eq('id', matchId);
-      if (matchErr) console.error('match update error:', matchErr);
-      else if (Object.keys(timerFields2).length) setMatch(prev => prev ? { ...prev, ...timerFields2 } : prev);
 
-      if (snapFairway !== null || snapPutts !== null || snapBunker > 0 || snapPenalty > 0 || snapChips > 0) {
-        await supabase.from('hole_stats').upsert({
+      const hasStats = snapFairway !== null || snapPutts !== null || snapBunker > 0 || snapPenalty > 0 || snapChips > 0;
+
+      // Drain anything already queued before adding to it, so scores land in
+      // the order they were entered once signal comes back.
+      if (pendingCount > 0) await syncStatus.syncNow();
+
+      const saveResult = await saveHoleWithOfflineFallback({
+        matchId: matchId as string,
+        holeNumber: holeToSave,
+        insertRows: [{
+          match_id: matchId,
+          player_id: match.home_player_ids[0],
+          hole_number: holeToSave,
+          score: null,
+          gross_score: gross,
+          net_score: net,
+          stableford_pts: pts,
+        }],
+        statRows: hasStats ? [{
           match_id: matchId,
           player_id: match.home_player_ids[0],
           hole_number: holeToSave,
@@ -522,7 +543,38 @@ export default function SoloRoundScreen() {
           bunker_shots:    snapBunker > 0 ? snapBunker : null,
           penalty_strokes: snapPenalty > 0 ? snapPenalty : null,
           chip_shots:      snapChips > 0 ? snapChips : null,
-        }, { onConflict: 'match_id,player_id,hole_number' });
+        }] : [],
+        matchUpdate: {
+          holes_string: newHolesStr,
+          status: newStatus,
+          result_str: result,
+          ...timerFields2,
+        },
+      });
+
+      if (saveResult.outcome === 'missing_match') {
+        Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
+          { text: 'OK', onPress: () => router.replace('/(app)/' as any) },
+        ]);
+        return;
+      }
+      if (saveResult.outcome === 'error') {
+        // Don't let the match row get marked as if this hole saved when it
+        // didn't (e.g. an RLS rejection) — the score already shows in the UI
+        // optimistically, but silently continuing here would also mark the
+        // round complete/progressed with no match_holes row behind it, and
+        // the score would vanish next time this screen loads.
+        console.error('save error:', saveResult.error);
+        Alert.alert('Save failed', 'That score didn\'t save — check your connection and try again.');
+        return;
+      }
+      if (Object.keys(timerFields2).length) setMatch(prev => prev ? { ...prev, ...timerFields2 } : prev);
+
+      // Queued for later — the score is safe locally, but everything below
+      // needs the network, so let the drain handle it instead of failing now.
+      if (saveResult.outcome === 'saved_offline') {
+        syncStatus.syncNow();
+        return;
       }
 
       if (!wasEditing) {
@@ -671,6 +723,16 @@ export default function SoloRoundScreen() {
         </View>
       </View>
 
+      {/* ── Sync status ── */}
+      <SyncBar status={syncStatus} onConflictsPress={() => setShowConflicts(true)} />
+      <ConflictSheet
+        visible={showConflicts}
+        conflicts={syncStatus.conflicts}
+        playerNames={{ [match.home_player_ids[0]]: playerName }}
+        onResolve={async (id, useServer) => { await syncStatus.resolveAndRefresh(id, useServer); }}
+        onClose={() => setShowConflicts(false)}
+      />
+
       {/* ── Player + score ── */}
       <View style={s.playerBlock}>
         <Avatar name={playerName} size={52} src={avatar} />
@@ -732,6 +794,13 @@ export default function SoloRoundScreen() {
 
       {/* ── Scrollable body ── */}
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+
+        {pendingCount > 0 && (
+          <View style={s.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={13} color="#fff" />
+            <Text style={s.offlineBannerText}>{pendingCount} score{pendingCount !== 1 ? 's' : ''} saved offline — will sync when connected</Text>
+          </View>
+        )}
 
         {!isComplete ? (
           <>
@@ -1278,6 +1347,8 @@ const s = StyleSheet.create({
   halfLabel:     { fontFamily: FFB, fontSize: 8, color: '#ffffff', letterSpacing: 1.5 },
 
   scroll: { padding: 16, paddingBottom: 40 },
+  offlineBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1c1c1c', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 8 },
+  offlineBannerText: { flex: 1, fontFamily: 'JUSTSans-ExBold', fontSize: 11, color: '#fff' },
 
   holeCard: { alignItems: 'center', marginBottom: 12, paddingVertical: 20, backgroundColor: '#111111', borderRadius: 16, borderWidth: 1, borderColor: '#1c1c1c' },
   holeLabelSmall: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 2 },

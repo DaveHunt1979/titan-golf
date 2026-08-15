@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { uploadImage } from '../../../src/lib/uploadImage';
+import { teamLogos, getPlayerAvatar } from '../../../src/lib/assets';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
@@ -41,6 +42,13 @@ interface EditState {
   localUri: string | null;
 }
 
+interface RosterPlayer {
+  player_id: string;
+  display_name: string;
+  handicap_index: number | null;
+  avatar_url: string | null;
+}
+
 const BLANK: EditState = { id: null, name: '', color: SWATCHES[0], logoUrl: null, localUri: null };
 
 export default function TeamsScreen() {
@@ -51,6 +59,16 @@ export default function TeamsScreen() {
   const [modal, setModal]     = useState(false);
   const [edit, setEdit]       = useState<EditState>(BLANK);
   const [saving, setSaving]   = useState(false);
+
+  // Permanent roster — society_members.team_id — separate from a specific
+  // tournament's competition_players.team_id, which still gets built fresh
+  // per tournament (and moved via the Transfer Window). This is the default
+  // "who's on this team" a new tournament should be able to start from.
+  const [roster, setRoster]           = useState<RosterPlayer[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [freeAgents, setFreeAgents]   = useState<RosterPlayer[]>([]);
+  const [addPlayerModal, setAddPlayerModal] = useState(false);
+  const [rosterBusy, setRosterBusy]   = useState<string | null>(null);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -80,12 +98,69 @@ export default function TeamsScreen() {
 
   function openNew() {
     setEdit(BLANK);
+    setRoster([]);
     setModal(true);
   }
 
   function openEdit(team: Team) {
     setEdit({ id: team.id, name: team.name, color: team.accent_color, logoUrl: team.logo_url, localUri: null });
     setModal(true);
+    loadRoster(team.id);
+  }
+
+  async function loadRoster(teamId: string) {
+    if (!societyId) return;
+    setRosterLoading(true);
+    const { data } = await supabase
+      .from('society_members')
+      .select('player_id, players(display_name, handicap_index, avatar_url)')
+      .eq('society_id', societyId)
+      .eq('team_id', teamId);
+    const rows: RosterPlayer[] = ((data ?? []) as any[]).map(r => ({
+      player_id: r.player_id,
+      display_name: r.players?.display_name ?? 'Unknown',
+      handicap_index: r.players?.handicap_index ?? null,
+      avatar_url: r.players?.avatar_url ?? null,
+    })).sort((a, b) => a.display_name.localeCompare(b.display_name));
+    setRoster(rows);
+    setRosterLoading(false);
+  }
+
+  async function loadFreeAgents() {
+    if (!societyId) return;
+    const { data } = await supabase
+      .from('society_members')
+      .select('player_id, players(display_name, handicap_index, avatar_url)')
+      .eq('society_id', societyId)
+      .is('team_id', null);
+    const rows: RosterPlayer[] = ((data ?? []) as any[]).map(r => ({
+      player_id: r.player_id,
+      display_name: r.players?.display_name ?? 'Unknown',
+      handicap_index: r.players?.handicap_index ?? null,
+      avatar_url: r.players?.avatar_url ?? null,
+    })).sort((a, b) => a.display_name.localeCompare(b.display_name));
+    setFreeAgents(rows);
+  }
+
+  async function addPlayerToTeam(playerId: string) {
+    if (!edit.id || !societyId) return;
+    setRosterBusy(playerId);
+    await supabase.from('society_members')
+      .update({ team_id: edit.id } as any)
+      .eq('society_id', societyId).eq('player_id', playerId);
+    setAddPlayerModal(false);
+    await loadRoster(edit.id);
+    setRosterBusy(null);
+  }
+
+  async function removePlayerFromTeam(playerId: string) {
+    if (!edit.id || !societyId) return;
+    setRosterBusy(playerId);
+    await supabase.from('society_members')
+      .update({ team_id: null } as any)
+      .eq('society_id', societyId).eq('player_id', playerId);
+    await loadRoster(edit.id);
+    setRosterBusy(null);
   }
 
   async function pickLogo() {
@@ -110,6 +185,7 @@ export default function TeamsScreen() {
     setSaving(true);
     try {
       let teamId = edit.id;
+      const isNew = !teamId;
 
       if (!teamId) {
         const { data, error } = await supabase
@@ -137,8 +213,16 @@ export default function TeamsScreen() {
         await supabase.from('teams').update({ logo_url: url } as any).eq('id', teamId);
       }
 
-      setModal(false);
       await loadTeams();
+      if (isNew && teamId) {
+        // Stay open on the newly created team, roster section now unlocked
+        // — "create and populate" in one continuous flow rather than a
+        // dead-end that makes you reopen the team to add players.
+        setEdit(e => ({ ...e, id: teamId }));
+        setRoster([]);
+      } else {
+        setModal(false);
+      }
     } catch (e: any) {
       Alert.alert('Error', e.message ?? 'Could not save team.');
     } finally {
@@ -214,6 +298,8 @@ export default function TeamsScreen() {
                 <View style={[s.accentDot, { backgroundColor: team.accent_color }]} />
                 {team.logo_url
                   ? <Image source={{ uri: team.logo_url }} style={s.teamLogo} />
+                  : teamLogos[team.name]
+                  ? <Image source={teamLogos[team.name]} style={s.teamLogo} />
                   : (
                     <View style={[s.teamLogoFallback, { backgroundColor: team.accent_color + '33' }]}>
                       <Text style={s.teamLogoFallbackText}>⛳</Text>
@@ -262,6 +348,8 @@ export default function TeamsScreen() {
               <View style={[s.logoCircle, { borderColor: edit.color }]}>
                 {displayUri
                   ? <Image source={{ uri: displayUri }} style={s.logoImg} />
+                  : teamLogos[edit.name]
+                  ? <Image source={teamLogos[edit.name]} style={s.logoImg} />
                   : (
                     <View style={[s.logoFallback, { backgroundColor: edit.color + '22' }]}>
                       <Text style={s.logoFallbackIcon}>⛳</Text>
@@ -309,6 +397,48 @@ export default function TeamsScreen() {
               </View>
             </View>
 
+            {/* Roster */}
+            {edit.id && (
+              <View style={s.section}>
+                <View style={s.rosterHeader}>
+                  <Text style={s.sectionLabel}>TEAM ROSTER</Text>
+                  <TouchableOpacity
+                    onPress={() => { loadFreeAgents(); setAddPlayerModal(true); }}
+                    hitSlop={hit}
+                  >
+                    <Text style={s.rosterAddBtn}>+ Add Player</Text>
+                  </TouchableOpacity>
+                </View>
+                {rosterLoading ? (
+                  <ActivityIndicator color={GOLD} style={{ marginVertical: 12 }} />
+                ) : roster.length === 0 ? (
+                  <Text style={s.rosterEmpty}>No players on this team yet.</Text>
+                ) : (
+                  roster.map(p => (
+                    <View key={p.player_id} style={s.rosterRow}>
+                      {getPlayerAvatar(p.player_id, 'normal')
+                        ? <Image source={getPlayerAvatar(p.player_id, 'normal')} style={s.rosterAvatar} />
+                        : <View style={[s.rosterAvatar, s.rosterAvatarFallback]}><Text style={s.rosterAvatarLetter}>{p.display_name[0]}</Text></View>
+                      }
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.rosterName}>{p.display_name}</Text>
+                        {p.handicap_index != null && <Text style={s.rosterHcp}>HCP {p.handicap_index}</Text>}
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => removePlayerFromTeam(p.player_id)}
+                        disabled={rosterBusy === p.player_id}
+                        hitSlop={hit}
+                        style={s.rosterRemoveBtn}
+                      >
+                        <Text style={s.rosterRemoveBtnText}>Remove</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                )}
+                <Text style={s.rosterHint}>Move players between teams later from the Transfer Window.</Text>
+              </View>
+            )}
+
             {/* Delete */}
             {edit.id && (
               <TouchableOpacity
@@ -323,6 +453,36 @@ export default function TeamsScreen() {
 
           </ScrollView>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Add Player picker */}
+      <Modal visible={addPlayerModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAddPlayerModal(false)}>
+        <View style={{ flex: 1, backgroundColor: '#0a0a0a' }}>
+          <View style={s.modalHeader}>
+            <TouchableOpacity onPress={() => setAddPlayerModal(false)} hitSlop={hit}>
+              <Text style={s.modalCancel}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={s.modalTitle}>ADD PLAYER</Text>
+            <View style={{ width: 60 }} />
+          </View>
+          <ScrollView>
+            {freeAgents.length === 0 && (
+              <Text style={s.pickerEmpty}>No unassigned players — everyone's already on a team.</Text>
+            )}
+            {freeAgents.map(p => (
+              <TouchableOpacity
+                key={p.player_id}
+                style={s.pickerRow}
+                onPress={() => addPlayerToTeam(p.player_id)}
+                disabled={rosterBusy === p.player_id}
+                activeOpacity={0.8}
+              >
+                <Text style={s.pickerRowText}>{p.display_name}</Text>
+                <Text style={s.pickerRowAdd}>+ Add</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       </Modal>
     </View>
   );
@@ -438,4 +598,31 @@ const s = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center',
   },
   deleteBtnText: { fontFamily: FFB, fontSize: 14, color: RED },
+
+  // Roster
+  rosterHeader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  rosterAddBtn:   { fontFamily: FFB, fontSize: 13, color: GOLD },
+  rosterEmpty:    { fontFamily: FFB, fontSize: 13, color: '#555', paddingVertical: 8 },
+  rosterHint:     { fontFamily: FFB, fontSize: 11, color: '#555', marginTop: 8, lineHeight: 16 },
+  rosterRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#111', borderRadius: 10, borderWidth: 1, borderColor: '#1c1c1c',
+    padding: 10, marginTop: 8,
+  },
+  rosterAvatar:         { width: 32, height: 32, borderRadius: 16 },
+  rosterAvatarFallback: { backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' },
+  rosterAvatarLetter:   { fontFamily: FFB, fontSize: 13, color: GOLD },
+  rosterName:           { fontFamily: FFB, fontSize: 14, color: '#fff' },
+  rosterHcp:            { fontFamily: FFB, fontSize: 11, color: '#555', marginTop: 1 },
+  rosterRemoveBtn: {
+    backgroundColor: 'rgba(248,113,113,0.1)', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)',
+  },
+  rosterRemoveBtnText: { fontFamily: FFB, fontSize: 11, color: RED },
+
+  // Add-player picker
+  pickerEmpty:   { fontFamily: FFB, color: '#555', padding: 24, textAlign: 'center' },
+  pickerRow:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#111' },
+  pickerRowText: { flex: 1, fontFamily: FFB, fontSize: 15, color: '#fff' },
+  pickerRowAdd:  { fontFamily: FFB, fontSize: 13, color: GOLD },
 });

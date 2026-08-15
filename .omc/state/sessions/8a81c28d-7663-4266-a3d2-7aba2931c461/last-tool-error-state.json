@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"grep -n \\\"scroll:\\\\|savingOverlay:\\\" \\\"app/(app)/score/solo/[matchId].tsx\\\" && echo \\\"--- SyncBar ---\\\" && sed -n '1,60p' src/components/SyncBar.tsx && echo \\\"--- ConflictSheet props ---\\\"...",
+  "error": "Exit code 2\n1280:  scroll: { padding: 16, paddingBottom: 40 },\n1332:  savingOverlay: { position: 'absolute', bottom: 40, alignSelf: 'center', backgroundColor: '#111111', borderRadius: 20, padding: 10, borderWidth: 1, borderColor: '#1c1c1c' },\n--- SyncBar ---\nimport React from 'react';\nimport { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';\nimport type { SyncStatus } from '../lib/useSyncStatus';\n\nconst FFB = 'JUSTSans-ExBold';\nconst FF  = 'JUSTSans';\n\nfunction ...",
+  "timestamp": "2026-08-15T05:21:37.525Z",
+  "retry_count": 1
+}

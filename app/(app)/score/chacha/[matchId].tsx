@@ -2,9 +2,15 @@ import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
+import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
+import { getMatchPack } from '../../../../src/lib/offlinePack';
+import SyncBar from '../../../../src/components/SyncBar';
+import ConflictSheet from '../../../../src/components/ConflictSheet';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -14,8 +20,19 @@ const FFB   = 'JUSTSans-ExBold';
 const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
-interface Match { id: string; home_player_ids: string[]; day: { course_name: string; course_par: number; course_rating: number; slope_rating: number; } | null; }
+interface Match { id: string; home_player_ids: string[]; status?: string; day: { course_name: string; course_par: number; course_rating: number; slope_rating: number; } | null; }
 interface PlayerInfo { id: string; name: string; courseHcp: number; }
+
+function buildPlayerInfo(ids: string[], day: Match['day'], rows: any[]): PlayerInfo[] {
+  return ids.map(id => {
+    const p = rows.find(x => x.id === id);
+    const hcpIdx = p?.handicap_index ?? 0;
+    const courseHcp = day
+      ? calcCourseHandicap(hcpIdx, day.slope_rating, day.course_rating, day.course_par)
+      : Math.round(hcpIdx);
+    return { id, name: (p?.display_name ?? '?').split(' ')[0], courseHcp };
+  });
+}
 
 // Hole 1,4,7,10,13,16 → best 1 | Hole 2,5,8,11,14,17 → best 2 | Hole 3,6,9,12,15,18 → best 3
 function countForHole(holeNumber: number): number { return (holeNumber - 1) % 3 + 1; }
@@ -53,6 +70,9 @@ export default function ChaChaScreen() {
   const [holeIdx, setHoleIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
+  const syncStatus = useSyncStatus();
+  const pendingCount = syncStatus.pendingCount;
+  const [showConflicts, setShowConflicts] = useState(false);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -69,6 +89,22 @@ export default function ChaChaScreen() {
   useEffect(() => { load(); }, [matchId]);
 
   async function load() {
+    // Local pack gives an instant paint on a slow/offline connection, but it
+    // can be hours stale (14h TTL) and another device may have moved the round
+    // on since. Never trust it as final: the live fetch below always follows
+    // and overwrites it once it lands.
+    const pack = await getMatchPack(matchId);
+    if (pack) {
+      setMatch(pack.match as Match);
+      setHoles(pack.courseHoles as CourseHole[]);
+      setPlayers(buildPlayerInfo(
+        pack.match?.home_player_ids ?? [],
+        pack.match?.day ?? null,
+        Object.entries(pack.players).map(([id, p]) => ({ id, ...p })),
+      ));
+      setLoading(false);
+    }
+
     const { data: m } = await supabase
       .from('matches')
       .select('*,day:day_id(course_name,course_par,course_rating,slope_rating)')
@@ -91,15 +127,7 @@ export default function ChaChaScreen() {
     if (holesRes.data) setHoles(holesRes.data as CourseHole[]);
 
     if (playersRes.data) {
-      const info: PlayerInfo[] = ids.map(id => {
-        const p = (playersRes.data as any[]).find(x => x.id === id);
-        const hcpIdx = p?.handicap_index ?? 0;
-        const courseHcp = day
-          ? calcCourseHandicap(hcpIdx, day.slope_rating, day.course_rating, day.course_par)
-          : Math.round(hcpIdx);
-        return { id, name: (p?.display_name ?? '?').split(' ')[0], courseHcp };
-      });
-      setPlayers(info);
+      setPlayers(buildPlayerInfo(ids, day, playersRes.data as any[]));
     }
 
     if (existingRes.data) {
@@ -120,25 +148,48 @@ export default function ChaChaScreen() {
     setScores(prev => ({ ...prev, [pid]: { ...(prev[pid] ?? {}), [hole.hole_number]: Math.max(1, v) } }));
   }
 
-  async function save() {
-    if (!match || !hole || saving) return;
+  async function save(finishing = false): Promise<boolean> {
+    if (!match || !hole || saving) return false;
     setSaving(true);
-    for (const p of players) {
+    const insertRows = players.map(p => {
       const g = scores[p.id]?.[hole.hole_number] ?? hole.par;
       const str = calcStrokesReceived(p.courseHcp, hole.stroke_index);
       const pts = calcStablefordPoints(g, hole.par, str);
-      await supabase.from('match_holes').upsert(
-        { match_id: matchId, player_id: p.id, hole_number: hole.hole_number, gross_score: g, stableford_pts: pts },
-        { onConflict: 'match_id,player_id,hole_number' }
-      );
-    }
+      return { match_id: matchId, player_id: p.id, hole_number: hole.hole_number, gross_score: g, stableford_pts: pts };
+    });
+    const status = finishing || match.status === 'complete' ? 'complete' : 'in_progress';
+    const matchUpdate = { status };
+
+    // Try drain before saving
+    if (pendingCount > 0) await syncStatus.syncNow();
+
+    const result = await saveHoleWithOfflineFallback({
+      matchId: matchId as string,
+      holeNumber: hole.hole_number,
+      insertRows,
+      matchUpdate,
+    });
     setSaving(false);
+
+    if (result.outcome === 'missing_match') {
+      Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
+        { text: 'OK', onPress: () => router.replace('/(app)/' as any) },
+      ]);
+      return false;
+    }
+    if (result.outcome === 'error') {
+      Alert.alert('Error', String(result.error?.message ?? result.error));
+      return false;
+    }
+    if (result.outcome === 'saved_offline') syncStatus.syncNow();
+    return true;
   }
 
   async function next() {
-    await save();
-    if (holeIdx < holes.length - 1) { setHoleIdx(holeIdx + 1); return; }
-    await supabase.from('matches').update({ status: 'complete' }).eq('id', matchId);
+    const isLast = holeIdx === holes.length - 1;
+    const ok = await save(isLast);
+    if (!ok) return;
+    if (!isLast) { setHoleIdx(holeIdx + 1); return; }
     const total = holes.reduce((sum, h) => {
       const { total: t } = holeTeamPts(players, h.hole_number, h.par, h.stroke_index, scores);
       return sum + t;
@@ -176,6 +227,16 @@ export default function ChaChaScreen() {
         <View style={{ width: 60 }} />
       </View>
 
+      {/* ── Sync status ── */}
+      <SyncBar status={syncStatus} onConflictsPress={() => setShowConflicts(true)} />
+      <ConflictSheet
+        visible={showConflicts}
+        conflicts={syncStatus.conflicts}
+        playerNames={Object.fromEntries(players.map(p => [p.id, p.name]))}
+        onResolve={async (id, useServer) => { await syncStatus.resolveAndRefresh(id, useServer); }}
+        onClose={() => setShowConflicts(false)}
+      />
+
       {/* Team total */}
       <View style={s.teamRow}>
         <View style={s.teamTotal}>
@@ -194,6 +255,12 @@ export default function ChaChaScreen() {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.playersWrap}>
+        {pendingCount > 0 && (
+          <View style={s.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={13} color="#fff" />
+            <Text style={s.offlineBannerText}>{pendingCount} score{pendingCount !== 1 ? 's' : ''} saved offline — will sync when connected</Text>
+          </View>
+        )}
         {players.map(p => {
           const sc  = getScore(p.id);
           const str = calcStrokesReceived(p.courseHcp, hole.stroke_index);
@@ -280,6 +347,8 @@ const s = StyleSheet.create({
   holeNum:           { fontSize: 28, fontFamily: FFB, color: '#fff' },
   holeMeta:          { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 2 },
   playersWrap:       { padding: 20, gap: 12 },
+  offlineBanner:     { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1c1c1c', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  offlineBannerText: { flex: 1, fontFamily: FFB, fontSize: 11, color: '#fff' },
   playerRow:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 14 },
   playerRowCounting: { borderColor: '#D4AF3760', backgroundColor: '#1a1600' },
   playerName:        { fontSize: 15, fontFamily: FFB, color: '#fff' },

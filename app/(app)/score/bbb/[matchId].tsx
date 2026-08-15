@@ -2,8 +2,14 @@ import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
+import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
+import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
+import { getMatchPack } from '../../../../src/lib/offlinePack';
+import SyncBar from '../../../../src/components/SyncBar';
+import ConflictSheet from '../../../../src/components/ConflictSheet';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -13,7 +19,7 @@ const FFB   = 'JUSTSans-ExBold';
 const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
-interface Match { id: string; home_player_ids: string[]; day: { course_name: string } | null; }
+interface Match { id: string; home_player_ids: string[]; status?: string; day: { course_name: string } | null; }
 
 type BBBPoint = 'bingo' | 'bango' | 'bongo';
 interface HoleBBB { bingo: string | null; bango: string | null; bongo: string | null; }
@@ -34,6 +40,9 @@ export default function BBBScreen() {
   const [holeIdx, setHoleIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
+  const syncStatus = useSyncStatus();
+  const pendingCount = syncStatus.pendingCount;
+  const [showConflicts, setShowConflicts] = useState(false);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -42,7 +51,30 @@ export default function BBBScreen() {
 
   useEffect(() => { load(); }, [matchId]);
 
+  function applyBBBJson(resultStr: string | null | undefined) {
+    if (!resultStr) return;
+    try {
+      const parsed = JSON.parse(resultStr);
+      if (parsed.bbb) setBbbData(parsed.bbb);
+    } catch {}
+  }
+
   async function load() {
+    // Local pack gives an instant paint on a slow/offline connection, but it
+    // can be hours stale (14h TTL) and another device may have moved the round
+    // on since. Never trust it as final: the live fetch below always follows
+    // and overwrites it once it lands.
+    const pack = await getMatchPack(matchId);
+    if (pack) {
+      setMatch(pack.match as Match);
+      setHoles(pack.courseHoles as CourseHole[]);
+      const n: Record<string, string> = {};
+      Object.entries(pack.players).forEach(([id, p]) => { n[id] = p.display_name.split(' ')[0]; });
+      setNames(n);
+      applyBBBJson(pack.match?.result_str);
+      setLoading(false);
+    }
+
     const { data: m } = await supabase.from('matches').select('*,day:day_id(course_name)').eq('id', matchId).single();
     if (!m) { setLoading(false); return; }
     setMatch(m as any);
@@ -55,12 +87,7 @@ export default function BBBScreen() {
     }
     // Load existing BBB data from result_str JSON
     const { data: matchData } = await supabase.from('matches').select('result_str').eq('id', matchId).single();
-    if (matchData && (matchData as any).result_str) {
-      try {
-        const parsed = JSON.parse((matchData as any).result_str);
-        if (parsed.bbb) setBbbData(parsed.bbb);
-      } catch {}
-    }
+    applyBBBJson((matchData as any)?.result_str);
     setLoading(false);
   }
 
@@ -79,30 +106,55 @@ export default function BBBScreen() {
     }));
   }
 
-  async function save() {
-    if (!match || saving) return;
+  async function save(finishing = false): Promise<boolean> {
+    if (!match || !hole || saving) return false;
     setSaving(true);
     // Save BBB data as JSON in result_str
     const { data: existing } = await supabase.from('matches').select('result_str').eq('id', matchId).single();
     let parsed: any = {};
     try { if ((existing as any)?.result_str) parsed = JSON.parse((existing as any).result_str); } catch {}
     parsed.bbb = bbbData;
-    await supabase.from('matches').update({ result_str: JSON.stringify(parsed) }).eq('id', matchId);
 
     // Also save stableford_pts for each player per hole based on BBB points earned
-    if (hole) {
-      for (const pid of players) {
-        const pts = (['bingo', 'bango', 'bongo'] as BBBPoint[]).filter(p => bbbData[hole.hole_number]?.[p] === pid).length;
-        await supabase.from('match_holes').upsert({ match_id: matchId, player_id: pid, hole_number: hole.hole_number, stableford_pts: pts }, { onConflict: 'match_id,player_id,hole_number' });
-      }
-    }
+    const insertRows = players.map(pid => ({
+      match_id: matchId,
+      player_id: pid,
+      hole_number: hole.hole_number,
+      stableford_pts: (['bingo', 'bango', 'bongo'] as BBBPoint[]).filter(p => bbbData[hole.hole_number]?.[p] === pid).length,
+    }));
+    const status = finishing || match.status === 'complete' ? 'complete' : 'in_progress';
+    const matchUpdate = { result_str: JSON.stringify(parsed), status };
+
+    // Try drain before saving
+    if (pendingCount > 0) await syncStatus.syncNow();
+
+    const result = await saveHoleWithOfflineFallback({
+      matchId: matchId as string,
+      holeNumber: hole.hole_number,
+      insertRows,
+      matchUpdate,
+    });
     setSaving(false);
+
+    if (result.outcome === 'missing_match') {
+      Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
+        { text: 'OK', onPress: () => router.replace('/(app)/' as any) },
+      ]);
+      return false;
+    }
+    if (result.outcome === 'error') {
+      Alert.alert('Error', String(result.error?.message ?? result.error));
+      return false;
+    }
+    if (result.outcome === 'saved_offline') syncStatus.syncNow();
+    return true;
   }
 
   async function next() {
-    await save();
-    if (holeIdx < holes.length - 1) { setHoleIdx(holeIdx + 1); return; }
-    await supabase.from('matches').update({ status: 'complete' }).eq('id', matchId);
+    const isLast = holeIdx === holes.length - 1;
+    const ok = await save(isLast);
+    if (!ok) return;
+    if (!isLast) { setHoleIdx(holeIdx + 1); return; }
     // Calculate total points per player
     const totals: Record<string, number> = {};
     players.forEach(id => { totals[id] = 0; });
@@ -151,6 +203,16 @@ export default function BBBScreen() {
         <View style={s.headerRight} />
       </View>
 
+      {/* ── Sync status ── */}
+      <SyncBar status={syncStatus} onConflictsPress={() => setShowConflicts(true)} />
+      <ConflictSheet
+        visible={showConflicts}
+        conflicts={syncStatus.conflicts}
+        playerNames={names}
+        onResolve={async (id, useServer) => { await syncStatus.resolveAndRefresh(id, useServer); }}
+        onClose={() => setShowConflicts(false)}
+      />
+
       {/* Running totals */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.totalsScroll}>
         <View style={s.totals}>
@@ -172,6 +234,12 @@ export default function BBBScreen() {
 
       {/* Points sections */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.pointsWrap}>
+        {pendingCount > 0 && (
+          <View style={s.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={13} color="#fff" />
+            <Text style={s.offlineBannerText}>{pendingCount} score{pendingCount !== 1 ? 's' : ''} saved offline — will sync when connected</Text>
+          </View>
+        )}
         {(['bingo', 'bango', 'bongo'] as BBBPoint[]).map(point => {
           const info = BBB_LABELS[point];
           return (
@@ -253,6 +321,10 @@ const s = StyleSheet.create({
   holeCard:        { alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
   holeNum:         { fontSize: 28, fontFamily: FFB, color: '#fff' },
   holeMeta:        { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 2 },
+
+  // Offline banner
+  offlineBanner:     { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1c1c1c', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  offlineBannerText: { flex: 1, fontFamily: FFB, fontSize: 11, color: '#fff' },
 
   // Points sections
   pointsWrap:      { padding: 20, gap: 14 },

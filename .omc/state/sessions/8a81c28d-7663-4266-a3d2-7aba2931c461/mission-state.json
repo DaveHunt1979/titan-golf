@@ -1,0 +1,107 @@
+{
+  "updatedAt": "2026-08-15T05:30:03.587Z",
+  "missions": [
+    {
+      "id": "session:8a81c28d-7663-4266-a3d2-7aba2931c461:none",
+      "source": "session",
+      "name": "none",
+      "objective": "Session mission",
+      "createdAt": "2026-08-15T05:21:09.733Z",
+      "updatedAt": "2026-08-15T05:30:03.587Z",
+      "status": "done",
+      "workerCount": 4,
+      "taskCounts": {
+        "total": 4,
+        "pending": 0,
+        "blocked": 0,
+        "inProgress": 0,
+        "completed": 4,
+        "failed": 0
+      },
+      "agents": [
+        {
+          "name": "offline-solo-team:aofflin",
+          "role": "offline-solo-team",
+          "ownership": "aoffline-solo-team-a619befa7978e655",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-15T05:29:02.111Z"
+        },
+        {
+          "name": "offline-bbb-chacha-modified:aofflin",
+          "role": "offline-bbb-chacha-modified",
+          "ownership": "aoffline-bbb-chacha-modified-1a54281535dfea49",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-15T05:28:05.009Z"
+        },
+        {
+          "name": "offline-nassau-parbogey-scramble-skins-wolf:aofflin",
+          "role": "offline-nassau-parbogey-scramble-skins-wolf",
+          "ownership": "aoffline-nassau-parbogey-scramble-skins-wolf-940d1c6707d49385",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-15T05:30:03.587Z"
+        },
+        {
+          "name": "offline-spectate-gps:aofflin",
+          "role": "offline-spectate-gps",
+          "ownership": "aoffline-spectate-gps-a24282543fa55939",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-15T05:29:54.548Z"
+        }
+      ],
+      "timeline": [
+        {
+          "id": "session-start:aoffline-spectate-gps-a24282543fa55939:2026-08-15T05:29:02.231Z",
+          "at": "2026-08-15T05:29:02.231Z",
+          "kind": "update",
+          "agent": "offline-spectate-gps:aofflin",
+          "detail": "started offline-spectate-gps:aofflin",
+          "sourceKey": "session-start:aoffline-spectate-gps-a24282543fa55939"
+        },
+        {
+          "id": "session-stop:aoffline-nassau-parbogey-scramble-skins-wolf-940d1c6707d49385:2026-08-15T05:29:19.258Z",
+          "at": "2026-08-15T05:29:19.258Z",
+          "kind": "completion",
+          "agent": "offline-nassau-parbogey-scramble-skins-wolf:aofflin",
+          "detail": "completed",
+          "sourceKey": "session-stop:aoffline-nassau-parbogey-scramble-skins-wolf-940d1c6707d49385"
+        },
+        {
+          "id": "session-start:aoffline-nassau-parbogey-scramble-skins-wolf-940d1c6707d49385:2026-08-15T05:29:29.515Z",
+          "at": "2026-08-15T05:29:29.515Z",
+          "kind": "update",
+          "agent": "offline-nassau-parbogey-scramble-skins-wolf:aofflin",
+          "detail": "started offline-nassau-parbogey-scramble-skins-wolf:aofflin",
+          "sourceKey": "session-start:aoffline-nassau-parbogey-scramble-skins-wolf-940d1c6707d49385"
+        },
+        {
+          "id": "session-stop:aoffline-spectate-gps-a24282543fa55939:2026-08-15T05:29:54.548Z",
+          "at": "2026-08-15T05:29:54.548Z",
+          "kind": "completion",
+          "agent": "offline-spectate-gps:aofflin",
+          "detail": "completed",
+          "sourceKey": "session-stop:aoffline-spectate-gps-a24282543fa55939"
+        },
+        {
+          "id": "session-stop:aoffline-nassau-parbogey-scramble-skins-wolf-940d1c6707d49385:2026-08-15T05:30:03.587Z",
+          "at": "2026-08-15T05:30:03.587Z",
+          "kind": "completion",
+          "agent": "offline-nassau-parbogey-scramble-skins-wolf:aofflin",
+          "detail": "completed",
+          "sourceKey": "session-stop:aoffline-nassau-parbogey-scramble-skins-wolf-940d1c6707d49385"
+        }
+      ]
+    }
+  ]
+}

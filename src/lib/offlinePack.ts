@@ -1,7 +1,11 @@
 import { ensureDb } from './localDb';
 import { supabase } from './supabase';
+import { searchCourse, getCourseHoles } from './golfIntelligence';
 
 const TTL = 14 * 60 * 60 * 1000;
+// Same 30-day window rangefinder's own gi_course_cache read uses — a row
+// written here has to look fresh by that screen's rules to be a hit.
+const GI_TTL = 30 * 24 * 60 * 60 * 1000;
 
 export interface MatchPack {
   matchId: string;
@@ -55,6 +59,37 @@ export async function downloadMatchPack(matchId: string): Promise<void> {
        JSON.stringify(holesRes.data ?? []), JSON.stringify(players), JSON.stringify(compPlayers)]
     );
   } catch (e) { console.warn('offlinePack.download failed:', e); }
+}
+
+// Rangefinder only ever populates gi_course_cache lazily, on its first
+// successful live fetch — which is usually attempted out on the course, where
+// the signal is worst (Wrotham). Pre-populating the identical row at round
+// creation means the golfer downloads GPS data while still at the clubhouse.
+// This does not replace rangefinder's own live fetch + cache write; it just
+// gets there first.
+export async function downloadCourseGps(courseName: string): Promise<void> {
+  try {
+    const db = await ensureDb();
+    if (!db) return;
+
+    const results = await searchCourse(courseName);
+    const course = results[0];
+    if (!course) return;
+
+    const fresh = await db.getFirstAsync(
+      'SELECT public_id FROM gi_course_cache WHERE public_id = ? AND cached_at > ?',
+      [course.publicId, Date.now() - GI_TTL],
+    );
+    if (fresh) return;
+
+    const holes = await getCourseHoles(course.publicId);
+    if (holes.length === 0) return;
+
+    await db.runAsync(
+      'INSERT OR REPLACE INTO gi_course_cache (public_id, course_name, holes_json, cached_at) VALUES (?, ?, ?, ?)',
+      [course.publicId, course.name, JSON.stringify(holes), Date.now()],
+    );
+  } catch (e) { console.warn('offlinePack.downloadCourseGps failed:', e); }
 }
 
 export async function getMatchPack(matchId: string): Promise<MatchPack | null> {

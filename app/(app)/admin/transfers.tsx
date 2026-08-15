@@ -21,7 +21,7 @@ const titanLogo = require('../../../assets/TitanAppLogo.png');
 interface Team { id: string; name: string; accent_color: string; logo_url: string | null; logo_key: string | null; }
 interface Player {
   id: string; display_name: string; handicap_index: number;
-  avatar_url: string | null; team_id: string | null; comp_player_id: string | null;
+  avatar_url: string | null; team_id: string | null;
 }
 
 function getTeamLogo(team: Team) {
@@ -42,7 +42,6 @@ export default function TransferWindowScreen() {
   const [teams, setTeams]           = useState<Team[]>([]);
   const [players, setPlayers]       = useState<Player[]>([]);
   const [freeAgents, setFreeAgents] = useState<Player[]>([]);
-  const [compId, setCompId]         = useState<string | null>(null);
   const [loading, setLoading]       = useState(true);
 
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
@@ -60,64 +59,30 @@ export default function TransferWindowScreen() {
 
   useEffect(() => { if (societyId) load(); }, [societyId]);
 
+  // Operates on the permanent roster (society_members.team_id) — the same
+  // data Admin > Teams builds — not a specific tournament's competition_players.
+  // Team Admin populates a team at creation; this is purely for moving
+  // players around afterwards (or benching someone who's dropped out).
   async function load() {
     setLoading(true);
-    const { data: comp } = await supabase
-      .from('competitions').select('id')
-      .eq('society_id', societyId).neq('format', 'casual')
-      .order('created_at', { ascending: false }).limit(1).maybeSingle();
-
-    if (!comp) { setLoading(false); return; }
-    setCompId(comp.id);
-
-    const [{ data: teamsData }, { data: cpData }, { data: membersData }] = await Promise.all([
+    const [{ data: teamsData }, { data: membersData }] = await Promise.all([
       supabase.from('teams').select('id,name,accent_color,logo_url,logo_key').eq('society_id', societyId).order('sort_order'),
-      supabase.from('competition_players').select('id,player_id,team_id,handicap_index').eq('competition_id', comp.id),
-      supabase.from('society_members').select('player_id').eq('society_id', societyId),
+      supabase.from('society_members').select('player_id,team_id,players(display_name,handicap_index,avatar_url)').eq('society_id', societyId),
     ]);
 
     if (!teamsData) { setLoading(false); return; }
     setTeams(teamsData as Team[]);
 
-    const cpRows = (cpData ?? []) as any[];
-    const memberIds = (membersData ?? []).map((m: any) => m.player_id) as string[];
-    const cpPlayerIds = cpRows.map(cp => cp.player_id) as string[];
-    const freeAgentIds = memberIds.filter(id => !cpPlayerIds.includes(id));
-
-    if (cpPlayerIds.length > 0) {
-      const { data: playersData } = await supabase.from('players')
-        .select('id,display_name,handicap_index,avatar_url').in('id', cpPlayerIds);
-      if (playersData) {
-        setPlayers(cpRows.map(cp => {
-          const p = (playersData as any[]).find(pl => pl.id === cp.player_id);
-          return {
-            id: cp.player_id,
-            display_name: p?.display_name ?? 'Unknown',
-            handicap_index: cp.handicap_index ?? p?.handicap_index ?? 0,
-            avatar_url: p?.avatar_url ?? null,
-            team_id: cp.team_id,
-            comp_player_id: cp.id,
-          };
-        }));
-      }
-    }
-
-    if (freeAgentIds.length > 0) {
-      const { data: faData } = await supabase.from('players')
-        .select('id,display_name,handicap_index,avatar_url').in('id', freeAgentIds);
-      if (faData) {
-        setFreeAgents((faData as any[]).map(p => ({
-          id: p.id,
-          display_name: p.display_name,
-          handicap_index: p.handicap_index ?? 0,
-          avatar_url: p.avatar_url ?? null,
-          team_id: null,
-          comp_player_id: null,
-        })));
-      }
-    } else {
-      setFreeAgents([]);
-    }
+    const rows = (membersData ?? []) as any[];
+    const toPlayer = (r: any): Player => ({
+      id: r.player_id,
+      display_name: r.players?.display_name ?? 'Unknown',
+      handicap_index: r.players?.handicap_index ?? 0,
+      avatar_url: r.players?.avatar_url ?? null,
+      team_id: r.team_id,
+    });
+    setPlayers(rows.filter(r => r.team_id).map(toPlayer));
+    setFreeAgents(rows.filter(r => !r.team_id).map(toPlayer));
 
     setLoading(false);
   }
@@ -146,7 +111,7 @@ export default function TransferWindowScreen() {
   }
 
   async function confirmAction() {
-    if (!selectedPlayer || saving || !compId) return;
+    if (!selectedPlayer || saving) return;
     setSaving(true);
 
     const targetTeamObj = targetTeam !== 'dropout' ? targetTeam as Team : null;
@@ -172,24 +137,21 @@ export default function TransferWindowScreen() {
       ]),
     ]).start();
 
-    if (isDraft) {
-      const { data: newCp } = await supabase.from('competition_players').insert({
-        competition_id: compId,
-        player_id: selectedPlayer.id,
-        team_id: targetTeamObj?.id ?? null,
-        handicap_index: selectedPlayer.handicap_index,
-      }).select().single();
+    // Draft, move, and dropout are all the same underlying write — the
+    // permanent roster only has one field to change (team_id). Dropout just
+    // means "bench them" (team_id null), not removing their membership.
+    await supabase.from('society_members')
+      .update({ team_id: targetTeamObj?.id ?? null } as any)
+      .eq('society_id', societyId).eq('player_id', selectedPlayer.id);
 
-      const updatedPlayer: Player = { ...selectedPlayer, team_id: targetTeamObj?.id ?? null, comp_player_id: (newCp as any)?.id ?? null };
+    if (isDraft) {
+      const updatedPlayer: Player = { ...selectedPlayer, team_id: targetTeamObj?.id ?? null };
       setPlayers(prev => [...prev, updatedPlayer]);
       setFreeAgents(prev => prev.filter(p => p.id !== selectedPlayer.id));
     } else if (targetTeam === 'dropout') {
-      await supabase.from('competition_players').delete().eq('id', selectedPlayer.comp_player_id);
       setPlayers(prev => prev.filter(p => p.id !== selectedPlayer.id));
-      setFreeAgents(prev => [...prev, { ...selectedPlayer, team_id: null, comp_player_id: null }]);
+      setFreeAgents(prev => [...prev, { ...selectedPlayer, team_id: null }]);
     } else {
-      await supabase.from('competition_players')
-        .update({ team_id: targetTeamObj?.id ?? null }).eq('id', selectedPlayer.comp_player_id);
       setPlayers(prev => prev.map(p =>
         p.id === selectedPlayer.id ? { ...p, team_id: targetTeamObj?.id ?? null } : p,
       ));
@@ -205,7 +167,6 @@ export default function TransferWindowScreen() {
   const currentTeam = selectedPlayer ? teams.find(t => t.id === selectedPlayer.team_id) ?? null : null;
   const targetTeamObj = targetTeam !== null && targetTeam !== 'dropout' ? targetTeam as Team : null;
   const playersByTeam = teams.map(t => ({ team: t, members: players.filter(p => p.team_id === t.id) }));
-  const unassigned = players.filter(p => !p.team_id);
 
   if (loading || !fontsLoaded) return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
@@ -266,17 +227,6 @@ export default function TransferWindowScreen() {
           </View>
         ))}
 
-        {unassigned.length > 0 && (
-          <View style={styles.teamSection}>
-            <View style={styles.teamHeader}>
-              <Text style={[styles.teamName, { color: '#fff' }]}>UNASSIGNED</Text>
-              <Text style={styles.teamCount}>{unassigned.length}</Text>
-            </View>
-            {unassigned.map(player => (
-              <PlayerRow key={player.id} player={player} teamColor="#555" onPress={() => openTransfer(player)} />
-            ))}
-          </View>
-        )}
       </ScrollView>
 
       {/* Transfer / Draft Modal */}
@@ -321,7 +271,7 @@ export default function TransferWindowScreen() {
 
                 {!isDraft && (
                   <TouchableOpacity style={styles.dropoutBtn} onPress={() => selectTarget('dropout')} activeOpacity={0.8}>
-                    <Text style={styles.dropoutBtnText}>Remove from Competition</Text>
+                    <Text style={styles.dropoutBtnText}>Drop From Team</Text>
                   </TouchableOpacity>
                 )}
 
@@ -419,7 +369,7 @@ export default function TransferWindowScreen() {
                   {isDraft
                     ? `has been signed to ${targetTeamObj?.name}`
                     : targetTeam === 'dropout'
-                    ? 'has been removed from the competition'
+                    ? 'has been dropped from the team'
                     : `is now part of ${targetTeamObj?.name}`}
                 </Text>
                 <TouchableOpacity style={styles.doneBtn} onPress={() => setSelectedPlayer(null)} activeOpacity={0.85}>

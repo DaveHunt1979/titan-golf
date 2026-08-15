@@ -121,14 +121,27 @@ export default function TourScreen() {
   const [prizeCats, setPrizeCats]       = useState<PrizeCat[]>([]);
   const [indivBoard, setIndivBoard]     = useState<IndivEntry[]>([]);
   const [teamStableford, setTeamStableford] = useState<Record<string, number>>({});
+  // Bumped on every load() call; a run only commits its results if it's
+  // still the latest one by the time its awaits resolve — stops a slow,
+  // stale reload (e.g. triggered while a fresher one is still in flight)
+  // from clobbering more current data with an older snapshot.
+  const loadSeq = useRef(0);
 
+  useEffect(() => { load(); }, []);
+
+  // Scoped to this tournament's own matches — previously had no filter at
+  // all, so ANY match update anywhere in the app (casual rounds, other
+  // societies, everything) triggered a full reload here. That flood of
+  // irrelevant reloads is what was intermittently bouncing spectators back
+  // to the PIN screen and leaving standings mid-refresh, especially right
+  // when a day's matches were finishing up together.
   useEffect(() => {
-    load();
-    const sub = supabase.channel('tour-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, load)
+    if (!competition?.id) return;
+    const sub = supabase.channel(`tour-live-${competition.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches', filter: `competition_id=eq.${competition.id}` }, load)
       .subscribe();
     return () => { supabase.removeChannel(sub); };
-  }, []);
+  }, [competition?.id]);
 
   useEffect(() => {
     if (pin.length === 4) verifyPin(pin);
@@ -143,7 +156,7 @@ export default function TourScreen() {
 
   // ── Data loading ────────────────────────────────────────────────────
 
-  async function loadTournamentData(compId: string, includeInKronos: boolean) {
+  async function loadTournamentData(compId: string, includeInKronos: boolean, mySeq: number) {
     const [
       { data: daysData },
       { data: matchesData },
@@ -164,6 +177,12 @@ export default function TourScreen() {
         .eq('competition_id', compId)
         .order('display_order'),
     ]);
+
+    // A newer load() started while these were in flight — bail before
+    // committing anything so this stale snapshot can't clobber fresher
+    // data (this was very likely the "leaderboard wasn't populating" bug:
+    // an earlier, slower reload landing its results after a newer one).
+    if (mySeq !== loadSeq.current) return;
 
     if (daysData)    setDays(daysData as CompetitionDay[]);
     if (matchesData) setMatches(matchesData as Match[]);
@@ -328,6 +347,8 @@ export default function TourScreen() {
   }
 
   async function load() {
+    const mySeq = ++loadSeq.current;
+
     // Resolve current player once
     if (!myPlayerId) {
       const { data: { user } } = await supabase.auth.getUser();
@@ -337,11 +358,21 @@ export default function TourScreen() {
       }
     }
 
+    // Scoped to this society and using maybeSingle (not single) — this used
+    // to have no society_id filter at all and used .single(), so it hard-
+    // failed the moment more than one society had an active tournament at
+    // once, which reset `competition` to null and bounced every viewer
+    // (players and spectators alike) back to the "no tournament running"
+    // screen. That's very likely what "ended day one and kicked everyone
+    // out" actually was — a burst of match-completion events at day's end
+    // re-triggering this fragile lookup under load.
     const [{ data: comp }, { data: notifs }, { data: soc }] = await Promise.all([
-      supabase.from('competitions').select('*').eq('status', 'active').limit(1).single(),
+      supabase.from('competitions').select('*').eq('status', 'active').eq('society_id', SOCIETY_ID ?? '').limit(1).maybeSingle(),
       supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
       supabase.from('societies').select('instagram_url').eq('id', SOCIETY_ID).single(),
     ]);
+
+    if (mySeq !== loadSeq.current) return; // a newer load() has since started — don't let this stale one commit
 
     if (notifs) setNotifications(notifs);
     if (soc)    setInstagramUrl((soc as any).instagram_url ?? null);
@@ -357,8 +388,10 @@ export default function TourScreen() {
     setCompetition(comp as unknown as Competition);
     setSections(((comp as any).info_sections ?? []) as InfoSection[]);
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
+    if (mySeq !== loadSeq.current) return;
     setJoinedId(stored);
-    if (stored === comp.id) await loadTournamentData(comp.id, !!(comp as any).include_in_kronos);
+    if (stored === comp.id) await loadTournamentData(comp.id, !!(comp as any).include_in_kronos, mySeq);
+    if (mySeq !== loadSeq.current) return;
     setLoading(false);
     setRefreshing(false);
   }
@@ -366,7 +399,7 @@ export default function TourScreen() {
   async function verifyPin(p: string) {
     setVerifying(true);
     const { data } = await supabase
-      .from('competitions').select('*').eq('pin', p).eq('status', 'active').limit(1).single();
+      .from('competitions').select('*').eq('pin', p).eq('status', 'active').limit(1).maybeSingle();
     setVerifying(false);
     if (!data) {
       Alert.alert('Wrong PIN', 'No active tournament matches that PIN. Ask your admin for the correct code.', [
@@ -377,7 +410,7 @@ export default function TourScreen() {
     setCompetition(data as unknown as Competition);
     await AsyncStorage.setItem(STORAGE_KEY, data.id);
     setJoinedId(data.id);
-    await loadTournamentData(data.id, !!(data as any).include_in_kronos);
+    await loadTournamentData(data.id, !!(data as any).include_in_kronos, ++loadSeq.current);
   }
 
   function leaveTournament() {

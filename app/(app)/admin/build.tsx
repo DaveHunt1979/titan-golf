@@ -345,8 +345,8 @@ export default function BuildTournamentScreen() {
 
     Alert.alert(
       'Tournament Created',
-      `${name.trim()} is ready!\n\nTournament PIN: ${pin}\n\nShare this PIN with players so they can unlock the Tour tab. You can also find it in Admin at any time.`,
-      [{ text: 'View Tour', onPress: () => router.replace('/(app)/tour' as any) }],
+      `${name.trim()} is ready as a draft!\n\nTournament PIN: ${pin}\n\nNext: add players, assign teams and generate the draw, then activate — the tournament won't appear in the Tour tab until then.`,
+      [{ text: 'Set Up Draw', onPress: () => router.replace(`/(app)/admin/draw?id=${comp.id}` as any) }],
     );
   }
 

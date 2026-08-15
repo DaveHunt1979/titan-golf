@@ -256,26 +256,26 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 188,
-      "lastAccessed": 1786696308732,
+      "accessCount": 210,
+      "lastAccessed": 1786771339716,
       "type": "file"
     },
     {
       "path": "app/(app)/spectate/[matchId].tsx",
-      "accessCount": 102,
-      "lastAccessed": 1786696286263,
+      "accessCount": 109,
+      "lastAccessed": 1786771475127,
       "type": "file"
     },
     {
       "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 64,
-      "lastAccessed": 1786536400339,
+      "accessCount": 75,
+      "lastAccessed": 1786771500110,
       "type": "file"
     },
     {
       "path": "app/(app)/games/new.tsx",
-      "accessCount": 59,
-      "lastAccessed": 1786703642854,
+      "accessCount": 63,
+      "lastAccessed": 1786771431017,
       "type": "file"
     },
     {
@@ -291,6 +291,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 38,
+      "lastAccessed": 1786710767869,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/score/index.tsx",
       "accessCount": 34,
       "lastAccessed": 1786440005948,
@@ -300,6 +306,12 @@
       "path": "app.json",
       "accessCount": 32,
       "lastAccessed": 1786704699121,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/teamstableford/[matchId].tsx",
+      "accessCount": 27,
+      "lastAccessed": 1786771561131,
       "type": "file"
     },
     {
@@ -316,20 +328,14 @@
     },
     {
       "path": "app/(app)/score/preview/[matchId].tsx",
-      "accessCount": 22,
-      "lastAccessed": 1786697941594,
+      "accessCount": 24,
+      "lastAccessed": 1786709918669,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/teamstableford/[matchId].tsx",
-      "accessCount": 20,
-      "lastAccessed": 1786535006427,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/tour/index.tsx",
-      "accessCount": 19,
-      "lastAccessed": 1786701990615,
+      "path": "app/(app)/admin/draw.tsx",
+      "accessCount": 23,
+      "lastAccessed": 1786712112845,
       "type": "file"
     },
     {
@@ -339,9 +345,21 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/draw.tsx",
-      "accessCount": 13,
-      "lastAccessed": 1786696261063,
+      "path": "app/(app)/score/chacha/[matchId].tsx",
+      "accessCount": 12,
+      "lastAccessed": 1786771480082,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/modified/[matchId].tsx",
+      "accessCount": 12,
+      "lastAccessed": 1786771524379,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/parbogey/[matchId].tsx",
+      "accessCount": 12,
+      "lastAccessed": 1786771545032,
       "type": "file"
     },
     {
@@ -364,8 +382,8 @@
     },
     {
       "path": "app/(app)/tour/day/[dayId].tsx",
-      "accessCount": 7,
-      "lastAccessed": 1786514219478,
+      "accessCount": 8,
+      "lastAccessed": 1786709700025,
       "type": "file"
     },
     {
@@ -376,8 +394,8 @@
     },
     {
       "path": "src/lib/scoring.ts",
-      "accessCount": 5,
-      "lastAccessed": 1786695813022,
+      "accessCount": 6,
+      "lastAccessed": 1786709687818,
       "type": "file"
     },
     {
@@ -393,27 +411,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/modified/[matchId].tsx",
-      "accessCount": 2,
-      "lastAccessed": 1786340799771,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/parbogey/[matchId].tsx",
-      "accessCount": 2,
-      "lastAccessed": 1786340812186,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/chacha/[matchId].tsx",
-      "accessCount": 2,
-      "lastAccessed": 1786340819262,
-      "type": "file"
-    },
-    {
       "path": "ios/Podfile",
-      "accessCount": 2,
-      "lastAccessed": 1786341148047,
+      "accessCount": 3,
+      "lastAccessed": 1786706021221,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/useSyncStatus.ts",
+      "accessCount": 3,
+      "lastAccessed": 1786771339071,
       "type": "file"
     },
     {
@@ -474,12 +480,6 @@
       "path": "screenshots/IMG_6064.PNG",
       "accessCount": 1,
       "lastAccessed": 1786339429308,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/useSyncStatus.ts",
-      "accessCount": 1,
-      "lastAccessed": 1786340843502,
       "type": "file"
     },
     {

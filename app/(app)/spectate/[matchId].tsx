@@ -6,7 +6,10 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
+import { getMatchPack } from '../../../src/lib/offlinePack';
+import { useSyncStatus } from '../../../src/lib/useSyncStatus';
 import { matchLabel, getEffectiveWinner, calcHoles, calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles } from '../../../src/lib/scoring';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
 import { initials } from '../../../src/lib/playerDisplay';
@@ -115,6 +118,8 @@ export default function SpectateScreen() {
   const [holeRows, setHoleRows]       = useState<HoleRow[]>([]);
   const [loading, setLoading]         = useState(true);
   const pulse = useRef(new Animated.Value(1)).current;
+  const packTried = useRef(false);
+  const { isOnline } = useSyncStatus();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -133,58 +138,92 @@ export default function SpectateScreen() {
   }, [pulse]);
 
   const load = useCallback(async () => {
-    const { data: matchData } = await supabase
-      .from('matches')
-      .select('*, home_team:home_team_id(name,accent_color), away_team:away_team_id(name,accent_color), day:day_id(course_name,day_number,competition_id,course_par,course_rating,slope_rating)')
-      .eq('id', matchId)
-      .single();
+    try {
+      // The local match pack gives an instant paint when the on-course signal
+      // is too poor for the live fetch to land — same pattern as the scoring
+      // screen, and never treated as authoritative: the live fetch below
+      // always runs and overwrites it. The pack carries no per-hole scores, so
+      // the leaderboard stays empty on a cached paint (hence the offline pill
+      // in the header). Only attempted on the first load — the realtime
+      // subscription re-runs this and by then live data is already on screen.
+      if (!packTried.current) {
+        packTried.current = true;
+        const pack = await getMatchPack(matchId);
+        if (pack) {
+          setMatch(pack.match as unknown as MatchDetail);
+          setCourseHoles(pack.courseHoles as CourseHole[]);
+          setPlayers(Object.entries(pack.players).map(([id, p]) => ({
+            id, display_name: p.display_name, avatar_url: p.avatar_url, handicap_index: p.handicap_index,
+          })));
+          // Same override precedence the live path applies below, so a cached
+          // paint never shows a different stroke allocation than the live one.
+          const packOverrides = (pack.match as any).player_overrides ?? {};
+          setCompPlayers(pack.compPlayers.map(cp => {
+            const ov = packOverrides[cp.player_id]?.hcp;
+            return ov != null ? { ...cp, handicap_index: ov } : cp;
+          }));
+          setLoading(false);
+        }
+      }
 
-    if (!matchData) { setLoading(false); return; }
-    setMatch(matchData as unknown as MatchDetail);
+      const { data: matchData } = await supabase
+        .from('matches')
+        .select('*, home_team:home_team_id(name,accent_color), away_team:away_team_id(name,accent_color), day:day_id(course_name,day_number,competition_id,course_par,course_rating,slope_rating)')
+        .eq('id', matchId)
+        .single();
 
-    const allIds    = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
-    const courseName = (matchData as any).day?.course_name;
-    const compId     = (matchData as any).day?.competition_id;
+      if (!matchData) { setLoading(false); return; }
+      setMatch(matchData as unknown as MatchDetail);
 
-    const [{ data: pd }, { data: cd }, { data: compData }, { data: cpData }, { data: mhData }] = await Promise.all([
-      allIds.length
-        ? supabase.from('players').select('id,display_name,avatar_url,handicap_index').in('id', allIds)
-        : Promise.resolve({ data: [] }),
-      courseName
-        ? supabase.from('course_holes').select('hole_number,par,stroke_index').eq('course_name', courseName).order('hole_number')
-        : Promise.resolve({ data: [] }),
-      compId
-        ? supabase.from('competitions').select('name').eq('id', compId).single()
-        : Promise.resolve({ data: null }),
-      // Same precedence as score/enter/[matchId].tsx: competition_players
-      // (max_handicap-capped) wins over the raw player record, then a
-      // per-match override on top — otherwise a spectator sees a different
-      // handicap/stroke allocation than the match is actually using.
-      (matchData as any).competition_id && allIds.length
-        ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', (matchData as any).competition_id).in('player_id', allIds)
-        : Promise.resolve({ data: [] as CompPlayer[] }),
-      // Per-hole scores — needed to mirror the actual game's live result
-      // (Stableford points / Medal vs-par / Team Stableford total) instead
-      // of assuming every format is Match Play.
-      supabase.from('match_holes').select('player_id,hole_number,gross_score,stableford_pts').eq('match_id', matchId),
-    ]);
+      const allIds    = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
+      const courseName = (matchData as any).day?.course_name;
+      const compId     = (matchData as any).day?.competition_id;
 
-    if (pd) {
-      setPlayers(pd);
-      const compMap = new Map((cpData ?? []).map(cp => [cp.player_id, cp]));
-      const fallback: CompPlayer[] = (pd as Player[]).map(p => ({ player_id: p.id, handicap_index: p.handicap_index ?? 0 }));
-      const rawComp = fallback.map(f => compMap.get(f.player_id) ?? f);
-      const overrides = (matchData as any).player_overrides ?? {};
-      const effectiveComp = rawComp.map(cp => {
-        const ov = overrides[cp.player_id]?.hcp;
-        return ov != null ? { ...cp, handicap_index: ov } : cp;
-      });
-      setCompPlayers(effectiveComp);
+      const [{ data: pd }, { data: cd }, { data: compData }, { data: cpData }, { data: mhData }] = await Promise.all([
+        allIds.length
+          ? supabase.from('players').select('id,display_name,avatar_url,handicap_index').in('id', allIds)
+          : Promise.resolve({ data: [] }),
+        courseName
+          ? supabase.from('course_holes').select('hole_number,par,stroke_index').eq('course_name', courseName).order('hole_number')
+          : Promise.resolve({ data: [] }),
+        compId
+          ? supabase.from('competitions').select('name').eq('id', compId).single()
+          : Promise.resolve({ data: null }),
+        // Same precedence as score/enter/[matchId].tsx: competition_players
+        // (max_handicap-capped) wins over the raw player record, then a
+        // per-match override on top — otherwise a spectator sees a different
+        // handicap/stroke allocation than the match is actually using.
+        (matchData as any).competition_id && allIds.length
+          ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', (matchData as any).competition_id).in('player_id', allIds)
+          : Promise.resolve({ data: [] as CompPlayer[] }),
+        // Per-hole scores — needed to mirror the actual game's live result
+        // (Stableford points / Medal vs-par / Team Stableford total) instead
+        // of assuming every format is Match Play.
+        supabase.from('match_holes').select('player_id,hole_number,gross_score,stableford_pts').eq('match_id', matchId),
+      ]);
+
+      if (pd) {
+        setPlayers(pd);
+        const compMap = new Map((cpData ?? []).map(cp => [cp.player_id, cp]));
+        const fallback: CompPlayer[] = (pd as Player[]).map(p => ({ player_id: p.id, handicap_index: p.handicap_index ?? 0 }));
+        const rawComp = fallback.map(f => compMap.get(f.player_id) ?? f);
+        const overrides = (matchData as any).player_overrides ?? {};
+        const effectiveComp = rawComp.map(cp => {
+          const ov = overrides[cp.player_id]?.hcp;
+          return ov != null ? { ...cp, handicap_index: ov } : cp;
+        });
+        setCompPlayers(effectiveComp);
+      }
+      if (cd)       setCourseHoles(cd);
+      if (compData) setCompName((compData as any).name ?? '');
+      setHoleRows((mhData as HoleRow[] | null) ?? []);
+      setLoading(false);
+    } catch {
+      // Network failure out on the course. Leave whatever the pack painted in
+      // place — without this the screen sat on the spinner indefinitely, which
+      // is what a spectator with no signal actually saw.
+      setLoading(false);
     }
-    if (cd)       setCourseHoles(cd);
-    if (compData) setCompName((compData as any).name ?? '');
-    setHoleRows((mhData as HoleRow[] | null) ?? []);
-    setLoading(false);
   }, [matchId]);
 
   useEffect(() => {
@@ -398,6 +437,13 @@ export default function SpectateScreen() {
       </View>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+
+        {!isOnline && (
+          <View style={s.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={13} color="#fff" />
+            <Text style={s.offlineBannerText}>Offline — leaderboard may not include latest scores</Text>
+          </View>
+        )}
 
         {/* ── Match header card ── */}
         <View style={s.heroCard}>
@@ -678,6 +724,10 @@ const s = StyleSheet.create({
   headerRight:  { flex: 1 },
 
   scroll: { padding: 16, paddingBottom: 48 },
+
+  /* Offline pill — same dark, matter-of-fact treatment as the scoring screen */
+  offlineBanner:     { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1c1c1c', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12 },
+  offlineBannerText: { flex: 1, fontFamily: FFB, fontSize: 11, color: '#fff' },
 
   /* Match header card */
   heroCard: {

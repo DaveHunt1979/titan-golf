@@ -3,8 +3,14 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Scr
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
 import { calcCourseHandicap, calcStrokesReceived } from '../../../../src/lib/scoring';
+import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
+import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
+import { getMatchPack } from '../../../../src/lib/offlinePack';
+import SyncBar from '../../../../src/components/SyncBar';
+import ConflictSheet from '../../../../src/components/ConflictSheet';
 
 // TITAN design constants
 const GOLD  = '#D4AF37';
@@ -47,6 +53,9 @@ export default function ParBogeyScreen() {
   const [holeIdx, setHoleIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
+  const syncStatus = useSyncStatus();
+  const pendingCount = syncStatus.pendingCount;
+  const [showConflicts, setShowConflicts] = useState(false);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -56,6 +65,29 @@ export default function ParBogeyScreen() {
   useEffect(() => { load(); }, [matchId]);
 
   async function load() {
+    // Local pack gives an instant paint on a slow/offline connection, but it
+    // can be hours stale (14h TTL) and another device may have moved the round
+    // on since. Never treat it as final — the live fetch below always follows
+    // and overwrites it once it lands.
+    const pack = await getMatchPack(matchId);
+    if (pack) {
+      const packDay = pack.match?.day;
+      setMatch(pack.match as Match);
+      setHoles(pack.courseHoles as CourseHole[]);
+      setPlayers((pack.match?.home_player_ids ?? []).map((id: string) => {
+        const p = pack.players[id];
+        const hcpIdx = p?.handicap_index ?? 0;
+        return {
+          id,
+          name: (p?.display_name ?? '?').split(' ')[0],
+          courseHcp: packDay
+            ? calcCourseHandicap(hcpIdx, packDay.slope_rating, packDay.course_rating, packDay.course_par)
+            : Math.round(hcpIdx),
+        };
+      }));
+      setLoading(false);
+    }
+
     const { data: m } = await supabase
       .from('matches')
       .select('*,day:day_id(course_name,course_par,course_rating,slope_rating)')
@@ -111,23 +143,43 @@ export default function ParBogeyScreen() {
     return p && hole ? calcStrokesReceived(p.courseHcp, hole.stroke_index) : 0;
   }
 
-  async function save() {
-    if (!match || !hole || saving) return;
+  async function save(): Promise<boolean> {
+    if (!match || !hole || saving) return false;
     setSaving(true);
-    for (const p of players) {
+    const insertRows = players.map(p => {
       const g = scores[p.id]?.[hole.hole_number] ?? hole.par;
       const s = calcStrokesReceived(p.courseHcp, hole.stroke_index);
       const r = holeResult(g, hole.par, s);
-      await supabase.from('match_holes').upsert(
-        { match_id: matchId, player_id: p.id, hole_number: hole.hole_number, gross_score: g, stableford_pts: r },
-        { onConflict: 'match_id,player_id,hole_number' }
-      );
-    }
+      return { match_id: matchId, player_id: p.id, hole_number: hole.hole_number, gross_score: g, stableford_pts: r };
+    });
+
+    // Try drain before saving
+    if (pendingCount > 0) await syncStatus.syncNow();
+
+    const result = await saveHoleWithOfflineFallback({
+      matchId: matchId as string,
+      holeNumber: hole.hole_number,
+      insertRows,
+      matchUpdate: {},
+    });
     setSaving(false);
+
+    if (result.outcome === 'missing_match') {
+      Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
+        { text: 'OK', onPress: () => router.replace('/(app)/' as any) },
+      ]);
+      return false;
+    }
+    if (result.outcome === 'error') {
+      Alert.alert('Error', String(result.error?.message ?? result.error));
+      return false;
+    }
+    if (result.outcome === 'saved_offline') syncStatus.syncNow();
+    return true;
   }
 
   async function next() {
-    await save();
+    if (!(await save())) return;
     if (holeIdx < holes.length - 1) { setHoleIdx(holeIdx + 1); return; }
     await supabase.from('matches').update({ status: 'complete' }).eq('id', matchId);
     const totals: Record<string, number> = {};
@@ -178,6 +230,16 @@ export default function ParBogeyScreen() {
         <View style={{ width: 60 }} />
       </View>
 
+      {/* ── Sync status ── */}
+      <SyncBar status={syncStatus} onConflictsPress={() => setShowConflicts(true)} />
+      <ConflictSheet
+        visible={showConflicts}
+        conflicts={syncStatus.conflicts}
+        playerNames={Object.fromEntries(players.map(p => [p.id, p.name]))}
+        onResolve={async (id, useServer) => { await syncStatus.resolveAndRefresh(id, useServer); }}
+        onClose={() => setShowConflicts(false)}
+      />
+
       {/* Running totals */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tallyScroll}>
         <View style={s.tally}>
@@ -204,6 +266,12 @@ export default function ParBogeyScreen() {
 
       {/* Player score rows */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.playersWrap}>
+        {pendingCount > 0 && (
+          <View style={s.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={13} color="#fff" />
+            <Text style={s.offlineBannerText}>{pendingCount} score{pendingCount !== 1 ? 's' : ''} saved offline — will sync when connected</Text>
+          </View>
+        )}
         {players.map(p => {
           const sc  = getScore(p.id);
           const str = strokes(p.id);
@@ -239,7 +307,7 @@ export default function ParBogeyScreen() {
       <View style={s.nav}>
         <TouchableOpacity
           style={[s.navBtn, holeIdx === 0 && s.dim]}
-          onPress={async () => { await save(); setHoleIdx(Math.max(0, holeIdx - 1)); }}
+          onPress={async () => { if (!(await save())) return; setHoleIdx(Math.max(0, holeIdx - 1)); }}
           disabled={holeIdx === 0 || saving}
           activeOpacity={0.7}
         >
@@ -285,6 +353,10 @@ const s = StyleSheet.create({
   holeMeta:     { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 2 },
   // Player rows
   playersWrap:  { padding: 20, gap: 20 },
+
+  // Offline banner
+  offlineBanner:     { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1c1c1c', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  offlineBannerText: { flex: 1, fontFamily: FFB, fontSize: 11, color: '#fff' },
   playerRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 16 },
   playerName:   { fontSize: 16, fontFamily: FFB, color: '#fff' },
   playerSub:    { fontSize: 11, fontFamily: FFB, color: '#fff', marginTop: 3 },

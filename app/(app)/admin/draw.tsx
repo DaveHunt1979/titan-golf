@@ -77,7 +77,7 @@ interface MatchRow {
   home_team_id: string | null; away_team_id: string | null; status: string;
   winner: string | null; result_str: string | null; holes_string: string; is_singles: boolean;
 }
-interface SocMember { player_id: string; display_name: string; handicap_index: number | null; }
+interface SocMember { player_id: string; display_name: string; handicap_index: number | null; team_id: string | null; }
 
 export default function TournamentDrawScreen() {
   const { id: competitionId } = useLocalSearchParams<{ id: string }>();
@@ -160,7 +160,7 @@ export default function TournamentDrawScreen() {
     if (!societyId) return;
     const { data } = await supabase
       .from('society_members')
-      .select('player_id, players(display_name, handicap_index)')
+      .select('player_id, team_id, players(display_name, handicap_index)')
       .eq('society_id', societyId);
     if (data) {
       const enrolled = new Set(compPlayers.map(cp => cp.player_id));
@@ -171,6 +171,7 @@ export default function TournamentDrawScreen() {
             player_id: m.player_id,
             display_name: m.players?.display_name ?? '—',
             handicap_index: m.players?.handicap_index ?? null,
+            team_id: m.team_id ?? null,
           }))
       );
     }
@@ -192,7 +193,11 @@ export default function TournamentDrawScreen() {
       const rows = member.map(m => ({
         competition_id: competitionId,
         player_id: m.player_id,
-        team_id: addTeam,
+        // Prebuilt team rosters carry straight into the tournament — a
+        // player's permanent team wins over the bulk "add to team" picker,
+        // which now only matters as a fallback for players with no
+        // permanent team yet. Move players afterward via the Transfer Window.
+        team_id: isTeamTournament ? (m.team_id ?? addTeam) : null,
         // Players above the tournament's max handicap play from the max instead.
         handicap_index: (maxHcp != null && m.handicap_index != null)
           ? Math.min(m.handicap_index, maxHcp)
@@ -543,6 +548,10 @@ export default function TournamentDrawScreen() {
   const teamsWithPlayers = new Set(compPlayers.map(cp => cp.team_id).filter(Boolean)).size;
   const configuredTeams = comp?.settings?.num_teams ?? null;
   const teamCountMismatch = configuredTeams != null && teamsWithPlayers > 0 && teamsWithPlayers !== configuredTeams;
+  // Ryder Cup / Titan Tour are the only team-based tournament types — a
+  // Standard Tournament (Individual Stableford, Stroke Play, etc.) is just
+  // a player pool and shouldn't ask for team assignment at all.
+  const isTeamTournament = comp?.tournament_type === 'ryder_cup' || comp?.tournament_type === 'titan_tour';
   const daysWithMatches = new Set(matches.map(m => m.day_id));
   const allDaysHaveMatches = days.length > 0 && days.every(d => daysWithMatches.has(d.id));
 
@@ -591,13 +600,13 @@ export default function TournamentDrawScreen() {
               </TouchableOpacity>
             </View>
 
-            {unassigned.length > 0 && (
+            {isTeamTournament && unassigned.length > 0 && (
               <View style={[s.warnBanner]}>
                 <Ionicons name="warning-outline" size={14} color={GOLD} />
                 <Text style={s.warnText}>{unassigned.length} player{unassigned.length !== 1 ? 's' : ''} not assigned to a team</Text>
               </View>
             )}
-            {teamCountMismatch && (
+            {isTeamTournament && teamCountMismatch && (
               <View style={[s.warnBanner]}>
                 <Ionicons name="warning-outline" size={14} color={GOLD} />
                 <Text style={s.warnText}>Set up for {configuredTeams} teams, but only {teamsWithPlayers} have players assigned</Text>
@@ -611,42 +620,47 @@ export default function TournamentDrawScreen() {
             ) : (
               compPlayers.map(cp => (
                 <View key={cp.id} style={s.playerRow}>
-                  <TouchableOpacity
-                    onPress={() => toggleCaptain(cp)}
-                    disabled={!cp.team_id}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons
-                      name={cp.is_captain ? 'star' : 'star-outline'}
-                      size={18}
-                      color={cp.is_captain ? GOLD : (cp.team_id ? '#555' : '#222')}
-                    />
-                  </TouchableOpacity>
+                  {isTeamTournament && (
+                    <TouchableOpacity
+                      onPress={() => toggleCaptain(cp)}
+                      disabled={!cp.team_id}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons
+                        name={cp.is_captain ? 'star' : 'star-outline'}
+                        size={18}
+                        color={cp.is_captain ? GOLD : (cp.team_id ? '#555' : '#222')}
+                      />
+                    </TouchableOpacity>
+                  )}
                   <View style={s.playerInfo}>
                     <Text style={s.playerName}>{cp.display_name}{cp.is_captain ? '  (C)' : ''}</Text>
                     {cp.handicap_index != null && (
                       <Text style={s.playerHcp}>HCP {cp.handicap_index}</Text>
                     )}
                   </View>
-                  {/* Team chips */}
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                    <TouchableOpacity
-                      style={[s.teamChip, !cp.team_id && s.teamChipOn, { borderColor: !cp.team_id ? RED : '#333' }]}
-                      onPress={() => changeTeam(cp, null)}
-                    >
-                      <Text style={[s.teamChipText, { color: !cp.team_id ? RED : '#555' }]}>None</Text>
-                    </TouchableOpacity>
-                    {teams.map(t => (
+                  {/* Team chips — only for team-based tournaments; a
+                      Standard/Individual tournament is just a player pool */}
+                  {isTeamTournament && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
                       <TouchableOpacity
-                        key={t.id}
-                        style={[s.teamChip, cp.team_id === t.id && s.teamChipOn, { borderColor: cp.team_id === t.id ? t.accent_color : '#333' }]}
-                        onPress={() => changeTeam(cp, t.id)}
+                        style={[s.teamChip, !cp.team_id && s.teamChipOn, { borderColor: !cp.team_id ? RED : '#333' }]}
+                        onPress={() => changeTeam(cp, null)}
                       >
-                        <View style={[s.teamDot, { backgroundColor: t.accent_color }]} />
-                        <Text style={[s.teamChipText, { color: cp.team_id === t.id ? t.accent_color : '#888' }]}>{t.name}</Text>
+                        <Text style={[s.teamChipText, { color: !cp.team_id ? RED : '#555' }]}>None</Text>
                       </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                      {teams.map(t => (
+                        <TouchableOpacity
+                          key={t.id}
+                          style={[s.teamChip, cp.team_id === t.id && s.teamChipOn, { borderColor: cp.team_id === t.id ? t.accent_color : '#333' }]}
+                          onPress={() => changeTeam(cp, t.id)}
+                        >
+                          <View style={[s.teamDot, { backgroundColor: t.accent_color }]} />
+                          <Text style={[s.teamChipText, { color: cp.team_id === t.id ? t.accent_color : '#888' }]}>{t.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
                   <TouchableOpacity onPress={() => removePlayer(cp)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Ionicons name="close-circle-outline" size={20} color="#555" />
                   </TouchableOpacity>
@@ -655,7 +669,7 @@ export default function TournamentDrawScreen() {
             )}
 
             {/* Team summary */}
-            {teams.length > 0 && compPlayers.length > 0 && (
+            {isTeamTournament && teams.length > 0 && compPlayers.length > 0 && (
               <View style={s.teamSummary}>
                 <Text style={[s.sectionLabel, { marginBottom: 10 }]}>TEAM BREAKDOWN</Text>
                 {teams.map(t => {
