@@ -1,12 +1,17 @@
-import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, ActivityIndicator, Image, Dimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useRef, useState } from 'react';
+import {
+  View, Text, TouchableOpacity, StyleSheet,
+  ActivityIndicator, Alert, Modal, Image, ScrollView, Dimensions,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { calcStrokesReceived, calcStablefordPoints, calcCourseHandicap } from '../../../../src/lib/scoring';
-import { speakPressure } from '../../../../src/lib/caddie';
+import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles } from '../../../../src/lib/scoring';
+import { resolveAvatar } from '../../../../src/lib/assets';
+import { speakIntro, speakBack9, speakOutro, speakPressure } from '../../../../src/lib/caddie';
+import RangeMap from '../../../../src/components/RangeMap';
 
 const { width: W } = Dimensions.get('window');
 const GOLD     = '#D4AF37';
@@ -15,494 +20,1269 @@ const RED      = '#f87171';
 const BLUE     = '#3b82f6';
 const DARKBLUE = '#1e3a8a';
 const PLAIN    = '#ffffff';
-const PURPLE = '#a78bfa';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
+const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
-type HoleInfo = { hole_number: number; par: number; stroke_index: number; yardage?: number };
-type SavedScore = { hole_number: number; gross: number; pts: number };
+const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: RED, par: PLAIN, bogey: BLUE, double: DARKBLUE };
 
-export default function SwindleScore() {
+// Same classification rule as score/solo/[matchId].tsx: gross strokes vs par
+// only — handicap shots affect stableford points, not the label.
+function scoreVsPar(gross: number, par: number): string {
+  const diff = gross - par;
+  if (diff <= -2) return 'eagle';
+  if (diff === -1) return 'birdie';
+  if (diff === 0)  return 'par';
+  if (diff === 1)  return 'bogey';
+  return 'double';
+}
+
+function formatVsPar(n: number): string {
+  if (n === 0) return 'E';
+  return n > 0 ? `+${n}` : `${n}`;
+}
+
+function ptsColor(pts: number): string {
+  if (pts >= 4) return GOLD;
+  if (pts === 3) return RED;
+  if (pts === 2) return PLAIN;
+  if (pts === 1) return BLUE;
+  return DARKBLUE;
+}
+
+function Avatar({ playerId, name, size = 44, avatarUrl }: { playerId?: string; name: string; size?: number; avatarUrl?: string | null }) {
+  const resolved = playerId ? resolveAvatar(playerId, avatarUrl ?? null, 'normal') : null;
+  if (resolved) {
+    const imgSrc = typeof resolved === 'string' ? { uri: resolved } : resolved;
+    return <Image source={imgSrc} style={{ width: size, height: size, borderRadius: size / 2 }} />;
+  }
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: `${GOLD}20`, borderWidth: 1.5, borderColor: `${GOLD}60`, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontFamily: FFB, fontSize: size * 0.38, color: GOLD }}>{(name || '?')[0].toUpperCase()}</Text>
+    </View>
+  );
+}
+
+function StatBox({ count, label, color }: { count: number; label: string; color: string }) {
+  const textColor = color === PLAIN ? '#000' : '#fff';
+  return (
+    <View style={[s.statBox, { backgroundColor: color }]}>
+      <Text style={[s.statVal, { color: textColor }]}>{count}</Text>
+      <Text style={[s.statLbl, { color: textColor }]}>{label}</Text>
+    </View>
+  );
+}
+
+interface Game {
+  id: string; name: string; course_name: string | null; format: 'stableford' | 'stroke';
+  status: string; slope_rating: number | null; course_rating: number | null; hcp_allowance: number | null;
+}
+interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; }
+interface HoleScore { hole_number: number; gross: number; pts: number; }
+interface GroupPlayer {
+  playerId: string; name: string; avatarUrl: string | null;
+  handicapIndex: number; courseHcp: number;
+  scores: Record<number, { gross: number; pts: number }>;
+}
+
+export default function SwindleScoreScreen() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
   const router = useRouter();
-  const [game,        setGame]        = useState<any>(null);
-  const [courseHoles, setCourseHoles] = useState<HoleInfo[]>([]);
-  const [saved,       setSaved]       = useState<SavedScore[]>([]);
-  const [myId,        setMyId]        = useState<string | null>(null);
-  const [hcpIndex,    setHcpIndex]    = useState(0);
-  const [slopeRating, setSlopeRating] = useState(113);
-  const [courseRating,setCourseRating]= useState<number | null>(null);
-  const [hcpAllowance,setHcpAllowance]= useState(100);
-  const [selected,    setSelected]    = useState<number | null>(null);
-  const [saving,      setSaving]      = useState(false);
-  const [loading,     setLoading]     = useState(true);
 
   const [fontsLoaded] = useFonts({
-    'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
+    'JUSTSans':        require('../../../../assets/fonts/JUSTSans-Regular.otf'),
     'JUSTSans-ExBold': require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
-  useEffect(() => { init(); }, [gameId]);
+  const [game, setGame]               = useState<Game | null>(null);
+  const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
+  const [myId, setMyId]               = useState<string | null>(null);
+  const [playerName, setPlayerName]   = useState('');
+  const [avatarUrl, setAvatarUrl]     = useState<string | null>(null);
+  const [playerHcp, setPlayerHcp]     = useState(0);
+  const [courseHcp, setCourseHcp]     = useState(0);
+  const [savedScores, setSavedScores] = useState<HoleScore[]>([]);
+  const [groupPlayers, setGroupPlayers] = useState<GroupPlayer[] | null>(null);
+  const [guestCount, setGuestCount]     = useState(0);
+  const [loading, setLoading]         = useState(true);
+  const [loadError, setLoadError]     = useState(false);
+  const [retryTick, setRetryTick]     = useState(0);
+  const [saving, setSaving]           = useState(false);
 
-  if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-      <StatusBar style="light" />
-      <ActivityIndicator color={GOLD} size="large" />
-    </View>
-  );
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedScore, setSelectedScore] = useState<number | null>(null);
+  const [editingHole, setEditingHole] = useState<number | null>(null);
+  const [showRangeMap, setShowRangeMap] = useState(false);
 
-  const isStroke   = (game?.format ?? 'stableford') === 'stroke';
-  const nextHole   = (() => { for (let h = 1; h <= 18; h++) { if (!saved.find(s => s.hole_number === h)) return h; } return 19; })();
-  const isComplete = nextHole > 18;
-  const courseHole = courseHoles.find(h => h.hole_number === nextHole);
-  const coursePar  = courseHoles.length > 0 ? courseHoles.reduce((s, h) => s + h.par, 0) : 72;
-  const courseHcp  = calcCourseHandicap(hcpIndex, slopeRating, courseRating ?? coursePar, coursePar);
-  const playingHcp = Math.round(courseHcp * (hcpAllowance / 100));
-  const shots      = courseHole ? calcStrokesReceived(playingHcp, courseHole.stroke_index) : 0;
-  const totalPts   = saved.reduce((s, h) => s + h.pts, 0);
-  const totalGross = saved.reduce((s, h) => s + h.gross, 0);
+  const isGroupMode = groupPlayers !== null;
 
-  async function init() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data: p } = await supabase.from('players').select('id,handicap_index').eq('auth_uid', user.id).maybeSingle();
-    if (!p) return;
-    setMyId(p.id);
-    setHcpIndex(p.handicap_index ?? 0);
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setLoadError(true); setLoading(false); return; }
+        const { data: p } = await supabase.from('players').select('id,display_name,handicap_index,avatar_url').eq('auth_uid', user.id).maybeSingle();
+        if (!p) { setLoadError(true); setLoading(false); return; }
+        setMyId(p.id);
+        setPlayerName(p.display_name ?? '');
+        setAvatarUrl(p.avatar_url ?? null);
+        setPlayerHcp(p.handicap_index ?? 0);
 
-    const { data: g } = await supabase.from('swindle_games').select('*').eq('id', gameId).single();
-    if (!g) return;
-    setGame(g);
-    if (g.slope_rating)         setSlopeRating(g.slope_rating);
-    if (g.course_rating != null) setCourseRating(g.course_rating);
-    if (g.hcp_allowance != null) setHcpAllowance(g.hcp_allowance);
+        const { data: g, error: gameErr } = await supabase.from('swindle_games').select('*').eq('id', gameId).single();
+        if (gameErr) throw gameErr;
+        if (!g) { setLoadError(true); setLoading(false); return; }
+        setGame(g as Game);
 
-    if (g.course_name) {
-      const { data: holes } = await supabase
-        .from('course_holes')
-        .select('hole_number,par,stroke_index,yardage')
-        .eq('course_name', g.course_name)
-        .order('hole_number');
-      if (holes) setCourseHoles(holes);
-    }
+        let holes: CourseHole[] = [];
+        if (g.course_name) {
+          const { data: holesData } = await supabase
+            .from('course_holes').select('hole_number,par,stroke_index,yardage')
+            .eq('course_name', g.course_name).order('hole_number');
+          if (holesData) holes = holesData as CourseHole[];
+        }
+        setCourseHoles(holes);
+        const coursePar = holes.length > 0 ? holes.reduce((s, h) => s + h.par, 0) : 72;
+        const slope = g.slope_rating ?? 113;
+        const rating = g.course_rating ?? coursePar;
+        const allowance = (g.hcp_allowance ?? 100) / 100;
+        const myCh = calcCourseHandicap(p.handicap_index ?? 0, slope, rating, coursePar);
+        setCourseHcp(Math.round(myCh * allowance));
 
-    const { data: scores } = await supabase
-      .from('swindle_scores')
-      .select('hole_number, gross_score, stableford_pts')
-      .eq('game_id', gameId)
-      .eq('player_id', p.id);
-    if (scores) {
-      setSaved(scores.map((s: any) => ({ hole_number: s.hole_number, gross: s.gross_score ?? 0, pts: s.stableford_pts ?? 0 })));
-    }
-    setLoading(false);
-  }
+        // Does this player belong to a tee-time group for this swindle? If
+        // so, "Score My Round" scores the whole group (one scorer, everyone
+        // else spectates) — same as casual round's group scoring, restored
+        // here from the pre-rollback reference (see the git stash from the
+        // 2026-08-10 session) rather than rebuilt from scratch.
+        const { data: myMembership } = await supabase
+          .from('swindle_group_players')
+          .select('group_id, swindle_groups!inner(game_id)')
+          .eq('player_id', p.id)
+          .eq('is_guest', false)
+          .eq('swindle_groups.game_id', gameId)
+          .maybeSingle();
 
-  async function saveScore() {
-    if (selected === null || !myId || !game || !courseHole) return;
-    setSaving(true);
-    const gross = selected;
-    const pts   = calcStablefordPoints(gross, courseHole.par, shots);
+        if (myMembership) {
+          const { data: roster } = await supabase
+            .from('swindle_group_players')
+            .select('player_id, is_guest, players(display_name, avatar_url, handicap_index)')
+            .eq('group_id', myMembership.group_id);
 
-    await supabase.from('swindle_scores').upsert({
-      game_id: gameId, player_id: myId, hole_number: nextHole,
-      gross_score: gross, stableford_pts: pts,
-    }, { onConflict: 'game_id,player_id,hole_number' });
+          const realRows = ((roster ?? []) as any[]).filter(r => !r.is_guest && r.player_id);
+          setGuestCount(((roster ?? []) as any[]).filter(r => r.is_guest).length);
 
-    const newSaved = [...saved.filter(s => s.hole_number !== nextHole), { hole_number: nextHole, gross, pts }];
-    setSaved(newSaved);
-    setSelected(null);
-    setSaving(false);
+          const playerIds = realRows.map(r => r.player_id);
+          const { data: groupScores } = playerIds.length
+            ? await supabase.from('swindle_scores').select('player_id,hole_number,gross_score,stableford_pts').eq('game_id', gameId).in('player_id', playerIds)
+            : { data: [] };
 
-    // Update game status to in_progress
-    if (game.status === 'open') {
-      await supabase.from('swindle_games').update({ status: 'in_progress' }).eq('id', gameId);
-    }
-
-    // Live Pressure at key holes
-    if ([6, 9, 12, 15, 16, 17, 18].includes(nextHole)) {
-      const { data: allScores } = await supabase
-        .from('swindle_scores').select('player_id, stableford_pts').eq('game_id', gameId);
-      const { data: entries } = await supabase
-        .from('swindle_entries').select('player_id, players(display_name)').eq('game_id', gameId);
-      if (allScores && entries) {
-        const totals: Record<string, number> = {};
-        for (const s of allScores as any[]) totals[s.player_id] = (totals[s.player_id] ?? 0) + (s.stableford_pts ?? 0);
-        const standings = (entries as any[]).map(e => ({
-          name: (e.players?.display_name ?? 'Player').split(' ')[0],
-          pts: totals[e.player_id] ?? 0,
-        })).sort((a, b) => b.pts - a.pts);
-        speakPressure({ standings, holeNumber: nextHole, holesLeft: 18 - newSaved.length, format: 'stableford' });
+          const built: GroupPlayer[] = realRows.map(r => {
+            const info = r.players ?? { display_name: '—', avatar_url: null, handicap_index: 0 };
+            const hcp = info.handicap_index ?? 0;
+            const ch = calcCourseHandicap(hcp, slope, rating, coursePar);
+            const scores: Record<number, { gross: number; pts: number }> = {};
+            for (const row of (groupScores ?? []) as any[]) {
+              if (row.player_id !== r.player_id) continue;
+              scores[row.hole_number] = { gross: row.gross_score ?? 0, pts: row.stableford_pts ?? 0 };
+            }
+            return {
+              playerId: r.player_id, name: info.display_name ?? '—', avatarUrl: info.avatar_url ?? null,
+              handicapIndex: hcp, courseHcp: Math.round(ch * allowance), scores,
+            };
+          });
+          setGroupPlayers(built);
+        } else {
+          setGroupPlayers(null);
+          const { data: scores } = await supabase
+            .from('swindle_scores').select('hole_number, gross_score, stableford_pts')
+            .eq('game_id', gameId).eq('player_id', p.id);
+          if (scores) {
+            setSavedScores(scores.map((sc: any) => ({ hole_number: sc.hole_number, gross: sc.gross_score ?? 0, pts: sc.stableford_pts ?? 0 })));
+          }
+        }
+      } catch (e) {
+        console.error('[swindle.score.load] failed', e);
+        setLoadError(true);
+      } finally {
+        setLoading(false);
       }
     }
+    setLoading(true);
+    setLoadError(false);
+    setSavedScores([]);
+    setGroupPlayers(null);
+    load();
+  }, [gameId, retryTick]);
 
-    if (nextHole === 18) {
-      const msg = isStroke
-        ? `Gross total: ${gross}. Net total: ${totalGross + gross} 🏌️`
-        : `You scored ${totalPts + pts} points 🏆`;
-      Alert.alert('Round Complete!', msg, [
-        { text: 'View Leaderboard', onPress: () => router.replace(`/(app)/swindle/${gameId}` as any) },
-      ]);
+  const scoredSet = new Set(savedScores.map(s => s.hole_number));
+  const nextHole  = (() => { for (let h = 1; h <= 18; h++) if (!scoredSet.has(h)) return h; return 19; })();
+  const activeHole = editingHole ?? nextHole;
+  const isComplete = scoredSet.size >= 18;
+  const isStableford = (game?.format ?? 'stableford') === 'stableford';
+
+  const courseHole = courseHoles.find(h => h.hole_number === activeHole);
+  const shots = courseHole ? calcStrokesReceived(courseHcp, courseHole.stroke_index) : 0;
+
+  const totalGross = savedScores.reduce((s, h) => s + h.gross, 0);
+  const totalPts   = savedScores.reduce((s, h) => s + h.pts, 0);
+  const parPlayed  = savedScores.reduce((s, h) => {
+    const ch = courseHoles.find(c => c.hole_number === h.hole_number);
+    return s + (ch?.par ?? 0);
+  }, 0);
+  const vsPar = totalGross - parPlayed;
+
+
+  // ── Group mode derived state ──────────────────────────────────────────
+  const gp = groupPlayers ?? [];
+  const totalPtsForG   = (p: GroupPlayer) => Object.values(p.scores).reduce((s, v) => s + v.pts, 0);
+  const totalVsParForG = (p: GroupPlayer) => Object.entries(p.scores).reduce((s, [h, v]) => {
+    const ch = courseHoles.find(c => c.hole_number === Number(h));
+    return s + (v.gross - (ch?.par ?? 0));
+  }, 0);
+  const groupActiveHole   = gp.length > 0 ? (() => { for (let h = 1; h <= 18; h++) if (gp.some(p => !p.scores[h])) return h; return 19; })() : 19;
+  const groupCourseHole   = courseHoles.find(h => h.hole_number === groupActiveHole);
+  const groupActivePlayer = gp.find(p => !p.scores[groupActiveHole]) ?? null;
+  const groupStrokes      = groupActivePlayer && groupCourseHole ? calcStrokesReceived(groupActivePlayer.courseHcp, groupCourseHole.stroke_index) : 0;
+  const groupComplete     = gp.length > 0 && gp.every(p => Object.keys(p.scores).length >= 18);
+  const groupStandings    = [...gp].sort((a, b) => isStableford ? totalPtsForG(b) - totalPtsForG(a) : totalVsParForG(a) - totalVsParForG(b));
+  const groupScoreLineFor = (p: GroupPlayer) => isStableford ? `${totalPtsForG(p)} pts` : formatVsPar(totalVsParForG(p));
+
+  useEffect(() => { setSelectedScore(null); }, [groupActivePlayer?.playerId, groupActiveHole]);
+
+  const introPlayedRef = useRef(false);
+  const back9PlayedRef = useRef(false);
+  useEffect(() => {
+    if (isGroupMode || !game || !playerName || loading || introPlayedRef.current) return;
+    if (nextHole === 1) {
+      introPlayedRef.current = true;
+      speakIntro([playerName.split(' ')[0]]);
+    }
+  }, [isGroupMode, game, playerName, loading, nextHole]);
+
+  useEffect(() => {
+    if (isGroupMode || !game || !playerName || loading || back9PlayedRef.current) return;
+    if (nextHole === 10) {
+      back9PlayedRef.current = true;
+      const front9 = savedScores.filter(h => h.hole_number <= 9);
+      const frontGross  = front9.reduce((s, h) => s + h.gross, 0);
+      const frontPts    = front9.reduce((s, h) => s + h.pts,   0);
+      const frontParSum = front9.reduce((s, h) => {
+        const ch = courseHoles.find(c => c.hole_number === h.hole_number);
+        return s + (ch?.par ?? 0);
+      }, 0);
+      speakBack9(playerName.split(' ')[0], isStableford ? 'stableford' : 'medal', frontPts, frontGross, frontGross - frontParSum);
+    }
+  }, [isGroupMode, nextHole]);
+
+  async function saveScore() {
+    if (selectedScore === null || !myId || !game || !courseHole) return;
+
+    const par   = courseHole.par;
+    const gross = selectedScore;
+    const pts   = calcStablefordPoints(gross, par, shots);
+    const holeToSave = activeHole;
+    const wasEditing = editingHole !== null;
+
+    setModalVisible(false);
+    setSavedScores(prev => [...prev.filter(h => h.hole_number !== holeToSave), { hole_number: holeToSave, gross, pts }]);
+    setEditingHole(null);
+    setSelectedScore(null);
+
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('swindle_scores').upsert({
+        game_id: gameId, player_id: myId, hole_number: holeToSave,
+        gross_score: gross, stableford_pts: pts,
+      }, { onConflict: 'game_id,player_id,hole_number' });
+      if (error) {
+        console.error('swindle save error:', error);
+        Alert.alert('Save failed', 'That score didn\'t save — check your connection and try again.');
+        return;
+      }
+
+      if (game.status === 'open') {
+        await supabase.from('swindle_games').update({ status: 'in_progress' }).eq('id', gameId);
+        setGame(prev => prev ? { ...prev, status: 'in_progress' } : prev);
+      }
+
+      if (!wasEditing && [6, 9, 12, 15, 16, 17, 18].includes(holeToSave)) {
+        const { data: allScores } = await supabase.from('swindle_scores').select('player_id, stableford_pts').eq('game_id', gameId);
+        const { data: entries } = await supabase.from('swindle_entries').select('player_id, players(display_name)').eq('game_id', gameId);
+        if (allScores && entries) {
+          const totals: Record<string, number> = {};
+          for (const sc of allScores as any[]) totals[sc.player_id] = (totals[sc.player_id] ?? 0) + (sc.stableford_pts ?? 0);
+          const standings = (entries as any[]).map(e => ({
+            name: (e.players?.display_name ?? 'Player').split(' ')[0],
+            pts: totals[e.player_id] ?? 0,
+          })).sort((a, b) => b.pts - a.pts);
+          speakPressure({ standings, holeNumber: holeToSave, holesLeft: 18 - scoredSet.size - (wasEditing ? 0 : 1), format: 'stableford' });
+        }
+      }
+    } finally {
+      setSaving(false);
     }
   }
 
-  function dotColor(sc: SavedScore): string {
-    // Gross strokes vs par only — handicap shots affect stableford points,
-    // not the eagle/birdie/par/bogey classification.
-    const ch = courseHoles.find(h => h.hole_number === sc.hole_number);
-    const rel = ch ? sc.gross - ch.par : 0;
-    if (rel <= -2) return 'rgba(212,175,55,0.85)';
-    if (rel === -1) return 'rgba(248,113,113,0.85)';
-    if (rel === 0)  return 'rgba(255,255,255,0.6)';
-    if (rel === 1)  return 'rgba(59,130,246,0.7)';
-    return 'rgba(30,58,138,0.7)';
+  async function undoHole() {
+    if (!myId || saving || nextHole <= 1) return;
+    const lastDone = nextHole - 1;
+    setSaving(true);
+    await supabase.from('swindle_scores').delete().eq('game_id', gameId).eq('player_id', myId).eq('hole_number', lastDone);
+    setSavedScores(prev => prev.filter(h => h.hole_number !== lastDone));
+    setSaving(false);
   }
 
-  // ── Complete screen ──────────────────────────────────────────────────────────
-  if (isComplete) {
+  async function saveScoreGroup() {
+    if (selectedScore === null || !groupActivePlayer || !groupCourseHole || saving || !game) return;
+    setSaving(true);
+    try {
+      const gross = selectedScore;
+      const pts   = calcStablefordPoints(gross, groupCourseHole.par, groupStrokes);
+
+      const { error } = await supabase.from('swindle_scores').upsert({
+        game_id: gameId, player_id: groupActivePlayer.playerId, hole_number: groupActiveHole,
+        gross_score: gross, stableford_pts: pts,
+      }, { onConflict: 'game_id,player_id,hole_number' });
+      if (error) {
+        console.error('[swindle.group.save] failed', error);
+        Alert.alert('Save failed', 'That score didn\'t save — check your connection and try again.');
+        return;
+      }
+
+      if (game.status === 'open') {
+        await supabase.from('swindle_games').update({ status: 'in_progress' }).eq('id', gameId);
+        setGame(prev => prev ? { ...prev, status: 'in_progress' } : prev);
+      }
+
+      const updated = gp.map(p => p.playerId !== groupActivePlayer.playerId ? p : {
+        ...p, scores: { ...p.scores, [groupActiveHole]: { gross, pts } },
+      });
+      setGroupPlayers(updated);
+      // Score everyone still needing this hole before dropping back to the
+      // background screen — only close once nobody in the group needs it.
+      const holeStillNeedsSomeone = updated.some(p => !p.scores[groupActiveHole]);
+      if (!holeStillNeedsSomeone) setModalVisible(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loadError) return (
+    <View style={s.loading}>
+      <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16, marginBottom: 16 }}>Couldn't load this round.</Text>
+      <TouchableOpacity style={s.ctaBtn} onPress={() => setRetryTick(t => t + 1)} activeOpacity={0.85}>
+        <Text style={s.ctaBtnText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+  if (loading || !fontsLoaded) return (
+    <View style={s.loading}><ActivityIndicator color={GOLD} size="large" /></View>
+  );
+  if (!game) return (
+    <View style={s.loading}><Text style={{ fontFamily: FFB, color: '#fff' }}>Swindle not found.</Text></View>
+  );
+
+  const formatLabel = isStableford ? 'Stableford' : 'Medal';
+
+  // ══════════════════════════════════════════════════════════════════════
+  // GROUP MODE — one scorer for the whole tee-time group, everyone else
+  // spectates via the swindle lobby. Restored from the casual round's group
+  // scoring feature (build 111/112, rolled back 2026-08-10 but recovered
+  // from the git stash) rather than redesigned — same two-layer shape as
+  // solo scoring: a persistent background (hole strip, current-hole card,
+  // standings) with the hero-circle/grid entry living in a modal per turn.
+  // ══════════════════════════════════════════════════════════════════════
+  if (isGroupMode) {
+    if (groupComplete || !groupActivePlayer || !groupCourseHole) {
+      return (
+        <View style={s.root}>
+          <StatusBar style="light" />
+          <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 64, paddingBottom: 60 }}>
+            <Ionicons name="trophy" size={48} color={GOLD} style={{ alignSelf: 'center' }} />
+            <Text style={s.doneTitle}>ROUND COMPLETE</Text>
+            <Text style={s.doneSub}>{game.course_name ?? game.name}</Text>
+
+            {groupStandings.map((p, i) => {
+              const holesWithPar = Object.entries(p.scores)
+                .map(([h, v]) => { const par = courseHoles.find(c => c.hole_number === Number(h))?.par ?? 0; return { hole: Number(h), gross: v.gross, pts: v.pts, par, vsPar: v.gross - par }; })
+                .sort((a, b) => a.hole - b.hole);
+              const eagles  = holesWithPar.filter(h => h.vsPar <= -2).length;
+              const birdies = holesWithPar.filter(h => h.vsPar === -1).length;
+              const pars    = holesWithPar.filter(h => h.vsPar === 0).length;
+              const bogeys  = holesWithPar.filter(h => h.vsPar === 1).length;
+              const doubles = holesWithPar.filter(h => h.vsPar >= 2).length;
+              const bestHole  = holesWithPar.length ? holesWithPar.reduce((b, h) => h.vsPar < b.vsPar ? h : b) : null;
+              const worstHole = holesWithPar.length ? holesWithPar.reduce((b, h) => h.vsPar > b.vsPar ? h : b) : null;
+              const vsParLabel = (v: number) => v <= -2 ? 'Eagle+' : v === -1 ? 'Birdie' : v === 0 ? 'Par' : v === 1 ? 'Bogey' : v === 2 ? 'Double' : 'Triple+';
+              const totalGrossP = holesWithPar.reduce((s, h) => s + h.gross, 0);
+              return (
+                <View key={p.playerId} style={s.playerResultCard}>
+                  <View style={[s.standRow, { borderBottomWidth: 0, marginBottom: 0 }]}>
+                    <Text style={[s.standRank, i === 0 && { color: GOLD }]}>{i + 1}</Text>
+                    <Avatar playerId={p.playerId} avatarUrl={p.avatarUrl} name={p.name} size={36} />
+                    <Text style={s.standName}>{p.name}</Text>
+                    <Text style={[s.standPts, i === 0 && { color: GOLD }]}>{groupScoreLineFor(p)}</Text>
+                  </View>
+                  <Text style={s.playerResultDetail}>
+                    {isStableford ? `${totalGrossP} gross · ${totalPtsForG(p)} pts` : `${totalGrossP} gross`}
+                  </Text>
+
+                  <View style={s.statGrid}>
+                    {eagles  > 0 && <StatBox count={eagles}  color={GOLD}     label={`Eagle${eagles !== 1 ? 's' : ''}`} />}
+                    {birdies > 0 && <StatBox count={birdies} color={RED}      label={`Birdie${birdies !== 1 ? 's' : ''}`} />}
+                    {pars    > 0 && <StatBox count={pars}    color={PLAIN}    label={`Par${pars !== 1 ? 's' : ''}`} />}
+                    {bogeys  > 0 && <StatBox count={bogeys}  color={BLUE}     label={`Bogey${bogeys !== 1 ? 's' : ''}`} />}
+                    {doubles > 0 && <StatBox count={doubles} color={DARKBLUE} label={`Double${doubles !== 1 ? 's' : ''}+`} />}
+                  </View>
+
+                  {bestHole && worstHole && bestHole.hole !== worstHole.hole && (
+                    <View style={s.bestWorstRow}>
+                      <View style={s.bestWorstBox}>
+                        <Text style={s.bestWorstLbl}>BEST</Text>
+                        <Text style={[s.bestWorstVal, { color: GREEN }]}>Hole {bestHole.hole}</Text>
+                        <Text style={s.bestWorstSub}>{vsParLabel(bestHole.vsPar)}</Text>
+                      </View>
+                      <View style={s.bestWorstBox}>
+                        <Text style={s.bestWorstLbl}>WORST</Text>
+                        <Text style={[s.bestWorstVal, { color: RED }]}>Hole {worstHole.hole}</Text>
+                        <Text style={s.bestWorstSub}>{vsParLabel(worstHole.vsPar)}</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+
+            <TouchableOpacity
+              style={s.ctaBtn}
+              onPress={() => router.replace(`/(app)/swindle/${gameId}` as any)}
+              activeOpacity={0.85}
+            >
+              <Text style={s.ctaBtnText}>Back to Swindle</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      );
+    }
+
+    const gPar = groupCourseHole.par;
+
     return (
-      <View style={s.container}>
+      <View style={s.root}>
         <StatusBar style="light" />
+
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()} style={s.headerLeft}>
-            <Text style={s.backText}>← Back</Text>
+          <TouchableOpacity onPress={() => router.replace(`/(app)/swindle/${gameId}` as any)} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name="chevron-back" size={24} color="#ffffff" />
           </TouchableOpacity>
           <View style={s.headerCenter}>
-            <Text style={s.headerTitle}>{game?.name ?? 'Swindle'}</Text>
-            <Text style={s.headerSub}>SWINDLE</Text>
+            <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+            <Text style={s.headerSub} numberOfLines={1}>{game.course_name ?? game.name} · Group Scoring</Text>
           </View>
-          <View style={s.headerRight} />
+          <View style={s.headerSide} />
         </View>
 
-        <View style={s.doneWrap}>
-          <Text style={s.doneTrophy}>🏆</Text>
-          <Text style={s.doneTitle}>Round Complete!</Text>
-          <Text style={s.donePts}>{isStroke ? `${totalGross}` : `${totalPts} pts`}</Text>
-          <Text style={s.doneSub}>{isStroke ? 'Gross strokes' : 'Stableford points'}</Text>
+        <View style={s.playerBlock}>
+          <Avatar playerId={groupActivePlayer.playerId} avatarUrl={groupActivePlayer.avatarUrl} name={groupActivePlayer.name} size={44} />
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={s.playerNameText}>{groupActivePlayer.name}'s turn</Text>
+            <Text style={s.playerHcpText}>HCP {groupActivePlayer.handicapIndex.toFixed(1)} · Course {groupActivePlayer.courseHcp}</Text>
+          </View>
+          <View style={s.scoreDisplay}>
+            <Text style={[s.scoreDisplayVal, { color: isStableford ? GOLD : PLAIN }]}>{groupScoreLineFor(groupActivePlayer)}</Text>
+            <Text style={s.scoreDisplayLabel}>{isStableford ? 'POINTS' : 'VS PAR'}</Text>
+          </View>
+        </View>
 
-          {/* Summary rows */}
-          <View style={s.summaryCard}>
-            {saved.sort((a, b) => a.hole_number - b.hole_number).map(sc => {
-              const ch = courseHoles.find(h => h.hole_number === sc.hole_number);
-              // Gross strokes vs par only — points are handicap-adjusted, the label isn't.
-              const rel = ch ? sc.gross - ch.par : 0;
-              const color = rel <= -2 ? GOLD : rel === -1 ? RED : rel === 0 ? PLAIN : rel === 1 ? BLUE : DARKBLUE;
+        <View style={s.progressRow}>
+          {gp.map(p => {
+            const done = !!p.scores[groupActiveHole];
+            const isTurn = p.playerId === groupActivePlayer.playerId;
+            return (
+              <View key={p.playerId} style={[s.progressDotWrap, isTurn && s.progressDotWrapActive]}>
+                <Avatar playerId={p.playerId} avatarUrl={p.avatarUrl} name={p.name} size={30} />
+                <View style={[s.progressDot, done ? { backgroundColor: GREEN } : isTurn ? { backgroundColor: GOLD } : { backgroundColor: '#333' }]} />
+              </View>
+            );
+          })}
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.holeStrip} style={s.holeStripWrap}>
+          {Array.from({ length: 18 }, (_, i) => i + 1).map(h => {
+            const done = gp.every(p => !!p.scores[h]);
+            const active = h === groupActiveHole;
+            const ch = courseHoles.find(x => x.hole_number === h);
+            const holeStat = done
+              ? (isStableford
+                  ? String(gp.reduce((sum, p) => sum + (p.scores[h]?.pts ?? 0), 0))
+                  : formatVsPar(Math.min(...gp.map(p => (p.scores[h]?.gross ?? Infinity) - (ch?.par ?? 0)))))
+              : null;
+            return (
+              <View
+                key={h}
+                style={[
+                  s.holeTile,
+                  done && { backgroundColor: `${GREEN}18`, borderColor: `${GREEN}50` },
+                  active && !done && { borderColor: `${GOLD}80` },
+                ]}
+              >
+                <Text allowFontScaling={false} style={[s.holeTileNum, done && { color: GREEN }, active && !done && { color: GOLD }]}>{h}</Text>
+                <Text allowFontScaling={false} style={s.holeTilePar}>P{ch?.par ?? '?'}</Text>
+                {holeStat !== null && <Text allowFontScaling={false} style={[s.holeTilePts, { color: GREEN }]}>{holeStat}</Text>}
+              </View>
+            );
+          })}
+        </ScrollView>
+        <View style={s.halfLabels}>
+          <Text style={s.halfLabel}>FRONT 9</Text>
+          <Text style={s.halfLabel}>BACK 9</Text>
+        </View>
+
+        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+          {guestCount > 0 && (
+            <View style={s.guestNote}>
+              <Ionicons name="information-circle-outline" size={13} color="#9ca3af" />
+              <Text style={s.guestNoteText}>{guestCount} guest{guestCount !== 1 ? 's' : ''} in this group {guestCount !== 1 ? "aren't" : "isn't"} scored here — guest scoring isn't set up yet.</Text>
+            </View>
+          )}
+
+          <View style={s.holeCard}>
+            <View style={s.holeCardTop}>
+              <View style={s.holeNumberBlock}>
+                <Text style={s.holeLabelSmall}>HOLE</Text>
+                <Text style={s.holeBig}>{groupActiveHole}</Text>
+                <View style={s.holeChips}>
+                  <View style={s.holeChip}><Text style={s.holeChipText}>Par {gPar}</Text></View>
+                  <View style={s.holeChip}><Text style={s.holeChipText}>SI {groupCourseHole.stroke_index}</Text></View>
+                  {groupCourseHole.yardage ? <View style={s.holeChip}><Text style={s.holeChipText}>{groupCourseHole.yardage}y</Text></View> : null}
+                </View>
+              </View>
+
+              <View style={s.holeCardDivider} />
+
+              <View style={s.leaderboard}>
+                {gp.map(p => {
+                  const shortName = p.name.split(' ')[0].slice(0, 3);
+                  const getsShotHere = calcStrokesReceived(p.courseHcp, groupCourseHole.stroke_index) > 0;
+                  return (
+                    <View key={p.playerId} style={s.lbRowStacked}>
+                      <View style={s.lbRowTop}>
+                        <Avatar playerId={p.playerId} avatarUrl={p.avatarUrl} name={p.name} size={28} />
+                        <Text style={s.lbName} numberOfLines={1}>{shortName}</Text>
+                        {getsShotHere && (
+                          <View style={s.shotPill}><Text style={s.shotPillText}>SHOT</Text></View>
+                        )}
+                      </View>
+                      <Text style={s.lbStrokes} numberOfLines={2}>{formatStrokeHoles(p.courseHcp, courseHoles)}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={s.quickActions}>
+              <TouchableOpacity style={s.quickActionBtn} onPress={() => setShowRangeMap(true)} activeOpacity={0.7}>
+                <Ionicons name="scan-outline" size={20} color="#ffffff" />
+                <Text style={s.quickActionLbl}>RANGE</Text>
+              </TouchableOpacity>
+              <View style={s.quickActionSep} />
+              <TouchableOpacity style={s.quickActionBtn} onPress={() => router.push(`/(app)/swindle/${gameId}` as any)} activeOpacity={0.7}>
+                <Ionicons name="trophy-outline" size={20} color="#ffffff" />
+                <Text style={s.quickActionLbl}>LEADERS</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <TouchableOpacity style={s.ctaBtn} onPress={() => setModalVisible(true)} activeOpacity={0.85}>
+            <Ionicons name="create-outline" size={20} color="#000000" />
+            <Text style={s.ctaBtnText}>Score Hole {groupActiveHole} · {groupActivePlayer.name.split(' ')[0]}'s turn</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={s.undoBtn}
+            onPress={() => router.push(`/(app)/swindle/${gameId}` as any)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="eye-outline" size={16} color="#6b7280" />
+            <Text style={s.undoBtnText}>Spectator — just watch, don't score</Text>
+          </TouchableOpacity>
+
+          <View style={s.scorecardCard}>
+            <Text style={s.scorecardTitle}>STANDINGS</Text>
+            {groupStandings.map((p, i) => {
+              const holesPlayed = Object.keys(p.scores).length;
               return (
-                <View key={sc.hole_number} style={s.summaryRow}>
-                  <Text style={s.summaryHole}>H{sc.hole_number}</Text>
-                  <Text style={s.summaryGross}>{sc.gross}</Text>
-                  <Text style={[s.summaryPts, { color }]}>
-                    {isStroke ? (ch ? `net ${sc.gross - calcStrokesReceived(playingHcp, ch.stroke_index)}` : `${sc.gross}`) : `${sc.pts}pts`}
-                  </Text>
+                <View key={p.playerId} style={s.standRowCompact}>
+                  <Text style={[s.standRank, i === 0 && { color: GOLD }]}>{i + 1}</Text>
+                  <Avatar playerId={p.playerId} avatarUrl={p.avatarUrl} name={p.name} size={28} />
+                  <Text style={s.standNameCompact}>{p.name.split(' ')[0]}</Text>
+                  <Text style={s.standHoles}>{holesPlayed} hole{holesPlayed !== 1 ? 's' : ''}</Text>
+                  <Text style={[s.standPtsCompact, i === 0 && { color: GOLD }]}>{groupScoreLineFor(p)}</Text>
                 </View>
               );
             })}
           </View>
+        </ScrollView>
 
-          <TouchableOpacity style={s.lbBtn} onPress={() => router.replace(`/(app)/swindle/${gameId}` as any)}>
-            <Text style={s.lbBtnText}>View Leaderboard</Text>
-          </TouchableOpacity>
-        </View>
+        <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+          <View style={s.overlay}>
+            <View style={s.sheet}>
+              <ScrollView contentContainerStyle={s.sheetScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <View style={s.sheetHandle} />
+                <View style={s.sheetPlayerRow}>
+                  <Avatar playerId={groupActivePlayer.playerId} avatarUrl={groupActivePlayer.avatarUrl} name={groupActivePlayer.name} size={38} />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={s.sheetPlayerName}>{groupActivePlayer.name}</Text>
+                    <Text style={s.sheetHoleInfo}>Hole {groupActiveHole} · Par {gPar} · SI {groupCourseHole.stroke_index}</Text>
+                  </View>
+                </View>
+                {groupStrokes > 0 && (
+                  <View style={s.sheetShotBadge}>
+                    <Ionicons name="golf-outline" size={12} color={GOLD} />
+                    <Text style={s.sheetShotBadgeText}>Gets {groupStrokes} shot{groupStrokes > 1 ? 's' : ''} on this hole</Text>
+                  </View>
+                )}
+
+                {(() => {
+                  const result = selectedScore ? scoreVsPar(selectedScore, gPar) : null;
+                  const accent = result ? (SCORE_COLORS[result] ?? '#6b7280') : '#1c1c1c';
+                  const stablePts = selectedScore ? calcStablefordPoints(selectedScore, gPar, groupStrokes) : null;
+
+                  return (
+                    <>
+                      <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 28 }}>
+                          <TouchableOpacity
+                            onPress={() => setSelectedScore(selectedScore === null ? gPar : Math.max(1, selectedScore - 1))}
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          >
+                            <Ionicons name="remove-circle" size={42} color={selectedScore && selectedScore > 1 ? '#ffffff' : '#555'} />
+                          </TouchableOpacity>
+
+                          <View style={{
+                            width: 100, height: 100, borderRadius: 50,
+                            backgroundColor: selectedScore ? accent : '#111',
+                            borderWidth: 2, borderColor: selectedScore ? accent : '#2c2c2c',
+                            alignItems: 'center', justifyContent: 'center',
+                            shadowColor: selectedScore ? accent : 'transparent',
+                            shadowOffset: { width: 0, height: 0 }, shadowRadius: 20, shadowOpacity: 0.6,
+                            elevation: 10,
+                          }}>
+                            <Text style={{ fontFamily: FFB, fontSize: 50, color: selectedScore ? (accent === PLAIN ? '#000' : '#fff') : '#2c2c2c', lineHeight: 56 }}>
+                              {selectedScore ?? '?'}
+                            </Text>
+                          </View>
+
+                          <TouchableOpacity
+                            onPress={() => setSelectedScore(selectedScore === null ? gPar : Math.min(12, selectedScore + 1))}
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          >
+                            <Ionicons name="add-circle" size={42} color="#ffffff" />
+                          </TouchableOpacity>
+                        </View>
+
+                        <View style={{ alignItems: 'center', marginTop: 10, minHeight: 36 }}>
+                          {selectedScore ? (
+                            isStableford && stablePts !== null
+                              ? <Text style={{ fontFamily: FFB, fontSize: 22, color: '#fff' }}>{stablePts}<Text style={{ fontFamily: FFB, fontSize: 13, color: '#fff' }}> pts</Text></Text>
+                              : null
+                          ) : (
+                            <Text style={{ fontFamily: FF, fontSize: 13, color: '#ffffff' }}>tap a number or use arrows</Text>
+                          )}
+                        </View>
+                      </View>
+
+                      {[[1,2,3,4,5],[6,7,8,9,10]].map((row, ri) => (
+                        <View key={ri} style={{ flexDirection: 'row', gap: 7, marginTop: ri === 0 ? 0 : 7 }}>
+                          {row.map(n => {
+                            const r = scoreVsPar(n, gPar);
+                            const a = SCORE_COLORS[r] ?? '#6b7280';
+                            const on = selectedScore === n;
+                            return (
+                              <TouchableOpacity
+                                key={n}
+                                style={{
+                                  flex: 1, height: 44, borderRadius: 10,
+                                  backgroundColor: on ? a : '#111',
+                                  borderWidth: 1.5, borderColor: on ? a : '#222',
+                                  alignItems: 'center', justifyContent: 'center',
+                                }}
+                                onPress={() => setSelectedScore(n)}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={{ fontFamily: FFB, fontSize: 16, color: on ? (a === PLAIN ? '#000' : '#fff') : '#fff' }}>{n}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      ))}
+
+                      <TouchableOpacity
+                        style={[s.submitBtn, (!selectedScore || saving) && { opacity: 0.35 }]}
+                        onPress={saveScoreGroup}
+                        disabled={!selectedScore || saving}
+                        activeOpacity={0.85}
+                      >
+                        {saving ? <ActivityIndicator color="#000" /> : <Text style={s.submitBtnText}>Save Hole {groupActiveHole}</Text>}
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setModalVisible(false)} style={{ paddingVertical: 14, alignItems: 'center' }}>
+                        <Text style={{ fontFamily: FFB, color: '#ffffff', fontSize: 14 }}>Cancel</Text>
+                      </TouchableOpacity>
+                    </>
+                  );
+                })()}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal visible={showRangeMap} transparent animationType="slide" onRequestClose={() => setShowRangeMap(false)}>
+          <View style={s.popupOverlay}>
+            <View style={[s.popupSheet, { height: '75%' }]}>
+              <View style={s.sheetHandle} />
+              <View style={s.popupTitleRow}>
+                <Ionicons name="scan-outline" size={16} color={GOLD} />
+                <Text style={s.popupTitleText}>RANGE FINDER</Text>
+                <TouchableOpacity onPress={() => setShowRangeMap(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close-outline" size={22} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+              <View style={{ flex: 1 }}>
+                <RangeMap courseName={game?.course_name ?? undefined} holeNumber={groupActiveHole} />
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }
 
-  // ── Scoring screen ───────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════
+  // SOLO MODE — no tee-time group; scoring just your own round.
+  // ══════════════════════════════════════════════════════════════════════
+  const scoreDisplay = isStableford ? `${totalPts} pts` : formatVsPar(vsPar);
+  const scoreColor = isStableford ? GOLD : (vsPar < 0 ? GREEN : vsPar > 0 ? RED : '#ffffff');
+
   return (
-    <View style={s.container}>
+    <View style={s.root}>
       <StatusBar style="light" />
 
-      {/* Header */}
+      {/* ── Header ── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerLeft}>
-          <Text style={s.backText}>← Back</Text>
+        <TouchableOpacity onPress={() => router.replace(`/(app)/swindle/${gameId}` as any)} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Text style={s.headerTitle}>{game?.name ?? 'Swindle'}</Text>
-          <Text style={s.headerSub}>SWINDLE</Text>
+          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Text style={s.headerSub} numberOfLines={1}>{game.course_name ?? game.name} · {formatLabel}</Text>
         </View>
-        <View style={s.headerRight} />
+        <View style={s.headerSide} />
       </View>
 
-      {/* Incomplete course card warning */}
-      {courseHoles.length > 0 && courseHoles.every(h => h.par === 4) && (
-        <View style={s.courseWarning}>
-          <Text style={s.courseWarningText}>⚠️ Course card not set up — scoring may be wrong. Ask your admin to add the scorecard.</Text>
+      {/* ── Player + score ── */}
+      <View style={s.playerBlock}>
+        <Avatar playerId={myId ?? undefined} name={playerName} size={52} avatarUrl={avatarUrl} />
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={s.playerNameText}>{playerName}</Text>
+          <Text style={s.playerHcpText}>HCP {playerHcp} · Course {courseHcp}</Text>
         </View>
-      )}
+        <View style={s.scoreDisplay}>
+          <Text style={[s.scoreDisplayVal, { color: scoreColor }]}>{scoreDisplay}</Text>
+          <Text style={s.scoreDisplayLabel}>{isStableford ? 'POINTS' : 'VS PAR'}</Text>
+        </View>
+      </View>
 
-      {/* Progress dots */}
-      <View style={s.dotsRow}>
+      {/* ── Hole strip ── */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.holeStrip} style={s.holeStripWrap}>
         {Array.from({ length: 18 }, (_, i) => {
-          const sc      = saved.find(s => s.hole_number === i + 1);
-          const isDone  = !!sc;
-          const isActive = i + 1 === nextHole;
+          const h = i + 1;
+          const done = scoredSet.has(h);
+          const active = h === activeHole && !isComplete;
+          const ch = courseHoles.find(x => x.hole_number === h);
+          const sc = savedScores.find(sv => sv.hole_number === h);
+          const tc = done ? (sc ? SCORE_COLORS[scoreVsPar(sc.gross, ch?.par ?? 4)] : '#6b7280') : 'transparent';
           return (
-            <View
-              key={i}
+            <TouchableOpacity
+              key={h}
+              onPress={done ? () => {
+                setSelectedScore(sc?.gross ?? null);
+                setEditingHole(h);
+                setModalVisible(true);
+              } : undefined}
               style={[
-                s.dot,
-                isDone   && { backgroundColor: dotColor(sc!) },
-                isActive && s.dotActive,
+                s.holeTile,
+                done && { backgroundColor: `${tc}22`, borderColor: `${tc}60` },
+                active && !done && { borderColor: `${GOLD}80` },
               ]}
-            />
+              activeOpacity={done ? 0.7 : 1}
+            >
+              <Text allowFontScaling={false} style={[s.holeTileNum, done && { color: tc }, active && !done && { color: GOLD }]}>{h}</Text>
+              <Text allowFontScaling={false} style={s.holeTilePar}>P{ch?.par ?? '?'}</Text>
+              {done && sc && (
+                <Text allowFontScaling={false} style={[s.holeTilePts, { color: tc }]}>
+                  {isStableford ? sc.pts : (sc.gross - (ch?.par ?? 4) === 0 ? 'E' : sc.gross - (ch?.par ?? 4) > 0 ? `+${sc.gross - (ch?.par ?? 4)}` : String(sc.gross - (ch?.par ?? 4)))}
+                </Text>
+              )}
+            </TouchableOpacity>
           );
         })}
+      </ScrollView>
+      <View style={s.halfLabels}>
+        <Text style={s.halfLabel}>FRONT 9</Text>
+        <Text style={s.halfLabel}>BACK 9</Text>
       </View>
 
-      {/* Hole info card */}
-      <View style={s.holeCard}>
-        <View style={s.holeCardTop}>
-          <Text style={s.holeLabel}>HOLE {nextHole}</Text>
-          {courseHole && (
-            <Text style={s.holePar}>PAR {courseHole.par}</Text>
-          )}
-        </View>
-        {courseHole ? (
-          <View style={s.holeMeta}>
-            {courseHole.yardage ? (
-              <Text style={s.holeYardage}>{courseHole.yardage} yds</Text>
-            ) : null}
-            <View style={s.holeMetaRight}>
-              <Text style={s.holeMetaItem}>S.I. {courseHole.stroke_index}</Text>
-              <Text style={s.holeMetaItem}>HCP {playingHcp}</Text>
-              {shots > 0 && (
-                <View style={s.shotPill}>
-                  <Text style={s.shotPillText}>+{shots} shot{shots > 1 ? 's' : ''}</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        ) : (
-          <Text style={s.noCourseTxt}>No course data</Text>
-        )}
-      </View>
-
-      {/* Running totals banner */}
-      {saved.length > 0 && (
-        <View style={s.totalsBanner}>
-          <Text style={s.totalsLabel}>TOTAL</Text>
-          <Text style={s.totalsMain}>{isStroke ? totalGross : totalPts}</Text>
-          <Text style={s.totalsSub}>{isStroke ? 'gross' : 'pts'}</Text>
-          {!isStroke && totalGross > 0 && (
-            <Text style={s.totalsGross}>({totalGross} gross)</Text>
-          )}
-        </View>
-      )}
-
-      <ScrollView contentContainerStyle={s.gridWrap} showsVerticalScrollIndicator={false}>
-        {/* ── Score hero ── */}
-        {(() => {
-          const par = courseHole?.par ?? 4;
-          const result = selected
-            ? (courseHole
-                ? (() => {
-                    const diff = selected - par;
-                    if (diff <= -2) return 'eagle';
-                    if (diff === -1) return 'birdie';
-                    if (diff === 0) return 'par';
-                    if (diff === 1) return 'bogey';
-                    return 'double';
-                  })()
-                : 'par')
-            : null;
-          const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: RED, par: PLAIN, bogey: BLUE, double: DARKBLUE };
-          const SCORE_LABELS: Record<string, string> = { eagle: 'EAGLE', birdie: 'BIRDIE', par: 'PAR', bogey: 'BOGEY', double: 'DOUBLE +' };
-          const accent = result ? (SCORE_COLORS[result] ?? '#6b7280') : '#1c1c1c';
-          const scoreLabel = result ? (SCORE_LABELS[result] ?? '') : '';
-          const pts = selected && courseHole ? calcStablefordPoints(selected, par, shots) : null;
-
-          return (
-            <>
-              <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 28 }}>
-                  <TouchableOpacity
-                    onPress={() => setSelected(Math.max(1, (selected ?? par) - 1))}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  >
-                    <Ionicons name="remove-circle" size={42} color={selected && selected > 1 ? '#ffffff' : '#555'} />
-                  </TouchableOpacity>
-
-                  <View style={{
-                    width: 100, height: 100, borderRadius: 50,
-                    backgroundColor: selected ? accent : '#111',
-                    borderWidth: 2, borderColor: selected ? accent : '#2c2c2c',
-                    alignItems: 'center', justifyContent: 'center',
-                    shadowColor: selected ? accent : 'transparent',
-                    shadowOffset: { width: 0, height: 0 }, shadowRadius: 20, shadowOpacity: 0.6,
-                    elevation: 10,
-                  }}>
-                    <Text style={{ fontFamily: FFB, fontSize: 50, color: selected ? (accent === PLAIN ? '#000' : '#fff') : '#2c2c2c', lineHeight: 56 }}>
-                      {selected ?? '?'}
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity
-                    onPress={() => setSelected(Math.min(12, (selected ?? par) + 1))}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  >
-                    <Ionicons name="add-circle" size={42} color="#ffffff" />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={{ alignItems: 'center', marginTop: 10, minHeight: 36 }}>
-                  {selected ? (
-                    <>
-                      <Text style={{ fontFamily: FFB, fontSize: 14, color: accent, letterSpacing: 2 }}>{scoreLabel}</Text>
-                      {!isStroke && pts !== null && (
-                        <Text style={{ fontFamily: FF, fontSize: 12, color: '#ffffff', marginTop: 2 }}>{pts} stableford pts</Text>
-                      )}
-                    </>
-                  ) : (
-                    <Text style={{ fontFamily: FF, fontSize: 13, color: '#ffffff' }}>tap a number or use arrows</Text>
+      {/* ── Scrollable body ── */}
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        {!isComplete ? (
+          <>
+            {/* Hole card */}
+            <View style={s.holeCard}>
+              <Text style={s.holeLabelSmall}>HOLE</Text>
+              <Text style={s.holeBig}>{nextHole}</Text>
+              {courseHole && (
+                <View style={s.holeChips}>
+                  <View style={s.holeChip}><Text style={s.holeChipText}>Par {courseHole.par}</Text></View>
+                  <View style={s.holeChip}><Text style={s.holeChipText}>SI {courseHole.stroke_index}</Text></View>
+                  {courseHole.yardage ? <View style={s.holeChip}><Text style={s.holeChipText}>{courseHole.yardage}y</Text></View> : null}
+                  {shots > 0 && (
+                    <View style={[s.holeChip, s.holeChipGold]}>
+                      <Ionicons name="golf-outline" size={10} color={GOLD} />
+                      <Text style={[s.holeChipText, { color: GOLD }]}>+{shots} shot{shots > 1 ? 's' : ''}</Text>
+                    </View>
                   )}
                 </View>
+              )}
+              <View style={s.quickActions}>
+                <TouchableOpacity style={s.quickActionBtn} onPress={() => setShowRangeMap(true)} activeOpacity={0.7}>
+                  <Ionicons name="scan-outline" size={20} color="#ffffff" />
+                  <Text style={s.quickActionLbl}>RANGE</Text>
+                </TouchableOpacity>
+                <View style={s.quickActionSep} />
+                <TouchableOpacity
+                  style={s.quickActionBtn}
+                  onPress={() => router.push(`/(app)/swindle/${gameId}` as any)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trophy-outline" size={20} color="#ffffff" />
+                  <Text style={s.quickActionLbl}>LEADERS</Text>
+                </TouchableOpacity>
               </View>
+            </View>
 
-              {/* Quick tap grid (2 rows × 5) */}
-              {[[1,2,3,4,5],[6,7,8,9,10]].map((row, ri) => (
-                <View key={ri} style={{ flexDirection: 'row', gap: 7, marginTop: ri === 0 ? 0 : 7 }}>
-                  {row.map(n => {
-                    const r = courseHole
-                      ? (() => { const diff = n - courseHole.par; if (diff <= -2) return 'eagle'; if (diff === -1) return 'birdie'; if (diff === 0) return 'par'; if (diff === 1) return 'bogey'; return 'double'; })()
-                      : 'par';
-                    const SCORE_COLORS2: Record<string, string> = { eagle: GOLD, birdie: RED, par: PLAIN, bogey: BLUE, double: DARKBLUE };
-                    const a = SCORE_COLORS2[r] ?? '#6b7280';
-                    const on = selected === n;
-                    return (
-                      <TouchableOpacity
-                        key={n}
-                        style={{
-                          flex: 1, height: 44, borderRadius: 10,
-                          backgroundColor: on ? a : '#111',
-                          borderWidth: 1.5, borderColor: on ? a : '#222',
-                          alignItems: 'center', justifyContent: 'center',
-                        }}
-                        onPress={() => setSelected(n)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={{ fontFamily: FFB, fontSize: 16, color: on ? (a === PLAIN ? '#000' : '#fff') : '#fff' }}>{n}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+            {/* Main CTA */}
+            <TouchableOpacity
+              style={[s.ctaBtn, editingHole ? { backgroundColor: '#ffffff' } : null]}
+              onPress={() => { setEditingHole(null); setSelectedScore(null); setModalVisible(true); }}
+              disabled={saving}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="create-outline" size={20} color="#000000" />
+              <Text style={s.ctaBtnText}>
+                {editingHole ? `Edit Hole ${editingHole}` : `Score Hole ${nextHole}`}
+              </Text>
+            </TouchableOpacity>
+
+            {editingHole ? (
+              <TouchableOpacity style={s.undoBtn} onPress={() => setEditingHole(null)} disabled={saving}>
+                <Text style={s.undoBtnText}>Cancel Edit</Text>
+              </TouchableOpacity>
+            ) : nextHole > 1 ? (
+              <TouchableOpacity style={s.undoBtn} onPress={undoHole} disabled={saving}>
+                <Ionicons name="arrow-undo-outline" size={14} color="#ffffff" />
+                <Text style={s.undoBtnText}>Undo Hole {nextHole - 1}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </>
+        ) : (() => {
+          const holesWithPar = savedScores.map(sv => {
+            const ch = courseHoles.find(c => c.hole_number === sv.hole_number);
+            return { ...sv, par: ch?.par ?? 0, vsPar: sv.gross - (ch?.par ?? 0) };
+          });
+          const eagles  = holesWithPar.filter(h => h.vsPar <= -2).length;
+          const birdies = holesWithPar.filter(h => h.vsPar === -1).length;
+          const pars    = holesWithPar.filter(h => h.vsPar === 0).length;
+          const bogeys  = holesWithPar.filter(h => h.vsPar === 1).length;
+          const doubles = holesWithPar.filter(h => h.vsPar >= 2).length;
+          const bestHole  = holesWithPar.length ? holesWithPar.reduce((b, h) => h.vsPar < b.vsPar ? h : b) : null;
+          const worstHole = holesWithPar.length ? holesWithPar.reduce((b, h) => h.vsPar > b.vsPar ? h : b) : null;
+          const vsParLabel = (v: number) => v <= -2 ? 'Eagle+' : v === -1 ? 'Birdie' : v === 0 ? 'Par' : v === 1 ? 'Bogey' : v === 2 ? 'Double' : 'Triple+';
+          return (
+            <View style={s.completeCard}>
+              <Ionicons name="trophy" size={48} color={GOLD} />
+              <Text style={s.completeTitle}>ROUND COMPLETE</Text>
+              <Text style={[s.completeScore, { color: scoreColor }]}>{scoreDisplay}</Text>
+              <Text style={s.completeDetail}>
+                {isStableford ? `${totalGross} gross · ${totalPts} pts` : `${totalGross} gross`}
+              </Text>
+              <View style={s.statGrid}>
+                {eagles  > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: GOLD }]}>{eagles}</Text><Text style={s.statLbl}>Eagle{eagles !== 1 ? 's' : ''}</Text></View>}
+                {birdies > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: RED }]}>{birdies}</Text><Text style={s.statLbl}>Birdie{birdies !== 1 ? 's' : ''}</Text></View>}
+                {pars    > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: PLAIN }]}>{pars}</Text><Text style={s.statLbl}>Par{pars !== 1 ? 's' : ''}</Text></View>}
+                {bogeys  > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: BLUE }]}>{bogeys}</Text><Text style={s.statLbl}>Bogey{bogeys !== 1 ? 's' : ''}</Text></View>}
+                {doubles > 0 && <View style={s.statBox}><Text style={[s.statVal, { color: DARKBLUE }]}>{doubles}</Text><Text style={s.statLbl}>Double{doubles !== 1 ? 's' : ''}+</Text></View>}
+              </View>
+              {bestHole && worstHole && bestHole.hole_number !== worstHole.hole_number && (
+                <View style={s.bestWorstRow}>
+                  <View style={s.bestWorstBox}>
+                    <Text style={s.bestWorstLbl}>BEST</Text>
+                    <Text style={[s.bestWorstVal, { color: GREEN }]}>Hole {bestHole.hole_number}</Text>
+                    <Text style={s.bestWorstSub}>{vsParLabel(bestHole.vsPar)}</Text>
+                  </View>
+                  <View style={s.bestWorstBox}>
+                    <Text style={s.bestWorstLbl}>WORST</Text>
+                    <Text style={[s.bestWorstVal, { color: RED }]}>Hole {worstHole.hole_number}</Text>
+                    <Text style={s.bestWorstSub}>{vsParLabel(worstHole.vsPar)}</Text>
+                  </View>
                 </View>
-              ))}
-            </>
+              )}
+              <TouchableOpacity
+                style={[s.ctaBtn, { marginTop: 16, alignSelf: 'stretch' }]}
+                onPress={() => {
+                  // Fire-and-forget — the outro voice line calls a network
+                  // API (tts-caddie) with no timeout of its own; awaiting it
+                  // here blocked finishing the round for 45s+ on poor signal.
+                  if (playerName) speakOutro(playerName.split(' ')[0], scoreDisplay);
+                  router.replace(`/(app)/swindle/${gameId}` as any);
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="trophy-outline" size={20} color="#000000" />
+                <Text style={s.ctaBtnText}>View Leaderboard</Text>
+              </TouchableOpacity>
+              {nextHole > 1 && (
+                <TouchableOpacity style={s.undoBtn} onPress={undoHole} disabled={saving}>
+                  <Ionicons name="arrow-undo-outline" size={14} color="#ffffff" />
+                  <Text style={s.undoBtnText}>Undo Last Hole</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           );
         })()}
 
-        {/* Previous holes */}
-        {saved.length > 0 && (
-          <View style={s.prevSection}>
-            <Text style={s.prevLabel}>PREVIOUS HOLES</Text>
-            {saved.sort((a, b) => a.hole_number - b.hole_number).map(sc => {
-              const ch = courseHoles.find(h => h.hole_number === sc.hole_number);
-              // Gross strokes vs par only — points are handicap-adjusted, the label isn't.
-              const rel = ch ? sc.gross - ch.par : 0;
-              const color = rel <= -2 ? GOLD : rel === -1 ? RED : rel === 0 ? PLAIN : rel === 1 ? BLUE : DARKBLUE;
+        {/* Mini scorecard */}
+        {savedScores.length > 0 && courseHoles.length > 0 && (
+          <View style={s.scorecardCard}>
+            <Text style={s.scorecardTitle}>SCORECARD</Text>
+            {[
+              courseHoles.filter(h => h.hole_number <= 9).sort((a, b) => a.hole_number - b.hole_number),
+              courseHoles.filter(h => h.hole_number >= 10).sort((a, b) => a.hole_number - b.hole_number),
+            ].map((half, hi) => {
+              const halfScores = savedScores.filter(sv => hi === 0 ? sv.hole_number <= 9 : sv.hole_number >= 10);
+              if (halfScores.length === 0 && hi === 1) return null;
               return (
-                <View key={sc.hole_number} style={s.prevRow}>
-                  <Text style={s.prevHole}>H{sc.hole_number}</Text>
-                  <Text style={s.prevGross}>{sc.gross}</Text>
-                  <Text style={[s.prevPts, { color }]}>
-                    {isStroke
-                      ? (ch ? `net ${sc.gross - calcStrokesReceived(playingHcp, ch.stroke_index)}` : `${sc.gross}`)
-                      : `${sc.pts}pts`}
-                  </Text>
+                <View key={hi}>
+                  <View style={s.scorecardRow}>
+                    <Text allowFontScaling={false} style={s.scorecardHoleLabel}>HOLE</Text>
+                    {half.map(h => <Text allowFontScaling={false} key={h.hole_number} style={[s.scorecardCell, { color: savedScores.find(sv => sv.hole_number === h.hole_number) ? '#ffffff' : '#2a2a2a' }]}>{h.hole_number}</Text>)}
+                    <Text allowFontScaling={false} style={s.scorecardTot}>{hi === 0 ? 'OUT' : 'IN'}</Text>
+                  </View>
+                  <View style={s.scorecardRow}>
+                    <Text allowFontScaling={false} style={s.scorecardHoleLabel}>PAR</Text>
+                    {half.map(h => <Text allowFontScaling={false} key={h.hole_number} style={[s.scorecardCell, { color: GOLD }]}>{h.par}</Text>)}
+                    <Text allowFontScaling={false} style={[s.scorecardTot, { color: GOLD }]}>{half.reduce((s, h) => s + h.par, 0)}</Text>
+                  </View>
+                  <View style={s.scorecardRow}>
+                    <Text allowFontScaling={false} style={s.scorecardHoleLabel}>GROSS</Text>
+                    {half.map(h => {
+                      const sv = halfScores.find(sc => sc.hole_number === h.hole_number);
+                      const cellColor = sv ? SCORE_COLORS[scoreVsPar(sv.gross, h.par)] : null;
+                      return (
+                        <View key={h.hole_number} style={[s.scorecardScoreCell, cellColor && cellColor !== PLAIN && { backgroundColor: `${cellColor}25` }]}>
+                          <Text allowFontScaling={false} style={[s.scorecardScoreText, cellColor && { color: cellColor }]}>{sv?.gross ?? '·'}</Text>
+                        </View>
+                      );
+                    })}
+                    <Text allowFontScaling={false} style={s.scorecardTot}>{halfScores.reduce((s, h) => s + h.gross, 0) || '·'}</Text>
+                  </View>
+                  {isStableford && (
+                    <View style={s.scorecardRow}>
+                      <Text allowFontScaling={false} style={s.scorecardHoleLabel}>PTS</Text>
+                      {half.map(h => {
+                        const sv = halfScores.find(sc => sc.hole_number === h.hole_number);
+                        return <Text allowFontScaling={false} key={h.hole_number} style={[s.scorecardCell, { color: sv ? ptsColor(sv.pts) : '#2a2a2a' }]}>{sv?.pts ?? '·'}</Text>;
+                      })}
+                      <Text allowFontScaling={false} style={[s.scorecardTot, { color: GOLD }]}>{halfScores.reduce((s, h) => s + h.pts, 0) || '·'}</Text>
+                    </View>
+                  )}
+                  {hi === 0 && <View style={{ height: 1, backgroundColor: '#1a1a1a', marginVertical: 4 }} />}
                 </View>
               );
             })}
           </View>
         )}
 
-        {/* Save button */}
-        <TouchableOpacity
-          style={[s.saveBtn, (!selected || saving) && s.saveBtnDisabled]}
-          onPress={saveScore}
-          disabled={!selected || saving}
-          activeOpacity={0.85}
-        >
-          <Text style={s.saveBtnText}>{saving ? 'Saving…' : `Save Hole ${nextHole}`}</Text>
-        </TouchableOpacity>
+        <View style={{ height: 32 }} />
       </ScrollView>
+
+      {saving && (
+        <View style={s.savingOverlay}>
+          <ActivityIndicator color={GOLD} size="small" />
+        </View>
+      )}
+
+      {/* ── Score entry modal ── */}
+      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+        <View style={s.overlay}>
+          <View style={s.sheet}>
+            <ScrollView contentContainerStyle={s.sheetScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <View style={s.sheetHandle} />
+              <View style={s.sheetPlayerRow}>
+                <Avatar playerId={myId ?? undefined} name={playerName} size={38} avatarUrl={avatarUrl} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={s.sheetPlayerName}>{playerName}</Text>
+                  {courseHole && <Text style={s.sheetHoleInfo}>{editingHole ? `Edit Hole ${editingHole}` : `Hole ${nextHole}`} · Par {courseHole.par} · SI {courseHole.stroke_index}</Text>}
+                </View>
+                {selectedScore !== null && courseHole && isStableford && (
+                  <Text style={[s.sheetPts, { color: ptsColor(calcStablefordPoints(selectedScore, courseHole.par, shots)) }]}>
+                    {calcStablefordPoints(selectedScore, courseHole.par, shots)} pts
+                  </Text>
+                )}
+              </View>
+              {shots > 0 && (
+                <View style={s.sheetShotBadge}>
+                  <Ionicons name="golf-outline" size={12} color={GOLD} />
+                  <Text style={s.sheetShotBadgeText}>Gets {shots} shot{shots > 1 ? 's' : ''} on this hole</Text>
+                </View>
+              )}
+
+              {(() => {
+                const par = courseHole?.par ?? 4;
+                const result = selectedScore ? scoreVsPar(selectedScore, par) : null;
+                const accent = result ? (SCORE_COLORS[result] ?? '#6b7280') : '#1c1c1c';
+                const stablePts = selectedScore ? calcStablefordPoints(selectedScore, par, shots) : null;
+
+                return (
+                  <>
+                    <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 28 }}>
+                        <TouchableOpacity
+                          onPress={() => setSelectedScore(selectedScore === null ? par : Math.max(1, selectedScore - 1))}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        >
+                          <Ionicons name="remove-circle" size={42} color={selectedScore && selectedScore > 1 ? '#ffffff' : '#555'} />
+                        </TouchableOpacity>
+
+                        <View style={{
+                          width: 100, height: 100, borderRadius: 50,
+                          backgroundColor: selectedScore ? accent : '#111',
+                          borderWidth: 2, borderColor: selectedScore ? accent : '#2c2c2c',
+                          alignItems: 'center', justifyContent: 'center',
+                          shadowColor: selectedScore ? accent : 'transparent',
+                          shadowOffset: { width: 0, height: 0 }, shadowRadius: 20, shadowOpacity: 0.6,
+                          elevation: 10,
+                        }}>
+                          <Text style={{ fontFamily: FFB, fontSize: 50, color: selectedScore ? (accent === PLAIN ? '#000' : '#fff') : '#2c2c2c', lineHeight: 56 }}>
+                            {selectedScore ?? '?'}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity
+                          onPress={() => setSelectedScore(selectedScore === null ? par : Math.min(12, selectedScore + 1))}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        >
+                          <Ionicons name="add-circle" size={42} color="#ffffff" />
+                        </TouchableOpacity>
+                      </View>
+
+                      <View style={{ alignItems: 'center', marginTop: 10, minHeight: 36 }}>
+                        {selectedScore ? (
+                          isStableford && stablePts !== null
+                            ? <Text style={{ fontFamily: FFB, fontSize: 22, color: '#fff' }}>{stablePts}<Text style={{ fontFamily: FFB, fontSize: 13, color: '#fff' }}> pts</Text></Text>
+                            : null
+                        ) : (
+                          <Text style={{ fontFamily: FF, fontSize: 13, color: '#ffffff' }}>tap a number or use arrows</Text>
+                        )}
+                      </View>
+                    </View>
+
+                    {[[1,2,3,4,5],[6,7,8,9,10]].map((row, ri) => (
+                      <View key={ri} style={{ flexDirection: 'row', gap: 7, marginTop: ri === 0 ? 0 : 7 }}>
+                        {row.map(n => {
+                          const r = courseHole ? scoreVsPar(n, par) : 'par';
+                          const a = SCORE_COLORS[r] ?? '#6b7280';
+                          const on = selectedScore === n;
+                          return (
+                            <TouchableOpacity
+                              key={n}
+                              style={{
+                                flex: 1, height: 44, borderRadius: 10,
+                                backgroundColor: on ? a : '#111',
+                                borderWidth: 1.5, borderColor: on ? a : '#222',
+                                alignItems: 'center', justifyContent: 'center',
+                              }}
+                              onPress={() => setSelectedScore(n)}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={{ fontFamily: FFB, fontSize: 16, color: on ? (a === PLAIN ? '#000' : '#fff') : '#fff' }}>{n}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    ))}
+
+                    <TouchableOpacity
+                      style={[s.submitBtn, !selectedScore && { opacity: 0.35 }, { marginTop: 20 }]}
+                      onPress={saveScore}
+                      disabled={!selectedScore}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={s.submitBtnText}>{editingHole ? `Save Hole ${editingHole}` : `Save Hole ${nextHole}`}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setModalVisible(false)} style={{ paddingVertical: 14, alignItems: 'center' }}>
+                      <Text style={{ fontFamily: FFB, color: '#ffffff', fontSize: 14 }}>Cancel</Text>
+                    </TouchableOpacity>
+                  </>
+                );
+              })()}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Range finder ── */}
+      <Modal visible={showRangeMap} transparent animationType="slide" onRequestClose={() => setShowRangeMap(false)}>
+        <View style={s.popupOverlay}>
+          <View style={s.popupSheet}>
+            <View style={s.sheetHandle} />
+            <View style={s.popupTitleRow}>
+              <Ionicons name="scan-outline" size={16} color={GOLD} />
+              <Text style={s.popupTitleText}>RANGE FINDER</Text>
+              <TouchableOpacity onPress={() => setShowRangeMap(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-outline" size={22} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+            <View style={{ padding: 16 }}>
+              <RangeMap courseName={game?.course_name ?? undefined} holeNumber={nextHole} />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  container:       { flex: 1, backgroundColor: '#000', paddingTop: 56 },
+  root:    { flex: 1, backgroundColor: '#000000' },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
 
-  // Header — three-column
-  header:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
-  headerLeft:      { flex: 1 },
-  headerCenter:    { flex: 2, alignItems: 'center' },
-  headerRight:     { flex: 1 },
-  backText:        { color: GOLD, fontSize: 15, fontFamily: FFB },
-  headerTitle:     { fontSize: 16, fontFamily: FFB, color: '#fff', textAlign: 'center' },
-  headerSub:       { fontSize: 10, fontFamily: FFB, color: '#fff', textAlign: 'center', letterSpacing: 2, marginTop: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 56, paddingHorizontal: 16, paddingBottom: 8 },
+  headerSide:   { width: 40 },
+  headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
+  headerLogo:   { width: 28, height: 28 },
+  headerSub:    { fontFamily: FFB, fontSize: 11, color: '#fff', letterSpacing: 0.5 },
 
-  // Course warning
-  courseWarning:     { marginHorizontal: 16, marginBottom: 8, backgroundColor: 'rgba(245,158,11,0.12)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.4)', borderRadius: 8, padding: 10 },
-  courseWarningText: { color: '#f59e0b', fontSize: 12, fontFamily: FFB, lineHeight: 18 },
+  playerBlock: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#0a0a0a', borderBottomWidth: 1, borderBottomColor: '#111111' },
+  playerNameText: { fontFamily: FFB, fontSize: 16, color: '#ffffff' },
+  playerHcpText:  { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 2 },
+  scoreDisplay:   { alignItems: 'center' },
+  scoreDisplayVal:   { fontFamily: FFB, fontSize: 26, letterSpacing: -0.5 },
+  scoreDisplayLabel: { fontFamily: FFB, fontSize: 8, color: '#fff', letterSpacing: 1.5, marginTop: 1 },
 
-  // Progress dots
-  dotsRow:         { flexDirection: 'row', gap: 4, paddingHorizontal: 16, marginBottom: 12, flexWrap: 'wrap' },
-  dot:             { width: 12, height: 12, borderRadius: 6, backgroundColor: '#1c1c1c' },
-  dotActive:       { borderWidth: 2, borderColor: GOLD, backgroundColor: 'transparent' },
+  progressRow: { flexDirection: 'row', justifyContent: 'center', gap: 18, paddingVertical: 10, backgroundColor: '#0a0a0a', borderBottomWidth: 1, borderBottomColor: '#111111' },
+  progressDotWrap: { alignItems: 'center', gap: 6, opacity: 0.5 },
+  progressDotWrapActive: { opacity: 1 },
+  progressDot: { width: 8, height: 8, borderRadius: 4 },
 
-  // Hole info card
-  holeCard:        { marginHorizontal: 16, backgroundColor: '#111', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#1c1c1c', marginBottom: 10 },
-  holeCardTop:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  holeLabel:       { fontSize: 22, fontFamily: FFB, color: '#fff' },
-  holePar:         { fontSize: 15, fontFamily: FFB, color: '#fff' },
-  holeMeta:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  holeYardage:     { fontSize: 12, fontFamily: FFB, color: '#fff' },
-  holeMetaRight:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  holeMetaItem:    { fontSize: 12, fontFamily: FFB, color: '#fff' },
-  shotPill:        { backgroundColor: GREEN, borderRadius: 99, paddingHorizontal: 10, paddingVertical: 3 },
-  shotPillText:    { fontSize: 11, fontFamily: FFB, color: '#000' },
-  noCourseTxt:     { color: '#fff', fontSize: 13, fontFamily: FFB, marginTop: 4 },
+  holeStripWrap: { maxHeight: 72 },
+  holeStrip:     { paddingHorizontal: 12, paddingVertical: 6, gap: 6, alignItems: 'center' },
+  holeTile: { width: 42, height: 58, borderRadius: 10, backgroundColor: '#111111', borderWidth: 1, borderColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center', gap: 2 },
+  holeTileNum:   { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
+  holeTilePar:   { fontFamily: FFB, fontSize: 9, color: '#ffffff' },
+  holeTilePts:   { fontFamily: FFB, fontSize: 11, marginTop: 1 },
+  halfLabels:    { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 12, paddingBottom: 4 },
+  halfLabel:     { fontFamily: FFB, fontSize: 8, color: '#ffffff', letterSpacing: 1.5 },
 
-  // Running totals banner
-  totalsBanner:    { marginHorizontal: 16, backgroundColor: '#111', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, borderWidth: 1, borderColor: '#1c1c1c' },
-  totalsLabel:     { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },
-  totalsMain:      { fontSize: 28, fontFamily: FFB, color: GOLD },
-  totalsSub:       { fontSize: 12, fontFamily: FFB, color: '#fff', alignSelf: 'flex-end', marginBottom: 4 },
-  totalsGross:     { fontSize: 11, fontFamily: FFB, color: '#fff', alignSelf: 'flex-end', marginBottom: 4, marginLeft: 4 },
+  scroll: { padding: 16, paddingBottom: 40 },
 
-  // Grid
-  gridWrap:        { paddingHorizontal: 16, paddingBottom: 48 },
-  gridLabel:       { fontSize: 11, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginBottom: 8 },
-  grid:            { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  scoreBtn:        { width: '30%', flexGrow: 1, backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  scoreBtnActive:  { backgroundColor: GOLD, borderColor: GOLD },
-  scoreBtnNum:     { fontSize: 28, fontFamily: FFB, color: '#fff' },
-  scoreBtnNumActive: { color: '#000' },
-  scoreBtnPts:     { fontSize: 11, fontFamily: FFB, marginTop: 2 },
+  guestNote: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#111111', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 10 },
+  guestNoteText: { flex: 1, fontFamily: FF, fontSize: 11, color: '#9ca3af' },
 
-  // Previous holes
-  prevSection:     { marginBottom: 16 },
-  prevLabel:       { fontSize: 11, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginBottom: 8 },
-  prevRow:         { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#111', gap: 12 },
-  prevHole:        { fontSize: 13, fontFamily: FFB, color: '#fff', width: 30 },
-  prevGross:       { fontSize: 15, fontFamily: FFB, color: '#fff', flex: 1 },
-  prevPts:         { fontSize: 13, fontFamily: FFB },
+  holeCard: { alignItems: 'center', marginBottom: 12, paddingVertical: 20, backgroundColor: '#111111', borderRadius: 16, borderWidth: 1, borderColor: '#1c1c1c' },
+  holeCardTop:     { flexDirection: 'row', padding: 16, gap: 12 },
+  holeCardDivider: { width: 1, backgroundColor: '#1c1c1c' },
+  holeNumberBlock: { width: 110, alignItems: 'flex-start', justifyContent: 'center', gap: 6 },
+  holeLabelSmall: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 2 },
+  holeBig:        { fontFamily: FFB, fontSize: 64, color: '#ffffff', lineHeight: 72 },
+  holeChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4, justifyContent: 'center', paddingHorizontal: 12 },
+  holeChip:     { flexDirection: 'row', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#222' },
+  holeChipGold: { backgroundColor: `${GOLD}0d`, borderColor: `${GOLD}30` },
+  holeChipText: { fontFamily: FFB, fontSize: 10, color: '#fff' },
 
-  // Save button
-  saveBtn:         { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
-  saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText:     { color: '#000', fontSize: 17, fontFamily: FFB },
+  leaderboard:  { flex: 1, justifyContent: 'center', gap: 10 },
+  lbRowStacked: { gap: 3, paddingVertical: 2 },
+  lbRowTop:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  lbName:       { flex: 1, fontFamily: FFB, fontSize: 13, color: '#ffffff' },
+  lbStrokes:    { fontFamily: FFB, fontSize: 11, color: '#9ca3af', textAlign: 'left', lineHeight: 15, marginLeft: 36 },
+  shotPill:     { backgroundColor: GOLD, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  shotPillText: { fontFamily: FFB, fontSize: 9, color: '#000', letterSpacing: 0.5 },
 
-  // Complete screen
-  doneWrap:        { flex: 1, alignItems: 'center', paddingHorizontal: 16, paddingTop: 24 },
-  doneTrophy:      { fontSize: 64, marginBottom: 8 },
-  doneTitle:       { fontSize: 28, fontFamily: FFB, color: '#fff', marginBottom: 4 },
-  donePts:         { fontSize: 56, fontFamily: FFB, color: GOLD, lineHeight: 64 },
-  doneSub:         { fontSize: 13, fontFamily: FFB, color: '#fff', marginBottom: 20 },
-  summaryCard:     { width: '100%', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 12, marginBottom: 20, maxHeight: 320 },
-  summaryRow:      { flexDirection: 'row', alignItems: 'center', paddingVertical: 5, gap: 12, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
-  summaryHole:     { fontSize: 12, fontFamily: FFB, color: '#fff', width: 28 },
-  summaryGross:    { fontSize: 14, fontFamily: FFB, color: '#fff', flex: 1 },
-  summaryPts:      { fontSize: 13, fontFamily: FFB },
-  lbBtn:           { backgroundColor: GOLD, borderRadius: 12, paddingHorizontal: 32, paddingVertical: 14 },
-  lbBtnText:       { color: '#000', fontFamily: FFB, fontSize: 17 },
+  quickActions:   { flexDirection: 'row', alignItems: 'center', marginTop: 14, borderTopWidth: 1, borderTopColor: '#1a1a1a', width: '100%' },
+  quickActionBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, gap: 3 },
+  quickActionLbl: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1 },
+  quickActionSep: { width: 1, height: 28, backgroundColor: '#1a1a1a' },
+
+  ctaBtn:     { backgroundColor: GOLD, borderRadius: 14, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 },
+  ctaBtnText: { fontFamily: FFB, fontSize: 17, color: '#000000' },
+
+  undoBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
+  undoBtnText: { fontFamily: FFB, fontSize: 13, color: '#ffffff' },
+
+  completeCard:   { alignItems: 'center', paddingVertical: 32, gap: 8 },
+  completeTitle:  { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 3, marginTop: 8 },
+  completeScore:  { fontFamily: FFB, fontSize: 60, letterSpacing: -1 },
+  completeDetail: { fontFamily: FFB, fontSize: 13, color: '#fff' },
+  statGrid:     { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 20, marginBottom: 8 },
+  statBox:      { alignItems: 'center', minWidth: 68, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
+  statVal:      { fontFamily: FFB, fontSize: 24 },
+  statLbl:      { fontFamily: FFB, fontSize: 9, letterSpacing: 0.5, marginTop: 2 },
+  bestWorstRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  bestWorstBox: { alignItems: 'center', flex: 1, backgroundColor: '#111111', borderRadius: 12, paddingVertical: 10, borderWidth: 1, borderColor: '#1c1c1c' },
+  bestWorstLbl: { fontFamily: FFB, fontSize: 8, color: '#fff', letterSpacing: 1 },
+  bestWorstVal: { fontFamily: FFB, fontSize: 14, marginTop: 2 },
+  bestWorstSub: { fontFamily: FFB, fontSize: 10, color: '#fff', marginTop: 1 },
+
+  scorecardCard:    { backgroundColor: '#111111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginTop: 8, marginBottom: 8, padding: 10 },
+  scorecardTitle:   { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 2, marginBottom: 8 },
+  scorecardRow:     { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
+  scorecardHoleLabel: { width: 36, fontFamily: FFB, fontSize: 8, color: '#ffffff' },
+  scorecardCell:    { flex: 1, fontFamily: FFB, fontSize: 10, textAlign: 'center' },
+  scorecardTot:     { width: 30, fontFamily: FFB, fontSize: 10, color: '#ffffff', textAlign: 'center' },
+  scorecardScoreCell:  { flex: 1, height: 20, borderRadius: 3, alignItems: 'center', justifyContent: 'center' },
+  scorecardScoreText:  { fontFamily: FFB, fontSize: 10, color: '#fff' },
+
+  standRowCompact:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
+  standNameCompact:  { flex: 1, fontFamily: FFB, fontSize: 13, color: '#fff' },
+  standHoles:        { fontFamily: FFB, fontSize: 10, color: '#888', marginRight: 8 },
+  standPtsCompact:   { fontFamily: FFB, fontSize: 14, color: '#fff' },
+
+  savingOverlay: { position: 'absolute', bottom: 40, alignSelf: 'center', backgroundColor: '#111111', borderRadius: 20, padding: 10, borderWidth: 1, borderColor: '#1c1c1c' },
+
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: '#111111', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingBottom: 48, borderTopWidth: 1, borderTopColor: '#1c1c1c' },
+  sheetScroll: { alignItems: 'stretch', paddingBottom: 16 },
+  sheetHandle:     { width: 40, height: 4, borderRadius: 2, backgroundColor: '#333', alignSelf: 'center', marginTop: 12, marginBottom: 16 },
+  sheetPlayerRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  sheetPlayerName: { fontFamily: FFB, fontSize: 16, color: '#ffffff' },
+  sheetHoleInfo:   { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 2 },
+  sheetPts:        { fontFamily: FFB, fontSize: 22 },
+  sheetShotBadge:  { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}30`, marginBottom: 12 },
+  sheetShotBadgeText: { fontFamily: FFB, fontSize: 12, color: GOLD },
+
+  submitBtn:    { backgroundColor: GOLD, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 16 },
+  submitBtnText:{ fontFamily: FFB, fontSize: 16, color: '#000000' },
+
+  popupOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
+  popupSheet:   { backgroundColor: '#111111', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderTopColor: '#1c1c1c', overflow: 'hidden', paddingBottom: 32 },
+  popupTitleRow:{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
+  popupTitleText: { flex: 1, fontFamily: FFB, fontSize: 11, color: '#ffffff', letterSpacing: 2 },
+
+  doneTitle: { fontFamily: FFB, fontSize: 10, color: '#fff', letterSpacing: 3, textAlign: 'center', marginTop: 8 },
+  doneSub:   { fontFamily: FFB, fontSize: 13, color: '#888', textAlign: 'center', marginTop: 4, marginBottom: 24 },
+  standRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#111', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c', padding: 12, marginBottom: 8 },
+  standRank: { fontFamily: FFB, fontSize: 16, color: '#fff', width: 20 },
+  standName: { flex: 1, fontFamily: FFB, fontSize: 14, color: '#fff' },
+  standPts:  { fontFamily: FFB, fontSize: 16, color: '#fff' },
+
+  playerResultCard:   { backgroundColor: '#0a0a0a', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 12, marginBottom: 12 },
+  playerResultDetail: { fontFamily: FFB, fontSize: 12, color: '#9ca3af', marginTop: 8, marginLeft: 2 },
 });

@@ -928,9 +928,12 @@ export default function SoloRoundScreen() {
               )}
               <TouchableOpacity
                 style={[s.ctaBtn, { marginTop: 16, alignSelf: 'stretch' }]}
-                onPress={async () => {
+                onPress={() => {
+                  // Fire-and-forget — the outro voice line calls a network
+                  // API (tts-caddie) with no timeout of its own; awaiting it
+                  // here blocked finishing the round for 45s+ on poor signal.
                   const fs = isStableford ? `${totalPts} pts` : formatVsPar(vsPar);
-                  if (playerName && !voiceOff) await speakOutro(playerName.split(' ')[0], fs);
+                  if (playerName && !voiceOff) speakOutro(playerName.split(' ')[0], fs);
                   router.back();
                 }}
                 activeOpacity={0.85}

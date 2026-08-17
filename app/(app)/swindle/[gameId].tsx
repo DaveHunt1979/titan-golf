@@ -3,8 +3,10 @@ import { View, Text, ScrollView, TouchableOpacity, Share, StyleSheet, Alert, Ref
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { calcStrokesReceived } from '../../../src/lib/scoring';
+import ConfirmDialog from '../../../src/components/ConfirmDialog';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -54,6 +56,7 @@ export default function SwindleGame() {
   const [showWinner,   setShowWinner]   = useState<'ntp' | 'ld' | null>(null);
   const [groups,       setGroups]       = useState<SwindleGroup[]>([]);
   const [regClosed,    setRegClosed]    = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState<string | null>(null);
 
   useEffect(() => { init(); }, [gameId]);
 
@@ -79,6 +82,12 @@ export default function SwindleGame() {
   }
 
   const load = useCallback(async () => {
+    // A throw anywhere in here previously left `loading` stuck true forever —
+    // the exact "unguarded load()" stuck-spinner class already seen in this
+    // codebase (see project_module_state_leaks) — most reachable by
+    // re-entering this screen (e.g. "View Leaderboard" after finishing a
+    // round) right as a transient network blip hits one of the queries below.
+    try {
     const [{ data: gameData }, { data: entriesData }, { data: scoresData }, { data: groupsData }] = await Promise.all([
       supabase.from('swindle_games').select('*').eq('id', gameId).single(),
       supabase.from('swindle_entries').select('player_id, handicap, players(display_name)').eq('game_id', gameId),
@@ -146,9 +155,12 @@ export default function SwindleGame() {
 
       setEntries(built);
     }
-
-    setLoading(false);
-    setRefreshing(false);
+    } catch (e) {
+      console.error('[swindle.load] failed', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [gameId]);
 
   async function join() {
@@ -182,6 +194,17 @@ export default function SwindleGame() {
     const col = type === 'ntp' ? 'ntp_winner_id' : 'ld_winner_id';
     await supabase.from('swindle_games').update({ [col]: playerId }).eq('id', game.id);
     setShowWinner(null);
+    load();
+  }
+
+  async function deleteGroup() {
+    if (!deletingGroup) return;
+    const groupId = deletingGroup;
+    setDeletingGroup(null);
+    // Cascades to swindle_group_players; RLS only allows the group's own
+    // creator to do this, matching the button's own visibility check.
+    const { error } = await supabase.from('swindle_groups').delete().eq('id', groupId);
+    if (error) { Alert.alert('Error', error.message); return; }
     load();
   }
 
@@ -248,6 +271,12 @@ export default function SwindleGame() {
   const pot      = game.entry_fee * entries.length;
   const inGame   = entries.some(e => e.player_id === myId);
   const prizes   = game.prize_split.map(pct => pot * pct / 100);
+  const myEntry  = entries.find(e => e.player_id === myId);
+  // Game-level status only flips on the organiser's own "Mark Complete" —
+  // it says nothing about whether THIS player has finished. Without this,
+  // Create Tee Time Group / Score My Round kept showing to someone who'd
+  // already played all 18, making it look like nothing had happened.
+  const myRoundComplete = !!myEntry && myEntry.holes_played >= 18;
 
   // Two's detection: gross score ≤ par - 2 on any hole
   const twos: { player_id: string; name: string; hole_number: number }[] = [];
@@ -282,7 +311,7 @@ export default function SwindleGame() {
 
       {/* Header: three-column */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => router.replace('/(app)/swindle' as any)} style={s.backBtn} activeOpacity={0.7}>
           <Text style={s.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle} numberOfLines={1}>{game.name}</Text>
@@ -472,6 +501,11 @@ export default function SwindleGame() {
                   <Text style={s.groupTeeTime}>{group.tee_time}</Text>
                   {group.course_tee ? <Text style={s.groupCourseTee}>{group.course_tee}</Text> : null}
                   <Text style={s.groupPlayerCount}>{group.players.length}p</Text>
+                  {group.created_by === myId && (
+                    <TouchableOpacity onPress={() => setDeletingGroup(group.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Ionicons name="trash-outline" size={16} color={RED} />
+                    </TouchableOpacity>
+                  )}
                 </View>
                 {group.players.map((p, i) => (
                   <View key={i} style={s.groupPlayerRow}>
@@ -533,7 +567,13 @@ export default function SwindleGame() {
         </View>
 
         {/* Actions */}
-        {game.status === 'open' && !regClosed && (
+        {myRoundComplete && game.status !== 'complete' && (
+          <View style={s.myDoneBadge}>
+            <Ionicons name="checkmark-circle" size={16} color={GREEN} />
+            <Text style={s.myDoneText}>You've finished — nice round! Waiting on the rest of the group.</Text>
+          </View>
+        )}
+        {game.status === 'open' && !regClosed && !myRoundComplete && (
           <TouchableOpacity
             style={s.createGroupBtn}
             onPress={() => router.push(`/(app)/swindle/group/new?gameId=${game.id}` as any)}
@@ -554,7 +594,7 @@ export default function SwindleGame() {
             </Text>
           </TouchableOpacity>
         )}
-        {inGame && game.status !== 'complete' && (
+        {inGame && game.status !== 'complete' && !myRoundComplete && (
           <TouchableOpacity
             style={s.scoreBtn}
             onPress={() => router.push(`/(app)/swindle/score/${game.id}` as any)}
@@ -563,7 +603,7 @@ export default function SwindleGame() {
             <Text style={s.scoreBtnText}>Score My Round</Text>
           </TouchableOpacity>
         )}
-        {inGame && game.status !== 'complete' && (
+        {inGame && game.status !== 'complete' && !myRoundComplete && (
           <TouchableOpacity
             style={s.scanBtn}
             onPress={() => router.push(`/(app)/swindle/scan/${game.id}` as any)}
@@ -632,6 +672,16 @@ export default function SwindleGame() {
           </View>
         </View>
       </Modal>
+
+      <ConfirmDialog
+        visible={deletingGroup !== null}
+        title="Delete Group"
+        message="Delete this tee-time group? Players in it will need to be re-added to a group before they can be scored together."
+        confirmLabel="Delete Group"
+        destructive
+        onConfirm={deleteGroup}
+        onCancel={() => setDeletingGroup(null)}
+      />
     </View>
   );
 }
@@ -750,6 +800,8 @@ const s = StyleSheet.create({
   closeRegBtnText:  { color: RED, fontSize: 14, fontFamily: FFB },
   regClosedBadge:   { marginHorizontal: 16, backgroundColor: '#111', borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#1c1c1c' },
   regClosedText:    { color: '#555', fontSize: 14, fontFamily: FFB },
+  myDoneBadge:      { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, backgroundColor: 'rgba(74,222,128,0.08)', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(74,222,128,0.25)' },
+  myDoneText:       { flex: 1, color: GREEN, fontSize: 13, fontFamily: FFB, lineHeight: 18 },
 
   // Winner picker modal
   pickerOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },

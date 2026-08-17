@@ -254,9 +254,33 @@
   },
   "hotPaths": [
     {
+      "path": "app/(app)/swindle/[gameId].tsx",
+      "accessCount": 23,
+      "lastAccessed": 1786965960388,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/swindle/score/[gameId].tsx",
+      "accessCount": 15,
+      "lastAccessed": 1786965748346,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/swindle/group/new.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1786961797649,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/trips/index.tsx",
       "accessCount": 5,
       "lastAccessed": 1786956096026,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 4,
+      "lastAccessed": 1786965752738,
       "type": "file"
     },
     {
@@ -278,15 +302,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/swindle/[gameId].tsx",
-      "accessCount": 2,
-      "lastAccessed": 1786957124431,
+      "path": "app/(app)/swindle/scan/[gameId].tsx",
+      "accessCount": 3,
+      "lastAccessed": 1786961806903,
       "type": "file"
     },
     {
-      "path": "app/(app)/swindle/group/new.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1786957137597,
+      "path": "app/(app)/swindle/create.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1786961818744,
       "type": "file"
     },
     {
@@ -305,6 +329,18 @@
       "path": "app/(app)/tour/index.tsx",
       "accessCount": 1,
       "lastAccessed": 1786957114680,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1786959718694,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260804_swindle_groups.sql",
+      "accessCount": 1,
+      "lastAccessed": 1786962214292,
       "type": "file"
     }
   ],

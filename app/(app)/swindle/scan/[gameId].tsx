@@ -151,7 +151,7 @@ export default function SwindleScan() {
     Alert.alert(
       'Submitted!',
       `${selected.display_name.split(' ')[0]}'s scorecard has been added to the leaderboard.`,
-      [{ text: 'Done', onPress: () => router.back() }],
+      [{ text: 'Done', onPress: () => router.replace(`/(app)/swindle/${gameId}` as any) }],
     );
   }
 
@@ -170,7 +170,7 @@ export default function SwindleScan() {
       <View style={s.container}>
         <StatusBar style="light" />
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <TouchableOpacity onPress={() => router.replace(`/(app)/swindle/${gameId}` as any)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Text style={s.back}>← Back</Text>
           </TouchableOpacity>
           <Text style={s.headerTitle}>SCAN SCORECARD</Text>

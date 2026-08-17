@@ -177,7 +177,10 @@ export default function SwindleGroupNew() {
     }
 
     setSaving(false);
-    router.back();
+    // router.back() was landing on the home tab instead of the swindle game
+    // screen — this route can be reached from more than one place in the
+    // stack, so back() isn't reliable. Target the game screen explicitly.
+    router.replace(`/(app)/swindle/${gameId}` as any);
   }
 
   if (!fontsLoaded || loading) return (
@@ -194,7 +197,7 @@ export default function SwindleGroupNew() {
       <StatusBar style="light" />
 
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => router.replace(`/(app)/swindle/${gameId}` as any)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={{ alignItems: 'center' }}>

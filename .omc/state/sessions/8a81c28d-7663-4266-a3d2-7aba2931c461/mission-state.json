@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-17T09:02:35.091Z",
+  "updatedAt": "2026-08-17T11:22:58.578Z",
   "missions": [
     {
       "id": "session:8a81c28d-7663-4266-a3d2-7aba2931c461:none",
@@ -7,7 +7,7 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-08-15T05:21:09.733Z",
-      "updatedAt": "2026-08-17T09:02:35.091Z",
+      "updatedAt": "2026-08-17T11:22:58.578Z",
       "status": "done",
       "workerCount": 4,
       "taskCounts": {
@@ -27,7 +27,7 @@
           "currentStep": null,
           "latestUpdate": "completed",
           "completedSummary": null,
-          "updatedAt": "2026-08-17T09:02:35.091Z"
+          "updatedAt": "2026-08-17T11:22:58.578Z"
         },
         {
           "name": "offline-bbb-chacha-modified:aofflin",
@@ -132,6 +132,54 @@
           "agent": "offline-solo-team:aofflin",
           "detail": "completed",
           "sourceKey": "session-stop:a99a3a62795f5c923"
+        },
+        {
+          "id": "session-stop:a6b57a07ded65167c:2026-08-17T09:30:35.569Z",
+          "at": "2026-08-17T09:30:35.569Z",
+          "kind": "completion",
+          "agent": "offline-solo-team:aofflin",
+          "detail": "completed",
+          "sourceKey": "session-stop:a6b57a07ded65167c"
+        },
+        {
+          "id": "session-stop:aa48ff9863f66422c:2026-08-17T09:37:40.092Z",
+          "at": "2026-08-17T09:37:40.092Z",
+          "kind": "completion",
+          "agent": "offline-solo-team:aofflin",
+          "detail": "completed",
+          "sourceKey": "session-stop:aa48ff9863f66422c"
+        },
+        {
+          "id": "session-stop:a4d4c31233eefc409:2026-08-17T09:52:50.586Z",
+          "at": "2026-08-17T09:52:50.586Z",
+          "kind": "completion",
+          "agent": "offline-solo-team:aofflin",
+          "detail": "completed",
+          "sourceKey": "session-stop:a4d4c31233eefc409"
+        },
+        {
+          "id": "session-stop:a335f45c77d2dfae8:2026-08-17T09:57:05.573Z",
+          "at": "2026-08-17T09:57:05.573Z",
+          "kind": "completion",
+          "agent": "offline-solo-team:aofflin",
+          "detail": "completed",
+          "sourceKey": "session-stop:a335f45c77d2dfae8"
+        },
+        {
+          "id": "session-stop:a10fa4f4151cf4ed3:2026-08-17T10:27:43.449Z",
+          "at": "2026-08-17T10:27:43.449Z",
+          "kind": "completion",
+          "agent": "offline-solo-team:aofflin",
+          "detail": "completed",
+          "sourceKey": "session-stop:a10fa4f4151cf4ed3"
+        },
+        {
+          "id": "session-stop:a1ffa0e959ece4dd1:2026-08-17T11:22:58.578Z",
+          "at": "2026-08-17T11:22:58.578Z",
+          "kind": "completion",
+          "agent": "offline-solo-team:aofflin",
+          "detail": "completed",
+          "sourceKey": "session-stop:a1ffa0e959ece4dd1"
         }
       ]
     }

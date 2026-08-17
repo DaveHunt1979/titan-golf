@@ -139,7 +139,7 @@ export default function SwindleCreate() {
 
       {/* Header — three-column */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => router.replace('/(app)/swindle' as any)} style={s.backBtn} activeOpacity={0.7}>
           <Text style={s.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={s.title}>CREATE SWINDLE</Text>
