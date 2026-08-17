@@ -81,6 +81,20 @@ async function _doInit(): Promise<void> {
     holes_json   TEXT NOT NULL,
     cached_at    INTEGER NOT NULL
   );`);
+  // Swindle's own offline queue — a lighter shape than offline_queue since
+  // a swindle hole save is just one upsert (no hole_stats, no matches-table
+  // update), but same overall pattern (queue on network error, drain on
+  // reconnect) as the casual round queue above.
+  await db.execAsync(`CREATE TABLE IF NOT EXISTS swindle_offline_queue (
+    id             TEXT PRIMARY KEY,
+    game_id        TEXT NOT NULL,
+    player_id      TEXT NOT NULL,
+    hole_number    INTEGER NOT NULL,
+    gross_score    INTEGER,
+    stableford_pts INTEGER,
+    timestamp      INTEGER NOT NULL,
+    UNIQUE(game_id, player_id, hole_number)
+  );`);
 }
 
 export async function ensureDb(): Promise<any> {

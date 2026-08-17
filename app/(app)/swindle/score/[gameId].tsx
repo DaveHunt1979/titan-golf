@@ -1,15 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, Modal, Image, ScrollView, Dimensions,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles } from '../../../../src/lib/scoring';
 import { resolveAvatar } from '../../../../src/lib/assets';
+import { initials } from '../../../../src/lib/playerDisplay';
+import { enqueueSwindleHole } from '../../../../src/lib/swindleOfflineQueue';
+import { useSwindleSyncStatus } from '../../../../src/lib/useSwindleSyncStatus';
+import { isNetworkError } from '../../../../src/lib/offlineQueue';
 import { speakIntro, speakBack9, speakOutro, speakPressure } from '../../../../src/lib/caddie';
 import RangeMap from '../../../../src/components/RangeMap';
 
@@ -103,7 +107,9 @@ export default function SwindleScoreScreen() {
   const [courseHcp, setCourseHcp]     = useState(0);
   const [savedScores, setSavedScores] = useState<HoleScore[]>([]);
   const [groupPlayers, setGroupPlayers] = useState<GroupPlayer[] | null>(null);
+  const [groupStartHole, setGroupStartHole] = useState(1);
   const [guestCount, setGuestCount]     = useState(0);
+  const [groupLoadError, setGroupLoadError] = useState(false);
   const [loading, setLoading]         = useState(true);
   const [loadError, setLoadError]     = useState(false);
   const [retryTick, setRetryTick]     = useState(0);
@@ -113,10 +119,18 @@ export default function SwindleScoreScreen() {
   const [selectedScore, setSelectedScore] = useState<number | null>(null);
   const [editingHole, setEditingHole] = useState<number | null>(null);
   const [showRangeMap, setShowRangeMap] = useState(false);
+  const syncStatus = useSwindleSyncStatus();
 
   const isGroupMode = groupPlayers !== null;
 
-  useEffect(() => {
+  // useFocusEffect, not a plain mount effect — this screen previously only
+  // reloaded when gameId itself changed, so re-entering the SAME game (e.g.
+  // "Score My Round" again after finishing) reused whatever stale
+  // groupPlayers/savedScores state was left over from the last visit. If
+  // that state happened to read as complete, the screen just kept showing
+  // Round Complete forever regardless of what was actually saved — the
+  // "end and back in a loop" bug.
+  useFocusEffect(useCallback(() => {
     async function load() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -153,30 +167,60 @@ export default function SwindleScoreScreen() {
         // else spectates) — same as casual round's group scoring, restored
         // here from the pre-rollback reference (see the git stash from the
         // 2026-08-10 session) rather than rebuilt from scratch.
-        const { data: myMembership } = await supabase
+        const { data: myMembership, error: membershipErr } = await supabase
           .from('swindle_group_players')
-          .select('group_id, swindle_groups!inner(game_id)')
+          .select('group_id, swindle_groups!inner(game_id, start_hole)')
           .eq('player_id', p.id)
           .eq('is_guest', false)
           .eq('swindle_groups.game_id', gameId)
           .maybeSingle();
+        if (membershipErr) console.error('[swindle.score.load] group membership lookup failed', membershipErr);
 
         if (myMembership) {
-          const { data: roster } = await supabase
+          setGroupStartHole((myMembership as any).swindle_groups?.start_hole ?? 1);
+          const { data: roster, error: rosterErr } = await supabase
             .from('swindle_group_players')
-            .select('player_id, is_guest, players(display_name, avatar_url, handicap_index)')
+            .select('player_id, is_guest')
             .eq('group_id', myMembership.group_id);
+          if (rosterErr) console.error('[swindle.score.load] group roster fetch failed', rosterErr);
 
           const realRows = ((roster ?? []) as any[]).filter(r => !r.is_guest && r.player_id);
           setGuestCount(((roster ?? []) as any[]).filter(r => r.is_guest).length);
 
+          if (realRows.length === 0) {
+            // We know we're in a group (myMembership found it) but the
+            // roster came back with no real players — including not even
+            // ourselves. That's a genuine data problem, not "the group has
+            // no one in it" (save() blocks a 0-player group) and definitely
+            // not "everyone's finished" — surfacing it as Round Complete
+            // here previously was the bug. Show a clear error instead.
+            console.error('[swindle.score.load] group found but roster empty', { groupId: myMembership.group_id, rosterErr });
+            setGroupLoadError(true);
+            setLoading(false);
+            return;
+          }
+
           const playerIds = realRows.map(r => r.player_id);
+          // Fetch player details as a separate bulk query rather than
+          // embedding players(...) inside the swindle_group_players select —
+          // matches every other player-detail fetch in this codebase (and
+          // the casual group-scoring reference this screen was restored
+          // from). players' own RLS is "read own row only", and an embed
+          // for teammates here was the suspected cause of the roster
+          // silently coming back empty for a real, populated group.
+          const { data: playersData, error: playersErr } = playerIds.length
+            ? await supabase.from('players').select('id,display_name,avatar_url,handicap_index').in('id', playerIds)
+            : { data: [], error: null };
+          if (playersErr) console.error('[swindle.score.load] group player details fetch failed', playersErr);
+          const playerMap: Record<string, { display_name: string; avatar_url: string | null; handicap_index: number | null }> = {};
+          for (const pd of (playersData ?? []) as any[]) playerMap[pd.id] = pd;
+
           const { data: groupScores } = playerIds.length
             ? await supabase.from('swindle_scores').select('player_id,hole_number,gross_score,stableford_pts').eq('game_id', gameId).in('player_id', playerIds)
             : { data: [] };
 
           const built: GroupPlayer[] = realRows.map(r => {
-            const info = r.players ?? { display_name: '—', avatar_url: null, handicap_index: 0 };
+            const info = playerMap[r.player_id] ?? { display_name: '—', avatar_url: null, handicap_index: 0 };
             const hcp = info.handicap_index ?? 0;
             const ch = calcCourseHandicap(hcp, slope, rating, coursePar);
             const scores: Record<number, { gross: number; pts: number }> = {};
@@ -208,10 +252,11 @@ export default function SwindleScoreScreen() {
     }
     setLoading(true);
     setLoadError(false);
+    setGroupLoadError(false);
     setSavedScores([]);
     setGroupPlayers(null);
     load();
-  }, [gameId, retryTick]);
+  }, [gameId, retryTick]));
 
   const scoredSet = new Set(savedScores.map(s => s.hole_number));
   const nextHole  = (() => { for (let h = 1; h <= 18; h++) if (!scoredSet.has(h)) return h; return 19; })();
@@ -238,7 +283,12 @@ export default function SwindleScoreScreen() {
     const ch = courseHoles.find(c => c.hole_number === Number(h));
     return s + (v.gross - (ch?.par ?? 0));
   }, 0);
-  const groupActiveHole   = gp.length > 0 ? (() => { for (let h = 1; h <= 18; h++) if (gp.some(p => !p.scores[h])) return h; return 19; })() : 19;
+  // Two-tee starts (front 9 first vs back 9 first), chosen at group creation
+  // — same wraparound shape as casual's start_hole handling in solo.tsx.
+  const groupHoleSequence = groupStartHole > 1
+    ? [...Array.from({ length: 19 - groupStartHole }, (_, i) => groupStartHole + i), ...Array.from({ length: groupStartHole - 1 }, (_, i) => i + 1)]
+    : Array.from({ length: 18 }, (_, i) => i + 1);
+  const groupActiveHole   = gp.length > 0 ? (groupHoleSequence.find(h => gp.some(p => !p.scores[h])) ?? 19) : 19;
   const groupCourseHole   = courseHoles.find(h => h.hole_number === groupActiveHole);
   const groupActivePlayer = gp.find(p => !p.scores[groupActiveHole]) ?? null;
   const groupStrokes      = groupActivePlayer && groupCourseHole ? calcStrokesReceived(groupActivePlayer.courseHcp, groupCourseHole.stroke_index) : 0;
@@ -289,15 +339,29 @@ export default function SwindleScoreScreen() {
 
     setSaving(true);
     try {
-      const { error } = await supabase.from('swindle_scores').upsert({
-        game_id: gameId, player_id: myId, hole_number: holeToSave,
-        gross_score: gross, stableford_pts: pts,
-      }, { onConflict: 'game_id,player_id,hole_number' });
-      if (error) {
-        console.error('swindle save error:', error);
-        Alert.alert('Save failed', 'That score didn\'t save — check your connection and try again.');
-        return;
+      if (syncStatus.pendingCount > 0) await syncStatus.syncNow();
+
+      let savedOffline = false;
+      try {
+        const { error } = await supabase.from('swindle_scores').upsert({
+          game_id: gameId, player_id: myId, hole_number: holeToSave,
+          gross_score: gross, stableford_pts: pts,
+        }, { onConflict: 'game_id,player_id,hole_number' });
+        if (error) throw error;
+      } catch (err: any) {
+        if (!isNetworkError(err)) {
+          console.error('swindle save error:', err);
+          Alert.alert('Save failed', `That score didn't save: ${err?.message ?? 'unknown error'}`);
+          return;
+        }
+        savedOffline = true;
+        await enqueueSwindleHole({ gameId: gameId as string, playerId: myId, holeNumber: holeToSave, grossScore: gross, stablefordPts: pts });
+        syncStatus.syncNow();
       }
+
+      // Everything below needs the network — the score itself is already
+      // safe locally either way, so skip these rather than fail loudly.
+      if (savedOffline) return;
 
       if (game.status === 'open') {
         await supabase.from('swindle_games').update({ status: 'in_progress' }).eq('id', gameId);
@@ -333,34 +397,48 @@ export default function SwindleScoreScreen() {
 
   async function saveScoreGroup() {
     if (selectedScore === null || !groupActivePlayer || !groupCourseHole || saving || !game) return;
+    const gross = selectedScore;
+    const pts   = calcStablefordPoints(gross, groupCourseHole.par, groupStrokes);
+    const forPlayerId = groupActivePlayer.playerId;
+    const forHole = groupActiveHole;
+
+    // Optimistic update first, same as solo — the local group state should
+    // never wait on the network, only the eventual sync does.
+    const updated = gp.map(p => p.playerId !== forPlayerId ? p : {
+      ...p, scores: { ...p.scores, [forHole]: { gross, pts } },
+    });
+    setGroupPlayers(updated);
+    const holeStillNeedsSomeone = updated.some(p => !p.scores[forHole]);
+    if (!holeStillNeedsSomeone) setModalVisible(false);
+
     setSaving(true);
     try {
-      const gross = selectedScore;
-      const pts   = calcStablefordPoints(gross, groupCourseHole.par, groupStrokes);
+      if (syncStatus.pendingCount > 0) await syncStatus.syncNow();
 
-      const { error } = await supabase.from('swindle_scores').upsert({
-        game_id: gameId, player_id: groupActivePlayer.playerId, hole_number: groupActiveHole,
-        gross_score: gross, stableford_pts: pts,
-      }, { onConflict: 'game_id,player_id,hole_number' });
-      if (error) {
-        console.error('[swindle.group.save] failed', error);
-        Alert.alert('Save failed', 'That score didn\'t save — check your connection and try again.');
-        return;
+      let savedOffline = false;
+      try {
+        const { error } = await supabase.from('swindle_scores').upsert({
+          game_id: gameId, player_id: forPlayerId, hole_number: forHole,
+          gross_score: gross, stableford_pts: pts,
+        }, { onConflict: 'game_id,player_id,hole_number' });
+        if (error) throw error;
+      } catch (err: any) {
+        if (!isNetworkError(err)) {
+          console.error('[swindle.group.save] failed', err);
+          Alert.alert('Save failed', `That score didn't save: ${err?.message ?? 'unknown error'}`);
+          return;
+        }
+        savedOffline = true;
+        await enqueueSwindleHole({ gameId: gameId as string, playerId: forPlayerId, holeNumber: forHole, grossScore: gross, stablefordPts: pts });
+        syncStatus.syncNow();
       }
+
+      if (savedOffline) return;
 
       if (game.status === 'open') {
         await supabase.from('swindle_games').update({ status: 'in_progress' }).eq('id', gameId);
         setGame(prev => prev ? { ...prev, status: 'in_progress' } : prev);
       }
-
-      const updated = gp.map(p => p.playerId !== groupActivePlayer.playerId ? p : {
-        ...p, scores: { ...p.scores, [groupActiveHole]: { gross, pts } },
-      });
-      setGroupPlayers(updated);
-      // Score everyone still needing this hole before dropping back to the
-      // background screen — only close once nobody in the group needs it.
-      const holeStillNeedsSomeone = updated.some(p => !p.scores[groupActiveHole]);
-      if (!holeStillNeedsSomeone) setModalVisible(false);
     } finally {
       setSaving(false);
     }
@@ -369,6 +447,16 @@ export default function SwindleScoreScreen() {
   if (loadError) return (
     <View style={s.loading}>
       <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16, marginBottom: 16 }}>Couldn't load this round.</Text>
+      <TouchableOpacity style={s.ctaBtn} onPress={() => setRetryTick(t => t + 1)} activeOpacity={0.85}>
+        <Text style={s.ctaBtnText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+  if (groupLoadError) return (
+    <View style={s.loading}>
+      <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16, marginBottom: 16, textAlign: 'center', paddingHorizontal: 24 }}>
+        Couldn't load your tee-time group's players.
+      </Text>
       <TouchableOpacity style={s.ctaBtn} onPress={() => setRetryTick(t => t + 1)} activeOpacity={0.85}>
         <Text style={s.ctaBtnText}>Try Again</Text>
       </TouchableOpacity>
@@ -392,6 +480,20 @@ export default function SwindleScoreScreen() {
   // standings) with the hero-circle/grid entry living in a modal per turn.
   // ══════════════════════════════════════════════════════════════════════
   if (isGroupMode) {
+    // gp.length > 0 is required explicitly, not just "no active player" —
+    // an empty roster (data problem) must never render as Round Complete.
+    // load() already redirects to groupLoadError before setting an empty
+    // groupPlayers array, but this stays as a second line of defence.
+    if (gp.length === 0) return (
+      <View style={s.loading}>
+        <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16, marginBottom: 16, textAlign: 'center', paddingHorizontal: 24 }}>
+          Couldn't load your tee-time group's players.
+        </Text>
+        <TouchableOpacity style={s.ctaBtn} onPress={() => setRetryTick(t => t + 1)} activeOpacity={0.85}>
+          <Text style={s.ctaBtnText}>Try Again</Text>
+        </TouchableOpacity>
+      </View>
+    );
     if (groupComplete || !groupActivePlayer || !groupCourseHole) {
       return (
         <View style={s.root}>
@@ -507,7 +609,7 @@ export default function SwindleScoreScreen() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.holeStrip} style={s.holeStripWrap}>
-          {Array.from({ length: 18 }, (_, i) => i + 1).map(h => {
+          {groupHoleSequence.map(h => {
             const done = gp.every(p => !!p.scores[h]);
             const active = h === groupActiveHole;
             const ch = courseHoles.find(x => x.hole_number === h);
@@ -538,6 +640,12 @@ export default function SwindleScoreScreen() {
         </View>
 
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+          {syncStatus.pendingCount > 0 && (
+            <View style={s.offlineBanner}>
+              <Ionicons name="cloud-offline-outline" size={13} color="#fff" />
+              <Text style={s.offlineBannerText}>{syncStatus.pendingCount} score{syncStatus.pendingCount !== 1 ? 's' : ''} saved offline — will sync when connected</Text>
+            </View>
+          )}
           {guestCount > 0 && (
             <View style={s.guestNote}>
               <Ionicons name="information-circle-outline" size={13} color="#9ca3af" />
@@ -545,12 +653,24 @@ export default function SwindleScoreScreen() {
             </View>
           )}
 
-          <View style={s.holeCard}>
+          <View style={s.groupHoleCard}>
             <View style={s.holeCardTop}>
               <View style={s.holeNumberBlock}>
                 <Text style={s.holeLabelSmall}>HOLE</Text>
-                <Text style={s.holeBig}>{groupActiveHole}</Text>
-                <View style={s.holeChips}>
+                {/* Force one line regardless of the device's text-size/zoom
+                    setting — without this, a 2-digit hole number can wrap
+                    into a digit stacked on a digit when Dynamic Type is
+                    scaled up (matches score/enter's identical fix). */}
+                <Text
+                  style={s.holeBig}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.5}
+                  allowFontScaling={false}
+                >
+                  {groupActiveHole}
+                </Text>
+                <View style={s.groupHoleChips}>
                   <View style={s.holeChip}><Text style={s.holeChipText}>Par {gPar}</Text></View>
                   <View style={s.holeChip}><Text style={s.holeChipText}>SI {groupCourseHole.stroke_index}</Text></View>
                   {groupCourseHole.yardage ? <View style={s.holeChip}><Text style={s.holeChipText}>{groupCourseHole.yardage}y</Text></View> : null}
@@ -561,18 +681,18 @@ export default function SwindleScoreScreen() {
 
               <View style={s.leaderboard}>
                 {gp.map(p => {
-                  const shortName = p.name.split(' ')[0].slice(0, 3);
                   const getsShotHere = calcStrokesReceived(p.courseHcp, groupCourseHole.stroke_index) > 0;
                   return (
-                    <View key={p.playerId} style={s.lbRowStacked}>
-                      <View style={s.lbRowTop}>
-                        <Avatar playerId={p.playerId} avatarUrl={p.avatarUrl} name={p.name} size={28} />
-                        <Text style={s.lbName} numberOfLines={1}>{shortName}</Text>
-                        {getsShotHere && (
-                          <View style={s.shotPill}><Text style={s.shotPillText}>SHOT</Text></View>
-                        )}
-                      </View>
-                      <Text style={s.lbStrokes} numberOfLines={2}>{formatStrokeHoles(p.courseHcp, courseHoles)}</Text>
+                    <View key={p.playerId} style={s.lbRow}>
+                      <Avatar playerId={p.playerId} avatarUrl={p.avatarUrl} name={p.name} size={28} />
+                      {/* Fixed-width initials (not flex) — always 2
+                          characters, so the freed width goes to the
+                          stroke-holes text instead. Matches score/enter. */}
+                      <Text style={[s.lbName, { flex: 0, width: 32 }]} numberOfLines={1}>{initials(p.name)}</Text>
+                      {getsShotHere && (
+                        <View style={s.shotPill}><Text style={s.shotPillText}>SHOT</Text></View>
+                      )}
+                      <Text style={s.lbStrokes} numberOfLines={3}>{formatStrokeHoles(p.courseHcp, courseHoles)}</Text>
                     </View>
                   );
                 })}
@@ -833,12 +953,26 @@ export default function SwindleScoreScreen() {
 
       {/* ── Scrollable body ── */}
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        {syncStatus.pendingCount > 0 && (
+          <View style={s.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={13} color="#fff" />
+            <Text style={s.offlineBannerText}>{syncStatus.pendingCount} score{syncStatus.pendingCount !== 1 ? 's' : ''} saved offline — will sync when connected</Text>
+          </View>
+        )}
         {!isComplete ? (
           <>
             {/* Hole card */}
             <View style={s.holeCard}>
               <Text style={s.holeLabelSmall}>HOLE</Text>
-              <Text style={s.holeBig}>{nextHole}</Text>
+              <Text
+                style={s.holeBig}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.5}
+                allowFontScaling={false}
+              >
+                {nextHole}
+              </Text>
               {courseHole && (
                 <View style={s.holeChips}>
                   <View style={s.holeChip}><Text style={s.holeChipText}>Par {courseHole.par}</Text></View>
@@ -1196,23 +1330,29 @@ const s = StyleSheet.create({
 
   guestNote: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#111111', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 10 },
   guestNoteText: { flex: 1, fontFamily: FF, fontSize: 11, color: '#9ca3af' },
+  offlineBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1c1c1c', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 8 },
+  offlineBannerText: { flex: 1, fontFamily: 'JUSTSans-ExBold', fontSize: 11, color: '#fff' },
 
   holeCard: { alignItems: 'center', marginBottom: 12, paddingVertical: 20, backgroundColor: '#111111', borderRadius: 16, borderWidth: 1, borderColor: '#1c1c1c' },
+  // Group mode's card is the two-column (hole info | leaderboard) layout
+  // from score/enter — needs its own wrapper since solo's centered/padded
+  // s.holeCard would otherwise squash holeCardTop's row to content-width.
+  groupHoleCard:   { backgroundColor: '#111111', borderRadius: 16, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 12 },
   holeCardTop:     { flexDirection: 'row', padding: 16, gap: 12 },
   holeCardDivider: { width: 1, backgroundColor: '#1c1c1c' },
-  holeNumberBlock: { width: 110, alignItems: 'flex-start', justifyContent: 'center', gap: 6 },
+  holeNumberBlock: { width: 80, alignItems: 'flex-start', justifyContent: 'center', gap: 6 },
   holeLabelSmall: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 2 },
   holeBig:        { fontFamily: FFB, fontSize: 64, color: '#ffffff', lineHeight: 72 },
   holeChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4, justifyContent: 'center', paddingHorizontal: 12 },
+  groupHoleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   holeChip:     { flexDirection: 'row', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: '#1a1a1a', borderWidth: 1, borderColor: '#222' },
   holeChipGold: { backgroundColor: `${GOLD}0d`, borderColor: `${GOLD}30` },
   holeChipText: { fontFamily: FFB, fontSize: 10, color: '#fff' },
 
   leaderboard:  { flex: 1, justifyContent: 'center', gap: 10 },
-  lbRowStacked: { gap: 3, paddingVertical: 2 },
-  lbRowTop:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  lbRow:        { flexDirection: 'row', alignItems: 'center', gap: 8 },
   lbName:       { flex: 1, fontFamily: FFB, fontSize: 13, color: '#ffffff' },
-  lbStrokes:    { fontFamily: FFB, fontSize: 11, color: '#9ca3af', textAlign: 'left', lineHeight: 15, marginLeft: 36 },
+  lbStrokes:    { flex: 1, fontFamily: FFB, fontSize: 10, color: '#9ca3af', textAlign: 'right', lineHeight: 13 },
   shotPill:     { backgroundColor: GOLD, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
   shotPillText: { fontFamily: FFB, fontSize: 9, color: '#000', letterSpacing: 0.5 },
 

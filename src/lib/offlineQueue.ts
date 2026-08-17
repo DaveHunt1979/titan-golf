@@ -176,11 +176,11 @@ export async function drainQueue(): Promise<{ drained: number; remaining: number
         drained++;
       } catch (err: any) {
         if (isNetworkError(err)) { networkFailed = true; break; }
-        else {
-          console.error('Queue item discarded (non-network error):', err);
-          await db.runAsync('DELETE FROM offline_queue WHERE id = ?', [row.id]);
-          drained++;
-        }
+        // A real (non-network) error here — e.g. a policy or schema issue —
+        // must never mean the score just vanishes. Leave it queued so it
+        // counts as pending and gets retried on the normal backoff cadence;
+        // only a successful write ever removes a row.
+        console.error('Queue item failed, keeping queued for retry:', err);
       }
     }
 

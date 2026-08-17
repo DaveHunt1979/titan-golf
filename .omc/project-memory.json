@@ -254,21 +254,21 @@
   },
   "hotPaths": [
     {
-      "path": "app/(app)/swindle/[gameId].tsx",
-      "accessCount": 23,
-      "lastAccessed": 1786965960388,
+      "path": "app/(app)/swindle/score/[gameId].tsx",
+      "accessCount": 74,
+      "lastAccessed": 1786977834684,
       "type": "file"
     },
     {
-      "path": "app/(app)/swindle/score/[gameId].tsx",
-      "accessCount": 15,
-      "lastAccessed": 1786965748346,
+      "path": "app/(app)/swindle/[gameId].tsx",
+      "accessCount": 37,
+      "lastAccessed": 1786977009930,
       "type": "file"
     },
     {
       "path": "app/(app)/swindle/group/new.tsx",
-      "accessCount": 6,
-      "lastAccessed": 1786961797649,
+      "accessCount": 12,
+      "lastAccessed": 1786976728951,
       "type": "file"
     },
     {
@@ -281,6 +281,18 @@
       "path": "app/(app)/score/solo/[matchId].tsx",
       "accessCount": 4,
       "lastAccessed": 1786965752738,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/swindleOfflineQueue.ts",
+      "accessCount": 4,
+      "lastAccessed": 1786972275590,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/swindle/create.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1786976688209,
       "type": "file"
     },
     {
@@ -308,9 +320,21 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/swindle/create.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1786961818744,
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 2,
+      "lastAccessed": 1786969821978,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/localDb.ts",
+      "accessCount": 2,
+      "lastAccessed": 1786970949968,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/offlineQueue.ts",
+      "accessCount": 2,
+      "lastAccessed": 1786972448575,
       "type": "file"
     },
     {
@@ -341,6 +365,30 @@
       "path": "supabase/migrations/20260804_swindle_groups.sql",
       "accessCount": 1,
       "lastAccessed": 1786962214292,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/useSwindleSyncStatus.ts",
+      "accessCount": 1,
+      "lastAccessed": 1786970984496,
+      "type": "file"
+    },
+    {
+      "path": "supabase/swindle.sql",
+      "accessCount": 1,
+      "lastAccessed": 1786971383691,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260817b_swindle_scores_group_rls.sql",
+      "accessCount": 1,
+      "lastAccessed": 1786971415552,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260817c_swindle_group_start_hole.sql",
+      "accessCount": 1,
+      "lastAccessed": 1786976609565,
       "type": "file"
     }
   ],

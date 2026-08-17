@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Share, StyleSheet, Alert, RefreshControl, Modal, FlatList, ActivityIndicator, Image } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { calcStrokesReceived } from '../../../src/lib/scoring';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
+import { useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -38,6 +39,7 @@ type PlayerScore = { player_id: string; hole_number: number; gross_score: number
 export default function SwindleGame() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
   const router     = useRouter();
+  const { societyId } = useSocietyTheme();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -58,7 +60,13 @@ export default function SwindleGame() {
   const [regClosed,    setRegClosed]    = useState(false);
   const [deletingGroup, setDeletingGroup] = useState<string | null>(null);
 
-  useEffect(() => { init(); }, [gameId]);
+  // useFocusEffect, not a plain mount effect — revisiting this same game
+  // (e.g. tapping back after scoring) previously relied only on the
+  // realtime subscription below to notice anything changed, and that
+  // subscription never covered swindle_scores, so a just-finished round's
+  // holes_played/points could still read stale until something else
+  // happened to trigger entries/groups to change.
+  useFocusEffect(useCallback(() => { init(); }, [gameId]));
 
   // Scoped to this game's own entries — without this, a player joining
   // (or a new tee-time group) only ever showed up for people who happened
@@ -68,6 +76,7 @@ export default function SwindleGame() {
     const sub = supabase.channel(`swindle-live-${gameId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'swindle_entries', filter: `game_id=eq.${gameId}` }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'swindle_groups', filter: `game_id=eq.${gameId}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'swindle_scores', filter: `game_id=eq.${gameId}` }, load)
       .subscribe();
     return () => { supabase.removeChannel(sub); };
   }, [gameId]);
@@ -90,17 +99,33 @@ export default function SwindleGame() {
     try {
     const [{ data: gameData }, { data: entriesData }, { data: scoresData }, { data: groupsData }] = await Promise.all([
       supabase.from('swindle_games').select('*').eq('id', gameId).single(),
-      supabase.from('swindle_entries').select('player_id, handicap, players(display_name)').eq('game_id', gameId),
+      supabase.from('swindle_entries').select('player_id, handicap').eq('game_id', gameId),
       supabase.from('swindle_scores').select('player_id, hole_number, gross_score, stableford_pts').eq('game_id', gameId),
-      supabase.from('swindle_groups').select('id, tee_time, course_tee, created_by, swindle_group_players(player_id, is_guest, guest_name, players(display_name))').eq('game_id', gameId).order('tee_time'),
+      supabase.from('swindle_groups').select('id, tee_time, course_tee, created_by, swindle_group_players(player_id, is_guest, guest_name)').eq('game_id', gameId).order('tee_time'),
     ]);
+
+    // Player names fetched as a single separate bulk query rather than
+    // embedded players(...) on swindle_entries/swindle_group_players —
+    // players' own RLS is "read own row only", and an embed for anyone
+    // other than yourself was found to silently break a group's roster
+    // fetch entirely on the score screen (see swindle/score/[gameId].tsx).
+    const namedIds = new Set<string>();
+    for (const e of (entriesData ?? []) as any[]) if (e.player_id) namedIds.add(e.player_id);
+    for (const g of (groupsData ?? []) as any[]) {
+      for (const gp of (g.swindle_group_players ?? []) as any[]) if (!gp.is_guest && gp.player_id) namedIds.add(gp.player_id);
+    }
+    const { data: namesData } = namedIds.size
+      ? await supabase.from('players').select('id,display_name').in('id', Array.from(namedIds))
+      : { data: [] };
+    const nameMap: Record<string, string> = {};
+    for (const n of (namesData ?? []) as any[]) nameMap[n.id] = n.display_name;
 
     if (groupsData) {
       setGroups((groupsData as any[]).map(g => ({
         id: g.id, tee_time: g.tee_time, course_tee: g.course_tee, created_by: g.created_by,
         players: (g.swindle_group_players ?? []).map((gp: any) => ({
           player_id: gp.player_id, is_guest: gp.is_guest,
-          display_name: gp.is_guest ? (gp.guest_name ?? 'Guest') : (gp.players?.display_name ?? 'Unknown'),
+          display_name: gp.is_guest ? (gp.guest_name ?? 'Guest') : (nameMap[gp.player_id] ?? 'Unknown'),
         })),
       })));
     }
@@ -139,7 +164,7 @@ export default function SwindleGame() {
 
       const built: Entry[] = (entriesData as any[]).map(e => ({
         player_id:    e.player_id,
-        display_name: e.players?.display_name ?? 'Unknown',
+        display_name: nameMap[e.player_id] ?? 'Unknown',
         handicap:     e.handicap,
         total_pts:    totals[e.player_id]  ?? 0,
         net_total:    netTots[e.player_id] ?? 0,
@@ -184,6 +209,7 @@ export default function SwindleGame() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Complete', onPress: async () => {
         await supabase.from('swindle_games').update({ status: 'complete' }).eq('id', game.id);
+        await postResultsToChat();
         load();
       }},
     ]);
@@ -247,6 +273,39 @@ export default function SwindleGame() {
 
     lines.push('', '⛳ Powered by Titan Golf');
     Share.share({ message: lines.join('\n') });
+  }
+
+  // Posted automatically when the organiser marks the swindle complete —
+  // title + top 3 + any money side-prizes, not the full field (messages.content
+  // is capped at 500 chars, and the WhatsApp share above already covers
+  // "every player" for whoever wants the long version).
+  async function postResultsToChat() {
+    if (!game || !myId || !societyId) return;
+    const fmt = game.format ?? 'stableford';
+    const suffix = (i: number) => i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th';
+    const pot    = game.entry_fee * entries.length;
+    const prizes = game.prize_split.map(pct => pot * pct / 100);
+
+    const lines = [`🏆 ${game.name} — Results`, ''];
+    entries.slice(0, 3).forEach((e, i) => {
+      const score = fmt === 'stroke' ? `${e.net_total} gross` : `${e.total_pts}pts`;
+      const prize = prizes[i] ? ` — ${game.currency}${prizes[i].toFixed(0)}` : '';
+      lines.push(`${i + 1}${suffix(i)}  ${e.display_name.split(' ')[0]} · ${score}${prize}`);
+    });
+
+    if (twos.length > 0) {
+      const twosPot = (game.twos_fee ?? 0) * entries.length;
+      const perWinner = twosPot / new Set(twos.map(t => t.player_id)).size;
+      lines.push('', `🦅 Two's: ${game.currency}${perWinner.toFixed(0)} each — ${[...new Set(twos.map(t => t.name))].join(', ')}`);
+    }
+    if (ntpWinner) lines.push(`📍 NTP (H${game.ntp_hole}): ${ntpWinner}`);
+    if (ldWinner)  lines.push(`💨 LD (H${game.ld_hole}): ${ldWinner}`);
+
+    const content = lines.join('\n').slice(0, 500);
+    const { error } = await supabase.from('messages').insert({
+      player_id: myId, content, society_id: societyId, channel: 'swindle',
+    });
+    if (error) console.error('[swindle.complete] posting results to chat failed', error);
   }
 
   if (loading || !fontsLoaded) {

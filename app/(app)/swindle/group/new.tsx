@@ -37,6 +37,7 @@ export default function SwindleGroupNew() {
 
   const [teeTime,      setTeeTime]      = useState('');
   const [courseTee,    setCourseTee]    = useState('');
+  const [startHole,    setStartHole]    = useState<1 | 10>(1);
   const [members,      setMembers]      = useState<SwindleMember[]>([]);
   const [selected,     setSelected]     = useState<Set<string>>(new Set());
   const [myId,         setMyId]         = useState<string | null>(null);
@@ -138,7 +139,7 @@ export default function SwindleGroupNew() {
     // Create group
     const { data: group, error: groupErr } = await supabase
       .from('swindle_groups')
-      .insert({ game_id: gameId, tee_time: teeTime.trim(), course_tee: courseTee.trim() || null, created_by: myId })
+      .insert({ game_id: gameId, tee_time: teeTime.trim(), course_tee: courseTee.trim() || null, start_hole: startHole, created_by: myId })
       .select('id')
       .single();
 
@@ -235,6 +236,26 @@ export default function SwindleGroupNew() {
           placeholder="e.g. Blue tees, 1st, 10th"
           placeholderTextColor="#444"
         />
+
+        {/* Start hole — some clubs run a two-tee start */}
+        <Text style={s.fieldLabel}>START HOLE</Text>
+        <View style={s.toggleRow}>
+          {([1, 10] as const).map(h => (
+            <TouchableOpacity
+              key={h}
+              style={[s.toggleBtn, startHole === h && s.toggleBtnActive]}
+              onPress={() => setStartHole(h)}
+              activeOpacity={0.8}
+            >
+              <Text style={[s.toggleText, startHole === h && s.toggleTextActive]}>
+                Hole {h}
+              </Text>
+              <Text style={[s.toggleSub, startHole === h && s.toggleSubActive]}>
+                {h === 1 ? 'Front 9 first' : 'Back 9 first'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {/* Player picker */}
         <View style={s.sectionRow}>
@@ -378,6 +399,14 @@ const s = StyleSheet.create({
 
   addGuestBtn:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#111' },
   addGuestText: { fontFamily: 'JUSTSans-ExBold', fontSize: 14, color: PURPLE },
+
+  toggleRow:        { flexDirection: 'row', gap: 8 },
+  toggleBtn:        { flex: 1, backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 12, padding: 14, alignItems: 'center' },
+  toggleBtnActive:  { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.12)' },
+  toggleText:       { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
+  toggleTextActive: { color: GOLD },
+  toggleSub:        { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#888', marginTop: 2 },
+  toggleSubActive:  { color: 'rgba(212,175,55,0.7)' },
 
   confirmBtn:     { marginTop: 24, backgroundColor: GOLD, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   confirmBtnText: { fontFamily: 'JUSTSans-ExBold', fontSize: 16, color: '#000' },
