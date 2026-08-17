@@ -60,7 +60,8 @@ export default function TripDetailScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const dc = useDynamicColors();
   const { societyId } = useSocietyTheme();
-  const { isOwner } = useSocietyRole(societyId);
+  const { isOwner, isAdmin } = useSocietyRole(societyId);
+  const canManage = isOwner || isAdmin;
 
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
@@ -163,7 +164,7 @@ export default function TripDetailScreen() {
           <Text style={[s.back, { color: dc.gold }]}>← {editing ? 'Cancel' : 'Back'}</Text>
         </TouchableOpacity>
         <Text style={[s.title, { color: dc.cardText }]}>{editing ? 'Edit Trip' : 'Up & Coming'}</Text>
-        {isOwner && !editing ? (
+        {canManage && !editing ? (
           <TouchableOpacity onPress={() => setEditing(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="create-outline" size={22} color={dc.gold} />
           </TouchableOpacity>

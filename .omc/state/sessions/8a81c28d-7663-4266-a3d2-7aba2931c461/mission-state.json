@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-15T05:30:03.587Z",
+  "updatedAt": "2026-08-17T09:02:35.091Z",
   "missions": [
     {
       "id": "session:8a81c28d-7663-4266-a3d2-7aba2931c461:none",
@@ -7,7 +7,7 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-08-15T05:21:09.733Z",
-      "updatedAt": "2026-08-15T05:30:03.587Z",
+      "updatedAt": "2026-08-17T09:02:35.091Z",
       "status": "done",
       "workerCount": 4,
       "taskCounts": {
@@ -27,7 +27,7 @@
           "currentStep": null,
           "latestUpdate": "completed",
           "completedSummary": null,
-          "updatedAt": "2026-08-15T05:29:02.111Z"
+          "updatedAt": "2026-08-17T09:02:35.091Z"
         },
         {
           "name": "offline-bbb-chacha-modified:aofflin",
@@ -100,6 +100,38 @@
           "agent": "offline-nassau-parbogey-scramble-skins-wolf:aofflin",
           "detail": "completed",
           "sourceKey": "session-stop:aoffline-nassau-parbogey-scramble-skins-wolf-940d1c6707d49385"
+        },
+        {
+          "id": "session-stop:a641cdec90b778bef:2026-08-17T08:33:29.211Z",
+          "at": "2026-08-17T08:33:29.211Z",
+          "kind": "completion",
+          "agent": "offline-solo-team:aofflin",
+          "detail": "completed",
+          "sourceKey": "session-stop:a641cdec90b778bef"
+        },
+        {
+          "id": "session-stop:ab671e93d7489984b:2026-08-17T08:47:09.168Z",
+          "at": "2026-08-17T08:47:09.168Z",
+          "kind": "completion",
+          "agent": "offline-solo-team:aofflin",
+          "detail": "completed",
+          "sourceKey": "session-stop:ab671e93d7489984b"
+        },
+        {
+          "id": "session-stop:ad9f8004f4159166a:2026-08-17T08:52:39.562Z",
+          "at": "2026-08-17T08:52:39.562Z",
+          "kind": "completion",
+          "agent": "offline-solo-team:aofflin",
+          "detail": "completed",
+          "sourceKey": "session-stop:ad9f8004f4159166a"
+        },
+        {
+          "id": "session-stop:a99a3a62795f5c923:2026-08-17T09:02:35.091Z",
+          "at": "2026-08-17T09:02:35.091Z",
+          "kind": "completion",
+          "agent": "offline-solo-team:aofflin",
+          "detail": "completed",
+          "sourceKey": "session-stop:a99a3a62795f5c923"
         }
       ]
     }

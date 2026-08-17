@@ -30,7 +30,8 @@ export default function TripsListScreen() {
   const router = useRouter();
   const dc = useDynamicColors();
   const { societyId } = useSocietyTheme();
-  const { isOwner } = useSocietyRole(societyId);
+  const { isOwner, isAdmin } = useSocietyRole(societyId);
+  const canManage = isOwner || isAdmin;
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -59,7 +60,7 @@ export default function TripsListScreen() {
           <Text style={[s.back, { color: dc.gold }]}>← Back</Text>
         </TouchableOpacity>
         <Text style={[s.title, { color: dc.cardText }]}>Up & Coming</Text>
-        {isOwner ? (
+        {canManage ? (
           <TouchableOpacity onPress={() => router.push('/(app)/trips/new' as any)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="add-circle" size={28} color={dc.gold} />
           </TouchableOpacity>
@@ -68,14 +69,25 @@ export default function TripsListScreen() {
 
       <Text style={[s.subtitle, { color: dc.textSecondary }]}>Society-only trip information</Text>
 
+      {canManage && (
+        <TouchableOpacity
+          style={[s.addBtn, { backgroundColor: dc.gold }]}
+          onPress={() => router.push('/(app)/trips/new' as any)}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="add" size={18} color="#000" />
+          <Text style={s.addBtnText}>Add New Trip</Text>
+        </TouchableOpacity>
+      )}
+
       {loading ? (
         <ActivityIndicator color={dc.gold} style={{ marginTop: 40 }} />
       ) : trips.length === 0 ? (
         <View style={s.empty}>
           <Ionicons name="card-outline" size={40} color={dc.textSecondary} />
           <Text style={[s.emptyText, { color: dc.cardText }]}>No upcoming trips yet</Text>
-          {isOwner && (
-            <Text style={[s.emptySub, { color: dc.textSecondary }]}>Tap + above to add your first trip</Text>
+          {canManage && (
+            <Text style={[s.emptySub, { color: dc.textSecondary }]}>Tap Add New Trip above to add your first trip</Text>
           )}
         </View>
       ) : (
@@ -111,6 +123,12 @@ const s = StyleSheet.create({
   back:  { fontSize: 14, fontFamily: FFB },
   title: { fontSize: 16, fontFamily: FFB },
   subtitle: { fontSize: 12, fontFamily: FF, paddingHorizontal: 20, marginBottom: 16 },
+
+  addBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderRadius: 12, paddingVertical: 14, marginHorizontal: 20, marginBottom: 16,
+  },
+  addBtnText: { fontSize: 15, fontFamily: FFB, color: '#000', letterSpacing: 0.5 },
 
   empty: { alignItems: 'center', marginTop: 60, gap: 8, paddingHorizontal: 40 },
   emptyText: { fontSize: 15, fontFamily: FFB, marginTop: 8 },

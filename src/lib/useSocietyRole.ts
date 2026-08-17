@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 
-// Trips screens need both "who am I" (to stamp created_by) and "am I the
-// owner" (owner-only edit/delete, enforced again server-side by RLS).
+// Trips screens need "who am I" (to stamp created_by) and "am I an admin or
+// owner" (admin+owner edit/delete, enforced again server-side by RLS).
 export function useSocietyRole(societyId: string | null) {
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
@@ -36,5 +36,5 @@ export function useSocietyRole(societyId: string | null) {
     return () => { active = false; };
   }, [societyId]);
 
-  return { playerId, role, isOwner: role === 'owner', loading };
+  return { playerId, role, isOwner: role === 'owner', isAdmin: role === 'admin', loading };
 }

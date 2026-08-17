@@ -32,7 +32,8 @@ export default function NewTripScreen() {
   const router = useRouter();
   const dc = useDynamicColors();
   const { societyId } = useSocietyTheme();
-  const { playerId, isOwner, loading: roleLoading } = useSocietyRole(societyId);
+  const { playerId, isOwner, isAdmin, loading: roleLoading } = useSocietyRole(societyId);
+  const canManage = isOwner || isAdmin;
 
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -68,14 +69,14 @@ export default function NewTripScreen() {
     router.back();
   }
 
-  if (!roleLoading && !isOwner) {
+  if (!roleLoading && !canManage) {
     return (
       <View style={[s.container, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.back()}><Text style={[s.back, { color: dc.gold }]}>← Back</Text></TouchableOpacity>
         </View>
-        <Text style={[s.notice, { color: dc.textSecondary }]}>Only the society owner can add trips.</Text>
+        <Text style={[s.notice, { color: dc.textSecondary }]}>Only society admins and the owner can add trips.</Text>
       </View>
     );
   }

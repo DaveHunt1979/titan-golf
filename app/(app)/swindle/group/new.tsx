@@ -65,10 +65,9 @@ export default function SwindleGroupNew() {
 
     const [{ data: membersData }, { data: existingGroupPlayers }] = await Promise.all([
       supabase
-        .from('society_members')
+        .from('swindle_entries')
         .select('player_id, players(display_name, handicap_index)')
-        .eq('society_id', societyId)
-        .contains('membership_types', ['swindle'])
+        .eq('game_id', gameId)
         .order('players(display_name)'),
       supabase
         .from('swindle_group_players')

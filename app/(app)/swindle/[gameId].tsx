@@ -57,6 +57,18 @@ export default function SwindleGame() {
 
   useEffect(() => { init(); }, [gameId]);
 
+  // Scoped to this game's own entries — without this, a player joining
+  // (or a new tee-time group) only ever showed up for people who happened
+  // to pull-to-refresh; the creator's screen sat stale indefinitely.
+  useEffect(() => {
+    if (!gameId) return;
+    const sub = supabase.channel(`swindle-live-${gameId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'swindle_entries', filter: `game_id=eq.${gameId}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'swindle_groups', filter: `game_id=eq.${gameId}` }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(sub); };
+  }, [gameId]);
+
   async function init() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
