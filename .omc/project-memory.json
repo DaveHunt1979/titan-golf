@@ -404,6 +404,12 @@
       "type": "file"
     },
     {
+      "path": "src/lib/useAdminSociety.ts",
+      "accessCount": 2,
+      "lastAccessed": 1787056698155,
+      "type": "file"
+    },
+    {
       "path": "supabase/migrations/20260814_society_trips.sql",
       "accessCount": 1,
       "lastAccessed": 1786955725189,
@@ -545,12 +551,6 @@
       "path": "app/(app)/admin/live-tournaments.tsx",
       "accessCount": 1,
       "lastAccessed": 1787049241035,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/useAdminSociety.ts",
-      "accessCount": 1,
-      "lastAccessed": 1787050085383,
       "type": "file"
     }
   ],

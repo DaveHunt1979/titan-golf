@@ -1,22 +1,22 @@
 {
   "version": 1,
   "entries": {
-    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1787055347251,
-      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
-    },
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1787055053377,
+      "last_emitted_at_ms": 1787057543465,
       "message": "Verify changes work after editing. Test functionality before marking complete."
     },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1787054174817,
+      "last_emitted_at_ms": 1787057517291,
       "message": "Read multiple files in parallel when possible for faster analysis."
     },
-    "7c33e7b87900f95372f1bffbfa1651c99ccb7f874f1c79e5194d19939c525279": {
-      "last_emitted_at_ms": 1787053140963,
-      "message": "Spawning agent: Explore (inherit) | Task: Verify tournament scoring reuse and leaderboard structure"
+    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
+      "last_emitted_at_ms": 1787057199544,
+      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
+    },
+    "28b9a03b67ef5368a67bcd05c646f2a298928fc53b7712e275d693d8d71d9080": {
+      "last_emitted_at_ms": 1787056555661,
+      "message": "Spawning agent: Explore (inherit) | Task: Research current society/membership architecture"
     }
   },
-  "updated_at": "2026-08-18T12:15:47.251Z"
+  "updated_at": "2026-08-18T12:52:23.465Z"
 }
