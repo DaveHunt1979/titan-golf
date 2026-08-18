@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   Image, ActivityIndicator, ScrollView, Modal, Animated, Platform,
+  TextInput, KeyboardAvoidingView, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
+import { uploadImage } from '../../../src/lib/uploadImage';
 import { teamLogos, getPlayerAvatar } from '../../../src/lib/assets';
 
 const GOLD   = '#D4AF37';
@@ -18,11 +21,25 @@ const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
-interface Team { id: string; name: string; accent_color: string; logo_url: string | null; logo_key: string | null; }
+const SWATCHES = [
+  '#D4AF37', '#1B3A5C', '#2D6A4F', '#9B2335',
+  '#6B3FA0', '#4A5568', '#2B8A8A', '#C2611F',
+  '#0284C7', '#BE185D', '#059669', '#312e81',
+];
+
+interface Team { id: string; name: string; accent_color: string; logo_url: string | null; logo_key: string | null; sort_order?: number; }
 interface Player {
   id: string; display_name: string; handicap_index: number;
   avatar_url: string | null; team_id: string | null;
 }
+interface TeamEditState {
+  id: string | null;
+  name: string;
+  color: string;
+  logoUrl: string | null;
+  localUri: string | null;
+}
+const BLANK_TEAM: TeamEditState = { id: null, name: '', color: SWATCHES[0], logoUrl: null, localUri: null };
 
 function getTeamLogo(team: Team) {
   if (team.logo_url) return { uri: team.logo_url };
@@ -43,6 +60,10 @@ export default function TransferWindowScreen() {
   const [players, setPlayers]       = useState<Player[]>([]);
   const [freeAgents, setFreeAgents] = useState<Player[]>([]);
   const [loading, setLoading]       = useState(true);
+
+  const [teamModal, setTeamModal] = useState(false);
+  const [teamEdit,  setTeamEdit]  = useState<TeamEditState>(BLANK_TEAM);
+  const [savingTeam, setSavingTeam] = useState(false);
 
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [isDraft, setIsDraft]               = useState(false);
@@ -66,7 +87,7 @@ export default function TransferWindowScreen() {
   async function load() {
     setLoading(true);
     const [{ data: teamsData }, { data: membersData }] = await Promise.all([
-      supabase.from('teams').select('id,name,accent_color,logo_url,logo_key').eq('society_id', societyId).order('sort_order'),
+      supabase.from('teams').select('id,name,accent_color,logo_url,logo_key,sort_order').eq('society_id', societyId).order('sort_order'),
       supabase.from('society_members').select('player_id,team_id,players(display_name,handicap_index,avatar_url)').eq('society_id', societyId),
     ]);
 
@@ -91,6 +112,99 @@ export default function TransferWindowScreen() {
     oldLogoX.setValue(0); oldLogoOp.setValue(1);
     newLogoX.setValue(160); newLogoOp.setValue(0);
     playerScale.setValue(1); doneOp.setValue(0);
+  }
+
+  function openNewTeam() {
+    setTeamEdit(BLANK_TEAM);
+    setTeamModal(true);
+  }
+
+  function openEditTeam(team: Team) {
+    setTeamEdit({ id: team.id, name: team.name, color: team.accent_color, logoUrl: team.logo_url, localUri: null });
+    setTeamModal(true);
+  }
+
+  async function pickTeamLogo() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'] as any,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (!result.canceled) {
+      setTeamEdit(e => ({ ...e, localUri: result.assets[0].uri }));
+    }
+  }
+
+  async function uploadTeamLogo(teamId: string, localUri: string): Promise<string> {
+    return uploadImage(localUri, 'society-assets', `${societyId}/teams/${teamId}.jpg`);
+  }
+
+  // Create and edit both land back on this same screen — the player pool
+  // and every roster are right here, so there's no "create team, then go
+  // find somewhere else to populate it" hop.
+  async function saveTeamDetails() {
+    if (!teamEdit.name.trim()) { Alert.alert('Required', 'Team name is required.'); return; }
+    if (!societyId) return;
+    setSavingTeam(true);
+    try {
+      let teamId = teamEdit.id;
+
+      if (!teamId) {
+        const { data, error } = await supabase
+          .from('teams')
+          .insert({
+            society_id: societyId,
+            name: teamEdit.name.trim(),
+            accent_color: teamEdit.color,
+            sort_order: teams.length,
+          })
+          .select('id')
+          .single();
+        if (error) throw error;
+        teamId = (data as any).id;
+      } else {
+        const { error } = await supabase
+          .from('teams')
+          .update({ name: teamEdit.name.trim(), accent_color: teamEdit.color } as any)
+          .eq('id', teamId);
+        if (error) throw error;
+      }
+
+      if (teamEdit.localUri && teamId) {
+        const url = await uploadTeamLogo(teamId, teamEdit.localUri);
+        await supabase.from('teams').update({ logo_url: url } as any).eq('id', teamId);
+      }
+
+      setTeamModal(false);
+      await load();
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'Could not save team.');
+    } finally {
+      setSavingTeam(false);
+    }
+  }
+
+  function confirmDeleteTeam() {
+    if (!teamEdit.id) return;
+    Alert.alert(
+      `Delete "${teamEdit.name}"?`,
+      'This will remove the team and unassign all players from it.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete', style: 'destructive',
+          onPress: async () => {
+            setSavingTeam(true);
+            const { error } = await supabase.from('teams').delete().eq('id', teamEdit.id!);
+            setSavingTeam(false);
+            if (error) { Alert.alert('Error', error.message); return; }
+            setTeamModal(false);
+            await load();
+          },
+        },
+      ],
+    );
   }
 
   function openTransfer(player: Player) {
@@ -186,15 +300,23 @@ export default function TransferWindowScreen() {
         <View style={styles.headerCenter}>
           <Image source={titanLogo} style={styles.logo} resizeMode="contain" />
           <View style={styles.headerTitleRow}>
-            <Text style={styles.headerTitle}>TRANSFERS</Text>
+            <Text style={styles.headerTitle}>TEAMS/PLAYERS</Text>
             <View style={styles.liveBadge}><Text style={styles.liveBadgeText}>OPEN</Text></View>
           </View>
-          <Text style={styles.headerSub}>tap a player to move, release, or draft</Text>
+          <Text style={styles.headerSub}>tap a player to move · tap a team to edit</Text>
         </View>
-        <View style={{ width: 70 }} />
+        <TouchableOpacity onPress={openNewTeam} style={styles.headerAddBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Text style={styles.headerAddBtnText}>+ Team</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
+
+        {teams.length === 0 && (
+          <TouchableOpacity style={styles.createFirstTeamBtn} onPress={openNewTeam} activeOpacity={0.85}>
+            <Text style={styles.createFirstTeamBtnText}>+ Create Your First Team</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Free Agents */}
         {freeAgents.length > 0 && (
@@ -219,7 +341,7 @@ export default function TransferWindowScreen() {
         {/* Teams */}
         {playersByTeam.map(({ team, members }) => (
           <View key={team.id} style={styles.teamSection}>
-            <TeamHeader team={team} count={members.length} />
+            <TeamHeader team={team} count={members.length} onPress={() => openEditTeam(team)} />
             {members.map(player => (
               <PlayerRow key={player.id} player={player} teamColor={team.accent_color} onPress={() => openTransfer(player)} />
             ))}
@@ -381,14 +503,98 @@ export default function TransferWindowScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Create / Edit Team modal — same build system as the old Teams
+          screen, just landing back on this screen (not a separate menu) so
+          a freshly created team's roster can be filled straight from the
+          player pool below. */}
+      <Modal
+        visible={teamModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setTeamModal(false)}
+      >
+        <KeyboardAvoidingView style={styles.teamModal} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.teamModalHeader}>
+            <TouchableOpacity onPress={() => setTeamModal(false)} hitSlop={hit}>
+              <Text style={styles.teamModalCancel}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.teamModalTitle}>{teamEdit.id ? 'Edit Team' : 'New Team'}</Text>
+            <TouchableOpacity onPress={saveTeamDetails} disabled={savingTeam} hitSlop={hit}>
+              <Text style={[styles.teamModalSave, savingTeam && { opacity: 0.4 }]}>
+                {savingTeam ? 'Saving…' : 'Save'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.teamModalScroll} keyboardShouldPersistTaps="handled">
+
+            <TouchableOpacity style={styles.logoArea} onPress={pickTeamLogo} activeOpacity={0.8}>
+              <View style={[styles.logoCircle, { borderColor: teamEdit.color }]}>
+                {(teamEdit.localUri ?? teamEdit.logoUrl)
+                  ? <Image source={{ uri: (teamEdit.localUri ?? teamEdit.logoUrl)! }} style={styles.logoImg} />
+                  : teamLogos[teamEdit.name]
+                  ? <Image source={teamLogos[teamEdit.name]} style={styles.logoImg} />
+                  : (
+                    <View style={[styles.logoFallback, { backgroundColor: teamEdit.color + '22' }]}>
+                      <Text style={styles.logoFallbackIcon}>⛳</Text>
+                    </View>
+                  )
+                }
+              </View>
+              <Text style={[styles.logoTapHint, { color: teamEdit.color }]}>
+                {(teamEdit.localUri ?? teamEdit.logoUrl) ? 'Change Crest' : 'Add Team Crest'}
+              </Text>
+              <Text style={styles.logoSubHint}>Square · PNG or JPEG</Text>
+            </TouchableOpacity>
+
+            <View style={styles.teamModalSection}>
+              <Text style={styles.teamModalSectionLabel}>TEAM NAME</Text>
+              <TextInput
+                style={styles.teamModalInput}
+                value={teamEdit.name}
+                onChangeText={v => setTeamEdit(e => ({ ...e, name: v }))}
+                placeholder="e.g. The Elite"
+                placeholderTextColor="#444"
+                autoFocus={!teamEdit.id}
+              />
+            </View>
+
+            <View style={styles.teamModalSection}>
+              <Text style={styles.teamModalSectionLabel}>TEAM COLOUR</Text>
+              <View style={styles.swatchGrid}>
+                {SWATCHES.map(hex => (
+                  <TouchableOpacity
+                    key={hex}
+                    style={[styles.swatch, { backgroundColor: hex }, teamEdit.color === hex && styles.swatchOn]}
+                    onPress={() => setTeamEdit(e => ({ ...e, color: hex }))}
+                    activeOpacity={0.8}
+                  >
+                    {teamEdit.color === hex && <Text style={styles.swatchTick}>✓</Text>}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {teamEdit.id && (
+              <TouchableOpacity style={styles.teamDeleteBtn} onPress={confirmDeleteTeam} disabled={savingTeam} activeOpacity={0.8}>
+                <Text style={styles.teamDeleteBtnText}>Delete Team</Text>
+              </TouchableOpacity>
+            )}
+
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
 
-function TeamHeader({ team, count }: { team: Team; count: number }) {
+const hit = { top: 12, bottom: 12, left: 12, right: 12 };
+
+function TeamHeader({ team, count, onPress }: { team: Team; count: number; onPress: () => void }) {
   const logo = getTeamLogo(team);
   return (
-    <View style={styles.teamHeader}>
+    <TouchableOpacity style={styles.teamHeader} onPress={onPress} activeOpacity={0.75}>
       {logo
         ? <Image source={logo} style={styles.teamHeaderLogo} resizeMode="contain" />
         : <View style={[styles.teamHeaderLogoFallback, { backgroundColor: team.accent_color + '22' }]}>
@@ -397,7 +603,8 @@ function TeamHeader({ team, count }: { team: Team; count: number }) {
       }
       <Text style={[styles.teamName, { color: team.accent_color }]}>{team.name.toUpperCase()}</Text>
       <Text style={styles.teamCount}>{count} players</Text>
-    </View>
+      <Text style={styles.teamEditIcon}>✎</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -569,4 +776,71 @@ const styles = StyleSheet.create({
   doneBtnText: { fontSize: 15, fontFamily: FFB, color: '#000', letterSpacing: 1 },
   avatarRing: { borderWidth: 2, borderColor: 'transparent', overflow: 'hidden' },
   avatarRingGold: { borderColor: GOLD },
+
+  // Header "+ Team" button
+  headerAddBtn: { width: 70, alignItems: 'flex-end' },
+  headerAddBtnText: { fontSize: 14, fontFamily: FFB, color: GOLD },
+
+  // Empty-state create-team prompt
+  createFirstTeamBtn: {
+    backgroundColor: '#111', borderRadius: 14,
+    borderWidth: 1, borderColor: GOLD, borderStyle: 'dashed',
+    paddingVertical: 16, alignItems: 'center', marginBottom: 20,
+  },
+  createFirstTeamBtnText: { fontFamily: FFB, fontSize: 15, color: GOLD },
+
+  // Team header edit affordance
+  teamEditIcon: { fontSize: 13, color: '#666', marginLeft: 8 },
+
+  // Team create/edit modal
+  teamModal: { flex: 1, backgroundColor: '#000' },
+  teamModalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
+  },
+  teamModalCancel: { fontFamily: FFB, fontSize: 14, color: '#fff' },
+  teamModalTitle:  { fontFamily: FFB, fontSize: 16, color: '#fff' },
+  teamModalSave:   { fontFamily: FFB, fontSize: 14, color: GOLD },
+  teamModalScroll: { padding: 20, paddingBottom: 60 },
+
+  logoArea:         { alignItems: 'center', marginBottom: 28 },
+  logoCircle: {
+    width: 110, height: 110, borderRadius: 55,
+    borderWidth: 3, overflow: 'hidden', marginBottom: 10,
+  },
+  logoImg:          { width: '100%', height: '100%' },
+  logoFallback:     { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  logoFallbackIcon: { fontSize: 44 },
+  logoTapHint:      { fontFamily: FFB, fontSize: 14, marginBottom: 4 },
+  logoSubHint:      { fontFamily: FFB, fontSize: 11, color: '#fff' },
+
+  teamModalSection:      { marginBottom: 24 },
+  teamModalSectionLabel: {
+    fontFamily: FFB, fontSize: 10, color: '#fff',
+    letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase',
+  },
+  teamModalInput: {
+    backgroundColor: '#111', borderRadius: 12,
+    borderWidth: 1, borderColor: '#1c1c1c',
+    paddingHorizontal: 16, paddingVertical: 14,
+    fontFamily: FFB, fontSize: 16, color: '#fff',
+  },
+
+  swatchGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  swatch: {
+    width: 48, height: 48, borderRadius: 24,
+    borderWidth: 2, borderColor: 'transparent',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  swatchOn:   { borderColor: '#fff', transform: [{ scale: 1.12 }] },
+  swatchTick: { color: '#fff', fontSize: 18, fontFamily: FFB },
+
+  teamDeleteBtn: {
+    marginTop: 12,
+    backgroundColor: 'rgba(248,113,113,0.08)',
+    borderRadius: 12, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)',
+    paddingVertical: 14, alignItems: 'center',
+  },
+  teamDeleteBtnText: { fontFamily: FFB, fontSize: 14, color: RED },
 });

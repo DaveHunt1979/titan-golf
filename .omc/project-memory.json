@@ -261,8 +261,14 @@
     },
     {
       "path": "app/(app)/swindle/[gameId].tsx",
-      "accessCount": 37,
-      "lastAccessed": 1786977009930,
+      "accessCount": 52,
+      "lastAccessed": 1787042664972,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 27,
+      "lastAccessed": 1787054444554,
       "type": "file"
     },
     {
@@ -272,9 +278,75 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/swindle/create.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1787048517891,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/transfers.tsx",
+      "accessCount": 10,
+      "lastAccessed": 1787046401480,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/swindle/index.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1787043624505,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/inbox/new.tsx",
+      "accessCount": 8,
+      "lastAccessed": 1787045651502,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/tournaments.tsx",
+      "accessCount": 8,
+      "lastAccessed": 1787049281868,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/inbox/[playerId].tsx",
+      "accessCount": 7,
+      "lastAccessed": 1787050324936,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/index.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1787044495765,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 6,
+      "lastAccessed": 1787053190694,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/trips/index.tsx",
       "accessCount": 5,
       "lastAccessed": 1786956096026,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/draw.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1787048885709,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/hub-tournament.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1787049292050,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1787049297292,
       "type": "file"
     },
     {
@@ -287,12 +359,6 @@
       "path": "src/lib/swindleOfflineQueue.ts",
       "accessCount": 4,
       "lastAccessed": 1786972275590,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/swindle/create.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1786976688209,
       "type": "file"
     },
     {
@@ -320,9 +386,9 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 2,
-      "lastAccessed": 1786969821978,
+      "path": "supabase/swindle.sql",
+      "accessCount": 3,
+      "lastAccessed": 1787042454157,
       "type": "file"
     },
     {
@@ -350,18 +416,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/tour/index.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1786957114680,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/_layout.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1786959718694,
-      "type": "file"
-    },
-    {
       "path": "supabase/migrations/20260804_swindle_groups.sql",
       "accessCount": 1,
       "lastAccessed": 1786962214292,
@@ -374,12 +428,6 @@
       "type": "file"
     },
     {
-      "path": "supabase/swindle.sql",
-      "accessCount": 1,
-      "lastAccessed": 1786971383691,
-      "type": "file"
-    },
-    {
       "path": "supabase/migrations/20260817b_swindle_scores_group_rls.sql",
       "accessCount": 1,
       "lastAccessed": 1786971415552,
@@ -389,6 +437,120 @@
       "path": "supabase/migrations/20260817c_swindle_group_start_hole.sql",
       "accessCount": 1,
       "lastAccessed": 1786976609565,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/WhatsApp Image 2026-08-17 at 15.27.31.jpeg",
+      "accessCount": 1,
+      "lastAccessed": 1787040207536,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260818_swindle_prize_money.sql",
+      "accessCount": 1,
+      "lastAccessed": 1787042584402,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/swindle.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787043494475,
+      "type": "file"
+    },
+    {
+      "path": "src/components/ConfirmDialog.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787043562433,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260818b_swindle_games_delete.sql",
+      "accessCount": 1,
+      "lastAccessed": 1787043569723,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/friends.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787044165830,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/add/[tag].tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787044165879,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260815000000_chat_channels.sql",
+      "accessCount": 1,
+      "lastAccessed": 1787044172911,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/useChatUnread.ts",
+      "accessCount": 1,
+      "lastAccessed": 1787044267322,
+      "type": "file"
+    },
+    {
+      "path": "src/components/ChatChannel.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787044280640,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260813b_player_library.sql",
+      "accessCount": 1,
+      "lastAccessed": 1787044290103,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260818020000_direct_messages.sql",
+      "accessCount": 1,
+      "lastAccessed": 1787044368902,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/inbox/index.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787044403847,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/teams.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787046209223,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787048517952,
+      "type": "file"
+    },
+    {
+      "path": "supabase/schema.sql",
+      "accessCount": 1,
+      "lastAccessed": 1787049011872,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260818030000_competition_day_side_games.sql",
+      "accessCount": 1,
+      "lastAccessed": 1787049022760,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/live-tournaments.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787049241035,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/useAdminSociety.ts",
+      "accessCount": 1,
+      "lastAccessed": 1787050085383,
       "type": "file"
     }
   ],

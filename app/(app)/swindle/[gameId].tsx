@@ -24,6 +24,7 @@ type Game = {
   ntp_hole: number | null; ntp_fee: number; ntp_winner_id: string | null;
   ld_hole: number | null; ld_fee: number; ld_winner_id: string | null;
   registration_closed_at: string | null;
+  prize_money_method: 'collector' | 'direct'; collector_player_id: string | null;
 };
 type SwindleGroup = {
   id: string; tee_time: string; course_tee: string | null; created_by: string;
@@ -31,7 +32,7 @@ type SwindleGroup = {
 };
 type Entry = {
   player_id: string; display_name: string; handicap: number | null;
-  total_pts: number; net_total: number; holes_played: number;
+  total_pts: number; net_total: number; holes_played: number; paid: boolean;
 };
 type HoleInfo = { hole_number: number; par: number; stroke_index: number };
 type PlayerScore = { player_id: string; hole_number: number; gross_score: number; stableford_pts: number };
@@ -58,6 +59,7 @@ export default function SwindleGame() {
   const [showWinner,   setShowWinner]   = useState<'ntp' | 'ld' | null>(null);
   const [groups,       setGroups]       = useState<SwindleGroup[]>([]);
   const [regClosed,    setRegClosed]    = useState(false);
+  const [showCollectorPicker, setShowCollectorPicker] = useState(false);
   const [deletingGroup, setDeletingGroup] = useState<string | null>(null);
 
   // useFocusEffect, not a plain mount effect — revisiting this same game
@@ -99,7 +101,7 @@ export default function SwindleGame() {
     try {
     const [{ data: gameData }, { data: entriesData }, { data: scoresData }, { data: groupsData }] = await Promise.all([
       supabase.from('swindle_games').select('*').eq('id', gameId).single(),
-      supabase.from('swindle_entries').select('player_id, handicap').eq('game_id', gameId),
+      supabase.from('swindle_entries').select('player_id, handicap, paid').eq('game_id', gameId),
       supabase.from('swindle_scores').select('player_id, hole_number, gross_score, stableford_pts').eq('game_id', gameId),
       supabase.from('swindle_groups').select('id, tee_time, course_tee, created_by, swindle_group_players(player_id, is_guest, guest_name)').eq('game_id', gameId).order('tee_time'),
     ]);
@@ -169,6 +171,7 @@ export default function SwindleGame() {
         total_pts:    totals[e.player_id]  ?? 0,
         net_total:    netTots[e.player_id] ?? 0,
         holes_played: holes[e.player_id]   ?? 0,
+        paid:         !!e.paid,
       }));
 
       const fmt = (gameData as any)?.format ?? 'stableford';
@@ -220,6 +223,22 @@ export default function SwindleGame() {
     const col = type === 'ntp' ? 'ntp_winner_id' : 'ld_winner_id';
     await supabase.from('swindle_games').update({ [col]: playerId }).eq('id', game.id);
     setShowWinner(null);
+    load();
+  }
+
+  async function markPaid(playerId: string, paid: boolean) {
+    if (!game) return;
+    const { error } = await supabase.from('swindle_entries')
+      .update({ paid, paid_at: paid ? new Date().toISOString() : null })
+      .eq('game_id', game.id).eq('player_id', playerId);
+    if (error) { Alert.alert('Error', error.message); return; }
+    load();
+  }
+
+  async function setCollector(playerId: string) {
+    if (!game) return;
+    await supabase.from('swindle_games').update({ collector_player_id: playerId }).eq('id', game.id);
+    setShowCollectorPicker(false);
     load();
   }
 
@@ -448,6 +467,88 @@ export default function SwindleGame() {
                 </View>
               ))}
             </View>
+          </View>
+        )}
+
+        {/* Prize money tracking — app never moves money, just tracks who's settled up */}
+        {pot > 0 && (
+          <View style={s.section}>
+            <View style={s.sectionHeaderRow}>
+              <Text style={s.sectionLabel}>PAYMENTS</Text>
+              <View style={s.potPill}>
+                <Text style={s.potPillText}>{entries.filter(e => e.paid).length} / {entries.length} paid</Text>
+              </View>
+            </View>
+
+            {game.prize_money_method === 'collector' ? (
+              <View style={s.card}>
+                <View style={[s.cardRow, { borderBottomColor: '#1a1a1a' }]}>
+                  <Text style={s.cardRowLabel}>💰</Text>
+                  <Text style={s.cardRowName}>
+                    Collected by {entries.find(e => e.player_id === game.collector_player_id)?.display_name.split(' ')[0] ?? '—'}
+                  </Text>
+                  {isCreator && (
+                    <TouchableOpacity style={s.setWinnerBtn} onPress={() => setShowCollectorPicker(true)} activeOpacity={0.8}>
+                      <Text style={s.setWinnerText}>Change</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {entries.map(e => {
+                  const canEdit = isCreator || myId === game.collector_player_id || e.player_id === myId;
+                  return (
+                    <View key={e.player_id} style={s.cardRow}>
+                      <Text style={s.cardRowName}>{e.display_name.split(' ')[0]}{e.player_id === myId ? ' (you)' : ''}</Text>
+                      <Text style={s.cardRowAmt}>{game.currency}{Number(game.entry_fee).toFixed(0)}</Text>
+                      <TouchableOpacity
+                        disabled={!canEdit}
+                        style={[s.paidPill, e.paid && s.paidPillActive]}
+                        onPress={() => markPaid(e.player_id, !e.paid)}
+                        activeOpacity={canEdit ? 0.7 : 1}
+                      >
+                        <Text style={[s.paidPillText, e.paid && s.paidPillTextActive]}>{e.paid ? 'Paid' : canEdit ? 'Mark Paid' : 'Unpaid'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={s.card}>
+                {entries.length > 1 && myId && !entries.find(e => e.player_id === myId)?.paid && (() => {
+                  const owed = game.prize_split
+                    .map((pct, i) => ({ winner: entries[i], amt: prizes[i] / (entries.length - 1) }))
+                    .filter(o => o.winner && o.winner.player_id !== myId);
+                  if (owed.length === 0) return null;
+                  return (
+                    <View style={[s.cardRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+                      <Text style={s.cardSub}>YOU OWE</Text>
+                      {owed.map((o, i) => (
+                        <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+                          <Text style={s.cardRowName}>{o.winner.display_name.split(' ')[0]}</Text>
+                          <Text style={s.cardRowAmt}>{game.currency}{o.amt.toFixed(2)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })()}
+                {entries.map(e => {
+                  const canEdit = isCreator || e.player_id === myId;
+                  return (
+                    <View key={e.player_id} style={s.cardRow}>
+                      <Text style={s.cardRowName}>{e.display_name.split(' ')[0]}{e.player_id === myId ? ' (you)' : ''}</Text>
+                      <TouchableOpacity
+                        disabled={!canEdit}
+                        style={[s.paidPill, e.paid && s.paidPillActive]}
+                        onPress={() => markPaid(e.player_id, !e.paid)}
+                        activeOpacity={canEdit ? 0.7 : 1}
+                      >
+                        <Text style={[s.paidPillText, e.paid && s.paidPillTextActive]}>{e.paid ? 'Settled' : canEdit ? 'Mark Settled' : 'Not Settled'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+                <Text style={s.cardSub}>Pay winners directly (bank transfer / PayPal / cash), then mark yourself settled.</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -732,6 +833,38 @@ export default function SwindleGame() {
         </View>
       </Modal>
 
+      {/* Collector picker modal */}
+      <Modal visible={showCollectorPicker} animationType="slide" transparent>
+        <View style={s.pickerOverlay}>
+          <View style={s.pickerSheet}>
+            <View style={s.pickerHeader}>
+              <Text style={s.pickerTitle}>Who's Collecting?</Text>
+              <TouchableOpacity onPress={() => setShowCollectorPicker(false)} activeOpacity={0.7}>
+                <Text style={s.pickerClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={entries}
+              keyExtractor={e => e.player_id}
+              renderItem={({ item }) => {
+                const isActive = item.player_id === game.collector_player_id;
+                return (
+                  <TouchableOpacity
+                    style={[s.pickerItem, isActive && s.pickerItemActive]}
+                    onPress={() => setCollector(item.player_id)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[s.pickerItemText, isActive && { color: GOLD }]}>
+                      {item.display_name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
       <ConfirmDialog
         visible={deletingGroup !== null}
         title="Delete Group"
@@ -808,6 +941,12 @@ const s = StyleSheet.create({
   cardSub:          { fontSize: 11, fontFamily: FFB, color: '#fff', paddingVertical: 8 },
 
   noEntries:        { fontSize: 13, fontFamily: FFB, color: '#444', paddingVertical: 10 },
+
+  // Paid / settled pill
+  paidPill:         { backgroundColor: '#1a1a1a', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: '#2a2a2a', marginLeft: 8 },
+  paidPillActive:   { backgroundColor: 'rgba(74,222,128,0.12)', borderColor: 'rgba(74,222,128,0.35)' },
+  paidPillText:     { fontSize: 11, fontFamily: FFB, color: '#888' },
+  paidPillTextActive: { color: GREEN },
 
   // Set winner button
   setWinnerBtn:     { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)' },

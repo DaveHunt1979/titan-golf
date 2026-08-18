@@ -131,6 +131,9 @@ function AppLayoutInner() {
         <Tabs.Screen name="swindle/index"  options={{ href: null }} />
         <Tabs.Screen name="watch/index"    options={{ href: null }} />
         <Tabs.Screen name="chat"           options={{ href: null }} />
+        <Tabs.Screen name="inbox/index"      options={{ href: null }} />
+        <Tabs.Screen name="inbox/new"        options={{ href: null }} />
+        <Tabs.Screen name="inbox/[playerId]" options={{ href: null }} />
         <Tabs.Screen name="feed/index"     options={{ href: null }} />
         <Tabs.Screen name="camera/index"   options={{ title: 'Camera',   tabBarIcon: ({ focused }) => <TabIcon focused={focused}><CameraIcon      color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="profile"  options={{ title: 'Profile',  tabBarIcon: ({ focused }) => <TabIcon focused={focused}><ProfileIcon     color={ic(focused)} /></TabIcon> }} />
@@ -171,12 +174,12 @@ function AppLayoutInner() {
         <Tabs.Screen name="admin/create-society"     options={{ href: null }} />
         <Tabs.Screen name="admin/players"            options={{ href: null }} />
         <Tabs.Screen name="admin/branding"           options={{ href: null }} />
-        <Tabs.Screen name="admin/teams"              options={{ href: null }} />
         <Tabs.Screen name="admin/courses"            options={{ href: null }} />
         <Tabs.Screen name="admin/transfers"          options={{ href: null }} />
         <Tabs.Screen name="admin/swindle"            options={{ href: null }} />
         <Tabs.Screen name="admin/pins"               options={{ href: null }} />
         <Tabs.Screen name="admin/tournaments"        options={{ href: null }} />
+        <Tabs.Screen name="admin/live-tournaments"   options={{ href: null }} />
         <Tabs.Screen name="score/day/[dayId]"        options={{ href: null }} />
         <Tabs.Screen name="score/scan/[matchId]"     options={{ href: null }} />
         <Tabs.Screen name="spectate/[matchId]"       options={{ href: null }} />

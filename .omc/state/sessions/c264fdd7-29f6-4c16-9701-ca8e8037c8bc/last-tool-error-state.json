@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"grep -rln \\\"ntpEnabled\\\\|ntpHole\\\\|ntpFee\\\\|ldEnabled\\\\|ldHole\\\\|ldFee\\\\|nearest.the.pin\\\\|nearest_pin\\\\|longest.drive\\\\|longest_drive\\\" --include=\\\"*.tsx\\\" --include=\\\"*.ts\\\" -i /Users/da...",
+  "error": "Exit code 2\n/Users/davehunt/Desktop/titan-golf/app/(app)/admin/concept-casual.tsx\n/Users/davehunt/Desktop/titan-golf/app/(app)/admin/concept-swindle-game.tsx\n/Users/davehunt/Desktop/titan-golf/app/(app)/score/solo/[matchId].tsx\n/Users/davehunt/Desktop/titan-golf/app/(app)/score/enter/[matchId].tsx\n/Users/davehunt/Desktop/titan-golf/app/(app)/swindle/[gameId].tsx\n/Users/davehunt/Desktop/titan-golf/app/(app)/swindle/create.tsx\n/Users/davehunt/Desktop/titan-golf/app/(app)/games/new.tsx",
+  "timestamp": "2026-08-18T10:21:49.613Z",
+  "retry_count": 1
+}

@@ -60,6 +60,7 @@ export default function HomeScreen() {
   const [memberTypes,    setMemberTypes]    = useState<string[]>([]);
   const [isPrivileged,   setIsPrivileged]   = useState(false);
   const [unread,         setUnread]         = useState(0);
+  const [dmUnread,       setDmUnread]       = useState(0);
   const [casualCount,    setCasualCount]    = useState(0);
   const [tourLive,       setTourLive]       = useState(0);
   const [swindleName,    setSwindleName]    = useState<string | null>(null);
@@ -109,6 +110,9 @@ export default function HomeScreen() {
         setAvatarUrl(p.avatar_url ?? null);
         setHandicapIndex(p.handicap_index ?? null);
         checkUnread(p.id);
+        supabase.from('direct_messages').select('id', { count: 'exact', head: true })
+          .eq('recipient_id', p.id).is('read_at', null)
+          .then(({ count }) => setDmUnread(count ?? 0));
 
         const { data: sm } = await supabase.from('society_members')
           .select('membership_types, role')
@@ -394,7 +398,7 @@ export default function HomeScreen() {
               other three are inert placeholders for future features ── */}
           <View style={[s.quickRow, { marginTop: 8 }]}>
             <QuickBtn icon="card-outline"      label="Up & Coming"  cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/trips' as any)} />
-            <QuickBtn icon="ellipsis-horizontal-outline" label="Coming Soon" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => {}} />
+            <QuickBtn icon="mail-outline"       label="Inbox"       cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/inbox' as any)} badge={dmUnread > 0 ? dmUnread : undefined} badgeColor={dc.gold} />
             <QuickBtn icon="ellipsis-horizontal-outline" label="Coming Soon" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => {}} />
             <QuickBtn icon="ellipsis-horizontal-outline" label="Coming Soon" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => {}} />
           </View>

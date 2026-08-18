@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator, Image, Animated, PanResponder } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -8,6 +8,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 import { useChatUnread } from '../../../src/lib/useChatUnread';
+import ConfirmDialog from '../../../src/components/ConfirmDialog';
 
 const GOLD   = '#D4AF37';
 const PURPLE = '#a78bfa';
@@ -25,6 +26,7 @@ type Game = {
   join_code: string;
   is_recurring: boolean;
   recurring_day: string | null;
+  created_by: string;
   entry_count?: number;
   am_entered?: boolean;
 };
@@ -45,6 +47,7 @@ export default function SwindleIndex() {
   const [isMember,    setIsMember]    = useState<boolean | null>(null);
   const [gateCode,    setGateCode]    = useState('');
   const [gateJoining, setGateJoining] = useState(false);
+  const [deletingId,  setDeletingId]  = useState<string | null>(null);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -112,6 +115,15 @@ export default function SwindleIndex() {
     await supabase.from('swindle_entries').insert({ game_id: game.id, player_id: myId });
     setGames(gs => gs.map(g => g.id === game.id ? { ...g, am_entered: true, entry_count: (g.entry_count ?? 0) + 1 } : g));
     setImInBusy(null);
+  }
+
+  async function deleteGame() {
+    if (!deletingId) return;
+    const id = deletingId;
+    setDeletingId(null);
+    const { error } = await supabase.from('swindle_games').delete().eq('id', id);
+    if (error) { Alert.alert('Error', error.message); return; }
+    setGames(gs => gs.filter(g => g.id !== id));
   }
 
   async function joinByCode() {
@@ -230,20 +242,26 @@ export default function SwindleIndex() {
           <>
             <Text style={[s.sectionLabel, { color: dc.cardText }]}>LIVE & OPEN</Text>
             {open.map(g => (
-              <GameCard
-                key={g.id}
-                game={g}
-                onPress={() => router.push(`/(app)/swindle/${g.id}` as any)}
-                onImIn={() => imIn(g)}
-                imInBusy={imInBusy === g.id}
-              />
+              <SwipeableRow key={g.id} enabled={g.created_by === myId} onDelete={() => setDeletingId(g.id)}>
+                <GameCard
+                  game={g}
+                  bare={g.created_by === myId}
+                  onPress={() => router.push(`/(app)/swindle/${g.id}` as any)}
+                  onImIn={() => imIn(g)}
+                  imInBusy={imInBusy === g.id}
+                />
+              </SwipeableRow>
             ))}
           </>
         )}
         {complete.length > 0 && (
           <>
             <Text style={[s.sectionLabel, { color: dc.cardText }]}>COMPLETED</Text>
-            {complete.map(g => <GameCard key={g.id} game={g} onPress={() => router.push(`/(app)/swindle/${g.id}` as any)} />)}
+            {complete.map(g => (
+              <SwipeableRow key={g.id} enabled={g.created_by === myId} onDelete={() => setDeletingId(g.id)}>
+                <GameCard game={g} bare={g.created_by === myId} onPress={() => router.push(`/(app)/swindle/${g.id}` as any)} />
+              </SwipeableRow>
+            ))}
           </>
         )}
         {games.length === 0 && (
@@ -254,12 +272,71 @@ export default function SwindleIndex() {
           </View>
         )}
       </ScrollView>
+
+      <ConfirmDialog
+        visible={deletingId !== null}
+        title="Delete Swindle"
+        message="Delete this swindle? Entries, scores and groups all go with it — this cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={deleteGame}
+        onCancel={() => setDeletingId(null)}
+      />
     </View>
   );
 }
 
-function GameCard({ game, onPress, onImIn, imInBusy }: {
-  game: Game; onPress: () => void; onImIn?: () => void; imInBusy?: boolean;
+const SWIPE_W = 76;
+
+// Pure-JS swipe-to-delete — react-native-gesture-handler isn't installed in
+// this project (only an optional peer dep of expo-router), so Swipeable
+// would need a new native module + pod install + rebuild before it'd even
+// show up in the sim. PanResponder needs no native dep, works immediately.
+function SwipeableRow({ children, enabled, onDelete }: { children: React.ReactNode; enabled: boolean; onDelete: () => void }) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const isOpen = useRef(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => enabled && Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onPanResponderMove: (_, g) => {
+        const base = isOpen.current ? -SWIPE_W : 0;
+        translateX.setValue(Math.max(-SWIPE_W, Math.min(0, base + g.dx)));
+      },
+      onPanResponderRelease: (_, g) => {
+        const base = isOpen.current ? -SWIPE_W : 0;
+        const shouldOpen = base + g.dx < -SWIPE_W / 2;
+        isOpen.current = shouldOpen;
+        Animated.spring(translateX, { toValue: shouldOpen ? -SWIPE_W : 0, useNativeDriver: true, bounciness: 0 }).start();
+      },
+    })
+  ).current;
+
+  if (!enabled) return <>{children}</>;
+
+  return (
+    <View style={{ marginHorizontal: 16, marginBottom: 10 }}>
+      <View style={sw.deleteWrap}>
+        <TouchableOpacity style={sw.deleteBtn} onPress={onDelete} activeOpacity={0.8}>
+          <Ionicons name="trash-outline" size={18} color="#fff" />
+          <Text style={sw.deleteText}>Delete</Text>
+        </TouchableOpacity>
+      </View>
+      <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+        {children}
+      </Animated.View>
+    </View>
+  );
+}
+
+const sw = StyleSheet.create({
+  deleteWrap: { position: 'absolute', top: 0, bottom: 0, right: 0, width: SWIPE_W, borderRadius: 14, overflow: 'hidden' },
+  deleteBtn:  { flex: 1, backgroundColor: '#f87171', alignItems: 'center', justifyContent: 'center' },
+  deleteText: { color: '#fff', fontFamily: FFB, fontSize: 11, marginTop: 2 },
+});
+
+function GameCard({ game, onPress, onImIn, imInBusy, bare }: {
+  game: Game; onPress: () => void; onImIn?: () => void; imInBusy?: boolean; bare?: boolean;
 }) {
   const dc = useDynamicColors();
   const pot = game.entry_fee * (game.entry_count ?? 0);
@@ -271,7 +348,7 @@ function GameCard({ game, onPress, onImIn, imInBusy }: {
 
   return (
     <TouchableOpacity
-      style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }, isOpen && s.cardOpen]}
+      style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }, isOpen && s.cardOpen, bare && { marginHorizontal: 0, marginBottom: 0 }]}
       onPress={onPress}
       activeOpacity={0.85}
     >

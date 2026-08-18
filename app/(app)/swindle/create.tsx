@@ -24,6 +24,11 @@ const SPLITS = [
   { label: '40 / 30 / 20 / 10', value: [40, 30, 20, 10] },
 ];
 
+const PRIZE_METHODS = [
+  { value: 'collector', label: 'One Person Collects All', desc: 'One person collects entry fees and pays out winners offline' },
+  { value: 'direct',    label: 'People Pay Each Other Directly', desc: 'Everyone pays their share straight to the winners' },
+] as const;
+
 type CourseHole = { hole_number: number; par: number };
 
 function genCode() {
@@ -48,6 +53,7 @@ export default function SwindleCreate() {
   const [fee,           setFee]           = useState('5');
   const [currency,      setCurrency]      = useState('£');
   const [splitIdx,      setSplitIdx]      = useState(0);
+  const [prizeMethod,   setPrizeMethod]   = useState<typeof PRIZE_METHODS[number]['value']>('collector');
   const [format,        setFormat]        = useState<'stableford' | 'stroke'>('stableford');
   const [twosEnabled,   setTwosEnabled]   = useState(false);
   const [twosFee,       setTwosFee]       = useState('');
@@ -102,6 +108,8 @@ export default function SwindleCreate() {
         entry_fee: entryFee,
         currency,
         prize_split: SPLITS[splitIdx].value,
+        prize_money_method: prizeMethod,
+        collector_player_id: prizeMethod === 'collector' ? player.id : null,
         join_code: code,
         status: 'open',
         created_by: player.id,
@@ -250,6 +258,20 @@ export default function SwindleCreate() {
                   </View>
                 ))}
               </View>
+            </TouchableOpacity>
+          ))}
+        </Field>
+
+        {/* Prize money method */}
+        <Field label="PRIZE MONEY METHOD">
+          {PRIZE_METHODS.map(pm => (
+            <TouchableOpacity
+              key={pm.value}
+              style={[s.splitOption, prizeMethod === pm.value && s.splitOptionActive]}
+              onPress={() => setPrizeMethod(pm.value)}
+            >
+              <Text style={[s.splitText, prizeMethod === pm.value && s.splitTextActive]}>{pm.label}</Text>
+              <Text style={s.methodDesc}>{pm.desc}</Text>
             </TouchableOpacity>
           ))}
         </Field>
@@ -559,6 +581,7 @@ const s = StyleSheet.create({
   splitText:          { color: '#fff', fontFamily: FFB, fontSize: 14 },
   splitTextActive:    { color: GOLD },
   splitPills:         { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  methodDesc:         { color: '#888', fontFamily: FF, fontSize: 12, lineHeight: 16 },
   pill:               { backgroundColor: '#1a1a1a', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   pillActive:         { backgroundColor: 'rgba(212,175,55,0.2)' },
   pillText:           { fontSize: 10, fontFamily: FFB, color: '#fff' },

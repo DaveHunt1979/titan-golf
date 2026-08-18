@@ -25,18 +25,6 @@ const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const STORAGE_KEY = 'tour_joined_competition_id';
 
-type TourTab = 'teams' | 'scores' | 'kronos' | 'honours' | 'info' | 'live' | 'instagram';
-
-const TABS: { id: TourTab; label: string }[] = [
-  { id: 'teams',     label: 'Teams' },
-  { id: 'scores',    label: 'Scores' },
-  { id: 'kronos',    label: 'Kronos' },
-  { id: 'honours',   label: 'Honours' },
-  { id: 'info',      label: 'Info Pack' },
-  { id: 'live',      label: 'Live' },
-  { id: 'instagram', label: '📷' },
-];
-
 // ── Info section types (mirrors feed/index) ──────────────────────────
 export type SectionType = 'text' | 'schedule' | 'travel' | 'location' | 'contacts' | 'rules';
 export interface ScheduleItem { time: string; label: string; note?: string; }
@@ -107,12 +95,14 @@ export default function TourScreen() {
   const [teams, setTeams]             = useState<Team[]>([]);
   const [players, setPlayers]         = useState<{ id: string; display_name: string }[]>([]);
   const [kronosRows, setKronosRows]   = useState<{ playerId: string; name: string; total: number; holes: number }[]>([]);
+  const [kronosByDay, setKronosByDay] = useState<{ dayId: string; dayNumber: number; rows: { playerId: string; name: string; total: number; holes: number }[] }[]>([]);
+  const [leaderboardTab, setLeaderboardTab] = useState<'group' | 'team' | 'kronos' | 'honours'>('group');
   const [champions, setChampions]     = useState<Champion[]>([]);
   const [myPlayerId, setMyPlayerId]   = useState<string | null>(null);
   const chatUnread = useChatUnread('tour', SOCIETY_ID, myPlayerId);
   const [loading, setLoading]         = useState(true);
   const [refreshing, setRefreshing]   = useState(false);
-  const [selectedSection, setSelectedSection] = useState<'matches' | 'standings' | 'info' | 'social' | 'players' | null>(null);
+  const [selectedSection, setSelectedSection] = useState<'standings' | 'info' | 'social' | 'players' | null>(null);
   const [pin, setPin]                 = useState('');
   const [verifying, setVerifying]     = useState(false);
   const [sections, setSections]         = useState<InfoSection[]>([]);
@@ -214,24 +204,42 @@ export default function TourScreen() {
     // Order of Merit across other tournaments. include_in_kronos is just an
     // on/off flag for whether this tournament counts toward Kronos at all.
     if (holesData && playersData && includeInKronos) {
-      const kronosMatchIds = new Set((matchesData as any[] ?? []).map(m => m.id));
+      const matchDayMap: Record<string, string> = {};
+      (matchesData as any[] ?? []).forEach(m => { matchDayMap[m.id] = m.day_id; });
+      const kronosMatchIds = new Set(Object.keys(matchDayMap));
+      const nameFor = (pid: string) => (playersData as any[]).find(x => x.id === pid)?.display_name ?? '—';
+
       const totals: Record<string, { total: number; holes: number }> = {};
+      const perDay: Record<string, Record<string, { total: number; holes: number }>> = {};
       (holesData as any[]).forEach(h => {
-        if (h.stableford_pts != null && kronosMatchIds.has(h.match_id)) {
-          if (!totals[h.player_id]) totals[h.player_id] = { total: 0, holes: 0 };
-          totals[h.player_id].total += h.stableford_pts;
-          totals[h.player_id].holes += 1;
-        }
+        if (h.stableford_pts == null || !kronosMatchIds.has(h.match_id)) return;
+        if (!totals[h.player_id]) totals[h.player_id] = { total: 0, holes: 0 };
+        totals[h.player_id].total += h.stableford_pts;
+        totals[h.player_id].holes += 1;
+
+        const dayId = matchDayMap[h.match_id];
+        if (!perDay[dayId]) perDay[dayId] = {};
+        if (!perDay[dayId][h.player_id]) perDay[dayId][h.player_id] = { total: 0, holes: 0 };
+        perDay[dayId][h.player_id].total += h.stableford_pts;
+        perDay[dayId][h.player_id].holes += 1;
       });
+
       const rows = Object.entries(totals)
-        .map(([pid, v]) => {
-          const p = (playersData as any[]).find(x => x.id === pid);
-          return { playerId: pid, name: p?.display_name ?? '—', total: v.total, holes: v.holes };
-        })
+        .map(([pid, v]) => ({ playerId: pid, name: nameFor(pid), total: v.total, holes: v.holes }))
         .sort((a, b) => b.total - a.total);
       setKronosRows(rows);
+
+      const byDay = ((daysData as CompetitionDay[] | null) ?? []).map(day => ({
+        dayId: day.id,
+        dayNumber: day.day_number,
+        rows: Object.entries(perDay[day.id] ?? {})
+          .map(([pid, v]) => ({ playerId: pid, name: nameFor(pid), total: v.total, holes: v.holes }))
+          .sort((a, b) => b.total - a.total),
+      }));
+      setKronosByDay(byDay);
     } else {
       setKronosRows([]);
+      setKronosByDay([]);
     }
 
     // Individual tournament leaderboard with prize positions
@@ -467,6 +475,7 @@ export default function TourScreen() {
     const t = teams.find(t => t.id === s.teamId);
     return { ...s, name: t?.name ?? '—', accent_color: t?.accent_color ?? '#555' };
   });
+  const isTeamTournament = competition?.tournament_type === 'ryder_cup' || competition?.tournament_type === 'titan_tour';
 
   function matchNames(m: Match): { home: string; away: string } {
     if (m.home_team_id && m.away_team_id) {
@@ -611,7 +620,7 @@ export default function TourScreen() {
         >
           <Text style={{ fontSize: 14, fontFamily: FFB, color: '#fff' }}>‹ Back</Text>
           <Text style={{ fontSize: 16, fontFamily: FFB, color: '#fff' }}>
-            {selectedSection === 'matches' ? 'Matches' : selectedSection === 'standings' ? 'Standings' : selectedSection === 'players' ? 'Players' : selectedSection === 'info' ? 'Info Pack' : 'Live & Social'}
+            {selectedSection === 'standings' ? 'Leaderboard' : selectedSection === 'players' ? 'Players' : selectedSection === 'info' ? 'Info Pack' : 'Live & Social'}
           </Text>
         </TouchableOpacity>
       )}
@@ -666,16 +675,14 @@ export default function TourScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            <TouchableOpacity style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => setSelectedSection('matches')} activeOpacity={0.82}>
-              <Text style={st.sectionTileIcon}>🏌️</Text>
-              <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Matches</Text>
-              <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Results & fixtures</Text>
-              <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => setSelectedSection('standings')} activeOpacity={0.82}>
-              <Text style={st.sectionTileIcon}>📊</Text>
-              <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Standings</Text>
-              <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Teams, points & honours</Text>
+            <TouchableOpacity
+              style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]}
+              onPress={() => { setLeaderboardTab('group'); setSelectedSection('standings'); }}
+              activeOpacity={0.82}
+            >
+              <Text style={st.sectionTileIcon}>🏆</Text>
+              <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Leaderboard</Text>
+              <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Group, team, Kronos & honours</Text>
               <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => setSelectedSection('info')} activeOpacity={0.82}>
@@ -718,208 +725,261 @@ export default function TourScreen() {
         {/* ── Standings (teams + kronos + honours combined) ── */}
         {selectedSection === 'standings' && (
           <View>
-            <Text style={st.sectionHeader}>TEAM STANDINGS</Text>
-            <View>
-              <View style={st.tableHeader}>
-                <Text style={[st.cell, st.cellTeam, st.th]}>TEAM</Text>
-                <Text style={[st.cell, st.th]}>P</Text>
-                <Text style={[st.cell, st.th]}>W</Text>
-                <Text style={[st.cell, st.th]}>H</Text>
-                <Text style={[st.cell, st.th]}>L</Text>
-                <Text style={[st.cell, st.cellPts, st.th]}>PTS</Text>
-              </View>
-              {enriched.map((s, i) => (
-                <View key={s.teamId} style={[st.row, { backgroundColor: dc.card, borderColor: dc.border }, i === 0 && st.rowFirst]}>
-                  <View style={[st.cell, st.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
-                    <Text style={st.pos}>{i + 1}</Text>
-                    {teamLogos[s.name]
-                      ? <Image source={teamLogos[s.name]} style={{ width: 28, height: 28 }} resizeMode="contain" />
-                      : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: s.accent_color }} />
-                    }
-                    <Text style={st.teamName}>{s.name}</Text>
-                    {s.bonus > 0 && <Text style={{ fontFamily: FFB, fontSize: 10, color: GOLD }}>+{s.bonus} bonus</Text>}
-                  </View>
-                  <Text style={st.cell}>{s.played}</Text>
-                  <Text style={st.cell}>{s.w}</Text>
-                  <Text style={st.cell}>{s.h}</Text>
-                  <Text style={st.cell}>{s.l}</Text>
-                  <Text style={[st.cell, st.cellPts, st.pts]}>{s.pts}</Text>
-                </View>
-              ))}
-              {enriched.length === 0 && (
-                <Text style={st.noResults}>No matches played yet.{'\n'}Results will appear here as games complete.</Text>
+            {/* Leaderboard tabs — Team/Kronos only appear when relevant */}
+            <View style={st.lbTabRow}>
+              <TouchableOpacity style={[st.lbTab, leaderboardTab === 'group' && st.lbTabOn]} onPress={() => setLeaderboardTab('group')} activeOpacity={0.8}>
+                <Text style={[st.lbTabText, leaderboardTab === 'group' && st.lbTabTextOn]}>Group</Text>
+              </TouchableOpacity>
+              {isTeamTournament && (
+                <TouchableOpacity style={[st.lbTab, leaderboardTab === 'team' && st.lbTabOn]} onPress={() => setLeaderboardTab('team')} activeOpacity={0.8}>
+                  <Text style={[st.lbTabText, leaderboardTab === 'team' && st.lbTabTextOn]}>Team</Text>
+                </TouchableOpacity>
               )}
+              {competition?.include_in_kronos && (
+                <TouchableOpacity style={[st.lbTab, leaderboardTab === 'kronos' && st.lbTabOn]} onPress={() => setLeaderboardTab('kronos')} activeOpacity={0.8}>
+                  <Text style={[st.lbTabText, leaderboardTab === 'kronos' && st.lbTabTextOn]}>Kronos</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={[st.lbTab, leaderboardTab === 'honours' && st.lbTabOn]} onPress={() => setLeaderboardTab('honours')} activeOpacity={0.8}>
+                <Text style={[st.lbTabText, leaderboardTab === 'honours' && st.lbTabTextOn]}>Honours</Text>
+              </TouchableOpacity>
             </View>
 
-            <Text style={st.sectionHeader}>ORDER OF MERIT</Text>
-            <View>
-              <View style={st.tableHeader}>
-                <Text style={[st.cell, st.cellTeam, st.th]}>PLAYER</Text>
-                <Text style={[st.cell, st.th]}>HLS</Text>
-                <Text style={[st.cell, st.cellPts, st.th]}>PTS</Text>
-              </View>
-              {kronosRows.map((r, i) => (
-                <View key={r.playerId} style={[st.row, { backgroundColor: dc.card, borderColor: dc.border }, i === 0 && st.rowFirst]}>
-                  <View style={[st.cell, st.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
-                    <Text style={st.pos}>{i + 1}</Text>
-                    <Text style={st.teamName}>{r.name}</Text>
-                  </View>
-                  <Text style={st.cell}>{r.holes}</Text>
-                  <Text style={[st.cell, st.cellPts, st.pts]}>{r.total}</Text>
-                </View>
-              ))}
-              {kronosRows.length === 0 && (
-                <Text style={st.noResults}>No Stableford scores yet.</Text>
-              )}
-            </View>
+            {/* ── Group: day-by-day fixtures/results ── */}
+            {leaderboardTab === 'group' && (
+              <View>
+                {days.length === 0 && (
+                  <Text style={st.noResults}>No days scheduled yet.</Text>
+                )}
+                {days.map(day => {
+                  const dayMatches = matches.filter(m => m.day_id === day.id);
+                  const live     = dayMatches.filter(m => m.status === 'in_progress').length;
+                  const complete = dayMatches.filter(m => m.status === 'complete').length;
+                  const isLive   = live > 0;
+                  const isDone   = complete === dayMatches.length && dayMatches.length > 0;
 
-            <Text style={st.sectionHeader}>ROLL OF HONOUR</Text>
-            <View>
-              {champYears.map(year => {
-                const yearChamps = champions.filter(c => c.year === year);
-                return (
-                  <View key={year} style={{ marginBottom: 20 }}>
-                    <Text style={{
-                      fontSize: 10, fontFamily: FFB, color: dc.cardText,
-                      letterSpacing: 2, marginBottom: 10,
-                    }}>
-                      {year}
-                    </Text>
-                    {yearChamps.map(c => (
-                      <View key={c.id} style={[st.champCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
-                        <Text style={{ fontSize: 10, fontFamily: FFB, color: dc.gold, letterSpacing: 1, marginBottom: 4 }}>
-                          {c.award_name.toUpperCase()}
-                        </Text>
-                        <Text style={{ fontSize: 18, fontFamily: FFB, color: dc.cardText }}>{c.winner_name}</Text>
-                        {c.detail && (
-                          <Text style={{ fontSize: 13, fontFamily: FFB, color: dc.cardText, marginTop: 4 }}>{c.detail}</Text>
-                        )}
+                  return (
+                    <View key={day.id} style={{ marginBottom: 20 }}>
+                      {/* Day header */}
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 10, fontFamily: FFB, color: dc.gold, letterSpacing: 1.5, marginBottom: 2 }}>
+                            DAY {day.day_number}
+                          </Text>
+                          <Text style={{ fontSize: 15, fontFamily: FFB, color: dc.cardText }}>{day.course_name ?? 'TBC'}</Text>
+                          {day.play_date && (
+                            <Text style={{ fontSize: 11, fontFamily: FFB, color: dc.cardText, marginTop: 1 }}>
+                              {formatDate(day.play_date)}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={[
+                          st.dayStatusBadge,
+                          { backgroundColor: dc.card, borderColor: dc.border },
+                          isLive && { backgroundColor: 'rgba(74,222,128,0.1)', borderColor: 'rgba(74,222,128,0.35)' },
+                        ]}>
+                          <Text style={[
+                            { fontSize: 10, fontFamily: FFB, color: dc.cardText, letterSpacing: 0.5 },
+                            isLive && { color: GREEN },
+                          ]}>
+                            {isDone ? 'COMPLETE' : isLive ? 'LIVE' : 'UPCOMING'}
+                          </Text>
+                        </View>
                       </View>
-                    ))}
-                  </View>
-                );
-              })}
-              {champYears.length === 0 && (
-                <Text style={st.noResults}>No champions recorded yet.</Text>
-              )}
-            </View>
-          </View>
-        )}
 
-        {/* ── Matches ── */}
-        {selectedSection === 'matches' && (
-          <View>
-            {days.length === 0 && (
-              <Text style={st.noResults}>No days scheduled yet.</Text>
-            )}
-            {days.map(day => {
-              const dayMatches = matches.filter(m => m.day_id === day.id);
-              const live     = dayMatches.filter(m => m.status === 'in_progress').length;
-              const complete = dayMatches.filter(m => m.status === 'complete').length;
-              const isLive   = live > 0;
-              const isDone   = complete === dayMatches.length && dayMatches.length > 0;
+                      {dayMatches.map(m => {
+                        const { home, away } = matchNames(m);
+                        const mc = matchColors(m);
+                        const isTeamMatch = !!(m.home_team_id && m.away_team_id);
+                        const isMatchLive = m.status === 'in_progress';
+                        const isComplete  = m.status === 'complete';
+                        const isMyMatch = !!myPlayerId && ((m.home_player_ids ?? []).includes(myPlayerId) || (m.away_player_ids ?? []).includes(myPlayerId));
+                        const matchDest = isMyMatch
+                          ? ((m as any).round_format === 'team_stableford'
+                              ? `/(app)/score/teamstableford/${m.id}`
+                              : (m.away_player_ids ?? []).length === 0 && (m.home_player_ids ?? []).length === 1 ? `/(app)/score/solo/${m.id}` : `/(app)/score/enter/${m.id}`)
+                          : `/(app)/spectate/${m.id}`;
+                        return (
+                          <TouchableOpacity
+                            key={m.id}
+                            style={[
+                              st.matchRow,
+                              { backgroundColor: dc.card, borderColor: dc.border },
+                              isMatchLive && { borderColor: 'rgba(74,222,128,0.35)' },
+                            ]}
+                            onPress={() => router.push(matchDest as any)}
+                            activeOpacity={0.75}
+                          >
+                            {/* Home side */}
+                            <View style={{ flex: 1, alignItems: 'flex-start' }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                {isTeamMatch && (
+                                  teamLogos[home]
+                                    ? <Image source={teamLogos[home]} style={{ width: 22, height: 22 }} resizeMode="contain" />
+                                    : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: mc.home }} />
+                                )}
+                                <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{home}</Text>
+                              </View>
+                            </View>
 
-              return (
-                <View key={day.id} style={{ marginBottom: 20 }}>
-                  {/* Day header */}
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 10, fontFamily: FFB, color: dc.gold, letterSpacing: 1.5, marginBottom: 2 }}>
-                        DAY {day.day_number}
-                      </Text>
-                      <Text style={{ fontSize: 15, fontFamily: FFB, color: dc.cardText }}>{day.course_name ?? 'TBC'}</Text>
-                      {day.play_date && (
-                        <Text style={{ fontSize: 11, fontFamily: FFB, color: dc.cardText, marginTop: 1 }}>
-                          {formatDate(day.play_date)}
-                        </Text>
+                            {/* Middle: vs / result / live */}
+                            <View style={{ alignItems: 'center', paddingHorizontal: 10, minWidth: 52 }}>
+                              {isMatchLive && (
+                                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN, marginBottom: 2 }} />
+                              )}
+                              {isComplete && m.result_str ? (
+                                <Text style={{ fontSize: 11, fontFamily: FFB, color: dc.gold, textAlign: 'center' }}>
+                                  {m.result_str}
+                                </Text>
+                              ) : (
+                                <Text style={{ fontSize: 10, fontFamily: FFB, color: dc.cardText }}>vs</Text>
+                              )}
+                            </View>
+
+                            {/* Away side */}
+                            <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                                {isTeamMatch && (
+                                  teamLogos[away]
+                                    ? <Image source={teamLogos[away]} style={{ width: 22, height: 22 }} resizeMode="contain" />
+                                    : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: mc.away }} />
+                                )}
+                                <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{away}</Text>
+                              </View>
+                            </View>
+
+                            <Text style={{ fontSize: 18, color: dc.cardText, marginLeft: 6 }}>›</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+
+                      {dayMatches.length === 0 && (
+                        <Text style={[st.noResults, { paddingVertical: 8 }]}>No matches yet.</Text>
                       )}
                     </View>
-                    <View style={[
-                      st.dayStatusBadge,
-                      { backgroundColor: dc.card, borderColor: dc.border },
-                      isLive && { backgroundColor: 'rgba(74,222,128,0.1)', borderColor: 'rgba(74,222,128,0.35)' },
-                    ]}>
-                      <Text style={[
-                        { fontSize: 10, fontFamily: FFB, color: dc.cardText, letterSpacing: 0.5 },
-                        isLive && { color: GREEN },
-                      ]}>
-                        {isDone ? 'COMPLETE' : isLive ? 'LIVE' : 'UPCOMING'}
-                      </Text>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* ── Team: combined standings across every day ── */}
+            {leaderboardTab === 'team' && (
+              <View>
+                <View style={st.tableHeader}>
+                  <Text style={[st.cell, st.cellTeam, st.th]}>TEAM</Text>
+                  <Text style={[st.cell, st.th]}>P</Text>
+                  <Text style={[st.cell, st.th]}>W</Text>
+                  <Text style={[st.cell, st.th]}>H</Text>
+                  <Text style={[st.cell, st.th]}>L</Text>
+                  <Text style={[st.cell, st.cellPts, st.th]}>PTS</Text>
+                </View>
+                {enriched.map((s, i) => (
+                  <View key={s.teamId} style={[st.row, { backgroundColor: dc.card, borderColor: dc.border }, i === 0 && st.rowFirst]}>
+                    <View style={[st.cell, st.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                      <Text style={st.pos}>{i + 1}</Text>
+                      {teamLogos[s.name]
+                        ? <Image source={teamLogos[s.name]} style={{ width: 28, height: 28 }} resizeMode="contain" />
+                        : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: s.accent_color }} />
+                      }
+                      <Text style={st.teamName}>{s.name}</Text>
+                      {s.bonus > 0 && <Text style={{ fontFamily: FFB, fontSize: 10, color: GOLD }}>+{s.bonus} bonus</Text>}
                     </View>
+                    <Text style={st.cell}>{s.played}</Text>
+                    <Text style={st.cell}>{s.w}</Text>
+                    <Text style={st.cell}>{s.h}</Text>
+                    <Text style={st.cell}>{s.l}</Text>
+                    <Text style={[st.cell, st.cellPts, st.pts]}>{s.pts}</Text>
                   </View>
+                ))}
+                {enriched.length === 0 && (
+                  <Text style={st.noResults}>No matches played yet.{'\n'}Results will appear here as games complete.</Text>
+                )}
+              </View>
+            )}
 
-                  {dayMatches.map(m => {
-                    const { home, away } = matchNames(m);
-                    const mc = matchColors(m);
-                    const isTeamMatch = !!(m.home_team_id && m.away_team_id);
-                    const isMatchLive = m.status === 'in_progress';
-                    const isComplete  = m.status === 'complete';
-                    const isMyMatch = !!myPlayerId && ((m.home_player_ids ?? []).includes(myPlayerId) || (m.away_player_ids ?? []).includes(myPlayerId));
-                    const matchDest = isMyMatch
-                      ? ((m as any).round_format === 'team_stableford'
-                          ? `/(app)/score/teamstableford/${m.id}`
-                          : (m.away_player_ids ?? []).length === 0 && (m.home_player_ids ?? []).length === 1 ? `/(app)/score/solo/${m.id}` : `/(app)/score/enter/${m.id}`)
-                      : `/(app)/spectate/${m.id}`;
-                    return (
-                      <TouchableOpacity
-                        key={m.id}
-                        style={[
-                          st.matchRow,
-                          { backgroundColor: dc.card, borderColor: dc.border },
-                          isMatchLive && { borderColor: 'rgba(74,222,128,0.35)' },
-                        ]}
-                        onPress={() => router.push(matchDest as any)}
-                        activeOpacity={0.75}
-                      >
-                        {/* Home side */}
-                        <View style={{ flex: 1, alignItems: 'flex-start' }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            {isTeamMatch && (
-                              teamLogos[home]
-                                ? <Image source={teamLogos[home]} style={{ width: 22, height: 22 }} resizeMode="contain" />
-                                : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: mc.home }} />
-                            )}
-                            <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{home}</Text>
-                          </View>
+            {/* ── Kronos: per-day breakdown, then the combined running total ── */}
+            {leaderboardTab === 'kronos' && (
+              <View>
+                {kronosByDay.map(d => (
+                  <View key={d.dayId} style={{ marginBottom: 20 }}>
+                    <Text style={st.sectionHeader}>DAY {d.dayNumber}</Text>
+                    <View style={st.tableHeader}>
+                      <Text style={[st.cell, st.cellTeam, st.th]}>PLAYER</Text>
+                      <Text style={[st.cell, st.th]}>HLS</Text>
+                      <Text style={[st.cell, st.cellPts, st.th]}>PTS</Text>
+                    </View>
+                    {d.rows.map((r, i) => (
+                      <View key={r.playerId} style={[st.row, { backgroundColor: dc.card, borderColor: dc.border }, i === 0 && st.rowFirst]}>
+                        <View style={[st.cell, st.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                          <Text style={st.pos}>{i + 1}</Text>
+                          <Text style={st.teamName}>{r.name}</Text>
                         </View>
+                        <Text style={st.cell}>{r.holes}</Text>
+                        <Text style={[st.cell, st.cellPts, st.pts]}>{r.total}</Text>
+                      </View>
+                    ))}
+                    {d.rows.length === 0 && (
+                      <Text style={st.noResults}>No Stableford scores yet.</Text>
+                    )}
+                  </View>
+                ))}
 
-                        {/* Middle: vs / result / live */}
-                        <View style={{ alignItems: 'center', paddingHorizontal: 10, minWidth: 52 }}>
-                          {isMatchLive && (
-                            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN, marginBottom: 2 }} />
-                          )}
-                          {isComplete && m.result_str ? (
-                            <Text style={{ fontSize: 11, fontFamily: FFB, color: dc.gold, textAlign: 'center' }}>
-                              {m.result_str}
-                            </Text>
-                          ) : (
-                            <Text style={{ fontSize: 10, fontFamily: FFB, color: dc.cardText }}>vs</Text>
-                          )}
-                        </View>
-
-                        {/* Away side */}
-                        <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
-                            {isTeamMatch && (
-                              teamLogos[away]
-                                ? <Image source={teamLogos[away]} style={{ width: 22, height: 22 }} resizeMode="contain" />
-                                : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: mc.away }} />
-                            )}
-                            <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{away}</Text>
-                          </View>
-                        </View>
-
-                        <Text style={{ fontSize: 18, color: dc.cardText, marginLeft: 6 }}>›</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-
-                  {dayMatches.length === 0 && (
-                    <Text style={[st.noResults, { paddingVertical: 8 }]}>No matches yet.</Text>
+                <Text style={st.sectionHeader}>COMBINED — ORDER OF MERIT</Text>
+                <View>
+                  <View style={st.tableHeader}>
+                    <Text style={[st.cell, st.cellTeam, st.th]}>PLAYER</Text>
+                    <Text style={[st.cell, st.th]}>HLS</Text>
+                    <Text style={[st.cell, st.cellPts, st.th]}>PTS</Text>
+                  </View>
+                  {kronosRows.map((r, i) => (
+                    <View key={r.playerId} style={[st.row, { backgroundColor: dc.card, borderColor: dc.border }, i === 0 && st.rowFirst]}>
+                      <View style={[st.cell, st.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                        <Text style={st.pos}>{i + 1}</Text>
+                        <Text style={st.teamName}>{r.name}</Text>
+                      </View>
+                      <Text style={st.cell}>{r.holes}</Text>
+                      <Text style={[st.cell, st.cellPts, st.pts]}>{r.total}</Text>
+                    </View>
+                  ))}
+                  {kronosRows.length === 0 && (
+                    <Text style={st.noResults}>No Stableford scores yet.</Text>
                   )}
                 </View>
-              );
-            })}
+              </View>
+            )}
+
+            {/* ── Honours: past champions ── */}
+            {leaderboardTab === 'honours' && (
+              <View>
+                {champYears.map(year => {
+                  const yearChamps = champions.filter(c => c.year === year);
+                  return (
+                    <View key={year} style={{ marginBottom: 20 }}>
+                      <Text style={{
+                        fontSize: 10, fontFamily: FFB, color: dc.cardText,
+                        letterSpacing: 2, marginBottom: 10,
+                      }}>
+                        {year}
+                      </Text>
+                      {yearChamps.map(c => (
+                        <View key={c.id} style={[st.champCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
+                          <Text style={{ fontSize: 10, fontFamily: FFB, color: dc.gold, letterSpacing: 1, marginBottom: 4 }}>
+                            {c.award_name.toUpperCase()}
+                          </Text>
+                          <Text style={{ fontSize: 18, fontFamily: FFB, color: dc.cardText }}>{c.winner_name}</Text>
+                          {c.detail && (
+                            <Text style={{ fontSize: 13, fontFamily: FFB, color: dc.cardText, marginTop: 4 }}>{c.detail}</Text>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })}
+                {champYears.length === 0 && (
+                  <Text style={st.noResults}>No champions recorded yet.</Text>
+                )}
+              </View>
+            )}
           </View>
         )}
 
@@ -1119,6 +1179,13 @@ export default function TourScreen() {
 
 // ── Shared static styles ──────────────────────────────────────────────
 const st = StyleSheet.create({
+  // Leaderboard tabs
+  lbTabRow: { flexDirection: 'row', gap: 8, marginBottom: 18 },
+  lbTab: { flex: 1, borderRadius: 10, paddingVertical: 10, alignItems: 'center', backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c' },
+  lbTabOn: { backgroundColor: 'rgba(212,175,55,0.12)', borderColor: GOLD },
+  lbTabText: { fontFamily: 'JUSTSans-ExBold', fontSize: 12, color: '#888' },
+  lbTabTextOn: { color: GOLD },
+
   // TITAN header
   titanHeader: {
     alignItems: 'center',

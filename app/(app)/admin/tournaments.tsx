@@ -11,7 +11,6 @@ import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
 
 const GOLD = '#D4AF37';
-const GREEN = '#4ade80';
 const RED = '#f87171';
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
@@ -98,9 +97,9 @@ export default function AdminTournaments() {
     Share.share({ message: `Join ${comp.name} on Titan Golf — your PIN is: ${formatted}` });
   }
 
-  const active    = comps.filter(c => c.status === 'active');
+  // Active/draft tournaments now live under the Live Tournaments tile —
+  // History is purely the record of finished ones (+ champions/PINs).
   const completed = comps.filter(c => c.status === 'complete');
-  const draft     = comps.filter(c => c.status === 'draft');
 
   return (
     <View style={s.container}>
@@ -182,22 +181,6 @@ export default function AdminTournaments() {
           </View>
         )}
 
-        {/* Active competitions */}
-        {active.length > 0 && (
-          <View style={s.section}>
-            <Text style={s.sectionLabel}>ACTIVE</Text>
-            {active.map(c => <CompCard key={c.id} comp={c} onSharePin={() => sharePin(c)} onManage={() => router.push(`/(app)/admin/draw?id=${c.id}` as any)} onDelete={() => setDeleteTarget(c)} />)}
-          </View>
-        )}
-
-        {/* Draft competitions */}
-        {draft.length > 0 && (
-          <View style={s.section}>
-            <Text style={s.sectionLabel}>DRAFT</Text>
-            {draft.map(c => <CompCard key={c.id} comp={c} onSharePin={() => sharePin(c)} onManage={() => router.push(`/(app)/admin/draw?id=${c.id}` as any)} onDelete={() => setDeleteTarget(c)} />)}
-          </View>
-        )}
-
         {/* Completed competitions */}
         {completed.length > 0 && (
           <View style={s.section}>
@@ -228,13 +211,9 @@ export default function AdminTournaments() {
   );
 }
 
-function CompCard({ comp, onSharePin, onManage, onDelete }: { comp: Competition; onSharePin: () => void; onManage?: () => void; onDelete: () => void }) {
-  const statusColor =
-    comp.status === 'active'   ? GREEN :
-    comp.status === 'complete' ? GOLD  : '#555';
-  const statusLabel =
-    comp.status === 'active'   ? 'LIVE'     :
-    comp.status === 'complete' ? 'COMPLETE' : 'UPCOMING';
+function CompCard({ comp, onSharePin, onDelete }: { comp: Competition; onSharePin: () => void; onDelete: () => void }) {
+  const statusColor = GOLD;
+  const statusLabel = 'COMPLETE';
   const pin = String(comp.pin ?? '').replace(/[^0-9]/g, '');
   const courses = (comp.days ?? []).map((d: any) => d.course_name).filter(Boolean);
   const uniqueCourses = [...new Set(courses)];
@@ -269,11 +248,6 @@ function CompCard({ comp, onSharePin, onManage, onDelete }: { comp: Competition;
           </TouchableOpacity>
         )}
       </View>
-      {(comp.status === 'draft' || comp.status === 'active') && onManage && (
-        <TouchableOpacity style={s.manageBtn} onPress={onManage} activeOpacity={0.8}>
-          <Text style={s.manageBtnText}>MANAGE DRAW</Text>
-        </TouchableOpacity>
-      )}
       <TouchableOpacity style={s.deleteBtn} onPress={onDelete} activeOpacity={0.8}>
         <Text style={s.deleteBtnText}>Delete</Text>
       </TouchableOpacity>
@@ -362,8 +336,6 @@ const s = StyleSheet.create({
   },
   shareBtnText: { fontFamily: FFB, color: GOLD, fontSize: 11 },
 
-  manageBtn:     { marginTop: 10, backgroundColor: GOLD + '1A', borderWidth: 1, borderColor: GOLD + '55', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  manageBtnText: { fontFamily: FFB, fontSize: 12, color: GOLD, letterSpacing: 1 },
   deleteBtn:     { marginTop: 8, backgroundColor: RED + '14', borderWidth: 1, borderColor: RED + '40', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   deleteBtnText: { fontFamily: FFB, fontSize: 12, color: RED, letterSpacing: 1 },
 

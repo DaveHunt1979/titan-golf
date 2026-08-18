@@ -13,10 +13,10 @@ const FFB  = 'JUSTSans-ExBold';
 
 const TILES = [
   { key: 'build',    label: 'Build',    sub: 'Create a new season competition',            icon: 'construct-outline'       as const, route: '/(app)/admin/build' },
-  { key: 'history',  label: 'History',  sub: 'All competitions, champions & PINs',         icon: 'time-outline'            as const, route: '/(app)/admin/tournaments' },
+  { key: 'live',     label: 'Live Tournaments', sub: 'Amend a tournament that\'s already built', icon: 'radio-outline'      as const, route: '/(app)/admin/live-tournaments' },
+  { key: 'history',  label: 'History',  sub: 'Finished tournaments, champions & PINs',     icon: 'time-outline'            as const, route: '/(app)/admin/tournaments' },
   { key: 'branding', label: 'Branding', sub: 'Logo, colours & social media',               icon: 'color-palette-outline'   as const, route: '/(app)/admin/branding' },
-  { key: 'teams',    label: 'Teams',    sub: 'Crests, colours & squads',                   icon: 'people-outline'          as const, route: '/(app)/admin/teams' },
-  { key: 'transfer', label: 'Transfers',sub: 'Move players between teams',                 icon: 'swap-horizontal-outline' as const, route: '/(app)/admin/transfers' },
+  { key: 'transfer', label: 'Teams/Players', sub: 'Create teams, crests & move players',   icon: 'people-outline'          as const, route: '/(app)/admin/transfers' },
   { key: 'info',     label: 'Info Pack',sub: 'Schedule, rules & travel',                   icon: 'document-text-outline'   as const, route: '/(app)/admin/info' },
 ] as const;
 
