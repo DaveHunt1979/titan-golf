@@ -13,6 +13,7 @@ import { useSyncStatus } from '../../../src/lib/useSyncStatus';
 import { matchLabel, getEffectiveWinner, calcHoles, calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles } from '../../../src/lib/scoring';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
 import { initials } from '../../../src/lib/playerDisplay';
+import NewsTicker from '../../../src/components/NewsTicker';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -655,6 +656,7 @@ export default function SpectateScreen() {
         </View>
 
       </ScrollView>
+      <NewsTicker competitionId={match.competition_id} />
     </View>
   );
 }

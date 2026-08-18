@@ -108,6 +108,9 @@ export default function SwindleScoreScreen() {
   const [savedScores, setSavedScores] = useState<HoleScore[]>([]);
   const [groupPlayers, setGroupPlayers] = useState<GroupPlayer[] | null>(null);
   const [groupStartHole, setGroupStartHole] = useState(1);
+  const [groupVoiceOn, setGroupVoiceOn] = useState(true);
+  const [entryStartHole, setEntryStartHole] = useState(1);
+  const [entryVoiceOn, setEntryVoiceOn] = useState(true);
   const [guestCount, setGuestCount]     = useState(0);
   const [groupLoadError, setGroupLoadError] = useState(false);
   const [loading, setLoading]         = useState(true);
@@ -169,7 +172,7 @@ export default function SwindleScoreScreen() {
         // 2026-08-10 session) rather than rebuilt from scratch.
         const { data: myMembership, error: membershipErr } = await supabase
           .from('swindle_group_players')
-          .select('group_id, swindle_groups!inner(game_id, start_hole)')
+          .select('group_id, swindle_groups!inner(game_id, start_hole, voice_on)')
           .eq('player_id', p.id)
           .eq('is_guest', false)
           .eq('swindle_groups.game_id', gameId)
@@ -178,6 +181,7 @@ export default function SwindleScoreScreen() {
 
         if (myMembership) {
           setGroupStartHole((myMembership as any).swindle_groups?.start_hole ?? 1);
+          setGroupVoiceOn((myMembership as any).swindle_groups?.voice_on ?? true);
           const { data: roster, error: rosterErr } = await supabase
             .from('swindle_group_players')
             .select('player_id, is_guest')
@@ -236,6 +240,11 @@ export default function SwindleScoreScreen() {
           setGroupPlayers(built);
         } else {
           setGroupPlayers(null);
+          const { data: entry } = await supabase
+            .from('swindle_entries').select('start_hole, voice_on')
+            .eq('game_id', gameId).eq('player_id', p.id).maybeSingle();
+          setEntryStartHole((entry as any)?.start_hole ?? 1);
+          setEntryVoiceOn((entry as any)?.voice_on ?? true);
           const { data: scores } = await supabase
             .from('swindle_scores').select('hole_number, gross_score, stableford_pts')
             .eq('game_id', gameId).eq('player_id', p.id);
@@ -259,7 +268,13 @@ export default function SwindleScoreScreen() {
   }, [gameId, retryTick]));
 
   const scoredSet = new Set(savedScores.map(s => s.hole_number));
-  const nextHole  = (() => { for (let h = 1; h <= 18; h++) if (!scoredSet.has(h)) return h; return 19; })();
+  // Same wraparound shape as the group path's groupHoleSequence — a solo
+  // player can also start on a shifted hole (two-tee start), so "next hole"
+  // and the voice checkpoints below must walk this sequence, not raw 1-18.
+  const holeSequence = entryStartHole > 1
+    ? [...Array.from({ length: 19 - entryStartHole }, (_, i) => entryStartHole + i), ...Array.from({ length: entryStartHole - 1 }, (_, i) => i + 1)]
+    : Array.from({ length: 18 }, (_, i) => i + 1);
+  const nextHole  = holeSequence.find(h => !scoredSet.has(h)) ?? 19;
   const activeHole = editingHole ?? nextHole;
   const isComplete = scoredSet.size >= 18;
   const isStableford = (game?.format ?? 'stableford') === 'stableford';
@@ -301,16 +316,16 @@ export default function SwindleScoreScreen() {
   const introPlayedRef = useRef(false);
   const back9PlayedRef = useRef(false);
   useEffect(() => {
-    if (isGroupMode || !game || !playerName || loading || introPlayedRef.current) return;
-    if (nextHole === 1) {
+    if (isGroupMode || !game || !playerName || loading || introPlayedRef.current || !entryVoiceOn) return;
+    if (nextHole === holeSequence[0]) {
       introPlayedRef.current = true;
-      speakIntro([playerName.split(' ')[0]]);
+      speakIntro([playerName.split(' ')[0]], entryStartHole, holeSequence[17]);
     }
-  }, [isGroupMode, game, playerName, loading, nextHole]);
+  }, [isGroupMode, game, playerName, loading, nextHole, entryVoiceOn]);
 
   useEffect(() => {
-    if (isGroupMode || !game || !playerName || loading || back9PlayedRef.current) return;
-    if (nextHole === 10) {
+    if (isGroupMode || !game || !playerName || loading || back9PlayedRef.current || !entryVoiceOn) return;
+    if (nextHole === holeSequence[9]) {
       back9PlayedRef.current = true;
       const front9 = savedScores.filter(h => h.hole_number <= 9);
       const frontGross  = front9.reduce((s, h) => s + h.gross, 0);
@@ -368,7 +383,7 @@ export default function SwindleScoreScreen() {
         setGame(prev => prev ? { ...prev, status: 'in_progress' } : prev);
       }
 
-      if (!wasEditing && [6, 9, 12, 15, 16, 17, 18].includes(holeToSave)) {
+      if (!wasEditing && entryVoiceOn && [6, 9, 12, 15, 16, 17, 18].includes(holeSequence.indexOf(holeToSave) + 1)) {
         const { data: allScores } = await supabase.from('swindle_scores').select('player_id, stableford_pts').eq('game_id', gameId);
         const { data: entries } = await supabase.from('swindle_entries').select('player_id, players(display_name)').eq('game_id', gameId);
         if (allScores && entries) {
@@ -386,9 +401,24 @@ export default function SwindleScoreScreen() {
     }
   }
 
+  async function chooseStartHole(h: 1 | 10) {
+    if (!myId) return;
+    setEntryStartHole(h);
+    await supabase.from('swindle_entries')
+      .upsert({ game_id: gameId, player_id: myId, start_hole: h }, { onConflict: 'game_id,player_id' });
+  }
+
+  async function chooseVoiceOn(v: boolean) {
+    if (!myId) return;
+    setEntryVoiceOn(v);
+    await supabase.from('swindle_entries')
+      .upsert({ game_id: gameId, player_id: myId, voice_on: v }, { onConflict: 'game_id,player_id' });
+  }
+
   async function undoHole() {
-    if (!myId || saving || nextHole <= 1) return;
-    const lastDone = nextHole - 1;
+    const seqPos = holeSequence.indexOf(nextHole);
+    if (!myId || saving || seqPos <= 0) return;
+    const lastDone = holeSequence[seqPos - 1];
     setSaving(true);
     await supabase.from('swindle_scores').delete().eq('game_id', gameId).eq('player_id', myId).eq('hole_number', lastDone);
     setSavedScores(prev => prev.filter(h => h.hole_number !== lastDone));
@@ -438,6 +468,19 @@ export default function SwindleScoreScreen() {
       if (game.status === 'open') {
         await supabase.from('swindle_games').update({ status: 'in_progress' }).eq('id', gameId);
         setGame(prev => prev ? { ...prev, status: 'in_progress' } : prev);
+      }
+
+      // One commentary line per completed hole for the whole group — not
+      // per player saved, or four players finishing hole 15 would each
+      // trigger it back-to-back on whoever's holding the scoring phone.
+      if (!holeStillNeedsSomeone && groupVoiceOn) {
+        const pos = groupHoleSequence.indexOf(forHole) + 1;
+        if ([6, 9, 12, 15, 16, 17, 18].includes(pos)) {
+          const standings = [...updated]
+            .sort((a, b) => totalPtsForG(b) - totalPtsForG(a))
+            .map(pl => ({ name: pl.name.split(' ')[0], pts: totalPtsForG(pl) }));
+          speakPressure({ standings, holeNumber: forHole, holesLeft: 18 - pos, format: 'stableford' });
+        }
       }
     } finally {
       setSaving(false);
@@ -1003,6 +1046,44 @@ export default function SwindleScoreScreen() {
               </View>
             </View>
 
+            {/* Starting hole — two-tee starts, same choice groups get in swindle/group/new.tsx.
+                Only shown before the first score is entered. */}
+            {savedScores.length === 0 && !editingHole && (
+              <View style={s.startHoleRow}>
+                <Text style={s.startHoleLabel}>STARTING HOLE</Text>
+                <View style={s.startHoleToggle}>
+                  {([1, 10] as const).map(h => (
+                    <TouchableOpacity
+                      key={h}
+                      style={[s.startHoleBtn, entryStartHole === h && s.startHoleBtnActive]}
+                      onPress={() => chooseStartHole(h)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[s.startHoleBtnText, entryStartHole === h && s.startHoleBtnTextActive]}>Hole {h}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {savedScores.length === 0 && !editingHole && (
+              <View style={s.startHoleRow}>
+                <Text style={s.startHoleLabel}>CHIP &amp; BIRDIE VOICE</Text>
+                <View style={s.startHoleToggle}>
+                  {([true, false] as const).map(v => (
+                    <TouchableOpacity
+                      key={String(v)}
+                      style={[s.startHoleBtn, entryVoiceOn === v && s.startHoleBtnActive]}
+                      onPress={() => chooseVoiceOn(v)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[s.startHoleBtnText, entryVoiceOn === v && s.startHoleBtnTextActive]}>{v ? 'On' : 'Off'}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {/* Main CTA */}
             <TouchableOpacity
               style={[s.ctaBtn, editingHole ? { backgroundColor: '#ffffff' } : null]}
@@ -1020,10 +1101,10 @@ export default function SwindleScoreScreen() {
               <TouchableOpacity style={s.undoBtn} onPress={() => setEditingHole(null)} disabled={saving}>
                 <Text style={s.undoBtnText}>Cancel Edit</Text>
               </TouchableOpacity>
-            ) : nextHole > 1 ? (
+            ) : holeSequence.indexOf(nextHole) > 0 ? (
               <TouchableOpacity style={s.undoBtn} onPress={undoHole} disabled={saving}>
                 <Ionicons name="arrow-undo-outline" size={14} color="#ffffff" />
-                <Text style={s.undoBtnText}>Undo Hole {nextHole - 1}</Text>
+                <Text style={s.undoBtnText}>Undo Hole {holeSequence[holeSequence.indexOf(nextHole) - 1]}</Text>
               </TouchableOpacity>
             ) : null}
           </>
@@ -1075,7 +1156,7 @@ export default function SwindleScoreScreen() {
                   // Fire-and-forget — the outro voice line calls a network
                   // API (tts-caddie) with no timeout of its own; awaiting it
                   // here blocked finishing the round for 45s+ on poor signal.
-                  if (playerName) speakOutro(playerName.split(' ')[0], scoreDisplay);
+                  if (playerName && entryVoiceOn) speakOutro(playerName.split(' ')[0], scoreDisplay);
                   router.replace(`/(app)/swindle/${gameId}` as any);
                 }}
                 activeOpacity={0.85}
@@ -1298,6 +1379,14 @@ export default function SwindleScoreScreen() {
 const s = StyleSheet.create({
   root:    { flex: 1, backgroundColor: '#000000' },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
+
+  startHoleRow:         { paddingHorizontal: 16, marginTop: 14 },
+  startHoleLabel:       { fontFamily: FFB, fontSize: 10, color: '#888', letterSpacing: 1, marginBottom: 6 },
+  startHoleToggle:      { flexDirection: 'row', gap: 8 },
+  startHoleBtn:         { flex: 1, backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  startHoleBtnActive:   { borderColor: GOLD, backgroundColor: 'rgba(212,175,55,0.12)' },
+  startHoleBtnText:     { fontFamily: FFB, fontSize: 13, color: '#fff' },
+  startHoleBtnTextActive: { color: GOLD },
 
   header: { flexDirection: 'row', alignItems: 'center', paddingTop: 56, paddingHorizontal: 16, paddingBottom: 8 },
   headerSide:   { width: 40 },

@@ -703,6 +703,18 @@ export default function TourScreen() {
               <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Scores & prize positions</Text>
               <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
             </TouchableOpacity>
+            {!!competition && (
+              <TouchableOpacity
+                style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]}
+                onPress={() => router.push(`/(app)/news?competitionId=${competition.id}` as any)}
+                activeOpacity={0.82}
+              >
+                <Text style={st.sectionTileIcon}>📰</Text>
+                <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Titan News</Text>
+                <Text style={[st.sectionTileSub, { color: dc.cardText }]}>AI reports & previews</Text>
+                <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       )}

@@ -874,7 +874,7 @@ export default function EnterScoresScreen() {
       }
 
       if (!savedOffline) {
-        if (!editingHole && !wasAlreadyComplete && [6, 9, 12, 15, 16, 17, 18].includes(activeHole)) {
+        if (!editingHole && !wasAlreadyComplete && [6, 9, 12, 15, 16, 17, 18].includes(holeSequence.indexOf(activeHole) + 1)) {
           const updatedTotals = { ...playerTotals };
           for (const row of spRows) {
             updatedTotals[row.player_id] = (updatedTotals[row.player_id] ?? 0) + (row.stableford_pts ?? 0);
@@ -1089,11 +1089,11 @@ export default function EnterScoresScreen() {
 
     if (!savedOffline) {
       if (!editingHole) {
-        if (match.competition_id && newStatus !== 'complete' && [9, 12, 15].includes(activeHole)) {
+        if (match.competition_id && newStatus !== 'complete' && [9, 12, 15].includes(holeSequence.indexOf(activeHole) + 1)) {
           const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
           const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
           const { homeUp: newHomeUp } = calcHoles(seqStr, holesToPlay);
-          const at = activeHole === 9 ? 'the turn' : `hole ${activeHole}`;
+          const at = holeSequence.indexOf(activeHole) + 1 === 9 ? 'the turn' : `hole ${activeHole}`;
           const scoreBody = newHomeUp > 0
             ? `${homeTeam} ${newHomeUp}UP at ${at}`
             : newHomeUp < 0
@@ -1158,7 +1158,7 @@ export default function EnterScoresScreen() {
         }
       }
 
-      if (!editingHole && !wasAlreadyComplete && [9, 12, 15].includes(activeHole)) {
+      if (!editingHole && !wasAlreadyComplete && [9, 12, 15].includes(holeSequence.indexOf(activeHole) + 1)) {
         const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
         const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
         const { homeUp: newHomeUp, remaining: newRemaining } = calcHoles(seqStr, holesToPlay);

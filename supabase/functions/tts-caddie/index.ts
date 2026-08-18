@@ -48,14 +48,17 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { mode, voice = 'chip', hole, par, yardage, si, players, text } = body;
+    const { mode, voice = 'chip', hole, par, yardage, si, players, text, startHole, finishHole } = body;
 
     // ── Intro mode: BIG laughs — Chip opens, Birdie piles on ────────
     if (mode === 'intro') {
       const names = (players ?? []).join(', ') || 'lads';
+      const shotgunNote = (startHole && startHole !== 1)
+        ? ` They're on a shotgun start today — teeing off on hole ${startHole} and finishing on hole ${finishHole}. Mention that.`
+        : '';
 
       const [chipScript, birdieScript] = await Promise.all([
-        claudeText(`You are Chip, a savagely funny British golf commentator. Your job is to roast the players (${names}) as they're about to tee off. Be absolutely brutal — mock their handicaps, their fashion sense, their life choices, their swing. Like a best man speech meets golf commentary. Reference Birdie as your partner in crime. Under 35 words. No quotes, no stage directions. Pure gold banter.`),
+        claudeText(`You are Chip, a savagely funny British golf commentator. Your job is to roast the players (${names}) as they're about to tee off.${shotgunNote} Be absolutely brutal — mock their handicaps, their fashion sense, their life choices, their swing. Like a best man speech meets golf commentary. Reference Birdie as your partner in crime. Under 35 words. No quotes, no stage directions. Pure gold banter.`),
         claudeText(`You are Birdie, Chip's comedy co-host. Chip just roasted ${names}. Pile on with an even worse dig — something that sounds warm but absolutely destroys them. Could reference the weather, the course, or their total lack of ability. Under 25 words. No quotes, no stage directions.`),
       ]);
 

@@ -180,6 +180,8 @@ function AppLayoutInner() {
         <Tabs.Screen name="admin/pins"               options={{ href: null }} />
         <Tabs.Screen name="admin/tournaments"        options={{ href: null }} />
         <Tabs.Screen name="admin/live-tournaments"   options={{ href: null }} />
+        <Tabs.Screen name="admin/news"               options={{ href: null }} />
+        <Tabs.Screen name="news/index"                options={{ href: null }} />
         <Tabs.Screen name="score/day/[dayId]"        options={{ href: null }} />
         <Tabs.Screen name="score/scan/[matchId]"     options={{ href: null }} />
         <Tabs.Screen name="spectate/[matchId]"       options={{ href: null }} />
@@ -199,6 +201,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="friends"                  options={{ href: null }} />
         <Tabs.Screen name="add/[tag]"                options={{ href: null }} />
         <Tabs.Screen name="join" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+        <Tabs.Screen name="societies" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>
   );
 

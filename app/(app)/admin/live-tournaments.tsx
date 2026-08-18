@@ -128,6 +128,9 @@ export default function LiveTournaments() {
               <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/draw?id=${c.id}` as any)} activeOpacity={0.8}>
                 <Text style={s.manageBtnText}>MAKE AMENDS</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/news?id=${c.id}` as any)} activeOpacity={0.8}>
+                <Text style={s.manageBtnText}>TITAN NEWS</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={s.deleteBtn} onPress={() => setDeleteTarget(c)} activeOpacity={0.8}>
                 <Text style={s.deleteBtnText}>Delete</Text>
               </TouchableOpacity>

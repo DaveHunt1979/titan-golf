@@ -431,15 +431,15 @@ export default function SoloRoundScreen() {
 
   useEffect(() => {
     if (!match || !playerName || loading || introPlayedRef.current) return;
-    if (nextHole === 1) {
+    if (nextHole === holeSequence[0]) {
       introPlayedRef.current = true;
-      if (!voiceOff) speakIntro([playerName.split(' ')[0]]);
+      if (!voiceOff) speakIntro([playerName.split(' ')[0]], effectiveStartHole, lastSequenceHole);
     }
   }, [match, playerName, loading, nextHole]);
 
   useEffect(() => {
     if (!match || !playerName || loading || back9PlayedRef.current) return;
-    if (nextHole === 10) {
+    if (nextHole === holeSequence[9]) {
       back9PlayedRef.current = true;
       const front9 = savedScores.filter(h => h.hole_number <= 9);
       const frontGross  = front9.reduce((s, h) => s + h.gross, 0);

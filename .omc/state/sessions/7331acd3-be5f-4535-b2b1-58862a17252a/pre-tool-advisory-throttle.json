@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "entries": {
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1787065941989,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
+    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
+      "last_emitted_at_ms": 1787065788179,
+      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
+    },
+    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
+      "last_emitted_at_ms": 1787065707117,
+      "message": "Read multiple files in parallel when possible for faster analysis."
+    },
+    "f903fc5560164ab808f30af7e8d3f71d03eeecba5ac000a9735a58c5337cb061": {
+      "last_emitted_at_ms": 1787064245423,
+      "message": "Spawning agent: Explore (inherit) [BACKGROUND] | Task: Research edge function and AI-calling patterns"
+    },
+    "54df524fa603555a3612b4de4918a10175d6c1b36fd6a1a7c5424ab705b2de8c": {
+      "last_emitted_at_ms": 1787064238017,
+      "message": "Spawning agent: Explore (inherit) [BACKGROUND] | Task: Research admin section and feed/news UI patterns"
+    },
+    "cae9703ba00ad4f1cb4e8c415a8b49a636943fc56226cbee91cbc261633f7cd0": {
+      "last_emitted_at_ms": 1787064229258,
+      "message": "Spawning agent: Explore (inherit) [BACKGROUND] | Task: Research tournament/leaderboard data model"
+    }
+  },
+  "updated_at": "2026-08-18T15:12:21.989Z"
+}

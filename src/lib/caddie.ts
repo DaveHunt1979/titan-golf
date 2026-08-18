@@ -49,10 +49,10 @@ async function _playAudio(b64: string): Promise<void> {
   });
 }
 
-export async function speakIntro(players: string[]): Promise<void> {
+export async function speakIntro(players: string[], startHole?: number, finishHole?: number): Promise<void> {
   try {
     const { data, error } = await supabase.functions.invoke('tts-caddie', {
-      body: { mode: 'intro', players },
+      body: { mode: 'intro', players, startHole, finishHole },
     });
     if (error || !data?.chipAudio) return;
     await playBase64Audio(data.chipAudio);

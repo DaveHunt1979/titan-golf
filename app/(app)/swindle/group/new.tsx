@@ -38,6 +38,7 @@ export default function SwindleGroupNew() {
   const [teeTime,      setTeeTime]      = useState('');
   const [courseTee,    setCourseTee]    = useState('');
   const [startHole,    setStartHole]    = useState<1 | 10>(1);
+  const [voiceOn,      setVoiceOn]      = useState(true);
   const [members,      setMembers]      = useState<SwindleMember[]>([]);
   const [selected,     setSelected]     = useState<Set<string>>(new Set());
   const [myId,         setMyId]         = useState<string | null>(null);
@@ -139,7 +140,7 @@ export default function SwindleGroupNew() {
     // Create group
     const { data: group, error: groupErr } = await supabase
       .from('swindle_groups')
-      .insert({ game_id: gameId, tee_time: teeTime.trim(), course_tee: courseTee.trim() || null, start_hole: startHole, created_by: myId })
+      .insert({ game_id: gameId, tee_time: teeTime.trim(), course_tee: courseTee.trim() || null, start_hole: startHole, voice_on: voiceOn, created_by: myId })
       .select('id')
       .single();
 
@@ -252,6 +253,26 @@ export default function SwindleGroupNew() {
               </Text>
               <Text style={[s.toggleSub, startHole === h && s.toggleSubActive]}>
                 {h === 1 ? 'Front 9 first' : 'Back 9 first'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Chip & Birdie voice — on by default, group can mute it */}
+        <Text style={[s.fieldLabel, { marginTop: 20 }]}>CHIP &amp; BIRDIE VOICE</Text>
+        <View style={s.toggleRow}>
+          {([true, false] as const).map(v => (
+            <TouchableOpacity
+              key={String(v)}
+              style={[s.toggleBtn, voiceOn === v && s.toggleBtnActive]}
+              onPress={() => setVoiceOn(v)}
+              activeOpacity={0.8}
+            >
+              <Text style={[s.toggleText, voiceOn === v && s.toggleTextActive]}>
+                {v ? 'On' : 'Off'}
+              </Text>
+              <Text style={[s.toggleSub, voiceOn === v && s.toggleSubActive]}>
+                {v ? 'Commentary on checkpoints' : 'Silent round'}
               </Text>
             </TouchableOpacity>
           ))}

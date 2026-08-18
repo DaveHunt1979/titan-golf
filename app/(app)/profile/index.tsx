@@ -472,7 +472,7 @@ export default function ProfileScreen() {
                 icon="swap-horizontal-outline"
                 title="Switch Society"
                 sub="Change your active golf society"
-                onPress={() => router.push('/(app)/join' as any)}
+                onPress={() => router.push('/(app)/societies' as any)}
               />
               <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
               <View style={s.quickLink}>

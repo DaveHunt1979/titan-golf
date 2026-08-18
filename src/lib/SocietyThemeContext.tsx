@@ -148,6 +148,7 @@ export interface SocietyTheme {
   palette:         ThemePalette;
   lightMode:       boolean;
   toggleLightMode: () => void;
+  switchSociety:   (societyId: string) => Promise<void>;
 }
 
 const DEFAULT: SocietyTheme = {
@@ -162,6 +163,7 @@ const DEFAULT: SocietyTheme = {
   palette:         TITAN_PALETTE,
   lightMode:       false,
   toggleLightMode: () => {},
+  switchSociety:   async () => {},
 };
 
 const Ctx = createContext<SocietyTheme>(DEFAULT);
@@ -170,7 +172,7 @@ const SOCIETY_COLOR_DEFAULTS: Record<string, { primary: string; secondary: strin
   'mashie golf': { primary: '#000035', secondary: '#ffffff' },
 };
 
-type BaseTheme = Omit<SocietyTheme, 'lightMode' | 'toggleLightMode'>;
+type BaseTheme = Omit<SocietyTheme, 'lightMode' | 'toggleLightMode' | 'switchSociety'>;
 
 async function fetchTheme(): Promise<BaseTheme> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -263,11 +265,18 @@ export function SocietyThemeProvider({ children }: { children: ReactNode }) {
     });
   }
 
+  async function switchSociety(societyId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await AsyncStorage.setItem(societyKey(user.id), societyId);
+    setBase(await fetchTheme());
+  }
+
   const palette = lightMode
     ? deriveLightPalette(base.primaryColor, base.secondaryColor)
     : base.palette;
 
-  const value: SocietyTheme = { ...base, palette, lightMode, toggleLightMode };
+  const value: SocietyTheme = { ...base, palette, lightMode, toggleLightMode, switchSociety };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

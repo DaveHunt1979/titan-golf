@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"textutil -convert txt -stdout \\\"screenshots/titan broadcast ai.docx\\\" > /private/tmp/claude-501/-Users-davehunt-Desktop-titan-golf/7331acd3-be5f-4535-b2b1-58862a17252a/scratchpad/titan-bro...",
+  "error": "Exit code 1\n(eval):1: no such file or directory: /private/tmp/claude-501/-Users-davehunt-Desktop-titan-golf/7331acd3-be5f-4535-b2b1-58862a17252a/scratchpad/titan-broadcast-ai.txt\n(eval):2: no such file or directory: /private/tmp/claude-501/-Users-davehunt-Desktop-titan-golf/7331acd3-be5f-4535-b2b1-58862a17252a/scratchpad/titan-coach.txt\ndone\nwc: /private/tmp/claude-501/-Users-davehunt-Desktop-titan-golf/7331acd3-be5f-4535-b2b1-58862a17252a/scratchpad/titan-broadcast-ai.txt: open: No such file or...",
+  "timestamp": "2026-08-18T14:22:41.953Z",
+  "retry_count": 1
+}
