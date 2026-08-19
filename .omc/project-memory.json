@@ -264,8 +264,8 @@
     },
     {
       "path": "app/(app)/swindle/[gameId].tsx",
-      "accessCount": 53,
-      "lastAccessed": 1787122562640,
+      "accessCount": 56,
+      "lastAccessed": 1787129462550,
       "type": "file"
     },
     {
@@ -284,6 +284,12 @@
       "path": "app/(app)/swindle/group/new.tsx",
       "accessCount": 18,
       "lastAccessed": 1787064009764,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/inbox/[playerId].tsx",
+      "accessCount": 14,
+      "lastAccessed": 1787130440730,
       "type": "file"
     },
     {
@@ -338,12 +344,6 @@
       "path": "app/(app)/admin/tournaments.tsx",
       "accessCount": 8,
       "lastAccessed": 1787049281868,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/inbox/[playerId].tsx",
-      "accessCount": 7,
-      "lastAccessed": 1787050324936,
       "type": "file"
     },
     {
@@ -455,6 +455,12 @@
       "type": "file"
     },
     {
+      "path": "supabase/migrations/20260818020000_direct_messages.sql",
+      "accessCount": 2,
+      "lastAccessed": 1787128224814,
+      "type": "file"
+    },
+    {
       "path": "supabase/migrations/20260804_swindle_groups.sql",
       "accessCount": 1,
       "lastAccessed": 1786962214292,
@@ -530,12 +536,6 @@
       "path": "supabase/migrations/20260813b_player_library.sql",
       "accessCount": 1,
       "lastAccessed": 1787044290103,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260818020000_direct_messages.sql",
-      "accessCount": 1,
-      "lastAccessed": 1787044368902,
       "type": "file"
     },
     {

@@ -171,6 +171,8 @@ export default function BuildTournamentScreen() {
   const [endDate, setEndDate]             = useState('');
   const [numTeams, setNumTeams]           = useState('2');
   const [maxHandicap, setMaxHandicap]     = useState('');
+  const [prizePool, setPrizePool]         = useState('');
+  const [prizeSplit, setPrizeSplit]       = useState('');
   const [logoUri, setLogoUri]             = useState<string | null>(null);
   const [creating, setCreating]             = useState(false);
   const [courses, setCourses]             = useState<CourseItem[]>([]);
@@ -344,6 +346,10 @@ export default function BuildTournamentScreen() {
     const openingRoundsN = parseInt(openingRounds, 10) || 0;
     const bonusPointsN   = parseFloat(bonusPoints) || 0;
     const maxHandicapN   = maxHandicap.trim() ? parseFloat(maxHandicap) : null;
+    const prizePoolN     = prizePool.trim() ? parseFloat(prizePool) : null;
+    const prizeSplitArr  = prizeSplit.trim()
+      ? prizeSplit.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n))
+      : null;
 
     const settings = {
       format_type: selectedFormat,
@@ -381,6 +387,8 @@ export default function BuildTournamentScreen() {
         status:          'draft',
         settings,
         include_in_kronos: includeInKronos,
+        prize_pool:      prizePoolN,
+        prize_split:     prizeSplitArr,
         pin,
       })
       .select()
@@ -860,6 +868,27 @@ export default function BuildTournamentScreen() {
                 thumbColor={includeInKronos ? GOLD : '#555'}
               />
             </View>
+
+            <Text style={styles.fieldLabel}>PRIZE POOL (OPTIONAL)</Text>
+            <Text style={styles.stepSub}>Shown on the Titan Newsreel results page once the tournament's complete.</Text>
+            <TextInput
+              style={styles.input}
+              value={prizePool}
+              onChangeText={setPrizePool}
+              placeholder="e.g. 24000"
+              placeholderTextColor="#444"
+              keyboardType="decimal-pad"
+            />
+            <Text style={styles.fieldLabel}>PRIZE SPLIT (%, BY FINISHING POSITION)</Text>
+            <Text style={styles.stepSub}>Comma-separated, one per team, e.g. 40,25,15,10,5,5 for six teams.</Text>
+            <TextInput
+              style={styles.input}
+              value={prizeSplit}
+              onChangeText={setPrizeSplit}
+              placeholder="e.g. 40,25,15,10,5,5"
+              placeholderTextColor="#444"
+              autoCapitalize="none"
+            />
           </View>
         )}
 

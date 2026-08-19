@@ -1,0 +1,97 @@
+/* Titan Newsreel — ported near-verbatim from screenshots/titan_showdown_swipebook.html
+   (Rick's reference mockup). Pure CSS scroll-snap, no JS. Scoped under
+   .newsreel so it can't leak into the rest of the site — this page has its
+   own "Showdown" navy/red/gold identity, distinct from the app's own
+   gold-on-black theme. */
+
+.newsreel {
+  --navy:#06172b; --navy2:#0b2747; --red:#d9222a; --paper:#f4f6f8;
+  --gold:#d6b35a; --muted:#607080; --line:#d8e0e8; --green:#13895e;
+  height: 100dvh; min-height: 100vh; overflow: hidden;
+  font-family: Inter, Arial, Helvetica, sans-serif;
+  background: linear-gradient(180deg,#020b15,#06172b 55%,#020a12);
+  color: #111;
+}
+.newsreel * { box-sizing: border-box; }
+.newsreel .app { height: 100%; display: flex; flex-direction: column; }
+.newsreel .topbar {
+  height: 62px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 18px; background: #02101f; color: #fff; border-bottom: 1px solid #1b3754;
+}
+.newsreel .brand { display: flex; align-items: center; gap: 10px; font-weight: 900; letter-spacing: .08em; }
+.newsreel .shield { width: 34px; height: 40px; border: 2px solid #fff; border-radius: 4px 4px 11px 11px; display: grid; place-items: center; font-size: 18px; }
+.newsreel .brand em { color: var(--red); font-style: normal; }
+.newsreel .swipehint { font-size: 11px; color: #d8e5f0; letter-spacing: .06em; white-space: nowrap; }
+.newsreel .pagebadge { font-size: 12px; background: #0b2747; border: 1px solid #294663; padding: 8px 11px; border-radius: 8px; }
+.newsreel .stage { flex: 1; display: block; overflow: hidden; padding: 0; min-height: 0; }
+.newsreel .book {
+  position: relative; width: 100%; height: 100%; display: flex;
+  overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch; touch-action: pan-x; overscroll-behavior-x: contain;
+}
+.newsreel .page {
+  position: relative; flex: 0 0 100%; width: 100%; height: 100%;
+  scroll-snap-align: start; scroll-snap-stop: always;
+  background: var(--paper); overflow: hidden; display: grid; grid-template-rows: auto 1fr auto;
+}
+.newsreel .page-header {
+  background: var(--navy); color: #fff; padding: 12px 17px; display: flex;
+  justify-content: space-between; align-items: center; border-bottom: 5px solid var(--red);
+  position: sticky; top: 0; z-index: 5;
+}
+.newsreel .page-header .title { font-size: 13px; font-weight: 900; letter-spacing: .11em; }
+.newsreel .page-header .day { font-weight: 900; background: var(--red); padding: 8px 12px; border-radius: 4px; text-transform: uppercase; font-size: 12px; }
+.newsreel .content { padding: 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.newsreel .footer { background: var(--navy); color: #fff; padding: 8px 15px; display: flex; justify-content: space-between; font-size: 10px; letter-spacing: .09em; position: sticky; bottom: 0; z-index: 5; }
+.newsreel .cover { background: linear-gradient(120deg,rgba(2,14,28,.96),rgba(3,22,40,.74)),radial-gradient(circle at 78% 24%,#557d96,#14334f 40%,#06172b 74%); color: #fff; }
+.newsreel .kicker { display: inline-block; background: var(--red); padding: 6px 9px; border-radius: 999px; font-size: 11px; font-weight: 900; letter-spacing: .06em; }
+.newsreel .hero h1 { font-size: clamp(40px,9vw,84px); line-height: .87; margin: 10px 0 15px; text-transform: uppercase; letter-spacing: -.03em; }
+.newsreel .hero h1 span { color: var(--red); }
+.newsreel .hero p { font-size: 17px; line-height: 1.5; color: #dce7ef; max-width: 650px; }
+.newsreel .meta { display: grid; gap: 8px; margin-top: 20px; font-weight: 800; font-size: 14px; }
+.newsreel .teams { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-top: 16px; }
+.newsreel .teamcard { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); padding: 11px; border-radius: 9px; font-size: 12px; line-height: 1.4; }
+.newsreel .teamcard b { display: block; font-size: 14px; }
+.newsreel .crest { width: 34px; height: 34px; border: 2px solid currentColor; border-radius: 50%; display: grid; place-items: center; margin-bottom: 6px; font-weight: 900; }
+.newsreel .headline { font-size: 28px; line-height: .98; margin: 0 0 7px; text-transform: uppercase; color: var(--navy); }
+.newsreel .dek { color: #465566; margin: 0 0 13px; font-size: 14px; line-height: 1.45; }
+.newsreel .grid2 { display: block; }
+.newsreel .grid2 > div + div { margin-top: 10px; }
+.newsreel .panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 11px; }
+.newsreel .panel h3 { margin: 0 0 8px; color: var(--navy); font-size: 13px; text-transform: uppercase; letter-spacing: .02em; }
+.newsreel .story { font-size: 13px; line-height: 1.5; color: #263444; }
+.newsreel .story + .story { margin-top: 10px; }
+.newsreel table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.newsreel th { background: #e7edf3; color: #0b2747; text-align: left; padding: 6px; font-size: 10px; text-transform: uppercase; }
+.newsreel td { padding: 6px; border-bottom: 1px solid #e6ebef; }
+.newsreel .leader tr:nth-child(2) td { background: #edf5ff; font-weight: 900; color: #0b2747; }
+.newsreel .champion { background: linear-gradient(120deg,#06172b,#0b2747 58%,#163d62); color: #fff; }
+.newsreel .champion .headline { color: #fff; }
+.newsreel .champion .dek, .newsreel .champion .story { color: #dce7ef; }
+.newsreel .champion .panel { color: #111; }
+.newsreel .trophy { font-size: 72px; text-align: center; filter: drop-shadow(0 10px 18px rgba(0,0,0,.3)); }
+.newsreel .award { display: flex; justify-content: space-between; gap: 10px; background: #fff; border: 1px solid #dde3e9; border-radius: 7px; padding: 8px; font-size: 11px; }
+.newsreel .awards { display: grid; gap: 7px; }
+.newsreel .small { font-size: 11px; color: #687687; }
+.newsreel .controls { height: 0; }
+
+@media (min-width: 761px) {
+  .newsreel .grid2 { display: grid; grid-template-columns: 1.18fr .82fr; gap: 14px; }
+  .newsreel .grid2 > div + div { margin-top: 0; }
+  .newsreel .teams { grid-template-columns: repeat(2,1fr); }
+}
+
+/* Print → PDF: stack every page vertically with a break between each, hide
+   the swipe chrome. No PDF library anywhere in this codebase — this plus
+   the browser's own "Save as PDF" print target is the whole mechanism. */
+@media print {
+  .newsreel { height: auto; overflow: visible; background: #fff; }
+  .newsreel .topbar, .newsreel .footer, .newsreel .print-hide { display: none; }
+  .newsreel .stage, .newsreel .book { overflow: visible; height: auto; display: block; }
+  .newsreel .page {
+    height: auto; page-break-after: always; scroll-snap-align: none;
+    display: block;
+  }
+  .newsreel .page-header { position: static; }
+  .newsreel .content { overflow: visible; }
+}

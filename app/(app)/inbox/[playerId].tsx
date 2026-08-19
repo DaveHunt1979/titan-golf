@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Alert,
+  StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Alert, Linking,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useFonts } from 'expo-font';
@@ -17,13 +17,14 @@ const FFB    = 'JUSTSans-ExBold';
 
 interface DM {
   id: string; sender_id: string; recipient_id: string; content: string; created_at: string;
-  message_type: 'text' | 'tournament_invite';
+  message_type: 'text' | 'tournament_invite' | 'newsreel';
   competition_id: string | null;
   invite_response: 'accepted' | 'declined' | null;
+  link_url: string | null;
   competitions: { name: string; pin: string | null } | null;
 }
 
-const DM_SELECT = 'id, sender_id, recipient_id, content, created_at, message_type, competition_id, invite_response, competitions(name, pin)';
+const DM_SELECT = 'id, sender_id, recipient_id, content, created_at, message_type, competition_id, invite_response, link_url, competitions(name, pin)';
 
 export default function DmThread() {
   const { playerId, name, avatar } = useLocalSearchParams<{ playerId: string; name?: string; avatar?: string }>();
@@ -143,6 +144,24 @@ export default function DmThread() {
 
   const renderMessage = ({ item, index }: { item: DM; index: number }) => {
     const isMe = item.sender_id === myId;
+
+    if (item.message_type === 'newsreel') {
+      return (
+        <View style={ss.inviteWrap}>
+          <View style={ss.inviteCard}>
+            <Text style={ss.inviteEmoji}>📰</Text>
+            <Text style={ss.inviteHeading}>Titan Newsreel</Text>
+            <Text style={ss.inviteBody}>{item.content}</Text>
+            {item.link_url && (
+              <TouchableOpacity style={ss.inviteYesBtn} onPress={() => Linking.openURL(item.link_url!)} activeOpacity={0.85}>
+                <Text style={ss.inviteYesText}>Read the Newsreel</Text>
+              </TouchableOpacity>
+            )}
+            <Text style={[ss.time, { alignSelf: 'center', marginTop: 8 }]}>{formatTime(item.created_at)}</Text>
+          </View>
+        </View>
+      );
+    }
 
     if (item.message_type === 'tournament_invite') {
       return (

@@ -1,13 +1,14 @@
 import { useCallback, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  RefreshControl, Alert, Image, ActivityIndicator,
+  RefreshControl, Alert, Image, ActivityIndicator, Modal, FlatList,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { buildPreviewSnapshot, buildRoundReportSnapshot, buildFinalReportSnapshot } from '../../../src/lib/titanNews';
+import { sendMatchNotification } from '../../../src/lib/notifications';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
 
 const GOLD  = '#D4AF37';
@@ -16,12 +17,22 @@ const RED   = '#f87171';
 const FFB   = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
-type Day = { id: string; day_number: number; course_name: string | null; complete: boolean; hasMatches: boolean };
+// Placeholder until the web/ Next.js app is actually deployed (Phase 6 —
+// tracked separately, needs a real Vercel project). Update this the moment
+// there's a real URL, otherwise every "Publish & Send" before that sends a
+// dead link.
+const NEWSREEL_BASE_URL = 'https://titan-golf-web.vercel.app';
+
+type Day = {
+  id: string; day_number: number; course_name: string | null; complete: boolean; hasMatches: boolean;
+  ntp_hole: number | null; ld_hole: number | null; ntp_winner_id: string | null; ld_winner_id: string | null;
+};
 type Article = {
   id: string; story_type: string; day_id: string | null;
   headline: string | null; summary: string | null; body: string | null;
   status: 'draft' | 'published' | 'rejected'; created_at: string;
 };
+type Entrant = { player_id: string; display_name: string };
 
 const STORY_LABEL: Record<string, string> = { preview: 'Preview', round_report: 'Round Report', final_report: 'Final Report' };
 
@@ -37,30 +48,39 @@ export default function AdminNewsScreen() {
   const [compName, setCompName]   = useState('');
   const [days, setDays]           = useState<Day[]>([]);
   const [articles, setArticles]   = useState<Article[]>([]);
+  const [entrants, setEntrants]   = useState<Entrant[]>([]);
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [generating, setGenerating] = useState<string | null>(null);
   const [expanded, setExpanded]   = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Article | null>(null);
   const [deleting, setDeleting]   = useState(false);
+  const [showWinner, setShowWinner] = useState<{ dayId: string; type: 'ntp' | 'ld' } | null>(null);
+  const [sending, setSending]     = useState(false);
 
   const load = useCallback(async () => {
     if (!competitionId) return;
-    const [{ data: comp }, { data: daysData }, { data: matchesData }, { data: articlesData }] = await Promise.all([
+    const [{ data: comp }, { data: daysData }, { data: matchesData }, { data: articlesData }, { data: playersData }] = await Promise.all([
       supabase.from('competitions').select('name').eq('id', competitionId).single(),
-      supabase.from('competition_days').select('id, day_number, course_name').eq('competition_id', competitionId).order('day_number'),
+      supabase.from('competition_days').select('id, day_number, course_name, ntp_hole, ld_hole, ntp_winner_id, ld_winner_id').eq('competition_id', competitionId).order('day_number'),
       supabase.from('matches').select('day_id, status').eq('competition_id', competitionId),
       supabase.from('titan_news').select('id, story_type, day_id, headline, summary, body, status, created_at')
         .eq('competition_id', competitionId).order('created_at', { ascending: false }),
+      supabase.from('competition_players').select('player_id, status, players(display_name)').eq('competition_id', competitionId).neq('status', 'declined'),
     ]);
 
     if (comp) setCompName((comp as any).name ?? '');
     const builtDays: Day[] = ((daysData ?? []) as any[]).map(d => {
       const dayMatches = ((matchesData ?? []) as any[]).filter(m => m.day_id === d.id);
-      return { id: d.id, day_number: d.day_number, course_name: d.course_name, hasMatches: dayMatches.length > 0, complete: dayMatches.length > 0 && dayMatches.every(m => m.status === 'complete') };
+      return {
+        id: d.id, day_number: d.day_number, course_name: d.course_name,
+        hasMatches: dayMatches.length > 0, complete: dayMatches.length > 0 && dayMatches.every(m => m.status === 'complete'),
+        ntp_hole: d.ntp_hole, ld_hole: d.ld_hole, ntp_winner_id: d.ntp_winner_id, ld_winner_id: d.ld_winner_id,
+      };
     });
     setDays(builtDays);
     setArticles((articlesData ?? []) as Article[]);
+    setEntrants(((playersData ?? []) as any[]).map(p => ({ player_id: p.player_id, display_name: p.players?.display_name ?? '—' })));
     setLoading(false);
     setRefreshing(false);
   }, [competitionId]);
@@ -125,6 +145,69 @@ export default function AdminNewsScreen() {
     load();
   }
 
+  async function setWinner(dayId: string, type: 'ntp' | 'ld', playerId: string) {
+    const col = type === 'ntp' ? 'ntp_winner_id' : 'ld_winner_id';
+    await supabase.from('competition_days').update({ [col]: playerId }).eq('id', dayId);
+    setShowWinner(null);
+    load();
+  }
+
+  // Loops the same single-story generate() call used by the per-round
+  // buttons above — one round_report per completed day missing one, then
+  // the final_report — so the admin doesn't have to press every button
+  // individually once the tournament's actually finished.
+  async function generateAll() {
+    for (const d of completedDays) {
+      const key = `round_report:${d.id}`;
+      if (!articles.some(a => a.story_type === 'round_report' && a.day_id === d.id)) {
+        await generate('round_report', d.id);
+      }
+    }
+    if (allComplete && !articles.some(a => a.story_type === 'final_report')) {
+      await generate('final_report', null);
+    }
+  }
+
+  // Bulk-publishes every draft, then delivers the newsreel link the same
+  // way tournament enrollment already notifies players (finishDraft() in
+  // admin/build.tsx) — a DM per entrant plus an actual push, since a
+  // finished recap is worth surfacing more than the silent-DM enrollment
+  // flow does today.
+  async function publishAndSend() {
+    if (!competitionId || sending) return;
+    setSending(true);
+    try {
+      const drafts = articles.filter(a => a.status === 'draft');
+      if (drafts.length) {
+        const { error: pubErr } = await supabase.from('titan_news')
+          .update({ status: 'published', published_at: new Date().toISOString() })
+          .in('id', drafts.map(a => a.id));
+        if (pubErr) { Alert.alert('Error', pubErr.message); return; }
+      }
+
+      const link = `${NEWSREEL_BASE_URL}/newsreel/${competitionId}`;
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: me } = await supabase.from('players').select('id').eq('auth_uid', user?.id ?? '').maybeSingle();
+      const rows = entrants
+        .filter(e => e.player_id !== (me as any)?.id)
+        .map(e => ({
+          sender_id: (me as any)?.id, recipient_id: e.player_id,
+          content: `📰 The ${compName} Newsreel is out — read the full story`,
+          message_type: 'newsreel' as const, competition_id: competitionId, link_url: link,
+        }));
+      if (rows.length) {
+        const { error: dmErr } = await supabase.from('direct_messages').insert(rows);
+        if (dmErr) { Alert.alert('Newsreel published, but sending failed', dmErr.message); return; }
+      }
+
+      await sendMatchNotification(competitionId, '📰 Your Tournament Report', `The ${compName} Newsreel is ready to read`, entrants.map(e => e.player_id));
+      Alert.alert('Sent', `The Newsreel is published and sent to ${rows.length} player${rows.length === 1 ? '' : 's'}.`);
+      load();
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <View style={s.container}>
       <StatusBar style="light" />
@@ -175,6 +258,55 @@ export default function AdminNewsScreen() {
           />
           {!allComplete && <Text style={s.genNote}>Final report unlocks once every round is complete.</Text>}
         </View>
+
+        {completedDays.some(d => d.ntp_hole || d.ld_hole) && (
+          <>
+            <Text style={s.sectionLabel}>NEAREST THE PIN / LONGEST DRIVE</Text>
+            <View style={s.genCard}>
+              {completedDays.filter(d => d.ntp_hole || d.ld_hole).map(d => (
+                <View key={d.id}>
+                  {d.ntp_hole && (
+                    <WinnerRow
+                      label={`Round ${d.day_number} NTP — Hole ${d.ntp_hole}`}
+                      winnerName={entrants.find(e => e.player_id === d.ntp_winner_id)?.display_name ?? null}
+                      onPress={() => setShowWinner({ dayId: d.id, type: 'ntp' })}
+                    />
+                  )}
+                  {d.ld_hole && (
+                    <WinnerRow
+                      label={`Round ${d.day_number} LD — Hole ${d.ld_hole}`}
+                      winnerName={entrants.find(e => e.player_id === d.ld_winner_id)?.display_name ?? null}
+                      onPress={() => setShowWinner({ dayId: d.id, type: 'ld' })}
+                    />
+                  )}
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
+        {allComplete && (
+          <>
+            <Text style={s.sectionLabel}>TITAN NEWSREEL</Text>
+            <View style={s.genCard}>
+              <TouchableOpacity style={s.genBtn} onPress={generateAll} disabled={!!generating} activeOpacity={0.8}>
+                <Text style={s.genBtnText}>Generate All Reports</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.genBtn, s.actionBtnPrimary, (sending || articles.length === 0) && s.genBtnDisabled]}
+                onPress={() => Alert.alert(
+                  'Publish & Send Newsreel',
+                  `Publish every draft story and send a link to all ${entrants.length} player${entrants.length === 1 ? '' : 's'}?`,
+                  [{ text: 'Cancel', style: 'cancel' }, { text: 'Send', onPress: publishAndSend }],
+                )}
+                disabled={sending || articles.length === 0}
+                activeOpacity={0.8}
+              >
+                {sending ? <ActivityIndicator color={GOLD} size="small" /> : <Text style={[s.genBtnText, s.actionBtnTextPrimary]}>Publish & Send Newsreel</Text>}
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         <Text style={s.sectionLabel}>ARTICLES</Text>
         {articles.length === 0 ? (
@@ -237,6 +369,36 @@ export default function AdminNewsScreen() {
         onConfirm={deleteArticle}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      <Modal visible={showWinner !== null} animationType="slide" transparent>
+        <View style={s.pickerOverlay}>
+          <View style={s.pickerSheet}>
+            <View style={s.pickerHeader}>
+              <Text style={s.pickerTitle}>{showWinner?.type === 'ntp' ? 'NTP Winner' : 'LD Winner'}</Text>
+              <TouchableOpacity onPress={() => setShowWinner(null)} activeOpacity={0.7}>
+                <Text style={s.pickerClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={entrants}
+              keyExtractor={e => e.player_id}
+              renderItem={({ item }) => {
+                const day = days.find(d => d.id === showWinner?.dayId);
+                const isActive = item.player_id === (showWinner?.type === 'ntp' ? day?.ntp_winner_id : day?.ld_winner_id);
+                return (
+                  <TouchableOpacity
+                    style={[s.pickerItem, isActive && s.pickerItemActive]}
+                    onPress={() => showWinner && setWinner(showWinner.dayId, showWinner.type, item.player_id)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[s.pickerItemText, isActive && { color: GOLD }]}>{item.display_name}</Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -246,6 +408,22 @@ function GenButton({ label, busy, disabled, onPress }: { label: string; busy: bo
     <TouchableOpacity style={[s.genBtn, disabled && s.genBtnDisabled]} onPress={onPress} disabled={disabled} activeOpacity={0.8}>
       {busy ? <ActivityIndicator color={GOLD} size="small" /> : <Text style={s.genBtnText}>Generate {label}</Text>}
     </TouchableOpacity>
+  );
+}
+
+function WinnerRow({ label, winnerName, onPress }: { label: string; winnerName: string | null; onPress: () => void }) {
+  return (
+    <View style={s.cardRow}>
+      <View style={{ flex: 1 }}>
+        <Text style={s.winnerLabel}>{label}</Text>
+        {winnerName && <Text style={s.cardRowName}>{winnerName}</Text>}
+      </View>
+      {!winnerName && (
+        <TouchableOpacity style={s.setWinnerBtn} onPress={onPress} activeOpacity={0.8}>
+          <Text style={s.setWinnerText}>Set Winner</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -297,4 +475,19 @@ const s = StyleSheet.create({
   emptyEmoji: { fontSize: 40 },
   emptyTitle: { fontFamily: FFB, fontSize: 16, color: '#fff' },
   emptySub:   { fontFamily: FFB, fontSize: 13, color: '#888', textAlign: 'center', paddingHorizontal: 28 },
+
+  cardRow:       { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
+  cardRowName:   { fontFamily: FFB, fontSize: 14, color: '#fff', marginTop: 2 },
+  winnerLabel:   { fontFamily: FFB, fontSize: 11, color: '#888', letterSpacing: 0.5 },
+  setWinnerBtn:  { backgroundColor: GOLD + '1F', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: GOLD + '4D' },
+  setWinnerText: { fontSize: 12, fontFamily: FFB, color: GOLD },
+
+  pickerOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  pickerSheet:      { backgroundColor: '#111', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40, maxHeight: '60%', borderTopWidth: 1, borderColor: '#1c1c1c' },
+  pickerHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  pickerTitle:      { fontSize: 17, fontFamily: FFB, color: '#fff' },
+  pickerClose:      { fontSize: 17, fontFamily: FFB, color: '#fff', paddingHorizontal: 8 },
+  pickerItem:       { paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
+  pickerItemActive: { backgroundColor: 'rgba(212,175,55,0.08)' },
+  pickerItemText:   { fontSize: 16, fontFamily: FFB, color: '#fff' },
 });

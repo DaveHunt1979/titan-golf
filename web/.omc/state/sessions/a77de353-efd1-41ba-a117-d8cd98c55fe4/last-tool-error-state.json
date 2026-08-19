@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"supabase db query \\\"SELECT competition_id, story_type, status, headline FROM titan_news;\\\" --linked 2>&1\"}",
+  "error": "Exit code 1\nCannot find project ref. Have you run supabase link?\nTry rerunning the command with --debug to troubleshoot the error.",
+  "timestamp": "2026-08-19T09:04:38.757Z",
+  "retry_count": 1
+}
