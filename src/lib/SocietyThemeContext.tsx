@@ -194,14 +194,27 @@ async function fetchTheme(): Promise<BaseTheme> {
     if (!check) societyId = null;
   }
 
-  // Fall back: fetch all memberships, prefer non-default society
+  // Fall back: fetch all memberships. A single non-default membership is an
+  // unambiguous "home" (an admin's own branded society, e.g. Mashie) and
+  // gets auto-picked same as before. Two or more non-default memberships
+  // is ambiguous — picking whichever came back first silently landed
+  // Ricky in a 1-member leftover test society instead of the real 31-member
+  // Titan Tour, which is why his trip/tournament/chat activity went missing
+  // for everyone else (see 2026-08-19 session). With test societies about
+  // to become routine via Locker Room, don't guess: fall back to the
+  // shared default and let the Locker Room switcher make the explicit call.
   if (!societyId) {
     const { data: members } = await supabase
       .from('society_members').select('society_id')
       .eq('player_id', pid);
     if (!members?.length) return { ...DEFAULT, loaded: true };
-    const nonDefault = members.find((m: any) => m.society_id !== DEFAULT.societyId);
-    societyId = (nonDefault ?? members[0] as any).society_id;
+    const ids = members.map((m: any) => m.society_id);
+    const nonDefaultIds = ids.filter((id: string) => id !== DEFAULT.societyId);
+    societyId = nonDefaultIds.length === 1
+      ? nonDefaultIds[0]
+      : ids.includes(DEFAULT.societyId)
+        ? DEFAULT.societyId
+        : ids[0];
     await AsyncStorage.setItem(KEY, societyId!);
   }
 

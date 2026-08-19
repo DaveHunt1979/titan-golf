@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"for f in \\\"app/(app)/spectate/[matchId].tsx\\\" \\\"app/(app)/score/enter/[matchId].tsx\\\" \\\"app/(app)/swindle/score/[gameId].tsx\\\"; do\\n  echo \\\"=== $f ===\\\"\\n  grep -n \\\"\\\\binitials(\\\" \\\"/Use...",
+  "error": "Exit code 1\n=== app/(app)/spectate/[matchId].tsx ===\n=== app/(app)/score/enter/[matchId].tsx ===\n=== app/(app)/swindle/score/[gameId].tsx ===",
+  "timestamp": "2026-08-19T06:54:38.795Z",
+  "retry_count": 1
+}

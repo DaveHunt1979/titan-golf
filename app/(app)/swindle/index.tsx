@@ -113,7 +113,13 @@ export default function SwindleIndex() {
     if (!myId || imInBusy) return;
     setImInBusy(game.id);
     await supabase.from('swindle_entries').insert({ game_id: game.id, player_id: myId });
-    setGames(gs => gs.map(g => g.id === game.id ? { ...g, am_entered: true, entry_count: (g.entry_count ?? 0) + 1 } : g));
+    // Re-fetch rather than optimistically +1 locally — a local increment
+    // only reflects this device's last-seen count, so two people joining
+    // within seconds of each other (as testers do) each show a stale
+    // "Players: 1 / £1000 pot" until the screen is fully reloaded.
+    const { count } = await supabase
+      .from('swindle_entries').select('*', { count: 'exact', head: true }).eq('game_id', game.id);
+    setGames(gs => gs.map(g => g.id === game.id ? { ...g, am_entered: true, entry_count: count ?? (g.entry_count ?? 0) + 1 } : g));
     setImInBusy(null);
   }
 

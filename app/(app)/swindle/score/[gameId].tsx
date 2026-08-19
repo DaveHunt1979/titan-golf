@@ -10,7 +10,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles } from '../../../../src/lib/scoring';
 import { resolveAvatar } from '../../../../src/lib/assets';
-import { initials } from '../../../../src/lib/playerDisplay';
+import { dedupeInitials } from '../../../../src/lib/playerDisplay';
 import { enqueueSwindleHole } from '../../../../src/lib/swindleOfflineQueue';
 import { useSwindleSyncStatus } from '../../../../src/lib/useSwindleSyncStatus';
 import { isNetworkError } from '../../../../src/lib/offlineQueue';
@@ -293,6 +293,9 @@ export default function SwindleScoreScreen() {
 
   // ── Group mode derived state ──────────────────────────────────────────
   const gp = groupPlayers ?? [];
+  const gpInitials = Object.fromEntries(
+    dedupeInitials(gp.map(p => p.name)).map((initials, i) => [gp[i].playerId, initials])
+  );
   const totalPtsForG   = (p: GroupPlayer) => Object.values(p.scores).reduce((s, v) => s + v.pts, 0);
   const totalVsParForG = (p: GroupPlayer) => Object.entries(p.scores).reduce((s, [h, v]) => {
     const ch = courseHoles.find(c => c.hole_number === Number(h));
@@ -731,7 +734,7 @@ export default function SwindleScoreScreen() {
                       {/* Fixed-width initials (not flex) — always 2
                           characters, so the freed width goes to the
                           stroke-holes text instead. Matches score/enter. */}
-                      <Text style={[s.lbName, { flex: 0, width: 32 }]} numberOfLines={1}>{initials(p.name)}</Text>
+                      <Text style={[s.lbName, { flex: 0, width: 32 }]} numberOfLines={1}>{gpInitials[p.playerId]}</Text>
                       {getsShotHere && (
                         <View style={s.shotPill}><Text style={s.shotPillText}>SHOT</Text></View>
                       )}

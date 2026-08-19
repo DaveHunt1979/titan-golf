@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../lib/supabase';
 import { resolveAvatar } from '../lib/assets';
+import { useSocietyTheme } from '../lib/SocietyThemeContext';
 
 const GOLD  = '#D4AF37';
 const FF    = 'JUSTSans';
@@ -41,7 +42,13 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [me, setMe] = useState<Me | null>(null);
-  const [societyId, setSocietyId] = useState<string | null>(null);
+  // Same active-society source as everywhere else (Locker Room switcher) —
+  // this used to run its own "alphabetically-first membership" query, which
+  // could silently disagree with whatever society a message was actually
+  // posted under (e.g. swindle/[gameId].tsx's postResultsToChat uses this
+  // same context), so results posted under one society never showed up
+  // here because this screen was reading a different one.
+  const { societyId, loaded: societyLoaded } = useSocietyTheme();
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -64,6 +71,7 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
 
   useEffect(() => {
     async function init() {
+      if (!societyLoaded) return;
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
@@ -75,16 +83,7 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
       if (!player) { setLoading(false); return; }
       setMe(player as Me);
 
-      const { data: membership } = await supabase
-        .from('society_members')
-        .select('society_id')
-        .eq('player_id', player.id)
-        .order('society_id')
-        .limit(1)
-        .maybeSingle();
-      const sid = membership?.society_id ?? null;
-      setSocietyId(sid);
-
+      const sid = societyId;
       if (!sid) { setLoading(false); return; }
 
       const { data } = await supabase
@@ -122,7 +121,7 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
     init();
 
     return () => { if (subRef.current) supabase.removeChannel(subRef.current); };
-  }, [channel]);
+  }, [channel, societyId, societyLoaded]);
 
   if (loading || !fontsLoaded) return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>

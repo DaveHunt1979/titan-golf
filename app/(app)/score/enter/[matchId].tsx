@@ -27,7 +27,7 @@ import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
-import { initials } from '../../../../src/lib/playerDisplay';
+import { dedupeInitials } from '../../../../src/lib/playerDisplay';
 import { formatRoundDuration } from '../../../../src/lib/roundTimer';
 import EagleAlert, { type EagleType } from '../../../../src/components/EagleAlert';
 import { IS_PAD } from '../../../../src/lib/useDeviceLayout';
@@ -584,6 +584,9 @@ export default function EnterScoresScreen() {
   }
 
   const allPlayerIds = match ? [...match.home_player_ids, ...match.away_player_ids] : [];
+  const shotAllocationInitials = Object.fromEntries(
+    dedupeInitials(allPlayerIds.map(id => playerNames[id] ?? '?')).map((initials, i) => [allPlayerIds[i], initials])
+  );
   const courseHole = courseHoles.find(h => h.hole_number === activeHole);
   // For the stroke-allocation panel: a front-9/back-9 round never plays the
   // other 9, so those holes shouldn't appear in a player's stroke list.
@@ -1726,7 +1729,7 @@ export default function EnterScoresScreen() {
                         const teamColor = isHome ? homeColor : awayColor;
                         const src = playerAvatars[id] ?? getPlayerAvatar(id, 'normal');
                         const firstName = (playerNames[id] ?? '?').split(' ')[0];
-                        const shortName = initials(playerNames[id] ?? '?');
+                        const shortName = shotAllocationInitials[id];
                         const hcp = matchplayHcp(id);
                         const getsShotHere = shotPlayerIds.includes(id);
                         return (

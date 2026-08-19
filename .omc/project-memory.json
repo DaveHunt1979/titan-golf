@@ -258,20 +258,26 @@
   "hotPaths": [
     {
       "path": "app/(app)/swindle/score/[gameId].tsx",
-      "accessCount": 100,
-      "lastAccessed": 1787064064165,
+      "accessCount": 105,
+      "lastAccessed": 1787122403402,
       "type": "file"
     },
     {
       "path": "app/(app)/swindle/[gameId].tsx",
-      "accessCount": 52,
-      "lastAccessed": 1787042664972,
+      "accessCount": 53,
+      "lastAccessed": 1787122562640,
       "type": "file"
     },
     {
       "path": "app/(app)/tour/index.tsx",
       "accessCount": 30,
       "lastAccessed": 1787064933905,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 21,
+      "lastAccessed": 1787122376200,
       "type": "file"
     },
     {
@@ -287,15 +293,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 12,
-      "lastAccessed": 1787063584793,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/index.tsx",
       "accessCount": 12,
       "lastAccessed": 1787065728886,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/swindle/index.tsx",
+      "accessCount": 11,
+      "lastAccessed": 1787122527881,
       "type": "file"
     },
     {
@@ -305,15 +311,21 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/swindle/index.tsx",
-      "accessCount": 9,
-      "lastAccessed": 1787043624505,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/_layout.tsx",
       "accessCount": 9,
       "lastAccessed": 1787064992971,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/trips/index.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1787121089588,
+      "type": "file"
+    },
+    {
+      "path": "src/components/ChatChannel.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1787122663167,
       "type": "file"
     },
     {
@@ -326,12 +338,6 @@
       "path": "app/(app)/admin/tournaments.tsx",
       "accessCount": 8,
       "lastAccessed": 1787049281868,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/trips/index.tsx",
-      "accessCount": 8,
-      "lastAccessed": 1787064249428,
       "type": "file"
     },
     {
@@ -359,15 +365,15 @@
       "type": "file"
     },
     {
-      "path": "src/lib/swindleOfflineQueue.ts",
-      "accessCount": 4,
-      "lastAccessed": 1786972275590,
+      "path": "src/lib/useAdminSociety.ts",
+      "accessCount": 5,
+      "lastAccessed": 1787121383189,
       "type": "file"
     },
     {
-      "path": "src/lib/useAdminSociety.ts",
+      "path": "src/lib/swindleOfflineQueue.ts",
       "accessCount": 4,
-      "lastAccessed": 1787062122672,
+      "lastAccessed": 1786972275590,
       "type": "file"
     },
     {
@@ -413,6 +419,12 @@
       "type": "file"
     },
     {
+      "path": "supabase/migrations/20260814_society_trips.sql",
+      "accessCount": 3,
+      "lastAccessed": 1787121098679,
+      "type": "file"
+    },
+    {
       "path": "src/lib/localDb.ts",
       "accessCount": 2,
       "lastAccessed": 1786970949968,
@@ -422,12 +434,6 @@
       "path": "src/lib/offlineQueue.ts",
       "accessCount": 2,
       "lastAccessed": 1786972448575,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260814_society_trips.sql",
-      "accessCount": 2,
-      "lastAccessed": 1787064260384,
       "type": "file"
     },
     {
@@ -444,8 +450,8 @@
     },
     {
       "path": "supabase/migrations/20260817_trips_admin_access.sql",
-      "accessCount": 1,
-      "lastAccessed": 1786956075374,
+      "accessCount": 2,
+      "lastAccessed": 1787121099013,
       "type": "file"
     },
     {
@@ -518,12 +524,6 @@
       "path": "src/lib/useChatUnread.ts",
       "accessCount": 1,
       "lastAccessed": 1787044267322,
-      "type": "file"
-    },
-    {
-      "path": "src/components/ChatChannel.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1787044280640,
       "type": "file"
     },
     {

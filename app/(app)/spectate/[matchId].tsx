@@ -12,15 +12,31 @@ import { getMatchPack } from '../../../src/lib/offlinePack';
 import { useSyncStatus } from '../../../src/lib/useSyncStatus';
 import { matchLabel, getEffectiveWinner, calcHoles, calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles } from '../../../src/lib/scoring';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
-import { initials } from '../../../src/lib/playerDisplay';
+import { dedupeInitials } from '../../../src/lib/playerDisplay';
 import NewsTicker from '../../../src/components/NewsTicker';
 
-const GOLD  = '#D4AF37';
-const GREEN = '#4ade80';
-const RED   = '#f87171';
+const GOLD     = '#D4AF37';
+const GREEN    = '#4ade80';
+const RED      = '#f87171';
+const BLUE     = '#3b82f6';
+const DARKBLUE = '#1e3a8a';
+const PLAIN    = '#ffffff';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
+
+// Same eagle/birdie/par/bogey/double convention as score/[matchId].tsx and
+// score/enter/[matchId].tsx — kept in sync manually (see
+// project_scoring_architecture_debt memory), not shared, since a real
+// dedupe was already deferred there.
+function scoreVsParColor(gross: number, par: number): string {
+  const diff = gross - par;
+  if (diff <= -2) return GOLD;
+  if (diff === -1) return RED;
+  if (diff === 0)  return PLAIN;
+  if (diff === 1)  return BLUE;
+  return DARKBLUE;
+}
 
 interface MatchDetail {
   id: string;
@@ -314,6 +330,21 @@ export default function SpectateScreen() {
   // independent side game/stats.
   const parByHole: Record<number, number> = {};
   courseHoles.forEach(h => { parByHole[h.hole_number] = h.par; });
+
+  // Stroke-play formats (stableford/medal/team_stableford, and any
+  // side-game) mark a played hole 'd' in holes_string rather than h/a/f —
+  // there's no head-to-head winner. The hole-by-hole grid still needs a
+  // colour for those cells, same vs-par scheme as the hole strip elsewhere,
+  // or a 'd' hole just renders blank forever (only the current-hole box
+  // moves — what Rick saw testing the tournament build).
+  const doneColorByHole: Record<number, string> = {};
+  for (let h = 1; h <= 18; h++) {
+    if (holeChars[h - 1] !== 'd') continue;
+    const grosses = allPlayerIds.map(id => holeData[id]?.[h]?.gross ?? null).filter((g): g is number => g != null);
+    const bestGross = grosses.length ? Math.min(...grosses) : null;
+    const par = parByHole[h];
+    doneColorByHole[h] = bestGross !== null && par ? scoreVsParColor(bestGross, par) : PLAIN;
+  }
   const medalStats: Record<string, { vsPar: number; played: number }> = {};
   for (const id of allPlayerIds) {
     const entries = Object.entries(holeData[id] ?? {}).filter(([, d]) => d.gross != null);
@@ -415,6 +446,10 @@ export default function SpectateScreen() {
         });
       })()
     : [];
+  const strokeAllocationInitials = Object.fromEntries(
+    dedupeInitials(strokeAllocation.map(({ id }) => players.find(p => p.id === id)?.display_name ?? '?'))
+      .map((initials, i) => [strokeAllocation[i].id, initials])
+  );
 
   return (
     <View style={s.container}>
@@ -609,7 +644,7 @@ export default function SpectateScreen() {
             <Text style={s.strokeTitle}>SHOT ALLOCATION</Text>
             {strokeAllocation.map(({ id, text, getsShot }) => {
               const isHome = match.home_player_ids.includes(id);
-              const shortName = initials(players.find(p => p.id === id)?.display_name ?? '?');
+              const shortName = strokeAllocationInitials[id];
               return (
                 <View key={id} style={s.strokeRow}>
                   <SideAvatar playerIds={[id]} team={null} teamId={null} size={28} getFirstName={firstName} getAvatar={getAvatar} />
@@ -637,6 +672,7 @@ export default function SpectateScreen() {
             currentHole={status === 'in_progress' ? currentHole : -1}
             homeColor={homeColor}
             awayColor={awayColor}
+            doneColors={doneColorByHole}
           />
           <View style={s.gridDivider} />
           <NineGrid
@@ -646,6 +682,7 @@ export default function SpectateScreen() {
             currentHole={status === 'in_progress' ? currentHole : -1}
             homeColor={homeColor}
             awayColor={awayColor}
+            doneColors={doneColorByHole}
           />
 
           <View style={s.legend}>
@@ -661,13 +698,14 @@ export default function SpectateScreen() {
   );
 }
 
-function NineGrid({ chars, offset, label, currentHole, homeColor, awayColor }: {
+function NineGrid({ chars, offset, label, currentHole, homeColor, awayColor, doneColors }: {
   chars: string[];
   offset: number;
   label: string;
   currentHole: number;
   homeColor: string;
   awayColor: string;
+  doneColors: Record<number, string>;
 }) {
   return (
     <View style={g.wrap}>
@@ -676,7 +714,7 @@ function NineGrid({ chars, offset, label, currentHole, homeColor, awayColor }: {
         {chars.map((c, i) => {
           const hNum      = i + offset + 1;
           const isCurrent = hNum === currentHole;
-          const bg        = c === 'h' ? homeColor : c === 'a' ? awayColor : c === 'f' ? GOLD : undefined;
+          const bg        = c === 'h' ? homeColor : c === 'a' ? awayColor : c === 'f' ? GOLD : c === 'd' ? doneColors[hNum] : undefined;
           return (
             <View key={i} style={[g.cell, bg ? { backgroundColor: bg } : g.cellEmpty, isCurrent && g.cellCurrent]}>
               <Text style={[g.num, bg && g.numFilled]}>{hNum}</Text>
