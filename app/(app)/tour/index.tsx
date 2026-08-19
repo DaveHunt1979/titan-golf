@@ -13,6 +13,7 @@ import { getStandings, getEffectiveWinner, calcSweepBonus } from '../../../src/l
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { teamLogos } from '../../../src/lib/assets';
 import { useChatUnread } from '../../../src/lib/useChatUnread';
+import Leaderboard, { type LeaderboardRow } from '../../../src/components/Leaderboard';
 import type { Competition, CompetitionDay, Match, Team, Champion, Notification } from '../../../src/types';
 
 // ── TITAN constants ───────────────────────────────────────────────────
@@ -93,9 +94,12 @@ export default function TourScreen() {
   const [days, setDays]               = useState<CompetitionDay[]>([]);
   const [matches, setMatches]         = useState<Match[]>([]);
   const [teams, setTeams]             = useState<Team[]>([]);
-  const [players, setPlayers]         = useState<{ id: string; display_name: string }[]>([]);
-  const [kronosRows, setKronosRows]   = useState<{ playerId: string; name: string; total: number; holes: number }[]>([]);
-  const [kronosByDay, setKronosByDay] = useState<{ dayId: string; dayNumber: number; rows: { playerId: string; name: string; total: number; holes: number }[] }[]>([]);
+  const [players, setPlayers]         = useState<{ id: string; display_name: string; avatar_url?: string | null }[]>([]);
+  const [kronosRows, setKronosRows] = useState<{
+    playerId: string; name: string; total: number; holes: number;
+    avatarUrl: string | null; teamName: string | null; teamAccentColor: string | null;
+    teamLogoUrl: string | null; isCaptain: boolean; byDay: (number | null)[];
+  }[]>([]);
   const [leaderboardTab, setLeaderboardTab] = useState<'group' | 'team' | 'kronos' | 'honours'>('group');
   const [champions, setChampions]     = useState<Champion[]>([]);
   const [myPlayerId, setMyPlayerId]   = useState<string | null>(null);
@@ -111,6 +115,10 @@ export default function TourScreen() {
   const [prizeCats, setPrizeCats]       = useState<PrizeCat[]>([]);
   const [indivBoard, setIndivBoard]     = useState<IndivEntry[]>([]);
   const [teamStableford, setTeamStableford] = useState<Record<string, number>>({});
+  // Per-day team Stableford — feeds the Team tab's per-round (R1/R2/R3)
+  // point columns, computed the same way as the cumulative total below,
+  // just scoped to one day's holes at a time.
+  const [teamStablefordByDay, setTeamStablefordByDay] = useState<Record<string, Record<string, number>>>({});
   // Bumped on every load() call; a run only commits its results if it's
   // still the latest one by the time its awaits resolve — stops a slow,
   // stale reload (e.g. triggered while a fresher one is still in flight)
@@ -160,7 +168,7 @@ export default function TourScreen() {
       supabase.from('teams').select('*').eq('society_id', SOCIETY_ID ?? '').order('sort_order'),
       supabase.from('champions').select('*').order('year', { ascending: false }),
       supabase.from('competition_players')
-        .select('player_id,team_id,handicap_index,players(display_name)')
+        .select('player_id,team_id,handicap_index,is_captain,players(display_name,avatar_url)')
         .eq('competition_id', compId),
       supabase.from('prize_categories')
         .select('id,name,hcp_min,hcp_max,display_order,prize_payouts(position,prize_money)')
@@ -194,7 +202,7 @@ export default function TourScreen() {
         ? supabase.from('match_holes').select('player_id,stableford_pts,match_id,hole_number').in('match_id', matchIds)
         : Promise.resolve({ data: [] as any[] }),
       allPlayerIds.length
-        ? supabase.from('players').select('id,display_name').in('id', allPlayerIds)
+        ? supabase.from('players').select('id,display_name,avatar_url').in('id', allPlayerIds)
         : Promise.resolve({ data: [] as any[] }),
     ]);
     if (playersData) setPlayers(playersData as any[]);
@@ -208,6 +216,8 @@ export default function TourScreen() {
       (matchesData as any[] ?? []).forEach(m => { matchDayMap[m.id] = m.day_id; });
       const kronosMatchIds = new Set(Object.keys(matchDayMap));
       const nameFor = (pid: string) => (playersData as any[]).find(x => x.id === pid)?.display_name ?? '—';
+      const cpFor = (pid: string) => (cpData as any[] ?? []).find(cp => cp.player_id === pid);
+      const sortedKronosDays = ((daysData as CompetitionDay[] | null) ?? []).slice().sort((a, b) => a.day_number - b.day_number);
 
       const totals: Record<string, { total: number; holes: number }> = {};
       const perDay: Record<string, Record<string, { total: number; holes: number }>> = {};
@@ -225,21 +235,23 @@ export default function TourScreen() {
       });
 
       const rows = Object.entries(totals)
-        .map(([pid, v]) => ({ playerId: pid, name: nameFor(pid), total: v.total, holes: v.holes }))
+        .map(([pid, v]) => {
+          const cp = cpFor(pid);
+          const team = cp?.team_id ? (teamsData as any[] ?? []).find(t => t.id === cp.team_id) : null;
+          return {
+            playerId: pid, name: nameFor(pid), total: v.total, holes: v.holes,
+            avatarUrl: (playersData as any[]).find(x => x.id === pid)?.avatar_url ?? null,
+            teamName: team?.name ?? null,
+            teamAccentColor: team?.accent_color ?? null,
+            teamLogoUrl: team?.logo_url ?? null,
+            isCaptain: !!cp?.is_captain,
+            byDay: sortedKronosDays.map(day => perDay[day.id]?.[pid]?.total ?? null),
+          };
+        })
         .sort((a, b) => b.total - a.total);
       setKronosRows(rows);
-
-      const byDay = ((daysData as CompetitionDay[] | null) ?? []).map(day => ({
-        dayId: day.id,
-        dayNumber: day.day_number,
-        rows: Object.entries(perDay[day.id] ?? {})
-          .map(([pid, v]) => ({ playerId: pid, name: nameFor(pid), total: v.total, holes: v.holes }))
-          .sort((a, b) => b.total - a.total),
-      }));
-      setKronosByDay(byDay);
     } else {
       setKronosRows([]);
-      setKronosByDay([]);
     }
 
     // Individual tournament leaderboard with prize positions
@@ -255,6 +267,9 @@ export default function TourScreen() {
       );
 
       const totals: Record<string, number> = {};
+      const perDayTotals: Record<string, Record<string, number>> = {};
+      const matchDayMap2: Record<string, string> = {};
+      (matchesData as any[] ?? []).forEach(m => { matchDayMap2[m.id] = m.day_id; });
       const finalRound: Record<string, number> = {};
       const back9:  Record<string, number> = {};
       const back6:  Record<string, number> = {};
@@ -263,6 +278,11 @@ export default function TourScreen() {
       (holesData as any[]).forEach(h => {
         if (h.stableford_pts == null || !thisMatchIds.has(h.match_id)) return;
         totals[h.player_id] = (totals[h.player_id] ?? 0) + h.stableford_pts;
+        const dId = matchDayMap2[h.match_id];
+        if (dId) {
+          if (!perDayTotals[dId]) perDayTotals[dId] = {};
+          perDayTotals[dId][h.player_id] = (perDayTotals[dId][h.player_id] ?? 0) + h.stableford_pts;
+        }
         if (finalDayMatchIds.has(h.match_id)) {
           finalRound[h.player_id] = (finalRound[h.player_id] ?? 0) + h.stableford_pts;
           if (h.hole_number >= 10) back9[h.player_id] = (back9[h.player_id] ?? 0) + h.stableford_pts;
@@ -284,6 +304,17 @@ export default function TourScreen() {
         teamTotals[cp.team_id] = (teamTotals[cp.team_id] ?? 0) + (totals[cp.player_id] ?? 0);
       });
       setTeamStableford(teamTotals);
+
+      const teamTotalsByDay: Record<string, Record<string, number>> = {};
+      Object.entries(perDayTotals).forEach(([dId, playerTotals]) => {
+        const teamTotalsThisDay: Record<string, number> = {};
+        (cpData as any[]).forEach(cp => {
+          if (!cp.team_id) return;
+          teamTotalsThisDay[cp.team_id] = (teamTotalsThisDay[cp.team_id] ?? 0) + (playerTotals[cp.player_id] ?? 0);
+        });
+        teamTotalsByDay[dId] = teamTotalsThisDay;
+      });
+      setTeamStablefordByDay(teamTotalsByDay);
 
       const tieBreak = (a: string, b: string) =>
         (finalRound[b] ?? 0) - (finalRound[a] ?? 0)
@@ -374,11 +405,25 @@ export default function TourScreen() {
     // screen. That's very likely what "ended day one and kicked everyone
     // out" actually was — a burst of match-completion events at day's end
     // re-triggering this fragile lookup under load.
-    const [{ data: comp }, { data: notifs }, { data: soc }] = await Promise.all([
+    //
+    // Prefer whichever tournament the player already joined (stored PIN)
+    // over "any active tournament in the society" — with two active
+    // tournaments running at once (real scenario, not hypothetical: e.g.
+    // one live test alongside a real one), the old .limit(1) lookup would
+    // non-deterministically return either one on every reload, so a plain
+    // pull-to-refresh could silently swap `competition` to a tournament the
+    // player never joined and bounce them to "Enter PIN" — reported by Dave
+    // 2026-08-19 as "pull to refresh kicks you out of the tournament."
+    const alreadyJoinedId = await AsyncStorage.getItem(STORAGE_KEY);
+    const [{ data: joinedComp }, { data: anyActiveComp }, { data: notifs }, { data: soc }] = await Promise.all([
+      alreadyJoinedId
+        ? supabase.from('competitions').select('*').eq('id', alreadyJoinedId).eq('status', 'active').maybeSingle()
+        : Promise.resolve({ data: null }),
       supabase.from('competitions').select('*').eq('status', 'active').eq('society_id', SOCIETY_ID ?? '').limit(1).maybeSingle(),
       supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
       supabase.from('societies').select('instagram_url').eq('id', SOCIETY_ID).single(),
     ]);
+    const comp = joinedComp ?? anyActiveComp;
 
     if (mySeq !== loadSeq.current) return; // a newer load() has since started — don't let this stale one commit
 
@@ -395,10 +440,8 @@ export default function TourScreen() {
 
     setCompetition(comp as unknown as Competition);
     setSections(((comp as any).info_sections ?? []) as InfoSection[]);
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    if (mySeq !== loadSeq.current) return;
-    setJoinedId(stored);
-    if (stored === comp.id) await loadTournamentData(comp.id, !!(comp as any).include_in_kronos, mySeq);
+    setJoinedId(alreadyJoinedId);
+    if (alreadyJoinedId === comp.id) await loadTournamentData(comp.id, !!(comp as any).include_in_kronos, mySeq);
     if (mySeq !== loadSeq.current) return;
     setLoading(false);
     setRefreshing(false);
@@ -473,9 +516,49 @@ export default function TourScreen() {
   );
   const enriched  = standings.map(s => {
     const t = teams.find(t => t.id === s.teamId);
-    return { ...s, name: t?.name ?? '—', accent_color: t?.accent_color ?? '#555' };
+    return { ...s, name: t?.name ?? '—', accent_color: t?.accent_color ?? '#555', logo_url: t?.logo_url ?? null };
   });
   const isTeamTournament = competition?.tournament_type === 'ryder_cup' || competition?.tournament_type === 'titan_tour';
+
+  // Per-round columns for the Team leaderboard (R1/R2/R3/...) — same
+  // getStandings()/calcSweepBonus() math as the cumulative total above,
+  // just called once per day with that day's matches only, so each column
+  // shows points earned that round rather than a running total.
+  const sortedDays = [...days].sort((a, b) => a.day_number - b.day_number);
+  const dayPtsByTeam: Record<string, number[]> = {};
+  sortedDays.forEach(day => {
+    const dayMatches = (matches as any[]).filter((m: any) => m.day_id === day.id && m.home_team_id && m.away_team_id);
+    const daySinglesIds = day.day_format === 'singles' ? new Set([day.id]) : new Set<string>();
+    const dayBonus = calcSweepBonus(dayMatches as Match[], daySinglesIds, (competition as any)?.bonus_points ?? 2);
+    const dayStandings = getStandings(
+      dayMatches,
+      (competition as any)?.pts_win ?? 1,
+      (competition as any)?.pts_half ?? 0.5,
+      teamStablefordByDay[day.id] ?? {},
+      dayBonus,
+    );
+    dayStandings.forEach(ds => {
+      if (!dayPtsByTeam[ds.teamId]) dayPtsByTeam[ds.teamId] = [];
+      dayPtsByTeam[ds.teamId][sortedDays.indexOf(day)] = ds.pts;
+    });
+  });
+
+  const teamLeaderboardRows: LeaderboardRow[] = enriched.map(s => ({
+    id: s.teamId,
+    sortKey: s.pts,
+    name: s.name,
+    subtitle: `${s.w}W ${s.h}H ${s.l}L`,
+    teamName: s.name,
+    teamLogoUrl: s.logo_url,
+    teamAccentColor: s.accent_color,
+    columns: sortedDays.map((_, i) => dayPtsByTeam[s.teamId]?.[i] ?? '–'),
+    totalDisplay: String(s.pts),
+  }));
+  const teamPointsKey = [
+    { label: 'Match Win', value: `${(competition as any)?.pts_win ?? 1}pt${((competition as any)?.pts_win ?? 1) === 1 ? '' : 's'}` },
+    { label: 'Match Half', value: `${(competition as any)?.pts_half ?? 0.5}pts` },
+    { label: 'Clean Sweep bonus', value: `+${(competition as any)?.bonus_points ?? 2}pts` },
+  ];
 
   function matchNames(m: Match): { home: string; away: string } {
     if (m.home_team_id && m.away_team_id) {
@@ -876,88 +959,34 @@ export default function TourScreen() {
 
             {/* ── Team: combined standings across every day ── */}
             {leaderboardTab === 'team' && (
-              <View>
-                <View style={st.tableHeader}>
-                  <Text style={[st.cell, st.cellTeam, st.th]}>TEAM</Text>
-                  <Text style={[st.cell, st.th]}>P</Text>
-                  <Text style={[st.cell, st.th]}>W</Text>
-                  <Text style={[st.cell, st.th]}>H</Text>
-                  <Text style={[st.cell, st.th]}>L</Text>
-                  <Text style={[st.cell, st.cellPts, st.th]}>PTS</Text>
-                </View>
-                {enriched.map((s, i) => (
-                  <View key={s.teamId} style={[st.row, { backgroundColor: dc.card, borderColor: dc.border }, i === 0 && st.rowFirst]}>
-                    <View style={[st.cell, st.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
-                      <Text style={st.pos}>{i + 1}</Text>
-                      {teamLogos[s.name]
-                        ? <Image source={teamLogos[s.name]} style={{ width: 28, height: 28 }} resizeMode="contain" />
-                        : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: s.accent_color }} />
-                      }
-                      <Text style={st.teamName}>{s.name}</Text>
-                      {s.bonus > 0 && <Text style={{ fontFamily: FFB, fontSize: 10, color: GOLD }}>+{s.bonus} bonus</Text>}
-                    </View>
-                    <Text style={st.cell}>{s.played}</Text>
-                    <Text style={st.cell}>{s.w}</Text>
-                    <Text style={st.cell}>{s.h}</Text>
-                    <Text style={st.cell}>{s.l}</Text>
-                    <Text style={[st.cell, st.cellPts, st.pts]}>{s.pts}</Text>
-                  </View>
-                ))}
-                {enriched.length === 0 && (
-                  <Text style={st.noResults}>No matches played yet.{'\n'}Results will appear here as games complete.</Text>
-                )}
-              </View>
+              <Leaderboard
+                rows={[...teamLeaderboardRows].sort((a, b) => b.sortKey - a.sortKey)}
+                columnLabels={sortedDays.map((_, i) => `R${i + 1}`)}
+                totalLabel="TOTAL"
+                pointsKey={teamPointsKey}
+                emptyMessage="No matches played yet. Results will appear here as games complete."
+              />
             )}
 
-            {/* ── Kronos: per-day breakdown, then the combined running total ── */}
+            {/* ── Kronos: one row per player, D1-D4 columns + total ── */}
             {leaderboardTab === 'kronos' && (
-              <View>
-                {kronosByDay.map(d => (
-                  <View key={d.dayId} style={{ marginBottom: 20 }}>
-                    <Text style={st.sectionHeader}>DAY {d.dayNumber}</Text>
-                    <View style={st.tableHeader}>
-                      <Text style={[st.cell, st.cellTeam, st.th]}>PLAYER</Text>
-                      <Text style={[st.cell, st.th]}>HLS</Text>
-                      <Text style={[st.cell, st.cellPts, st.th]}>PTS</Text>
-                    </View>
-                    {d.rows.map((r, i) => (
-                      <View key={r.playerId} style={[st.row, { backgroundColor: dc.card, borderColor: dc.border }, i === 0 && st.rowFirst]}>
-                        <View style={[st.cell, st.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
-                          <Text style={st.pos}>{i + 1}</Text>
-                          <Text style={st.teamName}>{r.name}</Text>
-                        </View>
-                        <Text style={st.cell}>{r.holes}</Text>
-                        <Text style={[st.cell, st.cellPts, st.pts]}>{r.total}</Text>
-                      </View>
-                    ))}
-                    {d.rows.length === 0 && (
-                      <Text style={st.noResults}>No Stableford scores yet.</Text>
-                    )}
-                  </View>
-                ))}
-
-                <Text style={st.sectionHeader}>COMBINED — ORDER OF MERIT</Text>
-                <View>
-                  <View style={st.tableHeader}>
-                    <Text style={[st.cell, st.cellTeam, st.th]}>PLAYER</Text>
-                    <Text style={[st.cell, st.th]}>HLS</Text>
-                    <Text style={[st.cell, st.cellPts, st.th]}>PTS</Text>
-                  </View>
-                  {kronosRows.map((r, i) => (
-                    <View key={r.playerId} style={[st.row, { backgroundColor: dc.card, borderColor: dc.border }, i === 0 && st.rowFirst]}>
-                      <View style={[st.cell, st.cellTeam, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
-                        <Text style={st.pos}>{i + 1}</Text>
-                        <Text style={st.teamName}>{r.name}</Text>
-                      </View>
-                      <Text style={st.cell}>{r.holes}</Text>
-                      <Text style={[st.cell, st.cellPts, st.pts]}>{r.total}</Text>
-                    </View>
-                  ))}
-                  {kronosRows.length === 0 && (
-                    <Text style={st.noResults}>No Stableford scores yet.</Text>
-                  )}
-                </View>
-              </View>
+              <Leaderboard
+                title="KRONOS"
+                rows={kronosRows.map(r => ({
+                  id: r.playerId,
+                  sortKey: r.total,
+                  name: r.name,
+                  subtitle: r.teamName ?? undefined,
+                  playerId: r.playerId,
+                  avatarUrl: r.avatarUrl,
+                  isCaptain: r.isCaptain,
+                  columns: r.byDay,
+                  totalDisplay: String(r.total),
+                }))}
+                columnLabels={sortedDays.map((_, i) => `D${i + 1}`)}
+                totalLabel="TOT"
+                emptyMessage="No Stableford scores yet."
+              />
             )}
 
             {/* ── Honours: past champions ── */}

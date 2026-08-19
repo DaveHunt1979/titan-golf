@@ -17,11 +17,9 @@ const RED   = '#f87171';
 const FFB   = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
-// Placeholder until the web/ Next.js app is actually deployed (Phase 6 —
-// tracked separately, needs a real Vercel project). Update this the moment
-// there's a real URL, otherwise every "Publish & Send" before that sends a
-// dead link.
-const NEWSREEL_BASE_URL = 'https://titan-golf-web.vercel.app';
+// web/ deploys here via GitHub → Vercel (Dave, 2026-08-19), same pipeline
+// already used for round data.
+const NEWSREEL_BASE_URL = 'https://titangolf-web.vercel.app';
 
 type Day = {
   id: string; day_number: number; course_name: string | null; complete: boolean; hasMatches: boolean;

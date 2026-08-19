@@ -17,12 +17,16 @@ export const hosts = {
 };
 
 export const teamLogos: Record<string, any> = {
-  'MOB':         require('../../assets/teams/The Mob.png'),
+  // Filenames with spaces silently failed to resolve through the native
+  // asset-copy step in a real `expo run:ios` build (worked fine as plain
+  // require() targets, but rendered blank on-device) — renamed to remove
+  // spaces rather than dig further into the Xcode copy-resources script.
+  'MOB':         require('../../assets/teams/TheMob.png'),
   'Destroyers':  require('../../assets/teams/Destroyers.png'),
-  'Legion Six':  require('../../assets/teams/Legion Six.png'),
+  'Legion Six':  require('../../assets/teams/LegionSix.png'),
   'Renegades':   require('../../assets/teams/Renegades.png'),
   'Elite':       require('../../assets/teams/Rlite.png'),
-  'Instigators': require('../../assets/teams/The Instigators.png'),
+  'Instigators': require('../../assets/teams/TheInstigators.png'),
 };
 
 export const playerAvatars: Record<string, { normal: any; happy: any; angry: any }> = {

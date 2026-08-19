@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
 const PURPLE = '#a78bfa';
@@ -147,7 +148,7 @@ export default function SwindleCreate() {
 
       {/* Header — three-column */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.replace('/(app)/swindle' as any)} style={s.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/swindle')} style={s.backBtn} activeOpacity={0.7}>
           <Text style={s.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={s.title}>CREATE SWINDLE</Text>

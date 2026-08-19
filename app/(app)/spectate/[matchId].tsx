@@ -20,7 +20,12 @@ const GREEN    = '#4ade80';
 const RED      = '#f87171';
 const BLUE     = '#3b82f6';
 const DARKBLUE = '#1e3a8a';
-const PLAIN    = '#ffffff';
+// Not pure white — NineGrid fills cells solid and always uses white text/
+// numerals (designed for the 3 saturated matchplay colours, which all
+// contrast fine with white). A literal white "par" fill under that same
+// white-on-solid convention renders totally invisible, indistinguishable
+// from an unplayed cell.
+const PLAIN    = '#4b5563';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');

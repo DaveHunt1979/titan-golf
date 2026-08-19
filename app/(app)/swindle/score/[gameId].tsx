@@ -12,6 +12,7 @@ import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, formatSt
 import { resolveAvatar } from '../../../../src/lib/assets';
 import { dedupeInitials } from '../../../../src/lib/playerDisplay';
 import { enqueueSwindleHole } from '../../../../src/lib/swindleOfflineQueue';
+import { goBack } from '../../../../src/lib/navigation';
 import { useSwindleSyncStatus } from '../../../../src/lib/useSwindleSyncStatus';
 import { isNetworkError } from '../../../../src/lib/offlineQueue';
 import { speakIntro, speakBack9, speakOutro, speakPressure } from '../../../../src/lib/caddie';
@@ -619,7 +620,7 @@ export default function SwindleScoreScreen() {
         <StatusBar style="light" />
 
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.replace(`/(app)/swindle/${gameId}` as any)} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <TouchableOpacity onPress={() => goBack(router, `/(app)/swindle/${gameId}`)} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Ionicons name="chevron-back" size={24} color="#ffffff" />
           </TouchableOpacity>
           <View style={s.headerCenter}>
@@ -726,6 +727,7 @@ export default function SwindleScoreScreen() {
               <View style={s.holeCardDivider} />
 
               <View style={s.leaderboard}>
+                <Text style={[s.holeLabelSmall, { marginBottom: 4 }]}>HOLES WITH EXTRA SHOTS</Text>
                 {gp.map(p => {
                   const getsShotHere = calcStrokesReceived(p.courseHcp, groupCourseHole.stroke_index) > 0;
                   return (
@@ -934,7 +936,7 @@ export default function SwindleScoreScreen() {
 
       {/* ── Header ── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.replace(`/(app)/swindle/${gameId}` as any)} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, `/(app)/swindle/${gameId}`)} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>

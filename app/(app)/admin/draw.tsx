@@ -10,6 +10,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { getStandings, calcSweepBonus } from '../../../src/lib/scoring';
+import { resolveAvatar, teamLogos } from '../../../src/lib/assets';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -70,14 +71,20 @@ interface CompPlayer {
   id: string; player_id: string; team_id: string | null; handicap_index: number | null;
   display_name: string; avatar_url: string | null; is_captain: boolean;
 }
-interface TeamRow { id: string; name: string; accent_color: string; }
+interface TeamRow { id: string; name: string; accent_color: string; logo_url: string | null; }
+
+function getTeamLogo(team: TeamRow) {
+  if (team.logo_url) return { uri: team.logo_url };
+  const key = Object.keys(teamLogos).find(k => team.name.includes(k) || k.includes(team.name));
+  return key ? teamLogos[key] : null;
+}
 interface MatchRow {
   id: string; day_id: string; match_number: number | null;
   home_player_ids: string[]; away_player_ids: string[];
   home_team_id: string | null; away_team_id: string | null; status: string;
   winner: string | null; result_str: string | null; holes_string: string; is_singles: boolean;
 }
-interface SocMember { player_id: string; display_name: string; handicap_index: number | null; team_id: string | null; }
+interface SocMember { player_id: string; display_name: string; handicap_index: number | null; team_id: string | null; avatar_url?: string | null; }
 
 export default function TournamentDrawScreen() {
   const { id: competitionId } = useLocalSearchParams<{ id: string }>();
@@ -90,6 +97,20 @@ export default function TournamentDrawScreen() {
   });
 
   const [tab, setTab]                   = useState<Tab>('players');
+  // Which team's roster is expanded below the crest row — mirrors the
+  // build wizard's Draft step (admin/build.tsx) badge+roster pattern, so
+  // amending an already-live tournament's players looks the same as
+  // drafting them the first time. 'unassigned' is a sentinel, not a real
+  // team id.
+  const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
+  // The team's actual squad roster (society_members for that team_id), not
+  // just whoever's currently enrolled in this tournament — swapping someone
+  // in means being able to pick anyone on that team's roster, including
+  // players who were never enrolled at all (Dave, 2026-08-19: "maybe Levi
+  // can't play but Mike can").
+  const [teamRosterCache, setTeamRosterCache] = useState<Record<string, SocMember[]>>({});
+  const [rosterLoadingTeamId, setRosterLoadingTeamId] = useState<string | null>(null);
+  const [rosterPlayerBusy, setRosterPlayerBusy] = useState<string | null>(null);
   const [loading, setLoading]           = useState(true);
   const [comp, setComp]                 = useState<CompInfo | null>(null);
   const [days, setDays]                 = useState<DayRow[]>([]);
@@ -120,7 +141,7 @@ export default function TournamentDrawScreen() {
       supabase.from('competition_players')
         .select('id,player_id,team_id,handicap_index,is_captain,players(display_name,avatar_url)')
         .eq('competition_id', competitionId),
-      supabase.from('teams').select('id,name,accent_color').eq('society_id', societyId ?? '').order('sort_order'),
+      supabase.from('teams').select('id,name,accent_color,logo_url').eq('society_id', societyId ?? '').order('sort_order'),
       supabase.from('matches').select('id,day_id,match_number,home_player_ids,away_player_ids,home_team_id,away_team_id,status,winner,result_str,holes_string,is_singles')
         .eq('competition_id', competitionId).order('match_number'),
     ]);
@@ -257,6 +278,54 @@ export default function TournamentDrawScreen() {
       await supabase.from('competition_players').update({ is_captain: true }).eq('id', cp.id);
     }
     await load();
+  }
+
+  async function toggleExpandTeam(teamId: string) {
+    if (expandedTeamId === teamId) { setExpandedTeamId(null); return; }
+    if (teamId !== 'unassigned' && !teamRosterCache[teamId] && societyId) {
+      setRosterLoadingTeamId(teamId);
+      const { data } = await supabase
+        .from('society_members')
+        .select('player_id, team_id, players(display_name, handicap_index, avatar_url)')
+        .eq('society_id', societyId).eq('team_id', teamId);
+      const roster: SocMember[] = ((data ?? []) as any[]).map(m => ({
+        player_id: m.player_id,
+        display_name: m.players?.display_name ?? '—',
+        handicap_index: m.players?.handicap_index ?? null,
+        avatar_url: m.players?.avatar_url ?? null,
+        team_id: teamId,
+      })).sort((a, b) => a.display_name.localeCompare(b.display_name));
+      setTeamRosterCache(prev => ({ ...prev, [teamId]: roster }));
+      setRosterLoadingTeamId(null);
+    }
+    setExpandedTeamId(teamId);
+  }
+
+  // Tapping a squad member toggles them onto/off the currently expanded
+  // team — same three-way branch as build.tsx's togglePlayerInTeam, except
+  // "off" here means unassigning (changeTeam→null), not deleting: these
+  // are live tournament enrollments, possibly already with scores against
+  // them, not a from-scratch draft.
+  async function toggleRosterPlayer(teamId: string, member: SocMember) {
+    const existing = compPlayers.find(cp => cp.player_id === member.player_id);
+    setRosterPlayerBusy(member.player_id);
+    try {
+      if (existing && existing.team_id === teamId) {
+        await changeTeam(existing, null);
+      } else if (existing) {
+        await changeTeam(existing, teamId);
+      } else {
+        const maxHcp = comp?.max_handicap ?? null;
+        const hcp = (maxHcp != null && member.handicap_index != null) ? Math.min(member.handicap_index, maxHcp) : member.handicap_index;
+        await supabase.from('competition_players').insert({
+          competition_id: competitionId, player_id: member.player_id, team_id: teamId,
+          handicap_index: hcp, status: 'enrolled',
+        });
+        await load();
+      }
+    } finally {
+      setRosterPlayerBusy(null);
+    }
   }
 
   // Teammates a captain has already partnered with in a pairs match on an
@@ -617,72 +686,130 @@ export default function TournamentDrawScreen() {
               <View style={s.empty}>
                 <Text style={s.emptyText}>No players yet. Tap + ADD to enrol players.</Text>
               </View>
-            ) : (
+            ) : !isTeamTournament ? (
+              // Standard/Individual tournament — just a player pool, no
+              // teams to badge up, so the plain list is the right shape.
               compPlayers.map(cp => (
                 <View key={cp.id} style={s.playerRow}>
-                  {isTeamTournament && (
-                    <TouchableOpacity
-                      onPress={() => toggleCaptain(cp)}
-                      disabled={!cp.team_id}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons
-                        name={cp.is_captain ? 'star' : 'star-outline'}
-                        size={18}
-                        color={cp.is_captain ? GOLD : (cp.team_id ? '#555' : '#222')}
-                      />
-                    </TouchableOpacity>
-                  )}
+                  <PlayerAvatar cp={cp} size={32} />
                   <View style={s.playerInfo}>
-                    <Text style={s.playerName}>{cp.display_name}{cp.is_captain ? '  (C)' : ''}</Text>
-                    {cp.handicap_index != null && (
-                      <Text style={s.playerHcp}>HCP {cp.handicap_index}</Text>
-                    )}
+                    <Text style={s.playerName}>{cp.display_name}</Text>
+                    {cp.handicap_index != null && <Text style={s.playerHcp}>HCP {cp.handicap_index}</Text>}
                   </View>
-                  {/* Team chips — only for team-based tournaments; a
-                      Standard/Individual tournament is just a player pool */}
-                  {isTeamTournament && (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                      <TouchableOpacity
-                        style={[s.teamChip, !cp.team_id && s.teamChipOn, { borderColor: !cp.team_id ? RED : '#333' }]}
-                        onPress={() => changeTeam(cp, null)}
-                      >
-                        <Text style={[s.teamChipText, { color: !cp.team_id ? RED : '#555' }]}>None</Text>
-                      </TouchableOpacity>
-                      {teams.map(t => (
-                        <TouchableOpacity
-                          key={t.id}
-                          style={[s.teamChip, cp.team_id === t.id && s.teamChipOn, { borderColor: cp.team_id === t.id ? t.accent_color : '#333' }]}
-                          onPress={() => changeTeam(cp, t.id)}
-                        >
-                          <View style={[s.teamDot, { backgroundColor: t.accent_color }]} />
-                          <Text style={[s.teamChipText, { color: cp.team_id === t.id ? t.accent_color : '#888' }]}>{t.name}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  )}
                   <TouchableOpacity onPress={() => removePlayer(cp)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Ionicons name="close-circle-outline" size={20} color="#555" />
                   </TouchableOpacity>
                 </View>
               ))
-            )}
+            ) : (
+              <>
+                <Text style={[s.sectionLabel, { marginTop: 4, marginBottom: 10 }]}>TAP A CREST TO VIEW / TWEAK THAT TEAM</Text>
+                <View style={s.badgeRow}>
+                  {teams.map(t => {
+                    const count = compPlayers.filter(cp => cp.team_id === t.id).length;
+                    const isOpen = expandedTeamId === t.id;
+                    const logo = getTeamLogo(t);
+                    return (
+                      <TouchableOpacity
+                        key={t.id}
+                        style={s.badgeItem}
+                        onPress={() => toggleExpandTeam(t.id)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={[s.badgeCircle, { borderColor: (count > 0 || isOpen) ? t.accent_color : '#333' }, !(count > 0 || isOpen) && s.badgeCircleDark]}>
+                          {logo
+                            ? <Image source={logo} style={s.badgeLogo} resizeMode="contain" />
+                            : <Text style={[s.badgeInitial, { color: t.accent_color }]}>{t.name[0]}</Text>
+                          }
+                        </View>
+                        <Text style={[s.badgeName, (count > 0 || isOpen) && { color: t.accent_color }]} numberOfLines={1}>{t.name}</Text>
+                        <Text style={s.badgeCount}>{count}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {unassigned.length > 0 && (
+                    <TouchableOpacity
+                      style={s.badgeItem}
+                      onPress={() => toggleExpandTeam('unassigned')}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[s.badgeCircle, { borderColor: RED }, expandedTeamId !== 'unassigned' && s.badgeCircleDark]}>
+                        <Ionicons name="help" size={22} color={RED} />
+                      </View>
+                      <Text style={[s.badgeName, { color: RED }]}>Unassigned</Text>
+                      <Text style={s.badgeCount}>{unassigned.length}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-            {/* Team summary */}
-            {isTeamTournament && teams.length > 0 && compPlayers.length > 0 && (
-              <View style={s.teamSummary}>
-                <Text style={[s.sectionLabel, { marginBottom: 10 }]}>TEAM BREAKDOWN</Text>
-                {teams.map(t => {
-                  const count = compPlayers.filter(cp => cp.team_id === t.id).length;
+                {expandedTeamId === 'unassigned' && (
+                  <View style={s.rosterPanel}>
+                    <Text style={[s.rosterPanelTitle, { color: RED }]}>Unassigned — {unassigned.length} player{unassigned.length !== 1 ? 's' : ''}</Text>
+                    {unassigned.length === 0 ? (
+                      <Text style={s.emptyHint}>Nobody unassigned right now.</Text>
+                    ) : unassigned.map(cp => (
+                      <View key={cp.id} style={[s.rosterPickRow, s.rosterPickTop]}>
+                        <PlayerAvatar cp={cp} size={32} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.playerName}>{cp.display_name}</Text>
+                          {cp.handicap_index != null && <Text style={s.playerHcp}>HCP {cp.handicap_index}</Text>}
+                        </View>
+                        <TouchableOpacity onPress={() => removePlayer(cp)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Ionicons name="close-circle-outline" size={20} color="#555" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {expandedTeamId && expandedTeamId !== 'unassigned' && (() => {
+                  const team = teams.find(t => t.id === expandedTeamId) ?? null;
+                  if (!team) return null;
+                  const roster = teamRosterCache[team.id] ?? [];
+                  const count = compPlayers.filter(cp => cp.team_id === team.id).length;
                   return (
-                    <View key={t.id} style={s.teamSummaryRow}>
-                      <View style={[s.teamDot, { backgroundColor: t.accent_color, width: 10, height: 10, borderRadius: 5 }]} />
-                      <Text style={s.teamSummaryName}>{t.name}</Text>
-                      <Text style={s.teamSummaryCount}>{count} player{count !== 1 ? 's' : ''}</Text>
+                    <View style={s.rosterPanel}>
+                      <Text style={[s.rosterPanelTitle, { color: team.accent_color }]}>
+                        {team.name} roster — {count} of {roster.length} picked · tap a player to swap in/out
+                      </Text>
+                      {rosterLoadingTeamId === team.id ? (
+                        <ActivityIndicator color={GOLD} style={{ marginVertical: 16 }} />
+                      ) : roster.length === 0 ? (
+                        <Text style={s.emptyHint}>No players in this squad yet — add them in Teams/Players first.</Text>
+                      ) : roster.map(member => {
+                        const cp = compPlayers.find(p => p.player_id === member.player_id);
+                        const selected = cp?.team_id === team.id;
+                        return (
+                          <TouchableOpacity
+                            key={member.player_id}
+                            style={[s.rosterPickRow, s.rosterPickTop, selected && s.rosterPickRowOn]}
+                            onPress={() => toggleRosterPlayer(team.id, member)}
+                            disabled={rosterPlayerBusy === member.player_id}
+                            activeOpacity={0.7}
+                          >
+                            <TouchableOpacity onPress={() => cp && toggleCaptain(cp)} disabled={!selected} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                              <Ionicons name={cp?.is_captain ? 'star' : 'star-outline'} size={16} color={cp?.is_captain ? GOLD : (selected ? '#555' : '#222')} />
+                            </TouchableOpacity>
+                            {cp
+                              ? <PlayerAvatar cp={cp} size={32} />
+                              : <PlayerAvatar cp={{ player_id: member.player_id, avatar_url: member.avatar_url ?? null, display_name: member.display_name } as CompPlayer} size={32} />
+                            }
+                            <View style={{ flex: 1 }}>
+                              <Text style={[s.playerName, selected && { color: GOLD }]}>{member.display_name}{cp?.is_captain ? '  (C)' : ''}</Text>
+                              {member.handicap_index != null && <Text style={s.playerHcp}>HCP {member.handicap_index}</Text>}
+                              {!selected && cp && <Text style={s.playerHcp}>Currently on {teams.find(t => t.id === cp.team_id)?.name ?? 'no team'}</Text>}
+                            </View>
+                            {rosterPlayerBusy === member.player_id
+                              ? <ActivityIndicator size="small" color={GOLD} />
+                              : selected && <Ionicons name="checkmark-circle" size={20} color={GOLD} />
+                            }
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   );
-                })}
-              </View>
+                })()}
+              </>
             )}
           </View>
         )}
@@ -747,17 +874,29 @@ export default function TournamentDrawScreen() {
                             </View>
                           );
                         }
-                        const homeName = teams.find(t => t.id === m.home_team_id)?.name
-                          ?? m.home_player_ids.map(id => playerNames[id]?.split(' ')[0] ?? '?').join(' & ');
-                        const awayName = teams.find(t => t.id === m.away_team_id)?.name
-                          ?? m.away_player_ids.map(id => playerNames[id]?.split(' ')[0] ?? '?').join(' & ');
-                        const homeColor = teams.find(t => t.id === m.home_team_id)?.accent_color ?? '#555';
-                        const awayColor = teams.find(t => t.id === m.away_team_id)?.accent_color ?? '#555';
+                        const homeTeam = teams.find(t => t.id === m.home_team_id);
+                        const awayTeam = teams.find(t => t.id === m.away_team_id);
+                        const homePlayers = m.home_player_ids.map(id => playerNames[id]?.split(' ')[0] ?? '?').join(' & ');
+                        const awayPlayers = m.away_player_ids.map(id => playerNames[id]?.split(' ')[0] ?? '?').join(' & ');
+                        const homeName = homeTeam?.name ?? homePlayers;
+                        const awayName = awayTeam?.name ?? awayPlayers;
+                        const homeColor = homeTeam?.accent_color ?? '#555';
+                        const awayColor = awayTeam?.accent_color ?? '#555';
                         return (
                           <View key={m.id} style={[s.matchItem, idx > 0 && { borderTopWidth: 1, borderTopColor: '#1c1c1c' }]}>
-                            <Text style={[s.matchTeam, { color: homeColor }]}>{homeName}</Text>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[s.matchTeam, { color: homeColor }]}>{homeName}</Text>
+                              {/* Who's actually playing in THIS match — two
+                                  fourballs between the same two teams both
+                                  read "ELITE vs RENEGADES" without this
+                                  (Dave, 2026-08-19). */}
+                              {homeTeam && <Text style={s.matchPlayers}>{homePlayers}</Text>}
+                            </View>
                             <Text style={s.vsText}>vs</Text>
-                            <Text style={[s.matchTeam, { color: awayColor }]}>{awayName}</Text>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[s.matchTeam, { color: awayColor, textAlign: 'right' }]}>{awayName}</Text>
+                              {awayTeam && <Text style={[s.matchPlayers, { textAlign: 'right' }]}>{awayPlayers}</Text>}
+                            </View>
                           </View>
                         );
                       })}
@@ -899,6 +1038,15 @@ function SummaryRow({ label, value, last }: { label: string; value: string; last
     </View>
   );
 }
+function PlayerAvatar({ cp, size }: { cp: CompPlayer; size: number }) {
+  const avatar = resolveAvatar(cp.player_id, cp.avatar_url);
+  if (avatar) return <Image source={avatar} style={{ width: size, height: size, borderRadius: size / 2 }} />;
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontSize: size * 0.4, fontFamily: FFB, color: '#fff' }}>{cp.display_name[0]}</Text>
+    </View>
+  );
+}
 const sr = StyleSheet.create({
   row:  { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
   last: { borderBottomWidth: 0 },
@@ -949,10 +1097,26 @@ const s = StyleSheet.create({
   teamChipText: { fontFamily: 'JUSTSans-ExBold', fontSize: 11 },
   teamDot:      { width: 8, height: 8, borderRadius: 4 },
 
-  teamSummary:    { marginTop: 20, backgroundColor: '#111', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c', padding: 14 },
-  teamSummaryRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
-  teamSummaryName:{ flex: 1, fontFamily: 'JUSTSans-ExBold', fontSize: 13, color: '#fff' },
-  teamSummaryCount:{ fontFamily: 'JUSTSans', fontSize: 12, color: '#888' },
+  // Team badge-crest row + expandable roster panel — same visual pattern
+  // as the build wizard's Draft step (admin/build.tsx), so amending an
+  // already-live tournament's players looks like the screen that drafted
+  // them in the first place, instead of a squeezed one-line-per-player list.
+  badgeRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 16 },
+  badgeItem:       { alignItems: 'center', width: 68 },
+  badgeCircle:     { width: 56, height: 56, borderRadius: 28, borderWidth: 2, alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', marginBottom: 4 },
+  badgeCircleDark: { opacity: 0.4 },
+  badgeLogo:       { width: 36, height: 36 },
+  badgeInitial:    { fontSize: 20, fontFamily: 'JUSTSans-ExBold' },
+  badgeName:       { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#888', textAlign: 'center' },
+  badgeCount:      { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#555', marginTop: 1 },
+
+  rosterPanel:      { backgroundColor: '#0a0a0a', borderRadius: 12, borderWidth: 1, borderColor: GOLD + '44', padding: 12, marginBottom: 16 },
+  rosterPanelTitle: { fontSize: 11, fontFamily: 'JUSTSans-ExBold', color: GOLD, letterSpacing: 0.5, marginBottom: 10 },
+  rosterPickRow:    { borderRadius: 10, borderWidth: 1, borderColor: '#1c1c1c', backgroundColor: '#111', padding: 8, marginBottom: 6 },
+  rosterPickRowOn:  { borderColor: GOLD, backgroundColor: `${GOLD}0F` },
+  rosterPickTop:    { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  emptyHint:        { fontFamily: 'JUSTSans-ExBold', fontSize: 12, color: '#555', textAlign: 'center', paddingVertical: 10 },
+
 
   dayCard:       { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 14, marginBottom: 12 },
   dayCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
@@ -969,8 +1133,9 @@ const s = StyleSheet.create({
 
   matchList: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#1c1c1c' },
   matchItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 6 },
-  matchTeam: { flex: 1, fontFamily: 'JUSTSans-ExBold', fontSize: 13 },
-  vsText:    { fontFamily: 'JUSTSans', fontSize: 11, color: '#555', width: 20, textAlign: 'center' },
+  matchTeam:    { fontFamily: 'JUSTSans-ExBold', fontSize: 13 },
+  matchPlayers: { fontFamily: 'JUSTSans', fontSize: 11, color: '#fff', marginTop: 1 },
+  vsText:       { fontFamily: 'JUSTSans', fontSize: 11, color: '#555', width: 20, textAlign: 'center' },
 
   summaryCard: { backgroundColor: '#111', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 16 },
   prizesBtn:     { borderWidth: 1, borderColor: GOLD + '55', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 12, backgroundColor: GOLD + '0D' },

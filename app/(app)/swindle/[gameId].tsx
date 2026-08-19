@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { calcStrokesReceived } from '../../../src/lib/scoring';
+import { goBack } from '../../../src/lib/navigation';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
 import { useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 
@@ -389,7 +390,7 @@ export default function SwindleGame() {
 
       {/* Header: three-column */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.replace('/(app)/swindle' as any)} style={s.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/swindle')} style={s.backBtn} activeOpacity={0.7}>
           <Text style={s.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle} numberOfLines={1}>{game.name}</Text>

@@ -29,6 +29,7 @@ export interface Team {
   name: string;
   accent_color: string;
   sort_order: number;
+  logo_url: string | null;
 }
 
 export interface Competition {

@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
 import { useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { goBack } from '../../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
 const PURPLE = '#a78bfa';
@@ -199,7 +200,7 @@ export default function SwindleGroupNew() {
       <StatusBar style="light" />
 
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.replace(`/(app)/swindle/${gameId}` as any)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, `/(app)/swindle/${gameId}`)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={{ alignItems: 'center' }}>

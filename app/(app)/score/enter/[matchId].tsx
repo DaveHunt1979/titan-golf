@@ -129,7 +129,7 @@ interface MatchInfo {
     course_rating: number;
     slope_rating: number;
     day_number: number;
-    competition: { format: string } | null;
+    competition: { format: string; include_in_kronos: boolean } | null;
   } | null;
 }
 
@@ -263,7 +263,7 @@ export default function EnterScoresScreen() {
             *,
             home_team:home_team_id(name,accent_color),
             away_team:away_team_id(name,accent_color),
-            day:day_id(course_name,course_par,course_rating,slope_rating,day_number,competition:competition_id(format))
+            day:day_id(course_name,course_par,course_rating,slope_rating,day_number,competition:competition_id(format,include_in_kronos))
           `)
           .eq('id', matchId)
           .single();
@@ -757,7 +757,13 @@ export default function EnterScoresScreen() {
         // null) shouldn't compute Stableford points at all — Rick: "clicked
         // off Stableford and it is running the side game" — the side game
         // itself (when it IS on) keeps this exact calculation, untouched.
-        const needsStablefordPts = match.round_format === 'stableford' || !!match.secondary_format;
+        // Kronos is a separate, tournament-wide concern from that per-match
+        // side game though — its individual totals are just a sum of this
+        // same stableford_pts column (see src/lib/titanNews.ts), so a
+        // Kronos-enabled tournament must always populate it regardless of
+        // whether this particular day also has its own side game on
+        // (Dave, 2026-08-19 — Kronos wasn't updating for a team day alongside it).
+        const needsStablefordPts = match.round_format === 'stableford' || !!match.secondary_format || !!match.day?.competition?.include_in_kronos;
         return {
           match_id: matchId,
           player_id: id,
@@ -952,13 +958,17 @@ export default function EnterScoresScreen() {
       // Same as the stroke-play write path: only compute this when the
       // side game is actually switched on (secondary_format set) — toggling
       // it off must mean it stops running, not just stops being shown.
+      // Kronos rides on this same column tournament-wide though, so a
+      // Kronos-enabled competition needs it populated even when this
+      // specific team match has no side game of its own switched on.
+      const needsStablefordPts = !!match.secondary_format || !!match.day?.competition?.include_in_kronos;
       return {
         match_id: matchId,
         player_id: id,
         hole_number: activeHole,
         score: holeResult,
         gross_score: gross,
-        stableford_pts: match.secondary_format ? calcStablefordPoints(gross, par, sideShots) : null,
+        stableford_pts: needsStablefordPts ? calcStablefordPoints(gross, par, sideShots) : null,
       };
     });
 
@@ -1724,6 +1734,7 @@ export default function EnterScoresScreen() {
                     </View>
                   ) : showInlineShots ? (
                     <View style={s.leaderboard}>
+                      <Text style={s.lbGroupHeader}>HOLES WITH EXTRA SHOTS</Text>
                       {allPlayerIds.map(id => {
                         const isHome = match.home_player_ids.includes(id);
                         const teamColor = isHome ? homeColor : awayColor;
