@@ -12,6 +12,7 @@ import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints } from '.
 import { goBack } from '../../../../src/lib/navigation';
 import { formatRoundDuration } from '../../../../src/lib/roundTimer';
 import { resolveAvatar } from '../../../../src/lib/assets';
+import { generateCasualMatchReport } from '../../../../src/lib/titanNews';
 import { sendMatchNotification } from '../../../../src/lib/notifications';
 import { speakHole, speakIntro, speakBack9, speakOutro } from '../../../../src/lib/caddie';
 import * as Location from 'expo-location';
@@ -124,6 +125,12 @@ export default function SoloRoundScreen() {
   const [loadError, setLoadError]     = useState(false);
   const [retryTick, setRetryTick]     = useState(0);
   const [saving, setSaving]           = useState(false);
+  // See the identical ref + comment in score/enter/[matchId].tsx —
+  // generateCasualMatchReport is fire-and-forget, so this lets the "Read
+  // Match Report" button wait for that same in-flight call instead of
+  // navigating to a report that doesn't exist yet.
+  const newsReportPromiseRef = useRef<Promise<void> | null>(null);
+  const [openingReport, setOpeningReport] = useState(false);
   const [recordsBroken, setRecordsBroken] = useState<BrokenRecord[]>([]);
   const [roundDone, setRoundDone]     = useState(false);
   const [broadcastMode, setBroadcastMode] = useState(false);
@@ -598,6 +605,9 @@ export default function SoloRoundScreen() {
           } catch (e) {
             console.error('checkAndUpdateRecords error:', e);
           }
+          // Casual Golf's one final match report — see the identical
+          // trigger + explanation in score/enter/[matchId].tsx.
+          if (!match.competition_id) newsReportPromiseRef.current = generateCasualMatchReport(matchId as string);
         }
       }
     } finally {
@@ -942,6 +952,24 @@ export default function SoloRoundScreen() {
                 <Ionicons name="checkmark-circle-outline" size={20} color="#000000" />
                 <Text style={s.ctaBtnText}>End Round</Text>
               </TouchableOpacity>
+              {!match.competition_id && (
+                <TouchableOpacity
+                  style={[s.newsLinkBtn, openingReport && { opacity: 0.6 }]}
+                  disabled={openingReport}
+                  onPress={async () => {
+                    setOpeningReport(true);
+                    if (newsReportPromiseRef.current) await newsReportPromiseRef.current;
+                    setOpeningReport(false);
+                    router.push(`/(app)/news?matchId=${matchId}` as any);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  {openingReport
+                    ? <ActivityIndicator size="small" color={GOLD} />
+                    : <Ionicons name="newspaper-outline" size={16} color={GOLD} />}
+                  <Text style={s.newsLinkBtnText}>{openingReport ? 'Writing your report…' : 'Read Match Report'}</Text>
+                </TouchableOpacity>
+              )}
               {nextHole > 1 && (
                 <TouchableOpacity style={s.undoBtn} onPress={undoHole} disabled={saving}>
                   <Ionicons name="arrow-undo-outline" size={14} color="#ffffff" />
@@ -1383,6 +1411,12 @@ const s = StyleSheet.create({
   completeScore:  { fontFamily: FFB, fontSize: 60, letterSpacing: -1 },
   completeDetail: { fontFamily: FFB, fontSize: 13, color: '#fff' },
   completeDuration: { fontFamily: FFB, fontSize: 12, color: '#9ca3af', marginTop: 6 },
+  newsLinkBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12,
+    paddingHorizontal: 16, paddingVertical: 9, borderRadius: 20,
+    borderWidth: 1, borderColor: `${GOLD}40`, backgroundColor: `${GOLD}10`,
+  },
+  newsLinkBtnText: { fontFamily: FFB, fontSize: 12, color: GOLD },
   statGrid:     { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 20, marginBottom: 8 },
   statBox:      { alignItems: 'center', minWidth: 68, backgroundColor: '#111111', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: '#1c1c1c' },
   statVal:      { fontFamily: FFB, fontSize: 24 },

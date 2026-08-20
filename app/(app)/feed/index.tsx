@@ -6,7 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, freshChannel } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import type { Notification } from '../../../src/types';
 
@@ -136,7 +136,7 @@ export default function FeedScreen() {
 
   useEffect(() => {
     if (societyId) load();
-    const sub = supabase.channel('feed-live')
+    const sub = freshChannel('feed-live')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, load)
       .subscribe();
     return () => { supabase.removeChannel(sub); };

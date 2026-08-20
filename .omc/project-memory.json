@@ -258,8 +258,20 @@
   "hotPaths": [
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 22,
-      "lastAccessed": 1787217224858,
+      "accessCount": 23,
+      "lastAccessed": 1787230731685,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 21,
+      "lastAccessed": 1787232793370,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 19,
+      "lastAccessed": 1787232832471,
       "type": "file"
     },
     {
@@ -269,9 +281,21 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/inbox/[playerId].tsx",
+      "accessCount": 12,
+      "lastAccessed": 1787233055259,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/score/day/[dayId].tsx",
       "accessCount": 10,
       "lastAccessed": 1787214695410,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/news/index.tsx",
+      "accessCount": 10,
+      "lastAccessed": 1787231699631,
       "type": "file"
     },
     {
@@ -281,21 +305,9 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/news/index.tsx",
-      "accessCount": 7,
-      "lastAccessed": 1787215503242,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/solo/[matchId].tsx",
+      "path": "app/(app)/watch/index.tsx",
       "accessCount": 6,
-      "lastAccessed": 1787211570805,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 6,
-      "lastAccessed": 1787214434069,
+      "lastAccessed": 1787232620374,
       "type": "file"
     },
     {
@@ -431,12 +443,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/inbox/[playerId].tsx",
-      "accessCount": 3,
-      "lastAccessed": 1787211627252,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/records/index.tsx",
       "accessCount": 3,
       "lastAccessed": 1787211647034,
@@ -470,12 +476,6 @@
       "path": "app/(app)/rangefinder/index.tsx",
       "accessCount": 3,
       "lastAccessed": 1787211798141,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/watch/index.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1787211812257,
       "type": "file"
     },
     {

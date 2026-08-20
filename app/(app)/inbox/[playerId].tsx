@@ -18,7 +18,7 @@ const FFB    = 'JUSTSans-ExBold';
 
 interface DM {
   id: string; sender_id: string; recipient_id: string; content: string; created_at: string;
-  message_type: 'text' | 'tournament_invite' | 'newsreel';
+  message_type: 'text' | 'tournament_invite' | 'newsreel' | 'swindle_settlement' | 'match_report';
   competition_id: string | null;
   invite_response: 'accepted' | 'declined' | null;
   link_url: string | null;
@@ -146,6 +146,24 @@ export default function DmThread() {
   const renderMessage = ({ item, index }: { item: DM; index: number }) => {
     const isMe = item.sender_id === myId;
 
+    if (item.message_type === 'match_report') {
+      return (
+        <View style={ss.inviteWrap}>
+          <View style={ss.inviteCard}>
+            <Text style={ss.inviteEmoji}>⛳</Text>
+            <Text style={ss.inviteHeading}>Match Report</Text>
+            <Text style={ss.inviteBody}>{item.content}</Text>
+            {item.link_url && (
+              <TouchableOpacity style={ss.inviteYesBtn} onPress={() => Linking.openURL(item.link_url!)} activeOpacity={0.85}>
+                <Text style={ss.inviteYesText}>Read the Report</Text>
+              </TouchableOpacity>
+            )}
+            <Text style={[ss.time, { alignSelf: 'center', marginTop: 8 }]}>{formatTime(item.created_at)}</Text>
+          </View>
+        </View>
+      );
+    }
+
     if (item.message_type === 'newsreel') {
       return (
         <View style={ss.inviteWrap}>
@@ -156,6 +174,24 @@ export default function DmThread() {
             {item.link_url && (
               <TouchableOpacity style={ss.inviteYesBtn} onPress={() => Linking.openURL(item.link_url!)} activeOpacity={0.85}>
                 <Text style={ss.inviteYesText}>Read the Newsreel</Text>
+              </TouchableOpacity>
+            )}
+            <Text style={[ss.time, { alignSelf: 'center', marginTop: 8 }]}>{formatTime(item.created_at)}</Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (item.message_type === 'swindle_settlement') {
+      return (
+        <View style={ss.inviteWrap}>
+          <View style={ss.inviteCard}>
+            <Text style={ss.inviteEmoji}>💰</Text>
+            <Text style={ss.inviteHeading}>Swindle Settlement</Text>
+            <Text style={ss.inviteBody}>{item.content}</Text>
+            {item.link_url && (
+              <TouchableOpacity style={ss.inviteYesBtn} onPress={() => Linking.openURL(item.link_url!)} activeOpacity={0.85}>
+                <Text style={ss.inviteYesText}>View & Mark Settled</Text>
               </TouchableOpacity>
             )}
             <Text style={[ss.time, { alignSelf: 'center', marginTop: 8 }]}>{formatTime(item.created_at)}</Text>

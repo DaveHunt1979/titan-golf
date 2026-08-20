@@ -174,6 +174,102 @@ export async function buildRoundReportSnapshot(competitionId: string, dayId: str
   };
 }
 
+// Casual Golf's one-and-only report, generated when a group round completes.
+// Unlike tournaments this has no preview/round_report/admin-review — just a
+// single match's own data (Dave, 2026-08-20, TODO item 5). Same "Titan
+// calculates, AI only writes" split as the tournament builders above: every
+// number here comes straight from match_holes/hole_stats, nothing inferred.
+export async function buildCasualFinalReportSnapshot(matchId: string) {
+  const { data: match, error } = await supabase.from('matches').select('*').eq('id', matchId).single();
+  if (error || !match) throw new Error('Match not found');
+  const m = match as any;
+
+  const [{ data: day }, { data: holes }, { data: statsRows }] = await Promise.all([
+    m.day_id
+      ? supabase.from('competition_days').select('course_name,course_par').eq('id', m.day_id).single()
+      : Promise.resolve({ data: null as any }),
+    supabase.from('match_holes').select('player_id,hole_number,gross_score,stableford_pts').eq('match_id', matchId).order('hole_number'),
+    supabase.from('hole_stats').select('player_id,fairway_hit,putts').eq('match_id', matchId),
+  ]);
+
+  const allPlayerIds = [...new Set([...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])])] as string[];
+  const { data: playersData } = allPlayerIds.length
+    ? await supabase.from('players').select('id,display_name').in('id', allPlayerIds)
+    : { data: [] as any[] };
+  const nameFor = (pid: string) => (playersData ?? []).find((p: any) => p.id === pid)?.display_name ?? '—';
+
+  // Per-hole par, for real eagle/birdie detection — the round's overall
+  // par/18 would misclassify on any course with a mix of par 3/4/5 holes.
+  const { data: courseHoles } = (day as any)?.course_name
+    ? await supabase.from('course_holes').select('hole_number,par').eq('course_name', (day as any).course_name)
+    : { data: [] as any[] };
+  const parFor = (holeNum: number) => (courseHoles ?? []).find((h: any) => h.hole_number === holeNum)?.par ?? 4;
+
+  const isStroke = m.round_format === 'stableford' || m.round_format === 'medal';
+  const holeRows = (holes ?? []) as any[];
+
+  const totalsByPlayer: Record<string, { gross: number; pts: number }> = {};
+  const keyMoments: { name: string; holeNumber: number; type: 'eagle' | 'birdie' }[] = [];
+  holeRows.forEach(h => {
+    if (!totalsByPlayer[h.player_id]) totalsByPlayer[h.player_id] = { gross: 0, pts: 0 };
+    if (h.gross_score != null) {
+      totalsByPlayer[h.player_id].gross += h.gross_score;
+      const diff = h.gross_score - parFor(h.hole_number);
+      if (diff <= -2) keyMoments.push({ name: nameFor(h.player_id), holeNumber: h.hole_number, type: 'eagle' });
+      else if (diff === -1) keyMoments.push({ name: nameFor(h.player_id), holeNumber: h.hole_number, type: 'birdie' });
+    }
+    if (h.stableford_pts != null) totalsByPlayer[h.player_id].pts += h.stableford_pts;
+  });
+
+  const standings = isStroke
+    ? allPlayerIds
+        .map(id => ({ name: nameFor(id), grossTotal: totalsByPlayer[id]?.gross ?? null, points: totalsByPlayer[id]?.pts ?? null }))
+        .sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
+    : null;
+
+  // A close matchplay finish is one decided on the very last hole or with
+  // the match still alive going into it — the AI is told this fact directly
+  // rather than left to infer "close" from the raw result string.
+  const holesPlayed = m.holes_string ? m.holes_string.split('').filter((c: string) => c !== '.').length : 0;
+  const wentToTheWire = !isStroke && holesPlayed >= 17;
+
+  const sideGameTags = ((m.side_games ?? []) as string[]).filter(sg => !sg.startsWith('voice') && !sg.startsWith('stats'));
+
+  const statsSummary = (statsRows ?? []).length > 0
+    ? allPlayerIds.map(id => {
+        const rows = (statsRows as any[]).filter(r => r.player_id === id);
+        const puttsRecorded = rows.filter(r => r.putts != null);
+        return {
+          name: nameFor(id),
+          fairwaysHit: rows.filter(r => r.fairway_hit === true).length,
+          fairwayOpportunities: rows.filter(r => r.fairway_hit !== null).length,
+          totalPutts: puttsRecorded.length > 0 ? puttsRecorded.reduce((s, r) => s + r.putts, 0) : null,
+        };
+      })
+    : null;
+
+  return {
+    storyType: 'casual_final',
+    round: {
+      format: m.round_format,
+      secondaryFormat: m.secondary_format ?? null,
+      course: (day as any)?.course_name ?? null,
+      isMatchplay: !isStroke,
+    },
+    standings,
+    matchplayResult: !isStroke ? {
+      winner: m.winner,
+      resultStr: m.result_str,
+      wentToTheWire,
+      homePlayers: (m.home_player_ids ?? []).map(nameFor),
+      awayPlayers: (m.away_player_ids ?? []).map(nameFor),
+    } : null,
+    keyMoments,
+    sideGames: sideGameTags,
+    stats: statsSummary,
+  };
+}
+
 export async function buildFinalReportSnapshot(competitionId: string) {
   const core = await loadCore(competitionId);
   const finalDayNumber = Math.max(0, ...core.days.map(d => d.day_number));
@@ -194,4 +290,47 @@ export async function buildFinalReportSnapshot(competitionId: string) {
     runnerUp: teamFinal?.[1] ?? individualFinal[1] ?? null,
     finalDayMatches: core.days.length ? dayMatchSummaries(core, core.days[core.days.length - 1].id) : [],
   };
+}
+
+// Fire-and-forget: builds the snapshot and calls the edge function for a
+// just-completed casual round. Called from the "Complete Round" handlers,
+// deliberately swallowing its own errors — a failed report shouldn't ever
+// block or alarm a player who just finished scoring, it should just mean
+// no report shows up. The edge function auto-publishes storyType
+// 'casual_final' (see supabase/functions/titan-news/index.ts). Once it's
+// live, also DMs every other player in the round (Dave, 2026-08-20 —
+// "will it also save to my inbox as well") — same 'newsreel'-style
+// broadcast pattern admin/news.tsx uses for tournament reports, just fired
+// by whoever completed the round instead of an admin.
+export async function generateCasualMatchReport(matchId: string): Promise<void> {
+  try {
+    const snapshot = await buildCasualFinalReportSnapshot(matchId);
+    const { data, error } = await supabase.functions.invoke('titan-news', {
+      body: { dedupeKey: `casual:${matchId}`, matchId, storyType: 'casual_final', snapshot },
+    });
+    if (error) { console.error('[titanNews] casual report generation failed', error); return; }
+    console.log('[titanNews] casual report generated', { matchId });
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: me } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
+    if (!me) return;
+
+    const { data: match } = await supabase.from('matches').select('home_player_ids,away_player_ids').eq('id', matchId).single();
+    const allPlayerIds = [...new Set([...(match?.home_player_ids ?? []), ...(match?.away_player_ids ?? [])])] as string[];
+    const rows = allPlayerIds
+      .filter(id => id !== (me as any).id)
+      .map(id => ({
+        sender_id: (me as any).id, recipient_id: id,
+        content: data?.headline ?? 'Your Titan match report is ready to read.',
+        message_type: 'match_report' as const,
+        link_url: `titangolf://news?matchId=${matchId}`,
+      }));
+    if (rows.length) {
+      const { error: dmErr } = await supabase.from('direct_messages').insert(rows);
+      if (dmErr) console.error('[titanNews] match report DM send failed', dmErr);
+    }
+  } catch (e) {
+    console.error('[titanNews] casual report generation failed', e);
+  }
 }

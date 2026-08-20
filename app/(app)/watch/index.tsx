@@ -6,7 +6,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, freshChannel } from '../../../src/lib/supabase';
 import { matchLabel, getEffectiveWinner, calcHoles } from '../../../src/lib/scoring';
 import { getPlayerAvatar, teamLogos, titanLogo } from '../../../src/lib/assets';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
@@ -100,8 +100,7 @@ export default function WatchScreen() {
 
   useEffect(() => {
     load();
-    const sub = supabase
-      .channel('watch-live')
+    const sub = freshChannel('watch-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, load)
       .subscribe();
     return () => { supabase.removeChannel(sub); };

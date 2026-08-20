@@ -14,7 +14,7 @@ const FFB = 'JUSTSans-ExBold';
 const FF  = 'JUSTSans';
 const HIT = { top: 10, bottom: 10, left: 10, right: 10 };
 
-const STORY_LABEL: Record<string, string> = { preview: 'Preview', round_report: 'Round Report', final_report: 'Final Report' };
+const STORY_LABEL: Record<string, string> = { preview: 'Preview', round_report: 'Round Report', final_report: 'Final Report', casual_final: 'Match Report' };
 
 type Article = {
   id: string; story_type: string; headline: string | null; summary: string | null; body: string | null;
@@ -25,7 +25,7 @@ export default function TitanNewsScreen() {
   const router = useRouter();
   const dc = useDynamicColors();
   const { societyId } = useSocietyTheme();
-  const { competitionId } = useLocalSearchParams<{ competitionId?: string }>();
+  const { competitionId, matchId } = useLocalSearchParams<{ competitionId?: string; matchId?: string }>();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -42,7 +42,11 @@ export default function TitanNewsScreen() {
     // left-join embed can't be used to narrow the top-level rows) — only
     // needed for the global view, which scopes to the currently active
     // society rather than every society this player belongs to.
-    let query = competitionId
+    let query = matchId
+      ? supabase.from('titan_news')
+          .select('id, story_type, headline, summary, body, created_at')
+          .eq('match_id', matchId)
+      : competitionId
       ? supabase.from('titan_news')
           .select('id, story_type, headline, summary, body, created_at, competitions(name)')
           .eq('competition_id', competitionId)
@@ -54,7 +58,7 @@ export default function TitanNewsScreen() {
     setArticles((data ?? []) as any as Article[]);
     setLoading(false);
     setRefreshing(false);
-  }, [competitionId, societyId]);
+  }, [competitionId, matchId, societyId]);
 
   useFocusEffect(useCallback(() => {
     load();

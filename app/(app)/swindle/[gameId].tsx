@@ -214,9 +214,51 @@ export default function SwindleGame() {
       { text: 'Complete', onPress: async () => {
         await supabase.from('swindle_games').update({ status: 'complete' }).eq('id', game.id);
         await postResultsToChat();
+        await sendSettlementDMs();
         load();
       }},
     ]);
+  }
+
+  // Dave, 2026-08-20 — "it should send a message to the inbox on how much
+  // they owe": one settlement DM per unpaid entrant when the organiser
+  // marks the game complete. Skips myId (the organiser) — direct_messages
+  // rejects sender_id === recipient_id, same reason admin/build.tsx's
+  // finishDraft() skips itself. Uses the same corrected per-winner amount
+  // as the in-app "YOU OWE" card above, so the two can never disagree.
+  async function sendSettlementDMs() {
+    if (!game || !myId || game.entry_fee <= 0) return;
+    const link = `titangolf://swindle/${game.id}`;
+    const rows: { sender_id: string; recipient_id: string; content: string; message_type: 'swindle_settlement'; link_url: string }[] = [];
+
+    if (game.prize_money_method === 'collector') {
+      const collector = entries.find(e => e.player_id === game.collector_player_id);
+      if (!collector) return;
+      for (const e of entries) {
+        if (e.paid || e.player_id === myId || e.player_id === collector.player_id) continue;
+        rows.push({
+          sender_id: myId, recipient_id: e.player_id,
+          content: `Settle up for "${game.name}": ${game.currency}${Number(game.entry_fee).toFixed(2)} to ${collector.display_name.split(' ')[0]}.`,
+          message_type: 'swindle_settlement', link_url: link,
+        });
+      }
+    } else {
+      for (const e of entries) {
+        if (e.paid || e.player_id === myId) continue;
+        const owed = game.prize_split
+          .map((pct, i) => ({ winner: entries[i], amt: game.entry_fee * pct / 100 }))
+          .filter(o => o.winner && o.winner.player_id !== e.player_id);
+        if (owed.length === 0) continue;
+        const breakdown = owed.map(o => `${game.currency}${o.amt.toFixed(2)} to ${o.winner.display_name.split(' ')[0]}`).join(', ');
+        rows.push({
+          sender_id: myId, recipient_id: e.player_id,
+          content: `Settle up for "${game.name}": ${breakdown}.`,
+          message_type: 'swindle_settlement', link_url: link,
+        });
+      }
+    }
+
+    if (rows.length) await supabase.from('direct_messages').insert(rows);
   }
 
   async function setWinner(type: 'ntp' | 'ld', playerId: string) {
@@ -515,8 +557,21 @@ export default function SwindleGame() {
             ) : (
               <View style={s.card}>
                 {entries.length > 1 && myId && !entries.find(e => e.player_id === myId)?.paid && (() => {
+                  // Each non-winner of prize position i pays entry_fee×pct_i
+                  // directly to that winner (the winner's own share of their
+                  // own prize just stays with them, no self-payment) — this
+                  // is the direct-settlement equivalent of the "collector"
+                  // method (everyone pays their entry fee in, collector pays
+                  // prizes out), and must net out the same for every player
+                  // regardless of which method a game uses. Dividing the
+                  // full prize by (entries.length - 1) instead — what this
+                  // used to do — over-collects from every payer by a factor
+                  // of entries.length/(entries.length-1), since it also
+                  // makes them cover the winner's own untouched share; the
+                  // gap gets worse with more players (Dave, 2026-08-20 —
+                  // "who owes who" testing).
                   const owed = game.prize_split
-                    .map((pct, i) => ({ winner: entries[i], amt: prizes[i] / (entries.length - 1) }))
+                    .map((pct, i) => ({ winner: entries[i], amt: game.entry_fee * pct / 100 }))
                     .filter(o => o.winner && o.winner.player_id !== myId);
                   if (owed.length === 0) return null;
                   return (

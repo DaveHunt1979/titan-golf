@@ -767,7 +767,10 @@ export default function SwindleScoreScreen() {
 
           <TouchableOpacity
             style={s.undoBtn}
-            onPress={() => router.push(`/(app)/swindle/${gameId}` as any)}
+            // replace, not push — same dangling-subscription risk as
+            // score/enter/[matchId].tsx's identical button; see that
+            // file's comment for the full explanation.
+            onPress={() => router.replace(`/(app)/swindle/${gameId}` as any)}
             activeOpacity={0.85}
           >
             <Ionicons name="eye-outline" size={16} color="#6b7280" />

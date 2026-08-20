@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../src/lib/supabase';
+import { supabase, freshChannel } from '../../src/lib/supabase';
 import { resolveAvatar, titanLogo } from '../../src/lib/assets';
 import { useSocietyTheme, useDynamicColors } from '../../src/lib/SocietyThemeContext';
 
@@ -97,7 +97,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!SOCIETY_ID) return;
-    const sub = supabase.channel('home-chat-badge')
+    const sub = freshChannel('home-chat-badge')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `society_id=eq.${SOCIETY_ID}` }, (payload) => {
         const row = payload.new as any;
         if (row.channel === 'general' && row.player_id !== playerId) setUnread(prev => prev + 1);

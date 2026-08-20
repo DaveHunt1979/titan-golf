@@ -20,6 +20,7 @@ import ShotLogger from '../../../../src/components/ShotLogger';
 import RecordCelebration from '../../../../src/components/RecordCelebration';
 import { checkAndUpdateRecords, type BrokenRecord } from '../../../../src/lib/records';
 import { sendMatchNotification } from '../../../../src/lib/notifications';
+import { generateCasualMatchReport } from '../../../../src/lib/titanNews';
 import { sendMatchToWatch, clearMatchFromWatch, onWatchScoreEntry, onWatchRequestsState } from '../../../../src/lib/watch';
 import { startLiveActivity, updateLiveActivity, endLiveActivity } from '../../../../src/lib/liveActivity';
 import { enqueueHole, isNetworkError } from '../../../../src/lib/offlineQueue';
@@ -165,6 +166,15 @@ export default function EnterScoresScreen() {
   const [loadError, setLoadError] = useState(false);
   const [retryTick, setRetryTick] = useState(0);
   const [saving, setSaving] = useState(false);
+  // generateCasualMatchReport runs fire-and-forget in the background (a
+  // Claude API round-trip, a few seconds) so the round-complete screen
+  // itself shows instantly — but that means the "Read Match Report" button
+  // can appear before the report actually exists yet. Track the in-flight
+  // promise so the button can await it and show it's still writing, instead
+  // of navigating straight to an empty "No stories published" screen (Dave,
+  // 2026-08-20 — tapped it within the same ~2s and got exactly that).
+  const newsReportPromiseRef = useRef<Promise<void> | null>(null);
+  const [openingReport, setOpeningReport] = useState(false);
 
   const [editPlayerId, setEditPlayerId] = useState<string | null>(null);
   const [editHcp, setEditHcp] = useState('');
@@ -365,16 +375,12 @@ export default function EnterScoresScreen() {
         .single();
       if (!error && data) setMatch(data as unknown as MatchInfo);
     }
-    console.log('[enter.realtime] subscribing', { channel: `enter-${matchId}` });
     const sub = supabase
       .channel(`enter-${matchId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'matches',    filter: `id=eq.${matchId}` },       refreshMatchSilently)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'match_holes', filter: `match_id=eq.${matchId}` }, refreshMatchSilently)
       .subscribe();
-    return () => {
-      console.log('[enter.realtime] unsubscribing', { channel: `enter-${matchId}` });
-      supabase.removeChannel(sub);
-    };
+    return () => { supabase.removeChannel(sub); };
   }, [matchId]);
 
   // ── Apple Watch sync ────────────────────────────────────────────
@@ -1363,6 +1369,14 @@ export default function EnterScoresScreen() {
       if (error) throw error;
       setMatch({ ...match, ...matchUpdate });
       endLiveActivity();
+      // Casual Golf's one final match report, auto-generated the moment the
+      // round completes — no preview/day-1 reports like Tournament News,
+      // and no admin review step since the player who just finished isn't
+      // necessarily an admin (Dave, 2026-08-20, TODO item 5). Tournament
+      // matches (competition_id set) already get their own News via the
+      // admin-triggered flow in admin/news.tsx — skip here to avoid a
+      // second, unwanted report on those.
+      if (!match.competition_id) newsReportPromiseRef.current = generateCasualMatchReport(matchId as string);
       const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
       const broken = allBroken.flat();
       if (broken.length > 0) {
@@ -2002,7 +2016,20 @@ export default function EnterScoresScreen() {
                 {!editingHole && (
                   <TouchableOpacity
                     style={[s.undoBtn, { marginTop: 10, marginBottom: 0 }]}
-                    onPress={() => router.push(`/(app)/spectate/${matchId}` as any)}
+                    // replace, not push: spectate/[matchId] lives on a
+                    // different root tab than this screen, so a push here
+                    // is really a cross-tab jump — React Navigation keeps
+                    // the score tab (this screen included, live realtime
+                    // subscription and all) mounted in the background
+                    // rather than unmounting it, since that's normal
+                    // tab-persistence behavior. Confirmed live: the
+                    // subscription's cleanup never ran after navigating
+                    // away this way. Later re-entering the score tab fresh
+                    // (e.g. the Home "Play" tile) then collides with that
+                    // still-alive instance — Dave/Ross, 2026-08-20, "back
+                    // out of spectate then Play crashes the app". replace()
+                    // properly tears the screen down instead.
+                    onPress={() => router.replace(`/(app)/spectate/${matchId}` as any)}
                     activeOpacity={0.85}
                   >
                     <Ionicons name="eye-outline" size={16} color="#6b7280" />
@@ -2033,6 +2060,27 @@ export default function EnterScoresScreen() {
                 : `${match.winner === 'home' ? homeLabel : awayLabel} Win`}
             </Text>
             {roundDuration && <Text style={s.completeDuration}>Round time: {roundDuration}</Text>}
+            {!match.competition_id && (
+              <TouchableOpacity
+                style={[s.newsLinkBtn, openingReport && { opacity: 0.6 }]}
+                disabled={openingReport}
+                onPress={async () => {
+                  setOpeningReport(true);
+                  // Wait for the same generation call handleCompleteRound
+                  // already kicked off — it may still be mid Claude-API
+                  // round-trip. Already-resolved promises await instantly.
+                  if (newsReportPromiseRef.current) await newsReportPromiseRef.current;
+                  setOpeningReport(false);
+                  router.push(`/(app)/news?matchId=${matchId}` as any);
+                }}
+                activeOpacity={0.85}
+              >
+                {openingReport
+                  ? <ActivityIndicator size="small" color={GOLD} />
+                  : <Ionicons name="newspaper-outline" size={16} color={GOLD} />}
+                <Text style={s.newsLinkBtnText}>{openingReport ? 'Writing your report…' : 'Read Match Report'}</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {(match.round_format === 'stableford' || match.secondary_format) && allPlayerIds.length > 0 && (
@@ -2961,6 +3009,12 @@ const s = StyleSheet.create({
   completeResult: { fontFamily: FFB, fontSize: 56, color: GOLD, letterSpacing: 2 },
   completeWinner: { fontFamily: FFB, fontSize: 18, color: '#ffffff', marginTop: 4 },
   completeDuration: { fontFamily: FFB, fontSize: 12, color: '#9ca3af', marginTop: 10 },
+  newsLinkBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 16,
+    paddingHorizontal: 16, paddingVertical: 9, borderRadius: 20,
+    borderWidth: 1, borderColor: `${GOLD}40`, backgroundColor: `${GOLD}10`,
+  },
+  newsLinkBtnText: { fontFamily: FFB, fontSize: 12, color: GOLD },
 
   summaryCard: {
     marginHorizontal: 16, marginBottom: 12,

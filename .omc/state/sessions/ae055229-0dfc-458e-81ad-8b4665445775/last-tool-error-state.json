@@ -1,7 +1,7 @@
 {
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"grep -n \\\"function matchNames\\\\|const \\\\[players\\\" \\\"app/(app)/tour/index.tsx\\\"; echo \\\"---\\\"; grep -n \\\"^import.*resolveAvatar\\\\|from '.*assets'\\\" \\\"app/(app)/score/day/\\\\[dayId\\\\].tsx\\\"\"...",
-  "error": "Exit code 2\n98:  const [players, setPlayers]         = useState<{ id: string; display_name: string; avatar_url?: string | null }[]>([]);\n564:  function matchNames(m: Match): { home: string; away: string } {\n---\nugrep: warning: app/(app)/score/day/\\[dayId\\].tsx: No such file or directory",
-  "timestamp": "2026-08-20T09:12:11.586Z",
+  "tool_name": "mcp__plugin_expo_expo__testflight_feedback",
+  "tool_input_preview": "{\"bundleId\":\"com.titangolf.app\",\"limit\":10}",
+  "error": "No feedback submissions found for com.titangolf.app.",
+  "timestamp": "2026-08-20T12:43:27.608Z",
   "retry_count": 1
 }

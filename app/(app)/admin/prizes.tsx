@@ -99,7 +99,14 @@ export default function AdminPrizesScreen() {
         { text: 'Split', onPress: async () => {
           setSplitting(true);
           try {
-            await supabase.from('prize_categories').delete().eq('competition_id', competitionId);
+            // Never checked before — if this delete silently failed for any
+            // reason, the insert below still ran, doubling up the division
+            // rows every time Split got pressed again (Dave, 2026-08-20:
+            // "a split appears to occur at the start and then repeat
+            // itself"). Abort rather than insert on top of categories that
+            // may still be there.
+            const { error: delErr } = await supabase.from('prize_categories').delete().eq('competition_id', competitionId);
+            if (delErr) { Alert.alert('Error', delErr.message); return; }
             const { error } = await supabase.from('prize_categories').insert([
               { competition_id: competitionId, name: 'Division 1', hcp_min: null,               hcp_max: div1Max,        display_order: 1 },
               { competition_id: competitionId, name: 'Division 2', hcp_min: div1Max + 0.1,       hcp_max: div2Max,        display_order: 2 },

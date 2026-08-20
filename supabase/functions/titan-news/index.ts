@@ -17,7 +17,7 @@ const CORS = {
 
 const MODEL = 'claude-haiku-4-5-20251001';
 
-const SYSTEM_PROMPT = `You are Titan News, the automated sports desk for a golf society's tournament app. You write proper tournament journalism — pre-round previews, end-of-round reports, final tournament reports — from a structured JSON facts package that has already been fully computed by Titan.
+const SYSTEM_PROMPT = `You are Titan News, the automated sports desk for a golf society's tournament app. You write proper tournament journalism — pre-round previews, end-of-round reports, final tournament reports, and one-off casual round match reports (storyType "casual_final") — from a structured JSON facts package that has already been fully computed by Titan.
 
 STRICT RULES — these are absolute:
 - Only use facts contained in the supplied JSON snapshot. Nothing else.
@@ -39,9 +39,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const { dedupeKey, competitionId, dayId, storyType, snapshot } = await req.json();
-    if (!dedupeKey || !competitionId || !storyType || !snapshot) {
-      return new Response(JSON.stringify({ error: 'dedupeKey, competitionId, storyType and snapshot are required' }), {
+    const { dedupeKey, competitionId, matchId, dayId, storyType, snapshot } = await req.json();
+    if (!dedupeKey || !storyType || !snapshot || (!competitionId && !matchId)) {
+      return new Response(JSON.stringify({ error: 'dedupeKey, storyType, snapshot and one of competitionId/matchId are required' }), {
         status: 400, headers: CORS,
       });
     }
@@ -96,12 +96,19 @@ Deno.serve(async (req) => {
     );
 
     // Regeneration overwrites the same row (same dedupe_key) rather than
-    // creating a duplicate — status always resets to draft, never auto-published.
+    // creating a duplicate. Tournament stories always reset to draft for
+    // admin review before publishing. Casual match reports have no review
+    // step at all (Dave, 2026-08-20, TODO item 5 — "Casual Golf only needs
+    // one final report after the game is completed") and the player who
+    // just finished their round is very likely not a society admin, so
+    // there's no one to publish it — auto-publish those instead.
+    const isCasual = storyType === 'casual_final';
     const { data: saved, error: dbErr } = await supabase
       .from('titan_news')
       .upsert({
         dedupe_key:     dedupeKey,
-        competition_id: competitionId,
+        competition_id: competitionId ?? null,
+        match_id:       matchId ?? null,
         day_id:         dayId ?? null,
         story_type:     storyType,
         headline:       article.headline ?? null,
@@ -109,10 +116,10 @@ Deno.serve(async (req) => {
         body:           article.body ?? null,
         featured_players: article.featuredPlayers ?? [],
         featured_teams:   article.featuredTeams ?? [],
-        status:         'draft',
+        status:         isCasual ? 'published' : 'draft',
+        published_at:   isCasual ? new Date().toISOString() : null,
         ai_model:       MODEL,
         input_snapshot: snapshot,
-        published_at:   null,
       }, { onConflict: 'dedupe_key' })
       .select()
       .single();

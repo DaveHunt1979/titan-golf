@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, freshChannel } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { matchLabel, getEffectiveWinner } from '../../../src/lib/scoring';
 import { getPlayerAvatar } from '../../../src/lib/assets';
@@ -144,8 +144,7 @@ export default function ScoreScreen() {
 
   useEffect(() => {
     loadMatches();
-    const sub = supabase
-      .channel('matches-live')
+    const sub = freshChannel('matches-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, loadMatches)
       .subscribe();
     return () => { supabase.removeChannel(sub); };
