@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { goBack } from '../../../../src/lib/navigation';
 import { formatRoundDuration } from '../../../../src/lib/roundTimer';
 import { resolveAvatar } from '../../../../src/lib/assets';
 import { sendMatchNotification } from '../../../../src/lib/notifications';
@@ -376,7 +377,7 @@ export default function SoloRoundScreen() {
       if (newStatus === 'complete') {
         const broken = await checkAndUpdateRecords(matchId as string, m.home_player_ids[0]);
         if (broken.length > 0) { setRecordsBroken(broken); }
-        else { Alert.alert('Round Complete!', result, [{ text: 'Done', onPress: () => router.back() }]); }
+        else { Alert.alert('Round Complete!', result, [{ text: 'Done', onPress: () => goBack(router, `/(app)/score/${matchId}`) }]); }
       }
     });
     return unsub;
@@ -632,7 +633,7 @@ export default function SoloRoundScreen() {
           await supabase.from('match_holes').delete().eq('match_id', matchId);
           const { error } = await supabase.from('matches').delete().eq('id', matchId);
           if (error) { Alert.alert('Error', error.message); return; }
-          router.back();
+          goBack(router, '/(app)/score');
         },
       },
     ]);
@@ -680,7 +681,7 @@ export default function SoloRoundScreen() {
 
       {/* ── Header ── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, `/(app)/score/${matchId}`)} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
@@ -934,7 +935,7 @@ export default function SoloRoundScreen() {
                   // here blocked finishing the round for 45s+ on poor signal.
                   const fs = isStableford ? `${totalPts} pts` : formatVsPar(vsPar);
                   if (playerName && !voiceOff) speakOutro(playerName.split(' ')[0], fs);
-                  router.back();
+                  goBack(router, `/(app)/score/${matchId}`);
                 }}
                 activeOpacity={0.85}
               >
@@ -1289,7 +1290,7 @@ export default function SoloRoundScreen() {
       {recordsBroken.length > 0 && (
         <RecordCelebration
           records={recordsBroken}
-          onDismiss={() => { setRecordsBroken([]); router.back(); }}
+          onDismiss={() => { setRecordsBroken([]); goBack(router, `/(app)/score/${matchId}`); }}
         />
       )}
       </View>

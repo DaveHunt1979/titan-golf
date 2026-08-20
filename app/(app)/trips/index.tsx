@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { useSocietyRole } from '../../../src/lib/useSocietyRole';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD = '#D4AF37';
 const FFB  = 'JUSTSans-ExBold';
@@ -56,7 +57,7 @@ export default function TripsListScreen() {
       <StatusBar style="light" />
 
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={[s.back, { color: dc.gold }]}>← Back</Text>
         </TouchableOpacity>
         <Text style={[s.title, { color: dc.cardText }]}>Up & Coming</Text>

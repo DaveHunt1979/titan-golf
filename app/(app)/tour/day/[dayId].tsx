@@ -11,6 +11,7 @@ import { supabase } from '../../../../src/lib/supabase';
 import { matchLabel, getEffectiveWinner } from '../../../../src/lib/scoring';
 import { getPlayerAvatar, teamLogos } from '../../../../src/lib/assets';
 import type { Match, Team, CompetitionDay } from '../../../../src/types';
+import { goBack } from '../../../../src/lib/navigation';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
@@ -118,7 +119,7 @@ export default function TourDayScreen() {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => goBack(router, '/(app)/tour')}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             style={styles.backBtn}
           >

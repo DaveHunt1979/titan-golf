@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { scanNfcTagId, isNfcSupported, formatTagId } from '../../../src/lib/nfc';
+import { goBack } from '../../../src/lib/navigation';
 
 // ── Brand / Category / Model Data ────────────────────────────────────────────
 
@@ -304,7 +305,7 @@ export default function BagScreen() {
       <StatusBar style="light" />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={hit}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/profile')} hitSlop={hit}>
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>My Bag & NFC Tags</Text>

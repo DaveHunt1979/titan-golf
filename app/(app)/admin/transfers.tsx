@@ -12,6 +12,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { uploadImage } from '../../../src/lib/uploadImage';
 import { teamLogos, getPlayerAvatar } from '../../../src/lib/assets';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -294,7 +295,7 @@ export default function TransferWindowScreen() {
 
       {/* Header — three-column */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/hub-tournament')} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={styles.backText}>‹ Admin</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>

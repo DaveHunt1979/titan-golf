@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { resolveAvatar } from '../../../src/lib/assets';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD = '#D4AF37';
 const FF   = 'JUSTSans';
@@ -57,7 +58,7 @@ export default function InboxIndex() {
       <StatusBar style="light" />
 
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/')} style={s.headerBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color={dc.cardText} />
         </TouchableOpacity>
         <Text style={[s.title, { color: dc.cardText }]}>INBOX</Text>

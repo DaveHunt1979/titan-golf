@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
@@ -194,7 +195,7 @@ export default function ChaChaScreen() {
       const { total: t } = holeTeamPts(players, h.hole_number, h.par, h.stroke_index, scores);
       return sum + t;
     }, 0);
-    Alert.alert('ChaChaCha Complete!', `Team total: ${total} pts`, [{ text: 'Done', onPress: () => router.back() }]);
+    Alert.alert('ChaChaCha Complete!', `Team total: ${total} pts`, [{ text: 'Done', onPress: () => goBack(router, `/(app)/score/${matchId}`) }]);
   }
 
   // Running team total
@@ -217,7 +218,7 @@ export default function ChaChaScreen() {
 
       {/* Header: back | logo+subtitle | spacer */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => goBack(router, `/(app)/score/${matchId}`)} style={s.backBtn}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

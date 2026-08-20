@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#22c55e';
@@ -102,7 +103,7 @@ export default function ConceptLockerScreen() {
       {/* ── Header ── */}
       <View style={s.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => goBack(router, '/(app)/admin/concept')}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           style={s.headerSide}
         >

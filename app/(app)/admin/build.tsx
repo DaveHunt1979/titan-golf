@@ -14,6 +14,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { uploadImage } from '../../../src/lib/uploadImage';
 import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -618,7 +619,7 @@ export default function BuildTournamentScreen() {
 
   function next() { setStep(s => Math.min(s + 1, 3)); }
   function back() {
-    if (step === 0) router.back();
+    if (step === 0) goBack(router, '/(app)/admin/hub-tournament');
     else setStep(s => s - 1);
   }
 

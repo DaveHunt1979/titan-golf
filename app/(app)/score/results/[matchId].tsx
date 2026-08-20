@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
+import { goBack } from '../../../../src/lib/navigation';
 import { useDynamicColors } from '../../../../src/lib/SocietyThemeContext';
 import { useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../../src/lib/assets';
@@ -487,7 +488,7 @@ export default function ResultsScreen() {
       {/* ── Header ── */}
       <View style={s.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => goBack(router, `/(app)/score/${matchId}`)}
           style={s.headerSide}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >

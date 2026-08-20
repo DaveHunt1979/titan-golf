@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
+import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
@@ -161,7 +162,7 @@ export default function NassauScreen() {
     const hn = match.home_player_ids.map(id => names[id] ?? '?').join(' & ');
     const an = match.away_player_ids.map(id => names[id] ?? '?').join(' & ');
     const msg = `Front: ${betLabel(front, hn, an)}\nBack: ${betLabel(back, hn, an)}\nTotal: ${betLabel(total, hn, an)}`;
-    Alert.alert('Nassau Complete!', msg, [{ text: 'Done', onPress: () => router.back() }]);
+    Alert.alert('Nassau Complete!', msg, [{ text: 'Done', onPress: () => goBack(router, `/(app)/score/${matchId}`) }]);
   }
 
   const { front, back, total } = match
@@ -179,7 +180,7 @@ export default function NassauScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => goBack(router, `/(app)/score/${matchId}`)} style={s.backBtn}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

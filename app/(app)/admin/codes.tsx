@@ -10,6 +10,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -122,7 +123,7 @@ export default function CodesScreen() {
 
       {/* Header */}
       <View style={[s.header, { borderBottomColor: dc.border }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/hub-platform')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={[s.back, { color: dc.gold }]}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

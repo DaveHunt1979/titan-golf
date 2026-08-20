@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD = '#D4AF37';
 const RED = '#f87171';
@@ -107,7 +108,7 @@ export default function AdminTournaments() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={hit} style={s.headerLeft}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/hub-tournament')} hitSlop={hit} style={s.headerLeft}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

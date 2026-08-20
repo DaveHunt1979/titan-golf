@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../src/lib/SocietyThemeContext';
 import { titanLogo, getSocietyLogo } from '../../src/lib/assets';
+import { goBack } from '../../src/lib/navigation';
 
 const FFB = 'JUSTSans-ExBold';
 const FF  = 'JUSTSans';
@@ -73,7 +74,7 @@ export default function SocietiesScreen() {
       <StatusBar style="light" />
 
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={HIT}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/profile')} hitSlop={HIT}>
           <Text style={[s.back, { color: dc.gold }]}>← Back</Text>
         </TouchableOpacity>
         <Text style={[s.title, { color: dc.cardText }]}>My Societies</Text>

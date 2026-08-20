@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -62,7 +63,7 @@ export default function ConceptPracticeScreen() {
 
       {/* ── Header ── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={s.headerSide}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/concept')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={s.headerSide}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Image source={require('../../../assets/TitanAppLogo.png')} style={s.headerLogo} resizeMode="contain" />

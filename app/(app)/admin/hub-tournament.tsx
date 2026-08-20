@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 import { IS_PAD } from '../../../src/lib/useDeviceLayout';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD = '#D4AF37';
 const FF   = 'JUSTSans';
@@ -42,7 +43,7 @@ export default function TournamentHubScreen() {
     <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
       <View style={[s.header, { borderBottomColor: dc.border }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={[s.back, { color: dc.gold }]}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

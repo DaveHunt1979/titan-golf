@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
 import { useDynamicColors } from '../../../../src/lib/SocietyThemeContext';
 import { scanNfcTagId, isNfcSupported, formatTagId } from '../../../../src/lib/nfc';
+import { goBack } from '../../../../src/lib/navigation';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#22c55e';
@@ -272,7 +273,7 @@ export default function ClubDetailScreen() {
         <StatusBar style="light" />
         <View style={s.centered}>
           <Text style={s.errorText}>Club not found</Text>
-          <TouchableOpacity onPress={() => router.back()} style={[s.backBtn, { backgroundColor: `${dc.gold}18`, borderColor: `${dc.gold}30` }]}>
+          <TouchableOpacity onPress={() => goBack(router, '/(app)/profile/bag')} style={[s.backBtn, { backgroundColor: `${dc.gold}18`, borderColor: `${dc.gold}30` }]}>
             <Text style={[s.backBtnText, { color: dc.gold }]}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -289,7 +290,7 @@ export default function ClubDetailScreen() {
 
       {/* ── Header ── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={HIT} style={s.headerSide}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/profile/bag')} hitSlop={HIT} style={s.headerSide}>
           <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>

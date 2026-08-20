@@ -126,78 +126,23 @@ function AppLayoutInner() {
       }}
     >
         <Tabs.Screen name="index"          options={{ title: 'Home',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><HomeIcon        color={ic(focused)} /></TabIcon> }} />
-        <Tabs.Screen name="score/index"    options={{ href: null }} />
-        <Tabs.Screen name="tour/index"     options={{ href: null }} />
-        <Tabs.Screen name="swindle/index"  options={{ href: null }} />
+        <Tabs.Screen name="score"          options={{ href: null }} />
+        <Tabs.Screen name="tour"           options={{ href: null }} />
+        <Tabs.Screen name="swindle"        options={{ href: null }} />
         <Tabs.Screen name="watch/index"    options={{ href: null }} />
         <Tabs.Screen name="chat"           options={{ href: null }} />
-        <Tabs.Screen name="inbox/index"      options={{ href: null }} />
-        <Tabs.Screen name="inbox/new"        options={{ href: null }} />
-        <Tabs.Screen name="inbox/[playerId]" options={{ href: null }} />
+        <Tabs.Screen name="inbox"            options={{ href: null }} />
         <Tabs.Screen name="feed/index"     options={{ href: null }} />
         <Tabs.Screen name="camera/index"   options={{ title: 'Camera',   tabBarIcon: ({ focused }) => <TabIcon focused={focused}><CameraIcon      color={ic(focused)} /></TabIcon> }} />
         <Tabs.Screen name="profile"  options={{ title: 'Profile',  tabBarIcon: ({ focused }) => <TabIcon focused={focused}><ProfileIcon     color={ic(focused)} /></TabIcon> }} />
-        <Tabs.Screen name="admin/index"    options={{ href: isAdmin ? undefined : null, title: 'Admin', tabBarIcon: ({ focused }) => <TabIcon focused={focused}><AdminIcon color={ic(focused)} /></TabIcon> }} />
-        <Tabs.Screen name="admin/build"              options={{ href: null }} />
-        <Tabs.Screen name="admin/draw"               options={{ href: null }} />
-        <Tabs.Screen name="admin/hub-tournament"      options={{ href: null }} />
-        <Tabs.Screen name="admin/hub-platform"        options={{ href: null }} />
-        <Tabs.Screen name="admin/prizes"             options={{ href: null }} />
-        <Tabs.Screen name="admin/concept"            options={{ href: null }} />
-        <Tabs.Screen name="admin/concept-locker"    options={{ href: null }} />
-        <Tabs.Screen name="admin/concept-stats"     options={{ href: null }} />
-        <Tabs.Screen name="admin/concept-casual"    options={{ href: null }} />
-        <Tabs.Screen name="admin/concept-score"        options={{ href: null }} />
-        <Tabs.Screen name="admin/concept-practice"    options={{ href: null }} />
-        <Tabs.Screen name="admin/concept-rangefinder" options={{ href: null }} />
-        <Tabs.Screen name="admin/concept-swindle"      options={{ href: null }} />
-        <Tabs.Screen name="admin/concept-swindle-game" options={{ href: null }} />
-        <Tabs.Screen name="games/index"              options={{ href: null }} />
-        <Tabs.Screen name="games/new"                options={{ href: null }} />
-        <Tabs.Screen name="games/GroupBuilderSheet"   options={{ href: null }} />
-        <Tabs.Screen name="score/results/[matchId]"  options={{ href: null }} />
-        <Tabs.Screen name="score/[matchId]"          options={{ href: null }} />
-        <Tabs.Screen name="score/enter/[matchId]"    options={{ href: null }} />
-        <Tabs.Screen name="score/preview/[matchId]"  options={{ href: null }} />
-        <Tabs.Screen name="score/solo/[matchId]"     options={{ href: null }} />
-        <Tabs.Screen name="score/skins/[matchId]"    options={{ href: null }} />
-        <Tabs.Screen name="score/nassau/[matchId]"   options={{ href: null }} />
-        <Tabs.Screen name="score/wolf/[matchId]"     options={{ href: null }} />
-        <Tabs.Screen name="score/scramble/[matchId]" options={{ href: null }} />
-        <Tabs.Screen name="score/bbb/[matchId]"          options={{ href: null }} />
-        <Tabs.Screen name="score/modified/[matchId]"    options={{ href: null }} />
-        <Tabs.Screen name="score/parbogey/[matchId]"    options={{ href: null }} />
-        <Tabs.Screen name="score/chacha/[matchId]"           options={{ href: null }} />
-        <Tabs.Screen name="score/teamstableford/[matchId]"   options={{ href: null }} />
-        <Tabs.Screen name="tour/day/[dayId]"         options={{ href: null }} />
-        <Tabs.Screen name="admin/info"               options={{ href: null }} />
-        <Tabs.Screen name="admin/create-society"     options={{ href: null }} />
-        <Tabs.Screen name="admin/players"            options={{ href: null }} />
-        <Tabs.Screen name="admin/branding"           options={{ href: null }} />
-        <Tabs.Screen name="admin/courses"            options={{ href: null }} />
-        <Tabs.Screen name="admin/transfers"          options={{ href: null }} />
-        <Tabs.Screen name="admin/swindle"            options={{ href: null }} />
-        <Tabs.Screen name="admin/pins"               options={{ href: null }} />
-        <Tabs.Screen name="admin/tournaments"        options={{ href: null }} />
-        <Tabs.Screen name="admin/live-tournaments"   options={{ href: null }} />
-        <Tabs.Screen name="admin/news"               options={{ href: null }} />
+        <Tabs.Screen name="admin"    options={{ href: isAdmin ? undefined : null, title: 'Admin', tabBarIcon: ({ focused }) => <TabIcon focused={focused}><AdminIcon color={ic(focused)} /></TabIcon> }} />
+        <Tabs.Screen name="games"                     options={{ href: null }} />
         <Tabs.Screen name="news/index"                options={{ href: null }} />
-        <Tabs.Screen name="score/day/[dayId]"        options={{ href: null }} />
-        <Tabs.Screen name="score/scan/[matchId]"     options={{ href: null }} />
         <Tabs.Screen name="spectate/[matchId]"       options={{ href: null }} />
-        <Tabs.Screen name="range/index"              options={{ href: null }} />
-        <Tabs.Screen name="range/[sessionId]"        options={{ href: null }} />
+        <Tabs.Screen name="range"                     options={{ href: null }} />
         <Tabs.Screen name="rangefinder/index" options={{ href: null, sceneStyle: IS_PAD ? { marginLeft: 0 } : undefined }} />
         <Tabs.Screen name="records/index"             options={{ href: null }} />
         <Tabs.Screen name="trips"                     options={{ href: null }} />
-        <Tabs.Screen name="swindle/create"           options={{ href: null }} />
-        <Tabs.Screen name="swindle/[gameId]"         options={{ href: null }} />
-        <Tabs.Screen name="swindle/score/[gameId]"   options={{ href: null }} />
-        <Tabs.Screen name="swindle/scan/[gameId]"    options={{ href: null }} />
-        <Tabs.Screen name="swindle/group/new"        options={{ href: null }} />
-        <Tabs.Screen name="admin/membership"         options={{ href: null }} />
-        <Tabs.Screen name="admin/groups"             options={{ href: null }} />
-        <Tabs.Screen name="admin/codes"              options={{ href: null }} />
         <Tabs.Screen name="friends"                  options={{ href: null }} />
         <Tabs.Screen name="add/[tag]"                options={{ href: null }} />
         <Tabs.Screen name="join" options={{ href: null, tabBarStyle: { display: 'none' } }} />

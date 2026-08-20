@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../src/lib/SocietyThemeContext';
+import { goBack } from '../../src/lib/navigation';
 
 const GOLD = '#D4AF37';
 const FFB  = 'JUSTSans-ExBold';
@@ -144,7 +145,7 @@ export default function FriendsScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/')} style={s.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={s.title}>MEMBERS</Text>

@@ -10,6 +10,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
@@ -388,7 +389,7 @@ export default function TeamStablefordScreen() {
       <View style={s.root}>
         <StatusBar style="light" />
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <TouchableOpacity onPress={() => goBack(router, `/(app)/score/${matchId}`)} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={s.headerCenter}>
@@ -452,7 +453,7 @@ export default function TeamStablefordScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, `/(app)/score/${matchId}`)} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>

@@ -13,6 +13,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { resolveAvatar } from '../../../src/lib/assets';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
@@ -247,7 +248,7 @@ export default function PlayersScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={hit}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/hub-platform')} hitSlop={hit}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

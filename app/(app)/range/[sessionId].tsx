@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -100,7 +101,7 @@ export default function RangeSessionScreen() {
   }
 
   async function endSession() {
-    router.back();
+    goBack(router, '/(app)/range');
   }
 
   // Stats for current club
@@ -120,7 +121,7 @@ export default function RangeSessionScreen() {
       {/* ── Header ─────────────────────────────────────────────────── */}
       <View style={s.header}>
         {/* Left: back chevron */}
-        <TouchableOpacity onPress={() => router.back()} style={s.headerLeft} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/range')} style={s.headerLeft} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={24} color={GOLD} />
         </TouchableOpacity>
 

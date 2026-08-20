@@ -359,7 +359,7 @@ export default function EnterScoresScreen() {
           *,
           home_team:home_team_id(name,accent_color),
           away_team:away_team_id(name,accent_color),
-          day:day_id(course_name,course_par,course_rating,slope_rating,day_number,competition:competition_id(format))
+          day:day_id(course_name,course_par,course_rating,slope_rating,day_number,competition:competition_id(format,include_in_kronos))
         `)
         .eq('id', matchId)
         .single();
@@ -2019,7 +2019,14 @@ export default function EnterScoresScreen() {
           <View style={s.completeHero}>
             <Ionicons name="trophy" size={48} color={GOLD} style={{ marginBottom: 12 }} />
             <Text style={s.completeTitle}>MATCH COMPLETE</Text>
-            <Text style={s.completeResult}>{match.result_str ?? 'Done'}</Text>
+            <Text
+              style={s.completeResult}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}
+            >
+              {match.result_str ?? 'Done'}
+            </Text>
             <Text style={s.completeWinner}>
               {match.winner === 'half'
                 ? 'Match Halved'

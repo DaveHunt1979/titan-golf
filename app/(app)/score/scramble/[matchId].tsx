@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
+import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
@@ -129,7 +130,7 @@ export default function ScrambleScreen() {
     Alert.alert(
       'Round Complete!',
       `Team: ${totalGross} (${d === 0 ? 'E' : d > 0 ? `+${d}` : d})`,
-      [{ text: 'Done', onPress: () => router.back() }],
+      [{ text: 'Done', onPress: () => goBack(router, `/(app)/score/${matchId}`) }],
     );
   }
 
@@ -158,7 +159,7 @@ export default function ScrambleScreen() {
 
       {/* ── Header ────────────────────────────────────────────────── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerLeft}>
+        <TouchableOpacity onPress={() => goBack(router, `/(app)/score/${matchId}`)} style={s.headerLeft}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
 

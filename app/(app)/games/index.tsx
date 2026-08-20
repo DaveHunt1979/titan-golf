@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
+import { goBack } from '../../../src/lib/navigation';
 
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
@@ -138,7 +139,7 @@ export default function GamesLobbyScreen() {
 
       {/* Header */}
       <View style={[s.header, { borderBottomColor: BORDER }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color={GOLD} />
         </TouchableOpacity>
         <Text style={[s.headerTitle, { color: '#fff' }]}>PLAY</Text>

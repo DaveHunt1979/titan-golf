@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { matchLabel, getEffectiveWinner, calcHoles } from '../../../src/lib/scoring';
+import { goBack } from '../../../src/lib/navigation';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
 
 const GOLD     = '#D4AF37';
@@ -160,7 +161,7 @@ export default function MatchDetailScreen() {
           supabase.from('matches').delete().eq('id', matchId)
             .then(({ error }) => {
               if (error) Alert.alert('Error', error.message ?? 'Could not delete game');
-              else router.back();
+              else goBack(router, '/(app)/score');
             });
         },
       },
@@ -316,7 +317,7 @@ export default function MatchDetailScreen() {
 
       {/* ── Header ── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/score')} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>

@@ -12,6 +12,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { uploadImage } from '../../../src/lib/uploadImage';
 import { useDynamicColors, derivePalette } from '../../../src/lib/SocietyThemeContext';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
@@ -201,7 +202,7 @@ export default function SocietyBrandingScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={hit} style={s.headerLeft}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/hub-tournament')} hitSlop={hit} style={s.headerLeft}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

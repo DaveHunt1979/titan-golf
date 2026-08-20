@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD = '#D4AF37'; // StyleSheet fallback
 const FF   = 'JUSTSans';
@@ -141,7 +142,7 @@ export default function RangeHomeScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/profile')} style={s.headerSide} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={24} color={dc.gold} />
         </TouchableOpacity>
         <View style={s.headerCenter}>

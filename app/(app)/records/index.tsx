@@ -6,6 +6,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
+import { goBack } from '../../../src/lib/navigation';
 
 // ── TITAN design constants ─────────────────────────────────────
 const GOLD = '#D4AF37';
@@ -214,7 +215,7 @@ export default function RecordsScreen() {
 
       {/* Header */}
       <View style={ss.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={[ss.back, { color: dc.gold }]}>← Back</Text>
         </TouchableOpacity>
         <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={ss.headerLogo} resizeMode="contain" />

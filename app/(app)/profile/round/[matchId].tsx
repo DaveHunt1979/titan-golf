@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { speakDebrief } from '../../../../src/lib/caddie';
+import { goBack } from '../../../../src/lib/navigation';
 
 // ─── TITAN design constants ───────────────────────────────────────────────────
 
@@ -308,7 +309,7 @@ export default function RoundDetailScreen() {
 
       {/* Header */}
       <View style={ss.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/profile/rounds')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={ss.back}>← Back</Text>
         </TouchableOpacity>
         <View style={{ alignItems: 'center' }}>

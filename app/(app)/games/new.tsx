@@ -15,6 +15,7 @@ import { getPlayerAvatar } from '../../../src/lib/assets';
 import { downloadMatchPack, downloadCourseGps } from '../../../src/lib/offlinePack';
 import { fetchFavouriteIds, fetchRecentlyPlayedWithIds, toggleFavourite } from '../../../src/lib/playerTiers';
 import GroupBuilderSheet, { BuiltMatch, PlayerOverride } from './GroupBuilderSheet';
+import { goBack } from '../../../src/lib/navigation';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -1084,7 +1085,7 @@ export default function NewGameScreen() {
 
       {/* ── Header ────────────────────────────────────────────── */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/games')} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="close-outline" size={28} color="#ffffff" />
         </TouchableOpacity>
         <View style={s.headerCenter} />

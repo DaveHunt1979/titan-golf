@@ -11,6 +11,7 @@ import { supabase } from '../../../../src/lib/supabase';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { speakIntro } from '../../../../src/lib/caddie';
 import { calcCourseHandicap } from '../../../../src/lib/scoring';
+import { goBack } from '../../../../src/lib/navigation';
 
 const GOLD  = '#D4AF37';
 const FF    = 'JUSTSans';
@@ -257,7 +258,7 @@ export default function MatchPreviewScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/games')} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>

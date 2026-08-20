@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { resolveAvatar } from '../../../src/lib/assets';
+import { goBack } from '../../../src/lib/navigation';
 
 const COMPOSE_WIDTH = 1080; // offscreen render width for the branded photo — good enough for social sharing without being wasteful
 
@@ -276,7 +277,7 @@ export default function CameraScreen() {
         <TouchableOpacity style={s.permBtn} onPress={requestCamPerm}>
           <Text style={s.permBtnText}>Allow Camera</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/')} style={{ marginTop: 16 }}>
           <Text style={s.closeText}>Close</Text>
         </TouchableOpacity>
       </View>
@@ -448,7 +449,7 @@ export default function CameraScreen() {
       {/* Close button */}
       <TouchableOpacity
         style={s.closeBtn}
-        onPress={() => router.back()}
+        onPress={() => goBack(router, '/(app)/')}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
         <Text style={s.closeBtnText}>✕</Text>

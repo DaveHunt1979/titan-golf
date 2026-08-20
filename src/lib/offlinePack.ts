@@ -20,7 +20,7 @@ export async function downloadMatchPack(matchId: string): Promise<void> {
   try {
     const { data: matchData } = await supabase
       .from('matches')
-      .select('*, home_team:home_team_id(name,accent_color), away_team:away_team_id(name,accent_color), day:day_id(course_name,course_par,course_rating,slope_rating,day_number,competition:competition_id(format))')
+      .select('*, home_team:home_team_id(name,accent_color), away_team:away_team_id(name,accent_color), day:day_id(course_name,course_par,course_rating,slope_rating,day_number,competition:competition_id(format,include_in_kronos))')
       .eq('id', matchId).single();
     if (!matchData) return;
 

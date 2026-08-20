@@ -11,6 +11,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -307,7 +308,7 @@ export default function SwindleAdminScreen() {
 
       {/* Header — three-column */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={s.back}>‹ Admin</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

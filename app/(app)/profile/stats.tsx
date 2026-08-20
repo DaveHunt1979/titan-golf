@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
+import { goBack } from '../../../src/lib/navigation';
 
 // ─── TITAN design constants ──────────────────────────────────────────────────
 
@@ -300,7 +301,7 @@ export default function StatsScreen() {
       {/* ── Header ── */}
       <View style={[ss.header, { borderBottomColor: dc.border }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => goBack(router, '/(app)/profile')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           style={ss.headerBtn}
         >

@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD = '#D4AF37';
 const RED  = '#f87171';
@@ -224,7 +225,7 @@ export default function AdminPrizesScreen() {
       <StatusBar style="light" />
 
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, `/(app)/admin/draw?id=${competitionId}`)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={{ alignItems: 'center' }}>

@@ -10,7 +10,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { calcHoles } from '../../../../src/lib/scoring';
+import { goBack } from '../../../../src/lib/navigation';
 import { resolveAvatar } from '../../../../src/lib/assets';
+import Leaderboard, { type LeaderboardRow } from '../../../../src/components/Leaderboard';
 
 const GOLD = '#D4AF37';
 const FF   = 'JUSTSans';
@@ -254,13 +256,37 @@ export default function DayLobby() {
 
   const dateStr = new Date(day.day_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
+  // The shared, nicer Leaderboard component (built for the tour-level
+  // Kronos/Team standings) — Dave wants the same look here on team days,
+  // where "which team is this player on" is actually useful context.
+  // Individual/matchplay days keep the plain list below; there's no team
+  // to show and the old rows already read fine for that case.
+  const isMultiTeam = groups.length > 0 && groups.every(g => g.format === 'team_stableford');
+  const teamNameByPlayer: Record<string, string> = {};
+  if (isMultiTeam) {
+    for (const g of groups) {
+      for (const id of g.home_player_ids) teamNameByPlayer[id] = g.home_name ?? 'Team A';
+      for (const id of g.away_player_ids) teamNameByPlayer[id] = g.away_name ?? 'Team B';
+    }
+  }
+  const leaderboardRows: LeaderboardRow[] = players.map(p => ({
+    id: p.player_id,
+    sortKey: p.pts,
+    name: p.name,
+    playerId: p.player_id,
+    avatarUrl: p.avatarUrl,
+    isMe: p.player_id === myId,
+    subtitle: `${teamNameByPlayer[p.player_id] ? teamNameByPlayer[p.player_id] + ' · ' : ''}${p.holes} holes · hcp ${p.hcp.toFixed(0)}`,
+    totalDisplay: `${p.pts}pts`,
+  }));
+
   return (
     <View style={s.root}>
       <StatusBar style="light" />
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/games')} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
@@ -322,7 +348,16 @@ export default function DayLobby() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={GOLD} />}
         key={tab}
       >
-        {tab === 'leaderboard' && (
+        {tab === 'leaderboard' && isMultiTeam && (
+          <Leaderboard
+            title="STABLEFORD SIDE GAME"
+            totalLabel="PTS"
+            rows={leaderboardRows}
+            emptyMessage="No scores yet — get playing!"
+          />
+        )}
+
+        {tab === 'leaderboard' && !isMultiTeam && (
           players.length === 0
             ? <Text style={s.empty}>No scores yet — get playing!</Text>
             : players.map((p, rank) => {

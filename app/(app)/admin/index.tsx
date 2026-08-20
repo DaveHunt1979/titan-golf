@@ -12,6 +12,7 @@ import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 import { IS_PAD } from '../../../src/lib/useDeviceLayout';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
 const RED    = '#f87171';
@@ -140,7 +141,7 @@ export default function SocietyAdminScreen() {
       {/* Header */}
       <View style={[s.header, { borderBottomColor: dc.border }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => goBack(router, '/(app)/')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text style={[s.back, { color: dc.gold }]}>← Back</Text>

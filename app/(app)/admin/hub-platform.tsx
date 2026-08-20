@@ -7,6 +7,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 import { IS_PAD } from '../../../src/lib/useDeviceLayout';
+import { goBack } from '../../../src/lib/navigation';
 
 const BLUE = '#60a5fa';
 const RED  = '#f87171';
@@ -64,7 +65,7 @@ export default function PlatformHubScreen() {
     <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
       <View style={[s.header, { borderBottomColor: dc.border }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={[s.back, { color: dc.gold }]}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

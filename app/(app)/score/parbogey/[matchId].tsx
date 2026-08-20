@@ -6,6 +6,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
 import { calcCourseHandicap, calcStrokesReceived } from '../../../../src/lib/scoring';
+import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
@@ -192,7 +193,7 @@ export default function ParBogeyScreen() {
     });
     const sorted = [...players].sort((a, b) => (totals[b.id] ?? 0) - (totals[a.id] ?? 0));
     const summary = sorted.map(p => `${p.name}: ${totalLabel(totals[p.id])}`).join('\n');
-    Alert.alert('Par/Bogey Complete!', summary, [{ text: 'Done', onPress: () => router.back() }]);
+    Alert.alert('Par/Bogey Complete!', summary, [{ text: 'Done', onPress: () => goBack(router, `/(app)/score/${matchId}`) }]);
   }
 
   // Running totals for holes already played (up to current)
@@ -220,7 +221,7 @@ export default function ParBogeyScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => goBack(router, `/(app)/score/${matchId}`)} style={s.backBtn}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

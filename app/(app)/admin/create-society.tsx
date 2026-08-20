@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -110,7 +111,7 @@ export default function CreateSocietyScreen() {
       >
         <StatusBar style="light" />
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={hit}>
+          <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/hub-platform')} hitSlop={hit}>
             <Text style={styles.back}>✕ Close</Text>
           </TouchableOpacity>
           <View style={styles.headerCenter}>

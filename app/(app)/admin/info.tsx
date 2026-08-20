@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
+import { goBack } from '../../../src/lib/navigation';
 import type {
   InfoSection, SectionType, ScheduleItem, TravelItem, ContactItem,
   TextSection, ScheduleSection, TravelSection, LocationSection, ContactsSection, RulesSection,
@@ -149,7 +150,7 @@ export default function InfoEditorScreen() {
     if (error) {
       Alert.alert('Error', error.message);
     } else {
-      Alert.alert('Saved', 'Info pack updated.', [{ text: 'OK', onPress: () => router.back() }]);
+      Alert.alert('Saved', 'Info pack updated.', [{ text: 'OK', onPress: () => goBack(router, '/(app)/admin/hub-tournament') }]);
     }
   }
 
@@ -175,7 +176,7 @@ export default function InfoEditorScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.headerSide}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/hub-tournament')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.headerSide}>
           <Text style={styles.back}>‹ Back</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>

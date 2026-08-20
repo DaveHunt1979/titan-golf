@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { calcCourseHandicap, calcStrokesReceived } from '../../../../src/lib/scoring';
+import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
@@ -197,7 +198,7 @@ export default function ModifiedStablefordScreen() {
     });
     const sorted = [...players].sort((a, b) => (totals[b.id] ?? 0) - (totals[a.id] ?? 0));
     const summary = sorted.map(p => `${p.name}: ${totals[p.id] >= 0 ? '+' : ''}${totals[p.id]} pts`).join('\n');
-    Alert.alert('Modified Stableford Complete!', summary, [{ text: 'Done', onPress: () => router.back() }]);
+    Alert.alert('Modified Stableford Complete!', summary, [{ text: 'Done', onPress: () => goBack(router, `/(app)/score/${matchId}`) }]);
   }
 
   const runTotals: Record<string, number> = {};
@@ -217,7 +218,7 @@ export default function ModifiedStablefordScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => goBack(router, `/(app)/score/${matchId}`)} style={s.backBtn}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

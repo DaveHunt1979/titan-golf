@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { useSocietyRole } from '../../../src/lib/useSocietyRole';
+import { goBack } from '../../../src/lib/navigation';
 
 const FFB = 'JUSTSans-ExBold';
 const FF  = 'JUSTSans';
@@ -66,7 +67,7 @@ export default function NewTripScreen() {
     });
     setSaving(false);
     if (error) { Alert.alert('Error', error.message); return; }
-    router.back();
+    goBack(router, '/(app)/trips');
   }
 
   if (!roleLoading && !canManage) {
@@ -74,7 +75,7 @@ export default function NewTripScreen() {
       <View style={[s.container, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()}><Text style={[s.back, { color: dc.gold }]}>← Back</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => goBack(router, '/(app)/trips')}><Text style={[s.back, { color: dc.gold }]}>← Back</Text></TouchableOpacity>
         </View>
         <Text style={[s.notice, { color: dc.textSecondary }]}>Only society admins and the owner can add trips.</Text>
       </View>
@@ -85,7 +86,7 @@ export default function NewTripScreen() {
     <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/trips')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={[s.back, { color: dc.gold }]}>← Back</Text>
         </TouchableOpacity>
         <Text style={[s.title, { color: dc.cardText }]}>New Trip</Text>

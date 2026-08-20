@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
+import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
@@ -154,7 +155,7 @@ export default function SkinsScreen() {
     await supabase.from('matches').update({ status: 'complete' }).eq('id', matchId);
     const { skins } = calcSkins(players, scores, holes);
     const summary = players.map(id => `${names[id] ?? id}: ${skins[id]} skin${skins[id] !== 1 ? 's' : ''}`).join('\n');
-    Alert.alert('Skins Complete!', summary, [{ text: 'Done', onPress: () => router.back() }]);
+    Alert.alert('Skins Complete!', summary, [{ text: 'Done', onPress: () => goBack(router, `/(app)/score/${matchId}`) }]);
   }
 
   const { skins: liveSkins, carryover } = calcSkins(players, scores, holes.slice(0, holeIdx));
@@ -176,7 +177,7 @@ export default function SkinsScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => goBack(router, `/(app)/score/${matchId}`)} style={s.backBtn}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

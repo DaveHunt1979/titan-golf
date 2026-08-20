@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
+import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
@@ -209,7 +210,7 @@ export default function WolfScreen() {
       await supabase.from('matches').update({ status: 'complete' }).eq('id', matchId);
       const summary = players.sort((a, b) => (newCum[b] ?? 0) - (newCum[a] ?? 0))
         .map(id => `${names[id] ?? id}: ${newCum[id]} pts`).join('\n');
-      Alert.alert('Wolf Complete!', summary, [{ text: 'Done', onPress: () => router.back() }]);
+      Alert.alert('Wolf Complete!', summary, [{ text: 'Done', onPress: () => goBack(router, `/(app)/score/${matchId}`) }]);
     }
   }
 
@@ -221,7 +222,7 @@ export default function WolfScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => goBack(router, `/(app)/score/${matchId}`)} style={s.backBtn}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

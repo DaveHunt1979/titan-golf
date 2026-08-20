@@ -14,6 +14,7 @@ import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyTheme
 import { titanLogo } from '../../../src/lib/assets';
 import { ensureDb } from '../../../src/lib/localDb';
 import { searchCourse, getCourseHoles, cleanCourseNameForSearch, GICourseResult, GIHoleData } from '../../../src/lib/golfIntelligence';
+import { goBack as navGoBack } from '../../../src/lib/navigation';
 
 const GOLD    = '#D4AF37'; // StyleSheet fallback
 const GREEN   = '#4ade80';
@@ -91,7 +92,7 @@ export default function RangefinderScreen() {
   const router = useRouter();
   const goBack = () => fromMatchId
     ? router.replace(`/(app)/score/enter/${fromMatchId}` as any)
-    : router.back();
+    : navGoBack(router, '/(app)/');
   const dc = useDynamicColors();
   const { localLogo, logoUrl } = useSocietyTheme();
 

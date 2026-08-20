@@ -14,6 +14,7 @@ import { matchLabel, getEffectiveWinner, calcHoles, calcCourseHandicap, calcStro
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
 import { dedupeInitials } from '../../../src/lib/playerDisplay';
 import NewsTicker from '../../../src/components/NewsTicker';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD     = '#D4AF37';
 const GREEN    = '#4ade80';
@@ -463,7 +464,7 @@ export default function SpectateScreen() {
       {/* Header — three-column */}
       <View style={s.header}>
         {/* Left: Back */}
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={s.headerLeft}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/watch')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={s.headerLeft}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
 

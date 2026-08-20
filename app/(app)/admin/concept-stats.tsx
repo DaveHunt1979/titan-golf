@@ -12,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
+import { goBack } from '../../../src/lib/navigation';
 
 // ── Constants ─────────────────────────────────────────────────
 const GOLD   = '#D4AF37';
@@ -301,7 +302,7 @@ export default function ConceptStatsScreen() {
       {/* ── Header ── */}
       <View style={s.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => goBack(router, '/(app)/admin/concept-locker')}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           style={s.headerSide}
         >

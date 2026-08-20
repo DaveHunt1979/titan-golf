@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
+import { goBack } from '../../../src/lib/navigation';
 
 // ── TITAN constants ───────────────────────────────────────────
 const GOLD   = '#D4AF37';
@@ -110,7 +111,7 @@ export default function MembershipScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => goBack(router, '/(app)/admin/hub-platform')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           style={styles.headerSide}
         >

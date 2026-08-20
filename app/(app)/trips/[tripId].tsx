@@ -7,6 +7,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { useSocietyRole } from '../../../src/lib/useSocietyRole';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
+import { goBack } from '../../../src/lib/navigation';
 
 const FFB = 'JUSTSans-ExBold';
 const FF  = 'JUSTSans';
@@ -132,7 +133,7 @@ export default function TripDetailScreen() {
     setConfirmingDelete(false);
     const { error } = await supabase.from('society_trips').delete().eq('id', tripId);
     if (error) { Alert.alert('Error', error.message); return; }
-    router.back();
+    goBack(router, '/(app)/trips');
   }
 
   if (loading) {
@@ -149,7 +150,7 @@ export default function TripDetailScreen() {
       <View style={[s.container, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()}><Text style={[s.back, { color: dc.gold }]}>← Back</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => goBack(router, '/(app)/trips')}><Text style={[s.back, { color: dc.gold }]}>← Back</Text></TouchableOpacity>
         </View>
         <Text style={[s.notice, { color: dc.textSecondary }]}>Trip not found.</Text>
       </View>
@@ -160,7 +161,7 @@ export default function TripDetailScreen() {
     <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
       <View style={s.header}>
-        <TouchableOpacity onPress={() => (editing ? setEditing(false) : router.back())} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => (editing ? setEditing(false) : goBack(router, '/(app)/trips'))} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={[s.back, { color: dc.gold }]}>← {editing ? 'Cancel' : 'Back'}</Text>
         </TouchableOpacity>
         <Text style={[s.title, { color: dc.cardText }]}>{editing ? 'Edit Trip' : 'Up & Coming'}</Text>

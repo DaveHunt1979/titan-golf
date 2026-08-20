@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
+import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
@@ -167,7 +168,7 @@ export default function BBBScreen() {
     }
     const summary = players.sort((a, b) => (totals[b] ?? 0) - (totals[a] ?? 0))
       .map(id => `${names[id] ?? id}: ${totals[id]} pts`).join('\n');
-    Alert.alert('BBB Complete!', summary, [{ text: 'Done', onPress: () => router.back() }]);
+    Alert.alert('BBB Complete!', summary, [{ text: 'Done', onPress: () => goBack(router, `/(app)/score/${matchId}`) }]);
   }
 
   // Running totals
@@ -193,7 +194,7 @@ export default function BBBScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerLeft}>
+        <TouchableOpacity onPress={() => goBack(router, `/(app)/score/${matchId}`)} style={s.headerLeft}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

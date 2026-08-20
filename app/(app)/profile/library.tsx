@@ -11,6 +11,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { resolveAvatar } from '../../../src/lib/assets';
 import { fetchFavouriteIds, fetchRecentlyPlayedWithIds, partitionIntoTiers, toggleFavourite } from '../../../src/lib/playerTiers';
+import { goBack } from '../../../src/lib/navigation';
 
 type LibraryEntry = {
   library_id: string;
@@ -390,7 +391,7 @@ export default function PlayerLibraryScreen() {
       <StatusBar style="light" />
 
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={hit}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/profile')} hitSlop={hit}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <Text style={s.title}>Player Library</Text>

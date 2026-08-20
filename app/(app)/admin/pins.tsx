@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
+import { goBack } from '../../../src/lib/navigation';
 
 // ── TITAN constants ───────────────────────────────────────────
 const GOLD   = '#D4AF37';
@@ -289,7 +290,7 @@ export default function PinsScreen() {
     <View style={s.container}>
       <StatusBar style="light" />
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerSide}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/hub-platform')} style={s.headerSide}>
           <Text style={s.backText}>‹ Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

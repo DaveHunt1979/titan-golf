@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { scanPlayerScoresFromCamera, scanPlayerScoresFromLibrary } from '../../../../src/lib/scanScorecard';
 import { calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { goBack } from '../../../../src/lib/navigation';
 
 // ── TITAN Design Constants ──────────────────────────────────────────────────
 const GOLD  = '#D4AF37';
@@ -167,7 +168,7 @@ export default function ScanMatchScorecardScreen() {
         .eq('status', 'upcoming');
 
       Alert.alert('Submitted!', 'Your scores have been saved.', [
-        { text: 'OK', onPress: () => router.back() },
+        { text: 'OK', onPress: () => goBack(router, `/(app)/score/${matchId}`) },
       ]);
     } catch (e: any) {
       Alert.alert('Error', e.message ?? 'Could not save scores');
@@ -183,7 +184,7 @@ export default function ScanMatchScorecardScreen() {
       {/* ── Header ── */}
       <View style={s.header}>
         <TouchableOpacity
-          onPress={() => step === 'review' ? setStep('scan') : router.back()}
+          onPress={() => step === 'review' ? setStep('scan') : goBack(router, `/(app)/score/${matchId}`)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           style={s.headerLeft}
         >

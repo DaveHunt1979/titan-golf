@@ -11,6 +11,7 @@ import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { searchUKClubs, getUKClub, clubLocation, type UKClub } from '../../../src/lib/ukgolf';
 import { scanScorecardFromCamera, scanScorecardFromLibrary, type ScannedCourse } from '../../../src/lib/scanScorecard';
 import { searchCourse, getCourseHoles, type GICourseResult, type GIHoleData } from '../../../src/lib/golfIntelligence';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
@@ -500,7 +501,7 @@ export default function CoursesScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={hit} style={s.headerLeft}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/hub-platform')} hitSlop={hit} style={s.headerLeft}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

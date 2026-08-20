@@ -10,6 +10,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { buildPreviewSnapshot, buildRoundReportSnapshot, buildFinalReportSnapshot } from '../../../src/lib/titanNews';
 import { sendMatchNotification } from '../../../src/lib/notifications';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
+import { goBack } from '../../../src/lib/navigation';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -211,7 +212,7 @@ export default function AdminNewsScreen() {
       <StatusBar style="light" />
 
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={hit} style={s.headerLeft}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/live-tournaments')} hitSlop={hit} style={s.headerLeft}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>

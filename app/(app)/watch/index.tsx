@@ -10,6 +10,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { matchLabel, getEffectiveWinner, calcHoles } from '../../../src/lib/scoring';
 import { getPlayerAvatar, teamLogos, titanLogo } from '../../../src/lib/assets';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { goBack } from '../../../src/lib/navigation';
 
 // ── TITAN constants ───────────────────────────────────────────
 const GOLD  = '#D4AF37';
@@ -123,7 +124,7 @@ export default function WatchScreen() {
 
       {/* Header */}
       <View style={[s.header, { borderBottomColor: dc.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.headerBack}>
+        <TouchableOpacity onPress={() => goBack(router, '/(app)/')} style={s.headerBack}>
           <Text style={[s.headerBackText, { color: dc.gold }]}>‹ Back</Text>
         </TouchableOpacity>
         <View style={s.headerCentre}>
