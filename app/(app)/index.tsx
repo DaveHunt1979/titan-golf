@@ -20,6 +20,7 @@ const GREEN = '#4ade80';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
 const CHAT_READ_KEY = 'chat_last_read';
+const NEWS_READ_KEY = 'titan_news_last_read';
 const { width: SW } = Dimensions.get('window');
 
 function greet(): string {
@@ -61,6 +62,7 @@ export default function HomeScreen() {
   const [isPrivileged,   setIsPrivileged]   = useState(false);
   const [unread,         setUnread]         = useState(0);
   const [dmUnread,       setDmUnread]       = useState(0);
+  const [newsUnread,     setNewsUnread]     = useState(0);
   const [casualCount,    setCasualCount]    = useState(0);
   const [tourLive,       setTourLive]       = useState(0);
   const [swindleName,    setSwindleName]    = useState<string | null>(null);
@@ -80,6 +82,19 @@ export default function HomeScreen() {
     setUnread(count ?? 0);
   }
 
+  async function checkNewsUnread() {
+    if (!SOCIETY_ID) return;
+    const lastRead = await AsyncStorage.getItem(NEWS_READ_KEY);
+    const since = lastRead ?? new Date(0).toISOString();
+    const { count } = await supabase
+      .from('titan_news')
+      .select('id, competitions!inner(society_id)', { count: 'exact', head: true })
+      .eq('competitions.society_id', SOCIETY_ID)
+      .eq('status', 'published')
+      .gt('created_at', since);
+    setNewsUnread(count ?? 0);
+  }
+
   useEffect(() => {
     if (!SOCIETY_ID) return;
     const sub = supabase.channel('home-chat-badge')
@@ -91,7 +106,7 @@ export default function HomeScreen() {
     return () => { supabase.removeChannel(sub); };
   }, [playerId, SOCIETY_ID]);
 
-  useFocusEffect(useCallback(() => { checkUnread(playerId); }, [playerId]));
+  useFocusEffect(useCallback(() => { checkUnread(playerId); checkNewsUnread(); }, [playerId, SOCIETY_ID]));
 
   const load = useCallback(async () => {
     if (!SOCIETY_ID) return;
@@ -399,7 +414,7 @@ export default function HomeScreen() {
           <View style={[s.quickRow, { marginTop: 8 }]}>
             <QuickBtn icon="card-outline"      label="Up & Coming"  cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/trips' as any)} />
             <QuickBtn icon="mail-outline"       label="Inbox"       cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/inbox' as any)} badge={dmUnread > 0 ? dmUnread : undefined} badgeColor={dc.gold} />
-            <QuickBtn icon="newspaper-outline" label="Titan News" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/news' as any)} />
+            <QuickBtn icon="newspaper-outline" label="Titan News" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/news' as any)} badge={newsUnread > 0 ? newsUnread : undefined} badgeColor={dc.gold} />
             <QuickBtn icon="ellipsis-horizontal-outline" label="Coming Soon" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => {}} />
           </View>
 

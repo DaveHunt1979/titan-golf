@@ -167,6 +167,8 @@ export default function BuildTournamentScreen() {
   const [openingRounds, setOpeningRounds] = useState('3');
   const [bonusPoints, setBonusPoints]     = useState('2');
   const [includeInKronos, setIncludeInKronos] = useState(false);
+  const [voiceEnabled, setVoiceEnabled]        = useState(false);
+  const [statsEnabled, setStatsEnabled]        = useState(false);
   const [description, setDescription]     = useState('');
   const [startDate, setStartDate]         = useState('');
   const [endDate, setEndDate]             = useState('');
@@ -357,6 +359,8 @@ export default function BuildTournamentScreen() {
       num_days: days.length,
       num_teams: isMatchplay ? numTeamsN : null,
       day_configs: days.map(d => ({ format: d.format, hcp_pct: d.hcpPct })),
+      voice_enabled: voiceEnabled,
+      track_stats_enabled: statsEnabled,
     };
 
     // A collision makes verifyPin's .single() lookup fail as "Wrong PIN" for
@@ -867,6 +871,34 @@ export default function BuildTournamentScreen() {
                 onValueChange={setIncludeInKronos}
                 trackColor={{ false: '#1c1c1c', true: `${GOLD}66` }}
                 thumbColor={includeInKronos ? GOLD : '#555'}
+              />
+            </View>
+
+            <Text style={styles.fieldLabel}>CHIP & BIRDIE</Text>
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.toggleLabel}>Voice commentary</Text>
+                <Text style={styles.toggleSub}>Same Chip & Birdie voice calls already used in Casual Golf</Text>
+              </View>
+              <Switch
+                value={voiceEnabled}
+                onValueChange={setVoiceEnabled}
+                trackColor={{ false: '#1c1c1c', true: `${GOLD}66` }}
+                thumbColor={voiceEnabled ? GOLD : '#555'}
+              />
+            </View>
+
+            <Text style={styles.fieldLabel}>TRACK STATS</Text>
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.toggleLabel}>Fairways, putts & more</Text>
+                <Text style={styles.toggleSub}>Players can log extra stats while scoring, same as Casual Golf</Text>
+              </View>
+              <Switch
+                value={statsEnabled}
+                onValueChange={setStatsEnabled}
+                trackColor={{ false: '#1c1c1c', true: `${GOLD}66` }}
+                thumbColor={statsEnabled ? GOLD : '#555'}
               />
             </View>
 

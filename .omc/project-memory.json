@@ -257,6 +257,12 @@
   },
   "hotPaths": [
     {
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 22,
+      "lastAccessed": 1787217224858,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/_layout.tsx",
       "accessCount": 10,
       "lastAccessed": 1787213101169,
@@ -272,6 +278,12 @@
       "path": "src/lib/navigation.ts",
       "accessCount": 8,
       "lastAccessed": 1787213051906,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/news/index.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1787215503242,
       "type": "file"
     },
     {
@@ -305,6 +317,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1787217800794,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/score/[matchId].tsx",
       "accessCount": 4,
       "lastAccessed": 1787211442401,
@@ -332,6 +350,12 @@
       "path": "app/(app)/spectate/[matchId].tsx",
       "accessCount": 4,
       "lastAccessed": 1787214635545,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/inbox/index.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1787215896423,
       "type": "file"
     },
     {
@@ -401,12 +425,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/inbox/index.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1787211619868,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/inbox/new.tsx",
       "accessCount": 3,
       "lastAccessed": 1787211624117,
@@ -416,12 +434,6 @@
       "path": "app/(app)/inbox/[playerId].tsx",
       "accessCount": 3,
       "lastAccessed": 1787211627252,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/news/index.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1787211643402,
       "type": "file"
     },
     {
@@ -485,12 +497,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1787211864701,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/tour/day/[dayId].tsx",
       "accessCount": 3,
       "lastAccessed": 1787211930469,
@@ -530,12 +536,6 @@
       "path": "app/(app)/score/preview/[matchId].tsx",
       "accessCount": 2,
       "lastAccessed": 1787211577907,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/tour/index.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1787214022865,
       "type": "file"
     },
     {

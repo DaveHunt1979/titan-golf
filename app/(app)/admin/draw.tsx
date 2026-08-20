@@ -62,7 +62,7 @@ interface CompInfo {
   id: string; name: string; status: string;
   tournament_type: string; pts_win: number; pts_half: number;
   opening_rounds: number; bonus_points: number; max_handicap: number | null;
-  settings: { num_teams?: number | null } | null;
+  settings: { num_teams?: number | null; voice_enabled?: boolean; track_stats_enabled?: boolean } | null;
 }
 interface DayRow {
   id: string; day_number: number; course_name: string | null;
@@ -358,6 +358,16 @@ export default function TournamentDrawScreen() {
     const handicapMethod = dayFormatToHandicapMethod(df);
     const hcp       = day.hcp_pct ?? 100;
 
+    // Same Chip & Birdie / Track Stats toggles as Casual Golf's game
+    // builder, set once on the tournament in admin/build.tsx and carried
+    // through here onto every match this draw creates — score/enter reads
+    // this same side_games tag convention already, so no further wiring
+    // needed for it to "just work" live.
+    const sideGamesTags = [
+      ...(comp?.settings?.voice_enabled ? ['voice:on'] : []),
+      ...(comp?.settings?.track_stats_enabled ? [] : ['stats:off']),
+    ];
+
     // Individual Stableford / Stroke Play days have no opponent to pair
     // against — Rick: "singles tournament that runs exactly like the
     // stableford team version but singles only." Every player just posts
@@ -392,6 +402,7 @@ export default function TournamentDrawScreen() {
         hcp_allowance:   hcp,
         handicap_method: handicapMethod,
         status:          'upcoming',
+        side_games:      sideGamesTags,
       }));
       setGenerating(day.id);
       try {
@@ -473,6 +484,7 @@ export default function TournamentDrawScreen() {
           hcp_allowance:  hcp,
           handicap_method: handicapMethod,
           status:         'upcoming',
+          side_games:     sideGamesTags,
         });
       }
     } else if (isFinalDay) {
@@ -514,6 +526,7 @@ export default function TournamentDrawScreen() {
             hcp_allowance:  hcp,
           handicap_method: handicapMethod,
             status:         'upcoming',
+            side_games:     sideGamesTags,
           });
         }
       }
@@ -551,6 +564,7 @@ export default function TournamentDrawScreen() {
             hcp_allowance:  hcp,
           handicap_method: handicapMethod,
             status:         'upcoming',
+            side_games:     sideGamesTags,
           });
         }
       }

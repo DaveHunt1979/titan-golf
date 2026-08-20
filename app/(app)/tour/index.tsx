@@ -7,11 +7,12 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../../src/lib/supabase';
 import { getStandings, getEffectiveWinner, calcSweepBonus } from '../../../src/lib/scoring';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
-import { teamLogos } from '../../../src/lib/assets';
+import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
 import { useChatUnread } from '../../../src/lib/useChatUnread';
 import Leaderboard, { type LeaderboardRow } from '../../../src/components/Leaderboard';
 import type { Competition, CompetitionDay, Match, Team, Champion, Notification } from '../../../src/types';
@@ -489,7 +490,7 @@ export default function TourScreen() {
         <Text style={st.titanSubtitle}>THE TOUR</Text>
       </View>
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-        <Text style={{ fontSize: 56, marginBottom: 20 }}>🏆</Text>
+        <Ionicons name="trophy-outline" size={56} color={GOLD} style={{ marginBottom: 20 }} />
         <Text style={{ fontSize: 28, fontFamily: FFB, color: '#fff', marginBottom: 10, textAlign: 'center' }}>
           Coming Soon
         </Text>
@@ -605,7 +606,7 @@ export default function TourScreen() {
         contentContainerStyle={{ alignItems: 'center', paddingTop: 60, paddingHorizontal: 24, paddingBottom: 60 }}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={{ fontSize: 56, marginBottom: 24 }}>🏆</Text>
+        <Ionicons name="trophy-outline" size={56} color={GOLD} style={{ marginBottom: 24 }} />
         <Text style={{ fontSize: 26, fontFamily: FFB, color: '#fff', marginBottom: 8, textAlign: 'center' }}>
           Enter Tournament PIN
         </Text>
@@ -735,9 +736,10 @@ export default function TourScreen() {
               })()}
             </Text>
           </View>
-          <View style={{ backgroundColor: '#000', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#000', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 }}>
+            <Ionicons name={myMatch.status === 'in_progress' ? 'play' : 'golf-outline'} size={14} color={GOLD} />
             <Text style={{ fontSize: 13, fontFamily: FFB, color: GOLD }}>
-              {myMatch.status === 'in_progress' ? '▶ Resume' : '⛳ Play'}
+              {myMatch.status === 'in_progress' ? 'Resume' : 'Play'}
             </Text>
           </View>
         </TouchableOpacity>
@@ -763,28 +765,32 @@ export default function TourScreen() {
               onPress={() => { setLeaderboardTab('group'); setSelectedSection('standings'); }}
               activeOpacity={0.82}
             >
-              <Text style={st.sectionTileIcon}>🏆</Text>
-              <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Leaderboard</Text>
-              <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Group, team, Kronos & honours</Text>
-              <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
+              <View style={[st.sectionTileIconBox, { backgroundColor: dc.iconBoxBg, borderColor: dc.iconBoxBorder }]}>
+                <Ionicons name="trophy-outline" size={22} color={dc.iconBoxIcon} />
+              </View>
+              <Text style={[st.sectionTileLabel, { color: dc.cardText }]} numberOfLines={1}>Leaderboard</Text>
+              <Text style={[st.sectionTileSub, { color: dc.cardText }]} numberOfLines={2}>Group, team, Kronos & honours</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => setSelectedSection('info')} activeOpacity={0.82}>
-              <Text style={st.sectionTileIcon}>📋</Text>
-              <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Info Pack</Text>
-              <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Schedule & travel</Text>
-              <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
+              <View style={[st.sectionTileIconBox, { backgroundColor: dc.iconBoxBg, borderColor: dc.iconBoxBorder }]}>
+                <Ionicons name="document-text-outline" size={22} color={dc.iconBoxIcon} />
+              </View>
+              <Text style={[st.sectionTileLabel, { color: dc.cardText }]} numberOfLines={1}>Info Pack</Text>
+              <Text style={[st.sectionTileSub, { color: dc.cardText }]} numberOfLines={2}>Schedule & travel</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => setSelectedSection('social')} activeOpacity={0.82}>
-              <Text style={st.sectionTileIcon}>📸</Text>
-              <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Live & Social</Text>
-              <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Feed & Instagram</Text>
-              <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
+              <View style={[st.sectionTileIconBox, { backgroundColor: dc.iconBoxBg, borderColor: dc.iconBoxBorder }]}>
+                <Ionicons name="images-outline" size={22} color={dc.iconBoxIcon} />
+              </View>
+              <Text style={[st.sectionTileLabel, { color: dc.cardText }]} numberOfLines={1}>Live & Social</Text>
+              <Text style={[st.sectionTileSub, { color: dc.cardText }]} numberOfLines={2}>Feed & Instagram</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => setSelectedSection('players')} activeOpacity={0.82}>
-              <Text style={st.sectionTileIcon}>🏅</Text>
-              <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Players</Text>
-              <Text style={[st.sectionTileSub, { color: dc.cardText }]}>Scores & prize positions</Text>
-              <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
+              <View style={[st.sectionTileIconBox, { backgroundColor: dc.iconBoxBg, borderColor: dc.iconBoxBorder }]}>
+                <Ionicons name="people-outline" size={22} color={dc.iconBoxIcon} />
+              </View>
+              <Text style={[st.sectionTileLabel, { color: dc.cardText }]} numberOfLines={1}>Players</Text>
+              <Text style={[st.sectionTileSub, { color: dc.cardText }]} numberOfLines={2}>Scores & prize positions</Text>
             </TouchableOpacity>
             {!!competition && (
               <TouchableOpacity
@@ -792,10 +798,11 @@ export default function TourScreen() {
                 onPress={() => router.push(`/(app)/news?competitionId=${competition.id}` as any)}
                 activeOpacity={0.82}
               >
-                <Text style={st.sectionTileIcon}>📰</Text>
-                <Text style={[st.sectionTileLabel, { color: dc.cardText }]}>Titan News</Text>
-                <Text style={[st.sectionTileSub, { color: dc.cardText }]}>AI reports & previews</Text>
-                <Text style={[st.sectionTileArrow, { color: dc.gold }]}>›</Text>
+                <View style={[st.sectionTileIconBox, { backgroundColor: dc.iconBoxBg, borderColor: dc.iconBoxBorder }]}>
+                  <Ionicons name="newspaper-outline" size={22} color={dc.iconBoxIcon} />
+                </View>
+                <Text style={[st.sectionTileLabel, { color: dc.cardText }]} numberOfLines={1}>Titan News</Text>
+                <Text style={[st.sectionTileSub, { color: dc.cardText }]} numberOfLines={2}>AI reports & previews</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -886,6 +893,13 @@ export default function TourScreen() {
                         const { home, away } = matchNames(m);
                         const mc = matchColors(m);
                         const isTeamMatch = !!(m.home_team_id && m.away_team_id);
+                        // A true singles round has no opponent at all — showing
+                        // "Player vs —" read as broken/half-finished (Dave,
+                        // 2026-08-20: individual-tournament rows needed their
+                        // own design, not the team head-to-head layout with a
+                        // dash where the away side would be).
+                        const isSingles = !isTeamMatch && (m.away_player_ids ?? []).length === 0;
+                        const homePlayer = players.find(p => p.id === m.home_player_ids[0]);
                         const isMatchLive = m.status === 'in_progress';
                         const isComplete  = m.status === 'complete';
                         const isMyMatch = !!myPlayerId && ((m.home_player_ids ?? []).includes(myPlayerId) || (m.away_player_ids ?? []).includes(myPlayerId));
@@ -894,6 +908,7 @@ export default function TourScreen() {
                               ? `/(app)/score/teamstableford/${m.id}`
                               : (m.away_player_ids ?? []).length === 0 && (m.home_player_ids ?? []).length === 1 ? `/(app)/score/solo/${m.id}` : `/(app)/score/enter/${m.id}`)
                           : `/(app)/spectate/${m.id}`;
+                        const statusLabel = isComplete && m.result_str ? m.result_str : isMatchLive ? 'Live' : 'Upcoming';
                         return (
                           <TouchableOpacity
                             key={m.id}
@@ -905,45 +920,63 @@ export default function TourScreen() {
                             onPress={() => router.push(matchDest as any)}
                             activeOpacity={0.75}
                           >
-                            {/* Home side */}
-                            <View style={{ flex: 1, alignItems: 'flex-start' }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                {isTeamMatch && (
-                                  teamLogos[home]
-                                    ? <Image source={teamLogos[home]} style={{ width: 22, height: 22 }} resizeMode="contain" />
-                                    : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: mc.home }} />
+                            {isSingles ? (
+                              <>
+                                <Image
+                                  source={resolveAvatar(homePlayer?.id ?? '', homePlayer?.avatar_url ?? null) ?? undefined}
+                                  style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: dc.iconBoxBg }}
+                                />
+                                <Text style={[st.matchName, { color: dc.cardText, flex: 1, marginLeft: 10 }]} numberOfLines={1}>{home}</Text>
+                                {isMatchLive && (
+                                  <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN, marginRight: 6 }} />
                                 )}
-                                <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{home}</Text>
-                              </View>
-                            </View>
-
-                            {/* Middle: vs / result / live */}
-                            <View style={{ alignItems: 'center', paddingHorizontal: 10, minWidth: 52 }}>
-                              {isMatchLive && (
-                                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN, marginBottom: 2 }} />
-                              )}
-                              {isComplete && m.result_str ? (
-                                <Text style={{ fontSize: 11, fontFamily: FFB, color: dc.gold, textAlign: 'center' }}>
-                                  {m.result_str}
+                                <Text style={{ fontSize: 12, fontFamily: FFB, color: isComplete ? dc.gold : dc.cardText }} numberOfLines={1}>
+                                  {statusLabel}
                                 </Text>
-                              ) : (
-                                <Text style={{ fontSize: 10, fontFamily: FFB, color: dc.cardText }}>vs</Text>
-                              )}
-                            </View>
+                              </>
+                            ) : (
+                              <>
+                                {/* Home side */}
+                                <View style={{ flex: 1, alignItems: 'flex-start' }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    {isTeamMatch && (
+                                      teamLogos[home]
+                                        ? <Image source={teamLogos[home]} style={{ width: 22, height: 22 }} resizeMode="contain" />
+                                        : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: mc.home }} />
+                                    )}
+                                    <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{home}</Text>
+                                  </View>
+                                </View>
 
-                            {/* Away side */}
-                            <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
-                                {isTeamMatch && (
-                                  teamLogos[away]
-                                    ? <Image source={teamLogos[away]} style={{ width: 22, height: 22 }} resizeMode="contain" />
-                                    : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: mc.away }} />
-                                )}
-                                <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{away}</Text>
-                              </View>
-                            </View>
+                                {/* Middle: vs / result / live */}
+                                <View style={{ alignItems: 'center', paddingHorizontal: 10, minWidth: 52 }}>
+                                  {isMatchLive && (
+                                    <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN, marginBottom: 2 }} />
+                                  )}
+                                  {isComplete && m.result_str ? (
+                                    <Text style={{ fontSize: 11, fontFamily: FFB, color: dc.gold, textAlign: 'center' }}>
+                                      {m.result_str}
+                                    </Text>
+                                  ) : (
+                                    <Text style={{ fontSize: 10, fontFamily: FFB, color: dc.cardText }}>vs</Text>
+                                  )}
+                                </View>
 
-                            <Text style={{ fontSize: 18, color: dc.cardText, marginLeft: 6 }}>›</Text>
+                                {/* Away side */}
+                                <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                                    {isTeamMatch && (
+                                      teamLogos[away]
+                                        ? <Image source={teamLogos[away]} style={{ width: 22, height: 22 }} resizeMode="contain" />
+                                        : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: mc.away }} />
+                                    )}
+                                    <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{away}</Text>
+                                  </View>
+                                </View>
+                              </>
+                            )}
+
+                            <Ionicons name="chevron-forward" size={18} color={dc.cardText} style={{ marginLeft: 6 }} />
                           </TouchableOpacity>
                         );
                       })}
@@ -1179,7 +1212,7 @@ export default function TourScreen() {
             onPress={() => router.push('/(app)/chat/tour' as any)}
             activeOpacity={0.8}
           >
-            <Text style={{ fontSize: 22 }}>💬</Text>
+            <Ionicons name="chatbubbles-outline" size={22} color={dc.gold} />
             <View style={{ flex: 1 }}>
               <Text style={[st.chatBannerLabel, { color: dc.cardText }]}>Tournament Chat</Text>
               <Text style={[st.chatBannerSub, { color: dc.textSecondary }]}>Message everyone in the tour</Text>
@@ -1253,10 +1286,12 @@ const st = StyleSheet.create({
     borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c',
     padding: 16, paddingVertical: 22,
   },
-  sectionTileIcon:  { fontSize: 32, marginBottom: 8 },
-  sectionTileLabel: { fontSize: 18, fontFamily: 'JUSTSans-ExBold', color: '#fff', marginBottom: 4 },
-  sectionTileSub:   { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 17, marginBottom: 8 },
-  sectionTileArrow: { fontSize: 22, fontFamily: 'JUSTSans-ExBold', fontWeight: '300' },
+  sectionTileIconBox: {
+    width: 44, height: 44, borderRadius: 12,
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 10,
+  },
+  sectionTileLabel: { fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: '#fff', marginBottom: 4, letterSpacing: -0.2 },
+  sectionTileSub:   { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 17 },
 
   // Section headings
   sectionHeader: {
@@ -1463,7 +1498,7 @@ function TourInstagramView({ url, onGoAdmin }: { url: string | null; onGoAdmin: 
   }
   return (
     <View style={[igSt.centered, { gap: 24 }]}>
-      <View style={igSt.iconWrap}><Text style={igSt.iconText}>📷</Text></View>
+      <View style={igSt.iconWrap}><Ionicons name="logo-instagram" size={44} color="#fff" /></View>
       <View style={{ alignItems: 'center' }}>
         <Text style={igSt.handle}>@{handle}</Text>
         <Text style={igSt.sub}>Tap below to view on Instagram</Text>

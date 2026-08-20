@@ -3,10 +3,13 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, A
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
 
+// Must match the key the Home screen's Titan News badge reads in app/(app)/index.tsx.
+const NEWS_READ_KEY = 'titan_news_last_read';
 const FFB = 'JUSTSans-ExBold';
 const FF  = 'JUSTSans';
 const HIT = { top: 10, bottom: 10, left: 10, right: 10 };
@@ -53,7 +56,10 @@ export default function TitanNewsScreen() {
     setRefreshing(false);
   }, [competitionId, societyId]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    load();
+    AsyncStorage.setItem(NEWS_READ_KEY, new Date().toISOString());
+  }, [load]));
 
   if (!fontsLoaded) return (
     <View style={{ flex: 1, backgroundColor: dc.bg }}><StatusBar style="light" /></View>
