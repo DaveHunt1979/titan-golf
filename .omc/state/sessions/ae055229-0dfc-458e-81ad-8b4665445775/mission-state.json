@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-20T09:53:38.301Z",
+  "updatedAt": "2026-08-20T10:12:04.297Z",
   "missions": [
     {
       "id": "session:ae055229-0dfc-458e-81ad-8b4665445775:none",
@@ -7,7 +7,7 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-08-20T07:17:09.558Z",
-      "updatedAt": "2026-08-20T09:53:38.301Z",
+      "updatedAt": "2026-08-20T10:12:04.297Z",
       "status": "done",
       "workerCount": 4,
       "taskCounts": {
@@ -27,7 +27,7 @@
           "currentStep": null,
           "latestUpdate": "completed",
           "completedSummary": null,
-          "updatedAt": "2026-08-20T09:53:38.301Z"
+          "updatedAt": "2026-08-20T10:12:04.297Z"
         },
         {
           "name": "backfix-admin:abackfi",
@@ -196,6 +196,22 @@
           "agent": "Explore:a2f5d16",
           "detail": "completed",
           "sourceKey": "session-stop:adcbbd32fec81a46a"
+        },
+        {
+          "id": "session-stop:a95e2f1d19e5a66ec:2026-08-20T10:08:26.241Z",
+          "at": "2026-08-20T10:08:26.241Z",
+          "kind": "completion",
+          "agent": "Explore:a2f5d16",
+          "detail": "completed",
+          "sourceKey": "session-stop:a95e2f1d19e5a66ec"
+        },
+        {
+          "id": "session-stop:ad40c1c6da156b693:2026-08-20T10:12:04.297Z",
+          "at": "2026-08-20T10:12:04.297Z",
+          "kind": "completion",
+          "agent": "Explore:a2f5d16",
+          "detail": "completed",
+          "sourceKey": "session-stop:ad40c1c6da156b693"
         }
       ]
     }

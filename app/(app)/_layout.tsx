@@ -2,12 +2,42 @@ import { type ReactNode, useEffect, useState, useRef } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Platform, View, TouchableOpacity, StyleSheet, Animated, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { CommonActions } from '@react-navigation/native';
 import { supabase } from '../../src/lib/supabase';
 import { registerForPushNotifications } from '../../src/lib/notifications';
 import { titanLogo } from '../../src/lib/assets';
 import { SocietyThemeProvider, useSocietyTheme } from '../../src/lib/SocietyThemeContext';
 import { IS_PAD, SIDEBAR_W } from '../../src/lib/useDeviceLayout';
 import IpadSidebar from '../../src/components/ipad/IpadSidebar';
+
+// Every section below with its own nested Stack (admin/, score/, swindle/,
+// tour/, range/, games/, inbox/, profile/, trips/, chat/) keeps its full
+// push history alive across tab switches — that's what makes Back work
+// correctly while you're IN a section, but it also means returning to a
+// tab you've drilled into resumes exactly where you left off instead of
+// showing that section's hub (Dave, 2026-08-20 — "I click on admin and it
+// wants me to build a tournament", after drilling into Build earlier).
+// This resets a tab's nested stack back to its first screen every time
+// that tab is pressed, whether switching in from elsewhere or re-tapping
+// while already there — the standard React Navigation recipe for exactly
+// this combination (nested stack inside a tab navigator).
+function resetOnTabPress() {
+  return ({ navigation, route }: any) => ({
+    tabPress: () => {
+      const state = navigation.getState();
+      const tabRoute = state.routes.find((r: any) => r.name === route.name);
+      if (tabRoute?.state && tabRoute.state.index > 0) {
+        navigation.dispatch({
+          ...CommonActions.reset({
+            index: 0,
+            routes: [{ name: tabRoute.state.routes[0].name }],
+          }),
+          target: tabRoute.state.key,
+        });
+      }
+    },
+  });
+}
 
 function TabIcon({ focused, children }: { focused: boolean; children: ReactNode }) {
   const { palette } = useSocietyTheme();
@@ -126,23 +156,23 @@ function AppLayoutInner() {
       }}
     >
         <Tabs.Screen name="index"          options={{ title: 'Home',     tabBarIcon: ({ focused }) => <TabIcon focused={focused}><HomeIcon        color={ic(focused)} /></TabIcon> }} />
-        <Tabs.Screen name="score"          options={{ href: null }} />
-        <Tabs.Screen name="tour"           options={{ href: null }} />
-        <Tabs.Screen name="swindle"        options={{ href: null }} />
+        <Tabs.Screen name="score"          options={{ href: null }} listeners={resetOnTabPress()} />
+        <Tabs.Screen name="tour"           options={{ href: null }} listeners={resetOnTabPress()} />
+        <Tabs.Screen name="swindle"        options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="watch/index"    options={{ href: null }} />
-        <Tabs.Screen name="chat"           options={{ href: null }} />
-        <Tabs.Screen name="inbox"            options={{ href: null }} />
+        <Tabs.Screen name="chat"           options={{ href: null }} listeners={resetOnTabPress()} />
+        <Tabs.Screen name="inbox"            options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="feed/index"     options={{ href: null }} />
         <Tabs.Screen name="camera/index"   options={{ title: 'Camera',   tabBarIcon: ({ focused }) => <TabIcon focused={focused}><CameraIcon      color={ic(focused)} /></TabIcon> }} />
-        <Tabs.Screen name="profile"  options={{ title: 'Profile',  tabBarIcon: ({ focused }) => <TabIcon focused={focused}><ProfileIcon     color={ic(focused)} /></TabIcon> }} />
-        <Tabs.Screen name="admin"    options={{ href: isAdmin ? undefined : null, title: 'Admin', tabBarIcon: ({ focused }) => <TabIcon focused={focused}><AdminIcon color={ic(focused)} /></TabIcon> }} />
-        <Tabs.Screen name="games"                     options={{ href: null }} />
+        <Tabs.Screen name="profile"  options={{ title: 'Profile',  tabBarIcon: ({ focused }) => <TabIcon focused={focused}><ProfileIcon     color={ic(focused)} /></TabIcon> }} listeners={resetOnTabPress()} />
+        <Tabs.Screen name="admin"    options={{ href: isAdmin ? undefined : null, title: 'Admin', tabBarIcon: ({ focused }) => <TabIcon focused={focused}><AdminIcon color={ic(focused)} /></TabIcon> }} listeners={resetOnTabPress()} />
+        <Tabs.Screen name="games"                     options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="news/index"                options={{ href: null }} />
         <Tabs.Screen name="spectate/[matchId]"       options={{ href: null }} />
-        <Tabs.Screen name="range"                     options={{ href: null }} />
+        <Tabs.Screen name="range"                     options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="rangefinder/index" options={{ href: null, sceneStyle: IS_PAD ? { marginLeft: 0 } : undefined }} />
         <Tabs.Screen name="records/index"             options={{ href: null }} />
-        <Tabs.Screen name="trips"                     options={{ href: null }} />
+        <Tabs.Screen name="trips"                     options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="friends"                  options={{ href: null }} />
         <Tabs.Screen name="add/[tag]"                options={{ href: null }} />
         <Tabs.Screen name="join" options={{ href: null, tabBarStyle: { display: 'none' } }} />

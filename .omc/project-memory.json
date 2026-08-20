@@ -264,8 +264,8 @@
     },
     {
       "path": "app/(app)/_layout.tsx",
-      "accessCount": 10,
-      "lastAccessed": 1787213101169,
+      "accessCount": 18,
+      "lastAccessed": 1787220578975,
       "type": "file"
     },
     {
@@ -515,6 +515,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/profile/_layout.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1787219935804,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/admin/index.tsx",
       "accessCount": 2,
       "lastAccessed": 1787210574056,
@@ -548,12 +554,6 @@
       "path": "src/components/ipad/IpadSidebar.tsx",
       "accessCount": 1,
       "lastAccessed": 1787211475682,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/profile/_layout.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1787212379806,
       "type": "file"
     }
   ],
