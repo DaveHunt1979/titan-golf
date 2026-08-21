@@ -15,7 +15,11 @@ import './newsreel.css';
 type Competition = {
   id: string; name: string; year: number | null; format: string;
   start_date: string | null; end_date: string | null;
-  prize_pool: number | null; prize_split: number[] | null; society_id: string;
+  description: string | null; logo_url: string | null; society_id: string;
+};
+type PrizeCategory = {
+  id: string; name: string; hcp_min: number | null; hcp_max: number | null; display_order: number;
+  prize_payouts: { position: number; prize_money: number }[];
 };
 type CompDay = {
   id: string; day_number: number; course_name: string | null; play_date: string | null;
@@ -24,11 +28,42 @@ type CompDay = {
 type NewsRow = {
   id: string; story_type: string; day_id: string | null;
   headline: string | null; summary: string | null; body: string | null; input_snapshot: any;
+  banter_speaker: 'chip' | 'birdie' | null; banter_text: string | null; banter_scene: string | null;
 };
+
+// Fixed portraits — Chip & Birdie are the same two hosts as the RN app's
+// src/lib/titanBanter.ts, copied into web/public/hosts since a Next.js
+// page can't reach into the Expo app's assets/ directory. Scene images are
+// a small fixed set Dave supplies himself (2026-08-21) — add real files
+// under web/public/hosts/scenes/ and list them here as Dave delivers them;
+// until then banterScene renders nothing, just the speaker's portrait.
+const BANTER_PORTRAITS: Record<string, string> = { chip: '/hosts/chip_full.png', birdie: '/hosts/birdie_full.png' };
+const BANTER_SCENES: Record<string, string> = {
+  // bunker: '/hosts/scenes/bunker.png',
+};
+
+function Banter({ speaker, text, scene }: { speaker: 'chip' | 'birdie' | null; text: string | null; scene: string | null }) {
+  if (!speaker || !text) return null;
+  const sceneUrl = scene ? BANTER_SCENES[scene] : null;
+  return (
+    <div className="banter">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={BANTER_PORTRAITS[speaker]} alt="" className="banterPortrait" />
+      <div className="banterBubble">
+        <div className="banterName">{speaker}</div>
+        <div className="banterText">{text}</div>
+      </div>
+      {sceneUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={sceneUrl} alt="" className="banterScene" />
+      )}
+    </div>
+  );
+}
 type Team = { id: string; name: string; accent_color: string | null };
 // Postgrest infers embedded relations as arrays from the select string
 // unless a to-one FK hint is given — read as players[0], not players.
-type CompPlayer = { player_id: string; team_id: string | null; players: { display_name: string }[] | null };
+type CompPlayer = { player_id: string; team_id: string | null; handicap_index: number | null; players: { display_name: string }[] | null };
 type MatchHole = { player_id: string; stableford_pts: number | null; match_id: string; gross_score: number | null; hole_number: number };
 type MatchRow = { id: string; day_id: string };
 type LeaderRow = { playerId?: string; teamId?: string; name?: string; teamName?: string; pts: number; currentPosition?: number; positionChange?: number | null };
@@ -49,7 +84,7 @@ export default async function NewsreelPage({ params }: { params: Promise<{ compe
 
   const { data: comp } = await supabase
     .from('competitions')
-    .select('id, name, year, format, start_date, end_date, prize_pool, prize_split, society_id')
+    .select('id, name, year, format, start_date, end_date, description, logo_url, society_id')
     .eq('id', competitionId).single();
 
   if (!comp) {
@@ -57,12 +92,19 @@ export default async function NewsreelPage({ params }: { params: Promise<{ compe
   }
   const competition = comp as Competition;
 
-  const [{ data: daysData }, { data: newsData }, { data: teamsData }, { data: playersData }, { data: matchesData }] = await Promise.all([
+  const [{ data: daysData }, { data: newsData }, { data: teamsData }, { data: playersData }, { data: matchesData }, { data: prizeCatData }] = await Promise.all([
     supabase.from('competition_days').select('id, day_number, course_name, play_date, ntp_hole, ld_hole, ntp_winner_id, ld_winner_id').eq('competition_id', competitionId).order('day_number'),
-    supabase.from('titan_news').select('id, story_type, day_id, headline, summary, body, input_snapshot').eq('competition_id', competitionId).eq('status', 'published').order('created_at'),
+    supabase.from('titan_news').select('id, story_type, day_id, headline, summary, body, input_snapshot, banter_speaker, banter_text, banter_scene').eq('competition_id', competitionId).eq('status', 'published').order('created_at'),
     supabase.from('teams').select('id, name, accent_color').eq('society_id', competition.society_id),
-    supabase.from('competition_players').select('player_id, team_id, players(display_name)').eq('competition_id', competitionId),
+    supabase.from('competition_players').select('player_id, team_id, handicap_index, players(display_name)').eq('competition_id', competitionId),
     supabase.from('matches').select('id, day_id').eq('competition_id', competitionId),
+    // Divisions + per-position payouts — the ONE place prize money is
+    // configured now (admin/prizes.tsx's "Configure Prizes" step), not the
+    // old flat competitions.prize_pool/prize_split fields removed from the
+    // Build wizard (Dave, 2026-08-21 — "we have duplicates on the money
+    // side of things... we only need to configure the betting in the big
+    // yellow button at the end").
+    supabase.from('prize_categories').select('id, name, hcp_min, hcp_max, display_order, prize_payouts(position, prize_money)').eq('competition_id', competitionId).order('display_order'),
   ]);
 
   const days = (daysData ?? []) as CompDay[];
@@ -135,16 +177,36 @@ export default async function NewsreelPage({ params }: { params: Promise<{ compe
   const finalSnap = finalReport?.input_snapshot ?? null;
   const finalIndividual: LeaderRow[] = finalSnap?.finalIndividualLeaderboard ?? [];
   const finalTeams: LeaderRow[] = finalSnap?.finalTeamStandings ?? [];
-  const prizeSplit = competition.prize_split ?? [];
-  const prizePool = competition.prize_pool ?? null;
 
   const dateRange = [fmtDate(competition.start_date), fmtDate(competition.end_date)].filter(Boolean).join(' – ');
+
+  // Division prize money — finalIndividual is already ranked by pts, so
+  // filtering it down to a division's handicap band preserves the correct
+  // relative order within that division; no re-sort needed. Handicaps come
+  // from competition_players since finalIndividual (the AI's own facts
+  // package) never carried handicap, only name/pts/position.
+  const hcpByPlayer: Record<string, number | null> = {};
+  players.forEach(p => { hcpByPlayer[p.player_id] = p.handicap_index; });
+  const prizeCategories = ((prizeCatData ?? []) as PrizeCategory[]).map(cat => {
+    const inBand = finalIndividual.filter(row => {
+      const hcp = row.playerId != null ? hcpByPlayer[row.playerId] : null;
+      if (hcp == null) return false;
+      if (cat.hcp_min != null && hcp < cat.hcp_min) return false;
+      if (cat.hcp_max != null && hcp > cat.hcp_max) return false;
+      return true;
+    });
+    const payoutByPosition = new Map(cat.prize_payouts.map(p => [p.position, p.prize_money]));
+    const winners = inBand.map((row, i) => ({ row, position: i + 1, prizeMoney: payoutByPosition.get(i + 1) ?? null }))
+      .filter(w => w.prizeMoney != null);
+    return { ...cat, winners };
+  }).filter(cat => cat.winners.length > 0);
 
   return (
     <div className="newsreel">
       <div className="app">
         <div className="topbar">
-          <div className="brand"><div className="shield">T</div><span>TITAN <em>NEWSREEL</em></span></div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <div className="brand"><img src="/titan-logo.png" alt="Titan" className="brandLogo" /><span>TITAN <em>NEWSREEL</em></span></div>
           <div className="swipehint">SWIPE ← NEXT PAGE →</div>
           <PrintButton />
         </div>
@@ -157,9 +219,14 @@ export default async function NewsreelPage({ params }: { params: Promise<{ compe
               <div className="content">
                 <div className="grid2">
                   <div className="hero">
+                    {competition.logo_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={competition.logo_url} alt="" className="tournamentLogo" />
+                    )}
                     {dateRange && <span className="kicker">{dateRange}</span>}
                     <h1>{competition.name}</h1>
                     <p>{finalReport?.summary ?? `The complete story of the ${competition.name}, built from live tournament results.`}</p>
+                    {competition.description && <p className="tournamentDescription">{competition.description}</p>}
                   </div>
                   <div>
                     {teams.length > 0 && rosterByTeam && Object.keys(rosterByTeam).length > 0 && (
@@ -195,6 +262,7 @@ export default async function NewsreelPage({ params }: { params: Promise<{ compe
                         {(article!.body ?? '').split('\n').filter(Boolean).map((para, pi) => (
                           <p className="story" key={pi}>{para}</p>
                         ))}
+                        <Banter speaker={article!.banter_speaker} text={article!.banter_text} scene={article!.banter_scene} />
                       </div>
                       <div>
                         {teamStandings.length > 0 && (
@@ -244,6 +312,7 @@ export default async function NewsreelPage({ params }: { params: Promise<{ compe
                       {(finalReport.body ?? '').split('\n').filter(Boolean).map((para, pi) => (
                         <p className="story" key={pi}>{para}</p>
                       ))}
+                      <Banter speaker={finalReport.banter_speaker} text={finalReport.banter_text} scene={finalReport.banter_scene} />
                     </div>
                     <div>
                       {finalTeams.length > 0 && (
@@ -274,21 +343,20 @@ export default async function NewsreelPage({ params }: { params: Promise<{ compe
                 <p className="dek">The closing ledger — every team, every award, and the tournament's key records.</p>
                 <div className="grid2">
                   <div>
-                    {prizePool != null && prizeSplit.length > 0 && finalTeams.length > 0 && (
+                    {prizeCategories.length > 0 && (
                       <div className="panel">
-                        <h3>Team prize money</h3>
-                        <div className="awards">
-                          {finalTeams.map((row, i) => {
-                            const pct = prizeSplit[i];
-                            if (pct == null) return null;
-                            return (
-                              <div className="award" key={row.teamId ?? i}>
-                                <b>{(row.currentPosition ?? i + 1)} • {row.teamName ?? teamName(row.teamId!)}</b>
-                                <span>£{(prizePool * pct / 100).toFixed(0)}</span>
+                        <h3>Prize money</h3>
+                        {prizeCategories.map(cat => (
+                          <div key={cat.id} className="awards" style={{ marginBottom: 8 }}>
+                            <b style={{ color: '#fff' }}>{cat.name}</b>
+                            {cat.winners.map(w => (
+                              <div className="award" key={w.position}>
+                                <b>{w.position} • {w.row.name ?? playerName(w.row.playerId!)}</b>
+                                <span>£{w.prizeMoney!.toFixed(0)}</span>
                               </div>
-                            );
-                          })}
-                        </div>
+                            ))}
+                          </div>
+                        ))}
                       </div>
                     )}
                     <div className="panel" style={{ marginTop: 9 }}>

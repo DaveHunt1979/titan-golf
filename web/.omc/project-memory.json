@@ -159,6 +159,12 @@
       "type": "file"
     },
     {
+      "path": "src/app/newsreel/[competitionId]/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1787302857537,
+      "type": "file"
+    },
+    {
       "path": "src/app/tournament/archive/page.tsx",
       "accessCount": 1,
       "lastAccessed": 1784272557974,

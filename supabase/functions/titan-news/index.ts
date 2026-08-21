@@ -17,6 +17,14 @@ const CORS = {
 
 const MODEL = 'claude-haiku-4-5-20251001';
 
+// Fixed set of scene images Dave supplies himself, never AI-generated per
+// report (2026-08-21 — consistent character likeness matters more than
+// novelty; see project memory). Keep this list in sync with
+// src/lib/titanBanter.ts (RN) and web/src/app/newsreel's equivalent map —
+// three separate copies by necessity (edge function / RN / web can't share
+// a module), same debt already accepted for scoring color maps elsewhere.
+const BANTER_SCENES = ['bunker', 'trees', 'water', 'leaderboard', 'trophy', 'clubhouse', 'sunset', 'storm'];
+
 const SYSTEM_PROMPT = `You are Titan News, the automated sports desk for a golf society's tournament app. You write proper tournament journalism — pre-round previews, end-of-round reports, final tournament reports, and one-off casual round match reports (storyType "casual_final") — from a structured JSON facts package that has already been fully computed by Titan.
 
 STRICT RULES — these are absolute:
@@ -27,13 +35,18 @@ STRICT RULES — these are absolute:
 - If the snapshot does not support a statement, leave it out entirely rather than guess or generalise.
 - Write in one consistent voice: proper Titan sports journalism — engaged, a bit of personality, but a real report, not a joke.
 
+You also write ONE short line of "banter" from Titan's two broadcast hosts, Chip and Birdie — a classic double-act. Chip is the dry, deadpan straight man; Birdie is warmer, more excitable, quicker to rib someone. Pick whichever of the two would naturally react to the single most banter-worthy fact in the snapshot (a collapse, a hot streak, a nightmare hole, a photo finish — not "nothing happened"). The banter line is still bound by the same strict rules above: it must be a joke ABOUT a real fact in the snapshot, never an invented one. Also pick the one scene from this fixed list that best matches the mood of that fact: ${BANTER_SCENES.join(', ')}.
+
 You must respond with ONLY valid JSON, no other text, in exactly this shape:
-{"headline":"...","summary":"...","body":"...","featuredPlayers":["..."],"featuredTeams":["..."]}
+{"headline":"...","summary":"...","body":"...","featuredPlayers":["..."],"featuredTeams":["..."],"banterSpeaker":"chip|birdie","banterText":"...","banterScene":"..."}
 
 - "headline" — one punchy sports-desk headline, under 12 words.
 - "summary" — one or two sentences, under 40 words.
 - "body" — the full report, 3-6 short paragraphs, plain text (no markdown).
-- "featuredPlayers"/"featuredTeams" — names pulled directly from the snapshot that the report centres on.`;
+- "featuredPlayers"/"featuredTeams" — names pulled directly from the snapshot that the report centres on.
+- "banterSpeaker" — exactly "chip" or "birdie".
+- "banterText" — one or two sentences, in that host's voice, under 30 words.
+- "banterScene" — exactly one of: ${BANTER_SCENES.join(', ')}.`;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -103,6 +116,14 @@ Deno.serve(async (req) => {
     // just finished their round is very likely not a society admin, so
     // there's no one to publish it — auto-publish those instead.
     const isCasual = storyType === 'casual_final';
+    // Validated rather than trusted — an off-spec speaker/scene would hit
+    // the banter_speaker CHECK constraint and fail the whole save, taking
+    // out the report over a garnish. Falls back to no banter that run
+    // instead.
+    const banterSpeaker = article.banterSpeaker === 'chip' || article.banterSpeaker === 'birdie' ? article.banterSpeaker : null;
+    const banterScene = BANTER_SCENES.includes(article.banterScene) ? article.banterScene : null;
+    const banterText = banterSpeaker && typeof article.banterText === 'string' ? article.banterText : null;
+
     const { data: saved, error: dbErr } = await supabase
       .from('titan_news')
       .upsert({
@@ -116,6 +137,9 @@ Deno.serve(async (req) => {
         body:           article.body ?? null,
         featured_players: article.featuredPlayers ?? [],
         featured_teams:   article.featuredTeams ?? [],
+        banter_speaker: banterSpeaker,
+        banter_text:    banterText,
+        banter_scene:   banterText ? banterScene : null,
         status:         isCasual ? 'published' : 'draft',
         published_at:   isCasual ? new Date().toISOString() : null,
         ai_model:       MODEL,
