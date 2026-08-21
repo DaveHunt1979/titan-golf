@@ -2,16 +2,16 @@
   "version": 1,
   "entries": {
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1787320217735,
+      "last_emitted_at_ms": 1787320901405,
       "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
+    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
+      "last_emitted_at_ms": 1787320897814,
+      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
       "last_emitted_at_ms": 1787320213726,
       "message": "Read multiple files in parallel when possible for faster analysis."
-    },
-    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1787320178015,
-      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
     "c5199f9ff37a7a2af949578293e670072104e2ee0a55036c66da91f95952b956": {
       "last_emitted_at_ms": 1787319092926,
@@ -32,11 +32,7 @@
     "ed30a24c73047b33d39ec83480b9b413bb93ef4c72fe43c88fde414b9860365e": {
       "last_emitted_at_ms": 1787317307632,
       "message": "Spawning agent: Explore (inherit) | Task: Locate admin tournament build settings code"
-    },
-    "f787cfc9ce137d472f4846dd6c277e58116b6c6ce079d64327fc5a8191637d51": {
-      "last_emitted_at_ms": 1787317299987,
-      "message": "Spawning agent: Explore (inherit) | Task: Locate tournament leaderboard/Kronos/status code"
     }
   },
-  "updated_at": "2026-08-21T13:50:17.735Z"
+  "updated_at": "2026-08-21T14:01:41.405Z"
 }

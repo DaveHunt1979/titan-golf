@@ -346,6 +346,12 @@
       "type": "file"
     },
     {
+      "path": "app.json",
+      "accessCount": 3,
+      "lastAccessed": 1787320901486,
+      "type": "file"
+    },
+    {
       "path": "web/src/app/newsreel/[competitionId]/page.tsx",
       "accessCount": 2,
       "lastAccessed": 1787317849270,
@@ -367,12 +373,6 @@
       "path": "supabase/schema.sql",
       "accessCount": 2,
       "lastAccessed": 1787319147952,
-      "type": "file"
-    },
-    {
-      "path": "app.json",
-      "accessCount": 2,
-      "lastAccessed": 1787320217837,
       "type": "file"
     },
     {
