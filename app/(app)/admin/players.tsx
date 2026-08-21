@@ -4,8 +4,6 @@ import {
   View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Modal, Image,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -14,30 +12,14 @@ import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
+import PlayerEditSheet, { type EditablePlayer } from '../../../src/components/PlayerEditSheet';
 
 const GOLD = '#D4AF37';
-const GREEN = '#4ade80';
-const RED = '#f87171';
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
-const COMMITTEE_ROLES = [
-  'Captain', 'Vice Captain', 'Secretary', 'Treasurer',
-  'Food & Beverage', 'Social Secretary', 'Handicap Secretary',
-];
-
-interface Member {
-  role: string;
-  committee_role: string | null;
-  player: {
-    id: string;
-    display_name: string;
-    email: string | null;
-    handicap_index: number | null;
-    avatar_url: string | null;
-  };
-}
+type Member = EditablePlayer;
 
 const hit = { top: 12, bottom: 12, left: 12, right: 12 };
 
@@ -60,14 +42,8 @@ export default function PlayersScreen() {
   const [newHcp, setNewHcp]     = useState('');
   const [saving, setSaving]     = useState(false);
 
-  // Role assignment modal
-  const [selected, setSelected]           = useState<Member | null>(null);
-  const [editCommittee, setEditCommittee] = useState('');
-  const [editPermRole, setEditPermRole]   = useState('');
-  const [editEmail, setEditEmail]         = useState('');
-  const [editHcp, setEditHcp]             = useState('');
-  const [roleSaving, setRoleSaving]       = useState(false);
-  const [photoUploading, setPhotoUploading] = useState(false);
+  // Role assignment sheet
+  const [selected, setSelected] = useState<Member | null>(null);
 
   async function load() {
     if (!societyId) return;
@@ -76,7 +52,7 @@ export default function PlayersScreen() {
     const [membersRes, myRoleRes] = await Promise.all([
       supabase
         .from('society_members')
-        .select('role, committee_role, player:player_id(id, display_name, email, handicap_index, avatar_url)')
+        .select('role, committee_role, membership_types, player:player_id(id, display_name, email, handicap_index, avatar_url)')
         .eq('society_id', societyId)
         .order('role'),
       user ? supabase
@@ -88,7 +64,7 @@ export default function PlayersScreen() {
     ]);
 
     if (!membersRes.error && membersRes.data) {
-      setMembers(membersRes.data as unknown as Member[]);
+      setMembers((membersRes.data as any[]).map(row => ({ ...row, membership_types: row.membership_types ?? [] })) as Member[]);
     }
     if (myRoleRes.data) setMyRole((myRoleRes.data as any).role ?? 'member');
     setLoading(false);
@@ -115,120 +91,6 @@ export default function PlayersScreen() {
     setNewName(''); setNewEmail(''); setNewHcp('');
     setShowAdd(false);
     load();
-  }
-
-  async function pickPhoto() {
-    if (!selected) return;
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow access to your photo library to change the player photo.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images', allowsEditing: true, aspect: [1, 1], quality: 0.7,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    setPhotoUploading(true);
-    try {
-      const uri = result.assets[0].uri;
-      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(`${selected.player.id}.jpg`, bytes, { contentType: 'image/jpeg', upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(`${selected.player.id}.jpg`);
-      const avatarUrl = `${publicUrl}?t=${Date.now()}`;
-      // Must go through the admin RPC, not a raw table update — RLS only lets
-      // a player update their own row, so an admin editing someone else's
-      // photo would otherwise silently match 0 rows (no error, nothing saved).
-      const { error: dbError } = await supabase.rpc('admin_update_player', {
-        p_society_id: societyId!,
-        p_player_id: selected.player.id,
-        p_avatar_url: avatarUrl,
-      });
-      if (dbError) throw dbError;
-      setSelected(prev => prev ? { ...prev, player: { ...prev.player, avatar_url: avatarUrl } } : prev);
-      load();
-    } catch (e: any) {
-      Alert.alert('Upload failed', e.message ?? 'Could not upload image.');
-    } finally {
-      setPhotoUploading(false);
-    }
-  }
-
-  function confirmDeletePlayer() {
-    if (!selected) return;
-    Alert.alert(
-      'Remove Player',
-      `Remove ${selected.player.display_name} from this society? Their match history will be kept.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove', style: 'destructive',
-          onPress: async () => {
-            const { error } = await supabase
-              .from('society_members')
-              .delete()
-              .eq('player_id', selected.player.id)
-              .eq('society_id', societyId!);
-            if (error) { Alert.alert('Error', error.message); return; }
-            setSelected(null);
-            load();
-          },
-        },
-      ]
-    );
-  }
-
-  function openRoleModal(m: Member) {
-    setSelected(m);
-    setEditCommittee(m.committee_role ?? '');
-    setEditPermRole(m.role);
-    setEditEmail(m.player.email ?? '');
-    setEditHcp(m.player.handicap_index != null ? String(m.player.handicap_index) : '');
-  }
-
-  async function saveRoles() {
-    if (!selected) return;
-    setRoleSaving(true);
-    try {
-      await supabase.rpc('set_committee_role', {
-        p_society_id: societyId!,
-        p_player_id:  selected.player.id,
-        p_role:       editCommittee,
-      });
-
-      const emailChanged = editEmail.trim() !== (selected.player.email ?? '');
-      const hcpChanged   = editHcp !== (selected.player.handicap_index != null ? String(selected.player.handicap_index) : '');
-      if (emailChanged || hcpChanged) {
-        const { error } = await supabase.rpc('admin_update_player', {
-          p_society_id: societyId!,
-          p_player_id:  selected.player.id,
-          p_email:      editEmail.trim().toLowerCase() || null,
-          p_handicap:   editHcp ? parseFloat(editHcp) : null,
-        });
-        if (error) throw error;
-      }
-
-      if (myRole === 'owner' && selected.role !== 'owner' && editPermRole !== selected.role) {
-        const { error } = await supabase.rpc('set_member_role', {
-          p_society_id: societyId!,
-          p_player_id:  selected.player.id,
-          p_role:       editPermRole,
-        });
-        if (error) throw error;
-      }
-
-      setSelected(null);
-      load();
-    } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'Could not save.');
-    } finally {
-      setRoleSaving(false);
-    }
   }
 
   const roleOrder = { owner: 0, admin: 1, member: 2 } as Record<string, number>;
@@ -266,7 +128,7 @@ export default function PlayersScreen() {
         {sorted.map((m, i) => (
           <TouchableOpacity
             key={m.player.id}
-            onPress={() => openRoleModal(m)}
+            onPress={() => setSelected(m)}
             activeOpacity={0.7}
           >
             <MemberRow member={m} isLast={i === sorted.length - 1} />
@@ -314,125 +176,14 @@ export default function PlayersScreen() {
         </View>
       </Modal>
 
-      {/* Role Assignment Modal */}
-      <Modal visible={!!selected} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSelected(null)}>
-        <View style={s.modalContainer}>
-          <View style={s.modalHeader}>
-            <TouchableOpacity onPress={() => setSelected(null)} hitSlop={hit}>
-              <Text style={s.back}>Cancel</Text>
-            </TouchableOpacity>
-            <Text style={s.modalTitle}>{selected?.player.display_name}</Text>
-            <TouchableOpacity onPress={saveRoles} disabled={roleSaving} hitSlop={hit}>
-              <Text style={[s.addBtn, roleSaving && { opacity: 0.4 }]}>{roleSaving ? 'Saving…' : 'Save'}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
-
-            {/* Avatar + Change Photo */}
-            <View style={s.avatarSection}>
-              <TouchableOpacity onPress={pickPhoto} disabled={photoUploading} activeOpacity={0.8}>
-                {selected && resolveAvatar(selected.player.id, selected.player.avatar_url) ? (
-                  <Image source={resolveAvatar(selected.player.id, selected.player.avatar_url)} style={s.avatarLarge} />
-                ) : (
-                  <View style={s.avatarLarge}>
-                    <Text style={s.avatarLargeText}>{selected?.player.display_name[0]?.toUpperCase() ?? '?'}</Text>
-                  </View>
-                )}
-                <View style={s.photoOverlay}>
-                  {photoUploading
-                    ? <ActivityIndicator color="#fff" size="small" />
-                    : <Text style={s.photoOverlayText}>📷</Text>}
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* Player Details */}
-            <Text style={s.sectionLabel}>PLAYER DETAILS</Text>
-            <Text style={s.sectionHint}>
-              Set their email so they can claim this account when they join via PIN
-            </Text>
-            <Text style={s.fieldLabel}>EMAIL</Text>
-            <TextInput
-              style={s.input}
-              value={editEmail}
-              onChangeText={setEditEmail}
-              placeholder="player@example.com"
-              placeholderTextColor="#444"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <Text style={s.fieldLabel}>HANDICAP INDEX</Text>
-            <TextInput
-              style={s.input}
-              value={editHcp}
-              onChangeText={setEditHcp}
-              placeholder="e.g. 14.2"
-              placeholderTextColor="#444"
-              keyboardType="decimal-pad"
-            />
-
-            {/* Committee Role */}
-            <Text style={[s.sectionLabel, { marginTop: 28 }]}>COMMITTEE ROLE</Text>
-            <Text style={s.sectionHint}>Displayed on their profile — e.g. Treasurer, Food & Beverage</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-              <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 4 }}>
-                {COMMITTEE_ROLES.map(r => (
-                  <TouchableOpacity
-                    key={r}
-                    style={[s.chip, editCommittee === r && s.chipOn]}
-                    onPress={() => setEditCommittee(editCommittee === r ? '' : r)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[s.chipText, editCommittee === r && s.chipTextOn]}>{r}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-            <TextInput
-              style={s.input}
-              value={editCommittee}
-              onChangeText={setEditCommittee}
-              placeholder="Or type a custom role…"
-              placeholderTextColor="#444"
-            />
-
-            {/* App Permission Role — owner only, can't change another owner */}
-            {myRole === 'owner' && selected?.role !== 'owner' && (
-              <>
-                <Text style={[s.sectionLabel, { marginTop: 28 }]}>APP PERMISSION</Text>
-                <Text style={s.sectionHint}>Admins can manage players and settings</Text>
-                <View style={s.permRow}>
-                  {['member', 'admin'].map(r => (
-                    <TouchableOpacity
-                      key={r}
-                      style={[s.permChip, editPermRole === r && s.permChipOn]}
-                      onPress={() => setEditPermRole(r)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[s.permChipText, editPermRole === r && s.permChipTextOn]}>
-                        {r.charAt(0).toUpperCase() + r.slice(1)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </>
-            )}
-
-            <TouchableOpacity style={[s.saveBtn, { marginTop: 28 }, roleSaving && { opacity: 0.5 }]}
-              onPress={saveRoles} disabled={roleSaving} activeOpacity={0.8}>
-              {roleSaving ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>Save Changes</Text>}
-            </TouchableOpacity>
-
-            {selected?.role !== 'owner' && (
-              <TouchableOpacity style={s.deleteBtn} onPress={confirmDeletePlayer} activeOpacity={0.8}>
-                <Text style={s.deleteBtnText}>Remove from Society</Text>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-        </View>
-      </Modal>
+      <PlayerEditSheet
+        visible={!!selected}
+        member={selected}
+        societyId={societyId!}
+        myRole={myRole}
+        onClose={() => setSelected(null)}
+        onSaved={load}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -529,31 +280,6 @@ const s = StyleSheet.create({
   },
   modalTitle: { fontFamily: FFB, fontSize: 16, color: '#fff' },
 
-  sectionLabel: {
-    fontFamily: FFB, fontSize: 10, color: '#fff',
-    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4,
-  },
-  sectionHint: { fontFamily: FFB, fontSize: 12, color: '#fff', marginBottom: 14 },
-
-  chip: {
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20, backgroundColor: '#111',
-    borderWidth: 1, borderColor: '#1c1c1c',
-  },
-  chipOn:      { backgroundColor: GOLD + '22', borderColor: GOLD + '55' },
-  chipText:    { fontFamily: FFB, fontSize: 12, color: '#fff' },
-  chipTextOn:  { color: GOLD },
-
-  permRow:     { flexDirection: 'row', gap: 10 },
-  permChip: {
-    flex: 1, paddingVertical: 14, borderRadius: 12,
-    backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
-    alignItems: 'center',
-  },
-  permChipOn:     { backgroundColor: GOLD + '22', borderColor: GOLD + '55' },
-  permChipText:   { fontFamily: FFB, fontSize: 14, color: '#fff' },
-  permChipTextOn: { color: GOLD },
-
   fieldLabel: {
     fontFamily: FFB, fontSize: 10, color: '#fff',
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6, marginTop: 14,
@@ -567,25 +293,4 @@ const s = StyleSheet.create({
   hint:    { fontFamily: FFB, fontSize: 12, color: '#fff', lineHeight: 18, marginTop: 16 },
   saveBtn: { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 28 },
   saveBtnText: { fontFamily: FFB, fontSize: 16, color: '#000' },
-
-  avatarSection: { alignItems: 'center', marginBottom: 28 },
-  avatarLarge: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: GOLD + '22', borderWidth: 2, borderColor: GOLD,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  avatarLargeText: { fontFamily: FFB, fontSize: 28, color: GOLD },
-  photoOverlay: {
-    position: 'absolute', bottom: 0, right: 0,
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: '#000', borderWidth: 1, borderColor: '#1c1c1c',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  photoOverlayText: { fontSize: 14 },
-
-  deleteBtn: {
-    marginTop: 16, paddingVertical: 14, borderRadius: 12,
-    borderWidth: 1, borderColor: RED, alignItems: 'center',
-  },
-  deleteBtnText: { fontFamily: FFB, fontSize: 14, color: RED },
 });

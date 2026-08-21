@@ -57,6 +57,48 @@ export async function fetchRecentlyPlayedWithIds(myId: string, limit = 12): Prom
   return ordered;
 }
 
+export interface RecentRound {
+  matchId: string;
+  courseName: string | null;
+  points: number | null;
+}
+
+// T-Card's "last 3 rounds" stat (Dave, 2026-08-21) — same completed-match
+// lookup pattern as fetchRecentlyPlayedWithIds above, just scoped to one
+// player and summing their own stableford_pts per round rather than
+// collecting opponent ids. stableford_pts is recorded for every round
+// format (see solo.tsx/enter.tsx), not just Stableford ones, so this stays
+// meaningful as a quick form indicator regardless of what was actually
+// played.
+export async function fetchLastRounds(playerId: string, limit = 3): Promise<RecentRound[]> {
+  const { data: matches } = await supabase
+    .from('matches')
+    .select('id, completed_at, day:day_id(course_name)')
+    .or(`home_player_ids.cs.{${playerId}},away_player_ids.cs.{${playerId}}`)
+    .eq('status', 'complete')
+    .order('completed_at', { ascending: false })
+    .limit(limit);
+
+  const rows = (matches ?? []) as any[];
+  if (!rows.length) return [];
+
+  const matchIds = rows.map(m => m.id);
+  const { data: holes } = await supabase
+    .from('match_holes').select('match_id, stableford_pts')
+    .in('match_id', matchIds).eq('player_id', playerId);
+
+  const ptsByMatch: Record<string, number> = {};
+  for (const h of (holes ?? []) as any[]) {
+    ptsByMatch[h.match_id] = (ptsByMatch[h.match_id] ?? 0) + (h.stableford_pts ?? 0);
+  }
+
+  return rows.map(m => ({
+    matchId: m.id,
+    courseName: (m.day as any)?.course_name ?? null,
+    points: ptsByMatch[m.id] ?? null,
+  }));
+}
+
 export function partitionIntoTiers<T extends { id: string }>(
   candidates: T[],
   favouriteIds: Set<string>,

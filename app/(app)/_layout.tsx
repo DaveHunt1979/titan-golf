@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState, useRef } from 'react';
 import { Tabs, useRouter } from 'expo-router';
-import { Platform, View, TouchableOpacity, StyleSheet, Animated, Image } from 'react-native';
+import { AppState, Platform, View, TouchableOpacity, StyleSheet, Animated, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CommonActions } from '@react-navigation/native';
 import { supabase } from '../../src/lib/supabase';
@@ -113,6 +113,28 @@ function AppLayoutInner() {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => { loadProfile(); }, []);
+
+  // T-Card's live green dot (Dave, 2026-08-21) — a plain heartbeat, not
+  // Realtime Presence: while the app is foregrounded, ping every 60s so
+  // is_player_online() (last_active_at within 5 minutes) reads true.
+  // Skipped entirely while backgrounded rather than relying on the OS to
+  // pause the JS timer, which isn't guaranteed.
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const touch = () => { supabase.rpc('touch_my_presence'); };
+    const startIfActive = (state: string) => {
+      if (state === 'active' && !interval) {
+        touch();
+        interval = setInterval(touch, 60000);
+      } else if (state !== 'active' && interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+    startIfActive(AppState.currentState);
+    const sub = AppState.addEventListener('change', startIfActive);
+    return () => { sub.remove(); if (interval) clearInterval(interval); };
+  }, []);
 
   async function loadProfile() {
     const { data: { user } } = await supabase.auth.getUser();

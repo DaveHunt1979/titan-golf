@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, ActivityIndicator,
-  TouchableOpacity, Image, Animated,
+  TouchableOpacity, Image, Animated, Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -14,7 +14,10 @@ import { matchLabel, getEffectiveWinner, calcHoles, calcCourseHandicap, calcStro
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
 import { dedupeInitials } from '../../../src/lib/playerDisplay';
 import NewsTicker from '../../../src/components/NewsTicker';
+import RoundScorecard from '../../../src/components/RoundScorecard';
 import { goBack } from '../../../src/lib/navigation';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const GOLD     = '#D4AF37';
 const GREEN    = '#4ade80';
@@ -299,6 +302,12 @@ export default function SpectateScreen() {
   const isMatchplay      = match.round_format === 'matchplay';
   const isMedal          = match.round_format === 'medal';
   const isTeamStableford = match.round_format === 'team_stableford';
+  // Drives the Scorecard's RESULT row — only real head-to-head Matchplay
+  // marks holes_string 'h'/'a'/'f'; every other format (including Team
+  // Stableford) marks 'd', same as stableford/medal, so it gets the plain
+  // per-player grid instead of a H/A/½ row.
+  const isStrokePlay = !isMatchplay;
+  const playerNames = Object.fromEntries(players.map(p => [p.id, p.display_name]));
   const allPlayerIds = [...match.home_player_ids, ...match.away_player_ids];
   // No real away side (e.g. a multi-player Stableford group, not a head-to-
   // head) — same signal score/preview/[matchId].tsx uses to switch from the
@@ -697,6 +706,45 @@ export default function SpectateScreen() {
             <LegendDot color={GOLD}      label="Halved" />
           </View>
         </View>
+
+        {/* ── Full scorecard — the exact same grid every player sees while
+            scoring, read-only (Dave, 2026-08-21: "everyone spectating wants
+            to see how badly the others are scoring") ── */}
+        {courseHoles.length > 0 && allPlayerIds.length > 0 && (
+          <View style={s.gridCard}>
+            <Text style={s.gridTitle}>SCORECARD</Text>
+            <RoundScorecard
+              startHole={1}
+              allPlayerIds={allPlayerIds}
+              playerNames={playerNames}
+              holeData={holeData}
+              courseHoles={courseHoles}
+              matchHomeIds={match.home_player_ids}
+              holeChars={holeChars}
+              homeColor={homeColor}
+              awayColor={awayColor}
+              isStrokePlay={isStrokePlay}
+              roundFormat={match.round_format}
+              secondaryFormat={match.secondary_format}
+              screenWidth={SCREEN_WIDTH - 60}
+            />
+            <RoundScorecard
+              startHole={10}
+              allPlayerIds={allPlayerIds}
+              playerNames={playerNames}
+              holeData={holeData}
+              courseHoles={courseHoles}
+              matchHomeIds={match.home_player_ids}
+              holeChars={holeChars}
+              homeColor={homeColor}
+              awayColor={awayColor}
+              isStrokePlay={isStrokePlay}
+              roundFormat={match.round_format}
+              secondaryFormat={match.secondary_format}
+              screenWidth={SCREEN_WIDTH - 60}
+            />
+          </View>
+        )}
 
       </ScrollView>
       <NewsTicker competitionId={match.competition_id} matchId={match.id} />

@@ -7,6 +7,8 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../src/lib/SocietyThemeContext';
 import { goBack } from '../../src/lib/navigation';
+import TCardSheet, { type PlayingNow } from '../../src/components/TCardSheet';
+import type { EditablePlayer } from '../../src/components/PlayerEditSheet';
 
 const GOLD = '#D4AF37';
 const FFB  = 'JUSTSans-ExBold';
@@ -14,6 +16,13 @@ const FFB  = 'JUSTSans-ExBold';
 type Member = {
   playerId: string;
   name: string;
+  email: string | null;
+  handicapIndex: number | null;
+  avatarUrl: string | null;
+  tTag: string | null;
+  committeeRole: string | null;
+  role: string;
+  membershipTypes: string[];
   courseName: string | null;
   hole: number | null;
   pts: number | null;
@@ -41,6 +50,9 @@ export default function FriendsScreen() {
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [myId,       setMyId]       = useState<string | null>(null);
+  const [isAdmin,    setIsAdmin]    = useState(false);
+  const [myRole,     setMyRole]     = useState('member');
+  const [selected,   setSelected]   = useState<Member | null>(null);
 
   const load = useCallback(async () => {
     if (!societyId) { setLoading(false); setRefreshing(false); return; }
@@ -49,23 +61,40 @@ export default function FriendsScreen() {
     let pid: string | null = null;
     if (user) {
       const { data: p } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
-      if (p) { pid = (p as any).id; setMyId(pid); }
+      if (p) {
+        pid = (p as any).id; setMyId(pid);
+        const { data: myMembership } = await supabase
+          .from('society_members').select('role')
+          .eq('society_id', societyId).eq('player_id', pid).maybeSingle();
+        const role = (myMembership as any)?.role ?? 'member';
+        setMyRole(role);
+        setIsAdmin(['admin', 'owner'].includes(role));
+      }
     }
 
     // All society members
     const { data: memberRows } = await supabase
-      .from('society_members').select('player_id')
+      .from('society_members').select('player_id, role, committee_role, membership_types')
       .eq('society_id', societyId);
 
     const allMemberIds: string[] = (memberRows ?? []).map((m: any) => m.player_id);
     if (!allMemberIds.length) { setLoading(false); setRefreshing(false); return; }
 
+    const roleMap: Record<string, { role: string; committeeRole: string | null; membershipTypes: string[] }> = {};
+    for (const m of (memberRows ?? []) as any[]) {
+      roleMap[m.player_id] = { role: m.role, committeeRole: m.committee_role ?? null, membershipTypes: m.membership_types ?? [] };
+    }
+
     const { data: playersData } = await supabase
-      .from('players').select('id,display_name')
+      .from('players').select('id,display_name,email,handicap_index,avatar_url,t_tag')
       .in('id', allMemberIds);
 
     const nameMap: Record<string, string> = {};
-    for (const p of (playersData ?? []) as any[]) nameMap[p.id] = p.display_name ?? 'Unknown';
+    const playerMap: Record<string, any> = {};
+    for (const p of (playersData ?? []) as any[]) {
+      nameMap[p.id] = p.display_name ?? 'Unknown';
+      playerMap[p.id] = p;
+    }
 
     // Active matches for any member
     const { data: activeMatches } = await supabase
@@ -104,9 +133,17 @@ export default function FriendsScreen() {
       .filter(id => id !== pid)
       .map(id => {
         const s = stats[id];
+        const p = playerMap[id];
         return {
           playerId: id,
           name: nameMap[id] ?? 'Unknown',
+          email: p?.email ?? null,
+          handicapIndex: p?.handicap_index ?? null,
+          avatarUrl: p?.avatar_url ?? null,
+          tTag: p?.t_tag ?? null,
+          committeeRole: roleMap[id]?.committeeRole ?? null,
+          role: roleMap[id]?.role ?? 'member',
+          membershipTypes: roleMap[id]?.membershipTypes ?? [],
           courseName: s?.courseName ?? null,
           hole: s ? Math.min(s.maxHole + 1, 18) : null,
           pts: s ? s.pts : null,
@@ -160,26 +197,51 @@ export default function FriendsScreen() {
         {playing.length > 0 && (
           <Text style={s.sectionLabel}>ON A ROUND · {playing.length}</Text>
         )}
-        {playing.map(m => <MemberRow key={m.playerId} member={m} dc={dc} onPress={() => router.push(`/(app)/spectate/${m.matchId}` as any)} />)}
+        {playing.map(m => <MemberRow key={m.playerId} member={m} dc={dc} onPress={() => setSelected(m)} />)}
 
         {offline.length > 0 && (
           <Text style={[s.sectionLabel, { marginTop: playing.length > 0 ? 8 : 0 }]}>NOT PLAYING · {offline.length}</Text>
         )}
-        {offline.map(m => <MemberRow key={m.playerId} member={m} dc={dc} />)}
+        {offline.map(m => <MemberRow key={m.playerId} member={m} dc={dc} onPress={() => setSelected(m)} />)}
 
         {members.length === 0 && (
           <Text style={s.empty}>No members found</Text>
         )}
       </ScrollView>
+
+      <TCardSheet
+        visible={!!selected}
+        member={selected ? {
+          role: selected.role,
+          committee_role: selected.committeeRole,
+          membership_types: selected.membershipTypes,
+          player: {
+            id: selected.playerId,
+            display_name: selected.name,
+            email: selected.email,
+            handicap_index: selected.handicapIndex,
+            avatar_url: selected.avatarUrl,
+          },
+        } as EditablePlayer : null}
+        tTag={selected?.tTag ?? null}
+        playingNow={selected?.matchId ? {
+          matchId: selected.matchId, courseName: selected.courseName ?? 'Course',
+          hole: selected.hole ?? 1, pts: selected.pts,
+        } as PlayingNow : null}
+        isAdmin={isAdmin}
+        societyId={societyId ?? ''}
+        myRole={myRole}
+        onClose={() => setSelected(null)}
+        onSaved={load}
+      />
     </View>
   );
 }
 
-function MemberRow({ member, dc, onPress }: { member: Member; dc: any; onPress?: () => void }) {
+function MemberRow({ member, dc, onPress }: { member: Member; dc: any; onPress: () => void }) {
   const isPlaying = !!member.matchId;
-  const Wrap = onPress ? TouchableOpacity : View;
   return (
-    <Wrap
+    <TouchableOpacity
       style={[s.row, { backgroundColor: dc.card, borderColor: isPlaying ? `${GOLD}40` : dc.border }]}
       onPress={onPress}
       activeOpacity={0.8}
@@ -199,8 +261,8 @@ function MemberRow({ member, dc, onPress }: { member: Member; dc: any; onPress?:
           <Text style={s.ptsLabel}>pts</Text>
         </View>
       )}
-      {isPlaying && <Ionicons name="chevron-forward" size={16} color={GOLD} style={{ marginLeft: 4 }} />}
-    </Wrap>
+      <Ionicons name="chevron-forward" size={16} color={isPlaying ? GOLD : '#444'} style={{ marginLeft: 4 }} />
+    </TouchableOpacity>
   );
 }
 

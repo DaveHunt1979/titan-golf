@@ -258,8 +258,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 38,
-      "lastAccessed": 1787296642017,
+      "accessCount": 45,
+      "lastAccessed": 1787301796588,
       "type": "file"
     },
     {
@@ -275,9 +275,21 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/friends.tsx",
+      "accessCount": 23,
+      "lastAccessed": 1787299803889,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/_layout.tsx",
-      "accessCount": 19,
-      "lastAccessed": 1787296585391,
+      "accessCount": 22,
+      "lastAccessed": 1787299721293,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/profile/library.tsx",
+      "accessCount": 22,
+      "lastAccessed": 1787299918499,
       "type": "file"
     },
     {
@@ -290,6 +302,12 @@
       "path": "app/(app)/inbox/[playerId].tsx",
       "accessCount": 12,
       "lastAccessed": 1787233055259,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/spectate/[matchId].tsx",
+      "accessCount": 12,
+      "lastAccessed": 1787301771320,
       "type": "file"
     },
     {
@@ -308,12 +326,6 @@
       "path": "app/(app)/watch/index.tsx",
       "accessCount": 6,
       "lastAccessed": 1787232620374,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/spectate/[matchId].tsx",
-      "accessCount": 6,
-      "lastAccessed": 1787236136340,
       "type": "file"
     },
     {
@@ -437,12 +449,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/friends.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1787211614072,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/inbox/new.tsx",
       "accessCount": 3,
       "lastAccessed": 1787211624117,
@@ -464,12 +470,6 @@
       "path": "app/(app)/profile/rounds.tsx",
       "accessCount": 3,
       "lastAccessed": 1787211700783,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/profile/library.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1787211709584,
       "type": "file"
     },
     {

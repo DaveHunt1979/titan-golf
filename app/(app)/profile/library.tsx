@@ -12,6 +12,8 @@ import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyTheme
 import { resolveAvatar } from '../../../src/lib/assets';
 import { fetchFavouriteIds, fetchRecentlyPlayedWithIds, partitionIntoTiers, toggleFavourite } from '../../../src/lib/playerTiers';
 import { goBack } from '../../../src/lib/navigation';
+import TCardSheet from '../../../src/components/TCardSheet';
+import type { EditablePlayer } from '../../../src/components/PlayerEditSheet';
 
 type LibraryEntry = {
   library_id: string;
@@ -36,9 +38,13 @@ type FoundPlayer = {
 type SocietyPlayer = {
   id: string;
   display_name: string;
+  email: string | null;
   avatar_url: string | null;
   handicap_index: number | null;
   t_tag: string | null;
+  role: string;
+  committee_role: string | null;
+  membership_types: string[];
 };
 
 export default function PlayerLibraryScreen() {
@@ -57,6 +63,9 @@ export default function PlayerLibraryScreen() {
   const [saving,  setSaving]    = useState(false);
   const [favouriteIds, setFavouriteIds] = useState<Set<string>>(new Set());
   const [recentIds,    setRecentIds]    = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [myRole,  setMyRole]  = useState('member');
+  const [cardEntry, setCardEntry] = useState<LibraryEntry | SocietyPlayer | null>(null);
 
   // "Private" (your own T-Tag/guest library) vs "Society" (everyone in your
   // current society, so you can star regular playing partners even before
@@ -105,13 +114,28 @@ export default function PlayerLibraryScreen() {
     // actually resolves the real one — only query once it's loaded.
     if (societyLoaded && societyId) {
       const { data: members } = await supabase
-        .from('society_members').select('player_id').eq('society_id', societyId);
+        .from('society_members').select('player_id, role, committee_role, membership_types')
+        .eq('society_id', societyId);
       const ids = (members ?? []).map((m: any) => m.player_id);
+      const myMembership = (members ?? []).find((m: any) => m.player_id === myId);
+      const role = myMembership?.role ?? 'member';
+      setMyRole(role);
+      setIsAdmin(['admin', 'owner'].includes(role));
+
       if (ids.length > 0) {
+        const roleMap: Record<string, { role: string; committee_role: string | null; membership_types: string[] }> = {};
+        for (const m of (members ?? []) as any[]) {
+          roleMap[m.player_id] = { role: m.role, committee_role: m.committee_role ?? null, membership_types: m.membership_types ?? [] };
+        }
         const { data: sp } = await supabase
-          .from('players').select('id, display_name, handicap_index, avatar_url, t_tag')
+          .from('players').select('id, display_name, email, handicap_index, avatar_url, t_tag')
           .in('id', ids).order('display_name');
-        setSocietyPlayers((sp ?? []) as SocietyPlayer[]);
+        setSocietyPlayers(((sp ?? []) as any[]).map(p => ({
+          ...p,
+          role: roleMap[p.id]?.role ?? 'member',
+          committee_role: roleMap[p.id]?.committee_role ?? null,
+          membership_types: roleMap[p.id]?.membership_types ?? [],
+        })) as SocietyPlayer[]);
       }
     }
     setLoading(false);
@@ -278,9 +302,14 @@ export default function PlayerLibraryScreen() {
   function renderRow(entry: LibraryEntry) {
     const avatar = !entry.is_guest ? resolveAvatar(entry.member_player_id ?? '', entry.avatar_url) : null;
     const isFav = !!entry.member_player_id && favouriteIds.has(entry.member_player_id);
+    const RowWrap = entry.is_guest ? View : TouchableOpacity;
     return (
       <View key={entry.library_id} style={s.row}>
-        <View style={s.rowContent}>
+        <RowWrap
+          style={s.rowContent}
+          activeOpacity={0.7}
+          {...(entry.is_guest ? {} : { onPress: () => setCardEntry(entry) })}
+        >
           {avatar
             ? <Image source={avatar} style={s.avatarImg} />
             : (
@@ -304,7 +333,7 @@ export default function PlayerLibraryScreen() {
               )}
             </View>
           </View>
-        </View>
+        </RowWrap>
         {!entry.is_guest && (
           <TouchableOpacity
             onPress={() => toggleFav(entry.member_player_id)}
@@ -355,7 +384,7 @@ export default function PlayerLibraryScreen() {
     const isFav = favouriteIds.has(p.id);
     return (
       <View key={p.id} style={s.row}>
-        <View style={s.rowContent}>
+        <TouchableOpacity style={s.rowContent} activeOpacity={0.7} onPress={() => setCardEntry(p)}>
           {avatar
             ? <Image source={avatar} style={s.avatarImg} />
             : (
@@ -373,7 +402,7 @@ export default function PlayerLibraryScreen() {
               {p.handicap_index != null && <Text style={s.rowMeta}>HCP {p.handicap_index}</Text>}
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={() => toggleFav(p.id)}
           hitSlop={hit}
@@ -385,6 +414,26 @@ export default function PlayerLibraryScreen() {
       </View>
     );
   }
+
+  // T-Card can open from either tab, but the two rows carry different
+  // shapes (LibraryEntry vs SocietyPlayer) — 'library_id' only exists on
+  // the former. Admin Edit only ever renders for a Society-tab entry: a
+  // Private-library entry can be a player from a completely different
+  // society (or a guest with no account at all), where this viewer's admin
+  // rights in the CURRENT society don't apply.
+  const cardIsSociety = !!cardEntry && !('library_id' in cardEntry);
+  const cardMember: EditablePlayer | null = cardEntry ? {
+    role: cardIsSociety ? (cardEntry as SocietyPlayer).role : 'member',
+    committee_role: cardIsSociety ? (cardEntry as SocietyPlayer).committee_role : null,
+    membership_types: cardIsSociety ? (cardEntry as SocietyPlayer).membership_types : [],
+    player: {
+      id: cardIsSociety ? (cardEntry as SocietyPlayer).id : ((cardEntry as LibraryEntry).member_player_id as string),
+      display_name: cardEntry.display_name,
+      email: cardIsSociety ? (cardEntry as SocietyPlayer).email : null,
+      handicap_index: cardEntry.handicap_index,
+      avatar_url: cardEntry.avatar_url,
+    },
+  } : null;
 
   return (
     <View style={s.container}>
@@ -612,6 +661,18 @@ export default function PlayerLibraryScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
+
+      <TCardSheet
+        visible={!!cardEntry}
+        member={cardMember}
+        tTag={cardEntry?.t_tag ?? null}
+        playingNow={null}
+        isAdmin={cardIsSociety && isAdmin}
+        societyId={societyId ?? ''}
+        myRole={myRole}
+        onClose={() => setCardEntry(null)}
+        onSaved={load}
+      />
     </View>
   );
 }

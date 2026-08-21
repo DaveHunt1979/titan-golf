@@ -15,12 +15,11 @@ const FF   = 'JUSTSans';
 const FFB  = 'JUSTSans-ExBold';
 
 const TILES = [
-  { key: 'players',  label: 'Players',  sub: 'View roster, add players manually',            icon: 'person-outline'          as const, route: '/(app)/admin/players' },
+  { key: 'players',  label: 'Players',  sub: 'Roster, roles, handicap & area access',        icon: 'person-outline'          as const, route: '/(app)/admin/players' },
   { key: 'courses',  label: 'Courses',  sub: 'Par, stroke index & yardages',                 icon: 'golf-outline'            as const, route: '/(app)/admin/courses' },
   { key: 'pins',     label: 'Pins',     sub: 'Green locations for the rangefinder',          icon: 'location-outline'        as const, route: '/(app)/admin/pins' },
   { key: 'groups',   label: 'Groups',   sub: 'Named groups for quick game setup',            icon: 'people-circle-outline'   as const, route: '/(app)/admin/groups' },
   { key: 'codes',    label: 'Codes',    sub: 'Join PIN, tournament PINs, area codes',        icon: 'key-outline'             as const, route: '/(app)/admin/codes' },
-  { key: 'access',   label: 'Access',   sub: 'Casual / Tour / Swindle per player',           icon: 'lock-open-outline'       as const, route: '/(app)/admin/membership' },
   { key: 'records',  label: 'Records',  sub: 'All-time society bests',                       icon: 'ribbon-outline'          as const, route: '/(app)/records' },
   { key: 'society',  label: 'New Society', sub: 'Onboard a new golf club to Titan',           icon: 'add-circle-outline'      as const, route: '/(app)/admin/create-society' },
 ] as const;

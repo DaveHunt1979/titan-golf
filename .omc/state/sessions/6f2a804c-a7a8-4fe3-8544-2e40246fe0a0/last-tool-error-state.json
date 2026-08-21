@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"/Users/davehunt/Desktop/titan-golf\\\" && supabase db push --include-all --yes 2>&1\",\"description\":\"Push new migration with include-all to bypass the cosmetic pairing check\"}",
+  "tool_input_preview": "{\"command\":\"cd \\\"/Users/davehunt/Desktop/titan-golf\\\" && supabase db push --include-all --yes 2>&1\",\"description\":\"Push the presence migration\"}",
   "error": "Exit code 1\nInitialising login role...\nConnecting to remote database...\nSkipping migration 20260806b_tournament_engine_phase5.sql... (file name must match pattern \"<timestamp>_name.sql\")\nSkipping migration 20260806c_tournament_engine_phase7.sql... (file name must match pattern \"<timestamp>_name.sql\")\nSkipping migration 20260807b_admin_update_avatar.sql... (file name must match pattern \"<timestamp>_name.sql\")\nSkipping migration 20260813b_player_library.sql... (file name must match pattern \"<times...",
-  "timestamp": "2026-08-21T07:23:03.123Z",
-  "retry_count": 2
+  "timestamp": "2026-08-21T08:08:15.223Z",
+  "retry_count": 1
 }
