@@ -8,7 +8,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../../../src/lib/supabase';
+import { supabase, freshChannel } from '../../../../src/lib/supabase';
 import {
   calcHoles, matchLabel, calcCourseHandicap,
   calcStrokesReceived, calcStablefordPoints, formatStrokeHoles,
@@ -375,8 +375,13 @@ export default function EnterScoresScreen() {
         .single();
       if (!error && data) setMatch(data as unknown as MatchInfo);
     }
-    const sub = supabase
-      .channel(`enter-${matchId}`)
+    // freshChannel(), not supabase.channel() — removeChannel() below is
+    // async, so rapidly leaving and re-entering this same match (e.g. via
+    // History) can remount before the old channel finishes tearing down.
+    // supabase.channel() returns that still-subscribed stale object by
+    // name, and .on() on an already-subscribed channel throws synchronously
+    // — fatal enough to crash the app on device (Dave, 2026-08-21).
+    const sub = freshChannel(`enter-${matchId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'matches',    filter: `id=eq.${matchId}` },       refreshMatchSilently)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'match_holes', filter: `match_id=eq.${matchId}` }, refreshMatchSilently)
       .subscribe();
@@ -1258,8 +1263,7 @@ export default function EnterScoresScreen() {
     loadDayBoard();
 
     console.log('[enter.dayBoardRealtime] subscribing', { channel: `day-lb-${dayId}` });
-    const sub = supabase
-      .channel(`day-lb-${dayId}`)
+    const sub = freshChannel(`day-lb-${dayId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'match_holes' }, () => {
         loadDayBoard();
       })
@@ -2087,7 +2091,7 @@ export default function EnterScoresScreen() {
                   // round-trip. Already-resolved promises await instantly.
                   if (newsReportPromiseRef.current) await newsReportPromiseRef.current;
                   setOpeningReport(false);
-                  router.push(`/(app)/news?matchId=${matchId}` as any);
+                  router.push(`/(app)/news?matchId=${matchId}&back=${encodeURIComponent(`/(app)/score/enter/${matchId}`)}` as any);
                 }}
                 activeOpacity={0.85}
               >

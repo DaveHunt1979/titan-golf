@@ -308,7 +308,13 @@ export async function generateCasualMatchReport(matchId: string): Promise<void> 
     const { data, error } = await supabase.functions.invoke('titan-news', {
       body: { dedupeKey: `casual:${matchId}`, matchId, storyType: 'casual_final', snapshot },
     });
-    if (error) { console.error('[titanNews] casual report generation failed', error); return; }
+    // The edge function always returns HTTP 200, even on failure (Anthropic
+    // error, unparseable article, DB save failure) — it puts the problem in
+    // `data.error` rather than the response status, so a transport-level
+    // `error` check alone can't see it. Treat both as failure, or a failed
+    // generation gets logged as a success and every reader hits an empty
+    // article (Dave, 2026-08-21 — "it said this is empty").
+    if (error || data?.error) { console.error('[titanNews] casual report generation failed', error ?? data.error); return; }
     console.log('[titanNews] casual report generated', { matchId });
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -318,8 +324,13 @@ export async function generateCasualMatchReport(matchId: string): Promise<void> 
 
     const { data: match } = await supabase.from('matches').select('home_player_ids,away_player_ids').eq('id', matchId).single();
     const allPlayerIds = [...new Set([...(match?.home_player_ids ?? []), ...(match?.away_player_ids ?? [])])] as string[];
+    // Every player in the round gets their own report in their own inbox,
+    // including whoever just finished and triggered this (Dave, 2026-08-21
+    // — "all rounds that anyone is in should go to their mailbox"). The DB
+    // only allows a self-targeted row for message_type 'match_report' (see
+    // 20260821000000_match_report_self_dm.sql) — this isn't a general DM
+    // exemption.
     const rows = allPlayerIds
-      .filter(id => id !== (me as any).id)
       .map(id => ({
         sender_id: (me as any).id, recipient_id: id,
         content: data?.headline ?? 'Your Titan match report is ready to read.',

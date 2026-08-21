@@ -25,7 +25,7 @@ export default function TitanNewsScreen() {
   const router = useRouter();
   const dc = useDynamicColors();
   const { societyId } = useSocietyTheme();
-  const { competitionId, matchId } = useLocalSearchParams<{ competitionId?: string; matchId?: string }>();
+  const { competitionId, matchId, back } = useLocalSearchParams<{ competitionId?: string; matchId?: string; back?: string }>();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -74,7 +74,18 @@ export default function TitanNewsScreen() {
       <StatusBar style="light" />
 
       <View style={s.header}>
-        <TouchableOpacity onPress={() => goBack(router, '/(app)/')} hitSlop={HIT}>
+        {/* "news" is its own top-level (hidden) tab — see app/(app)/_layout.tsx
+            — so pushing into it from score/solo or score/enter jumps to a
+            different tab's own navigator. canGoBack() still reports true
+            there (cross-tab state, not this tab's own history) and
+            goBack()'s router.back() branch resolves it back to Home instead
+            of the round-complete screen the player actually came from —
+            passing `back` as goBack()'s fallback never even runs, since
+            that branch is only reached when canGoBack() is false. When the
+            caller knows exactly where "back" should go, use that directly
+            instead of gambling on cross-tab back semantics (Dave, 2026-08-21
+            — "back button ... still went back to the main menu"). */}
+        <TouchableOpacity onPress={() => (back ? router.replace(back as any) : goBack(router, '/(app)/'))} hitSlop={HIT}>
           <Text style={[s.back, { color: dc.gold }]}>← Back</Text>
         </TouchableOpacity>
         <Text style={[s.title, { color: dc.cardText }]}>Titan News</Text>

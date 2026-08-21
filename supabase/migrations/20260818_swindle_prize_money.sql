@@ -15,6 +15,7 @@ ALTER TABLE swindle_entries
 -- trap already hit once in this codebase. Loose auth.uid() check, same
 -- pattern already used for swindle_scores_update, so a collector marking
 -- someone else's entry paid isn't silently blocked.
+DROP POLICY IF EXISTS "swindle_entries_update" ON swindle_entries;
 CREATE POLICY "swindle_entries_update" ON swindle_entries FOR UPDATE USING (
   auth.uid() IS NOT NULL
 );

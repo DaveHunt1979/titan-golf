@@ -968,7 +968,7 @@ export default function SoloRoundScreen() {
                     setOpeningReport(true);
                     if (newsReportPromiseRef.current) await newsReportPromiseRef.current;
                     setOpeningReport(false);
-                    router.push(`/(app)/news?matchId=${matchId}` as any);
+                    router.push(`/(app)/news?matchId=${matchId}&back=${encodeURIComponent(`/(app)/score/solo/${matchId}`)}` as any);
                   }}
                   activeOpacity={0.85}
                 >
