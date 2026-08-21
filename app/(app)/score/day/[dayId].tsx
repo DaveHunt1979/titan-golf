@@ -451,30 +451,38 @@ export default function DayLobby() {
 
                       {hasTeams ? (
                         <View style={s.matchRow}>
-                          <View style={[s.teamSide, { flex: 1 }]}>
+                          <View style={s.teamSide}>
                             <View style={s.teamAvatars}>
                               {g.home_player_ids.map((id, pi) => (
-                                <PlayerAvatar key={id} playerId={id} name={homeNames[pi] ?? '?'} avatarUrl={null} size={22} />
+                                <View key={id} style={s.avatarRing}>
+                                  <PlayerAvatar playerId={id} name={homeNames[pi] ?? '?'} avatarUrl={null} size={30} />
+                                </View>
                               ))}
                             </View>
-                            <Text style={s.groupPlayers} numberOfLines={1}>{homeNames.join(' & ')}</Text>
+                            <Text style={s.groupPlayers} numberOfLines={2}>{homeNames.join(' & ')}</Text>
                           </View>
-                          {isMatchplay ? (
-                            <View style={[s.statusChip, { borderColor: `${statusColor}50`, backgroundColor: `${statusColor}15` }]}>
-                              <Text style={[s.statusChipText, { color: statusColor }]}>{statusLabel}</Text>
-                            </View>
-                          ) : (
-                            <View style={s.ptsScoreChip}>
-                              <Text style={s.ptsScoreText}>{g.home_pts} - {g.away_pts}</Text>
-                            </View>
-                          )}
-                          <View style={[s.teamSide, { flex: 1, justifyContent: 'flex-end' }]}>
-                            <Text style={[s.groupPlayers, { textAlign: 'right' }]} numberOfLines={1}>{awayNames.join(' & ')}</Text>
+
+                          <View style={s.matchMiddle}>
+                            {isMatchplay ? (
+                              <View style={[s.statusChip, { borderColor: `${statusColor}50`, backgroundColor: `${statusColor}15` }]}>
+                                <Text style={[s.statusChipText, { color: statusColor }]}>{statusLabel}</Text>
+                              </View>
+                            ) : (
+                              <View style={s.ptsScoreChip}>
+                                <Text style={s.ptsScoreText}>{g.home_pts} - {g.away_pts}</Text>
+                              </View>
+                            )}
+                          </View>
+
+                          <View style={s.teamSide}>
                             <View style={s.teamAvatars}>
                               {g.away_player_ids.map((id, pi) => (
-                                <PlayerAvatar key={id} playerId={id} name={awayNames[pi] ?? '?'} avatarUrl={null} size={22} />
+                                <View key={id} style={s.avatarRing}>
+                                  <PlayerAvatar playerId={id} name={awayNames[pi] ?? '?'} avatarUrl={null} size={30} />
+                                </View>
                               ))}
                             </View>
+                            <Text style={s.groupPlayers} numberOfLines={2}>{awayNames.join(' & ')}</Text>
                           </View>
                         </View>
                       ) : (
@@ -603,15 +611,17 @@ const s = StyleSheet.create({
   groupCardMe:   { borderColor: `${GOLD}40` },
   groupAccent:   { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, backgroundColor: GOLD, borderTopLeftRadius: 14, borderBottomLeftRadius: 14 },
   groupNum:      { fontFamily: FFB, fontSize: 11, color: '#fff', letterSpacing: 1.5 },
-  groupPlayers:  { fontFamily: FFB, fontSize: 14, color: '#ccc' },
+  groupPlayers:  { fontFamily: FFB, fontSize: 13, color: '#ccc', textAlign: 'center', marginTop: 8 },
   formatChip:    { backgroundColor: '#1c1c1c', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
   formatChipText:{ fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1 },
   yourGroupBadge:{ backgroundColor: `${GOLD}15`, borderWidth: 1, borderColor: `${GOLD}30`, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
   yourGroupText: { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 1 },
 
-  matchRow:      { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  teamSide:      { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  teamAvatars:   { flexDirection: 'row', gap: 4 },
+  matchRow:      { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 4 },
+  teamSide:      { flex: 1, alignItems: 'center' },
+  teamAvatars:   { flexDirection: 'row', justifyContent: 'center' },
+  avatarRing:    { borderWidth: 1.5, borderColor: `${GOLD}55`, borderRadius: 17, padding: 1.5, marginHorizontal: -2 },
+  matchMiddle:   { alignItems: 'center', justifyContent: 'center', paddingTop: 10, paddingHorizontal: 4 },
   statusChip:    { borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, alignItems: 'center', minWidth: 46 },
   statusChipText:{ fontFamily: FFB, fontSize: 10, letterSpacing: 1 },
   ptsScoreChip:  { backgroundColor: '#1c1c1c', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 },

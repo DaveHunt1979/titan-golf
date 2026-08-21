@@ -257,8 +257,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 25,
-      "lastAccessed": 1787319117653,
+      "accessCount": 37,
+      "lastAccessed": 1787323871848,
       "type": "file"
     },
     {
@@ -275,8 +275,8 @@
     },
     {
       "path": "app/(app)/tour/day/[dayId].tsx",
-      "accessCount": 9,
-      "lastAccessed": 1787318151440,
+      "accessCount": 11,
+      "lastAccessed": 1787323612642,
       "type": "file"
     },
     {
@@ -307,6 +307,12 @@
       "path": "app/(app)/camera/index.tsx",
       "accessCount": 5,
       "lastAccessed": 1787318108548,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/day/[dayId].tsx",
+      "accessCount": 5,
+      "lastAccessed": 1787323681897,
       "type": "file"
     },
     {
@@ -373,6 +379,12 @@
       "path": "supabase/schema.sql",
       "accessCount": 2,
       "lastAccessed": 1787319147952,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1787322567656,
       "type": "file"
     },
     {
@@ -475,6 +487,12 @@
       "path": "web/src/app/tournament/new/page.tsx",
       "accessCount": 1,
       "lastAccessed": 1787319833871,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-08-21 at 15.36.44.png",
+      "accessCount": 1,
+      "lastAccessed": 1787323543983,
       "type": "file"
     }
   ],

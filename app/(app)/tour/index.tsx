@@ -669,8 +669,23 @@ export default function TourScreen() {
         (m.away_player_ids ?? []).includes(myPlayerId)
       )
     : [];
+  // A day only counts as playable once every match in every EARLIER day is
+  // complete — not just this player's own match. Without this, a player
+  // whose own Day 1 group finished quickly could jump straight into a Day 2
+  // match via this banner while the rest of Day 1 was still being played
+  // (Dave, 2026-08-21 — tapped into Round 2 before Round 1 had finished).
+  const dayNumberByDayId = new Map(days.map(d => [d.id, d.day_number]));
+  const isDayUnlocked = (dayId: string) => {
+    const dn = dayNumberByDayId.get(dayId);
+    if (dn == null) return true;
+    return days.filter(d => d.day_number < dn).every(pd => {
+      const pdMatches = matches.filter(m => m.day_id === pd.id);
+      return pdMatches.length > 0 && pdMatches.every(m => m.status === 'complete');
+    });
+  };
+
   const myMatch = myOwnMatches.find(m => m.status === 'in_progress')
-    ?? myOwnMatches.find(m => m.status === 'upcoming')
+    ?? myOwnMatches.find(m => m.status === 'upcoming' && isDayUnlocked(m.day_id))
     ?? null;
   const myMatchActive = !!myMatch;
 
@@ -874,6 +889,7 @@ export default function TourScreen() {
                   const complete = dayMatches.filter(m => m.status === 'complete').length;
                   const isLive   = live > 0;
                   const isDone   = complete === dayMatches.length && dayMatches.length > 0;
+                  const dayLocked = !isDayUnlocked(day.id);
 
                   return (
                     <View key={day.id} style={{ marginBottom: 20 }}>
@@ -899,7 +915,7 @@ export default function TourScreen() {
                             { fontSize: 10, fontFamily: FFB, color: dc.cardText, letterSpacing: 0.5 },
                             isLive && { color: GREEN },
                           ]}>
-                            {isDone ? 'COMPLETE' : isLive ? 'LIVE' : 'UPCOMING'}
+                            {isDone ? 'COMPLETE' : isLive ? 'LIVE' : dayLocked ? 'LOCKED' : 'UPCOMING'}
                           </Text>
                         </View>
                       </View>
@@ -918,12 +934,15 @@ export default function TourScreen() {
                         const isMatchLive = m.status === 'in_progress';
                         const isComplete  = m.status === 'complete';
                         const isMyMatch = !!myPlayerId && ((m.home_player_ids ?? []).includes(myPlayerId) || (m.away_player_ids ?? []).includes(myPlayerId));
-                        const matchDest = isMyMatch
-                          ? ((m as any).round_format === 'team_stableford'
-                              ? `/(app)/score/teamstableford/${m.id}`
-                              : (m.away_player_ids ?? []).length === 0 && (m.home_player_ids ?? []).length === 1 ? `/(app)/score/solo/${m.id}` : `/(app)/score/enter/${m.id}`)
-                          : `/(app)/spectate/${m.id}`;
-                        const statusLabel = isComplete && m.result_str ? m.result_str : isMatchLive ? 'Live' : 'Upcoming';
+                        const isLockedMatch = dayLocked && m.status === 'upcoming';
+                        const matchDest = isLockedMatch
+                          ? null
+                          : isMyMatch
+                            ? ((m as any).round_format === 'team_stableford'
+                                ? `/(app)/score/teamstableford/${m.id}`
+                                : (m.away_player_ids ?? []).length === 0 && (m.home_player_ids ?? []).length === 1 ? `/(app)/score/solo/${m.id}` : `/(app)/score/enter/${m.id}`)
+                            : `/(app)/spectate/${m.id}`;
+                        const statusLabel = isComplete && m.result_str ? m.result_str : isMatchLive ? 'Live' : isLockedMatch ? 'Locked' : 'Upcoming';
                         const winner = getEffectiveWinner(m.status, m.winner, m.holes_string ?? '..................', m.holes_to_play ?? 18);
                         const showWinner = isComplete && winner !== 'half';
                         const homeWon = showWinner && winner === 'home';
@@ -935,9 +954,11 @@ export default function TourScreen() {
                               st.matchRow,
                               { backgroundColor: dc.card, borderColor: dc.border },
                               isMatchLive && { borderColor: 'rgba(74,222,128,0.35)' },
+                              isLockedMatch && { opacity: 0.5 },
                             ]}
-                            onPress={() => router.push(matchDest as any)}
-                            activeOpacity={0.75}
+                            onPress={matchDest ? () => router.push(matchDest as any) : undefined}
+                            disabled={!matchDest}
+                            activeOpacity={matchDest ? 0.75 : 1}
                           >
                             {isSingles ? (
                               <>

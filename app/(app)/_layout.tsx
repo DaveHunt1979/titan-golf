@@ -190,6 +190,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="admin"    options={{ href: isAdmin ? undefined : null, title: 'Admin', tabBarIcon: ({ focused }) => <TabIcon focused={focused}><AdminIcon color={ic(focused)} /></TabIcon> }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="games"                     options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="news/index"                options={{ href: null }} />
+        <Tabs.Screen name="help/index"                options={{ href: null }} />
         <Tabs.Screen name="spectate/[matchId]"       options={{ href: null }} />
         <Tabs.Screen name="range"                     options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="rangefinder/index" options={{ href: null, sceneStyle: IS_PAD ? { marginLeft: 0 } : undefined }} />

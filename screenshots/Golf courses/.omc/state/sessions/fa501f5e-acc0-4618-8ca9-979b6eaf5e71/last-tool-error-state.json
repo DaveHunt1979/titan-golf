@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"echo \\\"/Users/davehunt/Desktop/titan-golf/screenshots/Golf courses/USA\\\"/*\"}",
+  "error": "Exit code 1\n(eval):1: no matches found: /Users/davehunt/Desktop/titan-golf/screenshots/Golf courses/USA/*",
+  "timestamp": "2026-08-21T14:32:48.269Z",
+  "retry_count": 4
+}
