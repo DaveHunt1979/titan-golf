@@ -13,7 +13,7 @@ import { goBack } from '../../../../src/lib/navigation';
 import { formatRoundDuration } from '../../../../src/lib/roundTimer';
 import { resolveAvatar } from '../../../../src/lib/assets';
 import { generateCasualMatchReport } from '../../../../src/lib/titanNews';
-import { sendMatchNotification } from '../../../../src/lib/notifications';
+import { sendMatchNotification, postSpectatorEvent } from '../../../../src/lib/notifications';
 import { speakHole, speakIntro, speakBack9, speakOutro } from '../../../../src/lib/caddie';
 import * as Location from 'expo-location';
 import RangeMap from '../../../../src/components/RangeMap';
@@ -586,15 +586,22 @@ export default function SoloRoundScreen() {
       }
 
       if (!wasEditing) {
-        if (match.competition_id && playerName) {
+        if (playerName) {
           const firstName = playerName.split(' ')[0];
           const pids = [...(match.home_player_ids ?? [])];
+          let eventType: string | null = null;
+          let title = '';
+          let body = '';
           if (gross === 1) {
-            sendMatchNotification(match.competition_id, '⛳ HOLE IN ONE!', `${firstName} just made a hole in one on hole ${holeToSave}!`, pids);
+            eventType = 'hole_in_one'; title = '⛳ HOLE IN ONE!'; body = `${firstName} just made a hole in one on hole ${holeToSave}!`;
           } else if (gross <= safePar - 2) {
-            sendMatchNotification(match.competition_id, '🦅 Eagle!', `${firstName} just made an eagle on hole ${holeToSave}!`, pids);
+            eventType = 'eagle'; title = '🦅 Eagle!'; body = `${firstName} just made an eagle on hole ${holeToSave}!`;
           } else if (gross === safePar - 1) {
-            sendMatchNotification(match.competition_id, '🐦 Birdie!', `${firstName} is on fire — birdie on hole ${holeToSave}!`, pids);
+            eventType = 'birdie'; title = '🐦 Birdie!'; body = `${firstName} is on fire — birdie on hole ${holeToSave}!`;
+          }
+          if (eventType) {
+            if (match.competition_id) sendMatchNotification(match.competition_id, title, body, pids);
+            postSpectatorEvent(match.id, eventType, { player: firstName, hole: holeToSave });
           }
         }
 
@@ -605,6 +612,7 @@ export default function SoloRoundScreen() {
           } catch (e) {
             console.error('checkAndUpdateRecords error:', e);
           }
+          if (playerName) postSpectatorEvent(match.id, 'match_result', { message: `${playerName.split(' ')[0]} finished their round!` });
           // Casual Golf's one final match report — see the identical
           // trigger + explanation in score/enter/[matchId].tsx.
           if (!match.competition_id) newsReportPromiseRef.current = generateCasualMatchReport(matchId as string);

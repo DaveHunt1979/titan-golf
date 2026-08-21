@@ -257,21 +257,21 @@
   },
   "hotPaths": [
     {
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 31,
+      "lastAccessed": 1787236082458,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/tour/index.tsx",
       "accessCount": 23,
       "lastAccessed": 1787230731685,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 21,
-      "lastAccessed": 1787232793370,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 19,
-      "lastAccessed": 1787232832471,
+      "accessCount": 23,
+      "lastAccessed": 1787236102906,
       "type": "file"
     },
     {
@@ -308,6 +308,12 @@
       "path": "app/(app)/watch/index.tsx",
       "accessCount": 6,
       "lastAccessed": 1787232620374,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/spectate/[matchId].tsx",
+      "accessCount": 6,
+      "lastAccessed": 1787236136340,
       "type": "file"
     },
     {
@@ -356,12 +362,6 @@
       "path": "app/(app)/profile/club/[id].tsx",
       "accessCount": 4,
       "lastAccessed": 1787211940039,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/spectate/[matchId].tsx",
-      "accessCount": 4,
-      "lastAccessed": 1787214635545,
       "type": "file"
     },
     {

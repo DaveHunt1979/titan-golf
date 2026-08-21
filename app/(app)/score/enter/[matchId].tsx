@@ -19,7 +19,7 @@ import * as Location from 'expo-location';
 import ShotLogger from '../../../../src/components/ShotLogger';
 import RecordCelebration from '../../../../src/components/RecordCelebration';
 import { checkAndUpdateRecords, type BrokenRecord } from '../../../../src/lib/records';
-import { sendMatchNotification } from '../../../../src/lib/notifications';
+import { sendMatchNotification, postSpectatorEvent } from '../../../../src/lib/notifications';
 import { generateCasualMatchReport } from '../../../../src/lib/titanNews';
 import { sendMatchToWatch, clearMatchFromWatch, onWatchScoreEntry, onWatchRequestsState } from '../../../../src/lib/watch';
 import { startLiveActivity, updateLiveActivity, endLiveActivity } from '../../../../src/lib/liveActivity';
@@ -1127,19 +1127,24 @@ export default function EnterScoresScreen() {
           setSideGameModal({ type: currentSideGame, hole: activeHole });
         }
 
-        if (match.competition_id) {
-          for (const id of allPlayerIds) {
-            const gross = scores[id];
-            if (!gross) continue;
-            const firstName = (playerNames[id] ?? '').split(' ')[0];
-            const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
-            if (gross === 1) {
-              sendMatchNotification(match.competition_id, '⛳ HOLE IN ONE!', `${firstName} just made a hole in one on hole ${activeHole}!`, pids);
-            } else if (gross <= par - 2) {
-              sendMatchNotification(match.competition_id, '🦅 Eagle!', `${firstName} just made an eagle on hole ${activeHole}!`, pids);
-            } else if (gross === par - 1) {
-              sendMatchNotification(match.competition_id, '🐦 Birdie!', `${firstName} is on fire — birdie on hole ${activeHole}!`, pids);
-            }
+        for (const id of allPlayerIds) {
+          const gross = scores[id];
+          if (!gross) continue;
+          const firstName = (playerNames[id] ?? '').split(' ')[0];
+          const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
+          let eventType: string | null = null;
+          let title = '';
+          let body = '';
+          if (gross === 1) {
+            eventType = 'hole_in_one'; title = '⛳ HOLE IN ONE!'; body = `${firstName} just made a hole in one on hole ${activeHole}!`;
+          } else if (gross <= par - 2) {
+            eventType = 'eagle'; title = '🦅 Eagle!'; body = `${firstName} just made an eagle on hole ${activeHole}!`;
+          } else if (gross === par - 1) {
+            eventType = 'birdie'; title = '🐦 Birdie!'; body = `${firstName} is on fire — birdie on hole ${activeHole}!`;
+          }
+          if (eventType) {
+            if (match.competition_id) sendMatchNotification(match.competition_id, title, body, pids);
+            postSpectatorEvent(match.id, eventType, { player: firstName, hole: activeHole });
           }
         }
         if (!editingHole) checkEagle(scores, par, activeHole);
@@ -1154,6 +1159,7 @@ export default function EnterScoresScreen() {
           const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
           sendMatchNotification(match.competition_id, '🏆 Match Complete', msg, pids);
         }
+        postSpectatorEvent(match.id, 'match_result', { message: msg });
         const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
         const broken = allBroken.flat();
         if (broken.length > 0) {
@@ -1192,9 +1198,11 @@ export default function EnterScoresScreen() {
   }
 
   // Cross-group day leaderboard
+  const prevLeaderIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!match?.day_id) return;
     const dayId = match.day_id;
+    prevLeaderIdRef.current = null; // reset baseline so we don't fire a leader_change on initial load
 
     async function loadDayBoard() {
       const { data: dayMatches } = await supabase
@@ -1237,6 +1245,14 @@ export default function EnterScoresScreen() {
         .sort((a, b) => b.pts - a.pts);
 
       setDayBoard(board);
+
+      const leader = board[0];
+      if (leader && leader.pts > 0) {
+        if (prevLeaderIdRef.current && prevLeaderIdRef.current !== leader.playerId) {
+          postSpectatorEvent(matchId as string, 'leader_change', { player: leader.name, pts: leader.pts });
+        }
+        prevLeaderIdRef.current = leader.playerId;
+      }
     }
 
     loadDayBoard();

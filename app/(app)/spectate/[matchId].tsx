@@ -699,7 +699,7 @@ export default function SpectateScreen() {
         </View>
 
       </ScrollView>
-      <NewsTicker competitionId={match.competition_id} />
+      <NewsTicker competitionId={match.competition_id} matchId={match.id} />
     </View>
   );
 }
