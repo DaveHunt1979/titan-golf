@@ -415,7 +415,7 @@ export default function HomeScreen() {
             <QuickBtn icon="card-outline"      label="Up & Coming"  cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/trips' as any)} />
             <QuickBtn icon="mail-outline"       label="Inbox"       cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/inbox' as any)} badge={dmUnread > 0 ? dmUnread : undefined} badgeColor={dc.gold} />
             <QuickBtn icon="newspaper-outline" label="Titan News" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/news' as any)} badge={newsUnread > 0 ? newsUnread : undefined} badgeColor={dc.gold} />
-            <QuickBtn icon="ellipsis-horizontal-outline" label="Coming Soon" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => {}} />
+            <QuickBtn icon="help-circle-outline" label="Help" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/help' as any)} />
           </View>
 
           <View style={{ height: 32 }} />

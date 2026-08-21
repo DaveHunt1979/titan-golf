@@ -34,6 +34,8 @@ export default function LiveTournaments() {
   const [refreshing, setRefreshing] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Competition | null>(null);
   const [deleting, setDeleting]         = useState(false);
+  const [completeTarget, setCompleteTarget] = useState<Competition | null>(null);
+  const [completing, setCompleting]         = useState(false);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -67,6 +69,16 @@ export default function LiveTournaments() {
     const { error } = await supabase.from('competitions').delete().eq('id', deleteTarget.id);
     setDeleting(false);
     setDeleteTarget(null);
+    if (error) { Alert.alert('Error', error.message); return; }
+    load();
+  }
+
+  async function completeTournament() {
+    if (!completeTarget) return;
+    setCompleting(true);
+    const { error } = await supabase.from('competitions').update({ status: 'complete' }).eq('id', completeTarget.id);
+    setCompleting(false);
+    setCompleteTarget(null);
     if (error) { Alert.alert('Error', error.message); return; }
     load();
   }
@@ -132,6 +144,9 @@ export default function LiveTournaments() {
               <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/news?id=${c.id}` as any)} activeOpacity={0.8}>
                 <Text style={s.manageBtnText}>TITAN NEWS</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={s.completeBtn} onPress={() => setCompleteTarget(c)} activeOpacity={0.8}>
+                <Text style={s.completeBtnText}>COMPLETE TOURNAMENT</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={s.deleteBtn} onPress={() => setDeleteTarget(c)} activeOpacity={0.8}>
                 <Text style={s.deleteBtnText}>Delete</Text>
               </TouchableOpacity>
@@ -156,6 +171,15 @@ export default function LiveTournaments() {
         destructive
         onConfirm={deleteTournament}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        visible={completeTarget !== null}
+        title="Complete Tournament"
+        message={`Mark "${completeTarget?.name}" as finished and move it to History/Archive? Players will still be able to view results.`}
+        confirmLabel={completing ? 'Completing…' : 'Complete Tournament'}
+        onConfirm={completeTournament}
+        onCancel={() => setCompleteTarget(null)}
       />
     </View>
   );
@@ -198,6 +222,8 @@ const s = StyleSheet.create({
 
   manageBtn:     { marginTop: 10, backgroundColor: GOLD + '1A', borderWidth: 1, borderColor: GOLD + '55', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   manageBtnText: { fontFamily: FFB, fontSize: 12, color: GOLD, letterSpacing: 1 },
+  completeBtn:     { marginTop: 8, backgroundColor: GREEN + '14', borderWidth: 1, borderColor: GREEN + '55', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  completeBtnText: { fontFamily: FFB, fontSize: 12, color: GREEN, letterSpacing: 1 },
   deleteBtn:     { marginTop: 8, backgroundColor: RED + '14', borderWidth: 1, borderColor: RED + '40', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   deleteBtnText: { fontFamily: FFB, fontSize: 12, color: RED, letterSpacing: 1 },
 

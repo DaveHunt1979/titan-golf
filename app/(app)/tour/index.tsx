@@ -155,7 +155,7 @@ export default function TourScreen() {
 
   // ── Data loading ────────────────────────────────────────────────────
 
-  async function loadTournamentData(compId: string, includeInKronos: boolean, mySeq: number) {
+  async function loadTournamentData(compId: string, includeInKronos: boolean, mySeq: number, kronosOverallPrize: number | null = null) {
     const [
       { data: daysData },
       { data: matchesData },
@@ -342,7 +342,10 @@ export default function TourScreen() {
       // prize rolls down to the next eligible player instead. Only meaningful
       // when this tournament actually runs a Kronos board at all.
       const overallWinnerId = includeInKronos && sorted.length > 0 ? sorted[0].player_id : null;
-      if (overallWinnerId) sorted[0].is_overall_winner = true;
+      if (overallWinnerId) {
+        sorted[0].is_overall_winner = true;
+        if (kronosOverallPrize != null && kronosOverallPrize > 0) sorted[0].prize_money = kronosOverallPrize;
+      }
 
       // Assign each player to their prize category. A player with no
       // handicap on record shouldn't be silently defaulted into the highest
@@ -442,7 +445,7 @@ export default function TourScreen() {
     setCompetition(comp as unknown as Competition);
     setSections(((comp as any).info_sections ?? []) as InfoSection[]);
     setJoinedId(alreadyJoinedId);
-    if (alreadyJoinedId === comp.id) await loadTournamentData(comp.id, !!(comp as any).include_in_kronos, mySeq);
+    if (alreadyJoinedId === comp.id) await loadTournamentData(comp.id, !!(comp as any).include_in_kronos, mySeq, (comp as any).kronos_overall_prize ?? null);
     if (mySeq !== loadSeq.current) return;
     setLoading(false);
     setRefreshing(false);
@@ -462,7 +465,7 @@ export default function TourScreen() {
     setCompetition(data as unknown as Competition);
     await AsyncStorage.setItem(STORAGE_KEY, data.id);
     setJoinedId(data.id);
-    await loadTournamentData(data.id, !!(data as any).include_in_kronos, ++loadSeq.current);
+    await loadTournamentData(data.id, !!(data as any).include_in_kronos, ++loadSeq.current, (data as any).kronos_overall_prize ?? null);
   }
 
   function leaveTournament() {
@@ -716,7 +719,7 @@ export default function TourScreen() {
         >
           <Text style={{ fontSize: 14, fontFamily: FFB, color: '#fff' }}>‹ Back</Text>
           <Text style={{ fontSize: 16, fontFamily: FFB, color: '#fff' }}>
-            {selectedSection === 'standings' ? 'Leaderboard' : selectedSection === 'players' ? 'Players' : selectedSection === 'info' ? 'Info Pack' : 'Live & Social'}
+            {selectedSection === 'standings' ? 'Leaderboard' : selectedSection === 'players' ? 'Prize Positions' : selectedSection === 'info' ? 'Info Pack' : 'Live & Social'}
           </Text>
         </TouchableOpacity>
       )}
@@ -801,7 +804,7 @@ export default function TourScreen() {
               <View style={[st.sectionTileIconBox, { backgroundColor: dc.iconBoxBg, borderColor: dc.iconBoxBorder }]}>
                 <Ionicons name="people-outline" size={22} color={dc.iconBoxIcon} />
               </View>
-              <Text style={[st.sectionTileLabel, { color: dc.cardText }]} numberOfLines={1}>Players</Text>
+              <Text style={[st.sectionTileLabel, { color: dc.cardText }]} numberOfLines={1}>Prize Positions</Text>
               <Text style={[st.sectionTileSub, { color: dc.cardText }]} numberOfLines={2}>Scores & prize positions</Text>
             </TouchableOpacity>
             {!!competition && (
@@ -921,6 +924,10 @@ export default function TourScreen() {
                               : (m.away_player_ids ?? []).length === 0 && (m.home_player_ids ?? []).length === 1 ? `/(app)/score/solo/${m.id}` : `/(app)/score/enter/${m.id}`)
                           : `/(app)/spectate/${m.id}`;
                         const statusLabel = isComplete && m.result_str ? m.result_str : isMatchLive ? 'Live' : 'Upcoming';
+                        const winner = getEffectiveWinner(m.status, m.winner, m.holes_string ?? '..................', m.holes_to_play ?? 18);
+                        const showWinner = isComplete && winner !== 'half';
+                        const homeWon = showWinner && winner === 'home';
+                        const awayWon = showWinner && winner === 'away';
                         return (
                           <TouchableOpacity
                             key={m.id}
@@ -956,7 +963,7 @@ export default function TourScreen() {
                                         ? <Image source={teamLogos[home]} style={{ width: 22, height: 22 }} resizeMode="contain" />
                                         : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: mc.home }} />
                                     )}
-                                    <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{home}</Text>
+                                    <Text style={[st.matchName, { color: homeWon ? dc.gold : showWinner ? 'rgba(255,255,255,0.5)' : dc.cardText }]} numberOfLines={1}>{home}</Text>
                                   </View>
                                   {/* Who's actually playing in this match, not
                                       just which teams — same info the draw
@@ -991,7 +998,7 @@ export default function TourScreen() {
                                         ? <Image source={teamLogos[away]} style={{ width: 22, height: 22 }} resizeMode="contain" />
                                         : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: mc.away }} />
                                     )}
-                                    <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{away}</Text>
+                                    <Text style={[st.matchName, { color: awayWon ? dc.gold : showWinner ? 'rgba(255,255,255,0.5)' : dc.cardText }]} numberOfLines={1}>{away}</Text>
                                   </View>
                                   {isTeamMatch && (
                                     <Text style={[st.matchPlayers, { textAlign: 'right' }]} numberOfLines={1}>

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 import Navbar from '@/components/Navbar';
+import MainWrapper from '@/components/MainWrapper';
 
 const justSans = localFont({
   src: [
@@ -21,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={justSans.variable}>
       <body className="min-h-screen bg-black text-white antialiased">
         <Navbar />
-        <main className="pt-16">{children}</main>
+        <MainWrapper>{children}</MainWrapper>
       </body>
     </html>
   );

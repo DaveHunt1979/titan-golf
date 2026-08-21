@@ -32,7 +32,7 @@ import ConflictSheet from '../../../../src/components/ConflictSheet';
 import { dedupeInitials } from '../../../../src/lib/playerDisplay';
 import { formatRoundDuration } from '../../../../src/lib/roundTimer';
 import EagleAlert, { type EagleType } from '../../../../src/components/EagleAlert';
-import { IS_PAD } from '../../../../src/lib/useDeviceLayout';
+import { IS_PAD, GPS_PANEL_ENABLED } from '../../../../src/lib/useDeviceLayout';
 import GPSPanel from '../../../../src/components/ipad/GPSPanel';
 import LeaderboardPanel from '../../../../src/components/ipad/LeaderboardPanel';
 
@@ -283,8 +283,14 @@ export default function EnterScoresScreen() {
         if (!matchData) { console.warn('[enter.load] no match found', { matchId }); setLoading(false); return; }
         console.log('[enter.load] match fetched', { matchId, status: matchData.status, round_format: matchData.round_format, handicap_method: (matchData as any).handicap_method });
         setMatch(matchData as unknown as MatchInfo);
-        // Detect secondary stableford continuation after a reload
-        if (matchData.round_format === 'matchplay' && matchData.secondary_format && matchData.status === 'in_progress') {
+        // Detect secondary stableford continuation after a reload — also
+        // applies to Kronos-enabled tournament matches, which need every
+        // hole's Stableford points for cumulative Kronos standings even
+        // though they don't set secondary_format the way Casual games do
+        // (Dave, 2026-08-21: matches were ending at "3&2" and losing the
+        // remaining holes' Kronos points).
+        const needsFullPlay = !!matchData.secondary_format || !!(matchData as any).day?.competition?.include_in_kronos;
+        if (matchData.round_format === 'matchplay' && needsFullPlay && matchData.status === 'in_progress') {
           const { concluded } = calcHoles(matchData.holes_string ?? '..................', matchData.holes_to_play ?? 18);
           if (concluded) setContinuingSecondary(true);
         }
@@ -1172,11 +1178,16 @@ export default function EnterScoresScreen() {
           setRecordsBroken(broken);
         } else if (continuingSecondary) {
           setContinuingSecondary(false);
-        } else if (match.secondary_format && match.round_format === 'matchplay') {
-          const secLabel = match.secondary_format === 'stableford' ? 'Stableford' : 'Stroke Play';
+        } else if ((match.secondary_format || match.day?.competition?.include_in_kronos) && match.round_format === 'matchplay') {
+          const secLabel = match.secondary_format
+            ? (match.secondary_format === 'stableford' ? 'Stableford' : 'Stroke Play')
+            : 'Stableford';
+          const reason = match.secondary_format
+            ? `You have a ${secLabel} secondary game running`
+            : `This tournament's Kronos standings need every hole's Stableford points`;
           Alert.alert(
             'Matchplay Complete',
-            `${msg}\n\nYou have a ${secLabel} secondary game running — continue to finish all 18 holes.`,
+            `${msg}\n\n${reason} — continue to finish all 18 holes.`,
             [
               { text: 'Finish Now', style: 'cancel' },
               { text: `Continue ${secLabel}`, onPress: () => {
@@ -2702,14 +2713,16 @@ export default function EnterScoresScreen() {
       </View>
       {(IS_PAD && broadcastMode) && (
         <>
-          <GPSPanel
-            courseName={match?.day?.course_name ?? null}
-            holeNumber={activeHole}
-            par={courseHole?.par ?? null}
-            strokeIndex={courseHole?.stroke_index ?? null}
-            yardage={courseHole?.yardage ?? null}
-            teeYardages={courseHole?.tee_yardages ?? null}
-          />
+          {GPS_PANEL_ENABLED && (
+            <GPSPanel
+              courseName={match?.day?.course_name ?? null}
+              holeNumber={activeHole}
+              par={courseHole?.par ?? null}
+              strokeIndex={courseHole?.stroke_index ?? null}
+              yardage={courseHole?.yardage ?? null}
+              teeYardages={courseHole?.tee_yardages ?? null}
+            />
+          )}
           <LeaderboardPanel
             allPlayerIds={allPlayerIds}
             playerNames={playerNames}

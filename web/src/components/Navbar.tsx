@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ShoppingBag, User, LogOut } from 'lucide-react';
@@ -57,6 +58,7 @@ export default function Navbar() {
   const [open, setOpen] = useState<string | null>(null);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const supabase = createClient();
+  const pathname = usePathname();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -71,6 +73,9 @@ export default function Navbar() {
     await supabase.auth.signOut();
     window.location.href = '/';
   }
+
+  // The Newsreel is meant to read as a standalone printable report, not a page inside the wider site.
+  if (pathname?.startsWith('/newsreel')) return null;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[#1c1c1c] bg-[#000000]/95 backdrop-blur-md">

@@ -10,8 +10,9 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { goBack } from '../../../src/lib/navigation';
 
-const GOLD = '#D4AF37';
-const RED  = '#f87171';
+const GOLD  = '#D4AF37';
+const RED   = '#f87171';
+const GREEN = '#4ade80';
 const FF   = 'JUSTSans';
 const FFB  = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
@@ -36,6 +37,12 @@ export default function AdminPrizesScreen() {
   const [categories, setCategories]   = useState<PrizeCat[]>([]);
   const [loading, setLoading]         = useState(true);
 
+  const [kronosPrize, setKronosPrize]         = useState('');
+  const [savingKronosPrize, setSavingKronosPrize] = useState(false);
+
+  const [handicapsLockedAt, setHandicapsLockedAt] = useState<string | null>(null);
+  const [locking, setLocking] = useState(false);
+
   const [modalOpen, setModalOpen]     = useState(false);
   const [editId, setEditId]           = useState<string | null>(null);
   const [editName, setEditName]       = useState('');
@@ -53,18 +60,41 @@ export default function AdminPrizesScreen() {
   const load = useCallback(async () => {
     if (!competitionId) return;
     const [{ data: comp }, { data: cats }] = await Promise.all([
-      supabase.from('competitions').select('name').eq('id', competitionId).single(),
+      supabase.from('competitions').select('name,kronos_overall_prize,handicaps_locked_at').eq('id', competitionId).single(),
       supabase.from('prize_categories')
         .select('id,name,hcp_min,hcp_max,display_order,prize_payouts(position,prize_money)')
         .eq('competition_id', competitionId)
         .order('display_order'),
     ]);
-    if (comp) setCompName((comp as any).name);
+    if (comp) {
+      setCompName((comp as any).name);
+      const kp = (comp as any).kronos_overall_prize;
+      setKronosPrize(kp != null ? String(kp) : '');
+      setHandicapsLockedAt((comp as any).handicaps_locked_at ?? null);
+    }
     if (cats) setCategories(cats as unknown as PrizeCat[]);
     setLoading(false);
   }, [competitionId]);
 
   useEffect(() => { load(); }, [load]);
+
+  function lockHandicaps() {
+    Alert.alert(
+      'Lock Tournament Handicaps?',
+      "This freezes today's handicaps as final before splitting into divisions.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Lock', onPress: async () => {
+          setLocking(true);
+          const now = new Date().toISOString();
+          const { error } = await supabase.from('competitions').update({ handicaps_locked_at: now }).eq('id', competitionId);
+          setLocking(false);
+          if (error) { Alert.alert('Error', error.message); return; }
+          setHandicapsLockedAt(now);
+        }},
+      ]
+    );
+  }
 
   async function autoSplitDivisions() {
     const { data: cpData } = await supabase
@@ -122,6 +152,16 @@ export default function AdminPrizesScreen() {
         }},
       ]
     );
+  }
+
+  async function saveKronosPrize() {
+    setSavingKronosPrize(true);
+    const value = kronosPrize.trim() ? parseFloat(kronosPrize) : null;
+    const { error } = await supabase.from('competitions')
+      .update({ kronos_overall_prize: value })
+      .eq('id', competitionId);
+    setSavingKronosPrize(false);
+    if (error) Alert.alert('Error', error.message);
   }
 
   function openAdd() {
@@ -247,6 +287,43 @@ export default function AdminPrizesScreen() {
         <Text style={s.intro}>
           Define handicap bands and prize money per position. Players are automatically placed in their category.
         </Text>
+
+        <View style={s.catCard}>
+          <Text style={s.catName}>Kronos Overall Winner</Text>
+          <Text style={[s.catRange, { marginBottom: 12 }]}>Prize for the outright Kronos champion — separate from the divisions below.</Text>
+          <View style={s.payoutInputWrap}>
+            <Text style={s.poundSign}>£</Text>
+            <TextInput
+              style={s.payoutInput}
+              value={kronosPrize}
+              onChangeText={setKronosPrize}
+              onBlur={saveKronosPrize}
+              placeholder="0"
+              placeholderTextColor="#444"
+              keyboardType="decimal-pad"
+            />
+            {savingKronosPrize && <ActivityIndicator color={GOLD} size="small" />}
+          </View>
+        </View>
+
+        {handicapsLockedAt ? (
+          <View style={s.lockedBadge}>
+            <Ionicons name="lock-closed" size={14} color={GREEN} />
+            <Text style={s.lockedBadgeText}>
+              HANDICAPS LOCKED · {new Date(handicapsLockedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={s.lockBtn} onPress={lockHandicaps} disabled={locking} activeOpacity={0.85}>
+            {locking
+              ? <ActivityIndicator color={GOLD} size="small" />
+              : <>
+                  <Ionicons name="lock-closed-outline" size={16} color={GOLD} />
+                  <Text style={s.lockBtnText}>LOCK TOURNAMENT HANDICAPS</Text>
+                </>
+            }
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity style={s.splitBtn} onPress={autoSplitDivisions} disabled={splitting} activeOpacity={0.85}>
           {splitting
@@ -432,6 +509,11 @@ const s = StyleSheet.create({
 
   splitBtn:     { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#333', borderRadius: 12, paddingVertical: 12, justifyContent: 'center', marginBottom: 20 },
   splitBtnText: { fontFamily: FFB, fontSize: 12, color: GOLD, letterSpacing: 0.5 },
+
+  lockBtn:     { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: GOLD + '55', backgroundColor: GOLD + '0D', borderRadius: 12, paddingVertical: 12, justifyContent: 'center', marginBottom: 12 },
+  lockBtnText: { fontFamily: FFB, fontSize: 12, color: GOLD, letterSpacing: 0.5 },
+  lockedBadge:     { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: GREEN + '55', backgroundColor: GREEN + '14', borderRadius: 12, paddingVertical: 12, justifyContent: 'center', marginBottom: 12 },
+  lockedBadgeText: { fontFamily: FFB, fontSize: 12, color: GREEN, letterSpacing: 0.5 },
 
   modal:       { flex: 1, backgroundColor: '#0a0a0a' },
   modalHeader: {

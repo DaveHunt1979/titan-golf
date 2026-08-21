@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { uploadImage } from '../../../src/lib/uploadImage';
@@ -24,7 +25,7 @@ const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
-type FormatId = 'team_matchplay' | 'ryder_cup' | 'stableford' | 'medal' | 'knockout';
+type FormatId = 'team_matchplay' | 'titan_way' | 'ryder_cup' | 'stableford' | 'medal' | 'knockout';
 // Only formats that actually have a working Casual Round engine behind them —
 // Foursomes/Greensomes/Scramble were listed here but never got real scoring
 // support in score/enter/[matchId].tsx, so they're deliberately not offered.
@@ -45,6 +46,15 @@ const COMP_FORMATS: CompFormat[] = [
     id: 'team_matchplay',
     label: 'Multi-Team Tour',
     sub: 'Multiple teams battle across days. Mix 4BBB, foursomes and singles. Titan Tour style.',
+    available: true,
+    defaultDays: 4,
+    defaultDayFormat: 'four_bbb',
+    defaultHcp: 75,
+  },
+  {
+    id: 'titan_way',
+    label: 'Titan Way',
+    sub: '4BBB Stableford opening rounds build a team league, then a final-day knockout + singles draw — plus a full Kronos individual championship. Minimum 4 teams, 16 players.',
     available: true,
     defaultDays: 4,
     defaultDayFormat: 'four_bbb',
@@ -133,19 +143,21 @@ function getSquadTeamLogo(team: SquadTeam) {
 
 const STEPS = ['Format', 'Details', 'Days', 'Draft'];
 
-// UK-style DD-MM-YYYY entry — auto-inserts the dashes as digits come in,
-// since a digit-only keypad has no dash key to type them with.
-function formatUkDateInput(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 8);
-  let out = digits.slice(0, 2);
-  if (digits.length > 2) out += '-' + digits.slice(2, 4);
-  if (digits.length > 4) out += '-' + digits.slice(4, 8);
-  return out;
-}
-
 function ukDateToIso(ukDate: string): string {
   const [dd, mm, yyyy] = ukDate.trim().split('-');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function ukDateToDate(ukDate: string): Date {
+  if (!/^\d{2}-\d{2}-\d{4}$/.test(ukDate.trim())) return new Date();
+  const [dd, mm, yyyy] = ukDate.trim().split('-').map(Number);
+  return new Date(yyyy, mm - 1, dd);
+}
+
+function dateToUk(d: Date): string {
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}-${mm}-${d.getFullYear()}`;
 }
 
 export default function BuildTournamentScreen() {
@@ -172,6 +184,8 @@ export default function BuildTournamentScreen() {
   const [description, setDescription]     = useState('');
   const [startDate, setStartDate]         = useState('');
   const [endDate, setEndDate]             = useState('');
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker]     = useState(false);
   const [numTeams, setNumTeams]           = useState('2');
   const [maxHandicap, setMaxHandicap]     = useState('');
   const [logoUri, setLogoUri]             = useState<string | null>(null);
@@ -255,10 +269,10 @@ export default function BuildTournamentScreen() {
   function pickFormat(f: CompFormat) {
     if (!f.available) return;
     setSelectedFormat(f.id);
-    setIncludeInKronos(f.id === 'team_matchplay');
+    setIncludeInKronos(f.id === 'team_matchplay' || f.id === 'titan_way');
     const builtDays: DayConfig[] = Array.from({ length: f.defaultDays }, (_, i) => {
       const isLastDay = i === f.defaultDays - 1;
-      const isTour = f.id === 'team_matchplay';
+      const isTour = f.id === 'team_matchplay' || f.id === 'titan_way';
       return {
         courseName: '',
         format: isLastDay && isTour ? 'singles' : f.defaultDayFormat,
@@ -268,6 +282,12 @@ export default function BuildTournamentScreen() {
       };
     });
     setDays(builtDays);
+    if (f.id === 'titan_way') {
+      setNumTeams('4');
+      setPtsWin('3');
+      setPtsHalf('1');
+      setMaxHandicap('18');
+    }
     if (!name || name === COMP_FORMATS.find(x => x.id !== f.id)?.label) {
       setName(`${f.label} ${new Date().getFullYear() + 1}`);
     }
@@ -295,11 +315,11 @@ export default function BuildTournamentScreen() {
 
   function tournamentType(f: FormatId): 'ryder_cup' | 'titan_tour' | 'casual' {
     if (f === 'ryder_cup') return 'ryder_cup';
-    if (f === 'team_matchplay') return 'titan_tour';
+    if (f === 'team_matchplay' || f === 'titan_way') return 'titan_tour';
     return 'casual';
   }
 
-  const isMatchplay = selectedFormat === 'ryder_cup' || selectedFormat === 'team_matchplay';
+  const isMatchplay = selectedFormat === 'ryder_cup' || selectedFormat === 'team_matchplay' || selectedFormat === 'titan_way';
 
   async function pickLogo() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -580,6 +600,11 @@ export default function BuildTournamentScreen() {
   // at build time.
   async function finishDraft() {
     if (!compId || !compPin) return;
+    if (selectedFormat === 'titan_way') {
+      const enrolledCount = compPlayers.filter(cp => cp.status !== 'declined').length;
+      if (numTeamsN < 4) { Alert.alert('Not enough teams', 'Titan Way needs at least 4 teams.'); return; }
+      if (enrolledCount < 16) { Alert.alert('Not enough players', `Titan Way needs at least 16 players — currently ${enrolledCount}.`); return; }
+    }
     setFinishing(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -697,7 +722,7 @@ export default function BuildTournamentScreen() {
         {step === 1 && (
           <View>
             <Text style={styles.stepTitle}>Competition Details</Text>
-            <Text style={styles.stepSub}>Name it and set how many days you want to play.</Text>
+            <Text style={styles.stepSub}>Name it and set how many rounds you want to play.</Text>
 
             <Text style={styles.fieldLabel}>NAME</Text>
             <TextInput
@@ -740,27 +765,42 @@ export default function BuildTournamentScreen() {
             />
 
             <Text style={styles.fieldLabel}>START DATE (OPTIONAL)</Text>
-            <TextInput
-              style={styles.input}
-              value={startDate}
-              onChangeText={t => setStartDate(formatUkDateInput(t))}
-              placeholder="DD-MM-YYYY"
-              placeholderTextColor="#444"
-              keyboardType="number-pad"
-              maxLength={10}
-            />
-            <Text style={styles.fieldLabel}>END DATE (OPTIONAL)</Text>
-            <TextInput
-              style={styles.input}
-              value={endDate}
-              onChangeText={t => setEndDate(formatUkDateInput(t))}
-              placeholder="DD-MM-YYYY"
-              placeholderTextColor="#444"
-              keyboardType="number-pad"
-              maxLength={10}
-            />
+            <TouchableOpacity style={styles.input} onPress={() => setShowStartPicker(true)} activeOpacity={0.8}>
+              <Text style={{ fontFamily: FF, fontSize: 15, color: startDate ? '#fff' : '#444' }}>
+                {startDate || 'DD-MM-YYYY'}
+              </Text>
+            </TouchableOpacity>
+            {showStartPicker && (
+              <DateTimePicker
+                value={ukDateToDate(startDate)}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                onChange={(_event, selected) => {
+                  setShowStartPicker(false);
+                  if (selected) setStartDate(dateToUk(selected));
+                }}
+              />
+            )}
 
-            <Text style={styles.fieldLabel}>NUMBER OF DAYS</Text>
+            <Text style={styles.fieldLabel}>END DATE (OPTIONAL)</Text>
+            <TouchableOpacity style={styles.input} onPress={() => setShowEndPicker(true)} activeOpacity={0.8}>
+              <Text style={{ fontFamily: FF, fontSize: 15, color: endDate ? '#fff' : '#444' }}>
+                {endDate || 'DD-MM-YYYY'}
+              </Text>
+            </TouchableOpacity>
+            {showEndPicker && (
+              <DateTimePicker
+                value={ukDateToDate(endDate)}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                onChange={(_event, selected) => {
+                  setShowEndPicker(false);
+                  if (selected) setEndDate(dateToUk(selected));
+                }}
+              />
+            )}
+
+            <Text style={styles.fieldLabel}>NUMBER OF ROUNDS</Text>
             <View style={styles.stepper}>
               <TouchableOpacity
                 style={[styles.stepperBtn, days.length <= 1 && styles.stepperBtnOff]}
@@ -769,7 +809,7 @@ export default function BuildTournamentScreen() {
               >
                 <Text style={styles.stepperBtnText}>–</Text>
               </TouchableOpacity>
-              <Text style={styles.stepperValue}>{days.length} {days.length === 1 ? 'day' : 'days'}</Text>
+              <Text style={styles.stepperValue}>{days.length} {days.length === 1 ? 'round' : 'rounds'}</Text>
               <TouchableOpacity
                 style={[styles.stepperBtn, days.length >= 10 && styles.stepperBtnOff]}
                 onPress={addDay}
@@ -900,11 +940,11 @@ export default function BuildTournamentScreen() {
         {/* Step 2: Day Setup */}
         {step === 2 && (
           <View>
-            <Text style={styles.stepTitle}>Day Setup</Text>
-            <Text style={styles.stepSub}>Set the course and format for each day. Rick can mix it up every year.</Text>
+            <Text style={styles.stepTitle}>Round Setup</Text>
+            <Text style={styles.stepSub}>Set the course and format for each round. Rick can mix it up every year.</Text>
             {days.map((day, i) => (
               <View key={i} style={styles.dayCard}>
-                <Text style={styles.dayLabel}>DAY {i + 1}</Text>
+                <Text style={styles.dayLabel}>ROUND {i + 1}</Text>
 
                 <Text style={styles.fieldLabel}>COURSE</Text>
                 <TouchableOpacity

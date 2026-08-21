@@ -273,8 +273,9 @@ function MatchCard({
     ? (isComplete ? (match.result_str ?? 'Complete') : match.status === 'upcoming' ? 'Upcoming' : (match.result_str ?? 'In Progress'))
     : matchLabel(match.status, match.winner, match.result_str, match.holes_string ?? '..................', match.holes_to_play ?? 18);
 
-  const homeWon = winner === 'home';
-  const awayWon = winner === 'away';
+  const showWinner = isComplete && winner !== 'half';
+  const homeWon = showWinner && winner === 'home';
+  const awayWon = showWinner && winner === 'away';
   const firstName = (id: string) => (playerNames[id] ?? '?').split(' ')[0];
   const hasTeam = match.home_team_id !== null;
   const homeLogo = hasTeam && match.home_team ? teamLogos[match.home_team.name] : null;
@@ -351,7 +352,7 @@ function MatchCard({
         <View style={card.side}>
           {renderSide(match.home_player_ids, homeLogo, homeLabel)}
           <Text
-            style={[card.name, homeWon ? card.nameWon : card.nameLost]}
+            style={[card.name, homeWon && card.nameWon, showWinner && !homeWon && card.nameLost]}
             numberOfLines={1}
           >
             {homeLabel}
@@ -376,7 +377,7 @@ function MatchCard({
         {/* Away side */}
         <View style={[card.side, card.sideRight]}>
           <Text
-            style={[card.name, awayWon ? card.nameWon : card.nameLost]}
+            style={[card.name, awayWon && card.nameWon, showWinner && !awayWon && card.nameLost]}
             numberOfLines={1}
           >
             {awayLabel}
@@ -588,10 +589,10 @@ const card = StyleSheet.create({
   },
   nameWon: {
     fontFamily: FFB,
-    color: '#fff',
+    color: GOLD,
   },
   nameLost: {
-    color: '#fff',
+    color: 'rgba(255,255,255,0.55)',
   },
   badge: {
     paddingHorizontal: 10,

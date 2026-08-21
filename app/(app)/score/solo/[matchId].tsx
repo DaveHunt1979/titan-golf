@@ -26,7 +26,7 @@ import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
-import { IS_PAD } from '../../../../src/lib/useDeviceLayout';
+import { IS_PAD, GPS_PANEL_ENABLED } from '../../../../src/lib/useDeviceLayout';
 import GPSPanel from '../../../../src/components/ipad/GPSPanel';
 import LeaderboardPanel from '../../../../src/components/ipad/LeaderboardPanel';
 
@@ -1332,14 +1332,16 @@ export default function SoloRoundScreen() {
       </View>
       {(IS_PAD && broadcastMode) && (
         <>
-          <GPSPanel
-            courseName={match?.day?.course_name ?? null}
-            holeNumber={activeHole}
-            par={courseHole?.par ?? null}
-            strokeIndex={courseHole?.stroke_index ?? null}
-            yardage={holeYardage}
-            teeYardages={courseHole?.tee_yardages ?? null}
-          />
+          {GPS_PANEL_ENABLED && (
+            <GPSPanel
+              courseName={match?.day?.course_name ?? null}
+              holeNumber={activeHole}
+              par={courseHole?.par ?? null}
+              strokeIndex={courseHole?.stroke_index ?? null}
+              yardage={holeYardage}
+              teeYardages={courseHole?.tee_yardages ?? null}
+            />
+          )}
           <LeaderboardPanel
             allPlayerIds={match ? match.home_player_ids : []}
             playerNames={match ? { [match.home_player_ids[0]]: playerName } : {}}

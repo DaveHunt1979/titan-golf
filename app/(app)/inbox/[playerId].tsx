@@ -133,6 +133,17 @@ export default function DmThread() {
     setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, invite_response: response } : m));
   }
 
+  function confirmDeleteMessage(msg: DM) {
+    Alert.alert('Delete Message', 'Delete this message? This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        const { error } = await supabase.from('direct_messages').delete().eq('id', msg.id);
+        if (error) { Alert.alert('Error', error.message); return; }
+        setMessages(prev => prev.filter(m => m.id !== msg.id));
+      }},
+    ]);
+  }
+
   function formatTime(ts: string) {
     const d = new Date(ts);
     const now = new Date();
@@ -243,10 +254,14 @@ export default function DmThread() {
                 : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{otherName[0]}</Text></View>)
             : <View style={ss.avatarSpacer} />
         )}
-        <View style={[ss.bubble, isMe ? ss.bubbleMe : ss.bubbleThem]}>
+        <TouchableOpacity
+          style={[ss.bubble, isMe ? ss.bubbleMe : ss.bubbleThem]}
+          onLongPress={() => confirmDeleteMessage(item)}
+          activeOpacity={0.8}
+        >
           <Text style={ss.msgText}>{item.content}</Text>
           <Text style={ss.time}>{formatTime(item.created_at)}</Text>
-        </View>
+        </TouchableOpacity>
       </View>
     );
   };

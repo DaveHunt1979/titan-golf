@@ -46,6 +46,7 @@ export interface Competition {
   tournament_type: 'casual' | 'ryder_cup' | 'titan_tour';
   pts_win: number;
   pts_half: number;
+  kronos_overall_prize: number | null;
 }
 
 export interface CompetitionDay {

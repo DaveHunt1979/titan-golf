@@ -74,6 +74,69 @@ function individualRanking(core: Core, throughDayNumber: number) {
     .sort((a, b) => b.pts - a.pts);
 }
 
+// Same tie-break ladder the live Kronos/individual leaderboard uses (see
+// tour/index.tsx's `tieBreak`): best final round, then back 9, back 6,
+// back 3, then the 18th hole — all measured within the final competition
+// day only. Ties on raw points otherwise sit in arbitrary object-key order,
+// which is what let the news bot silently declare a "winner" who wasn't
+// really decided by anything (Dave, 2026-08-21).
+function finalDayTieBreakMaps(core: Core, finalDayNumber: number) {
+  const finalDay = core.days.find(d => d.day_number === finalDayNumber);
+  const finalRound: Record<string, number> = {};
+  const back9: Record<string, number> = {};
+  const back6: Record<string, number> = {};
+  const back3: Record<string, number> = {};
+  const hole18: Record<string, number> = {};
+  if (!finalDay) return { finalRound, back9, back6, back3, hole18 };
+  const finalDayMatchIds = new Set(core.matches.filter(m => m.day_id === finalDay.id).map(m => m.id));
+  core.holes.forEach(h => {
+    if (h.stableford_pts == null || !finalDayMatchIds.has(h.match_id)) return;
+    finalRound[h.player_id] = (finalRound[h.player_id] ?? 0) + h.stableford_pts;
+    if (h.hole_number >= 10) back9[h.player_id] = (back9[h.player_id] ?? 0) + h.stableford_pts;
+    if (h.hole_number >= 13) back6[h.player_id] = (back6[h.player_id] ?? 0) + h.stableford_pts;
+    if (h.hole_number >= 16) back3[h.player_id] = (back3[h.player_id] ?? 0) + h.stableford_pts;
+    if (h.hole_number === 18) hole18[h.player_id] = h.stableford_pts;
+  });
+  return { finalRound, back9, back6, back3, hole18 };
+}
+
+// Re-sorts a points-tied top of the leaderboard using the tie-break ladder,
+// and reports which rung (if any) actually separated 1st from 2nd — so the
+// news report can say a tie was settled by a real rule rather than imply a
+// clean win that never happened.
+function applyFinalTieBreak(ranking: { playerId: string; name: string; pts: number }[], core: Core, finalDayNumber: number) {
+  if (ranking.length < 2 || ranking[0].pts !== ranking[1].pts) {
+    return { ranking, winnerDecidedByTieBreak: null as string | null };
+  }
+  const maps = finalDayTieBreakMaps(core, finalDayNumber);
+  const rungs: { label: string; map: Record<string, number> }[] = [
+    { label: 'Best Final Round', map: maps.finalRound },
+    { label: 'Best Back 9',      map: maps.back9 },
+    { label: 'Best Back 6',      map: maps.back6 },
+    { label: 'Best Back 3',      map: maps.back3 },
+    { label: '18th Hole',        map: maps.hole18 },
+  ];
+  const tiedIds = new Set(ranking.filter(r => r.pts === ranking[0].pts).map(r => r.playerId));
+  const tiedRows = ranking.filter(r => tiedIds.has(r.playerId));
+  const untiedRows = ranking.filter(r => !tiedIds.has(r.playerId));
+
+  let winnerDecidedByTieBreak: string | null = null;
+  for (const rung of rungs) {
+    const values = tiedRows.map(r => rung.map[r.playerId] ?? 0);
+    const maxVal = Math.max(...values);
+    const stillTied = values.filter(v => v === maxVal).length;
+    if (stillTied < tiedRows.length) { winnerDecidedByTieBreak = rung.label; break; }
+  }
+  tiedRows.sort((a, b) => {
+    for (const rung of rungs) {
+      const diff = (rung.map[b.playerId] ?? 0) - (rung.map[a.playerId] ?? 0);
+      if (diff !== 0) return diff;
+    }
+    return 0;
+  });
+  return { ranking: [...tiedRows, ...untiedRows], winnerDecidedByTieBreak };
+}
+
 // Team standings through a given day, reusing getStandings/calcSweepBonus exactly
 // as the live leaderboard does — no team standings section if this tournament
 // doesn't use teams at all (singles/individual-only formats).
@@ -275,7 +338,8 @@ export async function buildFinalReportSnapshot(competitionId: string) {
   const finalDayNumber = Math.max(0, ...core.days.map(d => d.day_number));
   const penultimateDayNumber = Math.max(0, ...core.days.filter(d => d.day_number < finalDayNumber).map(d => d.day_number));
 
-  const individualFinal = individualRanking(core, finalDayNumber);
+  const individualFinalRaw = individualRanking(core, finalDayNumber);
+  const { ranking: individualFinal, winnerDecidedByTieBreak } = applyFinalTieBreak(individualFinalRaw, core, finalDayNumber);
   const individualPrev  = individualRanking(core, penultimateDayNumber);
   const teamFinal = teamRanking(core, finalDayNumber);
   const teamPrev  = teamRanking(core, penultimateDayNumber);
@@ -288,6 +352,9 @@ export async function buildFinalReportSnapshot(competitionId: string) {
     finalKronosLeaderboard: core.competition.include_in_kronos ? withPositionDeltas(individualFinal, individualPrev).slice(0, 5) : null,
     winner: teamFinal?.[0] ?? individualFinal[0] ?? null,
     runnerUp: teamFinal?.[1] ?? individualFinal[1] ?? null,
+    // Non-null only when the individual winner was tied on points and had to be
+    // settled by the tie-break ladder — the AI must say so, not imply a clean win.
+    winnerDecidedByTieBreak: teamFinal ? null : winnerDecidedByTieBreak,
     finalDayMatches: core.days.length ? dayMatchSummaries(core, core.days[core.days.length - 1].id) : [],
   };
 }

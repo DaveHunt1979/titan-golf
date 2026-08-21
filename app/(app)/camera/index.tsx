@@ -80,11 +80,6 @@ export default function CameraScreen() {
     'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
-  // Font loading guard
-  if (!fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}><StatusBar style="light" /></View>
-  );
-
   // Unlock screen rotation on this screen only
   useFocusEffect(useCallback(() => {
     ScreenOrientation.unlockAsync();
@@ -432,6 +427,10 @@ export default function CameraScreen() {
         </View>
       </View>
     </>
+  );
+
+  if (!fontsLoaded) return (
+    <View style={{ flex: 1, backgroundColor: '#000' }}><StatusBar style="light" /></View>
   );
 
   return (
