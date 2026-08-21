@@ -176,6 +176,13 @@ export default function AdminNewsScreen() {
     if (!competitionId || sending) return;
     setSending(true);
     try {
+      // This same button also fires mid-tournament (e.g. sending a round
+      // report after day 1), so only close the tournament out and move it
+      // to History when the final report is actually part of what's being
+      // sent — not on every use (Dave, 2026-08-21: "when the admin
+      // generates the newsreel at the end ... that closes the tournament
+      // and puts into history").
+      const closesOutTournament = allComplete && articles.some(a => a.story_type === 'final_report');
       const drafts = articles.filter(a => a.status === 'draft');
       if (drafts.length) {
         const { error: pubErr } = await supabase.from('titan_news')
@@ -200,7 +207,17 @@ export default function AdminNewsScreen() {
       }
 
       await sendMatchNotification(competitionId, '📰 Your Tournament Report', `The ${compName} Newsreel is ready to read`, entrants.map(e => e.player_id));
-      Alert.alert('Sent', `The Newsreel is published and sent to ${rows.length} player${rows.length === 1 ? '' : 's'}.`);
+
+      if (closesOutTournament) {
+        const { error: closeErr } = await supabase.from('competitions').update({ status: 'complete' }).eq('id', competitionId);
+        if (closeErr) { Alert.alert('Newsreel sent, but closing the tournament failed', closeErr.message); return; }
+      }
+
+      Alert.alert(
+        'Sent',
+        `The Newsreel is published and sent to ${rows.length} player${rows.length === 1 ? '' : 's'}.` +
+          (closesOutTournament ? ' The tournament is now closed and moved to History.' : ''),
+      );
       load();
     } finally {
       setSending(false);

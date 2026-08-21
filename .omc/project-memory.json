@@ -257,15 +257,15 @@
   },
   "hotPaths": [
     {
-      "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 45,
-      "lastAccessed": 1787301796588,
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 48,
+      "lastAccessed": 1787315570594,
       "type": "file"
     },
     {
-      "path": "app/(app)/tour/index.tsx",
-      "accessCount": 31,
-      "lastAccessed": 1787309668233,
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 45,
+      "lastAccessed": 1787301796588,
       "type": "file"
     },
     {

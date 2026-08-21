@@ -478,27 +478,84 @@ export default function TourScreen() {
     ]);
   }
 
-  // ── No active tournament ────────────────────────────────────────────
-  // Must come before any derived data below, since that block dereferences
-  // `competition` directly — this used to sit after it and crash the moment
-  // the active tournament completed (competition briefly null).
-  if (!competition) return (
-    <View style={{ flex: 1, backgroundColor: dc.bg }}>
+  // ── PIN entry ───────────────────────────────────────────────────────
+  // Covers BOTH "no active tournament at all" (competition is null — used
+  // to show a dead-end "Coming Soon" message, no way to act on it) and
+  // "there's one but you haven't joined it" — same screen either way now,
+  // since verifyPin() does its own fresh PIN lookup and never actually
+  // depended on `competition` being pre-fetched (Dave, 2026-08-21: "we
+  // just want the enter code screen to come up when the newsreel hits the
+  // inbox" — i.e. once a tournament closes out, don't dead-end, just ask
+  // for the next one's PIN). Must come before any derived data below,
+  // since that section dereferences `competition` directly.
+  if (!competition || joinedId !== competition.id) return (
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: dc.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="light" />
+      {/* TITAN header */}
       <View style={[st.titanHeader, { backgroundColor: dc.bg, borderBottomColor: dc.border }]}>
         <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={st.titanLogoImg} resizeMode="contain" />
         <Text style={st.titanSubtitle}>THE TOUR</Text>
       </View>
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-        <Ionicons name="trophy-outline" size={56} color={GOLD} style={{ marginBottom: 20 }} />
-        <Text style={{ fontSize: 28, fontFamily: FFB, color: '#fff', marginBottom: 10, textAlign: 'center' }}>
-          Coming Soon
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={{ alignItems: 'center', paddingTop: 60, paddingHorizontal: 24, paddingBottom: 60 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Ionicons name="trophy-outline" size={56} color={GOLD} style={{ marginBottom: 24 }} />
+        <Text style={{ fontSize: 26, fontFamily: FFB, color: '#fff', marginBottom: 8, textAlign: 'center' }}>
+          Enter Tournament PIN
         </Text>
-        <Text style={{ fontSize: 14, fontFamily: FF, color: '#555', textAlign: 'center', lineHeight: 22 }}>
-          No tournament is running right now.{'\n'}Check back when your next event is live.
+        <Text style={{ fontSize: 14, fontFamily: FFB, color: '#fff', textAlign: 'center', lineHeight: 20, marginBottom: 32 }}>
+          {competition
+            ? <>A tournament is live.{'\n'}Enter the 4-digit PIN your admin shared with you.</>
+            : <>Enter the 4-digit PIN when your next tournament goes live.</>}
         </Text>
-      </View>
-    </View>
+
+        <View style={{ position: 'relative', marginBottom: 24 }}>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  st.pinBox,
+                  pin.length === i && st.pinBoxActive,
+                  pin[i] ? { borderColor: GOLD } : {},
+                ]}
+              >
+                <Text style={{ fontSize: 32, fontFamily: FFB, color: '#fff' }}>{pin[i] ?? ''}</Text>
+              </View>
+            ))}
+          </View>
+          <TextInput
+            ref={pinRef}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0 }}
+            value={pin}
+            onChangeText={v => setPin(v.replace(/\D/g, '').slice(0, 4))}
+            keyboardType="number-pad"
+            maxLength={4}
+            autoFocus
+            caretHidden
+          />
+        </View>
+
+        {verifying && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+            <ActivityIndicator color={GOLD} size="small" />
+            <Text style={{ fontSize: 14, fontFamily: FFB, color: '#fff' }}>Checking PIN…</Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={{ marginTop: 16 }}
+          onPress={() => setPin('')}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={{ fontSize: 14, fontFamily: FFB, color: '#fff', textDecorationLine: 'underline' }}>
+            {pin.length > 0 ? 'Clear' : ' '}
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 
   // ── Derived data ────────────────────────────────────────────────────
@@ -583,6 +640,16 @@ export default function TourScreen() {
 
   const champYears = [...new Set(champions.map(c => c.year))].sort((a, b) => b - a);
 
+  // "LIVE" badge should say FINISHED the moment every round's matches are
+  // actually done, not wait for the admin to separately close the
+  // tournament out (Dave, 2026-08-21 — "when all rounds are done ... can we
+  // have the little green live to say finished"). Same completeness check
+  // admin/news.tsx already uses to decide when the final report is ready.
+  const allDaysComplete = days.length > 0 && days.every(d => {
+    const dayMatches = (matches as any[]).filter(m => m.day_id === d.id);
+    return dayMatches.length > 0 && dayMatches.every(m => m.status === 'complete');
+  });
+
   // My match in this tournament — across a multi-day tournament a player
   // has one match PER DAY, and matches are ordered by match_number (which
   // increases day-over-day). A plain .find() always returns the earliest
@@ -603,75 +670,6 @@ export default function TourScreen() {
     ?? myOwnMatches.find(m => m.status === 'upcoming')
     ?? null;
   const myMatchActive = !!myMatch;
-
-  // ── PIN entry ───────────────────────────────────────────────────────
-  if (joinedId !== competition.id) return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: dc.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <StatusBar style="light" />
-      {/* TITAN header */}
-      <View style={[st.titanHeader, { backgroundColor: dc.bg, borderBottomColor: dc.border }]}>
-        <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={st.titanLogoImg} resizeMode="contain" />
-        <Text style={st.titanSubtitle}>THE TOUR</Text>
-      </View>
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={{ alignItems: 'center', paddingTop: 60, paddingHorizontal: 24, paddingBottom: 60 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Ionicons name="trophy-outline" size={56} color={GOLD} style={{ marginBottom: 24 }} />
-        <Text style={{ fontSize: 26, fontFamily: FFB, color: '#fff', marginBottom: 8, textAlign: 'center' }}>
-          Enter Tournament PIN
-        </Text>
-        <Text style={{ fontSize: 14, fontFamily: FFB, color: '#fff', textAlign: 'center', lineHeight: 20, marginBottom: 32 }}>
-          A tournament is live.{'\n'}Enter the 4-digit PIN your admin shared with you.
-        </Text>
-
-        <View style={{ position: 'relative', marginBottom: 24 }}>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            {Array.from({ length: 4 }).map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  st.pinBox,
-                  pin.length === i && st.pinBoxActive,
-                  pin[i] ? { borderColor: GOLD } : {},
-                ]}
-              >
-                <Text style={{ fontSize: 32, fontFamily: FFB, color: '#fff' }}>{pin[i] ?? ''}</Text>
-              </View>
-            ))}
-          </View>
-          <TextInput
-            ref={pinRef}
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0 }}
-            value={pin}
-            onChangeText={v => setPin(v.replace(/\D/g, '').slice(0, 4))}
-            keyboardType="number-pad"
-            maxLength={4}
-            autoFocus
-            caretHidden
-          />
-        </View>
-
-        {verifying && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
-            <ActivityIndicator color={GOLD} size="small" />
-            <Text style={{ fontSize: 14, fontFamily: FFB, color: '#fff' }}>Checking PIN…</Text>
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={{ marginTop: 16 }}
-          onPress={() => setPin('')}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={{ fontSize: 14, fontFamily: FFB, color: '#fff', textDecorationLine: 'underline' }}>
-            {pin.length > 0 ? 'Clear' : ' '}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
 
   // ── Tournament hub ──────────────────────────────────────────────────
   return (
@@ -694,11 +692,13 @@ export default function TourScreen() {
         <Text style={{ fontSize: 22, fontFamily: FFB, color: dc.cardText, marginBottom: 6 }}>{competition.name}</Text>
         <View style={{
           alignSelf: 'flex-start',
-          backgroundColor: 'rgba(74,222,128,0.1)',
+          backgroundColor: allDaysComplete ? 'rgba(212,175,55,0.1)' : 'rgba(74,222,128,0.1)',
           paddingHorizontal: 10, paddingVertical: 3,
-          borderRadius: 6, borderWidth: 1, borderColor: 'rgba(74,222,128,0.35)',
+          borderRadius: 6, borderWidth: 1, borderColor: allDaysComplete ? 'rgba(212,175,55,0.35)' : 'rgba(74,222,128,0.35)',
         }}>
-          <Text style={{ fontSize: 10, fontFamily: FFB, color: GREEN, letterSpacing: 1 }}>● LIVE</Text>
+          <Text style={{ fontSize: 10, fontFamily: FFB, color: allDaysComplete ? GOLD : GREEN, letterSpacing: 1 }}>
+            {allDaysComplete ? 'FINISHED' : '● LIVE'}
+          </Text>
         </View>
       </View>
 
