@@ -34,12 +34,23 @@ type NewsRow = {
 // Fixed portraits — Chip & Birdie are the same two hosts as the RN app's
 // src/lib/titanBanter.ts, copied into web/public/hosts since a Next.js
 // page can't reach into the Expo app's assets/ directory. Scene images are
-// a small fixed set Dave supplies himself (2026-08-21) — add real files
-// under web/public/hosts/scenes/ and list them here as Dave delivers them;
-// until then banterScene renders nothing, just the speaker's portrait.
-const BANTER_PORTRAITS: Record<string, string> = { chip: '/hosts/chip_full.png', birdie: '/hosts/birdie_full.png' };
+// Dave's own fixed set (2026-08-21), copied into web/public/hosts/scenes —
+// keep this key list in sync with titanBanter.ts and the edge function's
+// BANTER_SCENES.
+// Headshot crops, not the full-body renders — object-fit: cover on a tall
+// full-body image centers on the vertical middle by default, which crops
+// to the waist/legs, not the face (Dave, 2026-08-21 — "I only [see] chips
+// legs in this little circle image").
+const BANTER_PORTRAITS: Record<string, string> = { chip: '/hosts/chip_headshot.png', birdie: '/hosts/birdie_headshot.png' };
 const BANTER_SCENES: Record<string, string> = {
-  // bunker: '/hosts/scenes/bunker.png',
+  'golf-cart':      '/hosts/scenes/golf-cart.png',
+  'hiding-tree':    '/hosts/scenes/hiding-tree.png',
+  'bunker':         '/hosts/scenes/bunker.png',
+  'celebration':    '/hosts/scenes/celebration.png',
+  'sunset-view':    '/hosts/scenes/sunset-view.png',
+  'broadcast-desk': '/hosts/scenes/broadcast-desk.png',
+  'hiding-bushes':  '/hosts/scenes/hiding-bushes.png',
+  'giant-bunker':   '/hosts/scenes/giant-bunker.png',
 };
 
 function Banter({ speaker, text, scene }: { speaker: 'chip' | 'birdie' | null; text: string | null; scene: string | null }) {
@@ -60,7 +71,26 @@ function Banter({ speaker, text, scene }: { speaker: 'chip' | 'birdie' | null; t
     </div>
   );
 }
-type Team = { id: string; name: string; accent_color: string | null };
+type Team = { id: string; name: string; accent_color: string | null; logo_url: string | null };
+
+// Bundled fallback for Titan Tour's known teams — same lookup-by-name map
+// as the RN app's src/lib/assets.ts teamLogos, copied into
+// web/public/teams since a Next.js page can't reach into the Expo app's
+// assets/ directory. teams.logo_url (admin-uploaded, see
+// admin/transfers.tsx) always wins when set — this is only the fallback
+// for teams that have never had a logo uploaded.
+const TEAM_LOGOS: Record<string, string> = {
+  'MOB':         '/teams/TheMob.png',
+  'Destroyers':  '/teams/Destroyers.png',
+  'Legion Six':  '/teams/LegionSix.png',
+  'Renegades':   '/teams/Renegades.png',
+  'Elite':       '/teams/Rlite.png',
+  'Instigators': '/teams/TheInstigators.png',
+};
+function teamLogoSrc(team: Team | undefined | null): string | null {
+  if (!team) return null;
+  return team.logo_url || TEAM_LOGOS[team.name] || null;
+}
 // Postgrest infers embedded relations as arrays from the select string
 // unless a to-one FK hint is given — read as players[0], not players.
 type CompPlayer = { player_id: string; team_id: string | null; handicap_index: number | null; players: { display_name: string }[] | null };
@@ -95,7 +125,7 @@ export default async function NewsreelPage({ params }: { params: Promise<{ compe
   const [{ data: daysData }, { data: newsData }, { data: teamsData }, { data: playersData }, { data: matchesData }, { data: prizeCatData }] = await Promise.all([
     supabase.from('competition_days').select('id, day_number, course_name, play_date, ntp_hole, ld_hole, ntp_winner_id, ld_winner_id').eq('competition_id', competitionId).order('day_number'),
     supabase.from('titan_news').select('id, story_type, day_id, headline, summary, body, input_snapshot, banter_speaker, banter_text, banter_scene').eq('competition_id', competitionId).eq('status', 'published').order('created_at'),
-    supabase.from('teams').select('id, name, accent_color').eq('society_id', competition.society_id),
+    supabase.from('teams').select('id, name, accent_color, logo_url').eq('society_id', competition.society_id),
     supabase.from('competition_players').select('player_id, team_id, handicap_index, players(display_name)').eq('competition_id', competitionId),
     supabase.from('matches').select('id, day_id').eq('competition_id', competitionId),
     // Divisions + per-position payouts — the ONE place prize money is
@@ -118,7 +148,17 @@ export default async function NewsreelPage({ params }: { params: Promise<{ compe
   const holes = (holesData ?? []) as MatchHole[];
 
   const playerName = (id: string) => players.find(p => p.player_id === id)?.players?.[0]?.display_name ?? '—';
-  const teamName = (id: string) => teams.find(t => t.id === id)?.name ?? '—';
+  const teamNameCell = (id: string | undefined, fallbackName?: string) => {
+    const team = id ? teams.find(t => t.id === id) : undefined;
+    const logo = teamLogoSrc(team);
+    return (
+      <span className="tableTeamCell">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {logo && <img src={logo} alt="" className="tableTeamLogo" />}
+        {fallbackName ?? team?.name ?? '—'}
+      </span>
+    );
+  };
   const teamsByPlayer: Record<string, string | null> = {};
   players.forEach(p => { teamsByPlayer[p.player_id] = p.team_id; });
   const rosterByTeam: Record<string, string[]> = {};
@@ -231,13 +271,21 @@ export default async function NewsreelPage({ params }: { params: Promise<{ compe
                   <div>
                     {teams.length > 0 && rosterByTeam && Object.keys(rosterByTeam).length > 0 && (
                       <div className="teams">
-                        {teams.filter(t => rosterByTeam[t.id]?.length).map(t => (
-                          <div key={t.id} className="teamcard" style={{ color: t.accent_color ?? '#fff' }}>
-                            <div className="crest">{t.name.slice(0, 2).toUpperCase()}</div>
-                            <b style={{ color: '#fff' }}>{t.name.toUpperCase()}</b>
-                            {(rosterByTeam[t.id] ?? []).join(' • ')}
-                          </div>
-                        ))}
+                        {teams.filter(t => rosterByTeam[t.id]?.length).map(t => {
+                          const logo = teamLogoSrc(t);
+                          return (
+                            <div key={t.id} className="teamcard" style={{ color: t.accent_color ?? '#fff' }}>
+                              {logo ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={logo} alt="" className="teamLogo" />
+                              ) : (
+                                <div className="crest">{t.name.slice(0, 2).toUpperCase()}</div>
+                              )}
+                              <b style={{ color: '#fff' }}>{t.name.toUpperCase()}</b>
+                              {(rosterByTeam[t.id] ?? []).join(' • ')}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -272,7 +320,7 @@ export default async function NewsreelPage({ params }: { params: Promise<{ compe
                               <thead><tr><th>Pos</th><th>Team</th><th>Pts</th><th>Δ</th></tr></thead>
                               <tbody>
                                 {teamStandings.map((row, ri) => (
-                                  <tr key={row.teamId ?? ri}><td>{row.currentPosition ?? ri + 1}</td><td>{row.teamName ?? teamName(row.teamId!)}</td><td>{row.pts}</td><td>{posArrow(row.positionChange)}</td></tr>
+                                  <tr key={row.teamId ?? ri}><td>{row.currentPosition ?? ri + 1}</td><td>{teamNameCell(row.teamId, row.teamName)}</td><td>{row.pts}</td><td>{posArrow(row.positionChange)}</td></tr>
                                 ))}
                               </tbody>
                             </table>
@@ -322,7 +370,7 @@ export default async function NewsreelPage({ params }: { params: Promise<{ compe
                             <thead><tr><th>Pos</th><th>Team</th><th>Pts</th></tr></thead>
                             <tbody>
                               {finalTeams.map((row, ri) => (
-                                <tr key={row.teamId ?? ri}><td>{row.currentPosition ?? ri + 1}</td><td>{row.teamName ?? teamName(row.teamId!)}</td><td>{row.pts}</td></tr>
+                                <tr key={row.teamId ?? ri}><td>{row.currentPosition ?? ri + 1}</td><td>{teamNameCell(row.teamId, row.teamName)}</td><td>{row.pts}</td></tr>
                               ))}
                             </tbody>
                           </table>

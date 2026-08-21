@@ -187,14 +187,14 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 14,
     paddingTop: 12, borderTopWidth: 1, borderTopColor: BORDER,
   },
-  banterPortrait: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: `${GOLD}55` },
+  banterPortrait: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: `${GOLD}55` },
   banterBubble: {
     flex: 1, backgroundColor: `${GOLD}0d`, borderWidth: 1, borderColor: `${GOLD}30`,
     borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8,
   },
   banterName: { fontSize: 9, fontFamily: FFB, color: GOLD, letterSpacing: 1, marginBottom: 2 },
   banterText: { fontSize: 12, fontFamily: FF, color: TEXT, lineHeight: 17, fontStyle: 'italic' },
-  banterScene: { width: 44, height: 44, borderRadius: 8 },
+  banterScene: { width: 64, height: 64, borderRadius: 10 },
 
   empty:      { alignItems: 'center', marginTop: 60, gap: 8, paddingHorizontal: 40 },
   emptyEmoji: { fontSize: 40 },

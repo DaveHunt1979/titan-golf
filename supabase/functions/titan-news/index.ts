@@ -17,15 +17,45 @@ const CORS = {
 
 const MODEL = 'claude-haiku-4-5-20251001';
 
-// Fixed set of scene images Dave supplies himself, never AI-generated per
+// Fixed set of scene images Dave made himself, never AI-generated per
 // report (2026-08-21 — consistent character likeness matters more than
 // novelty; see project memory). Keep this list in sync with
 // src/lib/titanBanter.ts (RN) and web/src/app/newsreel's equivalent map —
 // three separate copies by necessity (edge function / RN / web can't share
 // a module), same debt already accepted for scoring color maps elsewhere.
-const BANTER_SCENES = ['bunker', 'trees', 'water', 'leaderboard', 'trophy', 'clubhouse', 'sunset', 'storm'];
+const BANTER_SCENES: Record<string, string> = {
+  'golf-cart':      'calm, studying the leaderboard on a tablet — analytical, mid-round update',
+  'hiding-tree':    'peeking round a tree, hushed and tense — building suspense before a big moment',
+  'bunker':         'sitting in the sand, deflated — reacting to their OWN disaster shot',
+  'celebration':    'fist-pumping with the crowd — a big win, a title secured, pure triumph',
+  'sunset-view':    'looking out over the 18th at sunset — reflective, scene-setting, a big finish',
+  'broadcast-desk': 'at the commentary desk with a tablet — serious breaking-news analysis',
+  'hiding-bushes':  'peering through bushes with binoculars, the gallery laughing — gossipy, watching someone else\'s drama unfold',
+  'giant-bunker':   'pointing into a huge bunker, shocked — reacting to someone ELSE\'S disaster',
+};
+const BANTER_SCENE_KEYS = Object.keys(BANTER_SCENES);
+const BANTER_SCENE_LIST = BANTER_SCENE_KEYS.map(k => `${k} (${BANTER_SCENES[k]})`).join('; ');
 
-const SYSTEM_PROMPT = `You are Titan News, the automated sports desk for a golf society's tournament app. You write proper tournament journalism — pre-round previews, end-of-round reports, final tournament reports, and one-off casual round match reports (storyType "casual_final") — from a structured JSON facts package that has already been fully computed by Titan.
+// Banter shows up on roughly one report in three, decided BEFORE the
+// prompt is even built (Dave, 2026-08-21 — "you dont need to use these
+// images all the time, maybe only one.. or 3... the whole idea is to be
+// random"). Skipping the instruction entirely on a no-banter run, rather
+// than asking for it and discarding the result, means those runs don't pay
+// for banter they'll never show.
+const BANTER_CHANCE = 1 / 3;
+
+function buildSystemPrompt(includeBanter: boolean): string {
+  const banterInstruction = includeBanter ? `
+
+You also write ONE short line of "banter" from Titan's two broadcast hosts, Chip and Birdie — a classic double-act. Chip is the dry, deadpan straight man; Birdie is warmer, more excitable, quicker to rib someone. Pick whichever of the two would naturally react to the single most banter-worthy fact in the snapshot (a collapse, a hot streak, a nightmare hole, a photo finish — not "nothing happened"). The banter line is still bound by the same strict rules above: it must be a joke ABOUT a real fact in the snapshot, never an invented one. Also pick the one scene from this fixed list that best matches the mood of that fact: ${BANTER_SCENE_LIST}.` : '';
+
+  const banterJsonShape = includeBanter ? `,"banterSpeaker":"chip|birdie","banterText":"...","banterScene":"..."` : '';
+  const banterFieldDocs = includeBanter ? `
+- "banterSpeaker" — exactly "chip" or "birdie".
+- "banterText" — one or two sentences, in that host's voice, under 30 words.
+- "banterScene" — exactly one of: ${BANTER_SCENE_KEYS.join(', ')}.` : '';
+
+  return `You are Titan News, the automated sports desk for a golf society's tournament app. You write proper tournament journalism — pre-round previews, end-of-round reports, final tournament reports, and one-off casual round match reports (storyType "casual_final") — from a structured JSON facts package that has already been fully computed by Titan.
 
 STRICT RULES — these are absolute:
 - Only use facts contained in the supplied JSON snapshot. Nothing else.
@@ -33,20 +63,16 @@ STRICT RULES — these are absolute:
 - Do not calculate or infer golf scores, points, or leaderboard positions — every number you use must already be present in the snapshot.
 - Do not claim something happened unless the snapshot data proves it happened.
 - If the snapshot does not support a statement, leave it out entirely rather than guess or generalise.
-- Write in one consistent voice: proper Titan sports journalism — engaged, a bit of personality, but a real report, not a joke.
-
-You also write ONE short line of "banter" from Titan's two broadcast hosts, Chip and Birdie — a classic double-act. Chip is the dry, deadpan straight man; Birdie is warmer, more excitable, quicker to rib someone. Pick whichever of the two would naturally react to the single most banter-worthy fact in the snapshot (a collapse, a hot streak, a nightmare hole, a photo finish — not "nothing happened"). The banter line is still bound by the same strict rules above: it must be a joke ABOUT a real fact in the snapshot, never an invented one. Also pick the one scene from this fixed list that best matches the mood of that fact: ${BANTER_SCENES.join(', ')}.
+- Write in one consistent voice: proper Titan sports journalism — engaged, a bit of personality, but a real report, not a joke.${banterInstruction}
 
 You must respond with ONLY valid JSON, no other text, in exactly this shape:
-{"headline":"...","summary":"...","body":"...","featuredPlayers":["..."],"featuredTeams":["..."],"banterSpeaker":"chip|birdie","banterText":"...","banterScene":"..."}
+{"headline":"...","summary":"...","body":"...","featuredPlayers":["..."],"featuredTeams":["..."]${banterJsonShape}}
 
 - "headline" — one punchy sports-desk headline, under 12 words.
 - "summary" — one or two sentences, under 40 words.
 - "body" — the full report, 3-6 short paragraphs, plain text (no markdown).
-- "featuredPlayers"/"featuredTeams" — names pulled directly from the snapshot that the report centres on.
-- "banterSpeaker" — exactly "chip" or "birdie".
-- "banterText" — one or two sentences, in that host's voice, under 30 words.
-- "banterScene" — exactly one of: ${BANTER_SCENES.join(', ')}.`;
+- "featuredPlayers"/"featuredTeams" — names pulled directly from the snapshot that the report centres on.${banterFieldDocs}`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -59,6 +85,8 @@ Deno.serve(async (req) => {
       });
     }
 
+    const includeBanter = Math.random() < BANTER_CHANCE;
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -69,7 +97,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 1200,
-        system: SYSTEM_PROMPT,
+        system: buildSystemPrompt(includeBanter),
         messages: [{ role: 'user', content: `Story type: ${storyType}\n\nSnapshot:\n${JSON.stringify(snapshot)}` }],
       }),
     });
@@ -121,7 +149,7 @@ Deno.serve(async (req) => {
     // out the report over a garnish. Falls back to no banter that run
     // instead.
     const banterSpeaker = article.banterSpeaker === 'chip' || article.banterSpeaker === 'birdie' ? article.banterSpeaker : null;
-    const banterScene = BANTER_SCENES.includes(article.banterScene) ? article.banterScene : null;
+    const banterScene = BANTER_SCENE_KEYS.includes(article.banterScene) ? article.banterScene : null;
     const banterText = banterSpeaker && typeof article.banterText === 'string' ? article.banterText : null;
 
     const { data: saved, error: dbErr } = await supabase

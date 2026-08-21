@@ -583,14 +583,26 @@ export default function TourScreen() {
 
   const champYears = [...new Set(champions.map(c => c.year))].sort((a, b) => b - a);
 
-  // My match in this tournament
-  const myMatch = myPlayerId
-    ? (matches as any[]).find(m =>
+  // My match in this tournament — across a multi-day tournament a player
+  // has one match PER DAY, and matches are ordered by match_number (which
+  // increases day-over-day). A plain .find() always returns the earliest
+  // one regardless of status, so once day 1's match completes, the banner
+  // vanished for day 2's genuinely live match instead of showing it (Dave,
+  // 2026-08-21 — "we have lost the little play now button... if you are in
+  // a game you have to go into leaderboard and find your game"). Prefer an
+  // in_progress match over an upcoming one, and never surface a completed
+  // one here — this button is specifically for jumping into a live/next
+  // match, not a done one.
+  const myOwnMatches = myPlayerId
+    ? (matches as any[]).filter(m =>
         (m.home_player_ids ?? []).includes(myPlayerId) ||
         (m.away_player_ids ?? []).includes(myPlayerId)
-      ) ?? null
-    : null;
-  const myMatchActive = myMatch && (myMatch.status === 'upcoming' || myMatch.status === 'in_progress');
+      )
+    : [];
+  const myMatch = myOwnMatches.find(m => m.status === 'in_progress')
+    ?? myOwnMatches.find(m => m.status === 'upcoming')
+    ?? null;
+  const myMatchActive = !!myMatch;
 
   // ── PIN entry ───────────────────────────────────────────────────────
   if (joinedId !== competition.id) return (
@@ -946,6 +958,15 @@ export default function TourScreen() {
                                     )}
                                     <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{home}</Text>
                                   </View>
+                                  {/* Who's actually playing in this match, not
+                                      just which teams — same info the draw
+                                      screen already shows under each team
+                                      (Dave, 2026-08-21). */}
+                                  {isTeamMatch && (
+                                    <Text style={st.matchPlayers} numberOfLines={1}>
+                                      {(m.home_player_ids ?? []).map(id => players.find(p => p.id === id)?.display_name?.split(' ')[0] ?? '?').join(' & ')}
+                                    </Text>
+                                  )}
                                 </View>
 
                                 {/* Middle: vs / result / live */}
@@ -972,6 +993,11 @@ export default function TourScreen() {
                                     )}
                                     <Text style={[st.matchName, { color: dc.cardText }]} numberOfLines={1}>{away}</Text>
                                   </View>
+                                  {isTeamMatch && (
+                                    <Text style={[st.matchPlayers, { textAlign: 'right' }]} numberOfLines={1}>
+                                      {(m.away_player_ids ?? []).map(id => players.find(p => p.id === id)?.display_name?.split(' ')[0] ?? '?').join(' & ')}
+                                    </Text>
+                                  )}
                                 </View>
                               </>
                             )}
@@ -1348,6 +1374,7 @@ const st = StyleSheet.create({
     marginBottom: 6, borderWidth: 1, borderColor: '#1c1c1c',
   },
   matchName: { fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
+  matchPlayers: { fontSize: 11, fontFamily: 'JUSTSans', color: '#9ca3af', marginTop: 1 },
 
   // No results
   noResults: { fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#fff', textAlign: 'center', padding: 20, lineHeight: 22 },
