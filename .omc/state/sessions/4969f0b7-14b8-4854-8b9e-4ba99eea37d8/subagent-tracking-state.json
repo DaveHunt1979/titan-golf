@@ -193,16 +193,19 @@
       "agent_type": "lifecycle-trace-creation",
       "started_at": "2026-08-24T10:24:50.770Z",
       "parent_mode": "none",
-      "status": "running"
+      "status": "completed",
+      "completed_at": "2026-08-24T12:14:29.803Z",
+      "duration_ms": 6579033,
+      "output_summary": "Marked as stale during unmatched stop reconciliation - exceeded timeout"
     },
     {
       "agent_id": "alifecycle-trace-live-25d643345c04c5b8",
       "agent_type": "lifecycle-trace-live",
-      "started_at": "2026-08-24T10:22:11.705Z",
+      "started_at": "2026-08-24T12:11:20.723Z",
       "parent_mode": "none",
       "status": "completed",
-      "completed_at": "2026-08-24T10:24:52.617Z",
-      "duration_ms": 160912
+      "completed_at": "2026-08-24T12:13:37.815Z",
+      "duration_ms": 137092
     },
     {
       "agent_id": "acff88e4805f4081a",
@@ -225,10 +228,32 @@
       "synthetic": true,
       "telemetry_status": "unmatched_stop",
       "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    },
+    {
+      "agent_id": "a20c5502235d3fe8c",
+      "agent_type": "untracked-native-fork",
+      "started_at": "2026-08-24T12:11:25.907Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-24T12:11:25.907Z",
+      "synthetic": true,
+      "telemetry_status": "unmatched_stop",
+      "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    },
+    {
+      "agent_id": "a010b049919b2f860",
+      "agent_type": "untracked-native-fork",
+      "started_at": "2026-08-24T12:24:24.561Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-24T12:24:24.561Z",
+      "synthetic": true,
+      "telemetry_status": "unmatched_stop",
+      "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
     }
   ],
-  "total_spawned": 20,
-  "total_completed": 42,
-  "total_failed": 3,
-  "last_updated": "2026-08-24T10:24:52.720Z"
+  "total_spawned": 21,
+  "total_completed": 46,
+  "total_failed": 4,
+  "last_updated": "2026-08-24T12:24:24.665Z"
 }

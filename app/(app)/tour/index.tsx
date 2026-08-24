@@ -459,15 +459,24 @@ export default function TourScreen() {
     // player never joined and bounce them to "Enter PIN" — reported by Dave
     // 2026-08-19 as "pull to refresh kicks you out of the tournament."
     const alreadyJoinedId = await AsyncStorage.getItem(STORAGE_KEY);
-    const [{ data: joinedComp }, { data: anyActiveComp }, { data: notifs }, { data: soc }] = await Promise.all([
+    // A completed tournament stays visible to whoever already joined it (or
+    // is the society's most recent completion, for a player who never had a
+    // remembered PIN) — completing a tournament used to filter it out of
+    // every one of these lookups, permanently bouncing every player back to
+    // "Enter PIN" the moment an admin tapped Complete Tournament, contrary
+    // to that action's own confirmation copy (Rick's brief, section 12).
+    // Active always wins over complete when both exist, so a genuinely live
+    // tournament is never masked by an old completed one.
+    const [{ data: joinedComp }, { data: activeComp }, { data: completeComp }, { data: notifs }, { data: soc }] = await Promise.all([
       alreadyJoinedId
-        ? supabase.from('competitions').select('*').eq('id', alreadyJoinedId).eq('status', 'active').maybeSingle()
+        ? supabase.from('competitions').select('*').eq('id', alreadyJoinedId).in('status', ['active', 'complete']).maybeSingle()
         : Promise.resolve({ data: null }),
       supabase.from('competitions').select('*').eq('status', 'active').eq('society_id', SOCIETY_ID ?? '').limit(1).maybeSingle(),
+      supabase.from('competitions').select('*').eq('status', 'complete').eq('society_id', SOCIETY_ID ?? '').order('created_at', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
       supabase.from('societies').select('instagram_url').eq('id', SOCIETY_ID).single(),
     ]);
-    const comp = joinedComp ?? anyActiveComp;
+    const comp = joinedComp ?? activeComp ?? completeComp;
 
     if (mySeq !== loadSeq.current) return; // a newer load() has since started — don't let this stale one commit
 
@@ -494,10 +503,10 @@ export default function TourScreen() {
   async function verifyPin(p: string) {
     setVerifying(true);
     const { data } = await supabase
-      .from('competitions').select('*').eq('pin', p).eq('status', 'active').limit(1).maybeSingle();
+      .from('competitions').select('*').eq('pin', p).in('status', ['active', 'complete']).limit(1).maybeSingle();
     setVerifying(false);
     if (!data) {
-      Alert.alert('Wrong PIN', 'No active tournament matches that PIN. Ask your admin for the correct code.', [
+      Alert.alert('Wrong PIN', 'No tournament matches that PIN. Ask your admin for the correct code.', [
         { text: 'Try again', onPress: () => setPin('') },
       ]);
       return;

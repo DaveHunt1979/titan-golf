@@ -258,8 +258,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 93,
-      "lastAccessed": 1787566795868,
+      "accessCount": 96,
+      "lastAccessed": 1787574050926,
       "type": "file"
     },
     {

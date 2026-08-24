@@ -16,7 +16,7 @@ import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { uploadImage } from '../../../src/lib/uploadImage';
 import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
-import { individualBoardLabel, getFormatRules, FORMAT_RULES, type FormatId } from '../../../src/lib/tournamentFormat';
+import { individualBoardLabel, getFormatRules, FORMAT_RULES, type FormatId, type FormatRules } from '../../../src/lib/tournamentFormat';
 import PrizeCategoriesEditor from '../../../src/components/PrizeCategoriesEditor';
 import { ukDateToIso, isoToUk, ukDateToDate, dateToUk, dateToHm, hmToDate } from '../../../src/lib/dateHelpers';
 
@@ -97,6 +97,22 @@ interface DayConfig {
   ldHole: number | null;
   ntpEnabled: boolean;
   ntpHole: number | null;
+}
+
+// Applies a format's last-day override (e.g. Titan Way: final round forced
+// to Singles @ 85%) to whatever is CURRENTLY the last day — called from
+// pickFormat, addDay and removeLastDay alike, so the override always tracks
+// the real final round instead of freezing at format-pick time. Rick's
+// brief, section 12 (lifecycle testing) — without this, adding a round after
+// picking a format left the configured Singles/85% day one round short of
+// where draw.tsx's own "final day" (Math.max(day_number)) actually falls,
+// so Titan Way's final-day knockout could fire on the wrong round entirely.
+// Deliberately does not revert a former last day back to its plain default —
+// an extra Singles round mid-schedule is a visible, easily-fixed state,
+// unlike the invisible wrong-day-knockout bug this closes.
+function applyLastDayOverride(days: DayConfig[], rules: FormatRules): DayConfig[] {
+  if (!rules.lastDaySinglesOverride || days.length === 0) return days;
+  return days.map((d, i) => i === days.length - 1 ? { ...d, format: 'singles' as DayFormatId, hcpPct: 85 } : d);
 }
 
 interface CourseItem { name: string; par: number; hasGps: boolean; }
@@ -231,6 +247,8 @@ export default function BuildTournamentScreen() {
     setBonusPoints('2');
     setSweepBonusEnabled(true);
     setIncludeInKronos(false);
+    setVoiceEnabled(false);
+    setStatsEnabled(false);
     setDescription('');
     setStartDate('');
     setEndDate('');
@@ -246,6 +264,17 @@ export default function BuildTournamentScreen() {
     setExpandedTeamId(null);
     setTeamRosterCache({});
   }, [editCompId]));
+
+  // Re-fetches the squad list on every focus (not just on first load) so
+  // teams created via the new "No teams yet" CTA below — which navigates
+  // out to admin/transfers.tsx and back — actually appear in the crest row
+  // without the organiser needing to fully exit and re-enter the builder
+  // (Rick's brief, section 12 — lifecycle testing).
+  useFocusEffect(useCallback(() => {
+    if (!societyId) return;
+    supabase.from('teams').select('id,name,accent_color,logo_url').eq('society_id', societyId).order('sort_order')
+      .then(({ data }) => setSquadTeams((data as any[]) ?? []));
+  }, [societyId]));
 
   // Loads an existing DRAFT tournament's full state for editing — everything
   // build.tsx already knows how to render, just hydrated from the DB instead
@@ -281,6 +310,13 @@ export default function BuildTournamentScreen() {
       setBonusPoints(String(c.bonus_points || 2));
       setSweepBonusEnabled((c.bonus_points ?? 0) > 0);
       setIncludeInKronos(!!c.include_in_kronos);
+      // Previously missing — resuming a draft silently reset both to their
+      // useState(false) defaults, then the next save persisted that wrong
+      // default, permanently losing the organiser's original choice (Rick's
+      // brief, section 12 — lifecycle testing found this as a real
+      // silent-corruption bug).
+      setVoiceEnabled(!!c.settings?.voice_enabled);
+      setStatsEnabled(!!c.settings?.track_stats_enabled);
       setDescription(c.description ?? '');
       setStartDate(c.start_date ? isoToUk(c.start_date) : '');
       setEndDate(c.end_date ? isoToUk(c.end_date) : '');
@@ -317,24 +353,27 @@ export default function BuildTournamentScreen() {
     const rules = getFormatRules(f.id);
     setSelectedFormat(f.id);
     setIncludeInKronos(rules.individualBoardDefaultOn);
-    const builtDays: DayConfig[] = Array.from({ length: f.defaultDays }, (_, i) => {
-      const isLastDay = i === f.defaultDays - 1;
-      return {
-        courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeTime: '', playDate: '',
-        format: isLastDay && rules.lastDaySinglesOverride ? 'singles' : f.defaultDayFormat,
-        hcpPct: isLastDay && rules.lastDaySinglesOverride ? 85 : f.defaultHcp,
-        ldEnabled: false, ldHole: null,
-        ntpEnabled: false, ntpHole: null,
-      };
-    });
-    setDays(builtDays);
+    const builtDays: DayConfig[] = Array.from({ length: f.defaultDays }, () => ({
+      courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeTime: '', playDate: '',
+      format: f.defaultDayFormat,
+      hcpPct: f.defaultHcp,
+      ldEnabled: false, ldHole: null,
+      ntpEnabled: false, ntpHole: null,
+    }));
+    setDays(applyLastDayOverride(builtDays, rules));
     // Every format now seeds its own scoring defaults on selection, not just
     // Titan Way (Rick's brief, section 9 — "Scoring Options" is a per-format
     // pipeline stage, not a special case).
     if (rules.minTeams != null) setNumTeams(String(rules.minTeams));
     setPtsWin(String(rules.defaultPtsWin));
     setPtsHalf(String(rules.defaultPtsHalf));
-    if (rules.defaultMaxHandicap != null) setMaxHandicap(String(rules.defaultMaxHandicap));
+    // Cleared, not just left unset, when switching to a format with no cap —
+    // otherwise a stale value from a previous format (e.g. Titan Way's 18)
+    // survives invisibly (the field is hidden for non-team formats) and
+    // silently clamps every enrolled player's handicap (Rick's brief,
+    // section 12 — lifecycle testing found this as a real silent-corruption
+    // bug).
+    setMaxHandicap(rules.defaultMaxHandicap != null ? String(rules.defaultMaxHandicap) : '');
     if (!name || name === COMP_FORMATS.find(x => x.id !== f.id)?.label) {
       setName(`${f.label} ${new Date().getFullYear() + 1}`);
     }
@@ -346,18 +385,18 @@ export default function BuildTournamentScreen() {
 
   function addDay() {
     if (days.length >= 10) return;
-    setDays(prev => [...prev, {
+    setDays(prev => applyLastDayOverride([...prev, {
       courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeTime: '', playDate: '',
       format: formatDef?.defaultDayFormat ?? 'four_bbb',
       hcpPct: formatDef?.defaultHcp ?? 75,
       ldEnabled: false, ldHole: null,
       ntpEnabled: false, ntpHole: null,
-    }]);
+    }], getFormatRules(selectedFormat)));
   }
 
   function removeLastDay() {
     if (days.length <= 1) return;
-    setDays(prev => prev.slice(0, -1));
+    setDays(prev => applyLastDayOverride(prev.slice(0, -1), getFormatRules(selectedFormat)));
   }
 
   // tournament_type is a coarser, legacy 3-value column (CHECK-constrained,
@@ -740,7 +779,16 @@ export default function BuildTournamentScreen() {
   // minute (drop-outs) are safer handled closer to tee-off, not baked in
   // at build time.
   async function finishDraft() {
-    if (!compId || !compPin) return;
+    if (!compId) return;
+    // Every normal creation path assigns a PIN (see createShellAndAdvance),
+    // so this is a rare/corrupted-draft case — but it used to silently
+    // return here with zero explanation, making Go Live a dead button with
+    // no diagnosable cause (Rick's brief, section 12 — lifecycle testing
+    // flagged this as a real dead end, however rare).
+    if (!compPin) {
+      setGoLiveIssues([{ label: 'Tournament PIN missing — this draft may be corrupted. Contact support.' }]);
+      return;
+    }
     setValidatingGoLive(true);
     const issues = await computeGoLiveIssues();
     setValidatingGoLive(false);
@@ -1344,6 +1392,21 @@ export default function BuildTournamentScreen() {
                 </View>
 
                 <Text style={styles.fieldLabel}>{pickedTeamIds.size} OF {numTeamsN} TEAMS ADDED — TAP A CREST</Text>
+                {squadTeams.length === 0 && (
+                  // A society with no teams at all used to dead-end here —
+                  // an empty crest row with nothing to tap, and Go Live's own
+                  // "fix this" jump bounced straight back to this same empty
+                  // screen (Rick's brief, section 12 — lifecycle testing).
+                  // Teams are still created on their own screen (reused, not
+                  // duplicated here), just linked to directly now.
+                  <TouchableOpacity
+                    style={styles.noTeamsCta}
+                    onPress={() => router.push(`/(app)/admin/transfers?back=${encodeURIComponent(`/(app)/admin/build?id=${compId}`)}` as any)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.noTeamsCtaText}>No teams yet — create your first team →</Text>
+                  </TouchableOpacity>
+                )}
                 <View style={styles.badgeRow}>
                   {squadTeams.map(t => {
                     const hasPlayers = pickedTeamIds.has(t.id);
@@ -1879,6 +1942,11 @@ const styles = StyleSheet.create({
   addPlayersBtnText: { fontSize: 12, fontFamily: FFB, color: GOLD },
   empty: { alignItems: 'center', paddingVertical: 40 },
   emptyHint: { fontSize: 13, fontFamily: FFB, color: '#555', textAlign: 'center' },
+  noTeamsCta: {
+    borderWidth: 1, borderColor: '#2a2a2a', borderStyle: 'dashed', borderRadius: 14,
+    paddingVertical: 16, alignItems: 'center', marginBottom: 16,
+  },
+  noTeamsCtaText: { fontSize: 13, fontFamily: FFB, color: GOLD },
   // Team badge row
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 16 },
   badgeItem: { alignItems: 'center', width: 68 },

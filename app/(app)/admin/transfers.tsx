@@ -4,7 +4,7 @@ import {
   Image, ActivityIndicator, ScrollView, Modal, Animated, Platform,
   TextInput, KeyboardAvoidingView, Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as ImagePicker from 'expo-image-picker';
@@ -50,6 +50,11 @@ function getTeamLogo(team: Team) {
 
 export default function TransferWindowScreen() {
   const router = useRouter();
+  // Lets the Tournament Builder's "No teams yet" CTA (Rick's brief, section
+  // 12) round-trip back into the exact draft it came from, same pattern as
+  // admin/info.tsx's own `back` param.
+  const { back: backParam } = useLocalSearchParams<{ back?: string }>();
+  const backTarget = backParam ?? '/(app)/admin/hub-tournament';
   const { societyId } = useAdminSociety();
 
   const [fontsLoaded] = useFonts({
@@ -295,7 +300,7 @@ export default function TransferWindowScreen() {
 
       {/* Header — three-column */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/hub-tournament')} style={styles.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => goBack(router, backTarget)} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={styles.backText}>‹ Admin</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>

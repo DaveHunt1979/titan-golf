@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-24T10:24:52.617Z",
+  "updatedAt": "2026-08-24T12:24:24.561Z",
   "missions": [
     {
       "id": "session:4969f0b7-14b8-4854-8b9e-4ba99eea37d8:none",
@@ -7,15 +7,15 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-08-24T06:46:05.245Z",
-      "updatedAt": "2026-08-24T10:24:52.617Z",
+      "updatedAt": "2026-08-24T12:24:24.561Z",
       "status": "running",
       "workerCount": 8,
       "taskCounts": {
         "total": 8,
         "pending": 0,
         "blocked": 0,
-        "inProgress": 2,
-        "completed": 6,
+        "inProgress": 1,
+        "completed": 7,
         "failed": 0
       },
       "agents": [
@@ -27,7 +27,7 @@
           "currentStep": null,
           "latestUpdate": "completed",
           "completedSummary": null,
-          "updatedAt": "2026-08-24T10:22:20.029Z"
+          "updatedAt": "2026-08-24T12:24:24.561Z"
         },
         {
           "name": "info-pack-plan:ainfo-p",
@@ -83,11 +83,11 @@
           "name": "lifecycle-trace-creation:alifecy",
           "role": "lifecycle-trace-creation",
           "ownership": "alifecycle-trace-creation-bae188848a91dea8",
-          "status": "running",
+          "status": "done",
           "currentStep": null,
-          "latestUpdate": null,
-          "completedSummary": null,
-          "updatedAt": "2026-08-24T10:24:50.770Z"
+          "latestUpdate": "Marked as stale during unmatched stop reconciliation - exceed...",
+          "completedSummary": "Marked as stale during unmatched stop reconciliation - exceed...",
+          "updatedAt": "2026-08-24T12:14:29.803Z"
         },
         {
           "name": "lifecycle-trace-live:alifecy",
@@ -97,26 +97,10 @@
           "currentStep": null,
           "latestUpdate": "completed",
           "completedSummary": null,
-          "updatedAt": "2026-08-24T10:24:52.617Z"
+          "updatedAt": "2026-08-24T12:13:37.815Z"
         }
       ],
       "timeline": [
-        {
-          "id": "session-stop:aafc8612c3ac2fc6e:2026-08-24T10:22:20.029Z",
-          "at": "2026-08-24T10:22:20.029Z",
-          "kind": "completion",
-          "agent": "info-pack-research:ainfo-p",
-          "detail": "completed",
-          "sourceKey": "session-stop:aafc8612c3ac2fc6e"
-        },
-        {
-          "id": "session-stop:alifecycle-trace-creation-bae188848a91dea8:2026-08-24T10:24:40.972Z",
-          "at": "2026-08-24T10:24:40.972Z",
-          "kind": "completion",
-          "agent": "lifecycle-trace-creation:alifecy",
-          "detail": "completed",
-          "sourceKey": "session-stop:alifecycle-trace-creation-bae188848a91dea8"
-        },
         {
           "id": "session-start:alifecycle-trace-creation-bae188848a91dea8:2026-08-24T10:24:50.770Z",
           "at": "2026-08-24T10:24:50.770Z",
@@ -132,6 +116,46 @@
           "agent": "lifecycle-trace-live:alifecy",
           "detail": "completed",
           "sourceKey": "session-stop:alifecycle-trace-live-25d643345c04c5b8"
+        },
+        {
+          "id": "session-start:alifecycle-trace-live-25d643345c04c5b8:2026-08-24T12:11:20.723Z",
+          "at": "2026-08-24T12:11:20.723Z",
+          "kind": "update",
+          "agent": "lifecycle-trace-live:alifecy",
+          "detail": "started lifecycle-trace-live:alifecy",
+          "sourceKey": "session-start:alifecycle-trace-live-25d643345c04c5b8"
+        },
+        {
+          "id": "session-stop:a20c5502235d3fe8c:2026-08-24T12:11:25.907Z",
+          "at": "2026-08-24T12:11:25.907Z",
+          "kind": "completion",
+          "agent": "info-pack-research:ainfo-p",
+          "detail": "completed",
+          "sourceKey": "session-stop:a20c5502235d3fe8c"
+        },
+        {
+          "id": "session-stop:alifecycle-trace-live-25d643345c04c5b8:2026-08-24T12:13:37.815Z",
+          "at": "2026-08-24T12:13:37.815Z",
+          "kind": "completion",
+          "agent": "lifecycle-trace-live:alifecy",
+          "detail": "completed",
+          "sourceKey": "session-stop:alifecycle-trace-live-25d643345c04c5b8"
+        },
+        {
+          "id": "session-stop:alifecycle-trace-creation-bae188848a91dea8:2026-08-24T12:14:29.803Z",
+          "at": "2026-08-24T12:14:29.803Z",
+          "kind": "completion",
+          "agent": "lifecycle-trace-creation:alifecy",
+          "detail": "Marked as stale during unmatched stop reconciliation - exceeded timeout",
+          "sourceKey": "session-stop:alifecycle-trace-creation-bae188848a91dea8"
+        },
+        {
+          "id": "session-stop:a010b049919b2f860:2026-08-24T12:24:24.561Z",
+          "at": "2026-08-24T12:24:24.561Z",
+          "kind": "completion",
+          "agent": "info-pack-research:ainfo-p",
+          "detail": "completed",
+          "sourceKey": "session-stop:a010b049919b2f860"
         }
       ]
     }

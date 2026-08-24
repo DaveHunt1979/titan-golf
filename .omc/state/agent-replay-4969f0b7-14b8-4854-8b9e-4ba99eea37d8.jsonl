@@ -60,3 +60,8 @@
 {"t":0,"agent":"alifecy","agent_type":"lifecycle-trace-creation","event":"agent_stop","success":true,"duration_ms":219889}
 {"t":0,"agent":"alifecy","agent_type":"lifecycle-trace-creation","event":"agent_start","parent_mode":"none"}
 {"t":0,"agent":"alifecy","agent_type":"lifecycle-trace-live","event":"agent_stop","success":true,"duration_ms":160912}
+{"t":0,"agent":"alifecy","agent_type":"lifecycle-trace-live","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a20c550","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"alifecy","agent_type":"lifecycle-trace-live","event":"agent_stop","success":true,"duration_ms":137092}
+{"t":0,"agent":"alifecy","agent_type":"lifecycle-trace-creation","event":"agent_stop","success":true,"duration_ms":6579033}
+{"t":0,"agent":"a010b04","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
