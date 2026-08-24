@@ -860,7 +860,12 @@ export default function BuildTournamentScreen() {
     }
 
     setFinishing(false);
-    router.replace('/(app)/admin/hub-tournament' as any);
+    // Straight into the RUN-stage screen for the tournament that just went
+    // live, not a static menu the organiser has to tap through again — Go
+    // Live should feel like the start of running the tournament, not a dead
+    // end (Rick's brief, section 15: "one connected tournament-management
+    // system, rather than a collection of separate features").
+    router.replace('/(app)/admin/live-tournaments' as any);
   }
 
   function next() { setStep(s => Math.min(s + 1, 6)); }

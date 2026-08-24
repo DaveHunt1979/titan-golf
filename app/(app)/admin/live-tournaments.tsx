@@ -89,6 +89,33 @@ export default function LiveTournaments() {
     load();
   }
 
+  // Completing a tournament is supposed to mean "the Final Tournament
+  // Report went out" (Rick's brief, section 15 — Titan should feel like one
+  // connected system, not separate features) — admin/news.tsx's
+  // publishAndSend() already does exactly that (generate report -> publish
+  // -> notify players -> close the tournament) whenever a final_report is
+  // part of what's being sent. This button used to skip all of that and
+  // just flip status straight to 'complete', so a tournament could get
+  // archived with no report ever generated or sent to players. Route there
+  // first if nothing's been generated yet, rather than duplicating that logic.
+  async function requestComplete(c: Competition) {
+    const { count } = await supabase
+      .from('titan_news').select('id', { count: 'exact', head: true })
+      .eq('competition_id', c.id).eq('story_type', 'final_report');
+    if (!count) {
+      Alert.alert(
+        'Generate the Final Report first',
+        `"${c.name}" hasn't had a Final Tournament Report generated yet. Go to Titan News to generate and send it — that also closes the tournament out.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Go to Titan News', onPress: () => router.push(`/(app)/admin/news?id=${c.id}` as any) },
+        ]
+      );
+      return;
+    }
+    setCompleteTarget(c);
+  }
+
   function sharePin(comp: Competition) {
     const pin = String(comp.pin ?? '').replace(/[^0-9]/g, '');
     if (!pin) { Alert.alert('No PIN', 'This competition has no PIN set.'); return; }
@@ -167,7 +194,7 @@ export default function LiveTournaments() {
                   <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/news?id=${c.id}` as any)} activeOpacity={0.8}>
                     <Text style={s.manageBtnText}>TITAN NEWS</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={s.completeBtn} onPress={() => setCompleteTarget(c)} activeOpacity={0.8}>
+                  <TouchableOpacity style={s.completeBtn} onPress={() => requestComplete(c)} activeOpacity={0.8}>
                     <Text style={s.completeBtnText}>COMPLETE TOURNAMENT</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={s.deleteBtn} onPress={() => setDeleteTarget(c)} activeOpacity={0.8}>
@@ -201,7 +228,7 @@ export default function LiveTournaments() {
       <ConfirmDialog
         visible={completeTarget !== null}
         title="Complete Tournament"
-        message={`Mark "${completeTarget?.name}" as finished and move it to History/Archive? Players will still be able to view results.`}
+        message={`The Final Tournament Report has been generated for "${completeTarget?.name}". Mark it as finished and move it to History/Archive? Players will still be able to view results.`}
         confirmLabel={completing ? 'Completing…' : 'Complete Tournament'}
         onConfirm={completeTournament}
         onCancel={() => setCompleteTarget(null)}

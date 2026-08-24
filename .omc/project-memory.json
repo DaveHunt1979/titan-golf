@@ -293,15 +293,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/camera/index.tsx",
-      "accessCount": 26,
-      "lastAccessed": 1787579703309,
+      "path": "app/(app)/admin/live-tournaments.tsx",
+      "accessCount": 30,
+      "lastAccessed": 1787581774391,
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/live-tournaments.tsx",
-      "accessCount": 24,
-      "lastAccessed": 1787579211358,
+      "path": "app/(app)/camera/index.tsx",
+      "accessCount": 26,
+      "lastAccessed": 1787579703309,
       "type": "file"
     },
     {
@@ -330,8 +330,8 @@
     },
     {
       "path": "app/(app)/admin/news.tsx",
-      "accessCount": 11,
-      "lastAccessed": 1787575668626,
+      "accessCount": 12,
+      "lastAccessed": 1787581708414,
       "type": "file"
     },
     {

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-24T14:24:57.311Z",
+  "updatedAt": "2026-08-24T14:35:41.111Z",
   "missions": [
     {
       "id": "session:01e0b48e-e6d3-4753-ab9f-1af384cb06c4:none",
@@ -7,7 +7,7 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-08-24T12:28:53.313Z",
-      "updatedAt": "2026-08-24T14:24:57.311Z",
+      "updatedAt": "2026-08-24T14:35:41.111Z",
       "status": "running",
       "workerCount": 9,
       "taskCounts": {
@@ -27,7 +27,7 @@
           "currentStep": null,
           "latestUpdate": "completed",
           "completedSummary": null,
-          "updatedAt": "2026-08-24T14:24:57.311Z"
+          "updatedAt": "2026-08-24T14:35:41.111Z"
         },
         {
           "name": "trace-game-generation:atrace-",
@@ -150,6 +150,30 @@
           "agent": "trace-format-gating:atrace-",
           "detail": "completed",
           "sourceKey": "session-stop:a2946062d0393e879"
+        },
+        {
+          "id": "session-stop:a90c9ae3ef80323c9:2026-08-24T14:27:20.277Z",
+          "at": "2026-08-24T14:27:20.277Z",
+          "kind": "completion",
+          "agent": "trace-format-gating:atrace-",
+          "detail": "completed",
+          "sourceKey": "session-stop:a90c9ae3ef80323c9"
+        },
+        {
+          "id": "session-stop:a04e439133b57f8da:2026-08-24T14:31:07.528Z",
+          "at": "2026-08-24T14:31:07.528Z",
+          "kind": "completion",
+          "agent": "trace-format-gating:atrace-",
+          "detail": "completed",
+          "sourceKey": "session-stop:a04e439133b57f8da"
+        },
+        {
+          "id": "session-stop:a549461dd547317f5:2026-08-24T14:35:41.111Z",
+          "at": "2026-08-24T14:35:41.111Z",
+          "kind": "completion",
+          "agent": "trace-format-gating:atrace-",
+          "detail": "completed",
+          "sourceKey": "session-stop:a549461dd547317f5"
         }
       ]
     }
