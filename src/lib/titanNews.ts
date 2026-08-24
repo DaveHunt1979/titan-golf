@@ -8,6 +8,7 @@
 
 import { supabase } from './supabase';
 import { getStandings, calcSweepBonus } from './scoring';
+import { individualBoardLabel } from './tournamentFormat';
 
 interface Core {
   competition: any;
@@ -212,6 +213,10 @@ function tournamentInfo(core: Core, currentDay: any | null) {
     tournamentName: core.competition.name,
     format: core.competition.format,
     tournamentType: core.competition.tournament_type,
+    // Titan calculates which term applies, the AI just uses it verbatim —
+    // "Kronos" is Titan Way-exclusive branding, every other format calls the
+    // same individual standings board "Individual" (Rick's brief, section 4.4).
+    individualBoardLabel: individualBoardLabel(core.competition.format),
     totalRounds: core.days.length,
     currentRound: currentDay?.day_number ?? null,
     course: currentDay?.course_name ?? null,

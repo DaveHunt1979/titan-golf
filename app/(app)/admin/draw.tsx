@@ -20,6 +20,11 @@ const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
+// Shared between generateDraw's player-assignment logic and the manual
+// assign/edit modal, which both need to know slot-count-per-side (2 for
+// pairs, 1 for singles) without duplicating the format list.
+const PAIRS_DAY_FORMATS = ['4bbb', 'four_bbb', 'four_bbb_stroke', 'foursomes', 'greensomes'];
+
 const DAY_FORMAT_LABELS: Record<string, string> = {
   four_bbb: '4BBB', four_bbb_stroke: '4BBB Stroke', foursomes: 'Foursomes', greensomes: 'Greensomes',
   singles: 'Singles', stableford: 'Stableford', medal: 'Medal', scramble: 'Scramble',
@@ -56,10 +61,10 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-type Tab = 'players' | 'draw' | 'activate';
+type Tab = 'players' | 'draw' | 'summary';
 
 interface CompInfo {
-  id: string; name: string; status: string;
+  id: string; name: string; status: string; format: string;
   tournament_type: string; pts_win: number; pts_half: number;
   opening_rounds: number; bonus_points: number; max_handicap: number | null;
   settings: { num_teams?: number | null; voice_enabled?: boolean; track_stats_enabled?: boolean } | null;
@@ -126,7 +131,11 @@ export default function TournamentDrawScreen() {
   const [addTeam, setAddTeam]           = useState<string | null>(null);
   const [adding, setAdding]             = useState(false);
   const [generating, setGenerating]     = useState<string | null>(null);
-  const [activating, setActivating]     = useState(false);
+  // One shared modal handles both Manual generation (a whole day's worth of
+  // freshly-created empty-slot matches) and Edit Match (a single existing
+  // match) — Rick's brief, section 4.14. Non-null = open, scoped to
+  // whichever match rows are in the array.
+  const [assignModalMatches, setAssignModalMatches] = useState<MatchRow[] | null>(null);
 
   const load = useCallback(async () => {
     if (!competitionId) return;
@@ -137,7 +146,7 @@ export default function TournamentDrawScreen() {
       { data: teamsData },
       { data: matchData },
     ] = await Promise.all([
-      supabase.from('competitions').select('id,name,status,tournament_type,pts_win,pts_half,opening_rounds,bonus_points,max_handicap,settings').eq('id', competitionId).single(),
+      supabase.from('competitions').select('id,name,status,format,tournament_type,pts_win,pts_half,opening_rounds,bonus_points,max_handicap,settings').eq('id', competitionId).single(),
       supabase.from('competition_days').select('id,day_number,course_name,day_format,hcp_pct').eq('competition_id', competitionId).order('day_number'),
       supabase.from('competition_players')
         .select('id,player_id,team_id,handicap_index,is_captain,players(display_name,avatar_url)')
@@ -348,7 +357,15 @@ export default function TournamentDrawScreen() {
     return partners;
   }
 
-  async function generateDraw(day: DayRow) {
+  // mode 'manual' reuses the exact same team-pairing decisions (who plays
+  // who, how many matches) but inserts every match with empty player slots
+  // instead of auto-assigning — Rick's brief, section 4.14: manual mode is
+  // about the organiser hand-picking WHO plays, not re-deciding the
+  // pairings themselves (matches Rick's own mockup, which already shows
+  // "TEAM ELITE vs TEAM MOB" fixed, just empty [Select Player] slots).
+  // Individual (stableford/medal) days stay auto-only for now — Rick's
+  // Manual mockups only cover team-vs-team matches.
+  async function generateDraw(day: DayRow, mode: 'auto' | 'manual' = 'auto') {
     // Guard re-entrancy directly rather than relying only on the button's
     // disabled state, which can race on a fast double-tap before re-render.
     if (generating) return;
@@ -430,9 +447,13 @@ export default function TournamentDrawScreen() {
     }
 
     const isSingles = df === 'singles';
-    const isPairs   = ['4bbb', 'four_bbb', 'four_bbb_stroke', 'foursomes', 'greensomes'].includes(df);
+    const isPairs   = PAIRS_DAY_FORMATS.includes(df);
     const ppm       = isPairs ? 2 : 1;
-    const isOpeningRound = day.day_number <= (comp?.opening_rounds ?? 0);
+    // Captain Rotation (the opening-rounds captain-pairing rule) is Titan
+    // Way-exclusive (Rick's brief, 2026-08-22, section 4.2) — gating on
+    // format here, not just opening_rounds, matters because the DB column
+    // defaults to 3 for every competition regardless of format.
+    const isOpeningRound = comp?.format === 'titan_way' && day.day_number <= (comp?.opening_rounds ?? 0);
     const maxDayNumber   = days.length > 0 ? Math.max(...days.map(d => d.day_number)) : day.day_number;
     const isFinalDay      = day.day_number === maxDayNumber;
 
@@ -477,8 +498,8 @@ export default function TournamentDrawScreen() {
           match_number:   matchNum++,
           home_team_id:   tA,
           away_team_id:   tB,
-          home_player_ids: isPairs ? [pA[i*2], pA[i*2+1]].filter(Boolean) : [pA[i]],
-          away_player_ids: isPairs ? [pB[i*2], pB[i*2+1]].filter(Boolean) : [pB[i]],
+          home_player_ids: mode === 'manual' ? [] : (isPairs ? [pA[i*2], pA[i*2+1]].filter(Boolean) : [pA[i]]),
+          away_player_ids: mode === 'manual' ? [] : (isPairs ? [pB[i*2], pB[i*2+1]].filter(Boolean) : [pB[i]]),
           round_format:   roundFmt,
           is_singles:     isSingles,
           hcp_allowance:  hcp,
@@ -519,8 +540,8 @@ export default function TournamentDrawScreen() {
             match_number:   matchNum++,
             home_team_id:   tH,
             away_team_id:   tA,
-            home_player_ids: isPairs ? [pH[j*2], pH[j*2+1]].filter(Boolean) : [pH[j]],
-            away_player_ids: isPairs ? [pA[j*2], pA[j*2+1]].filter(Boolean) : [pA[j]],
+            home_player_ids: mode === 'manual' ? [] : (isPairs ? [pH[j*2], pH[j*2+1]].filter(Boolean) : [pH[j]]),
+            away_player_ids: mode === 'manual' ? [] : (isPairs ? [pA[j*2], pA[j*2+1]].filter(Boolean) : [pA[j]]),
             round_format:   roundFmt,
             is_singles:     isSingles,
             hcp_allowance:  hcp,
@@ -557,8 +578,8 @@ export default function TournamentDrawScreen() {
             match_number:   matchNum++,
             home_team_id:   tH,
             away_team_id:   tA,
-            home_player_ids: isPairs ? [pH[j*2], pH[j*2+1]].filter(Boolean) : [pH[j]],
-            away_player_ids: isPairs ? [pA[j*2], pA[j*2+1]].filter(Boolean) : [pA[j]],
+            home_player_ids: mode === 'manual' ? [] : (isPairs ? [pH[j*2], pH[j*2+1]].filter(Boolean) : [pH[j]]),
+            away_player_ids: mode === 'manual' ? [] : (isPairs ? [pA[j*2], pA[j*2+1]].filter(Boolean) : [pA[j]]),
             round_format:   roundFmt,
             is_singles:     isSingles,
             hcp_allowance:  hcp,
@@ -577,9 +598,13 @@ export default function TournamentDrawScreen() {
 
     setGenerating(day.id);
     try {
-      const { error } = await supabase.from('matches').insert(matchRows);
+      const { data: inserted, error } = await supabase.from('matches').insert(matchRows).select();
       if (error) { Alert.alert('Error', error.message); return; }
       await load();
+      // Manual mode's shells have no players yet — take the organiser
+      // straight into assigning them instead of leaving empty matches sitting
+      // in the list looking broken.
+      if (mode === 'manual' && inserted) setAssignModalMatches(inserted as unknown as MatchRow[]);
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Could not generate the draw.');
     } finally {
@@ -587,38 +612,49 @@ export default function TournamentDrawScreen() {
     }
   }
 
+  // Previously deleted a day's matches with no idea whether any scores had
+  // already been entered against them (Rick's brief, section 4.12.4 — score
+  // data must never be silently wiped without a clear warning first).
   async function clearDay(day: DayRow) {
-    Alert.alert('Clear Day ' + day.day_number + '?', 'This deletes all matches for this day.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: async () => {
-        await supabase.from('matches').delete().eq('day_id', day.id);
-        await load();
-      }},
-    ]);
+    const dayMatchIds = matches.filter(m => m.day_id === day.id).map(m => m.id);
+    const { count } = dayMatchIds.length
+      ? await supabase.from('match_holes').select('id', { count: 'exact', head: true }).in('match_id', dayMatchIds)
+      : { count: 0 };
+    const hasScores = (count ?? 0) > 0;
+    Alert.alert(
+      'Clear Day ' + day.day_number + '?',
+      hasScores
+        ? 'This day already has scores entered. Clearing it deletes every match AND all of that scoring data — this cannot be undone.'
+        : 'This deletes all matches for this day.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Clear', style: 'destructive', onPress: async () => {
+          await supabase.from('matches').delete().eq('day_id', day.id);
+          await load();
+        }},
+      ]
+    );
   }
 
-  async function activateTournament() {
-    const totalMatches = matches.length;
-    if (totalMatches === 0) {
-      Alert.alert('No matches', 'Generate the draw before activating the tournament.');
+  // Opening Edit Match on one that already has scores warns first rather
+  // than silently letting the organiser change who's playing underneath
+  // real results (Rick's brief, section 4.12.4) — it doesn't block outright,
+  // since correcting a genuine mis-draw is still a legitimate action, but
+  // the organiser must explicitly acknowledge it first.
+  async function openEditMatch(m: MatchRow) {
+    const { count } = await supabase.from('match_holes').select('id', { count: 'exact', head: true }).eq('match_id', m.id);
+    if ((count ?? 0) > 0) {
+      Alert.alert(
+        'This match has scores',
+        'Changing the players in this match will not delete any existing scores, but those scores will still be attributed to whoever is currently assigned to each slot. Continue?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Continue', style: 'destructive', onPress: () => setAssignModalMatches([m]) },
+        ]
+      );
       return;
     }
-    Alert.alert('Activate Tournament?', `${comp?.name} will go live. Players will be able to see it using the PIN.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Activate', onPress: async () => {
-        setActivating(true);
-        try {
-          const { error } = await supabase.from('competitions').update({ status: 'active' }).eq('id', competitionId);
-          if (error) { Alert.alert('Error', error.message); return; }
-          await load();
-          Alert.alert('Tournament Live!', `${comp?.name} is now active. Share the PIN with players.`);
-        } catch (e: any) {
-          Alert.alert('Error', e?.message ?? 'Could not activate the tournament.');
-        } finally {
-          setActivating(false);
-        }
-      }},
-    ]);
+    setAssignModalMatches([m]);
   }
 
   if (!fontsLoaded || loading) return (
@@ -665,7 +701,7 @@ export default function TournamentDrawScreen() {
 
       {/* Tab bar */}
       <View style={s.tabs}>
-        {(['players', 'draw', 'activate'] as Tab[]).map(t => (
+        {(['players', 'draw', 'summary'] as Tab[]).map(t => (
           <TouchableOpacity key={t} style={[s.tabBtn, tab === t && s.tabBtnOn]} onPress={() => setTab(t)} activeOpacity={0.7}>
             <Text style={[s.tabLabel, tab === t && s.tabLabelOn]}>{t.toUpperCase()}</Text>
           </TouchableOpacity>
@@ -859,19 +895,32 @@ export default function TournamentDrawScreen() {
                       </View>
                     </View>
                     <View style={{ gap: 6 }}>
-                      <TouchableOpacity
-                        style={[s.genBtn, dayMatches.length > 0 && s.genBtnSecondary]}
-                        onPress={() => dayMatches.length > 0 ? clearDay(day) : generateDraw(day)}
-                        disabled={isGen}
-                        activeOpacity={0.8}
-                      >
-                        {isGen
-                          ? <ActivityIndicator size="small" color="#000" />
-                          : <Text style={[s.genBtnText, dayMatches.length > 0 && s.genBtnTextSecondary]}>
-                              {dayMatches.length > 0 ? 'CLEAR' : 'GENERATE'}
-                            </Text>
-                        }
-                      </TouchableOpacity>
+                      {dayMatches.length > 0 ? (
+                        <TouchableOpacity
+                          style={[s.genBtn, s.genBtnSecondary]}
+                          onPress={() => clearDay(day)}
+                          disabled={isGen}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[s.genBtnText, s.genBtnTextSecondary]}>CLEAR</Text>
+                        </TouchableOpacity>
+                      ) : isGen ? (
+                        <View style={s.genBtn}><ActivityIndicator size="small" color="#000" /></View>
+                      ) : (
+                        <>
+                          <TouchableOpacity style={s.genBtn} onPress={() => generateDraw(day, 'auto')} activeOpacity={0.8}>
+                            <Text style={s.genBtnText}>AUTOMATIC</Text>
+                          </TouchableOpacity>
+                          {/* Manual is team-vs-team only (Rick's own mockups only
+                              cover that case) — individual Stableford/Medal
+                              groups stay auto-generated. */}
+                          {day.day_format !== 'stableford' && day.day_format !== 'medal' && (
+                            <TouchableOpacity style={[s.genBtn, s.genBtnSecondary]} onPress={() => generateDraw(day, 'manual')} activeOpacity={0.8}>
+                              <Text style={[s.genBtnText, s.genBtnTextSecondary]}>MANUAL</Text>
+                            </TouchableOpacity>
+                          )}
+                        </>
+                      )}
                     </View>
                   </View>
 
@@ -912,6 +961,9 @@ export default function TournamentDrawScreen() {
                               <Text style={[s.matchTeam, { color: awayColor, textAlign: 'right' }]}>{awayName}</Text>
                               {awayTeam && <Text style={[s.matchPlayers, { textAlign: 'right' }]}>{awayPlayers}</Text>}
                             </View>
+                            <TouchableOpacity onPress={() => openEditMatch(m)} style={s.editMatchBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                              <Ionicons name="pencil-outline" size={16} color={GOLD} />
+                            </TouchableOpacity>
                           </View>
                         );
                       })}
@@ -923,8 +975,16 @@ export default function TournamentDrawScreen() {
           </View>
         )}
 
-        {/* ── ACTIVATE TAB ─────────────────────────────────────────── */}
-        {tab === 'activate' && (
+        {/* ── SUMMARY TAB ──────────────────────────────────────────────
+            Was "ACTIVATE" — that button was already permanently dead code
+            (this screen is only ever reached for a tournament that's
+            already status='active', via live-tournaments.tsx's own
+            status='active' filter, so activateTournament() could never
+            actually fire). Going Live and Prize Categories are both
+            builder/pre-Go-Live concerns now (Rick's brief, sections
+            4.7/4.10) — this tab keeps just the still-useful running-status
+            summary. */}
+        {tab === 'summary' && (
           <View>
             <Text style={s.sectionLabel}>TOURNAMENT SUMMARY</Text>
             <View style={s.summaryCard}>
@@ -950,32 +1010,10 @@ export default function TournamentDrawScreen() {
               </View>
             )}
 
-            <TouchableOpacity
-              style={s.prizesBtn}
-              onPress={() => router.push(`/(app)/admin/prizes?id=${competitionId}` as any)}
-              activeOpacity={0.8}
-            >
-              <Text style={s.prizesBtnText}>🏅  CONFIGURE PRIZES →</Text>
-            </TouchableOpacity>
-
-            {comp?.status === 'active' ? (
-              <View style={[s.activatedBanner]}>
-                <Ionicons name="checkmark-circle" size={18} color={GREEN} />
-                <Text style={[s.warnText, { color: GREEN }]}>Tournament is LIVE</Text>
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={[s.activateBtn, activating && { opacity: 0.6 }]}
-                onPress={activateTournament}
-                disabled={activating}
-                activeOpacity={0.85}
-              >
-                {activating
-                  ? <ActivityIndicator color="#000" />
-                  : <Text style={s.activateBtnText}>ACTIVATE TOURNAMENT</Text>
-                }
-              </TouchableOpacity>
-            )}
+            <View style={[s.activatedBanner]}>
+              <Ionicons name="checkmark-circle" size={18} color={GREEN} />
+              <Text style={[s.warnText, { color: GREEN }]}>Tournament is LIVE</Text>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -1041,7 +1079,202 @@ export default function TournamentDrawScreen() {
           />
         </View>
       </Modal>
+
+      <MatchAssignModal
+        visible={assignModalMatches !== null}
+        matches={assignModalMatches ?? []}
+        allMatches={matches}
+        teams={teams}
+        compPlayers={compPlayers}
+        days={days}
+        onClose={() => setAssignModalMatches(null)}
+        onSaved={load}
+      />
     </View>
+  );
+}
+
+// Shared by Manual generation (a whole day's worth of freshly-created
+// empty-slot matches) and Edit Match (a single existing match) — Rick's
+// brief, section 4.14. Duplicate-player prevention spans BOTH the match(es)
+// open in this modal AND every other already-saved match on the same day,
+// so a player can't end up in two matches at once within the same round.
+function MatchAssignModal({
+  visible, matches, allMatches, teams, compPlayers, days, onClose, onSaved,
+}: {
+  visible: boolean;
+  matches: MatchRow[];
+  allMatches: MatchRow[];
+  teams: TeamRow[];
+  compPlayers: CompPlayer[];
+  days: DayRow[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [working, setWorking] = useState<Record<string, { home: (string | null)[]; away: (string | null)[] }>>({});
+  const [pickerFor, setPickerFor] = useState<{ matchId: string; side: 'home' | 'away'; idx: number } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    const init: typeof working = {};
+    matches.forEach(m => {
+      const day = days.find(d => d.id === m.day_id);
+      const slots = day && PAIRS_DAY_FORMATS.includes(day.day_format ?? '') ? 2 : 1;
+      init[m.id] = {
+        home: Array.from({ length: slots }, (_, i) => m.home_player_ids[i] ?? null),
+        away: Array.from({ length: slots }, (_, i) => m.away_player_ids[i] ?? null),
+      };
+    });
+    setWorking(init);
+  }, [visible, matches, days]);
+
+  function usedElsewhere(matchId: string, side: 'home' | 'away', idx: number): Set<string> {
+    const used = new Set<string>();
+    const dayId = matches.find(m => m.id === matchId)?.day_id;
+    const inScopeIds = new Set(matches.map(m => m.id));
+    allMatches.forEach(am => {
+      if (am.day_id !== dayId || inScopeIds.has(am.id)) return;
+      am.home_player_ids.forEach(id => used.add(id));
+      am.away_player_ids.forEach(id => used.add(id));
+    });
+    Object.entries(working).forEach(([mid, w]) => {
+      w.home.forEach((id, i) => { if (id && !(mid === matchId && side === 'home' && i === idx)) used.add(id); });
+      w.away.forEach((id, i) => { if (id && !(mid === matchId && side === 'away' && i === idx)) used.add(id); });
+    });
+    return used;
+  }
+
+  function eligiblePlayers(matchId: string, side: 'home' | 'away', idx: number): CompPlayer[] {
+    const m = matches.find(mm => mm.id === matchId);
+    if (!m) return [];
+    const teamId = side === 'home' ? m.home_team_id : m.away_team_id;
+    const used = usedElsewhere(matchId, side, idx);
+    return compPlayers.filter(cp => cp.team_id === teamId && !used.has(cp.player_id));
+  }
+
+  function selectPlayer(playerId: string) {
+    if (!pickerFor) return;
+    const { matchId, side, idx } = pickerFor;
+    setWorking(prev => {
+      const arr = [...prev[matchId][side]];
+      arr[idx] = playerId;
+      return { ...prev, [matchId]: { ...prev[matchId], [side]: arr } };
+    });
+    setPickerFor(null);
+  }
+
+  function clearSlot(matchId: string, side: 'home' | 'away', idx: number) {
+    setWorking(prev => {
+      const arr = [...prev[matchId][side]];
+      arr[idx] = null;
+      return { ...prev, [matchId]: { ...prev[matchId], [side]: arr } };
+    });
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      for (const m of matches) {
+        const w = working[m.id];
+        if (!w) continue;
+        const { error } = await supabase.from('matches').update({
+          home_player_ids: w.home.filter((id): id is string => !!id),
+          away_player_ids: w.away.filter((id): id is string => !!id),
+        }).eq('id', m.id);
+        if (error) throw error;
+      }
+      onSaved();
+      onClose();
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Could not save player assignments.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const playerName = (id: string) => compPlayers.find(cp => cp.player_id === id)?.display_name ?? '—';
+
+  return (
+    <>
+      <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+        <View style={s.modal}>
+          <View style={s.modalHeader}>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={s.modalCancel}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={s.modalTitle}>{matches.length > 1 ? 'ASSIGN PLAYERS' : 'EDIT MATCH'}</Text>
+            <TouchableOpacity onPress={save} disabled={saving}>
+              {saving ? <ActivityIndicator color={GOLD} size="small" /> : <Text style={s.modalDone}>Save</Text>}
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+            {matches.map((m, mi) => {
+              const homeTeam = teams.find(t => t.id === m.home_team_id);
+              const awayTeam = teams.find(t => t.id === m.away_team_id);
+              const w = working[m.id];
+              if (!w) return null;
+              return (
+                <View key={m.id} style={s.assignMatchCard}>
+                  {matches.length > 1 && <Text style={s.assignMatchLabel}>MATCH {mi + 1}</Text>}
+
+                  <Text style={[s.assignTeamName, { color: homeTeam?.accent_color ?? '#fff' }]}>{homeTeam?.name ?? 'Team A'}</Text>
+                  {w.home.map((pid, idx) => (
+                    <TouchableOpacity key={`h${idx}`} style={s.assignSlot} onPress={() => setPickerFor({ matchId: m.id, side: 'home', idx })} activeOpacity={0.8}>
+                      <Text style={pid ? s.assignSlotText : s.assignSlotPlaceholder}>{pid ? playerName(pid) : 'Select Player'}</Text>
+                      {pid && (
+                        <TouchableOpacity onPress={() => clearSlot(m.id, 'home', idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Ionicons name="close-circle" size={16} color="#555" />
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+
+                  <Text style={s.assignVs}>VS</Text>
+
+                  <Text style={[s.assignTeamName, { color: awayTeam?.accent_color ?? '#fff' }]}>{awayTeam?.name ?? 'Team B'}</Text>
+                  {w.away.map((pid, idx) => (
+                    <TouchableOpacity key={`a${idx}`} style={s.assignSlot} onPress={() => setPickerFor({ matchId: m.id, side: 'away', idx })} activeOpacity={0.8}>
+                      <Text style={pid ? s.assignSlotText : s.assignSlotPlaceholder}>{pid ? playerName(pid) : 'Select Player'}</Text>
+                      {pid && (
+                        <TouchableOpacity onPress={() => clearSlot(m.id, 'away', idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Ionicons name="close-circle" size={16} color="#555" />
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Player picker — a second, smaller sheet on top, matching the sheet
+          pattern used elsewhere (e.g. NTP/LD winner pickers in admin/news.tsx). */}
+      <Modal visible={pickerFor !== null} transparent animationType="slide" onRequestClose={() => setPickerFor(null)}>
+        <TouchableOpacity style={s.pickerOverlay} activeOpacity={1} onPress={() => setPickerFor(null)} />
+        <View style={s.pickerSheet}>
+          <View style={s.pickerHeader}>
+            <Text style={s.pickerTitle}>Select Player</Text>
+            <TouchableOpacity onPress={() => setPickerFor(null)} activeOpacity={0.7}>
+              <Text style={s.pickerClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={pickerFor ? eligiblePlayers(pickerFor.matchId, pickerFor.side, pickerFor.idx) : []}
+            keyExtractor={cp => cp.player_id}
+            ListEmptyComponent={<Text style={[s.emptyText, { textAlign: 'center', padding: 20 }]}>No eligible players left on this team for this round.</Text>}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={s.pickerItem} onPress={() => selectPlayer(item.player_id)} activeOpacity={0.7}>
+                <Text style={s.pickerItemText}>{item.display_name}</Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -1148,16 +1381,13 @@ const s = StyleSheet.create({
 
   matchList: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#1c1c1c' },
   matchItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 6 },
+  editMatchBtn: { padding: 4 },
   matchTeam:    { fontFamily: 'JUSTSans-ExBold', fontSize: 13 },
   matchPlayers: { fontFamily: 'JUSTSans', fontSize: 11, color: '#fff', marginTop: 1 },
   vsText:       { fontFamily: 'JUSTSans', fontSize: 11, color: '#555', width: 20, textAlign: 'center' },
 
   summaryCard: { backgroundColor: '#111', borderRadius: 12, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 16 },
-  prizesBtn:     { borderWidth: 1, borderColor: GOLD + '55', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 12, backgroundColor: GOLD + '0D' },
-  prizesBtnText: { fontFamily: 'JUSTSans-ExBold', fontSize: 13, color: GOLD, letterSpacing: 0.5 },
 
-  activateBtn: { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
-  activateBtnText: { fontFamily: 'JUSTSans-ExBold', fontSize: 15, color: '#000', letterSpacing: 0.5 },
 
   modal: { flex: 1, backgroundColor: '#000' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
@@ -1171,4 +1401,25 @@ const s = StyleSheet.create({
   memberRowOn: { backgroundColor: GOLD + '0A' },
   memberName:  { fontFamily: 'JUSTSans-ExBold', fontSize: 14, color: '#fff' },
   memberHcp:   { fontFamily: 'JUSTSans', fontSize: 11, color: '#555', marginTop: 2 },
+
+  // Manual generation / Edit Match
+  assignMatchCard:  { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 14, marginBottom: 12 },
+  assignMatchLabel: { fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: '#888', letterSpacing: 1.5, marginBottom: 10 },
+  assignTeamName:   { fontFamily: 'JUSTSans-ExBold', fontSize: 14, marginBottom: 8 },
+  assignVs:         { fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: '#555', letterSpacing: 1, textAlign: 'center', marginVertical: 10 },
+  assignSlot: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#1a1a1a', borderRadius: 10, borderWidth: 1, borderColor: '#2a2a2a',
+    paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8,
+  },
+  assignSlotText:        { fontFamily: 'JUSTSans-ExBold', fontSize: 14, color: '#fff' },
+  assignSlotPlaceholder: { fontFamily: 'JUSTSans-ExBold', fontSize: 14, color: '#555' },
+
+  pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  pickerSheet:   { backgroundColor: '#111', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40, maxHeight: '60%', borderTopWidth: 1, borderColor: '#1c1c1c' },
+  pickerHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  pickerTitle:   { fontSize: 17, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
+  pickerClose:   { fontSize: 17, fontFamily: 'JUSTSans-ExBold', color: '#fff', paddingHorizontal: 8 },
+  pickerItem:    { paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
+  pickerItemText:{ fontSize: 16, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
 });

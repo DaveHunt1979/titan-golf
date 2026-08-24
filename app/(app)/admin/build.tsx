@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   View, Text, ScrollView, StyleSheet, TextInput,
   TouchableOpacity, KeyboardAvoidingView, Platform,
@@ -16,6 +16,8 @@ import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { uploadImage } from '../../../src/lib/uploadImage';
 import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
+import { individualBoardLabel } from '../../../src/lib/tournamentFormat';
+import PrizeCategoriesEditor from '../../../src/components/PrizeCategoriesEditor';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -117,6 +119,18 @@ const HCP_OPTIONS = [
 
 interface DayConfig {
   courseName: string;
+  // Slope/course rating were never captured anywhere in the builder, so
+  // every tournament round got course_rating=NULL — which silently forces
+  // every screen's WHS course-handicap conversion into its "no rating
+  // available" fallback (a bare rounded handicap index) for every course,
+  // every tournament, always. Same manual-entry pattern as Swindle's create
+  // screen (app/(app)/swindle/create.tsx), since there's no course-level
+  // ratings table to look these up from.
+  slopeRating: string;
+  courseRating: string;
+  teeName: string;
+  teeTime: string;
+  playDate: string;
   format: DayFormatId;
   hcpPct: number;
   ldEnabled: boolean;
@@ -134,6 +148,10 @@ interface DraftPlayer {
 }
 interface DraftMember { player_id: string; display_name: string; handicap_index: number | null; team_id: string | null; avatar_url: string | null; }
 interface SquadTeam { id: string; name: string; accent_color: string; logo_url: string | null; }
+// jumpToStep takes the organiser back into the wizard; externalRoute is for
+// setup that doesn't live in the wizard yet (Prize Categories, until 4.7
+// moves it in) — Go Live must be blocked on both kinds either way.
+interface GoLiveIssue { label: string; jumpToStep?: number; externalRoute?: string; }
 
 function getSquadTeamLogo(team: SquadTeam) {
   if (team.logo_url) return { uri: team.logo_url };
@@ -141,11 +159,16 @@ function getSquadTeamLogo(team: SquadTeam) {
   return key ? teamLogos[key] : null;
 }
 
-const STEPS = ['Format', 'Details', 'Days', 'Draft'];
+const STEPS = ['Format', 'Details', 'Days', 'Draft', 'Prizes', 'Info Pack', 'Review'];
 
 function ukDateToIso(ukDate: string): string {
   const [dd, mm, yyyy] = ukDate.trim().split('-');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function isoToUk(iso: string): string {
+  const [yyyy, mm, dd] = iso.split('-');
+  return `${dd}-${mm}-${yyyy}`;
 }
 
 function ukDateToDate(ukDate: string): Date {
@@ -160,9 +183,27 @@ function dateToUk(d: Date): string {
   return `${dd}-${mm}-${d.getFullYear()}`;
 }
 
+function dateToHm(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function hmToDate(hm: string): Date {
+  const d = new Date();
+  if (/^\d{2}:\d{2}$/.test(hm)) {
+    const [h, m] = hm.split(':').map(Number);
+    d.setHours(h, m, 0, 0);
+  }
+  return d;
+}
+
 export default function BuildTournamentScreen() {
   const router = useRouter();
   const { societyId } = useAdminSociety();
+  // Presence of ?id= means "amend an existing draft" (Rick's brief, section
+  // 4.8) rather than "create a new tournament" — the whole builder becomes
+  // an editor for that row instead of resetting to blank on every focus.
+  const { id: editCompId } = useLocalSearchParams<{ id?: string }>();
+  const [loadingExisting, setLoadingExisting] = useState(false);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -170,6 +211,13 @@ export default function BuildTournamentScreen() {
   });
 
   const [step, setStep] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  // Every step shares one ScrollView (no separate screen per step), so
+  // advancing/going back from a scrolled-down position (e.g. the bottom of
+  // a long Details form) used to land the next step still scrolled to that
+  // same offset — Round Setup "opening at the bottom" was this, not
+  // anything specific to that step.
+  useEffect(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, [step]);
   const [selectedFormat, setSelectedFormat] = useState<FormatId | null>(null);
   const [name, setName]                     = useState('');
   const [year, setYear]                     = useState(String(new Date().getFullYear() + 1));
@@ -178,6 +226,7 @@ export default function BuildTournamentScreen() {
   const [ptsHalf, setPtsHalf]             = useState('0.5');
   const [openingRounds, setOpeningRounds] = useState('3');
   const [bonusPoints, setBonusPoints]     = useState('2');
+  const [sweepBonusEnabled, setSweepBonusEnabled] = useState(true);
   const [includeInKronos, setIncludeInKronos] = useState(false);
   const [voiceEnabled, setVoiceEnabled]        = useState(false);
   const [statsEnabled, setStatsEnabled]        = useState(false);
@@ -193,6 +242,8 @@ export default function BuildTournamentScreen() {
   const [courses, setCourses]             = useState<CourseItem[]>([]);
   const [courseHolesMap, setCourseHolesMap] = useState<Record<string, CourseHole[]>>({});
   const [courseSheetDay, setCourseSheetDay] = useState<number | null>(null);
+  const [dayDatePickerFor, setDayDatePickerFor] = useState<number | null>(null);
+  const [dayTimePickerFor, setDayTimePickerFor] = useState<number | null>(null);
 
   // Draft step (player selection) — only usable once the competition shell
   // actually exists, since competition_players needs a real competition_id.
@@ -213,6 +264,8 @@ export default function BuildTournamentScreen() {
   const [teamPlayerBusy, setTeamPlayerBusy] = useState<string | null>(null);
   const [adding, setAdding]               = useState(false);
   const [finishing, setFinishing]         = useState(false);
+  const [validatingGoLive, setValidatingGoLive] = useState(false);
+  const [goLiveIssues, setGoLiveIssues]   = useState<GoLiveIssue[] | null>(null);
 
   useEffect(() => {
     // Same course list Casual Round's picker uses — course_holes.course_name
@@ -238,6 +291,10 @@ export default function BuildTournamentScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => {
+    // Edit mode owns its own load below — resetting here would immediately
+    // wipe out whatever it just fetched (or race with it), depending on
+    // focus timing.
+    if (editCompId) return;
     setStep(0);
     setSelectedFormat(null);
     setName('');
@@ -247,6 +304,7 @@ export default function BuildTournamentScreen() {
     setPtsHalf('0.5');
     setOpeningRounds('3');
     setBonusPoints('2');
+    setSweepBonusEnabled(true);
     setIncludeInKronos(false);
     setDescription('');
     setStartDate('');
@@ -262,7 +320,70 @@ export default function BuildTournamentScreen() {
     setPlayersPerTeam('4');
     setExpandedTeamId(null);
     setTeamRosterCache({});
-  }, []));
+  }, [editCompId]));
+
+  // Loads an existing DRAFT tournament's full state for editing — everything
+  // build.tsx already knows how to render, just hydrated from the DB instead
+  // of starting blank. Only drafts are editable here; a live/complete
+  // tournament's structural setup is frozen (Rick's brief: Make Amendments
+  // only applies "while a tournament is still in Draft" — editing a LIVE
+  // tournament's players/draws is a separate, already-existing area).
+  useEffect(() => {
+    if (!editCompId) return;
+    (async () => {
+      setLoadingExisting(true);
+      const { data: comp } = await supabase.from('competitions').select('*').eq('id', editCompId).single();
+      if (!comp) {
+        setLoadingExisting(false);
+        Alert.alert('Not found', 'This tournament could not be loaded.');
+        goBack(router, '/(app)/admin/hub-tournament');
+        return;
+      }
+      const c = comp as any;
+      if (c.status !== 'draft') {
+        setLoadingExisting(false);
+        Alert.alert('Already live', 'Only draft tournaments can be edited here — use Live Tournaments to manage one that has already gone live.');
+        goBack(router, '/(app)/admin/hub-tournament');
+        return;
+      }
+
+      setSelectedFormat(c.format);
+      setName(c.name ?? '');
+      setYear(String(c.year ?? new Date().getFullYear() + 1));
+      setPtsWin(String(c.pts_win ?? 1));
+      setPtsHalf(String(c.pts_half ?? 0.5));
+      setOpeningRounds(String(c.opening_rounds || 3));
+      setBonusPoints(String(c.bonus_points || 2));
+      setSweepBonusEnabled((c.bonus_points ?? 0) > 0);
+      setIncludeInKronos(!!c.include_in_kronos);
+      setDescription(c.description ?? '');
+      setStartDate(c.start_date ? isoToUk(c.start_date) : '');
+      setEndDate(c.end_date ? isoToUk(c.end_date) : '');
+      setNumTeams(String(c.settings?.num_teams ?? 2));
+      setMaxHandicap(c.max_handicap != null ? String(c.max_handicap) : '');
+      setCompId(c.id);
+      setCompPin(c.pin ?? null);
+
+      const { data: daysData } = await supabase
+        .from('competition_days').select('*').eq('competition_id', editCompId).order('day_number');
+      const loadedDays: DayConfig[] = ((daysData ?? []) as any[]).map(d => ({
+        courseName:   d.course_name ?? '',
+        slopeRating:  d.slope_rating != null ? String(d.slope_rating) : '113',
+        courseRating: d.course_rating != null ? String(d.course_rating) : '',
+        teeName:      d.tee_name ?? '',
+        teeTime:      d.tee_time ? String(d.tee_time).slice(0, 5) : '',
+        playDate:     d.play_date ? isoToUk(d.play_date) : '',
+        format:       (d.day_format ?? 'four_bbb') as DayFormatId,
+        hcpPct:       d.hcp_pct ?? 100,
+        ldEnabled:    d.ld_hole != null,  ldHole:  d.ld_hole ?? null,
+        ntpEnabled:   d.ntp_hole != null, ntpHole: d.ntp_hole ?? null,
+      }));
+      setDays(loadedDays);
+
+      setStep(1);
+      setLoadingExisting(false);
+    })();
+  }, [editCompId]);
 
   const formatDef = COMP_FORMATS.find(f => f.id === selectedFormat);
 
@@ -274,7 +395,7 @@ export default function BuildTournamentScreen() {
       const isLastDay = i === f.defaultDays - 1;
       const isTour = f.id === 'team_matchplay' || f.id === 'titan_way';
       return {
-        courseName: '',
+        courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeTime: '', playDate: '',
         format: isLastDay && isTour ? 'singles' : f.defaultDayFormat,
         hcpPct: isLastDay && isTour ? 85 : f.defaultHcp,
         ldEnabled: false, ldHole: null,
@@ -300,7 +421,7 @@ export default function BuildTournamentScreen() {
   function addDay() {
     if (days.length >= 10) return;
     setDays(prev => [...prev, {
-      courseName: '',
+      courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeTime: '', playDate: '',
       format: formatDef?.defaultDayFormat ?? 'four_bbb',
       hcpPct: formatDef?.defaultHcp ?? 75,
       ldEnabled: false, ldHole: null,
@@ -337,8 +458,14 @@ export default function BuildTournamentScreen() {
   // Creates the competition + day rows the first time step 2 → 3 happens,
   // then just advances on any later visit — going back to tweak Days and
   // forward again must not insert a second competition.
+  // Handles both first-time creation AND re-saving an existing DRAFT
+  // tournament's Details/Days edits (Rick's brief, 2026-08-22, section 4.8 —
+  // Make Amendments merged into the builder). Safe to always fully replace
+  // the day rows on every save: a draft-status competition never has any
+  // matches/scores yet (those aren't generated until Live Tournament's
+  // per-round draw), so there's nothing downstream a day-row swap could
+  // corrupt — that protection only matters once a tournament is live.
   async function createShellAndAdvance() {
-    if (compId) { setStep(3); return; }
     if (!selectedFormat || !name.trim()) return;
     if (!societyId) { Alert.alert('Error', 'Society not found.'); return; }
 
@@ -377,44 +504,64 @@ export default function BuildTournamentScreen() {
       track_stats_enabled: statsEnabled,
     };
 
-    // A collision makes verifyPin's .single() lookup fail as "Wrong PIN" for
-    // whichever tournament loses the race — worth a few retries rather than
-    // trusting a single random draw not to repeat an existing active PIN.
-    let pin = String(1000 + Math.floor(Math.random() * 9000));
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const { data: existing } = await supabase.from('competitions').select('id').eq('pin', pin).limit(1).maybeSingle();
-      if (!existing) break;
+    const sharedFields = {
+      name:            name.trim(),
+      year:            parseInt(year, 10) || new Date().getFullYear() + 1,
+      format:          selectedFormat,
+      tournament_type: tournamentType(selectedFormat),
+      pts_win:         isMatchplay ? winPts  : 1,
+      pts_half:        isMatchplay ? halfPts : 0.5,
+      // Captain Rotation is Titan Way-exclusive (Rick's brief, section 4.2)
+      // — every other matchplay format gets 0, never the organiser's typed
+      // value, so the DB row itself carries no rotation to apply.
+      opening_rounds:  selectedFormat === 'titan_way' ? openingRoundsN : 0,
+      // bonus_points = 0 already functions as a full "off" switch across
+      // every calcSweepBonus call site (tour/index.tsx, admin/draw.tsx,
+      // titanNews.ts) — no separate enabled/disabled column needed.
+      bonus_points:    isMatchplay && sweepBonusEnabled ? bonusPointsN : 0,
+      description:     description.trim() || null,
+      start_date:      startDate.trim() ? ukDateToIso(startDate.trim()) : null,
+      end_date:        endDate.trim()   ? ukDateToIso(endDate.trim())   : null,
+      max_handicap:    maxHandicapN,
+      settings,
+      include_in_kronos: includeInKronos,
+    };
+
+    let comp: { id: string };
+    let pin = compPin;
+
+    if (compId) {
+      // Editing an existing draft — update in place, never touch status/pin.
+      const { error: updErr } = await supabase.from('competitions').update(sharedFields).eq('id', compId);
+      if (updErr) {
+        setCreating(false);
+        Alert.alert('Error', updErr.message);
+        return;
+      }
+      comp = { id: compId };
+    } else {
+      // A collision makes verifyPin's .single() lookup fail as "Wrong PIN" for
+      // whichever tournament loses the race — worth a few retries rather than
+      // trusting a single random draw not to repeat an existing active PIN.
       pin = String(1000 + Math.floor(Math.random() * 9000));
-    }
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const { data: existing } = await supabase.from('competitions').select('id').eq('pin', pin).limit(1).maybeSingle();
+        if (!existing) break;
+        pin = String(1000 + Math.floor(Math.random() * 9000));
+      }
 
-    const { data: comp, error: compErr } = await supabase
-      .from('competitions')
-      .insert({
-        society_id:      societyId,
-        name:            name.trim(),
-        year:            parseInt(year, 10) || new Date().getFullYear() + 1,
-        format:          selectedFormat,
-        tournament_type: tournamentType(selectedFormat),
-        pts_win:         isMatchplay ? winPts  : 1,
-        pts_half:        isMatchplay ? halfPts : 0.5,
-        opening_rounds:  isMatchplay ? openingRoundsN : 0,
-        bonus_points:    isMatchplay ? bonusPointsN   : 0,
-        description:     description.trim() || null,
-        start_date:      startDate.trim() ? ukDateToIso(startDate.trim()) : null,
-        end_date:        endDate.trim()   ? ukDateToIso(endDate.trim())   : null,
-        max_handicap:    maxHandicapN,
-        status:          'draft',
-        settings,
-        include_in_kronos: includeInKronos,
-        pin,
-      })
-      .select()
-      .single();
+      const { data, error: compErr } = await supabase
+        .from('competitions')
+        .insert({ ...sharedFields, society_id: societyId, status: 'draft', pin })
+        .select()
+        .single();
 
-    if (compErr || !comp) {
-      setCreating(false);
-      Alert.alert('Error', compErr?.message ?? 'Could not create competition');
-      return;
+      if (compErr || !data) {
+        setCreating(false);
+        Alert.alert('Error', compErr?.message ?? 'Could not create competition');
+        return;
+      }
+      comp = data;
     }
 
     if (logoUri) {
@@ -426,10 +573,28 @@ export default function BuildTournamentScreen() {
       }
     }
 
+    // Replace every day row wholesale rather than diffing — see the function
+    // comment above for why that's safe pre-Go-Live.
+    const { error: delDaysErr } = await supabase.from('competition_days').delete().eq('competition_id', comp.id);
+    if (delDaysErr) {
+      setCreating(false);
+      Alert.alert('Error', delDaysErr.message);
+      return;
+    }
+
     const dayRows = days.map((d, i) => ({
       competition_id: comp.id,
       day_number:     i + 1,
       course_name:    d.courseName.trim() || null,
+      // course_par was also never written (silently defaulting to the DB's
+      // generic 72) — this is the one place a specific course's actual par
+      // is known, from the course_holes sum computed into `courses` on load.
+      course_par:     courses.find(c => c.name === d.courseName)?.par ?? null,
+      course_rating:  d.courseRating.trim() ? (parseFloat(d.courseRating) || null) : null,
+      slope_rating:   parseInt(d.slopeRating, 10) || 113,
+      tee_name:       d.teeName.trim() || null,
+      tee_time:       d.teeTime || null,
+      play_date:      d.playDate ? ukDateToIso(d.playDate) : null,
       day_format:     d.format,
       hcp_pct:        d.hcpPct,
       ld_hole:        d.ldEnabled  ? d.ldHole  : null,
@@ -440,7 +605,7 @@ export default function BuildTournamentScreen() {
     setCreating(false);
 
     if (daysErr) {
-      Alert.alert('Warning', 'Created but days failed: ' + daysErr.message);
+      Alert.alert('Warning', (compId ? 'Saved, but round setup failed: ' : 'Created, but round setup failed: ') + daysErr.message);
       return;
     }
 
@@ -594,17 +759,56 @@ export default function BuildTournamentScreen() {
     await loadDraft();
   }
 
+  // Everything the organiser needs to have configured before Go Live
+  // (Rick's brief, 2026-08-22, section 4.10) — previously this only checked
+  // Titan Way's team/player minimums; nothing stopped Going Live with no
+  // course picked, no prize categories, or no players at all.
+  async function computeGoLiveIssues(): Promise<GoLiveIssue[]> {
+    const issues: GoLiveIssue[] = [];
+    const enrolledCount = compPlayers.filter(cp => cp.status !== 'declined').length;
+
+    if (name.trim().length < 2) issues.push({ label: 'Tournament Name — not set', jumpToStep: 1 });
+    if (!startDate.trim())      issues.push({ label: 'Start Date — not set', jumpToStep: 1 });
+    if (!endDate.trim())        issues.push({ label: 'End Date — not set', jumpToStep: 1 });
+    if (startDate.trim() && endDate.trim() && ukDateToDate(endDate) < ukDateToDate(startDate)) {
+      issues.push({ label: 'End Date — falls before Start Date', jumpToStep: 1 });
+    }
+    if (!selectedFormat) issues.push({ label: 'Tournament Format — not selected', jumpToStep: 0 });
+
+    if (days.length === 0) issues.push({ label: 'Rounds — none configured', jumpToStep: 2 });
+    days.forEach((d, i) => {
+      if (!d.courseName.trim()) issues.push({ label: `Round ${i + 1} — Course not selected`, jumpToStep: 2 });
+      if (!d.teeName.trim())    issues.push({ label: `Round ${i + 1} — Tee not selected`, jumpToStep: 2 });
+    });
+
+    if (enrolledCount === 0) issues.push({ label: 'Players — none enrolled', jumpToStep: 3 });
+    if (isMatchplay && pickedTeamIds.size < numTeamsN) {
+      issues.push({ label: `Teams — only ${pickedTeamIds.size} of ${numTeamsN} teams have players`, jumpToStep: 3 });
+    }
+    if (selectedFormat === 'titan_way') {
+      if (numTeamsN < 4)        issues.push({ label: 'Titan Way needs at least 4 teams', jumpToStep: 1 });
+      if (enrolledCount < 16)   issues.push({ label: `Titan Way needs at least 16 players — currently ${enrolledCount}`, jumpToStep: 3 });
+    }
+
+    if (compId) {
+      const { count } = await supabase
+        .from('prize_categories').select('id', { count: 'exact', head: true }).eq('competition_id', compId);
+      if (!count) issues.push({ label: 'Prize Categories — not configured', jumpToStep: 4 });
+    }
+
+    return issues;
+  }
+
   // The draw itself (pairings/matches) and the actual go-live flip happen
   // in Live Tournaments, not here — squad changes right up to the last
   // minute (drop-outs) are safer handled closer to tee-off, not baked in
   // at build time.
   async function finishDraft() {
     if (!compId || !compPin) return;
-    if (selectedFormat === 'titan_way') {
-      const enrolledCount = compPlayers.filter(cp => cp.status !== 'declined').length;
-      if (numTeamsN < 4) { Alert.alert('Not enough teams', 'Titan Way needs at least 4 teams.'); return; }
-      if (enrolledCount < 16) { Alert.alert('Not enough players', `Titan Way needs at least 16 players — currently ${enrolledCount}.`); return; }
-    }
+    setValidatingGoLive(true);
+    const issues = await computeGoLiveIssues();
+    setValidatingGoLive(false);
+    if (issues.length > 0) { setGoLiveIssues(issues); return; }
     setFinishing(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -638,7 +842,7 @@ export default function BuildTournamentScreen() {
     router.replace('/(app)/admin/hub-tournament' as any);
   }
 
-  function next() { setStep(s => Math.min(s + 1, 3)); }
+  function next() { setStep(s => Math.min(s + 1, 6)); }
   function back() {
     if (step === 0) goBack(router, '/(app)/admin/hub-tournament');
     else setStep(s => s - 1);
@@ -650,7 +854,7 @@ export default function BuildTournamentScreen() {
     true,
   ][step] ?? true;
 
-  if (!fontsLoaded) return (
+  if (!fontsLoaded || loadingExisting) return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
     </View>
@@ -670,7 +874,7 @@ export default function BuildTournamentScreen() {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Image source={titanLogo} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.headerTitle}>BUILD TOURNAMENT</Text>
+          <Text style={styles.headerTitle}>{editCompId ? 'AMEND TOURNAMENT' : 'BUILD TOURNAMENT'}</Text>
           <Text style={styles.headerSub}>step {step + 1} of {STEPS.length}</Text>
         </View>
         {/* Step dots */}
@@ -681,7 +885,7 @@ export default function BuildTournamentScreen() {
         </View>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Step 0: Format */}
         {step === 0 && (
@@ -764,7 +968,7 @@ export default function BuildTournamentScreen() {
               multiline
             />
 
-            <Text style={styles.fieldLabel}>START DATE (OPTIONAL)</Text>
+            <Text style={styles.fieldLabel}>START DATE</Text>
             <TouchableOpacity style={styles.input} onPress={() => setShowStartPicker(true)} activeOpacity={0.8}>
               <Text style={{ fontFamily: FF, fontSize: 15, color: startDate ? '#fff' : '#444' }}>
                 {startDate || 'DD-MM-YYYY'}
@@ -782,7 +986,7 @@ export default function BuildTournamentScreen() {
               />
             )}
 
-            <Text style={styles.fieldLabel}>END DATE (OPTIONAL)</Text>
+            <Text style={styles.fieldLabel}>END DATE</Text>
             <TouchableOpacity style={styles.input} onPress={() => setShowEndPicker(true)} activeOpacity={0.8}>
               <Text style={{ fontFamily: FF, fontSize: 15, color: endDate ? '#fff' : '#444' }}>
                 {endDate || 'DD-MM-YYYY'}
@@ -870,34 +1074,57 @@ export default function BuildTournamentScreen() {
                   placeholderTextColor="#444"
                   keyboardType="decimal-pad"
                 />
-                <Text style={styles.fieldLabel}>OPENING ROUNDS</Text>
-                <Text style={styles.stepSub}>Each team's captain plays with a different teammate on each of these opening days, before pairings are drawn freely.</Text>
-                <TextInput
-                  style={styles.input}
-                  value={openingRounds}
-                  onChangeText={setOpeningRounds}
-                  placeholder="3"
-                  placeholderTextColor="#444"
-                  keyboardType="number-pad"
-                />
+                {/* Captain Rotation is Titan Way-exclusive (Rick's brief,
+                    section 4.2) — every other matchplay format hides this
+                    entirely rather than just defaulting it off. */}
+                {selectedFormat === 'titan_way' && (
+                  <>
+                    <Text style={styles.fieldLabel}>OPENING ROUNDS</Text>
+                    <Text style={styles.stepSub}>Each team's captain plays with a different teammate on each of these opening days, before pairings are drawn freely.</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={openingRounds}
+                      onChangeText={setOpeningRounds}
+                      placeholder="3"
+                      placeholderTextColor="#444"
+                      keyboardType="number-pad"
+                    />
+                  </>
+                )}
                 <Text style={styles.fieldLabel}>SWEEP BONUS</Text>
-                <Text style={styles.stepSub}>Extra points awarded to a team that wins every singles match on a day.</Text>
-                <TextInput
-                  style={styles.input}
-                  value={bonusPoints}
-                  onChangeText={setBonusPoints}
-                  placeholder="2"
-                  placeholderTextColor="#444"
-                  keyboardType="decimal-pad"
-                />
+                <View style={styles.toggleRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.toggleLabel}>Award Sweep Bonus</Text>
+                    <Text style={styles.toggleSub}>Extra points awarded to a team that wins every singles match on a day.</Text>
+                  </View>
+                  <Switch
+                    value={sweepBonusEnabled}
+                    onValueChange={setSweepBonusEnabled}
+                    trackColor={{ false: '#1c1c1c', true: `${GOLD}66` }}
+                    thumbColor={sweepBonusEnabled ? GOLD : '#555'}
+                  />
+                </View>
+                {sweepBonusEnabled && (
+                  <>
+                    <Text style={styles.fieldLabel}>SWEEP BONUS POINTS</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={bonusPoints}
+                      onChangeText={setBonusPoints}
+                      placeholder="2"
+                      placeholderTextColor="#444"
+                      keyboardType="decimal-pad"
+                    />
+                  </>
+                )}
               </>
             )}
 
-            <Text style={styles.fieldLabel}>KRONOS TROPHY</Text>
+            <Text style={styles.fieldLabel}>{individualBoardLabel(selectedFormat).toUpperCase()} TROPHY</Text>
             <View style={styles.toggleRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.toggleLabel}>Include in Kronos Trophy</Text>
-                <Text style={styles.toggleSub}>Individual Stableford scores count toward this tournament's Kronos standings</Text>
+                <Text style={styles.toggleLabel}>Include in {individualBoardLabel(selectedFormat)} Trophy</Text>
+                <Text style={styles.toggleSub}>Individual Stableford scores count toward this tournament's {individualBoardLabel(selectedFormat)} standings</Text>
               </View>
               <Switch
                 value={includeInKronos}
@@ -957,6 +1184,82 @@ export default function BuildTournamentScreen() {
                   </Text>
                   <Ionicons name="chevron-down" size={16} color="#666" />
                 </TouchableOpacity>
+
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldLabel}>TEE</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={day.teeName}
+                      onChangeText={v => updateDay(i, { teeName: v })}
+                      placeholder="e.g. White"
+                      placeholderTextColor="#444"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldLabel}>DATE</Text>
+                    <TouchableOpacity style={styles.input} onPress={() => setDayDatePickerFor(i)} activeOpacity={0.8}>
+                      <Text style={{ fontFamily: FF, fontSize: 15, color: day.playDate ? '#fff' : '#444' }}>
+                        {day.playDate || 'DD-MM-YYYY'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldLabel}>TEE TIME</Text>
+                    <TouchableOpacity style={styles.input} onPress={() => setDayTimePickerFor(i)} activeOpacity={0.8}>
+                      <Text style={{ fontFamily: FF, fontSize: 15, color: day.teeTime ? '#fff' : '#444' }}>
+                        {day.teeTime || '--:--'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                {dayDatePickerFor === i && (
+                  <DateTimePicker
+                    value={day.playDate ? ukDateToDate(day.playDate) : (startDate ? ukDateToDate(startDate) : new Date())}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    onChange={(_event, selected) => {
+                      setDayDatePickerFor(null);
+                      if (selected) updateDay(i, { playDate: dateToUk(selected) });
+                    }}
+                  />
+                )}
+                {dayTimePickerFor === i && (
+                  <DateTimePicker
+                    value={hmToDate(day.teeTime)}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(_event, selected) => {
+                      setDayTimePickerFor(null);
+                      if (selected) updateDay(i, { teeTime: dateToHm(selected) });
+                    }}
+                  />
+                )}
+
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldLabel}>SLOPE RATING</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={day.slopeRating}
+                      onChangeText={v => updateDay(i, { slopeRating: v })}
+                      placeholder="113"
+                      placeholderTextColor="#444"
+                      keyboardType="number-pad"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldLabel}>COURSE RATING</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={day.courseRating}
+                      onChangeText={v => updateDay(i, { courseRating: v })}
+                      placeholder="e.g. 71.2"
+                      placeholderTextColor="#444"
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                </View>
 
                 <Text style={styles.fieldLabel}>FORMAT</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
@@ -1240,14 +1543,59 @@ export default function BuildTournamentScreen() {
                 )}
               </>
             )}
+          </View>
+        )}
 
+        {/* Step 4: Prize Categories — reuses the exact same component as the
+            standalone admin/prizes.tsx screen (Rick's brief, section 4.7:
+            "do not create a duplicate prize system"). Go Live moved here
+            since prize categories are now a required part of setup. */}
+        {step === 4 && compId && (
+          <View>
+            <Text style={styles.stepTitle}>Prize Categories</Text>
+            <Text style={styles.stepSub}>Configure prize money before going live — you can still add or edit these later from Live Tournaments.</Text>
+
+            <PrizeCategoriesEditor competitionId={compId} />
+          </View>
+        )}
+
+        {/* Step 5: Info Pack — reuses the existing editor (admin/info.tsx)
+            via navigation rather than embedding its ~550 lines inline; that
+            screen previously only worked for an already-active tournament,
+            fixed to accept ?id= so it can target this still-draft one. */}
+        {step === 5 && compId && (
+          <View>
+            <Text style={styles.stepTitle}>Info Pack</Text>
+            <Text style={styles.stepSub}>Schedule, travel, rules and contacts players will see for this tournament. Optional — can be added any time.</Text>
             <TouchableOpacity
-              style={[styles.createBtn, (finishing || compPlayers.length === 0) && { opacity: 0.6 }]}
-              onPress={finishDraft}
-              disabled={finishing || compPlayers.length === 0}
+              style={styles.infoPackBtn}
+              onPress={() => router.push(`/(app)/admin/info?id=${compId}&back=/(app)/admin/build?id=${compId}` as any)}
               activeOpacity={0.85}
             >
-              {finishing
+              <Ionicons name="document-text-outline" size={18} color={GOLD} />
+              <Text style={styles.infoPackBtnText}>Edit Info Pack</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Step 6: Review — everything above should already be configured;
+            this is the final check before Go Live (Rick's brief, section
+            4.11's 9-step flow). */}
+        {step === 6 && (
+          <View>
+            <Text style={styles.stepTitle}>Review Tournament</Text>
+            <Text style={styles.stepSub}>{name || 'Untitled tournament'} · {formatDef?.label ?? selectedFormat} · {days.length} round{days.length === 1 ? '' : 's'} · {compPlayers.filter(cp => cp.status !== 'declined').length} player{compPlayers.filter(cp => cp.status !== 'declined').length === 1 ? '' : 's'}</Text>
+            <Text style={[styles.stepSub, { marginTop: 12 }]}>
+              Tapping Finish & Go Live checks everything required is configured — anything missing will be listed so you can jump straight to it.
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.createBtn, (finishing || validatingGoLive || compPlayers.length === 0) && { opacity: 0.6 }]}
+              onPress={finishDraft}
+              disabled={finishing || validatingGoLive || compPlayers.length === 0}
+              activeOpacity={0.85}
+            >
+              {(finishing || validatingGoLive)
                 ? <ActivityIndicator color="#000" />
                 : <Text style={styles.createBtnText}>Finish & Go Live</Text>
               }
@@ -1257,7 +1605,7 @@ export default function BuildTournamentScreen() {
 
       </ScrollView>
 
-      {step < 3 && (
+      {step < 6 && (
         <View style={styles.footer}>
           <TouchableOpacity
             style={[styles.nextBtn, (!canNext || creating) && styles.nextBtnOff]}
@@ -1279,6 +1627,17 @@ export default function BuildTournamentScreen() {
         selected={courseSheetDay !== null ? days[courseSheetDay]?.courseName ?? null : null}
         onSelect={name => { if (courseSheetDay !== null) updateDay(courseSheetDay, { courseName: name }); }}
         onClose={() => setCourseSheetDay(null)}
+      />
+
+      <GoLiveIssuesSheet
+        visible={goLiveIssues !== null}
+        issues={goLiveIssues ?? []}
+        onJump={issue => {
+          setGoLiveIssues(null);
+          if (issue.externalRoute) router.push(issue.externalRoute as any);
+          else if (issue.jumpToStep != null) setStep(issue.jumpToStep);
+        }}
+        onClose={() => setGoLiveIssues(null)}
       />
 
       {/* Add Players modal — same picker draw.tsx used, ported in so the
@@ -1418,6 +1777,41 @@ function CourseSheet({
 }
 
 
+// Custom sheet, not Alert.alert — every confirm/choice surface in this app
+// is on-brand, never a native popup. Each issue is tappable, taking the
+// organiser straight back to wherever it needs fixing (Rick's brief,
+// section 4.10: "tap the issue and... be taken directly to the relevant
+// setup area").
+function GoLiveIssuesSheet({
+  visible, issues, onJump, onClose,
+}: {
+  visible: boolean; issues: GoLiveIssue[]; onJump: (issue: GoLiveIssue) => void; onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={sheetStyles.overlay} activeOpacity={1} onPress={onClose} />
+      <View style={sheetStyles.sheet}>
+        <View style={sheetStyles.handle} />
+        <Text style={sheetStyles.sheetTitle}>Tournament setup is incomplete</Text>
+        <FlatList
+          data={issues}
+          keyExtractor={(_, i) => String(i)}
+          style={{ flexGrow: 0, maxHeight: 360 }}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={sheetStyles.sheetRow} onPress={() => onJump(item)} activeOpacity={0.7}>
+              <Text style={sheetStyles.sheetOpt} numberOfLines={2}>{item.label}</Text>
+              <Ionicons name="chevron-forward" size={16} color="#666" />
+            </TouchableOpacity>
+          )}
+        />
+        <TouchableOpacity style={sheetStyles.cancelBtn} onPress={onClose} activeOpacity={0.7}>
+          <Text style={sheetStyles.cancelText}>Close</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
 
@@ -1532,6 +1926,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16, alignItems: 'center', marginTop: 20,
   },
   createBtnText: { fontSize: 15, fontFamily: FFB, color: '#000', letterSpacing: 0.5 },
+
+  infoPackBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: `${GOLD}1A`, borderWidth: 1, borderColor: `${GOLD}55`,
+    borderRadius: 12, paddingVertical: 16, marginTop: 12,
+  },
+  infoPackBtnText: { fontSize: 14, fontFamily: FFB, color: GOLD, letterSpacing: 0.5 },
 
   // Draft step
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },

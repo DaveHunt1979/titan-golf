@@ -31,6 +31,7 @@ import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
 import { dedupeInitials } from '../../../../src/lib/playerDisplay';
 import { formatRoundDuration } from '../../../../src/lib/roundTimer';
+import { individualBoardLabel } from '../../../../src/lib/tournamentFormat';
 import EagleAlert, { type EagleType } from '../../../../src/components/EagleAlert';
 import { IS_PAD, GPS_PANEL_ENABLED } from '../../../../src/lib/useDeviceLayout';
 import GPSPanel from '../../../../src/components/ipad/GPSPanel';
@@ -1184,7 +1185,7 @@ export default function EnterScoresScreen() {
             : 'Stableford';
           const reason = match.secondary_format
             ? `You have a ${secLabel} secondary game running`
-            : `This tournament's Kronos standings need every hole's Stableford points`;
+            : `This tournament's ${individualBoardLabel(match.day?.competition?.format)} standings need every hole's Stableford points`;
           Alert.alert(
             'Matchplay Complete',
             `${msg}\n\n${reason} — continue to finish all 18 holes.`,

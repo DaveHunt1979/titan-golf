@@ -256,9 +256,27 @@
   },
   "hotPaths": [
     {
+      "path": "app/(app)/admin/draw.tsx",
+      "accessCount": 56,
+      "lastAccessed": 1787553403634,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 39,
-      "lastAccessed": 1787463809562,
+      "accessCount": 53,
+      "lastAccessed": 1787551000013,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 23,
+      "lastAccessed": 1787551121029,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/prizes.tsx",
+      "accessCount": 23,
+      "lastAccessed": 1787551963805,
       "type": "file"
     },
     {
@@ -268,21 +286,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 20,
-      "lastAccessed": 1787464238972,
+      "path": "app/(app)/admin/live-tournaments.tsx",
+      "accessCount": 16,
+      "lastAccessed": 1787553021683,
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/prizes.tsx",
-      "accessCount": 15,
-      "lastAccessed": 1787546656355,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/admin/draw.tsx",
+      "path": "src/lib/titanNews.ts",
       "accessCount": 14,
-      "lastAccessed": 1787546644586,
+      "lastAccessed": 1787551177757,
       "type": "file"
     },
     {
@@ -292,21 +304,9 @@
       "type": "file"
     },
     {
-      "path": "src/lib/titanNews.ts",
-      "accessCount": 11,
-      "lastAccessed": 1787379054261,
-      "type": "file"
-    },
-    {
       "path": "src/lib/scoring.ts",
       "accessCount": 10,
       "lastAccessed": 1787464253101,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/admin/live-tournaments.tsx",
-      "accessCount": 10,
-      "lastAccessed": 1787546633301,
       "type": "file"
     },
     {
@@ -328,6 +328,12 @@
       "type": "file"
     },
     {
+      "path": "supabase/functions/titan-news/index.ts",
+      "accessCount": 7,
+      "lastAccessed": 1787551196334,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/inbox/[playerId].tsx",
       "accessCount": 6,
       "lastAccessed": 1787318426532,
@@ -340,9 +346,9 @@
       "type": "file"
     },
     {
-      "path": "supabase/functions/titan-news/index.ts",
+      "path": "app/(app)/help/index.tsx",
       "accessCount": 5,
-      "lastAccessed": 1787377382130,
+      "lastAccessed": 1787551097771,
       "type": "file"
     },
     {
@@ -383,8 +389,8 @@
     },
     {
       "path": "src/types/index.ts",
-      "accessCount": 2,
-      "lastAccessed": 1787318294788,
+      "accessCount": 3,
+      "lastAccessed": 1787550913343,
       "type": "file"
     },
     {
@@ -407,8 +413,8 @@
     },
     {
       "path": "app/(app)/admin/tournaments.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1787317348574,
+      "accessCount": 2,
+      "lastAccessed": 1787552157185,
       "type": "file"
     },
     {
@@ -463,12 +469,6 @@
       "path": "supabase/migrations/20260821040000_direct_messages_delete.sql",
       "accessCount": 1,
       "lastAccessed": 1787318382424,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/help/index.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1787318742280,
       "type": "file"
     },
     {

@@ -34,7 +34,7 @@ const TOPICS: Topic[] = [
     title: 'Casual Golf',
     body: [
       'Start a round from the Casual Golf tile — pick your format (matchplay, Stableford, Medal and more), add players, choose a course and tee off.',
-      'Side games: when you switch on Stableford or Medal as a secondary game, Titan keeps every player scoring all 18 holes even after a matchplay match is decided early (e.g. "3&2") — that extra scoring feeds your side-game result and, in Kronos-enabled tournaments, the cumulative Kronos standings.',
+      'Side games: when you switch on Stableford or Medal as a secondary game, Titan keeps every player scoring all 18 holes even after a matchplay match is decided early (e.g. "3&2") — that extra scoring feeds your side-game result and, in tournaments with an individual standings board enabled, the cumulative Individual (called Kronos in Titan Way) standings.',
       'Track Stats lets you log fairways, putts and more as you play. Chip & Birdie is Titan\'s voice commentary — toggle it on for eagle/birdie call-outs and light banter during your round.',
       'Use the in-round camera to snap a branded photo with your name, course and hole burned into the shot, ready to share.',
       'When the round finishes, everyone in it gets an AI-written match report in their Inbox.',
@@ -56,9 +56,9 @@ const TOPICS: Topic[] = [
     title: 'Tournaments (Titan Tour)',
     body: [
       'Enter a live tournament with the PIN your admin shares with you. Once you\'re in, the Tournament home screen gives you four areas: Leaderboard, Info Pack, Live & Social, and Prize Positions.',
-      'Leaderboard has its own tabs — Group (day-by-day fixtures and results), Team (combined team standings), Kronos (cumulative individual Stableford across every round) and Honours.',
+      'Leaderboard has its own tabs — Group (day-by-day fixtures and results), Team (combined team standings), Individual (cumulative individual Stableford across every round — called Kronos in Titan Way) and Honours.',
       'If you\'re in a live match, a gold "YOUR MATCH" banner appears at the top of the Tournament screen — tap it to jump straight into scoring or resume where you left off.',
-      'Prize Positions shows the individual leaderboard with prize money next to each position, plus a separate Kronos overall-winner prize and each handicap division\'s payouts underneath.',
+      'Prize Positions shows the individual leaderboard with prize money next to each position, plus a separate Individual overall-winner prize (Kronos in Titan Way) and each handicap division\'s payouts underneath.',
       'Titan News publishes AI-written previews, round reports and a final tournament report as the event unfolds — read them from the Tournament screen or via a link sent to your Inbox.',
     ],
   },

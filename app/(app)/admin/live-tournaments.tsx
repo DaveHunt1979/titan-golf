@@ -18,14 +18,18 @@ const FFB   = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 type Competition = {
-  id: string; name: string; format: string; pin: string | null;
+  id: string; name: string; format: string; pin: string | null; status: string;
   days?: { course_name: string | null }[];
 };
 
-// Amendments to a tournament that's already built and live happen here —
-// not via History, which is now purely for finished tournaments/PINs. Late
-// roster changes, drawing pairings and activating each day still route
-// into admin/draw.tsx (unchanged) for now — that's the next piece of work.
+// Amendments to a tournament that's already LIVE happen here — not via
+// History, which is now purely for finished tournaments/PINs. Late roster
+// changes, drawing pairings and activating each day still route into
+// admin/draw.tsx.
+// DRAFT tournaments also show up here now (Rick's brief, 2026-08-22, section
+// 4.8) — previously there was no way to find your way back to an unfinished
+// draft at all once you'd navigated away from Build. "Resume Building"
+// routes straight back into admin/build.tsx's now-edit-capable wizard.
 export default function LiveTournaments() {
   const router = useRouter();
   const { societyId, loading: societyLoading } = useAdminSociety();
@@ -46,9 +50,9 @@ export default function LiveTournaments() {
     if (!societyId) return;
     const { data } = await supabase
       .from('competitions')
-      .select('id, name, format, pin, competition_days(course_name)')
+      .select('id, name, format, pin, status, competition_days(course_name)')
       .eq('society_id', societyId)
-      .eq('status', 'active')
+      .in('status', ['active', 'draft'])
       .order('created_at', { ascending: false });
     if (data) setComps(data.map((c: any) => ({ ...c, days: c.competition_days ?? [] })));
     setLoading(false);
@@ -113,6 +117,7 @@ export default function LiveTournaments() {
         {comps.map(c => {
           const pin = String(c.pin ?? '').replace(/[^0-9]/g, '');
           const courses = [...new Set((c.days ?? []).map(d => d.course_name).filter(Boolean))];
+          const isDraft = c.status === 'draft';
           return (
             <View key={c.id} style={s.compCard}>
               <View style={s.compCardTop}>
@@ -123,33 +128,51 @@ export default function LiveTournaments() {
                     <Text style={s.compMeta}>{courses.slice(0, 2).join(' · ')}{courses.length > 2 ? ` +${courses.length - 2}` : ''}</Text>
                   )}
                 </View>
-                <View style={s.statusBadge}><Text style={s.statusText}>LIVE</Text></View>
-              </View>
-
-              <View style={s.pinRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.pinLabel}>TOURNAMENT PIN</Text>
-                  <Text style={s.pinValue}>{pin ? `${pin.slice(0, 3)} ${pin.slice(3)}` : '—'}</Text>
+                <View style={[s.statusBadge, isDraft && s.statusBadgeDraft]}>
+                  <Text style={[s.statusText, isDraft && s.statusTextDraft]}>{isDraft ? 'DRAFT' : 'LIVE'}</Text>
                 </View>
-                {pin && (
-                  <TouchableOpacity style={s.shareBtn} onPress={() => sharePin(c)} activeOpacity={0.8}>
-                    <Text style={s.shareBtnText}>Share PIN</Text>
-                  </TouchableOpacity>
-                )}
               </View>
 
-              <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/draw?id=${c.id}` as any)} activeOpacity={0.8}>
-                <Text style={s.manageBtnText}>MAKE AMENDS</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/news?id=${c.id}` as any)} activeOpacity={0.8}>
-                <Text style={s.manageBtnText}>TITAN NEWS</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.completeBtn} onPress={() => setCompleteTarget(c)} activeOpacity={0.8}>
-                <Text style={s.completeBtnText}>COMPLETE TOURNAMENT</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.deleteBtn} onPress={() => setDeleteTarget(c)} activeOpacity={0.8}>
-                <Text style={s.deleteBtnText}>Delete</Text>
-              </TouchableOpacity>
+              {isDraft ? (
+                <>
+                  <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/build?id=${c.id}` as any)} activeOpacity={0.8}>
+                    <Text style={s.manageBtnText}>RESUME BUILDING</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.deleteBtn} onPress={() => setDeleteTarget(c)} activeOpacity={0.8}>
+                    <Text style={s.deleteBtnText}>Delete</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <View style={s.pinRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.pinLabel}>TOURNAMENT PIN</Text>
+                      <Text style={s.pinValue}>{pin ? `${pin.slice(0, 3)} ${pin.slice(3)}` : '—'}</Text>
+                    </View>
+                    {pin && (
+                      <TouchableOpacity style={s.shareBtn} onPress={() => sharePin(c)} activeOpacity={0.8}>
+                        <Text style={s.shareBtnText}>Share PIN</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/draw?id=${c.id}` as any)} activeOpacity={0.8}>
+                    <Text style={s.manageBtnText}>MAKE AMENDS</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/prizes?id=${c.id}` as any)} activeOpacity={0.8}>
+                    <Text style={s.manageBtnText}>PRIZE CATEGORIES</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/news?id=${c.id}` as any)} activeOpacity={0.8}>
+                    <Text style={s.manageBtnText}>TITAN NEWS</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.completeBtn} onPress={() => setCompleteTarget(c)} activeOpacity={0.8}>
+                    <Text style={s.completeBtnText}>COMPLETE TOURNAMENT</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.deleteBtn} onPress={() => setDeleteTarget(c)} activeOpacity={0.8}>
+                    <Text style={s.deleteBtnText}>Delete</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           );
         })}
@@ -157,8 +180,8 @@ export default function LiveTournaments() {
         {comps.length === 0 && (
           <View style={s.empty}>
             <Text style={s.emptyEmoji}>⛳</Text>
-            <Text style={s.emptyTitle}>No live tournaments</Text>
-            <Text style={s.emptySub}>Finish drafting one in Build and it'll show up here</Text>
+            <Text style={s.emptyTitle}>No tournaments yet</Text>
+            <Text style={s.emptySub}>Start one in Build and it'll show up here — as a draft, then live</Text>
           </View>
         )}
       </ScrollView>
@@ -211,8 +234,10 @@ const s = StyleSheet.create({
   compFormat:  { fontFamily: FFB, fontSize: 13, color: '#fff', marginBottom: 2 },
   compMeta:    { fontFamily: FFB, fontSize: 11, color: '#fff' },
 
-  statusBadge: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, borderColor: GREEN, backgroundColor: GREEN + '1A' },
-  statusText:  { fontFamily: FFB, fontSize: 10, letterSpacing: 1, color: GREEN },
+  statusBadge:      { borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, borderColor: GREEN, backgroundColor: GREEN + '1A' },
+  statusText:       { fontFamily: FFB, fontSize: 10, letterSpacing: 1, color: GREEN },
+  statusBadgeDraft: { borderColor: GOLD, backgroundColor: GOLD + '1A' },
+  statusTextDraft:  { color: GOLD },
 
   pinRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0a0a0a', borderRadius: 10, padding: 12 },
   pinLabel: { fontFamily: FFB, fontSize: 9, color: '#fff', letterSpacing: 1, textTransform: 'uppercase' },

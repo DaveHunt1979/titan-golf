@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../../src/lib/supabase';
 import { getStandings, getEffectiveWinner, calcSweepBonus } from '../../../src/lib/scoring';
+import { individualBoardLabel } from '../../../src/lib/tournamentFormat';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
 import { useChatUnread } from '../../../src/lib/useChatUnread';
@@ -53,7 +54,7 @@ interface IndivEntry {
 const NOTIF_LABELS: Record<string, string> = {
   birdie: 'Birdie', eagle: 'Eagle', hole_in_one: 'Hole in One!',
   match_result: 'Match Result', draw: 'Draw Published',
-  tournament_winner: 'Tournament Winner', kronos_champ: 'Kronos Champion',
+  tournament_winner: 'Tournament Winner',
   admin: 'Announcement',
 };
 
@@ -563,6 +564,11 @@ export default function TourScreen() {
 
   // ── Derived data ────────────────────────────────────────────────────
 
+  // "Kronos" is Titan Way-exclusive branding for the individual standings
+  // board — every other format shows the identical system labelled
+  // "Individual" (Rick's brief, section 4.4). One board, dynamic label.
+  const individualLabel = individualBoardLabel(competition?.format);
+
   // Bonus points for sweeping every singles match on a day — shared with
   // admin/draw.tsx's final-day knockout seeding so they can't disagree.
   const singlesDayIds = new Set(days.filter(d => d.day_format === 'singles').map(d => d.id));
@@ -799,7 +805,7 @@ export default function TourScreen() {
                 <Ionicons name="trophy-outline" size={22} color={dc.iconBoxIcon} />
               </View>
               <Text style={[st.sectionTileLabel, { color: dc.cardText }]} numberOfLines={1}>Leaderboard</Text>
-              <Text style={[st.sectionTileSub, { color: dc.cardText }]} numberOfLines={2}>Group, team, Kronos & honours</Text>
+              <Text style={[st.sectionTileSub, { color: dc.cardText }]} numberOfLines={2}>Group, team, {individualLabel} & honours</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => setSelectedSection('info')} activeOpacity={0.82}>
               <View style={[st.sectionTileIconBox, { backgroundColor: dc.iconBoxBg, borderColor: dc.iconBoxBorder }]}>
@@ -869,7 +875,7 @@ export default function TourScreen() {
               )}
               {competition?.include_in_kronos && (
                 <TouchableOpacity style={[st.lbTab, leaderboardTab === 'kronos' && st.lbTabOn]} onPress={() => setLeaderboardTab('kronos')} activeOpacity={0.8}>
-                  <Text style={[st.lbTabText, leaderboardTab === 'kronos' && st.lbTabTextOn]}>Kronos</Text>
+                  <Text style={[st.lbTabText, leaderboardTab === 'kronos' && st.lbTabTextOn]}>{individualLabel}</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={[st.lbTab, leaderboardTab === 'honours' && st.lbTabOn]} onPress={() => setLeaderboardTab('honours')} activeOpacity={0.8}>
@@ -1058,7 +1064,7 @@ export default function TourScreen() {
             {/* ── Kronos: one row per player, D1-D4 columns + total ── */}
             {leaderboardTab === 'kronos' && (
               <Leaderboard
-                title="KRONOS"
+                title={individualLabel.toUpperCase()}
                 rows={kronosRows.map(r => ({
                   id: r.playerId,
                   sortKey: r.total,
@@ -1142,7 +1148,7 @@ export default function TourScreen() {
                         <Text style={[st.teamName, isMe && { color: GOLD }]} numberOfLines={1}>{entry.display_name}</Text>
                         {entry.is_overall_winner ? (
                           <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: GOLD, marginTop: 1 }}>
-                            OVERALL KRONOS WINNER · division prize rolls down
+                            OVERALL {individualLabel.toUpperCase()} WINNER · division prize rolls down
                           </Text>
                         ) : entry.category_name && (
                           <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: '#555', marginTop: 1 }}>
@@ -1288,7 +1294,7 @@ export default function TourScreen() {
               </Text>
             </View>
           )}
-          {notifications.map(n => <TourFeedCard key={n.id} n={n} />)}
+          {notifications.map(n => <TourFeedCard key={n.id} n={n} individualLabel={individualLabel} />)}
 
           {instagramUrl && (
             <>
@@ -1505,8 +1511,8 @@ function RulesCard({ s }: { s: RulesSection }) {
 }
 
 // ── Live feed card ────────────────────────────────────────────────────
-function TourFeedCard({ n }: { n: Notification }) {
-  const label = NOTIF_LABELS[n.type] ?? n.type;
+function TourFeedCard({ n, individualLabel }: { n: Notification; individualLabel: string }) {
+  const label = n.type === 'kronos_champ' ? `${individualLabel} Champion` : (NOTIF_LABELS[n.type] ?? n.type);
   const payload = (n.payload as any) ?? {};
   const time = new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return (

@@ -4,7 +4,7 @@ import {
   TouchableOpacity, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert, Image,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
@@ -48,6 +48,8 @@ const SECTION_TYPES: Array<{ id: SectionType; label: string; sub: string }> = [
 // ── Main screen ───────────────────────────────────────────────
 export default function InfoEditorScreen() {
   const router = useRouter();
+  const { id: paramId, back: backParam } = useLocalSearchParams<{ id?: string; back?: string }>();
+  const backTarget = backParam ?? '/(app)/admin/hub-tournament';
   const [compId, setCompId]       = useState<string | null>(null);
   const [compName, setCompName]   = useState('');
   const [sections, setSections]   = useState<InfoSection[]>([]);
@@ -63,14 +65,21 @@ export default function InfoEditorScreen() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('competitions')
-        .select('id, name, info_sections')
-        .eq('status', 'active')
-        .neq('format', 'casual')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      // Reached from the Tournament Builder's own Info Pack step (Rick's
+      // brief, section 4.11), a draft-status tournament needs to be
+      // targetable here too — the old auto-pick-latest-active query could
+      // never find one, since Info Pack previously only existed as a
+      // post-Go-Live editing surface.
+      const { data } = paramId
+        ? await supabase.from('competitions').select('id, name, info_sections').eq('id', paramId).single()
+        : await supabase
+            .from('competitions')
+            .select('id, name, info_sections')
+            .eq('status', 'active')
+            .neq('format', 'casual')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
       if (data) {
         setCompId(data.id);
         setCompName(data.name);
@@ -78,7 +87,7 @@ export default function InfoEditorScreen() {
       }
       setLoading(false);
     })();
-  }, []);
+  }, [paramId]);
 
   function update(id: string, patch: Partial<InfoSection>) {
     setSections(prev => prev.map(s => s.id === id ? { ...s, ...patch } as InfoSection : s));
@@ -150,7 +159,7 @@ export default function InfoEditorScreen() {
     if (error) {
       Alert.alert('Error', error.message);
     } else {
-      Alert.alert('Saved', 'Info pack updated.', [{ text: 'OK', onPress: () => goBack(router, '/(app)/admin/hub-tournament') }]);
+      Alert.alert('Saved', 'Info pack updated.', [{ text: 'OK', onPress: () => goBack(router, backTarget) }]);
     }
   }
 
@@ -176,7 +185,7 @@ export default function InfoEditorScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/hub-tournament')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.headerSide}>
+        <TouchableOpacity onPress={() => goBack(router, backTarget)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.headerSide}>
           <Text style={styles.back}>‹ Back</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>

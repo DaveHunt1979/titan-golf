@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-24T04:50:24.896Z",
+  "updatedAt": "2026-08-24T06:01:05.211Z",
   "missions": [
     {
       "id": "session:756994c5-05fc-4861-836a-179ecb43a9d1:none",
@@ -7,7 +7,7 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-08-22T05:41:20.721Z",
-      "updatedAt": "2026-08-24T04:50:24.896Z",
+      "updatedAt": "2026-08-24T06:01:05.211Z",
       "status": "done",
       "workerCount": 12,
       "taskCounts": {
@@ -27,7 +27,7 @@
           "currentStep": null,
           "latestUpdate": "completed",
           "completedSummary": null,
-          "updatedAt": "2026-08-24T04:45:38.240Z"
+          "updatedAt": "2026-08-24T06:01:05.211Z"
         },
         {
           "name": "Explore:ac6e0bc",
@@ -196,6 +196,14 @@
           "agent": "live-tournament-gamegen-audit:alive-t",
           "detail": "completed",
           "sourceKey": "session-stop:alive-tournament-gamegen-audit-c258ca3606ead972"
+        },
+        {
+          "id": "session-stop:a0baeff8116f73f3b:2026-08-24T06:01:05.211Z",
+          "at": "2026-08-24T06:01:05.211Z",
+          "kind": "completion",
+          "agent": "Explore:a52ef6b",
+          "detail": "completed",
+          "sourceKey": "session-stop:a0baeff8116f73f3b"
         }
       ]
     }

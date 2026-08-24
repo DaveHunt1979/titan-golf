@@ -26,7 +26,11 @@ type FeedTab = 'info' | 'live' | 'instagram';
 const LABELS: Record<string, string> = {
   birdie: 'Birdie', eagle: 'Eagle', hole_in_one: 'Hole in One!',
   match_result: 'Match Result', draw: 'Draw Published',
-  tournament_winner: 'Tournament Winner', kronos_champ: 'Kronos Champion',
+  // This screen has no per-notification tournament context (notifications
+  // carry no competition_id here), so it can't know whether to say "Kronos"
+  // or "Individual" for a given tournament — default to the generic term.
+  // (No code path currently creates a 'kronos_champ' notification at all.)
+  tournament_winner: 'Tournament Winner', kronos_champ: 'Individual Champion',
   admin: 'Announcement',
 };
 

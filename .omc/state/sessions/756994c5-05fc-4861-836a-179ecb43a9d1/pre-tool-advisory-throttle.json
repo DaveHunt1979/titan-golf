@@ -1,34 +1,18 @@
 {
   "version": 1,
   "entries": {
-    "ae20bcc4dae1864195b1fb9e9769ae238a0281c213ce281581f8cea73171fd38": {
-      "last_emitted_at_ms": 1787546622598,
-      "message": "Spawning agent: general-purpose (inherit) | Task: Map Live Tournament section and game generation timing"
-    },
-    "1c2805d0d1261d34fba2fae6df42652215549c6fbf8a80916ebc4a63eecb7b3a": {
-      "last_emitted_at_ms": 1787546612777,
-      "message": "Spawning agent: general-purpose (inherit) | Task: Map Kronos naming and Sweeping Bonus configurability"
-    },
-    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1787546608995,
-      "message": "Read multiple files in parallel when possible for faster analysis."
-    },
-    "b27f8b31cf104efd5abe3e2a56870d92a2bb5808211fde38767c8fc6c33ef2f9": {
-      "last_emitted_at_ms": 1787546601894,
-      "message": "Spawning agent: general-purpose (inherit) | Task: Map Captain Rotation feature and format-gating"
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1787553449650,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
     },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1787546598691,
+      "last_emitted_at_ms": 1787553186284,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
-    "0b11cee38ab9d3d17f1ac41bdce5003f32fbe4c74d696ef07ab4803d42d2f9ec": {
-      "last_emitted_at_ms": 1787546594215,
-      "message": "Spawning agent: general-purpose (inherit) | Task: Map current tournament builder, Go Live, prize categories, amendments"
-    },
-    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1787545537546,
-      "message": "Verify changes work after editing. Test functionality before marking complete."
+    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
+      "last_emitted_at_ms": 1787553174449,
+      "message": "Read multiple files in parallel when possible for faster analysis."
     }
   },
-  "updated_at": "2026-08-24T04:43:42.598Z"
+  "updated_at": "2026-08-24T06:37:29.650Z"
 }
