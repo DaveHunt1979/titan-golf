@@ -12,6 +12,7 @@ import { matchLabel, getEffectiveWinner } from '../../../../src/lib/scoring';
 import { getPlayerAvatar, teamLogos } from '../../../../src/lib/assets';
 import type { Match, Team, CompetitionDay } from '../../../../src/types';
 import { goBack } from '../../../../src/lib/navigation';
+import { matchFormatLabel } from '../../../../src/lib/tournamentFormat';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
@@ -97,10 +98,9 @@ export default function TourDayScreen() {
   const upcoming = matches.filter(m => m.status === 'upcoming');
   const complete = matches.filter(m => m.status === 'complete');
 
-  const formatLabel = day ? (() => {
-    const isSingles = matches.some(m => m.is_singles);
-    return isSingles ? 'Singles Matchplay' : '4BBB Matchplay';
-  })() : '';
+  const formatLabel = day && matches.length > 0
+    ? matchFormatLabel(matches[0].round_format, matches[0].is_singles, matches[0].handicap_method)
+    : '';
 
   if (loading || !fontsLoaded) {
     return (

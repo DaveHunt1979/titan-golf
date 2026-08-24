@@ -81,6 +81,7 @@ export interface Match {
   holes_to_play: number | null;
   is_singles: boolean;
   round_format: 'matchplay' | 'stableford' | 'medal';
+  handicap_method: string;
   hcp_allowance: number;
   side_games: string[];
   locked: boolean;

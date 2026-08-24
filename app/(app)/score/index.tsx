@@ -11,6 +11,7 @@ import { useFonts } from 'expo-font';
 import { supabase, freshChannel } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { matchLabel, getEffectiveWinner } from '../../../src/lib/scoring';
+import { matchFormatLabel } from '../../../src/lib/tournamentFormat';
 import { getPlayerAvatar } from '../../../src/lib/assets';
 import type { Match, Team } from '../../../src/types';
 
@@ -20,8 +21,8 @@ const FFB    = 'JUSTSans-ExBold';
 const heroCourse = require('../../../assets/startround_gfx.png');
 
 const FORMAT_LABELS: Record<string, string> = {
-  stableford: 'Stableford', medal: 'Medal', singles: 'Singles Matchplay',
-  '4bbb': '4BBB Stableford', skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf',
+  stableford: 'Stableford', medal: 'Medal',
+  skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf',
   scramble: 'Scramble', greensomes: 'Greensomes', bbb: 'BBB',
   foursomes: 'Foursomes', modified_stableford: 'Modified Stableford',
   par_bogey: 'Par / Bogey', chacha: 'ChaChaCha', team_stableford: 'Team Stableford',
@@ -399,7 +400,9 @@ function RoundCard({ match, playerNames, playerAvatars, s, GOLD }: {
   // team-size check score/preview/[matchId].tsx already uses to label it
   // correctly instead of falling back to the generic map entry.
   const isMashieMatch = (match.round_format as string) === 'team_stableford' && match.away_player_ids.length === 0 && ((match as any).team_size ?? 2) >= 4;
-  const fmtLabel  = isMashieMatch ? 'Mashie Golf' : FORMAT_LABELS[match.round_format ?? ''] ?? (match.round_format ?? 'Golf');
+  const fmtLabel  = isMashieMatch ? 'Mashie Golf'
+    : match.round_format === 'matchplay' ? matchFormatLabel(match.round_format, match.is_singles, match.handicap_method)
+    : FORMAT_LABELS[match.round_format ?? ''] ?? (match.round_format ?? 'Golf');
   const isLive     = match.status === 'in_progress';
   const isComplete = match.status === 'complete';
 

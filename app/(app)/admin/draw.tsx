@@ -26,9 +26,11 @@ const titanLogo = require('../../../assets/TitanAppLogo.png');
 const PAIRS_DAY_FORMATS = ['4bbb', 'four_bbb', 'four_bbb_stroke', 'foursomes', 'greensomes'];
 
 const DAY_FORMAT_LABELS: Record<string, string> = {
-  four_bbb: '4BBB', four_bbb_stroke: '4BBB Stroke', foursomes: 'Foursomes', greensomes: 'Greensomes',
-  singles: 'Singles', stableford: 'Stableford', medal: 'Medal', scramble: 'Scramble',
-  '4bbb': '4BBB Stableford',
+  four_bbb: '4BBB Match Play – Stableford', four_bbb_stroke: '4BBB Match Play – Stroke Play',
+  foursomes: 'Foursomes', greensomes: 'Greensomes',
+  singles: 'Singles Match Play – Stroke Play', singles_stableford: 'Singles Match Play – Stableford',
+  stableford: 'Stableford', medal: 'Medal', scramble: 'Scramble',
+  '4bbb': '4BBB Match Play – Stableford',
 };
 
 function dayFormatToRoundFormat(df: string): string {
@@ -49,6 +51,14 @@ function dayFormatToHandicapMethod(df: string): string {
   // value so it doesn't collide with Foursomes/Greensomes, which also map
   // to round_format 'matchplay' + is_singles false and must stay untouched.
   if (df === 'four_bbb') return 'relative_low_stableford';
+  // Singles Match Play – Stableford (Rick's brief, section 8) keeps its own
+  // distinct value too, for the same reason 4BBB Stableford does — so the
+  // scoring engine can tell "hole winner decided by Stableford points" apart
+  // from plain Singles Match Play (round_format 'matchplay' + is_singles
+  // true either way) without touching matchplayHcp's relative-low logic,
+  // which is 4BBB-only and must not apply here (each player uses their own
+  // Playing Handicap, per Rick's section 8.2).
+  if (df === 'singles_stableford') return 'individual_stableford';
   return 'individual';
 }
 
@@ -446,7 +456,7 @@ export default function TournamentDrawScreen() {
       return;
     }
 
-    const isSingles = df === 'singles';
+    const isSingles = df === 'singles' || df === 'singles_stableford';
     const isPairs   = PAIRS_DAY_FORMATS.includes(df);
     const ppm       = isPairs ? 2 : 1;
     // Captain Rotation (the opening-rounds captain-pairing rule) is Titan
@@ -514,7 +524,7 @@ export default function TournamentDrawScreen() {
       // Must feed getStandings the exact same tie-break inputs the Tour tab
       // leaderboard uses, or the two screens can show contradictory
       // positions on the day it matters most.
-      const singlesDayIds = new Set(days.filter(d => d.day_format === 'singles').map(d => d.id));
+      const singlesDayIds = new Set(days.filter(d => d.day_format === 'singles' || d.day_format === 'singles_stableford').map(d => d.id));
       const bonusPts = calcSweepBonus(matches as any, singlesDayIds, comp?.bonus_points ?? 2);
       const teamStableford: Record<string, number> = {};
       compPlayers.forEach(cp => {

@@ -562,7 +562,7 @@ export default function TourScreen() {
 
   // Bonus points for sweeping every singles match on a day — shared with
   // admin/draw.tsx's final-day knockout seeding so they can't disagree.
-  const singlesDayIds = new Set(days.filter(d => d.day_format === 'singles').map(d => d.id));
+  const singlesDayIds = new Set(days.filter(d => d.day_format === 'singles' || d.day_format === 'singles_stableford').map(d => d.id));
   const bonusPts = calcSweepBonus(matches as Match[], singlesDayIds, (competition as any).bonus_points ?? 2);
 
   const standings = getStandings(
@@ -586,7 +586,7 @@ export default function TourScreen() {
   const dayPtsByTeam: Record<string, number[]> = {};
   sortedDays.forEach(day => {
     const dayMatches = (matches as any[]).filter((m: any) => m.day_id === day.id && m.home_team_id && m.away_team_id);
-    const daySinglesIds = day.day_format === 'singles' ? new Set([day.id]) : new Set<string>();
+    const daySinglesIds = (day.day_format === 'singles' || day.day_format === 'singles_stableford') ? new Set([day.id]) : new Set<string>();
     const dayBonus = calcSweepBonus(dayMatches as Match[], daySinglesIds, (competition as any)?.bonus_points ?? 2);
     const dayStandings = getStandings(
       dayMatches,

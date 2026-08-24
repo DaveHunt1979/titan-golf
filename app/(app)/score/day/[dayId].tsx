@@ -12,6 +12,7 @@ import { supabase } from '../../../../src/lib/supabase';
 import { calcHoles } from '../../../../src/lib/scoring';
 import { goBack } from '../../../../src/lib/navigation';
 import { resolveAvatar } from '../../../../src/lib/assets';
+import { matchFormatLabel } from '../../../../src/lib/tournamentFormat';
 import Leaderboard, { type LeaderboardRow } from '../../../../src/components/Leaderboard';
 
 const GOLD = '#D4AF37';
@@ -24,7 +25,7 @@ const DEFAULT_TEAM_NAMES = new Set(['Team A', 'Team B', 'Team C', 'Team D']);
 
 type DayInfo   = { id: string; join_code: string; course_name: string; course_par: number; day_date: string };
 type PlayerRow = { player_id: string; name: string; match_id: string; pts: number; holes: number; hcp: number; avatarUrl: string | null };
-type GroupRow  = { match_id: string; format: string; player_names: string[]; home_name: string | null; away_name: string | null; status: string; holes_string: string; winner: string | null; result_str: string | null; home_player_ids: string[]; away_player_ids: string[]; home_pts: number; away_pts: number; };
+type GroupRow  = { match_id: string; format: string; isSingles: boolean; handicapMethod: string | null; player_names: string[]; home_name: string | null; away_name: string | null; status: string; holes_string: string; winner: string | null; result_str: string | null; home_player_ids: string[]; away_player_ids: string[]; home_pts: number; away_pts: number; };
 
 function InitialAvatar({ name, size = 38 }: { name: string; size?: number }) {
   return (
@@ -86,7 +87,7 @@ export default function DayLobby() {
 
     const { data: matches } = await supabase
       .from('matches')
-      .select('id,home_player_ids,away_player_ids,round_format,hcp_allowance,counting_scores,side_games,status,holes_string,winner,result_str,home_name,away_name,group_code')
+      .select('id,home_player_ids,away_player_ids,round_format,is_singles,handicap_method,hcp_allowance,counting_scores,side_games,status,holes_string,winner,result_str,home_name,away_name,group_code')
       .eq('day_id', dayId)
       .neq('status', 'cancelled');
 
@@ -189,6 +190,8 @@ export default function DayLobby() {
       return {
         match_id:       m.id,
         format:         m.round_format ?? 'stableford',
+        isSingles:      m.is_singles ?? false,
+        handicapMethod: m.handicap_method ?? null,
         player_names:   [...homeIds, ...awayIds].map(id => playerMap[id]?.name ?? '?'),
         home_name:      m.home_name ?? null,
         away_name:      m.away_name ?? null,
@@ -437,7 +440,7 @@ export default function DayLobby() {
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                         <Text style={s.groupNum}>GROUP {i + 1}</Text>
                         <View style={s.formatChip}>
-                          <Text style={s.formatChipText}>{g.format.replace(/_/g, ' ').toUpperCase()}</Text>
+                          <Text style={s.formatChipText}>{(g.format === 'matchplay' ? matchFormatLabel(g.format, g.isSingles, g.handicapMethod) : g.format.replace(/_/g, ' ')).toUpperCase()}</Text>
                         </View>
                         {isMyGroup && (
                           <View style={s.yourGroupBadge}><Text style={s.yourGroupText}>YOUR GROUP</Text></View>

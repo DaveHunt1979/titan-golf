@@ -12,6 +12,7 @@ import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints } from '.
 import { goBack } from '../../../../src/lib/navigation';
 import { formatRoundDuration } from '../../../../src/lib/roundTimer';
 import { resolveAvatar } from '../../../../src/lib/assets';
+import { courseHasGps } from '../../../../src/lib/courseGps';
 import { generateCasualMatchReport } from '../../../../src/lib/titanNews';
 import { sendMatchNotification, postSpectatorEvent } from '../../../../src/lib/notifications';
 import { speakHole, speakIntro, speakBack9, speakOutro } from '../../../../src/lib/caddie';
@@ -101,7 +102,7 @@ interface MatchInfo {
   day: { course_name: string; course_par: number; course_rating: number; slope_rating: number; day_number: number } | null;
 }
 
-interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; tee_yardages: Record<string, number> | null; }
+interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; tee_yardages: Record<string, number> | null; green_lat?: number | null; green_lng?: number | null; }
 interface HoleScore { hole_number: number; gross: number; net: number; pts: number; }
 
 export default function SoloRoundScreen() {
@@ -206,7 +207,7 @@ export default function SoloRoundScreen() {
         console.log('[solo.load] fetching holes + player + scores...');
         const [{ data: holesData }, { data: playerData }, { data: scoresData }] = await Promise.all([
           m.day?.course_name
-            ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages').eq('course_name', m.day.course_name).order('hole_number')
+            ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages,green_lat,green_lng').eq('course_name', m.day.course_name).order('hole_number')
             : Promise.resolve({ data: [] }),
           supabase.from('players').select('display_name,handicap_index,avatar_url').eq('id', playerId).single(),
           supabase.from('match_holes').select('hole_number,gross_score,net_score,stableford_pts').eq('match_id', matchId).eq('player_id', playerId),
@@ -868,11 +869,15 @@ export default function SoloRoundScreen() {
                 </View>
               )}
               <View style={s.quickActions}>
-                <TouchableOpacity style={s.quickActionBtn} onPress={() => setShowRangeMap(true)} activeOpacity={0.7}>
-                  <Ionicons name="scan-outline" size={20} color="#ffffff" />
-                  <Text style={s.quickActionLbl}>RANGE</Text>
-                </TouchableOpacity>
-                <View style={s.quickActionSep} />
+                {courseHasGps(courseHoles) && (
+                  <>
+                    <TouchableOpacity style={s.quickActionBtn} onPress={() => setShowRangeMap(true)} activeOpacity={0.7}>
+                      <Ionicons name="scan-outline" size={20} color="#ffffff" />
+                      <Text style={s.quickActionLbl}>RANGE</Text>
+                    </TouchableOpacity>
+                    <View style={s.quickActionSep} />
+                  </>
+                )}
                 <TouchableOpacity style={s.quickActionBtn} onPress={() => setShowShotLogger(true)} activeOpacity={0.7}>
                   <Ionicons name="analytics-outline" size={20} color="#ffffff" />
                   <Text style={s.quickActionLbl}>SHOTS</Text>

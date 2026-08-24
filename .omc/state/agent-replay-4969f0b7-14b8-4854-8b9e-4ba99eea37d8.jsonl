@@ -5,3 +5,27 @@
 {"t":0,"agent":"a5ebcc2","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
 {"t":0,"agent":"a885544","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
 {"t":0,"agent":"a69f5a0","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"agps-ic","agent_type":"gps-icon-research","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a97645f","agent_type":"gps-icon-research","event":"agent_stop","success":true,"duration_ms":4731}
+{"t":0,"agent":"agps-ic","agent_type":"gps-icon-research","event":"agent_stop","success":true,"duration_ms":153165}
+{"t":0,"agent":"agps-ic","agent_type":"gps-icon-research","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a15f2d4","agent_type":"gps-icon-research","event":"agent_stop","success":true,"duration_ms":3608}
+{"t":0,"agent":"agps-ic","agent_type":"gps-icon-research","event":"agent_stop","success":true,"duration_ms":57059}
+{"t":0,"agent":"agps-ic","agent_type":"gps-icon-research","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"abf7290","agent_type":"gps-icon-research","event":"agent_stop","success":true,"duration_ms":4644}
+{"t":0,"agent":"agps-ic","agent_type":"gps-icon-research","event":"agent_stop","success":true,"duration_ms":65817}
+{"t":0,"agent":"ab34fec","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"aecf71d","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"amatch-","agent_type":"match-formats-research","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a5a1a24","agent_type":"match-formats-research","event":"agent_stop","success":true,"duration_ms":5554}
+{"t":0,"agent":"amatch-","agent_type":"match-formats-research","event":"agent_stop","success":true,"duration_ms":248842}
+{"t":0,"agent":"amatch-","agent_type":"match-formats-research","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a64cebc","agent_type":"match-formats-research","event":"agent_stop","success":true,"duration_ms":4419}
+{"t":0,"agent":"amatch-","agent_type":"match-formats-research","event":"agent_stop","success":true,"duration_ms":143892}
+{"t":0,"agent":"amatch-","agent_type":"match-formats-research","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ab6919f","agent_type":"match-formats-research","event":"agent_stop","success":true,"duration_ms":4576}
+{"t":0,"agent":"amatch-","agent_type":"match-formats-research","event":"agent_stop","success":true,"duration_ms":145705}
+{"t":0,"agent":"a5687f8","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"a5b3eae","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"aformat","agent_type":"format-rules-research","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a0b7336","agent_type":"format-rules-research","event":"agent_stop","success":true,"duration_ms":4168}

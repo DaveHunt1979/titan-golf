@@ -8,7 +8,7 @@
 
 import { supabase } from './supabase';
 import { getStandings, calcSweepBonus } from './scoring';
-import { individualBoardLabel } from './tournamentFormat';
+import { individualBoardLabel, matchFormatLabel } from './tournamentFormat';
 
 interface Core {
   competition: any;
@@ -156,7 +156,7 @@ function teamRanking(core: Core, throughDayNumber: number) {
     teamStableford[cp.team_id] = (teamStableford[cp.team_id] ?? 0) + (individualPts[cp.player_id] ?? 0);
   });
 
-  const singlesDayIds = new Set(core.days.filter(d => eligibleDayIds.has(d.id) && d.day_format === 'singles').map(d => d.id));
+  const singlesDayIds = new Set(core.days.filter(d => eligibleDayIds.has(d.id) && (d.day_format === 'singles' || d.day_format === 'singles_stableford')).map(d => d.id));
   const bonusPts = calcSweepBonus(eligibleMatches, singlesDayIds, core.competition.bonus_points ?? 2);
   const standings = getStandings(
     eligibleMatches, core.competition.pts_win ?? 1, core.competition.pts_half ?? 0.5, teamStableford, bonusPts
@@ -339,7 +339,7 @@ export async function buildCasualFinalReportSnapshot(matchId: string) {
   return {
     storyType: 'casual_final',
     round: {
-      format: m.round_format,
+      format: matchFormatLabel(m.round_format, m.is_singles, m.handicap_method),
       secondaryFormat: m.secondary_format ?? null,
       course: (day as any)?.course_name ?? null,
       isMatchplay: !isStroke,

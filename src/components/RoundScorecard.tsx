@@ -37,6 +37,7 @@ export interface RoundScorecardProps {
   awayColor: string;
   isStrokePlay: boolean;
   roundFormat: string;
+  handicapMethod?: string | null;
   secondaryFormat?: string | null;
   screenWidth: number;
   // Live scoring only (score/enter) — omit both for a read-only render
@@ -52,7 +53,7 @@ export interface RoundScorecardProps {
 // every player already sees while scoring, not a simplified version.
 export default function RoundScorecard({
   startHole, allPlayerIds, playerNames, holeData, courseHoles, matchHomeIds, holeChars,
-  homeColor, awayColor, isStrokePlay, roundFormat, secondaryFormat, onUndo, lastPlayedHole = 0, saving = false, screenWidth,
+  homeColor, awayColor, isStrokePlay, roundFormat, handicapMethod, secondaryFormat, onUndo, lastPlayedHole = 0, saving = false, screenWidth,
 }: RoundScorecardProps) {
   const holes = Array.from({ length: 9 }, (_, i) => startHole + i);
   const title = startHole === 1 ? 'FRONT 9' : 'BACK 9';
@@ -62,10 +63,14 @@ export default function RoundScorecard({
   }, 0);
   // Medal must always show gross strokes here, even with a Stableford side
   // game attached — the side game's points belong in its own "2ND GAME"
-  // summary, never in the main Medal scorecard. secondaryFormat only flips
-  // this on for Matchplay (the existing 4BBB Stroke Matchplay + side-game
-  // inline-points feature).
-  const showPts = roundFormat === 'stableford' || (roundFormat === 'matchplay' && !!secondaryFormat);
+  // summary, never in the main Medal scorecard. secondaryFormat flips this
+  // on for Matchplay whenever a side-game is running (the existing 4BBB
+  // Stroke Matchplay + side-game inline-points feature); a match whose hole
+  // winner is itself decided by Stableford points (4BBB Stableford, or
+  // Singles Match Play – Stableford per Rick's brief section 8) always
+  // shows points too, side game or not — points ARE the main game there.
+  const isStablefordMatchplay = handicapMethod === 'relative_low_stableford' || handicapMethod === 'individual_stableford';
+  const showPts = roundFormat === 'stableford' || (roundFormat === 'matchplay' && (!!secondaryFormat || isStablefordMatchplay));
 
   return (
     <ScrollView style={{ width: screenWidth }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>

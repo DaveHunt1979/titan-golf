@@ -1,26 +1,30 @@
 {
   "version": 1,
   "entries": {
-    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1787556788799,
-      "message": "Verify changes work after editing. Test functionality before marking complete."
-    },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1787556672525,
+      "last_emitted_at_ms": 1787559852111,
       "message": "Read multiple files in parallel when possible for faster analysis."
     },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1787556649184,
+      "last_emitted_at_ms": 1787559838256,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
-    "5d55652aa4ee90ef6c32639d1b1fab3f9d3a8d8b09896496433de049ae0b6900": {
-      "last_emitted_at_ms": 1787555190224,
-      "message": "Spawning agent: Plan (inherit) | Task: Design Info Pack redesign implementation"
+    "63cc68b2c2fdfc6c3e6333a71056463fbba5d77b557fb84c2e5f6ca56769fb89": {
+      "last_emitted_at_ms": 1787559831290,
+      "message": "Spawning agent: Explore (inherit) | Task: Find every scattered tournament-format rule check"
     },
-    "376b87bf6bbaf7b195ac23ceac1cbce5e6fd7d21d509a076623a07438a13a8d9": {
-      "last_emitted_at_ms": 1787553965164,
-      "message": "Spawning agent: Explore (inherit) | Task: Research Info Pack data model and surroundings"
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1787559258953,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
+    "a1b34b755fa48339a9a0a364d6e49bf46e55d9e5803fe9b4fba5e03f6217ae41": {
+      "last_emitted_at_ms": 1787558031036,
+      "message": "Spawning agent: Explore (inherit) | Task: Research match play formats and scoring engine"
+    },
+    "0d58b8a24d6129567c299634dc2ab55e52c389bbd0025745d08fe933c22b3eb5": {
+      "last_emitted_at_ms": 1787557098469,
+      "message": "Spawning agent: Explore (inherit) | Task: Find every Range/GPS icon usage"
     }
   },
-  "updated_at": "2026-08-24T07:33:08.799Z"
+  "updated_at": "2026-08-24T08:24:12.111Z"
 }

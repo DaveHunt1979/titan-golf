@@ -12,6 +12,8 @@ import { supabase } from '../../../src/lib/supabase';
 import { matchLabel, getEffectiveWinner, calcHoles } from '../../../src/lib/scoring';
 import { goBack } from '../../../src/lib/navigation';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
+import { courseHasGps } from '../../../src/lib/courseGps';
+import { matchFormatLabel } from '../../../src/lib/tournamentFormat';
 
 const GOLD     = '#D4AF37';
 const GREEN    = '#4ade80';
@@ -54,7 +56,7 @@ function Avatar({ name, color, size = 40, source }: { name: string; color: strin
 }
 
 interface HoleResult { hole_number: number; score: 'h' | 'a' | 'f' | null; gross_score: number | null; stableford_pts: number | null; player_id: string; }
-interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; hole_name: string | null; }
+interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; hole_name: string | null; green_lat?: number | null; green_lng?: number | null; }
 interface Player { id: string; display_name: string; avatar_url?: string | null; }
 
 interface MatchDetail {
@@ -67,6 +69,7 @@ interface MatchDetail {
   start_hole: number;
   is_singles: boolean;
   round_format: string | null;
+  handicap_method: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
   home_player_ids: string[];
@@ -204,7 +207,8 @@ export default function MatchDetailScreen() {
 
   const formatLabel = (() => {
     const f = match?.round_format ?? '';
-    const map: Record<string, string> = { stableford: 'Stableford', medal: 'Stroke Play', matchplay: 'Matchplay', skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf', scramble: 'Scramble', bbb: 'Best Ball', modified_stableford: 'Modified Stableford', par_bogey: 'Par/Bogey', chacha: 'Cha Cha Cha' };
+    if (f === 'matchplay') return matchFormatLabel(f, match?.is_singles, match?.handicap_method);
+    const map: Record<string, string> = { stableford: 'Stableford', medal: 'Stroke Play', skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf', scramble: 'Scramble', bbb: 'Best Ball', modified_stableford: 'Modified Stableford', par_bogey: 'Par/Bogey', chacha: 'Cha Cha Cha' };
     return map[f] ?? f;
   })();
 
@@ -326,9 +330,13 @@ export default function MatchDetailScreen() {
             {match.day?.course_name ? `${match.day.course_name} · ${formatLabel}` : formatLabel}
           </Text>
         </View>
-        <TouchableOpacity style={s.headerSide} onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=1` as any)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Ionicons name="scan-outline" size={22} color={GOLD} />
-        </TouchableOpacity>
+        {courseHasGps(courseHoles) ? (
+          <TouchableOpacity style={s.headerSide} onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=1` as any)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name="scan-outline" size={22} color={GOLD} />
+          </TouchableOpacity>
+        ) : (
+          <View style={s.headerSide} />
+        )}
       </View>
 
       {/* ── Status banner ── */}

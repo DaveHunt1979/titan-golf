@@ -29,7 +29,7 @@ export async function downloadMatchPack(matchId: string): Promise<void> {
 
     const [holesRes, compRes, playersRes] = await Promise.all([
       courseName
-        ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages').eq('course_name', courseName).order('hole_number')
+        ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages,green_lat,green_lng').eq('course_name', courseName).order('hole_number')
         : Promise.resolve({ data: [] }),
       matchData.competition_id && allIds.length
         ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', matchData.competition_id).in('player_id', allIds)

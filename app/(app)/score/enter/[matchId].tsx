@@ -11,10 +11,11 @@ import RoundScorecard from '../../../../src/components/RoundScorecard';
 import { useFonts } from 'expo-font';
 import { supabase, freshChannel } from '../../../../src/lib/supabase';
 import {
-  calcHoles, matchLabel, calcCourseHandicap,
+  calcHoles, matchLabel, calcCourseHandicap, isDormie,
   calcStrokesReceived, calcStablefordPoints, formatStrokeHoles,
 } from '../../../../src/lib/scoring';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
+import { courseHasGps } from '../../../../src/lib/courseGps';
 import { speakHole, speakPressure } from '../../../../src/lib/caddie';
 import * as Location from 'expo-location';
 import ShotLogger from '../../../../src/components/ShotLogger';
@@ -31,7 +32,7 @@ import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
 import { dedupeInitials } from '../../../../src/lib/playerDisplay';
 import { formatRoundDuration } from '../../../../src/lib/roundTimer';
-import { individualBoardLabel } from '../../../../src/lib/tournamentFormat';
+import { individualBoardLabel, matchFormatLabel } from '../../../../src/lib/tournamentFormat';
 import EagleAlert, { type EagleType } from '../../../../src/components/EagleAlert';
 import { IS_PAD, GPS_PANEL_ENABLED } from '../../../../src/lib/useDeviceLayout';
 import GPSPanel from '../../../../src/components/ipad/GPSPanel';
@@ -136,7 +137,7 @@ interface MatchInfo {
   } | null;
 }
 
-interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; tee_yardages: Record<string, number> | null; }
+interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; tee_yardages: Record<string, number> | null; green_lat?: number | null; green_lng?: number | null; }
 interface CompPlayer { player_id: string; handicap_index: number; }
 
 function playerCourseHcp(playerId: string, compPlayers: CompPlayer[], day: MatchInfo['day'], hcpAllowance: number = 100): number {
@@ -301,7 +302,7 @@ export default function EnterScoresScreen() {
         console.log('[enter.load] fetching holes + competition_players + players...', { playerCount: allIds.length });
         const [{ data: holesData }, { data: compData }, { data: playersData }] = await Promise.all([
           matchData.day?.course_name
-            ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages').eq('course_name', matchData.day.course_name).order('hole_number')
+            ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages,green_lat,green_lng').eq('course_name', matchData.day.course_name).order('hole_number')
             : Promise.resolve({ data: [] }),
           matchData.competition_id && allIds.length
             ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', matchData.competition_id).in('player_id', allIds)
@@ -942,15 +943,18 @@ export default function EnterScoresScreen() {
       return (scores[id] ?? 99) - shots;
     };
 
-    // Main 4BBB Stableford (best-ball, points-based — not 4BBB Stroke
-    // Matchplay, which stays net-strokes) decides the hole winner by each
-    // side's best individual Stableford points at the MAIN game's own
-    // handicap allowance — never the 100%-handicap background side game
-    // (Rick: "two independent scoring calculations"). Comparing points this
-    // way also automatically satisfies "a 0-point score can never win a
-    // hole": points can't go negative, so 0 vs anything >0 always loses,
+    // Stableford-scored match play (4BBB Stableford AND, since Rick's
+    // brief section 8, Singles Match Play – Stableford) decides the hole
+    // winner by each side's best individual Stableford points at the MAIN
+    // game's own handicap allowance — never the 100%-handicap background
+    // side game (Rick: "two independent scoring calculations"). For
+    // singles this is just Math.max over a 1-element array, i.e. that
+    // player's own points — no separate branch needed. Comparing points
+    // this way also automatically satisfies "a 0-point score can never win
+    // a hole": points can't go negative, so 0 vs anything >0 always loses,
     // and 0-0 halves like any other tie.
-    const isStablefordBestBall = match.round_format === 'matchplay' && !match.is_singles && match.handicap_method !== 'relative_low';
+    const isStablefordBestBall = match.round_format === 'matchplay'
+      && (match.handicap_method === 'relative_low_stableford' || match.handicap_method === 'individual_stableford');
 
     let holeResult: 'h' | 'a' | 'f';
     if (isStablefordBestBall) {
@@ -1499,11 +1503,12 @@ export default function EnterScoresScreen() {
     : (leaderPts > 0 && (isStrokePlay || match.secondary_format)
         ? (isSinglePlayerStableford ? `${leaderPts}pts` : `${leaderName} leads · ${leaderPts}pts`)
         : null);
-  const { homeUp: liveHomeUp } = calcHoles(sequencedHolesStr);
+  const { homeUp: liveHomeUp, remaining: liveRemaining } = calcHoles(sequencedHolesStr);
+  const liveDormie = isDormie(liveHomeUp, liveRemaining);
   const holesLeft = sequencedHolesStr.split('').filter(c => c === '.').length;
 
   const statusBannerText = isMatchplay
-    ? (liveHomeUp === 0 ? 'All Square' : liveHomeUp > 0 ? `${homeLabel}  ${Math.abs(liveHomeUp)} Up` : `${awayLabel}  ${Math.abs(liveHomeUp)} Up`)
+    ? (liveHomeUp === 0 ? 'All Square' : liveDormie ? `${liveHomeUp > 0 ? homeLabel : awayLabel}  Dormie` : liveHomeUp > 0 ? `${homeLabel}  ${Math.abs(liveHomeUp)} Up` : `${awayLabel}  ${Math.abs(liveHomeUp)} Up`)
     : (leaderStatusText ?? `Hole ${currentHole}`);
   const statusBannerColor = isMatchplay ? (liveHomeUp >= 0 ? homeColor : awayColor) : GOLD;
   const statusBannerSub = isComplete ? 'Match complete' : holesLeft > 0 ? `${holesLeft} holes to play` : 'Last hole';
@@ -1513,10 +1518,11 @@ export default function EnterScoresScreen() {
     : isStrokePlay
       ? (leaderStatusText ?? `Hole ${currentHole} · ${holeChars.filter(c => c !== '.').length} played`)
       : liveHomeUp === 0 ? 'All Square'
+        : liveDormie ? `${liveHomeUp > 0 ? homeLabel : awayLabel} Dormie`
         : liveHomeUp > 0 ? `${homeLabel} lead ${Math.abs(liveHomeUp)}UP`
         : `${awayLabel} lead ${Math.abs(liveHomeUp)}UP`;
 
-  const formatLabel = isMatchplay ? 'Matchplay' : match.round_format === 'stableford' ? 'Stableford' : 'Stroke Play';
+  const formatLabel = matchFormatLabel(match.round_format, match.is_singles, match.handicap_method);
 
   // holeData[...].pts is the background 100%-handicap Stableford Side Game
   // value — it must stay untouched everywhere it already feeds playerTotals/
@@ -1605,13 +1611,15 @@ export default function EnterScoresScreen() {
               </Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity
-            style={s.headerSide}
-            onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${safeCurrentHole}&fromMatchId=${matchId}` as any)}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Ionicons name="scan-outline" size={22} color={GOLD} />
-          </TouchableOpacity>
+          {courseHasGps(courseHoles) && (
+            <TouchableOpacity
+              style={s.headerSide}
+              onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${safeCurrentHole}&fromMatchId=${matchId}` as any)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="scan-outline" size={22} color={GOLD} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -1903,15 +1911,19 @@ export default function EnterScoresScreen() {
 
                 {/* Quick actions */}
                 <View style={s.actionsRow}>
-                  <TouchableOpacity
-                    style={s.actionBtn}
-                    onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${safeCurrentHole}&fromMatchId=${matchId}` as any)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="scan-outline" size={20} color={GOLD} />
-                    <Text style={s.actionLabel}>RANGE</Text>
-                  </TouchableOpacity>
-                  <View style={s.actionSep} />
+                  {courseHasGps(courseHoles) && (
+                    <>
+                      <TouchableOpacity
+                        style={s.actionBtn}
+                        onPress={() => router.push(`/(app)/rangefinder?courseName=${encodeURIComponent(match?.day?.course_name ?? '')}&holeNumber=${safeCurrentHole}&fromMatchId=${matchId}` as any)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="scan-outline" size={20} color={GOLD} />
+                        <Text style={s.actionLabel}>RANGE</Text>
+                      </TouchableOpacity>
+                      <View style={s.actionSep} />
+                    </>
+                  )}
                   <TouchableOpacity style={s.actionBtn} onPress={() => setShowShotLogger(true)} activeOpacity={0.7}>
                     <Ionicons name="analytics-outline" size={20} color={GOLD} />
                     <Text style={s.actionLabel}>SHOTS</Text>
@@ -1977,6 +1989,7 @@ export default function EnterScoresScreen() {
               awayColor={awayColor}
               isStrokePlay={isStrokePlay}
               roundFormat={match.round_format}
+              handicapMethod={match.handicap_method}
               secondaryFormat={match.secondary_format}
               onUndo={undoHole}
               lastPlayedHole={lastPlayedHole}
@@ -1997,6 +2010,7 @@ export default function EnterScoresScreen() {
               awayColor={awayColor}
               isStrokePlay={isStrokePlay}
               roundFormat={match.round_format}
+              handicapMethod={match.handicap_method}
               secondaryFormat={match.secondary_format}
               onUndo={undoHole}
               lastPlayedHole={lastPlayedHole}
@@ -2227,6 +2241,7 @@ export default function EnterScoresScreen() {
                 awayColor={awayColor}
                 isStrokePlay={isStrokePlay}
                 roundFormat={match.round_format}
+                handicapMethod={match.handicap_method}
                 secondaryFormat={match.secondary_format}
                 onUndo={undoHole}
                 lastPlayedHole={0}
@@ -2245,6 +2260,7 @@ export default function EnterScoresScreen() {
                 awayColor={awayColor}
                 isStrokePlay={isStrokePlay}
                 roundFormat={match.round_format}
+                handicapMethod={match.handicap_method}
                 secondaryFormat={match.secondary_format}
                 onUndo={undoHole}
                 lastPlayedHole={0}

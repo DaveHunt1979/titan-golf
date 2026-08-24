@@ -32,7 +32,7 @@ type FormatId = 'team_matchplay' | 'titan_way' | 'ryder_cup' | 'stableford' | 'm
 // Only formats that actually have a working Casual Round engine behind them —
 // Foursomes/Greensomes/Scramble were listed here but never got real scoring
 // support in score/enter/[matchId].tsx, so they're deliberately not offered.
-type DayFormatId = 'four_bbb' | 'four_bbb_stroke' | 'singles' | 'stableford' | 'medal';
+type DayFormatId = 'four_bbb' | 'four_bbb_stroke' | 'singles' | 'singles_stableford' | 'stableford' | 'medal';
 
 interface CompFormat {
   id: FormatId;
@@ -102,11 +102,12 @@ const COMP_FORMATS: CompFormat[] = [
 ];
 
 const DAY_FORMATS: Array<{ id: DayFormatId; label: string; sub: string }> = [
-  { id: 'four_bbb',        label: '4BBB Stableford', sub: 'Best ball pairs' },
-  { id: 'four_bbb_stroke', label: '4BBB Stroke', sub: 'Best ball, relative handicap' },
-  { id: 'singles',    label: 'Singles',    sub: '1v1 matchplay' },
-  { id: 'stableford', label: 'Stableford', sub: 'Points per hole' },
-  { id: 'medal',      label: 'Medal',      sub: 'Stroke play' },
+  { id: 'four_bbb',            label: '4BBB Match Play – Stableford',    sub: 'Best ball pairs' },
+  { id: 'four_bbb_stroke',     label: '4BBB Match Play – Stroke Play',   sub: 'Best ball, relative handicap' },
+  { id: 'singles',             label: 'Singles Match Play – Stroke Play', sub: '1v1 matchplay, net strokes' },
+  { id: 'singles_stableford',  label: 'Singles Match Play – Stableford', sub: '1v1 matchplay, points per hole' },
+  { id: 'stableford',          label: 'Stableford',                     sub: 'Points per hole' },
+  { id: 'medal',               label: 'Medal',                          sub: 'Stroke play' },
 ];
 
 const HCP_OPTIONS = [

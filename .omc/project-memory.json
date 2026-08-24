@@ -258,20 +258,20 @@
   "hotPaths": [
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 70,
-      "lastAccessed": 1787556788875,
+      "accessCount": 72,
+      "lastAccessed": 1787559167376,
       "type": "file"
     },
     {
       "path": "app/(app)/admin/draw.tsx",
-      "accessCount": 57,
-      "lastAccessed": 1787556027441,
+      "accessCount": 69,
+      "lastAccessed": 1787559886102,
       "type": "file"
     },
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 23,
-      "lastAccessed": 1787551121029,
+      "accessCount": 48,
+      "lastAccessed": 1787559404795,
       "type": "file"
     },
     {
@@ -287,27 +287,39 @@
       "type": "file"
     },
     {
+      "path": "src/lib/titanNews.ts",
+      "accessCount": 20,
+      "lastAccessed": 1787559908623,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/admin/live-tournaments.tsx",
       "accessCount": 16,
       "lastAccessed": 1787553021683,
       "type": "file"
     },
     {
-      "path": "src/lib/titanNews.ts",
-      "accessCount": 14,
-      "lastAccessed": 1787551177757,
+      "path": "app/(app)/tour/day/[dayId].tsx",
+      "accessCount": 16,
+      "lastAccessed": 1787559327724,
       "type": "file"
     },
     {
-      "path": "app/(app)/tour/day/[dayId].tsx",
-      "accessCount": 11,
-      "lastAccessed": 1787323612642,
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 15,
+      "lastAccessed": 1787557589737,
       "type": "file"
     },
     {
       "path": "src/lib/scoring.ts",
-      "accessCount": 10,
-      "lastAccessed": 1787464253101,
+      "accessCount": 14,
+      "lastAccessed": 1787559877323,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/day/[dayId].tsx",
+      "accessCount": 12,
+      "lastAccessed": 1787559305342,
       "type": "file"
     },
     {
@@ -323,12 +335,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 7,
-      "lastAccessed": 1787544394675,
-      "type": "file"
-    },
-    {
       "path": "supabase/functions/titan-news/index.ts",
       "accessCount": 7,
       "lastAccessed": 1787551196334,
@@ -341,9 +347,9 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/day/[dayId].tsx",
-      "accessCount": 5,
-      "lastAccessed": 1787323681897,
+      "path": "src/types/index.ts",
+      "accessCount": 6,
+      "lastAccessed": 1787559937928,
       "type": "file"
     },
     {
@@ -362,12 +368,6 @@
       "path": "web/src/app/layout.tsx",
       "accessCount": 4,
       "lastAccessed": 1787318075889,
-      "type": "file"
-    },
-    {
-      "path": "src/types/index.ts",
-      "accessCount": 4,
-      "lastAccessed": 1787556710933,
       "type": "file"
     },
     {

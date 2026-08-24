@@ -49,9 +49,18 @@ export function matchLabel(
   const { homeUp, played, remaining, concluded } = calcHoles(holesStr, totalHoles);
   if (played === 0) return 'In Progress';
   if (concluded) return `${Math.abs(homeUp)}&${remaining}`;
+  if (isDormie(homeUp, remaining)) return 'Dormie';
   if (played === totalHoles) return homeUp === 0 ? 'AS' : `${Math.abs(homeUp)}UP`;
   if (homeUp === 0) return `AS (${played})`;
   return `${Math.abs(homeUp)}UP (${played})`;
+}
+
+// The leader only needs to halve every remaining hole to win — the classic
+// match-play "dormie" state. Only meaningful before the match has actually
+// concluded (calcHoles' `concluded` already covers "won by more than what's
+// left"), and only while holes remain to play.
+export function isDormie(homeUp: number, remaining: number): boolean {
+  return remaining > 0 && Math.abs(homeUp) === remaining;
 }
 
 // Handicap calculations (WHS formula)

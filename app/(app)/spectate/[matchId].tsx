@@ -725,6 +725,7 @@ export default function SpectateScreen() {
               awayColor={awayColor}
               isStrokePlay={isStrokePlay}
               roundFormat={match.round_format}
+              handicapMethod={match.handicap_method}
               secondaryFormat={match.secondary_format}
               screenWidth={SCREEN_WIDTH - 60}
             />
@@ -740,6 +741,7 @@ export default function SpectateScreen() {
               awayColor={awayColor}
               isStrokePlay={isStrokePlay}
               roundFormat={match.round_format}
+              handicapMethod={match.handicap_method}
               secondaryFormat={match.secondary_format}
               screenWidth={SCREEN_WIDTH - 60}
             />

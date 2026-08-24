@@ -54,7 +54,20 @@ export default function RangeMap({ courseName, holeNumber }: Props) {
     return () => { sub?.remove(); };
   }, []);
 
-  if (loading || !green) return null;
+  if (loading) return null;
+
+  // The parent screen only shows the RANGE button when the course has GPS
+  // on at least one hole (Rick's brief, section 7) — but that's an any-hole
+  // check, so a course can still have gaps on specific holes. Show a small
+  // on-brand message here rather than a blank body (one of the brief's
+  // explicit "do not" cases) when this particular hole isn't mapped.
+  if (!green) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>GPS not mapped for this hole yet.</Text>
+      </View>
+    );
+  }
 
   const distance = player ? haversineYards(player.lat, player.lng, green.lat, green.lng) : null;
 
@@ -119,4 +132,10 @@ const styles = StyleSheet.create({
   },
   badgeNum: { fontSize: fonts.xxl, fontWeight: '900', color: colors.gold, lineHeight: 28 },
   badgeLbl: { fontSize: 9, fontWeight: '700', color: colors.gold, letterSpacing: 1 },
+  emptyContainer: {
+    height: 100, borderRadius: radius.lg, marginBottom: spacing.md,
+    borderWidth: 1, borderColor: colors.gold, alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  emptyText: { fontSize: 12, fontWeight: '700', color: colors.textMuted, textAlign: 'center' },
 });

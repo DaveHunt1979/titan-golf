@@ -12,6 +12,7 @@ import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { speakIntro } from '../../../../src/lib/caddie';
 import { calcCourseHandicap } from '../../../../src/lib/scoring';
 import { goBack } from '../../../../src/lib/navigation';
+import { matchFormatLabel } from '../../../../src/lib/tournamentFormat';
 
 const GOLD  = '#D4AF37';
 const FF    = 'JUSTSans';
@@ -229,8 +230,9 @@ export default function MatchPreviewScreen() {
     if (match.round_format === 'team_stableford' && match.away_player_ids.length === 0 && (match.team_size ?? 2) >= 4) {
       return 'Mashie Golf';
     }
+    if (match.round_format === 'matchplay') return matchFormatLabel(match.round_format, match.is_singles, match.handicap_method);
     const map: Record<string, string> = {
-      stableford: 'Stableford', medal: 'Medal', matchplay: 'Matchplay',
+      stableford: 'Stableford', medal: 'Medal',
       skins: 'Skins', nassau: 'Nassau', wolf: 'Wolf', scramble: 'Scramble',
       bbb: 'Best Ball Betterball', modified_stableford: 'Modified Stableford',
       par_bogey: 'Par / Bogey', chacha: 'Cha Cha Cha',

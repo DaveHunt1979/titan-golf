@@ -10,6 +10,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles } from '../../../../src/lib/scoring';
 import { resolveAvatar } from '../../../../src/lib/assets';
+import { courseHasGps } from '../../../../src/lib/courseGps';
 import { dedupeInitials } from '../../../../src/lib/playerDisplay';
 import { enqueueSwindleHole } from '../../../../src/lib/swindleOfflineQueue';
 import { goBack } from '../../../../src/lib/navigation';
@@ -82,7 +83,7 @@ interface Game {
   id: string; name: string; course_name: string | null; format: 'stableford' | 'stroke';
   status: string; slope_rating: number | null; course_rating: number | null; hcp_allowance: number | null;
 }
-interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; }
+interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; green_lat?: number | null; green_lng?: number | null; }
 interface HoleScore { hole_number: number; gross: number; pts: number; }
 interface GroupPlayer {
   playerId: string; name: string; avatarUrl: string | null;
@@ -154,7 +155,7 @@ export default function SwindleScoreScreen() {
         let holes: CourseHole[] = [];
         if (g.course_name) {
           const { data: holesData } = await supabase
-            .from('course_holes').select('hole_number,par,stroke_index,yardage')
+            .from('course_holes').select('hole_number,par,stroke_index,yardage,green_lat,green_lng')
             .eq('course_name', g.course_name).order('hole_number');
           if (holesData) holes = holesData as CourseHole[];
         }
@@ -748,11 +749,15 @@ export default function SwindleScoreScreen() {
             </View>
 
             <View style={s.quickActions}>
-              <TouchableOpacity style={s.quickActionBtn} onPress={() => setShowRangeMap(true)} activeOpacity={0.7}>
-                <Ionicons name="scan-outline" size={20} color="#ffffff" />
-                <Text style={s.quickActionLbl}>RANGE</Text>
-              </TouchableOpacity>
-              <View style={s.quickActionSep} />
+              {courseHasGps(courseHoles) && (
+                <>
+                  <TouchableOpacity style={s.quickActionBtn} onPress={() => setShowRangeMap(true)} activeOpacity={0.7}>
+                    <Ionicons name="scan-outline" size={20} color="#ffffff" />
+                    <Text style={s.quickActionLbl}>RANGE</Text>
+                  </TouchableOpacity>
+                  <View style={s.quickActionSep} />
+                </>
+              )}
               <TouchableOpacity style={s.quickActionBtn} onPress={() => router.push(`/(app)/swindle/${gameId}` as any)} activeOpacity={0.7}>
                 <Ionicons name="trophy-outline" size={20} color="#ffffff" />
                 <Text style={s.quickActionLbl}>LEADERS</Text>
@@ -1038,11 +1043,15 @@ export default function SwindleScoreScreen() {
                 </View>
               )}
               <View style={s.quickActions}>
-                <TouchableOpacity style={s.quickActionBtn} onPress={() => setShowRangeMap(true)} activeOpacity={0.7}>
-                  <Ionicons name="scan-outline" size={20} color="#ffffff" />
-                  <Text style={s.quickActionLbl}>RANGE</Text>
-                </TouchableOpacity>
-                <View style={s.quickActionSep} />
+                {courseHasGps(courseHoles) && (
+                  <>
+                    <TouchableOpacity style={s.quickActionBtn} onPress={() => setShowRangeMap(true)} activeOpacity={0.7}>
+                      <Ionicons name="scan-outline" size={20} color="#ffffff" />
+                      <Text style={s.quickActionLbl}>RANGE</Text>
+                    </TouchableOpacity>
+                    <View style={s.quickActionSep} />
+                  </>
+                )}
                 <TouchableOpacity
                   style={s.quickActionBtn}
                   onPress={() => router.push(`/(app)/swindle/${gameId}` as any)}
