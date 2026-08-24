@@ -12,6 +12,7 @@ import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { getStandings, calcSweepBonus } from '../../../src/lib/scoring';
 import { resolveAvatar, teamLogos } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
+import { getFormatRules } from '../../../src/lib/tournamentFormat';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -460,10 +461,12 @@ export default function TournamentDrawScreen() {
     const isPairs   = PAIRS_DAY_FORMATS.includes(df);
     const ppm       = isPairs ? 2 : 1;
     // Captain Rotation (the opening-rounds captain-pairing rule) is Titan
-    // Way-exclusive (Rick's brief, 2026-08-22, section 4.2) — gating on
-    // format here, not just opening_rounds, matters because the DB column
-    // defaults to 3 for every competition regardless of format.
-    const isOpeningRound = comp?.format === 'titan_way' && day.day_number <= (comp?.opening_rounds ?? 0);
+    // Way-exclusive (Rick's brief, 2026-08-22 section 4.2; 2026-08-24
+    // section 9) — gating on format here, not just opening_rounds, matters
+    // because the DB column defaults to 3 for every competition regardless
+    // of format.
+    const formatRules    = getFormatRules(comp?.format);
+    const isOpeningRound = formatRules.captainRotation && day.day_number <= (comp?.opening_rounds ?? 0);
     const maxDayNumber   = days.length > 0 ? Math.max(...days.map(d => d.day_number)) : day.day_number;
     const isFinalDay      = day.day_number === maxDayNumber;
 
@@ -518,10 +521,13 @@ export default function TournamentDrawScreen() {
           side_games:     sideGamesTags,
         });
       }
-    } else if (isFinalDay) {
-      // Final-day knockout: pair by current league position — 1st vs 2nd,
-      // 3rd vs 4th, etc. — rather than the round-robin rotation used earlier.
-      // Must feed getStandings the exact same tie-break inputs the Tour tab
+    } else if (isFinalDay && formatRules.finalDayKnockout) {
+      // Final-day knockout is Titan Way-exclusive (Rick's brief, section 9)
+      // — pair by current league position — 1st vs 2nd, 3rd vs 4th, etc. —
+      // rather than the round-robin rotation used earlier. Every other
+      // multi-team format falls through to the round-robin branch below
+      // even on its final day. Must feed getStandings the exact same
+      // tie-break inputs the Tour tab
       // leaderboard uses, or the two screens can show contradictory
       // positions on the day it matters most.
       const singlesDayIds = new Set(days.filter(d => d.day_format === 'singles' || d.day_format === 'singles_stableford').map(d => d.id));
@@ -678,10 +684,12 @@ export default function TournamentDrawScreen() {
   const teamsWithPlayers = new Set(compPlayers.map(cp => cp.team_id).filter(Boolean)).size;
   const configuredTeams = comp?.settings?.num_teams ?? null;
   const teamCountMismatch = configuredTeams != null && teamsWithPlayers > 0 && teamsWithPlayers !== configuredTeams;
-  // Ryder Cup / Titan Tour are the only team-based tournament types — a
-  // Standard Tournament (Individual Stableford, Stroke Play, etc.) is just
-  // a player pool and shouldn't ask for team assignment at all.
-  const isTeamTournament = comp?.tournament_type === 'ryder_cup' || comp?.tournament_type === 'titan_tour';
+  // A Standard Tournament (Individual Stableford, Stroke Play, etc.) is just
+  // a player pool and shouldn't ask for team assignment at all — read off
+  // the format registry, not the legacy tournament_type column (which
+  // collapses Titan Way and Multi-Team Tour into the same value and can't
+  // be used to tell them apart — Rick's brief, section 9).
+  const isTeamTournament = getFormatRules(comp?.format).isTeamFormat;
   const daysWithMatches = new Set(matches.map(m => m.day_id));
   const allDaysHaveMatches = days.length > 0 && days.every(d => daysWithMatches.has(d.id));
 
@@ -999,7 +1007,7 @@ export default function TournamentDrawScreen() {
             <Text style={s.sectionLabel}>TOURNAMENT SUMMARY</Text>
             <View style={s.summaryCard}>
               <SummaryRow label="Name"    value={comp?.name ?? '—'} />
-              <SummaryRow label="Type"    value={comp?.tournament_type === 'ryder_cup' ? 'Ryder Cup' : comp?.tournament_type === 'titan_tour' ? 'Titan Tour' : 'Casual'} />
+              <SummaryRow label="Type"    value={getFormatRules(comp?.format).label} />
               <SummaryRow label="Points"  value={`Win ${comp?.pts_win ?? 1} / Half ${comp?.pts_half ?? 0.5}`} />
               <SummaryRow label="Players" value={`${compPlayers.length}`} />
               <SummaryRow label="Teams"   value={`${teams.filter(t => compPlayers.some(cp => cp.team_id === t.id)).length} of ${teams.length}`} />

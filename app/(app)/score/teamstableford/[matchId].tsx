@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
-import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { calcStrokesReceived, calcStablefordPoints, playerCourseHcp } from '../../../../src/lib/scoring';
 import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
@@ -65,17 +65,6 @@ interface HolePlayerResult {
 interface TeamHoleResult {
   results: HolePlayerResult[];
   teamTotal: number;
-}
-
-// Same formula as score/enter/[matchId].tsx's playerCourseHcp — this screen used
-// to apply the allowance% straight to the raw handicap_index and skip the course
-// handicap conversion entirely, writing a wrong net_score to the DB whenever the
-// course's slope/rating differ from 113/par.
-function playerCourseHcp(hcpIndex: number, day: Match['day'], allowance: number): number {
-  const raw = (!day?.slope_rating || !day?.course_rating || !day?.course_par)
-    ? Math.round(hcpIndex)
-    : calcCourseHandicap(hcpIndex, day.slope_rating, day.course_rating, day.course_par);
-  return Math.round(raw * (allowance / 100));
 }
 
 function Avatar({ name, size = 36, src }: { name: string; size?: number; src?: any }) {

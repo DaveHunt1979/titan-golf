@@ -11,6 +11,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
+import { scoreVsPar } from '../../../src/lib/scoring';
 
 // ─── TITAN design constants ──────────────────────────────────────────────────
 
@@ -169,9 +170,9 @@ export default function StatsScreen() {
         .eq('player_id', pid),
       supabase
         .from('match_holes')
-        .select('match_id, stableford_pts')
+        .select('match_id, hole_number, gross_score, matches(day:day_id(course_name))')
         .eq('player_id', pid)
-        .not('stableford_pts', 'is', null),
+        .not('gross_score', 'is', null),
       supabase
         .from('shots')
         .select('club_short, clubs(category), distance_yards')
@@ -225,17 +226,29 @@ export default function StatsScreen() {
     }
 
     // ── scoring distribution ───────────────────────────
+    // Gross-vs-par, never Stableford points (Rick's brief, section 10) — a
+    // bogey player on a stroke hole scores 3 points without hitting a
+    // birdie, so a points-based counter (the old behaviour here) could show
+    // 18 "birdies" for a round that was actually 18 pars.
     const matchIds = new Set<string>();
+    const holeRows = (holesRes.data ?? []) as any[];
+    const courseNames = [...new Set(holeRows.map(r => r.matches?.day?.course_name).filter(Boolean))] as string[];
+    const { data: courseHolesData } = courseNames.length
+      ? await supabase.from('course_holes').select('course_name, hole_number, par').in('course_name', courseNames)
+      : { data: [] as any[] };
+    const parByCourseHole = new Map<string, Map<number, number>>();
+    (courseHolesData ?? []).forEach((h: any) => {
+      if (!parByCourseHole.has(h.course_name)) parByCourseHole.set(h.course_name, new Map());
+      parByCourseHole.get(h.course_name)!.set(h.hole_number, h.par);
+    });
     const scr: ScoreData = { eagle: 0, birdie: 0, par: 0, bogey: 0, double: 0 };
-    for (const row of (holesRes.data ?? []) as any[]) {
+    for (const row of holeRows) {
       const r = row as any;
       matchIds.add(r.match_id);
-      const pts = r.stableford_pts as number;
-      if (pts >= 4)      scr.eagle++;
-      else if (pts === 3) scr.birdie++;
-      else if (pts === 2) scr.par++;
-      else if (pts === 1) scr.bogey++;
-      else                scr.double++;
+      const courseName = r.matches?.day?.course_name;
+      const par = courseName ? parByCourseHole.get(courseName)?.get(r.hole_number) : undefined;
+      if (par == null) continue;
+      scr[scoreVsPar(r.gross_score, par)]++;
     }
 
     // ── club distances ─────────────────────────────────

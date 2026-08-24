@@ -258,20 +258,32 @@
   "hotPaths": [
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 72,
-      "lastAccessed": 1787559167376,
+      "accessCount": 93,
+      "lastAccessed": 1787566795868,
       "type": "file"
     },
     {
       "path": "app/(app)/admin/draw.tsx",
-      "accessCount": 69,
-      "lastAccessed": 1787559886102,
+      "accessCount": 81,
+      "lastAccessed": 1787566564358,
       "type": "file"
     },
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 48,
-      "lastAccessed": 1787559404795,
+      "accessCount": 75,
+      "lastAccessed": 1787566642432,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/day/[dayId].tsx",
+      "accessCount": 33,
+      "lastAccessed": 1787564558615,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/titanNews.ts",
+      "accessCount": 30,
+      "lastAccessed": 1787566583831,
       "type": "file"
     },
     {
@@ -281,21 +293,27 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 23,
+      "lastAccessed": 1787566651828,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/camera/index.tsx",
       "accessCount": 22,
       "lastAccessed": 1787462996542,
       "type": "file"
     },
     {
-      "path": "src/lib/titanNews.ts",
-      "accessCount": 20,
-      "lastAccessed": 1787559908623,
+      "path": "app/(app)/admin/live-tournaments.tsx",
+      "accessCount": 21,
+      "lastAccessed": 1787566570567,
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/live-tournaments.tsx",
-      "accessCount": 16,
-      "lastAccessed": 1787553021683,
+      "path": "src/lib/scoring.ts",
+      "accessCount": 18,
+      "lastAccessed": 1787564357943,
       "type": "file"
     },
     {
@@ -305,39 +323,21 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 15,
-      "lastAccessed": 1787557589737,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/scoring.ts",
-      "accessCount": 14,
-      "lastAccessed": 1787559877323,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/day/[dayId].tsx",
-      "accessCount": 12,
-      "lastAccessed": 1787559305342,
+      "path": "supabase/functions/titan-news/index.ts",
+      "accessCount": 11,
+      "lastAccessed": 1787566752307,
       "type": "file"
     },
     {
       "path": "app/(app)/admin/news.tsx",
-      "accessCount": 8,
-      "lastAccessed": 1787546659141,
+      "accessCount": 9,
+      "lastAccessed": 1787566575102,
       "type": "file"
     },
     {
       "path": "app/(app)/news/index.tsx",
       "accessCount": 7,
       "lastAccessed": 1787379083322,
-      "type": "file"
-    },
-    {
-      "path": "supabase/functions/titan-news/index.ts",
-      "accessCount": 7,
-      "lastAccessed": 1787551196334,
       "type": "file"
     },
     {
@@ -353,9 +353,21 @@
       "type": "file"
     },
     {
+      "path": "web/src/app/tournament/new/page.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1787561689476,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/help/index.tsx",
       "accessCount": 5,
       "lastAccessed": 1787551097771,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/tournaments.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1787561624433,
       "type": "file"
     },
     {
@@ -413,9 +425,9 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/tournaments.tsx",
+      "path": "src/lib/navigation.ts",
       "accessCount": 2,
-      "lastAccessed": 1787552157185,
+      "lastAccessed": 1787566607776,
       "type": "file"
     },
     {
@@ -491,12 +503,6 @@
       "type": "file"
     },
     {
-      "path": "web/src/app/tournament/new/page.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1787319833871,
-      "type": "file"
-    },
-    {
       "path": "screenshots/Screenshot 2026-08-21 at 15.36.44.png",
       "accessCount": 1,
       "lastAccessed": 1787323543983,
@@ -524,12 +530,6 @@
       "path": "src/lib/titanBanter.ts",
       "accessCount": 1,
       "lastAccessed": 1787377324627,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/navigation.ts",
-      "accessCount": 1,
-      "lastAccessed": 1787379326069,
       "type": "file"
     },
     {

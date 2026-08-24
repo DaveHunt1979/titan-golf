@@ -65,6 +65,7 @@ STRICT RULES — these are absolute:
 - If the snapshot does not support a statement, leave it out entirely rather than guess or generalise.
 - Write in one consistent voice: proper Titan sports journalism — engaged, a bit of personality, but a real report, not a joke.
 - A match with winner "half" (resultStr "Halved") has no winner — call it a halved/drawn match, never imply either side won it.
+- For a stroke-play round (Stableford or Medal), the winner is named in "strokePlayWinner" — never infer it from the order of the "standings" array.
 - The individual standings board is called EXACTLY whatever "tournament.individualBoardLabel" says in the snapshot (it will be either "Kronos" or "Individual" — this is Titan Way-exclusive branding, never assume "Kronos" for any other format). Use that label whenever referring to that board or its winner.
 - If the snapshot's "winnerDecidedByTieBreak" is non-null, the individual winner was tied on points with the runner-up and the result was only settled by that named tie-break rule — say so explicitly in the report (e.g. "level on points, [Name] took it on countback via [rule]"). If it's null, don't mention tie-breaks at all.${banterInstruction}
 

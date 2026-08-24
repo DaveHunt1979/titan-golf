@@ -13,8 +13,8 @@ import { useDynamicColors } from '../../../../src/lib/SocietyThemeContext';
 import { useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../../src/lib/assets';
 import {
-  calcCourseHandicap,
   calcStrokesReceived,
+  playerCourseHcp,
 } from '../../../../src/lib/scoring';
 
 // ── Design tokens ───────────────────────────────────────────────
@@ -54,6 +54,7 @@ interface MatchRow {
   home_team: { name: string; accent_color: string } | null;
   away_team: { name: string; accent_color: string } | null;
   hcp_allowance: number | null;
+  competition_id: string | null;
   day: {
     course_name: string;
     tee_date: string;
@@ -357,7 +358,7 @@ export default function ResultsScreen() {
         .select(`
           id, status, round_format, holes_string, start_hole,
           home_player_ids, away_player_ids,
-          hcp_allowance,
+          hcp_allowance, competition_id,
           home_team:home_team_id(name, accent_color),
           away_team:away_team_id(name, accent_color),
           day:day_id(course_name, tee_date, slope_rating, course_rating, course_par, competition:competition_id(format))
@@ -378,9 +379,21 @@ export default function ResultsScreen() {
         { data: matchHolesData },
         { data: holeStatsData },
       ] = await Promise.all([
-        allIds.length
-          ? supabase.from('players').select('id, display_name, handicap_index').in('id', allIds)
-          : Promise.resolve({ data: [] }),
+        // Locked tournament handicap (competition_players), not the live
+        // players.handicap_index — this screen used to read the live index,
+        // which can disagree with what the round was actually scored with
+        // once a player's index moves after the tournament, or whenever
+        // handicaps were locked at all (Rick's brief, section 10). Falls
+        // back to the live index for non-tournament (competition_id-less)
+        // rounds, where there's no locked value to read.
+        allIds.length && m.competition_id
+          ? supabase.from('competition_players')
+              .select('player_id, handicap_index, players(display_name)')
+              .eq('competition_id', m.competition_id)
+              .in('player_id', allIds)
+          : allIds.length
+            ? supabase.from('players').select('id, display_name, handicap_index').in('id', allIds)
+            : Promise.resolve({ data: [] }),
         m.day?.course_name
           ? supabase.from('course_holes')
               .select('hole_number, par, stroke_index')
@@ -395,7 +408,14 @@ export default function ResultsScreen() {
           .eq('match_id', matchId),
       ]);
 
-      if (profilesData) setPlayers(profilesData as Profile[]);
+      if (profilesData) {
+        const normalized: Profile[] = (profilesData as any[]).map(row =>
+          'player_id' in row
+            ? { id: row.player_id, display_name: row.players?.display_name ?? '—', handicap_index: row.handicap_index }
+            : { id: row.id, display_name: row.display_name, handicap_index: row.handicap_index }
+        );
+        setPlayers(normalized);
+      }
       if (holesData) setCourseHoles(holesData as CourseHole[]);
       if (matchHolesData) setMatchHoles(matchHolesData as MatchHole[]);
       if (holeStatsData) setHoleStats(holeStatsData as HoleStat[]);
@@ -426,19 +446,9 @@ export default function ResultsScreen() {
 
   const isStableford = match?.round_format === 'stableford';
 
-  // Same formula as score/enter/[matchId].tsx's playerCourseHcp — this screen
-  // used to skip slope/course rating because its query didn't select them,
-  // which meant its net scores could disagree with the live entry screen's
-  // for the same round on any course where slope != 113 or CR != par.
   function getCourseHcp(playerId: string): number {
     const profile = playerMap[playerId];
-    const hcpIndex = profile?.handicap_index ?? 0;
-    const allowance = match?.hcp_allowance ?? 100;
-    const day = match?.day;
-    const raw = (!day?.slope_rating || !day?.course_rating || !day?.course_par)
-      ? Math.round(hcpIndex)
-      : calcCourseHandicap(hcpIndex, day.slope_rating, day.course_rating, day.course_par);
-    return Math.round(raw * (allowance / 100));
+    return playerCourseHcp(profile?.handicap_index ?? 0, match?.day, match?.hcp_allowance ?? 100);
   }
 
   const selectedProfile = selectedPlayerId ? playerMap[selectedPlayerId] : null;

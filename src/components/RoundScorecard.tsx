@@ -1,27 +1,9 @@
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { scoreVsPar, SCORE_COLORS } from '../lib/scoring';
 
 const GOLD     = '#D4AF37';
-const RED      = '#f87171';
-const BLUE     = '#3b82f6';
-const DARKBLUE = '#1e3a8a';
-const PLAIN    = '#ffffff';
 const FFB      = 'JUSTSans-ExBold';
-
-// Same eagle/birdie/par/bogey/double convention as score/enter, score/solo
-// and spectate/[matchId].tsx — kept in sync manually (see
-// project_scoring_architecture_debt memory), not shared, since a real
-// dedupe was already deferred there.
-const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: RED, par: PLAIN, bogey: BLUE, double: DARKBLUE };
-
-function scoreVsPar(gross: number, par: number): string {
-  const diff = gross - par;
-  if (diff <= -2) return 'eagle';
-  if (diff === -1) return 'birdie';
-  if (diff === 0)  return 'par';
-  if (diff === 1)  return 'bogey';
-  return 'double';
-}
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 
@@ -133,7 +115,7 @@ export default function RoundScorecard({
                 const ch = courseHoles.find(c => c.hole_number === h);
                 const cellColor = gross != null && ch
                   ? SCORE_COLORS[scoreVsPar(gross, ch.par)]
-                  : gross ? PLAIN : '#333';
+                  : gross ? SCORE_COLORS.par : '#333';
                 return (
                   <View key={h} style={[sc.cell, sc.holeCell, { gap: 2 }]}>
                     {gross ? (

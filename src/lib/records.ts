@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { countScoreBreakdown } from './scoring';
 
 export type RecordType =
   | 'best_gross_18'
@@ -45,7 +46,7 @@ export async function checkAndUpdateRecords(
   const [holesRes, matchRes] = await Promise.all([
     supabase
       .from('match_holes')
-      .select('gross_score, stableford_pts')
+      .select('hole_number, gross_score, stableford_pts')
       .eq('match_id', matchId)
       .eq('player_id', playerId),
     supabase
@@ -61,11 +62,19 @@ export async function checkAndUpdateRecords(
   // Only check records on complete 18-hole rounds
   if (holesWithScore.length < 18) return [];
 
+  const courseName = (matchRes.data as any)?.day?.course_name ?? '';
+  const { data: courseHolesData } = courseName
+    ? await supabase.from('course_holes').select('hole_number, par').eq('course_name', courseName)
+    : { data: [] as any[] };
+
   const grossTotal      = holesWithScore.reduce((s: number, h: any) => s + h.gross_score, 0);
   const stablefordTotal = holes.reduce((s: number, h: any) => s + (h.stableford_pts ?? 0), 0);
-  const birdieCount     = holes.filter((h: any) => (h.stableford_pts ?? 0) === 3).length;
-  const eagleCount      = holes.filter((h: any) => (h.stableford_pts ?? 0) >= 4).length;
-  const courseName      = (matchRes.data as any)?.day?.course_name ?? '';
+  // Gross-vs-par, never Stableford points (Rick's brief, section 10) — a
+  // points-based counter here previously wrote inflated birdie/eagle counts
+  // straight into this shared, other-members-visible records table.
+  const breakdown       = countScoreBreakdown(holesWithScore, (courseHolesData ?? []) as any[]);
+  const birdieCount     = breakdown.birdie;
+  const eagleCount      = breakdown.eagle;
 
   // Load existing society records
   const { data: existing } = await supabase

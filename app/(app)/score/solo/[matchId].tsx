@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, scoreVsPar, formatVsPar, SCORE_COLORS, ptsColor } from '../../../../src/lib/scoring';
 import { goBack } from '../../../../src/lib/navigation';
 import { formatRoundDuration } from '../../../../src/lib/roundTimer';
 import { resolveAvatar } from '../../../../src/lib/assets';
@@ -42,36 +42,6 @@ const PLAIN    = '#ffffff';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 const titanLogo = require('../../../../assets/TitanAppLogo.png');
-
-const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: RED, par: PLAIN, bogey: BLUE, double: DARKBLUE };
-
-function scoreVsPar(gross: number, par: number, _shots: number): string {
-  // Classified by gross strokes vs par only — handicap shots affect stableford
-  // points, not the eagle/birdie/par/bogey label (Rick: "points and stroke
-  // should remain separate").
-  const diff = gross - par;
-  if (diff <= -2) return 'eagle';
-  if (diff === -1) return 'birdie';
-  if (diff === 0)  return 'par';
-  if (diff === 1)  return 'bogey';
-  return 'double';
-}
-
-// Shared vs-par formatter — 'E' for level par, otherwise signed. Single
-// source so this can't drift out of sync between sites the way the round-
-// complete card and the saved result_str did (one showed "0", one showed "E").
-function formatVsPar(n: number): string {
-  if (n === 0) return 'E';
-  return n > 0 ? `+${n}` : `${n}`;
-}
-
-function ptsColor(pts: number): string {
-  if (pts >= 4) return GOLD;
-  if (pts === 3) return RED;
-  if (pts === 2) return PLAIN;
-  if (pts === 1) return BLUE;
-  return DARKBLUE;
-}
 
 function Avatar({ name, size = 44, src }: { name: string; size?: number; src?: any }) {
   if (src) {
@@ -802,7 +772,7 @@ export default function SoloRoundScreen() {
           const active = h === activeHole && !isComplete;
           const ch = courseHoles.find(x => x.hole_number === h);
           const sc = savedScores.find(sv => sv.hole_number === h);
-          const tc = done ? (sc ? SCORE_COLORS[scoreVsPar(sc.gross, ch?.par ?? 4, 0)] : '#6b7280') : 'transparent';
+          const tc = done ? (sc ? SCORE_COLORS[scoreVsPar(sc.gross, ch?.par ?? 4)] : '#6b7280') : 'transparent';
           return (
             <TouchableOpacity
               key={h}
@@ -1050,7 +1020,7 @@ export default function SoloRoundScreen() {
                     <Text allowFontScaling={false} style={s.scorecardHoleLabel}>GROSS</Text>
                     {half.map(h => {
                       const sv = halfScores.find(s => s.hole_number === h.hole_number);
-                      const cellColor = sv ? SCORE_COLORS[scoreVsPar(sv.gross, h.par, 0)] : null;
+                      const cellColor = sv ? SCORE_COLORS[scoreVsPar(sv.gross, h.par)] : null;
                       return (
                         <View key={h.hole_number} style={[s.scorecardScoreCell, cellColor && cellColor !== PLAIN && { backgroundColor: `${cellColor}25` }]}>
                           <Text allowFontScaling={false} style={[s.scorecardScoreText, cellColor && { color: cellColor }]}>{sv?.gross ?? '·'}</Text>
@@ -1119,7 +1089,7 @@ export default function SoloRoundScreen() {
               {/* ── Score hero ── */}
               {(() => {
                 const par = courseHole?.par ?? 4;
-                const result = selectedScore ? scoreVsPar(selectedScore, par, shots) : null;
+                const result = selectedScore ? scoreVsPar(selectedScore, par) : null;
                 const accent = result ? (SCORE_COLORS[result] ?? '#6b7280') : '#1c1c1c';
                 const SCORE_LABELS: Record<string, string> = {
                   albatross: 'ALBATROSS', eagle: 'EAGLE', birdie: 'BIRDIE',
@@ -1180,7 +1150,7 @@ export default function SoloRoundScreen() {
                     {[[1,2,3,4,5],[6,7,8,9,10]].map((row, ri) => (
                       <View key={ri} style={{ flexDirection: 'row', gap: 7, marginTop: ri === 0 ? 0 : 7 }}>
                         {row.map(n => {
-                          const r = courseHole ? scoreVsPar(n, par, shots) : 'par';
+                          const r = courseHole ? scoreVsPar(n, par) : 'par';
                           const a = SCORE_COLORS[r] ?? '#6b7280';
                           const on = selectedScore === n;
                           return (

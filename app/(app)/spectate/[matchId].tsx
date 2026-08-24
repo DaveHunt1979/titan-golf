@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { getMatchPack } from '../../../src/lib/offlinePack';
 import { useSyncStatus } from '../../../src/lib/useSyncStatus';
-import { matchLabel, getEffectiveWinner, calcHoles, calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles } from '../../../src/lib/scoring';
+import { matchLabel, getEffectiveWinner, calcHoles, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, scoreVsPar, SCORE_COLORS, playerCourseHcp as sharedPlayerCourseHcp } from '../../../src/lib/scoring';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
 import { dedupeInitials } from '../../../src/lib/playerDisplay';
 import NewsTicker from '../../../src/components/NewsTicker';
@@ -24,27 +24,19 @@ const GREEN    = '#4ade80';
 const RED      = '#f87171';
 const BLUE     = '#3b82f6';
 const DARKBLUE = '#1e3a8a';
-// Not pure white — NineGrid fills cells solid and always uses white text/
-// numerals (designed for the 3 saturated matchplay colours, which all
-// contrast fine with white). A literal white "par" fill under that same
-// white-on-solid convention renders totally invisible, indistinguishable
-// from an unplayed cell.
-const PLAIN    = '#4b5563';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
-// Same eagle/birdie/par/bogey/double convention as score/[matchId].tsx and
-// score/enter/[matchId].tsx — kept in sync manually (see
-// project_scoring_architecture_debt memory), not shared, since a real
-// dedupe was already deferred there.
+// NineGrid fills cells solid and always uses white text/numerals (designed
+// for the 3 saturated matchplay colours, which all contrast fine with
+// white) — a literal white "par" fill under that same white-on-solid
+// convention would render totally invisible, indistinguishable from an
+// unplayed cell, so this screen overrides just that one entry.
+const SPECTATE_SCORE_COLORS = { ...SCORE_COLORS, par: '#4b5563' };
+
 function scoreVsParColor(gross: number, par: number): string {
-  const diff = gross - par;
-  if (diff <= -2) return GOLD;
-  if (diff === -1) return RED;
-  if (diff === 0)  return PLAIN;
-  if (diff === 1)  return BLUE;
-  return DARKBLUE;
+  return SPECTATE_SCORE_COLORS[scoreVsPar(gross, par)];
 }
 
 interface MatchDetail {
@@ -90,11 +82,7 @@ function formatVsPar(n: number): string {
 // so this is copied verbatim rather than approximated.
 function playerCourseHcp(playerId: string, compPlayers: CompPlayer[], day: MatchDetail['day'], hcpAllowance: number = 100): number {
   const cp = compPlayers.find(c => c.player_id === playerId);
-  const hcpIndex = cp?.handicap_index ?? 0;
-  const raw = (!day?.slope_rating || !day?.course_rating || !day?.course_par)
-    ? Math.round(hcpIndex)
-    : calcCourseHandicap(hcpIndex, day.slope_rating, day.course_rating, day.course_par);
-  return Math.round(raw * (hcpAllowance / 100));
+  return sharedPlayerCourseHcp(cp?.handicap_index ?? 0, day, hcpAllowance);
 }
 
 function SideAvatar({ playerIds, team, teamId, size, getFirstName, getAvatar }: {
@@ -358,7 +346,7 @@ export default function SpectateScreen() {
     const grosses = allPlayerIds.map(id => holeData[id]?.[h]?.gross ?? null).filter((g): g is number => g != null);
     const bestGross = grosses.length ? Math.min(...grosses) : null;
     const par = parByHole[h];
-    doneColorByHole[h] = bestGross !== null && par ? scoreVsParColor(bestGross, par) : PLAIN;
+    doneColorByHole[h] = bestGross !== null && par ? scoreVsParColor(bestGross, par) : SPECTATE_SCORE_COLORS.par;
   }
   const medalStats: Record<string, { vsPar: number; played: number }> = {};
   for (const id of allPlayerIds) {
@@ -380,9 +368,12 @@ export default function SpectateScreen() {
 
   // Team Stableford: identical "best N counted per hole" reducer as
   // score/teamstableford/[matchId].tsx's own live total — copied rather than
-  // approximated so spectate never drifts from the real team score. Uses the
-  // team screen's own handicap formula (raw handicap_index x allowance%),
-  // not playerCourseHcp — they're genuinely different calculations there.
+  // approximated so spectate never drifts from the real team score. Was
+  // using its own raw handicap_index x allowance% formula (no course
+  // handicap conversion), which teamstableford itself was already found and
+  // fixed to be wrong on any course where slope != 113 or rating != par
+  // (Rick's brief, section 10) — routed through the same playerCourseHcp
+  // every other calculation in this screen already uses.
   function teamHolePts(playerIds: string[], holeNum: number): number {
     const hole = courseHoles.find(h => h.hole_number === holeNum);
     if (!hole) return 0;
@@ -395,7 +386,7 @@ export default function SpectateScreen() {
       const player = players.find(p => p.id === id);
       let pts = 0;
       if (gross != null && player) {
-        const adjHcp = Math.round(player.handicap_index * ((match!.hcp_allowance ?? 100) / 100));
+        const adjHcp = playerCourseHcp(id, compPlayers, match!.day, match!.hcp_allowance ?? 100);
         pts = calcStablefordPoints(gross, hole.par, calcStrokesReceived(adjHcp, hole.stroke_index));
       }
       return { id, pts, entered: gross != null };

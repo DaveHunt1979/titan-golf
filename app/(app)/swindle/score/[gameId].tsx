@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles } from '../../../../src/lib/scoring';
+import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, scoreVsPar, formatVsPar, SCORE_COLORS, ptsColor } from '../../../../src/lib/scoring';
 import { resolveAvatar } from '../../../../src/lib/assets';
 import { courseHasGps } from '../../../../src/lib/courseGps';
 import { dedupeInitials } from '../../../../src/lib/playerDisplay';
@@ -29,32 +29,6 @@ const PLAIN    = '#ffffff';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 const titanLogo = require('../../../../assets/TitanAppLogo.png');
-
-const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: RED, par: PLAIN, bogey: BLUE, double: DARKBLUE };
-
-// Same classification rule as score/solo/[matchId].tsx: gross strokes vs par
-// only — handicap shots affect stableford points, not the label.
-function scoreVsPar(gross: number, par: number): string {
-  const diff = gross - par;
-  if (diff <= -2) return 'eagle';
-  if (diff === -1) return 'birdie';
-  if (diff === 0)  return 'par';
-  if (diff === 1)  return 'bogey';
-  return 'double';
-}
-
-function formatVsPar(n: number): string {
-  if (n === 0) return 'E';
-  return n > 0 ? `+${n}` : `${n}`;
-}
-
-function ptsColor(pts: number): string {
-  if (pts >= 4) return GOLD;
-  if (pts === 3) return RED;
-  if (pts === 2) return PLAIN;
-  if (pts === 1) return BLUE;
-  return DARKBLUE;
-}
 
 function Avatar({ playerId, name, size = 44, avatarUrl }: { playerId?: string; name: string; size?: number; avatarUrl?: string | null }) {
   const resolved = playerId ? resolveAvatar(playerId, avatarUrl ?? null, 'normal') : null;

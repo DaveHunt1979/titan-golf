@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-24T08:23:57.603Z",
+  "updatedAt": "2026-08-24T10:24:52.617Z",
   "missions": [
     {
       "id": "session:4969f0b7-14b8-4854-8b9e-4ba99eea37d8:none",
@@ -7,15 +7,15 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-08-24T06:46:05.245Z",
-      "updatedAt": "2026-08-24T08:23:57.603Z",
+      "updatedAt": "2026-08-24T10:24:52.617Z",
       "status": "running",
-      "workerCount": 5,
+      "workerCount": 8,
       "taskCounts": {
-        "total": 5,
+        "total": 8,
         "pending": 0,
         "blocked": 0,
         "inProgress": 2,
-        "completed": 3,
+        "completed": 6,
         "failed": 0
       },
       "agents": [
@@ -27,7 +27,7 @@
           "currentStep": null,
           "latestUpdate": "completed",
           "completedSummary": null,
-          "updatedAt": "2026-08-24T08:23:57.603Z"
+          "updatedAt": "2026-08-24T10:22:20.029Z"
         },
         {
           "name": "info-pack-plan:ainfo-p",
@@ -63,45 +63,75 @@
           "name": "format-rules-research:aformat",
           "role": "format-rules-research",
           "ownership": "aformat-rules-research-73eaa7086305f6e4",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T08:35:02.557Z"
+        },
+        {
+          "name": "calc-engine-research:acalc-e",
+          "role": "calc-engine-research",
+          "ownership": "acalc-engine-research-5c718194dbcfa7b4",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T09:34:19.330Z"
+        },
+        {
+          "name": "lifecycle-trace-creation:alifecy",
+          "role": "lifecycle-trace-creation",
+          "ownership": "alifecycle-trace-creation-bae188848a91dea8",
           "status": "running",
           "currentStep": null,
           "latestUpdate": null,
           "completedSummary": null,
-          "updatedAt": "2026-08-24T08:23:53.435Z"
+          "updatedAt": "2026-08-24T10:24:50.770Z"
+        },
+        {
+          "name": "lifecycle-trace-live:alifecy",
+          "role": "lifecycle-trace-live",
+          "ownership": "alifecycle-trace-live-25d643345c04c5b8",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T10:24:52.617Z"
         }
       ],
       "timeline": [
         {
-          "id": "session-stop:a5687f86b611061e4:2026-08-24T08:17:32.210Z",
-          "at": "2026-08-24T08:17:32.210Z",
+          "id": "session-stop:aafc8612c3ac2fc6e:2026-08-24T10:22:20.029Z",
+          "at": "2026-08-24T10:22:20.029Z",
           "kind": "completion",
           "agent": "info-pack-research:ainfo-p",
           "detail": "completed",
-          "sourceKey": "session-stop:a5687f86b611061e4"
+          "sourceKey": "session-stop:aafc8612c3ac2fc6e"
         },
         {
-          "id": "session-stop:a5b3eaeace5db916c:2026-08-24T08:20:45.436Z",
-          "at": "2026-08-24T08:20:45.436Z",
+          "id": "session-stop:alifecycle-trace-creation-bae188848a91dea8:2026-08-24T10:24:40.972Z",
+          "at": "2026-08-24T10:24:40.972Z",
           "kind": "completion",
-          "agent": "info-pack-research:ainfo-p",
+          "agent": "lifecycle-trace-creation:alifecy",
           "detail": "completed",
-          "sourceKey": "session-stop:a5b3eaeace5db916c"
+          "sourceKey": "session-stop:alifecycle-trace-creation-bae188848a91dea8"
         },
         {
-          "id": "session-start:aformat-rules-research-73eaa7086305f6e4:2026-08-24T08:23:53.435Z",
-          "at": "2026-08-24T08:23:53.435Z",
+          "id": "session-start:alifecycle-trace-creation-bae188848a91dea8:2026-08-24T10:24:50.770Z",
+          "at": "2026-08-24T10:24:50.770Z",
           "kind": "update",
-          "agent": "format-rules-research:aformat",
-          "detail": "started format-rules-research:aformat",
-          "sourceKey": "session-start:aformat-rules-research-73eaa7086305f6e4"
+          "agent": "lifecycle-trace-creation:alifecy",
+          "detail": "started lifecycle-trace-creation:alifecy",
+          "sourceKey": "session-start:alifecycle-trace-creation-bae188848a91dea8"
         },
         {
-          "id": "session-stop:a0b7336982da531ff:2026-08-24T08:23:57.603Z",
-          "at": "2026-08-24T08:23:57.603Z",
+          "id": "session-stop:alifecycle-trace-live-25d643345c04c5b8:2026-08-24T10:24:52.617Z",
+          "at": "2026-08-24T10:24:52.617Z",
           "kind": "completion",
-          "agent": "info-pack-research:ainfo-p",
+          "agent": "lifecycle-trace-live:alifecy",
           "detail": "completed",
-          "sourceKey": "session-stop:a0b7336982da531ff"
+          "sourceKey": "session-stop:alifecycle-trace-live-25d643345c04c5b8"
         }
       ]
     }

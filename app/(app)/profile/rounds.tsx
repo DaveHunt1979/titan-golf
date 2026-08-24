@@ -8,6 +8,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
+import { scoreVsPar } from '../../../src/lib/scoring';
 
 const GOLD     = '#D4AF37';
 const GREEN    = '#4ade80';
@@ -35,16 +36,6 @@ interface Round {
   totalPutts: number;
   puttsTracked: number;
   breakdown: Breakdown;
-}
-
-// Gross strokes vs par only — same classification used everywhere else in the app.
-function scoreVsPar(gross: number, par: number): 'eagle' | 'birdie' | 'par' | 'bogey' | 'double' {
-  const diff = gross - par;
-  if (diff <= -2) return 'eagle';
-  if (diff === -1) return 'birdie';
-  if (diff === 0)  return 'par';
-  if (diff === 1)  return 'bogey';
-  return 'double';
 }
 
 export default function RoundsScreen() {

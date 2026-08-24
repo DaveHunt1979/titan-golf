@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"ls supabase/; echo ===; grep -rn \\\"play_date\\\\|slope_rating\\\" supabase/*.sql src/types 2>/dev/null | head; echo \\\"=== app usage of play_date ===\\\"; grep -rn \\\"play_date\\\" app src | head -2...",
+  "error": "Exit code 1\nadd_admin_create_login.sql\nadd_avatars_bucket.sql\nadd_club_brand.sql\nadd_clubs_and_shots.sql\nadd_course_locations.sql\nadd_courses_and_casual.sql\nadd_driving_range.sql\nadd_fairway_direction.sql\nadd_handicap_history.sql\nadd_handicap_rounds.sql\nadd_hole_stats.sql\nadd_info_board.sql\nadd_instagram.sql\nadd_join_system.sql\nadd_kronos_flag.sql\nadd_member_roles.sql\nadd_messages.sql\nadd_profile_fields.sql\nadd_push_tokens.sql\nadd_rangefinder_pins.sql\nadd_round_format.sql\nadd_shot_distance.sql\na...",
+  "timestamp": "2026-08-24T10:18:09.945Z",
+  "retry_count": 1
+}

@@ -16,7 +16,7 @@ import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { uploadImage } from '../../../src/lib/uploadImage';
 import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
-import { individualBoardLabel } from '../../../src/lib/tournamentFormat';
+import { individualBoardLabel, getFormatRules, FORMAT_RULES, type FormatId } from '../../../src/lib/tournamentFormat';
 import PrizeCategoriesEditor from '../../../src/components/PrizeCategoriesEditor';
 import { ukDateToIso, isoToUk, ukDateToDate, dateToUk, dateToHm, hmToDate } from '../../../src/lib/dateHelpers';
 
@@ -28,7 +28,6 @@ const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
-type FormatId = 'team_matchplay' | 'titan_way' | 'ryder_cup' | 'stableford' | 'medal' | 'knockout';
 // Only formats that actually have a working Casual Round engine behind them —
 // Foursomes/Greensomes/Scramble were listed here but never got real scoring
 // support in score/enter/[matchId].tsx, so they're deliberately not offered.
@@ -44,62 +43,21 @@ interface CompFormat {
   defaultHcp: number;
 }
 
-const COMP_FORMATS: CompFormat[] = [
-  {
-    id: 'team_matchplay',
-    label: 'Multi-Team Tour',
-    sub: 'Multiple teams battle across days. Mix 4BBB, foursomes and singles. Titan Tour style.',
-    available: true,
-    defaultDays: 4,
-    defaultDayFormat: 'four_bbb',
-    defaultHcp: 75,
-  },
-  {
-    id: 'titan_way',
-    label: 'Titan Way',
-    sub: '4BBB Stableford opening rounds build a team league, then a final-day knockout + singles draw — plus a full Kronos individual championship. Minimum 4 teams, 16 players.',
-    available: true,
-    defaultDays: 4,
-    defaultDayFormat: 'four_bbb',
-    defaultHcp: 75,
-  },
-  {
-    id: 'ryder_cup',
-    label: 'Ryder Cup',
-    sub: '2 sides, captain picks, team points. Perfect for a weekend away.',
-    available: true,
-    defaultDays: 3,
-    defaultDayFormat: 'four_bbb',
-    defaultHcp: 75,
-  },
-  {
-    id: 'stableford',
-    label: 'Individual Stableford',
-    sub: 'Everyone plays for themselves. Points per round build a season leaderboard.',
-    available: true,
-    defaultDays: 4,
-    defaultDayFormat: 'stableford',
-    defaultHcp: 100,
-  },
-  {
-    id: 'medal',
-    label: 'Stroke Play',
-    sub: 'Lowest aggregate score wins. Multiple rounds, optional cut after round 2.',
-    available: true,
-    defaultDays: 2,
-    defaultDayFormat: 'medal',
-    defaultHcp: 100,
-  },
-  {
-    id: 'knockout',
-    label: 'Knockout Bracket',
-    sub: 'Seeded draw, head-to-head elimination rounds. Coming soon.',
-    available: false,
-    defaultDays: 1,
-    defaultDayFormat: 'singles',
-    defaultHcp: 75,
-  },
-];
+// Derived from the shared FORMAT_RULES registry (Rick's brief, section 9) —
+// the Builder's picker no longer maintains its own copy of each format's
+// label/description/defaults; those live in one place now.
+const COMP_FORMATS: CompFormat[] = (Object.keys(FORMAT_RULES) as FormatId[]).map(id => {
+  const r = FORMAT_RULES[id];
+  return {
+    id,
+    label: r.label,
+    sub: r.sub,
+    available: r.available,
+    defaultDays: r.defaultDays,
+    defaultDayFormat: r.defaultDayFormat as DayFormatId,
+    defaultHcp: r.defaultHcpPct,
+  };
+});
 
 const DAY_FORMATS: Array<{ id: DayFormatId; label: string; sub: string }> = [
   { id: 'four_bbb',            label: '4BBB Match Play – Stableford',    sub: 'Best ball pairs' },
@@ -356,26 +314,27 @@ export default function BuildTournamentScreen() {
 
   function pickFormat(f: CompFormat) {
     if (!f.available) return;
+    const rules = getFormatRules(f.id);
     setSelectedFormat(f.id);
-    setIncludeInKronos(f.id === 'team_matchplay' || f.id === 'titan_way');
+    setIncludeInKronos(rules.individualBoardDefaultOn);
     const builtDays: DayConfig[] = Array.from({ length: f.defaultDays }, (_, i) => {
       const isLastDay = i === f.defaultDays - 1;
-      const isTour = f.id === 'team_matchplay' || f.id === 'titan_way';
       return {
         courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeTime: '', playDate: '',
-        format: isLastDay && isTour ? 'singles' : f.defaultDayFormat,
-        hcpPct: isLastDay && isTour ? 85 : f.defaultHcp,
+        format: isLastDay && rules.lastDaySinglesOverride ? 'singles' : f.defaultDayFormat,
+        hcpPct: isLastDay && rules.lastDaySinglesOverride ? 85 : f.defaultHcp,
         ldEnabled: false, ldHole: null,
         ntpEnabled: false, ntpHole: null,
       };
     });
     setDays(builtDays);
-    if (f.id === 'titan_way') {
-      setNumTeams('4');
-      setPtsWin('3');
-      setPtsHalf('1');
-      setMaxHandicap('18');
-    }
+    // Every format now seeds its own scoring defaults on selection, not just
+    // Titan Way (Rick's brief, section 9 — "Scoring Options" is a per-format
+    // pipeline stage, not a special case).
+    if (rules.minTeams != null) setNumTeams(String(rules.minTeams));
+    setPtsWin(String(rules.defaultPtsWin));
+    setPtsHalf(String(rules.defaultPtsHalf));
+    if (rules.defaultMaxHandicap != null) setMaxHandicap(String(rules.defaultMaxHandicap));
     if (!name || name === COMP_FORMATS.find(x => x.id !== f.id)?.label) {
       setName(`${f.label} ${new Date().getFullYear() + 1}`);
     }
@@ -401,13 +360,18 @@ export default function BuildTournamentScreen() {
     setDays(prev => prev.slice(0, -1));
   }
 
+  // tournament_type is a coarser, legacy 3-value column (CHECK-constrained,
+  // no migration for this pass) that can't distinguish Titan Way from
+  // Multi-Team Tour — both collapse to 'titan_tour' here deliberately, same
+  // as before. Nothing should ever READ this column to decide team-ness or
+  // a display label any more; use getFormatRules(format) for that instead
+  // (Rick's brief, section 9).
   function tournamentType(f: FormatId): 'ryder_cup' | 'titan_tour' | 'casual' {
     if (f === 'ryder_cup') return 'ryder_cup';
-    if (f === 'team_matchplay' || f === 'titan_way') return 'titan_tour';
-    return 'casual';
+    return getFormatRules(f).isTeamFormat ? 'titan_tour' : 'casual';
   }
 
-  const isMatchplay = selectedFormat === 'ryder_cup' || selectedFormat === 'team_matchplay' || selectedFormat === 'titan_way';
+  const isMatchplay = getFormatRules(selectedFormat).isTeamFormat;
 
   async function pickLogo() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -438,7 +402,7 @@ export default function BuildTournamentScreen() {
 
     const numTeamsN = parseInt(numTeams, 10) || 0;
     if (isMatchplay && numTeamsN % 2 !== 0) {
-      Alert.alert('Number of teams must be even', 'Titan Tour and Ryder Cup formats need an even number of teams to pair up.');
+      Alert.alert('Number of teams must be even', 'This format needs an even number of teams to pair up.');
       return;
     }
 
@@ -478,10 +442,10 @@ export default function BuildTournamentScreen() {
       tournament_type: tournamentType(selectedFormat),
       pts_win:         isMatchplay ? winPts  : 1,
       pts_half:        isMatchplay ? halfPts : 0.5,
-      // Captain Rotation is Titan Way-exclusive (Rick's brief, section 4.2)
-      // — every other matchplay format gets 0, never the organiser's typed
+      // Captain Rotation is Titan Way-exclusive (Rick's brief, sections 4.2
+      // and 9) — every other format gets 0, never the organiser's typed
       // value, so the DB row itself carries no rotation to apply.
-      opening_rounds:  selectedFormat === 'titan_way' ? openingRoundsN : 0,
+      opening_rounds:  getFormatRules(selectedFormat).captainRotation ? openingRoundsN : 0,
       // bonus_points = 0 already functions as a full "off" switch across
       // every calcSweepBonus call site (tour/index.tsx, admin/draw.tsx,
       // titanNews.ts) — no separate enabled/disabled column needed.
@@ -752,9 +716,14 @@ export default function BuildTournamentScreen() {
     if (isMatchplay && pickedTeamIds.size < numTeamsN) {
       issues.push({ label: `Teams — only ${pickedTeamIds.size} of ${numTeamsN} teams have players`, jumpToStep: 3 });
     }
-    if (selectedFormat === 'titan_way') {
-      if (numTeamsN < 4)        issues.push({ label: 'Titan Way needs at least 4 teams', jumpToStep: 1 });
-      if (enrolledCount < 16)   issues.push({ label: `Titan Way needs at least 16 players — currently ${enrolledCount}`, jumpToStep: 3 });
+    // Per-format minimums (Rick's brief, section 9 — "Validation" reads
+    // straight from the registry, not a hardcoded per-format if-block).
+    const rules = getFormatRules(selectedFormat);
+    if (rules.minTeams != null && numTeamsN < rules.minTeams) {
+      issues.push({ label: `${rules.label} needs at least ${rules.minTeams} teams`, jumpToStep: 1 });
+    }
+    if (rules.minPlayers != null && enrolledCount < rules.minPlayers) {
+      issues.push({ label: `${rules.label} needs at least ${rules.minPlayers} players — currently ${enrolledCount}`, jumpToStep: 3 });
     }
 
     if (compId) {
@@ -990,14 +959,16 @@ export default function BuildTournamentScreen() {
               </TouchableOpacity>
             </View>
 
-            {isMatchplay && (
+            {isMatchplay && (() => {
+              const teamFloor = Math.max(2, getFormatRules(selectedFormat).minTeams ?? 2);
+              return (
               <>
                 <Text style={styles.fieldLabel}>NUMBER OF TEAMS</Text>
                 <Text style={styles.stepSub}>Must be even so teams can pair up.</Text>
                 <View style={styles.stepper}>
                   <TouchableOpacity
-                    style={[styles.stepperBtn, (parseInt(numTeams, 10) || 2) <= 2 && styles.stepperBtnOff]}
-                    onPress={() => setNumTeams(String(Math.max(2, (parseInt(numTeams, 10) || 2) - 2)))}
+                    style={[styles.stepperBtn, (parseInt(numTeams, 10) || 2) <= teamFloor && styles.stepperBtnOff]}
+                    onPress={() => setNumTeams(String(Math.max(teamFloor, (parseInt(numTeams, 10) || 2) - 2)))}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.stepperBtnText}>–</Text>
@@ -1042,9 +1013,9 @@ export default function BuildTournamentScreen() {
                   keyboardType="decimal-pad"
                 />
                 {/* Captain Rotation is Titan Way-exclusive (Rick's brief,
-                    section 4.2) — every other matchplay format hides this
-                    entirely rather than just defaulting it off. */}
-                {selectedFormat === 'titan_way' && (
+                    section 4.2 and section 9) — every other matchplay format
+                    hides this entirely rather than just defaulting it off. */}
+                {getFormatRules(selectedFormat).captainRotation && (
                   <>
                     <Text style={styles.fieldLabel}>OPENING ROUNDS</Text>
                     <Text style={styles.stepSub}>Each team's captain plays with a different teammate on each of these opening days, before pairings are drawn freely.</Text>
@@ -1085,7 +1056,8 @@ export default function BuildTournamentScreen() {
                   </>
                 )}
               </>
-            )}
+              );
+            })()}
 
             <Text style={styles.fieldLabel}>{individualBoardLabel(selectedFormat).toUpperCase()} TROPHY</Text>
             <View style={styles.toggleRow}>

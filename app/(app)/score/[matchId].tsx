@@ -9,7 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { matchLabel, getEffectiveWinner, calcHoles } from '../../../src/lib/scoring';
+import { matchLabel, getEffectiveWinner, calcHoles, scoreVsPar, SCORE_COLORS, ptsColor } from '../../../src/lib/scoring';
 import { goBack } from '../../../src/lib/navigation';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
 import { courseHasGps } from '../../../src/lib/courseGps';
@@ -26,21 +26,8 @@ const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
-function ptsColor(pts: number): string {
-  if (pts >= 4) return GOLD;
-  if (pts === 3) return RED;
-  if (pts === 2) return PLAIN;
-  if (pts === 1) return BLUE;
-  return DARKBLUE;
-}
-
 function scoreVsParColor(gross: number, par: number): string {
-  const diff = gross - par;
-  if (diff <= -2) return GOLD;
-  if (diff === -1) return RED;
-  if (diff === 0)  return PLAIN;
-  if (diff === 1)  return BLUE;
-  return DARKBLUE;
+  return SCORE_COLORS[scoreVsPar(gross, par)];
 }
 
 function Avatar({ name, color, size = 40, source }: { name: string; color: string; size?: number; source?: any }) {

@@ -10,6 +10,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
 import { goBack } from '../../../src/lib/navigation';
+import { getFormatRules } from '../../../src/lib/tournamentFormat';
 
 const GOLD = '#D4AF37';
 const RED = '#f87171';
@@ -224,7 +225,7 @@ function CompCard({ comp, onSharePin, onDelete }: { comp: Competition; onSharePi
       <View style={s.compCardTop}>
         <View style={{ flex: 1 }}>
           <Text style={s.compName}>{comp.name}</Text>
-          <Text style={s.compFormat}>{comp.format}</Text>
+          <Text style={s.compFormat}>{getFormatRules(comp.format).label}</Text>
           {uniqueCourses.length > 0 && (
             <Text style={s.compMeta}>
               {uniqueCourses.slice(0, 2).join(' · ')}{uniqueCourses.length > 2 ? ` +${uniqueCourses.length - 2}` : ''}

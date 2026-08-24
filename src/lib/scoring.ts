@@ -3,6 +3,8 @@
 
 export type HoleResult = 'h' | 'a' | 'f' | null;
 
+export type ScoreCategory = 'eagle' | 'birdie' | 'par' | 'bogey' | 'double';
+
 export function calcHoles(holesStr: string, totalHoles = 18): {
   homeUp: number;
   played: number;
@@ -278,4 +280,101 @@ export function calcSweepBonus(
     else if (winners.every(w => w === 'away')) bonusPts[awayTeam] = (bonusPts[awayTeam] ?? 0) + bonusPoints;
   });
   return bonusPts;
+}
+
+// Rick's brief, section 10 (2026-08-24) — "Calculation Engine" consolidation.
+// scoreVsPar/formatVsPar/SCORE_COLORS/ptsColor/playerCourseHcp were each
+// independently copied into 4-9 screens; the copies drifted (one screen's
+// bug fix didn't propagate to the others) and, worse, two screens computed
+// "birdie" from Stableford points instead of gross-vs-par — visibly wrong,
+// and one of those persisted into the shared society_records table. Classify
+// by GROSS score only — handicap shots affect Stableford points, never the
+// eagle/birdie/par/bogey label (Rick: "points and stroke should remain
+// separate").
+export function scoreVsPar(gross: number, par: number): ScoreCategory {
+  const diff = gross - par;
+  if (diff <= -2) return 'eagle';
+  if (diff === -1) return 'birdie';
+  if (diff === 0)  return 'par';
+  if (diff === 1)  return 'bogey';
+  return 'double';
+}
+
+export function formatVsPar(n: number): string {
+  if (n === 0) return 'E';
+  return n > 0 ? `+${n}` : `${n}`;
+}
+
+// Default palette — most screens use this as-is. Spectate mode's grid needs
+// `par` to render as a mid-grey rather than white (white-on-solid is
+// invisible in its layout); that screen spreads `{ ...SCORE_COLORS, par:
+// '#4b5563' }` rather than forking the whole table.
+export const SCORE_COLORS: Record<ScoreCategory, string> = {
+  eagle:  '#D4AF37',
+  birdie: '#f87171',
+  par:    '#ffffff',
+  bogey:  '#3b82f6',
+  double: '#1e3a8a',
+};
+
+export function ptsColor(pts: number): string {
+  if (pts >= 4) return SCORE_COLORS.eagle;
+  if (pts === 3) return SCORE_COLORS.birdie;
+  if (pts === 2) return SCORE_COLORS.par;
+  if (pts === 1) return SCORE_COLORS.bogey;
+  return SCORE_COLORS.double;
+}
+
+// Playing handicap for a round — WHS course handicap converted from a
+// player's handicap index, scaled by the round's handicap allowance. Same
+// formula everywhere it's used; what has historically differed (and caused
+// real bugs) is which handicap INDEX gets fed in — that's each call site's
+// responsibility, not this function's.
+export function playerCourseHcp(
+  hcpIndex: number,
+  day: { slope_rating?: number | null; course_rating?: number | null; course_par?: number | null } | null | undefined,
+  allowance = 100,
+): number {
+  const raw = (!day?.slope_rating || !day?.course_rating || !day?.course_par)
+    ? Math.round(hcpIndex)
+    : calcCourseHandicap(hcpIndex, day.slope_rating, day.course_rating, day.course_par);
+  return Math.round(raw * (allowance / 100));
+}
+
+// A single "higher is better" comparable value for individual leaderboards —
+// Stableford (and other points-based formats) sort on points; Medal (stroke
+// play) sorts ascending on gross-vs-par, so it's negated here to keep every
+// caller's sort direction the same ("higher sortValue wins"). Before this,
+// four separate leaderboards (the live entry screen's all-groups panel, the
+// tournament day leaderboard, the Tour Individual/Kronos board including its
+// tie-break ladder, and the AI News report) each hardcoded a Stableford-
+// points sort — silently wrong for Medal, whose own round-complete banner
+// was already fixed to rank by gross-vs-par, so the two disagreed within a
+// single screen.
+export function individualScoreValue(
+  roundFormat: string | null | undefined,
+  points: number,
+  vsPar: number,
+): number {
+  return roundFormat === 'medal' ? -vsPar : points;
+}
+
+// One gross-based eagle/birdie/par/bogey/double counter for a player's
+// holes — replaces two independent counters that classified by Stableford
+// points instead (`pts === 3` => "birdie"), which is wrong (a bogey player
+// on a stroke hole scores 3 points without hitting a birdie) and had
+// persisted into the shared society_records table.
+export function countScoreBreakdown(
+  holes: Array<{ hole_number: number; gross_score: number | null }>,
+  courseHoles: Array<{ hole_number: number; par: number }>,
+): Record<ScoreCategory, number> {
+  const parByHole = new Map(courseHoles.map(h => [h.hole_number, h.par]));
+  const out: Record<ScoreCategory, number> = { eagle: 0, birdie: 0, par: 0, bogey: 0, double: 0 };
+  for (const h of holes) {
+    if (h.gross_score == null) continue;
+    const par = parByHole.get(h.hole_number);
+    if (par == null) continue;
+    out[scoreVsPar(h.gross_score, par)]++;
+  }
+  return out;
 }

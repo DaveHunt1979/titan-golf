@@ -7,7 +7,7 @@
 // calculates, AI only writes — this file is the "Titan calculates" half.
 
 import { supabase } from './supabase';
-import { getStandings, calcSweepBonus } from './scoring';
+import { getStandings, calcSweepBonus, scoreVsPar, individualScoreValue, getEffectiveWinner, matchLabel } from './scoring';
 import { individualBoardLabel, matchFormatLabel } from './tournamentFormat';
 
 interface Core {
@@ -177,15 +177,30 @@ function withPositionDeltas<T extends { playerId?: string; teamId?: string }>(cu
 }
 
 function dayMatchSummaries(core: Core, dayId: string) {
-  return core.matches.filter(m => m.day_id === dayId).map(m => ({
-    homeTeam: m.home_team_id ? teamName(core.teams, m.home_team_id) : null,
-    awayTeam: m.away_team_id ? teamName(core.teams, m.away_team_id) : null,
-    homePlayers: (m.home_player_ids ?? []).map((id: string) => playerName(core.cpData, id)),
-    awayPlayers: (m.away_player_ids ?? []).map((id: string) => playerName(core.cpData, id)),
-    status: m.status,
-    resultStr: m.result_str,
-    winner: m.winner,
-  }));
+  return core.matches.filter(m => m.day_id === dayId).map(m => {
+    // A match can be mathematically decided (e.g. 3&2) before its `status`
+    // column flips to 'complete' — getStandings() already resolves this via
+    // getEffectiveWinner() internally, so without doing the same here a
+    // snapshot could tell the AI a match's standings-affecting result while
+    // also telling it, in the very same snapshot, that the match has no
+    // winner yet (Rick's brief, section 10 — nothing should contradict what
+    // the Calculation Engine already decided).
+    const holesStr = m.holes_string ?? '..................';
+    const totalHoles = m.holes_to_play ?? 18;
+    const effectiveWinner = getEffectiveWinner(m.status, m.winner, holesStr, totalHoles);
+    const effectiveResultStr = m.status === 'complete'
+      ? m.result_str
+      : (effectiveWinner ? matchLabel(m.status, m.winner, m.result_str, holesStr, totalHoles) : m.result_str);
+    return {
+      homeTeam: m.home_team_id ? teamName(core.teams, m.home_team_id) : null,
+      awayTeam: m.away_team_id ? teamName(core.teams, m.away_team_id) : null,
+      homePlayers: (m.home_player_ids ?? []).map((id: string) => playerName(core.cpData, id)),
+      awayPlayers: (m.away_player_ids ?? []).map((id: string) => playerName(core.cpData, id)),
+      status: m.status,
+      resultStr: effectiveResultStr,
+      winner: effectiveWinner ?? m.winner,
+    };
+  });
 }
 
 // Deterministic stage label — same "Titan calculates, AI only writes" split as the
@@ -296,24 +311,35 @@ export async function buildCasualFinalReportSnapshot(matchId: string) {
   const isStroke = m.round_format === 'stableford' || m.round_format === 'medal';
   const holeRows = (holes ?? []) as any[];
 
-  const totalsByPlayer: Record<string, { gross: number; pts: number }> = {};
+  const totalsByPlayer: Record<string, { gross: number; pts: number; vsPar: number }> = {};
   const keyMoments: { name: string; holeNumber: number; type: 'eagle' | 'birdie' }[] = [];
   holeRows.forEach(h => {
-    if (!totalsByPlayer[h.player_id]) totalsByPlayer[h.player_id] = { gross: 0, pts: 0 };
+    if (!totalsByPlayer[h.player_id]) totalsByPlayer[h.player_id] = { gross: 0, pts: 0, vsPar: 0 };
     if (h.gross_score != null) {
+      const par = parFor(h.hole_number);
       totalsByPlayer[h.player_id].gross += h.gross_score;
-      const diff = h.gross_score - parFor(h.hole_number);
-      if (diff <= -2) keyMoments.push({ name: nameFor(h.player_id), holeNumber: h.hole_number, type: 'eagle' });
-      else if (diff === -1) keyMoments.push({ name: nameFor(h.player_id), holeNumber: h.hole_number, type: 'birdie' });
+      totalsByPlayer[h.player_id].vsPar += h.gross_score - par;
+      const category = scoreVsPar(h.gross_score, par);
+      if (category === 'eagle' || category === 'birdie') {
+        keyMoments.push({ name: nameFor(h.player_id), holeNumber: h.hole_number, type: category });
+      }
     }
     if (h.stableford_pts != null) totalsByPlayer[h.player_id].pts += h.stableford_pts;
   });
 
+  // Medal (stroke play) ranks ascending by gross-vs-par, never by Stableford
+  // points (Rick's brief, section 10) — this is also the one place a raw
+  // score reaches the AI with no official "winner" attached, leaving it to
+  // infer the winner from array order; standings[0] is now always the
+  // genuine winner for both stroke-play sub-formats.
   const standings = isStroke
     ? allPlayerIds
-        .map(id => ({ name: nameFor(id), grossTotal: totalsByPlayer[id]?.gross ?? null, points: totalsByPlayer[id]?.pts ?? null }))
-        .sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
+        .map(id => ({ name: nameFor(id), grossTotal: totalsByPlayer[id]?.gross ?? null, vsPar: totalsByPlayer[id]?.vsPar ?? null, points: totalsByPlayer[id]?.pts ?? null }))
+        .sort((a, b) =>
+          individualScoreValue(m.round_format, b.points ?? 0, b.vsPar ?? 0) - individualScoreValue(m.round_format, a.points ?? 0, a.vsPar ?? 0)
+        )
     : null;
+  const strokePlayWinner = standings && standings.length > 0 ? standings[0].name : null;
 
   // A close matchplay finish is one decided on the very last hole or with
   // the match still alive going into it — the AI is told this fact directly
@@ -345,6 +371,7 @@ export async function buildCasualFinalReportSnapshot(matchId: string) {
       isMatchplay: !isStroke,
     },
     standings,
+    strokePlayWinner,
     matchplayResult: !isStroke ? {
       winner: m.winner,
       resultStr: m.result_str,

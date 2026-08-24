@@ -10,8 +10,8 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../../src/lib/supabase';
-import { getStandings, getEffectiveWinner, calcSweepBonus } from '../../../src/lib/scoring';
-import { individualBoardLabel } from '../../../src/lib/tournamentFormat';
+import { getStandings, getEffectiveWinner, calcSweepBonus, individualScoreValue, formatVsPar } from '../../../src/lib/scoring';
+import { individualBoardLabel, getFormatRules } from '../../../src/lib/tournamentFormat';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
 import { useChatUnread } from '../../../src/lib/useChatUnread';
@@ -38,7 +38,7 @@ interface PrizeCat {
 }
 interface IndivEntry {
   player_id: string; display_name: string; handicap_index: number | null;
-  stableford_total: number; category_id: string | null; category_name: string | null;
+  stableford_total: number; vs_par_total: number; category_id: string | null; category_name: string | null;
   category_position: number | null; prize_money: number | null; is_overall_winner: boolean;
 }
 
@@ -192,13 +192,40 @@ export default function TourScreen() {
     ])];
     const [{ data: holesData }, { data: playersData }] = await Promise.all([
       matchIds.length
-        ? supabase.from('match_holes').select('player_id,stableford_pts,match_id,hole_number').in('match_id', matchIds)
+        ? supabase.from('match_holes').select('player_id,stableford_pts,gross_score,match_id,hole_number').in('match_id', matchIds)
         : Promise.resolve({ data: [] as any[] }),
       allPlayerIds.length
         ? supabase.from('players').select('id,display_name,avatar_url').in('id', allPlayerIds)
         : Promise.resolve({ data: [] as any[] }),
     ]);
     if (playersData) setPlayers(playersData as any[]);
+
+    // Medal (stroke play) tournaments rank ascending by gross-vs-par, never
+    // by the Stableford points sum every other format uses (Rick's brief,
+    // section 10) — only meaningful when every round in the tournament is
+    // itself Medal; a tour that mixes Medal with 4BBB/Stableford rounds has
+    // no well-defined single "higher is better" combination, so that mixed
+    // case is left on the existing points-based ranking rather than guessed.
+    const allDaysMedal = (daysData as CompetitionDay[] ?? []).length > 0
+      && (daysData as CompetitionDay[]).every(d => d.day_format === 'medal');
+    const courseNames = [...new Set((daysData as CompetitionDay[] ?? []).map(d => d.course_name).filter(Boolean))] as string[];
+    const { data: courseHolesData } = allDaysMedal && courseNames.length
+      ? await supabase.from('course_holes').select('course_name,hole_number,par').in('course_name', courseNames)
+      : { data: [] as any[] };
+    const parByCourseHole = new Map<string, Map<number, number>>();
+    (courseHolesData ?? []).forEach((h: any) => {
+      if (!parByCourseHole.has(h.course_name)) parByCourseHole.set(h.course_name, new Map());
+      parByCourseHole.get(h.course_name)!.set(h.hole_number, h.par);
+    });
+    const dayCourseByMatch: Record<string, string | null> = {};
+    (matchesData as any[] ?? []).forEach(m => {
+      const day = (daysData as CompetitionDay[] ?? []).find(d => d.id === m.day_id);
+      dayCourseByMatch[m.id] = day?.course_name ?? null;
+    });
+    const parForHole = (matchId: string, holeNumber: number): number | undefined => {
+      const courseName = dayCourseByMatch[matchId];
+      return courseName ? parByCourseHole.get(courseName)?.get(holeNumber) : undefined;
+    };
 
     // Kronos is this tournament's own individual championship — cumulative
     // Stableford across only this tournament's rounds, not a season-wide
@@ -260,6 +287,7 @@ export default function TourScreen() {
       );
 
       const totals: Record<string, number> = {};
+      const vsPars: Record<string, number> = {};
       const perDayTotals: Record<string, Record<string, number>> = {};
       const matchDayMap2: Record<string, string> = {};
       (matchesData as any[] ?? []).forEach(m => { matchDayMap2[m.id] = m.day_id; });
@@ -269,7 +297,11 @@ export default function TourScreen() {
       const back3:  Record<string, number> = {};
       const hole18: Record<string, number> = {};
       (holesData as any[]).forEach(h => {
-        if (h.stableford_pts == null || !thisMatchIds.has(h.match_id)) return;
+        if (!thisMatchIds.has(h.match_id)) return;
+        const par = parForHole(h.match_id, h.hole_number);
+        const vsPar = allDaysMedal && h.gross_score != null && par != null ? h.gross_score - par : null;
+        if (vsPar != null) vsPars[h.player_id] = (vsPars[h.player_id] ?? 0) + vsPar;
+        if (h.stableford_pts == null) return;
         totals[h.player_id] = (totals[h.player_id] ?? 0) + h.stableford_pts;
         const dId = matchDayMap2[h.match_id];
         if (dId) {
@@ -277,11 +309,12 @@ export default function TourScreen() {
           perDayTotals[dId][h.player_id] = (perDayTotals[dId][h.player_id] ?? 0) + h.stableford_pts;
         }
         if (finalDayMatchIds.has(h.match_id)) {
-          finalRound[h.player_id] = (finalRound[h.player_id] ?? 0) + h.stableford_pts;
-          if (h.hole_number >= 10) back9[h.player_id] = (back9[h.player_id] ?? 0) + h.stableford_pts;
-          if (h.hole_number >= 13) back6[h.player_id] = (back6[h.player_id] ?? 0) + h.stableford_pts;
-          if (h.hole_number >= 16) back3[h.player_id] = (back3[h.player_id] ?? 0) + h.stableford_pts;
-          if (h.hole_number === 18) hole18[h.player_id] = h.stableford_pts;
+          const rungValue = allDaysMedal ? (vsPar ?? 0) : h.stableford_pts;
+          finalRound[h.player_id] = (finalRound[h.player_id] ?? 0) + rungValue;
+          if (h.hole_number >= 10) back9[h.player_id] = (back9[h.player_id] ?? 0) + rungValue;
+          if (h.hole_number >= 13) back6[h.player_id] = (back6[h.player_id] ?? 0) + rungValue;
+          if (h.hole_number >= 16) back3[h.player_id] = (back3[h.player_id] ?? 0) + rungValue;
+          if (h.hole_number === 18) hole18[h.player_id] = rungValue;
         }
       });
 
@@ -309,26 +342,37 @@ export default function TourScreen() {
       });
       setTeamStablefordByDay(teamTotalsByDay);
 
+      // Medal's rungs store gross-vs-par (lower wins); every other format
+      // stores Stableford points (higher wins) — the comparison direction
+      // flips accordingly rather than negating the stored values, so the
+      // per-rung numbers themselves stay directly displayable if ever shown.
+      const rungBetter = (x: number, y: number) => allDaysMedal ? x - y : y - x;
       const tieBreak = (a: string, b: string) =>
-        (finalRound[b] ?? 0) - (finalRound[a] ?? 0)
-        || (back9[b]  ?? 0) - (back9[a]  ?? 0)
-        || (back6[b]  ?? 0) - (back6[a]  ?? 0)
-        || (back3[b]  ?? 0) - (back3[a]  ?? 0)
-        || (hole18[b] ?? 0) - (hole18[a] ?? 0);
+        rungBetter(finalRound[a] ?? 0, finalRound[b] ?? 0)
+        || rungBetter(back9[a]  ?? 0, back9[b]  ?? 0)
+        || rungBetter(back6[a]  ?? 0, back6[b]  ?? 0)
+        || rungBetter(back3[a]  ?? 0, back3[b]  ?? 0)
+        || rungBetter(hole18[a] ?? 0, hole18[b] ?? 0);
 
-      const sorted = Object.entries(totals)
-        .map(([pid, total]) => ({
+      const allPidsForBoard = allDaysMedal ? Object.keys(vsPars) : Object.keys(totals);
+      const sorted = allPidsForBoard
+        .map(pid => ({
           player_id: pid,
           display_name: cpMap[pid]?.display_name ?? '—',
           handicap_index: cpMap[pid]?.handicap_index ?? null,
-          stableford_total: total,
+          stableford_total: totals[pid] ?? 0,
+          vs_par_total: vsPars[pid] ?? 0,
           category_id: null as string | null,
           category_name: null as string | null,
           category_position: null as number | null,
           prize_money: null as number | null,
           is_overall_winner: false,
         }))
-        .sort((a, b) => (b.stableford_total - a.stableford_total) || tieBreak(a.player_id, b.player_id));
+        .sort((a, b) =>
+          (individualScoreValue(allDaysMedal ? 'medal' : 'stableford', b.stableford_total, b.vs_par_total)
+            - individualScoreValue(allDaysMedal ? 'medal' : 'stableford', a.stableford_total, a.vs_par_total))
+          || tieBreak(a.player_id, b.player_id)
+        );
 
       // The Overall Kronos Winner can't also collect a division prize — that
       // prize rolls down to the next eligible player instead. Only meaningful
@@ -367,7 +411,11 @@ export default function TourScreen() {
         const catDef = localCats.find(c => c.id === catId);
         let rank = 0;
         players
-          .sort((a, b) => (b.stableford_total - a.stableford_total) || tieBreak(a.player_id, b.player_id))
+          .sort((a, b) =>
+            (individualScoreValue(allDaysMedal ? 'medal' : 'stableford', b.stableford_total, b.vs_par_total)
+              - individualScoreValue(allDaysMedal ? 'medal' : 'stableford', a.stableford_total, a.vs_par_total))
+            || tieBreak(a.player_id, b.player_id)
+          )
           .forEach(p => {
             if (p.player_id === overallWinnerId) return;
             rank++;
@@ -576,7 +624,10 @@ export default function TourScreen() {
     const t = teams.find(t => t.id === s.teamId);
     return { ...s, name: t?.name ?? '—', accent_color: t?.accent_color ?? '#555', logo_url: t?.logo_url ?? null };
   });
-  const isTeamTournament = competition?.tournament_type === 'ryder_cup' || competition?.tournament_type === 'titan_tour';
+  // Read off the format registry, not the legacy tournament_type column
+  // (which collapses Titan Way and Multi-Team Tour into the same value and
+  // can't be used to tell them apart — Rick's brief, section 9).
+  const isTeamTournament = getFormatRules(competition?.format).isTeamFormat;
 
   // Per-round columns for the Team leaderboard (R1/R2/R3/...) — same
   // getStandings()/calcSweepBonus() math as the cumulative total above,
@@ -1148,7 +1199,9 @@ export default function TourScreen() {
                         )}
                       </View>
                     </View>
-                    <Text style={[st.cell, st.pts]}>{entry.stableford_total}</Text>
+                    <Text style={[st.cell, st.pts]}>
+                      {days.length > 0 && days.every(d => d.day_format === 'medal') ? formatVsPar(entry.vs_par_total) : entry.stableford_total}
+                    </Text>
                     <View style={[st.cell, { flex: 2, alignItems: 'flex-end', paddingRight: 4 }]}>
                       {hasPrize ? (
                         <View style={{ alignItems: 'flex-end' }}>

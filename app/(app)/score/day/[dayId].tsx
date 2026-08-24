@@ -9,7 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { calcHoles } from '../../../../src/lib/scoring';
+import { calcHoles, matchLabel, individualScoreValue, formatVsPar } from '../../../../src/lib/scoring';
 import { goBack } from '../../../../src/lib/navigation';
 import { resolveAvatar } from '../../../../src/lib/assets';
 import { matchFormatLabel } from '../../../../src/lib/tournamentFormat';
@@ -24,8 +24,8 @@ const titanLogo = require('../../../../assets/TitanAppLogo.png');
 const DEFAULT_TEAM_NAMES = new Set(['Team A', 'Team B', 'Team C', 'Team D']);
 
 type DayInfo   = { id: string; join_code: string; course_name: string; course_par: number; day_date: string };
-type PlayerRow = { player_id: string; name: string; match_id: string; pts: number; holes: number; hcp: number; avatarUrl: string | null };
-type GroupRow  = { match_id: string; format: string; isSingles: boolean; handicapMethod: string | null; player_names: string[]; home_name: string | null; away_name: string | null; status: string; holes_string: string; winner: string | null; result_str: string | null; home_player_ids: string[]; away_player_ids: string[]; home_pts: number; away_pts: number; };
+type PlayerRow = { player_id: string; name: string; match_id: string; pts: number; vsPar: number; holes: number; hcp: number; avatarUrl: string | null };
+type GroupRow  = { match_id: string; format: string; isSingles: boolean; handicapMethod: string | null; player_names: string[]; home_name: string | null; away_name: string | null; status: string; holes_string: string; holesToPlay: number | null; winner: string | null; result_str: string | null; home_player_ids: string[]; away_player_ids: string[]; home_pts: number; away_pts: number; };
 
 function InitialAvatar({ name, size = 38 }: { name: string; size?: number }) {
   return (
@@ -87,7 +87,7 @@ export default function DayLobby() {
 
     const { data: matches } = await supabase
       .from('matches')
-      .select('id,home_player_ids,away_player_ids,round_format,is_singles,handicap_method,hcp_allowance,counting_scores,side_games,status,holes_string,winner,result_str,home_name,away_name,group_code')
+      .select('id,home_player_ids,away_player_ids,round_format,is_singles,handicap_method,hcp_allowance,counting_scores,side_games,status,holes_string,holes_to_play,winner,result_str,home_name,away_name,group_code')
       .eq('day_id', dayId)
       .neq('status', 'cancelled');
 
@@ -100,7 +100,7 @@ export default function DayLobby() {
         ? supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allPlayerIds)
         : Promise.resolve({ data: [] }),
       supabase.from('match_holes')
-        .select('match_id,player_id,stableford_pts,hole_number')
+        .select('match_id,player_id,stableford_pts,gross_score,hole_number')
         .in('match_id', (matches as any[]).map(m => m.id)),
       // Needed for the "Best 2 From 4 (Par 3s)" Mashie variant — all scores
       // count on a par-3 hole instead of just the best 2, so teamScore below
@@ -118,13 +118,16 @@ export default function DayLobby() {
       playerMap[p.id] = { name: p.display_name, hcp: p.handicap_index ?? 0, avatarUrl: p.avatar_url ?? null };
     }
 
-    const holesByPlayer: Record<string, { pts: number; count: number }> = {};
+    const holesByPlayer: Record<string, { pts: number; count: number; vsPar: number }> = {};
     // Per-match, per-hole, per-player pts — needed for team drop logic
     const matchHolePts: Record<string, Record<number, Record<string, number>>> = {};
     for (const h of (holesData ?? []) as any[]) {
-      if (!holesByPlayer[h.player_id]) holesByPlayer[h.player_id] = { pts: 0, count: 0 };
+      if (!holesByPlayer[h.player_id]) holesByPlayer[h.player_id] = { pts: 0, count: 0, vsPar: 0 };
       holesByPlayer[h.player_id].pts   += h.stableford_pts ?? 0;
       holesByPlayer[h.player_id].count += 1;
+      if (h.gross_score != null && holeParMap[h.hole_number] != null) {
+        holesByPlayer[h.player_id].vsPar += h.gross_score - holeParMap[h.hole_number];
+      }
       if (!matchHolePts[h.match_id]) matchHolePts[h.match_id] = {};
       if (!matchHolePts[h.match_id][h.hole_number]) matchHolePts[h.match_id][h.hole_number] = {};
       matchHolePts[h.match_id][h.hole_number][h.player_id] = h.stableford_pts ?? 0;
@@ -165,15 +168,24 @@ export default function DayLobby() {
       if (myPlayer) setMyMatchId(playerMatchMap[myPlayer.id] ?? null);
     }
 
+    // Medal (stroke play) days rank ascending by gross-vs-par, never by the
+    // Stableford points sum — every match on an individual day shares the
+    // same round_format, so the first match's is authoritative for the
+    // whole leaderboard (Rick's brief, section 10).
+    const dayFormat = (matches as any[])[0]?.round_format ?? 'stableford';
     const rows: PlayerRow[] = allPlayerIds.map(id => ({
       player_id: id,
       name:      playerMap[id]?.name ?? 'Unknown',
       match_id:  playerMatchMap[id] ?? '',
       hcp:       playerMap[id]?.hcp ?? 0,
       pts:       holesByPlayer[id]?.pts ?? 0,
+      vsPar:     holesByPlayer[id]?.vsPar ?? 0,
       holes:     holesByPlayer[id]?.count ?? 0,
       avatarUrl: playerMap[id]?.avatarUrl ?? null,
-    })).sort((a, b) => b.pts - a.pts || b.holes - a.holes);
+    })).sort((a, b) =>
+      individualScoreValue(dayFormat, b.pts, b.vsPar) - individualScoreValue(dayFormat, a.pts, a.vsPar)
+      || b.holes - a.holes
+    );
 
     const grps: GroupRow[] = (matches as any[]).map(m => {
       const homeIds: string[] = m.home_player_ids ?? [];
@@ -197,6 +209,7 @@ export default function DayLobby() {
         away_name:      m.away_name ?? null,
         status:         m.status ?? 'upcoming',
         holes_string:   m.holes_string ?? '..................',
+        holesToPlay:    m.holes_to_play ?? null,
         winner:         m.winner ?? null,
         result_str:     m.result_str ?? null,
         home_player_ids: homeIds,
@@ -366,6 +379,7 @@ export default function DayLobby() {
             : players.map((p, rank) => {
                 const isMe      = p.player_id === myId;
                 const isFirst   = rank === 0;
+                const isMedal   = groups[0]?.format === 'medal';
                 const rankColor = rank === 0 ? GOLD : rank === 1 ? '#C0C0C0' : rank === 2 ? '#CD7F32' : '#444';
                 return (
                   <View key={p.player_id} style={[s.lbCard, isFirst && s.lbCardFirst, isMe && s.lbCardMe]}>
@@ -379,8 +393,8 @@ export default function DayLobby() {
                       <Text style={s.lbSub}>{p.holes} holes · hcp {p.hcp.toFixed(0)}</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={[s.lbPts, isFirst && { color: GOLD }]}>{p.pts}</Text>
-                      <Text style={s.lbPtsLabel}>pts</Text>
+                      <Text style={[s.lbPts, isFirst && { color: GOLD }]}>{isMedal ? formatVsPar(p.vsPar) : p.pts}</Text>
+                      <Text style={s.lbPtsLabel}>{isMedal ? 'vs par' : 'pts'}</Text>
                     </View>
                   </View>
                 );
@@ -400,17 +414,30 @@ export default function DayLobby() {
                 const homeNames   = g.home_name && !DEFAULT_TEAM_NAMES.has(g.home_name) ? [g.home_name] : g.player_names.slice(0, g.home_player_ids.length);
                 const awayNames   = g.away_name && !DEFAULT_TEAM_NAMES.has(g.away_name) ? [g.away_name] : g.player_names.slice(g.home_player_ids.length);
 
+                // Routed through the shared matchLabel()/calcHoles() engine
+                // (Rick's brief, section 10) instead of hand-rolling a status
+                // string — the old version could show "3 UP" for a match
+                // that had actually already concluded 3&2, "A/S" for a match
+                // nobody had started, and never showed Dormie. The DN-vs-UP
+                // word choice and colour are a legitimate display-only
+                // convention (this row's own home/away perspective) kept on
+                // top of the engine's text, same accommodation Spectate's
+                // colour palette needed.
                 let statusLabel = '';
                 let statusColor = GOLD;
                 if (isMatchplay && hasTeams) {
-                  if (g.status === 'complete' && g.result_str) {
-                    statusLabel = g.result_str;
-                    statusColor = '#4ade80';
+                  const { homeUp, played, concluded } = calcHoles(g.holes_string, g.holesToPlay ?? 18);
+                  if (played === 0) {
+                    statusLabel = 'Not Started';
+                    statusColor = '#888';
                   } else {
-                    const { homeUp } = calcHoles(g.holes_string);
-                    if (homeUp === 0) { statusLabel = 'A/S'; statusColor = '#888'; }
-                    else if (homeUp > 0) statusLabel = `${homeUp} UP`;
-                    else { statusLabel = `${Math.abs(homeUp)} DN`; statusColor = '#f87171'; }
+                    statusLabel = matchLabel(g.status as any, g.winner, g.result_str, g.holes_string, g.holesToPlay ?? 18);
+                    if (g.status === 'complete' || concluded) {
+                      statusColor = '#4ade80';
+                    } else if (homeUp < 0) {
+                      statusColor = '#f87171';
+                      statusLabel = statusLabel.replace('UP', 'DN');
+                    }
                   }
                 }
 

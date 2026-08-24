@@ -1,30 +1,30 @@
 {
   "version": 1,
   "entries": {
-    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1787559852111,
-      "message": "Read multiple files in parallel when possible for faster analysis."
-    },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1787559838256,
+      "last_emitted_at_ms": 1787566780748,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
-    "63cc68b2c2fdfc6c3e6333a71056463fbba5d77b557fb84c2e5f6ca56769fb89": {
-      "last_emitted_at_ms": 1787559831290,
-      "message": "Spawning agent: Explore (inherit) | Task: Find every scattered tournament-format rule check"
+    "0298302ebf76b06b3bcecfbefd7672ed58b54981d82b0358e6bfe1c979024dc9": {
+      "last_emitted_at_ms": 1787566548919,
+      "message": "Spawning agent: Explore (inherit) | Task: Trace live tournament round-by-round lifecycle wiring"
+    },
+    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
+      "last_emitted_at_ms": 1787566536806,
+      "message": "Read multiple files in parallel when possible for faster analysis."
+    },
+    "615ce7edc8cce84298f1754d2777a7c27eb92f4f5a8d21868c5be369c58aa64e": {
+      "last_emitted_at_ms": 1787566523970,
+      "message": "Spawning agent: Explore (inherit) | Task: Trace tournament creation lifecycle wiring"
     },
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1787559258953,
+      "last_emitted_at_ms": 1787566249153,
       "message": "Verify changes work after editing. Test functionality before marking complete."
     },
-    "a1b34b755fa48339a9a0a364d6e49bf46e55d9e5803fe9b4fba5e03f6217ae41": {
-      "last_emitted_at_ms": 1787558031036,
-      "message": "Spawning agent: Explore (inherit) | Task: Research match play formats and scoring engine"
-    },
-    "0d58b8a24d6129567c299634dc2ab55e52c389bbd0025745d08fe933c22b3eb5": {
-      "last_emitted_at_ms": 1787557098469,
-      "message": "Spawning agent: Explore (inherit) | Task: Find every Range/GPS icon usage"
+    "cb581fe7f563114c9b07c9f1962566ca1ee7390a7c77ba8ec2ce596438b67587": {
+      "last_emitted_at_ms": 1787563380351,
+      "message": "Spawning agent: Explore (inherit) | Task: Audit for duplicated/independent scoring calculations"
     }
   },
-  "updated_at": "2026-08-24T08:24:12.111Z"
+  "updated_at": "2026-08-24T10:19:40.748Z"
 }

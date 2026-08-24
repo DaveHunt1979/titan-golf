@@ -11,8 +11,10 @@ import RoundScorecard from '../../../../src/components/RoundScorecard';
 import { useFonts } from 'expo-font';
 import { supabase, freshChannel } from '../../../../src/lib/supabase';
 import {
-  calcHoles, matchLabel, calcCourseHandicap, isDormie,
-  calcStrokesReceived, calcStablefordPoints, formatStrokeHoles,
+  calcHoles, matchLabel, isDormie,
+  calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, individualScoreValue,
+  scoreVsPar, formatVsPar, SCORE_COLORS,
+  playerCourseHcp as sharedPlayerCourseHcp,
 } from '../../../../src/lib/scoring';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { courseHasGps } from '../../../../src/lib/courseGps';
@@ -51,8 +53,6 @@ const FFB    = 'JUSTSans-ExBold';
 const { width: W } = Dimensions.get('window');
 const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
-const SCORE_COLORS: Record<string, string> = { eagle: GOLD, birdie: RED, par: PLAIN, bogey: BLUE, double: DARKBLUE };
-
 const TEE_OPTIONS = [
   { label: 'Yellow', color: '#EAB308' },
   { label: 'White',  color: '#D1D5DB' },
@@ -61,33 +61,8 @@ const TEE_OPTIONS = [
   { label: 'Black',  color: '#6B7280' },
 ];
 
-function formatVsPar(n: number): string {
-  if (n === 0) return 'E';
-  return n > 0 ? `+${n}` : `${n}`;
-}
-
-function scoreVsPar(gross: number, par: number, _shots: number): string {
-  // Classified by gross strokes vs par only — handicap shots affect stableford
-  // points, not the eagle/birdie/par/bogey label (Rick: "points and stroke
-  // should remain separate").
-  const diff = gross - par;
-  if (diff <= -2) return 'eagle';
-  if (diff === -1) return 'birdie';
-  if (diff === 0)  return 'par';
-  if (diff === 1)  return 'bogey';
-  return 'double';
-}
-
 function isMissingMatchError(err: any): boolean {
   return err?.code === '23503' || /foreign key/i.test(String(err?.message ?? ''));
-}
-
-function ptsColor(pts: number): string {
-  if (pts >= 4) return GOLD;
-  if (pts === 3) return RED;
-  if (pts === 2) return PLAIN;
-  if (pts === 1) return BLUE;
-  return DARKBLUE;
 }
 
 function Avatar({ name, color, size = 36, source }: { name: string; color: string; size?: number; source?: any }) {
@@ -142,11 +117,7 @@ interface CompPlayer { player_id: string; handicap_index: number; }
 
 function playerCourseHcp(playerId: string, compPlayers: CompPlayer[], day: MatchInfo['day'], hcpAllowance: number = 100): number {
   const cp = compPlayers.find(c => c.player_id === playerId);
-  const hcpIndex = cp?.handicap_index ?? 0;
-  const raw = (!day?.slope_rating || !day?.course_rating || !day?.course_par)
-    ? Math.round(hcpIndex)
-    : calcCourseHandicap(hcpIndex, day.slope_rating, day.course_rating, day.course_par);
-  return Math.round(raw * (hcpAllowance / 100));
+  return sharedPlayerCourseHcp(cp?.handicap_index ?? 0, day, hcpAllowance);
 }
 
 export default function EnterScoresScreen() {
@@ -222,7 +193,7 @@ export default function EnterScoresScreen() {
   const gpsRef = useRef<{ lat: number; lng: number } | null>(null);
   const skipNextLoad = useRef(false);
   const liveActivityStarted = useRef(false);
-  const [dayBoard, setDayBoard] = useState<{ playerId: string; name: string; pts: number }[]>([]);
+  const [dayBoard, setDayBoard] = useState<{ playerId: string; name: string; pts: number; vsPar: number; holesPlayed: number }[]>([]);
 
   // Passive GPS — used only for tagging shot locations
   useEffect(() => {
@@ -1245,16 +1216,28 @@ export default function EnterScoresScreen() {
 
       const [{ data: playersData }, { data: holesData }] = await Promise.all([
         supabase.from('players').select('id, display_name').in('id', allPlayerIds),
-        supabase.from('match_holes').select('player_id, stableford_pts').in('match_id', allMatchIds),
+        supabase.from('match_holes').select('player_id, stableford_pts, gross_score, hole_number').in('match_id', allMatchIds),
       ]);
 
       const nameMap: Record<string, string> = {};
       (playersData ?? []).forEach((p: any) => { nameMap[p.id] = p.display_name; });
 
+      // Medal (stroke play) days rank ascending by gross-vs-par, never by the
+      // Stableford points sum — every match on this day shares the same
+      // round_format (Rick's brief, section 10).
+      const dayFormat = (dayMatches as any[])[0]?.round_format ?? 'stableford';
+      const parByHole = new Map(courseHoles.map(h => [h.hole_number, h.par]));
       const totals: Record<string, number> = {};
+      const vsPars: Record<string, number> = {};
+      const holesPlayed: Record<string, number> = {};
       (holesData ?? []).forEach((h: any) => {
         if (h.stableford_pts != null) {
           totals[h.player_id] = (totals[h.player_id] ?? 0) + h.stableford_pts;
+        }
+        const par = parByHole.get(h.hole_number);
+        if (h.gross_score != null && par != null) {
+          vsPars[h.player_id] = (vsPars[h.player_id] ?? 0) + (h.gross_score - par);
+          holesPlayed[h.player_id] = (holesPlayed[h.player_id] ?? 0) + 1;
         }
       });
 
@@ -1263,8 +1246,10 @@ export default function EnterScoresScreen() {
           playerId: pid,
           name: (nameMap[pid] ?? '?').split(' ')[0],
           pts: totals[pid] ?? 0,
+          vsPar: vsPars[pid] ?? 0,
+          holesPlayed: holesPlayed[pid] ?? 0,
         }))
-        .sort((a, b) => b.pts - a.pts);
+        .sort((a, b) => individualScoreValue(dayFormat, b.pts, b.vsPar) - individualScoreValue(dayFormat, a.pts, a.vsPar));
 
       setDayBoard(board);
 
@@ -1664,7 +1649,7 @@ export default function EnterScoresScreen() {
           else if (c === 'd') {
             const grosses = allPlayerIds.map(id => holeData[id]?.[h]?.gross).filter((g): g is number => g != null);
             const bestGross = grosses.length ? Math.min(...grosses) : null;
-            resultColor = bestGross !== null && ch ? SCORE_COLORS[scoreVsPar(bestGross, ch.par, 0)] : PLAIN;
+            resultColor = bestGross !== null && ch ? SCORE_COLORS[scoreVsPar(bestGross, ch.par)] : PLAIN;
           }
           return (
             <TouchableOpacity
@@ -1774,12 +1759,14 @@ export default function EnterScoresScreen() {
                     <View style={s.leaderboard}>
                       <Text style={s.lbGroupHeader}>ALL GROUPS</Text>
                       {dayBoard.slice(0, 6).map((entry, rank) => {
-                        const isLeader = rank === 0 && entry.pts > 0;
+                        const isLeader = rank === 0 && entry.holesPlayed > 0;
                         return (
                           <View key={entry.playerId} style={s.lbRow}>
                             <Text style={[s.lbRank, { color: isLeader ? GOLD : '#555' }]}>{rank + 1}</Text>
                             <Text style={[s.lbName, !isLeader && { opacity: 0.5 }]} numberOfLines={1}>{entry.name}</Text>
-                            <Text style={[s.lbPts, { color: isLeader ? GOLD : '#fff' }]}>{entry.pts > 0 ? `${entry.pts}pts` : '—'}</Text>
+                            <Text style={[s.lbPts, { color: isLeader ? GOLD : '#fff' }]}>
+                              {entry.holesPlayed === 0 ? '—' : match.round_format === 'medal' ? formatVsPar(entry.vsPar) : `${entry.pts}pts`}
+                            </Text>
                           </View>
                         );
                       })}
@@ -2160,7 +2147,7 @@ export default function EnterScoresScreen() {
                 for (const [holeNumStr, h] of Object.entries(holes)) {
                   if (h.gross == null) continue;
                   const ch = courseHoles.find(c => c.hole_number === Number(holeNumStr));
-                  const cat = scoreVsPar(h.gross, ch?.par ?? 4, 0);
+                  const cat = scoreVsPar(h.gross, ch?.par ?? 4);
                   if (cat === 'eagle') eagles++;
                   else if (cat === 'birdie') birdies++;
                   else if (cat === 'par') pars++;
@@ -2466,7 +2453,7 @@ export default function EnterScoresScreen() {
                 ? calcStrokesReceived(matchplayHcp(modalPlayerId), courseHole?.stroke_index ?? 18)
                 : 0;
               const par = courseHole?.par ?? 4;
-              const result = selectedScore ? scoreVsPar(selectedScore, par, shots) : null;
+              const result = selectedScore ? scoreVsPar(selectedScore, par) : null;
               const accent = result ? (SCORE_COLORS[result] ?? '#6b7280') : '#1c1c1c';
               // MAIN GAME points only — `shots` above already uses matchplayHcp
               // (the match's own hcp_allowance). The background Stableford side
@@ -2535,7 +2522,7 @@ export default function EnterScoresScreen() {
                   {[[1,2,3,4,5],[6,7,8,9,10]].map((row, ri) => (
                     <View key={ri} style={{ flexDirection: 'row', gap: 7, marginTop: ri === 0 ? 0 : 7 }}>
                       {row.map(n => {
-                        const r = courseHole ? scoreVsPar(n, par, shots) : 'par';
+                        const r = courseHole ? scoreVsPar(n, par) : 'par';
                         const a = SCORE_COLORS[r] ?? '#6b7280';
                         const on = selectedScore === n;
                         return (

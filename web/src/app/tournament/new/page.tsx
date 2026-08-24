@@ -7,7 +7,7 @@ import { Copy, Check, Trophy } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type FormatId = 'team_matchplay' | 'ryder_cup' | 'stableford' | 'medal' | 'knockout';
+type FormatId = 'team_matchplay' | 'titan_way' | 'ryder_cup' | 'stableford' | 'medal' | 'knockout';
 type DayFormatId = 'four_bbb' | 'foursomes' | 'greensomes' | 'singles' | 'stableford' | 'medal' | 'scramble';
 
 interface CompFormat {
@@ -28,8 +28,13 @@ interface DayConfig {
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
+// Mirrors src/lib/tournamentFormat.ts's FORMAT_RULES registry (Rick's
+// brief, section 9, 2026-08-24) — this is a separate Next.js project so it
+// can't import that file directly; keep these two in sync by hand whenever
+// a format's identity/defaults change.
 const COMP_FORMATS: CompFormat[] = [
   { id: 'team_matchplay', label: 'Multi-Team Tour',        sub: 'Multiple teams battle across days. Mix 4BBB, foursomes and singles. Titan Tour style.', available: true,  defaultDays: 4, defaultDayFormat: 'four_bbb',   defaultHcp: 75  },
+  { id: 'titan_way',      label: 'Titan Way',              sub: '4BBB Stableford opening rounds build a team league, then a final-day knockout + singles draw — plus a full Kronos individual championship. Minimum 4 teams, 16 players.', available: true, defaultDays: 4, defaultDayFormat: 'four_bbb', defaultHcp: 75 },
   { id: 'ryder_cup',      label: 'Ryder Cup',              sub: '2 sides, captain picks, team points. Perfect for a weekend away.',                       available: true,  defaultDays: 3, defaultDayFormat: 'four_bbb',   defaultHcp: 75  },
   { id: 'stableford',     label: 'Individual Stableford',  sub: 'Everyone plays for themselves. Points per round build a season leaderboard.',             available: true,  defaultDays: 4, defaultDayFormat: 'stableford', defaultHcp: 100 },
   { id: 'medal',          label: 'Stroke Play',            sub: 'Lowest aggregate score wins. Multiple rounds, optional cut after round 2.',               available: true,  defaultDays: 2, defaultDayFormat: 'medal',      defaultHcp: 100 },
@@ -78,10 +83,10 @@ export default function NewTournamentPage() {
   function pickFormat(f: CompFormat) {
     if (!f.available) return;
     setSelectedFormat(f.id);
-    setIncludeInKronos(f.id === 'team_matchplay');
+    setIncludeInKronos(f.id === 'team_matchplay' || f.id === 'titan_way');
     const built: DayConfig[] = Array.from({ length: f.defaultDays }, (_, i) => {
       const isLast  = i === f.defaultDays - 1;
-      const isTour  = f.id === 'team_matchplay';
+      const isTour  = f.id === 'team_matchplay' || f.id === 'titan_way';
       return {
         courseName: '',
         format:     isLast && isTour ? 'singles'      : f.defaultDayFormat,
@@ -134,14 +139,24 @@ export default function NewTournamentPage() {
       format_type: selectedFormat,
       num_days: days.length,
       day_configs: days.map(d => ({ format: d.format, hcp_pct: d.hcpPct })),
-      ...(selectedFormat === 'team_matchplay' || selectedFormat === 'ryder_cup'
+      ...(selectedFormat === 'team_matchplay' || selectedFormat === 'titan_way' || selectedFormat === 'ryder_cup'
         ? { pts_win: 2, pts_win_singles: 3, pts_half: 1 }
         : {}),
     };
 
+    // tournament_type was previously never written from here at all, so
+    // every web-created competition silently defaulted to 'casual' and
+    // permanently lost its Team leaderboard tab regardless of the format
+    // actually picked (Rick's brief, section 9). Titan Way collapses into
+    // 'titan_tour' here too, same as the mobile builder — this column can't
+    // distinguish the two, only `format` can.
+    const tournamentType = selectedFormat === 'ryder_cup'
+      ? 'ryder_cup'
+      : (selectedFormat === 'team_matchplay' || selectedFormat === 'titan_way') ? 'titan_tour' : 'casual';
+
     const { data: comp, error: compErr } = await supabase
       .from('competitions')
-      .insert({ society_id: member.society_id, name: name.trim(), year: parseInt(year) || new Date().getFullYear() + 1, format: selectedFormat, status: 'draft', settings, include_in_kronos: includeInKronos, pin })
+      .insert({ society_id: member.society_id, name: name.trim(), year: parseInt(year) || new Date().getFullYear() + 1, format: selectedFormat, tournament_type: tournamentType, status: 'draft', settings, include_in_kronos: includeInKronos, pin })
       .select().single();
 
     if (compErr || !comp) { setError(compErr?.message ?? 'Could not create competition.'); setCreating(false); return; }

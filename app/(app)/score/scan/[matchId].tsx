@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { scanPlayerScoresFromCamera, scanPlayerScoresFromLibrary } from '../../../../src/lib/scanScorecard';
-import { calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { calcStrokesReceived, calcStablefordPoints, playerCourseHcp, formatVsPar } from '../../../../src/lib/scoring';
 import { goBack } from '../../../../src/lib/navigation';
 
 // ── TITAN Design Constants ──────────────────────────────────────────────────
@@ -39,10 +39,10 @@ export default function ScanMatchScorecardScreen() {
   const [loading, setLoading]       = useState(true);
 
   const [myPlayerId,  setMyPlayerId]  = useState<string | null>(null);
-  const [myHandicap,  setMyHandicap]  = useState<number>(0);
   const [courseName,  setCourseName]  = useState<string | null>(null);
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
   const [matchFormat, setMatchFormat] = useState<string | null>(null);
+  const [myCourseHcp, setMyCourseHcp] = useState<number>(0);
 
   const [scores, setScores] = useState<HoleScore[]>(
     Array.from({ length: 18 }, (_, i) => ({ hole: i + 1, gross: null }))
@@ -60,10 +60,9 @@ export default function ScanMatchScorecardScreen() {
       if (!p) { setLoading(false); return; }
 
       setMyPlayerId((p as any).id);
-      setMyHandicap(Math.round((p as any).handicap_index ?? 0));
 
       const { data: m } = await supabase.from('matches')
-        .select('round_format, day:day_id(course_name)')
+        .select('round_format, hcp_allowance, day:day_id(course_name, slope_rating, course_rating, course_par)')
         .eq('id', matchId)
         .single();
       if (!m) { setLoading(false); return; }
@@ -71,6 +70,10 @@ export default function ScanMatchScorecardScreen() {
       const cn = (m as any).day?.course_name ?? null;
       setCourseName(cn);
       setMatchFormat((m as any).round_format ?? null);
+      // Course-handicap conversion + allowance — this screen used to write
+      // stableford_pts/net_score straight from the raw handicap index, the
+      // only score-entry path in the app skipping it (Rick's brief, section 10).
+      setMyCourseHcp(playerCourseHcp((p as any).handicap_index ?? 0, (m as any).day, (m as any).hcp_allowance ?? 100));
 
       if (cn) {
         const { data: holes } = await supabase.from('course_holes')
@@ -118,7 +121,7 @@ export default function ScanMatchScorecardScreen() {
   function stablefordForHole(hole: number, gross: number | null): number {
     const ch = courseHoles.find(h => h.hole_number === hole);
     if (!ch || gross === null) return 0;
-    const shots = calcStrokesReceived(myHandicap, ch.stroke_index);
+    const shots = calcStrokesReceived(myCourseHcp, ch.stroke_index);
     return calcStablefordPoints(gross, ch.par, shots);
   }
 
@@ -146,7 +149,7 @@ export default function ScanMatchScorecardScreen() {
           const ch    = courseHoles.find(h => h.hole_number === s.hole);
           const par   = ch?.par ?? 4;
           const si    = ch?.stroke_index ?? s.hole;
-          const shots = calcStrokesReceived(myHandicap, si);
+          const shots = calcStrokesReceived(myCourseHcp, si);
           const pts   = calcStablefordPoints(s.gross, par, shots);
           return {
             match_id:       matchId,
@@ -177,7 +180,7 @@ export default function ScanMatchScorecardScreen() {
       const vsPar        = totalGross - parPlayed;
       const resultStr    = isStableford
         ? `${totalPts} pts`
-        : (vsPar === 0 ? 'E' : vsPar > 0 ? `+${vsPar}` : `${vsPar}`);
+        : formatVsPar(vsPar);
 
       await supabase.from('matches')
         .update({

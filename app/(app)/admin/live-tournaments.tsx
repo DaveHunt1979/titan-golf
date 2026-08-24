@@ -10,6 +10,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
 import { goBack } from '../../../src/lib/navigation';
+import { getFormatRules } from '../../../src/lib/tournamentFormat';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -123,7 +124,7 @@ export default function LiveTournaments() {
               <View style={s.compCardTop}>
                 <View style={{ flex: 1 }}>
                   <Text style={s.compName}>{c.name}</Text>
-                  <Text style={s.compFormat}>{c.format}</Text>
+                  <Text style={s.compFormat}>{getFormatRules(c.format).label}</Text>
                   {courses.length > 0 && (
                     <Text style={s.compMeta}>{courses.slice(0, 2).join(' · ')}{courses.length > 2 ? ` +${courses.length - 2}` : ''}</Text>
                   )}
