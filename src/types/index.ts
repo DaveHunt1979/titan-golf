@@ -79,6 +79,7 @@ export interface Match {
   result_str: string | null;
   holes_string: string;
   holes_to_play: number | null;
+  start_hole: number | null;
   is_singles: boolean;
   round_format: 'matchplay' | 'stableford' | 'medal';
   handicap_method: string;

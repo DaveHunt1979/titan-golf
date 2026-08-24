@@ -89,7 +89,7 @@ export default function TourScreen() {
   const [teams, setTeams]             = useState<Team[]>([]);
   const [players, setPlayers]         = useState<{ id: string; display_name: string; avatar_url?: string | null }[]>([]);
   const [kronosRows, setKronosRows] = useState<{
-    playerId: string; name: string; total: number; holes: number;
+    playerId: string; name: string; total: number; holes: number; vsParTotal: number;
     avatarUrl: string | null; teamName: string | null; teamAccentColor: string | null;
     teamLogoUrl: string | null; isCaptain: boolean; byDay: (number | null)[];
   }[]>([]);
@@ -241,8 +241,20 @@ export default function TourScreen() {
 
       const totals: Record<string, { total: number; holes: number }> = {};
       const perDay: Record<string, Record<string, { total: number; holes: number }>> = {};
+      // Medal tournaments still accumulate stableford_pts (side-calculated
+      // purely for Kronos purposes — see score/enter's needsStablefordPts),
+      // but the number that actually decides a medal round is gross-vs-par.
+      // Track both so this board can rank the same way the Players/Individual
+      // board does — otherwise the two screens can crown two different
+      // "overall winners" for the same trophy (Rick's brief, section 13).
+      const vsParTotals: Record<string, number> = {};
       (holesData as any[]).forEach(h => {
-        if (h.stableford_pts == null || !kronosMatchIds.has(h.match_id)) return;
+        if (!kronosMatchIds.has(h.match_id)) return;
+        if (allDaysMedal && h.gross_score != null) {
+          const par = parForHole(h.match_id, h.hole_number);
+          if (par != null) vsParTotals[h.player_id] = (vsParTotals[h.player_id] ?? 0) + (h.gross_score - par);
+        }
+        if (h.stableford_pts == null) return;
         if (!totals[h.player_id]) totals[h.player_id] = { total: 0, holes: 0 };
         totals[h.player_id].total += h.stableford_pts;
         totals[h.player_id].holes += 1;
@@ -254,12 +266,15 @@ export default function TourScreen() {
         perDay[dayId][h.player_id].holes += 1;
       });
 
-      const rows = Object.entries(totals)
-        .map(([pid, v]) => {
+      const kronosPids = new Set([...Object.keys(totals), ...(allDaysMedal ? Object.keys(vsParTotals) : [])]);
+      const rows = Array.from(kronosPids)
+        .map(pid => {
           const cp = cpFor(pid);
           const team = cp?.team_id ? (teamsData as any[] ?? []).find(t => t.id === cp.team_id) : null;
+          const v = totals[pid] ?? { total: 0, holes: 0 };
           return {
             playerId: pid, name: nameFor(pid), total: v.total, holes: v.holes,
+            vsParTotal: vsParTotals[pid] ?? 0,
             avatarUrl: (playersData as any[]).find(x => x.id === pid)?.avatar_url ?? null,
             teamName: team?.name ?? null,
             teamAccentColor: team?.accent_color ?? null,
@@ -268,7 +283,10 @@ export default function TourScreen() {
             byDay: sortedKronosDays.map(day => perDay[day.id]?.[pid]?.total ?? null),
           };
         })
-        .sort((a, b) => b.total - a.total);
+        .sort((a, b) =>
+          individualScoreValue(allDaysMedal ? 'medal' : 'stableford', b.total, b.vsParTotal)
+          - individualScoreValue(allDaysMedal ? 'medal' : 'stableford', a.total, a.vsParTotal)
+        );
       setKronosRows(rows);
     } else {
       setKronosRows([]);
@@ -643,6 +661,11 @@ export default function TourScreen() {
   // just called once per day with that day's matches only, so each column
   // shows points earned that round rather than a running total.
   const sortedDays = [...days].sort((a, b) => a.day_number - b.day_number);
+  // Same "every round is Medal" check loadTournamentData used to decide
+  // vs-par vs Stableford ranking — kept in sync so the Kronos tab and the
+  // Players/Individual board never rank the same tournament two different
+  // ways (Rick's brief, section 13).
+  const daysAllMedal = days.length > 0 && days.every(d => d.day_format === 'medal');
   const dayPtsByTeam: Record<string, number[]> = {};
   sortedDays.forEach(day => {
     const dayMatches = (matches as any[]).filter((m: any) => m.day_id === day.id && m.home_team_id && m.away_team_id);
@@ -1118,14 +1141,14 @@ export default function TourScreen() {
                 title={individualLabel.toUpperCase()}
                 rows={kronosRows.map(r => ({
                   id: r.playerId,
-                  sortKey: r.total,
+                  sortKey: individualScoreValue(daysAllMedal ? 'medal' : 'stableford', r.total, r.vsParTotal),
                   name: r.name,
                   subtitle: r.teamName ?? undefined,
                   playerId: r.playerId,
                   avatarUrl: r.avatarUrl,
                   isCaptain: r.isCaptain,
                   columns: r.byDay,
-                  totalDisplay: String(r.total),
+                  totalDisplay: daysAllMedal ? formatVsPar(r.vsParTotal) : String(r.total),
                 }))}
                 columnLabels={sortedDays.map((_, i) => `D${i + 1}`)}
                 totalLabel="TOT"
@@ -1173,7 +1196,7 @@ export default function TourScreen() {
           <View>
             <Text style={st.sectionHeader}>INDIVIDUAL LEADERBOARD</Text>
             <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 11, color: '#555', marginBottom: 12, lineHeight: 18 }}>
-              Stableford points from all rounds. Prize positions update live as scores come in.
+              {daysAllMedal ? 'Score vs par from all rounds.' : 'Stableford points from all rounds.'} Prize positions update live as scores come in.
             </Text>
             <View>
               <View style={st.tableHeader}>
@@ -1209,7 +1232,7 @@ export default function TourScreen() {
                       </View>
                     </View>
                     <Text style={[st.cell, st.pts]}>
-                      {days.length > 0 && days.every(d => d.day_format === 'medal') ? formatVsPar(entry.vs_par_total) : entry.stableford_total}
+                      {daysAllMedal ? formatVsPar(entry.vs_par_total) : entry.stableford_total}
                     </Text>
                     <View style={[st.cell, { flex: 2, alignItems: 'flex-end', paddingRight: 4 }]}>
                       {hasPrize ? (
@@ -1241,7 +1264,13 @@ export default function TourScreen() {
               <>
                 <Text style={[st.sectionHeader, { marginTop: 24 }]}>PRIZE CATEGORIES</Text>
                 {prizeCats.map(cat => {
-                  const inCat = indivBoard.filter(e => e.category_id === cat.id);
+                  // category_position is computed once in loadTournamentData
+                  // with the overall winner already skipped (their slot rolls
+                  // down) — indexing inCat by raw array position instead would
+                  // put the overall winner back in 1st here even though the
+                  // leaderboard rows above have already rolled them past it
+                  // (Rick's brief, section 13).
+                  const inCat = indivBoard.filter(e => e.category_id === cat.id && e.category_position != null);
                   const sortedPayouts = [...cat.prize_payouts].sort((a, b) => a.position - b.position);
                   return (
                     <View key={cat.id} style={[st.champCard, { backgroundColor: dc.card, borderColor: dc.border, marginBottom: 10 }]}>
@@ -1254,7 +1283,7 @@ export default function TourScreen() {
                         )}
                       </Text>
                       {sortedPayouts.map(pp => {
-                        const leader = inCat[pp.position - 1];
+                        const leader = inCat.find(e => e.category_position === pp.position);
                         return (
                           <View key={pp.position} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 5, borderTopWidth: pp.position > 1 ? 1 : 0, borderTopColor: '#1c1c1c' }}>
                             <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 12, color: '#555', width: 32 }}>

@@ -1,0 +1,25 @@
+{"t":0,"agent":"a66daaa","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"atrace-","agent_type":"trace-format-gating","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"atrace-","agent_type":"trace-game-generation","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"atrace-","agent_type":"trace-scoring-calcs","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"atrace-","agent_type":"trace-leaderboards-prizes","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"atrace-","agent_type":"trace-camera-gps","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"atrace-","agent_type":"trace-ai-infopack-reload","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a4c2dc2","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}
+{"t":0,"agent":"atrace-","agent_type":"trace-game-generation-2","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"atrace-","agent_type":"trace-leaderboards-prizes-2","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"atrace-","agent_type":"trace-ai-infopack-reload-2","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"atrace-","agent_type":"trace-camera-gps","event":"agent_stop","success":true,"duration_ms":1110786}
+{"t":0,"agent":"atrace-","agent_type":"trace-camera-gps","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"atrace-","agent_type":"trace-camera-gps","event":"agent_stop","success":true,"duration_ms":39418}
+{"t":0,"agent":"atrace-","agent_type":"trace-scoring-calcs","event":"agent_stop","success":true,"duration_ms":1192373}
+{"t":0,"agent":"atrace-","agent_type":"trace-scoring-calcs","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"atrace-","agent_type":"trace-game-generation-2","event":"agent_stop","success":true,"duration_ms":116854}
+{"t":0,"agent":"atrace-","agent_type":"trace-game-generation-2","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"atrace-","agent_type":"trace-leaderboards-prizes-2","event":"agent_stop","success":true,"duration_ms":126930}
+{"t":0,"agent":"atrace-","agent_type":"trace-scoring-calcs","event":"agent_stop","success":true,"duration_ms":30927}
+{"t":0,"agent":"atrace-","agent_type":"trace-leaderboards-prizes-2","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"atrace-","agent_type":"trace-game-generation-2","event":"agent_stop","success":true,"duration_ms":30750}
+{"t":0,"agent":"atrace-","agent_type":"trace-ai-infopack-reload-2","event":"agent_stop","success":true,"duration_ms":138904}
+{"t":0,"agent":"atrace-","agent_type":"trace-ai-infopack-reload-2","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aa0ace0","agent_type":"untracked-native-fork","event":"agent_stop","success":true,"synthetic":true,"telemetry_status":"unmatched_stop","reason":"SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."}

@@ -1,0 +1,149 @@
+{
+  "updatedAt": "2026-08-24T14:21:42.740Z",
+  "missions": [
+    {
+      "id": "session:01e0b48e-e6d3-4753-ab9f-1af384cb06c4:none",
+      "source": "session",
+      "name": "none",
+      "objective": "Session mission",
+      "createdAt": "2026-08-24T12:28:53.313Z",
+      "updatedAt": "2026-08-24T14:21:42.740Z",
+      "status": "running",
+      "workerCount": 9,
+      "taskCounts": {
+        "total": 9,
+        "pending": 0,
+        "blocked": 0,
+        "inProgress": 5,
+        "completed": 4,
+        "failed": 0
+      },
+      "agents": [
+        {
+          "name": "trace-format-gating:atrace-",
+          "role": "trace-format-gating",
+          "ownership": "atrace-format-gating-3aa1273b17048be3",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T14:21:42.740Z"
+        },
+        {
+          "name": "trace-game-generation:atrace-",
+          "role": "trace-game-generation",
+          "ownership": "atrace-game-generation-143f1fe758d2f865",
+          "status": "running",
+          "currentStep": null,
+          "latestUpdate": null,
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T12:29:00.932Z"
+        },
+        {
+          "name": "trace-scoring-calcs:atrace-",
+          "role": "trace-scoring-calcs",
+          "ownership": "atrace-scoring-calcs-d41efc197f18c853",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T12:49:35.602Z"
+        },
+        {
+          "name": "trace-leaderboards-prizes:atrace-",
+          "role": "trace-leaderboards-prizes",
+          "ownership": "atrace-leaderboards-prizes-828caa801df3c884",
+          "status": "running",
+          "currentStep": null,
+          "latestUpdate": null,
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T12:29:15.221Z"
+        },
+        {
+          "name": "trace-camera-gps:atrace-",
+          "role": "trace-camera-gps",
+          "ownership": "atrace-camera-gps-97b61b89f8396ae6",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T12:48:40.725Z"
+        },
+        {
+          "name": "trace-ai-infopack-reload:atrace-",
+          "role": "trace-ai-infopack-reload",
+          "ownership": "atrace-ai-infopack-reload-dc652ede19f01711",
+          "status": "running",
+          "currentStep": null,
+          "latestUpdate": null,
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T12:29:31.240Z"
+        },
+        {
+          "name": "trace-game-generation-2:atrace-",
+          "role": "trace-game-generation-2",
+          "ownership": "atrace-game-generation-2-d403ce1f0bd6cb64",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T12:49:50.538Z"
+        },
+        {
+          "name": "trace-leaderboards-prizes-2:atrace-",
+          "role": "trace-leaderboards-prizes-2",
+          "ownership": "atrace-leaderboards-prizes-2-63c1ea5727a69ec7",
+          "status": "running",
+          "currentStep": null,
+          "latestUpdate": null,
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T12:49:44.399Z"
+        },
+        {
+          "name": "trace-ai-infopack-reload-2:atrace-",
+          "role": "trace-ai-infopack-reload-2",
+          "ownership": "atrace-ai-infopack-reload-2-a31f0a565cbf3a13",
+          "status": "running",
+          "currentStep": null,
+          "latestUpdate": null,
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T12:49:55.316Z"
+        }
+      ],
+      "timeline": [
+        {
+          "id": "session-stop:atrace-game-generation-2-d403ce1f0bd6cb64:2026-08-24T12:49:50.538Z",
+          "at": "2026-08-24T12:49:50.538Z",
+          "kind": "completion",
+          "agent": "trace-game-generation-2:atrace-",
+          "detail": "completed",
+          "sourceKey": "session-stop:atrace-game-generation-2-d403ce1f0bd6cb64"
+        },
+        {
+          "id": "session-stop:atrace-ai-infopack-reload-2-a31f0a565cbf3a13:2026-08-24T12:49:50.566Z",
+          "at": "2026-08-24T12:49:50.566Z",
+          "kind": "completion",
+          "agent": "trace-ai-infopack-reload-2:atrace-",
+          "detail": "completed",
+          "sourceKey": "session-stop:atrace-ai-infopack-reload-2-a31f0a565cbf3a13"
+        },
+        {
+          "id": "session-start:atrace-ai-infopack-reload-2-a31f0a565cbf3a13:2026-08-24T12:49:55.316Z",
+          "at": "2026-08-24T12:49:55.316Z",
+          "kind": "update",
+          "agent": "trace-ai-infopack-reload-2:atrace-",
+          "detail": "started trace-ai-infopack-reload-2:atrace-",
+          "sourceKey": "session-start:atrace-ai-infopack-reload-2-a31f0a565cbf3a13"
+        },
+        {
+          "id": "session-stop:aa0ace00633238a02:2026-08-24T14:21:42.740Z",
+          "at": "2026-08-24T14:21:42.740Z",
+          "kind": "completion",
+          "agent": "trace-format-gating:atrace-",
+          "detail": "completed",
+          "sourceKey": "session-stop:aa0ace00633238a02"
+        }
+      ]
+    }
+  ]
+}

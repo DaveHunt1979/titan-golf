@@ -543,7 +543,7 @@ export default function MatchDetailScreen() {
           <Ionicons name="create-outline" size={20} color="#000000" />
           <Text style={s.ctaText}>{status === 'complete' ? 'Edit Scores' : 'Enter Scores'}</Text>
         </TouchableOpacity>
-        {status !== 'complete' && isMember && (
+        {status !== 'complete' && isMember && isStrokePlay && (
           <TouchableOpacity
             style={s.ctaSecondary}
             onPress={() => router.push(`/(app)/score/scan/${matchId}` as any)}

@@ -1,0 +1,7 @@
+{
+  "tool_name": "Read",
+  "tool_input_preview": "{\"file_path\":\"/Users/davehunt/Desktop/titan-golf/app/(app)/live-tournaments.tsx\",\"offset\":195,\"limit\":40}",
+  "error": "File does not exist. Note: your current working directory is /Users/davehunt/Desktop/titan-golf.",
+  "timestamp": "2026-08-24T13:44:05.062Z",
+  "retry_count": 1
+}

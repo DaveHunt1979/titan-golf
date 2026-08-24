@@ -25,7 +25,7 @@ const DEFAULT_TEAM_NAMES = new Set(['Team A', 'Team B', 'Team C', 'Team D']);
 
 type DayInfo   = { id: string; join_code: string; course_name: string; course_par: number; day_date: string };
 type PlayerRow = { player_id: string; name: string; match_id: string; pts: number; vsPar: number; holes: number; hcp: number; avatarUrl: string | null };
-type GroupRow  = { match_id: string; format: string; isSingles: boolean; handicapMethod: string | null; player_names: string[]; home_name: string | null; away_name: string | null; status: string; holes_string: string; holesToPlay: number | null; winner: string | null; result_str: string | null; home_player_ids: string[]; away_player_ids: string[]; home_pts: number; away_pts: number; };
+type GroupRow  = { match_id: string; format: string; isSingles: boolean; handicapMethod: string | null; player_names: string[]; home_name: string | null; away_name: string | null; status: string; holes_string: string; holesToPlay: number | null; startHole: number | null; winner: string | null; result_str: string | null; home_player_ids: string[]; away_player_ids: string[]; home_pts: number; away_pts: number; };
 
 function InitialAvatar({ name, size = 38 }: { name: string; size?: number }) {
   return (
@@ -87,7 +87,7 @@ export default function DayLobby() {
 
     const { data: matches } = await supabase
       .from('matches')
-      .select('id,home_player_ids,away_player_ids,round_format,is_singles,handicap_method,hcp_allowance,counting_scores,side_games,status,holes_string,holes_to_play,winner,result_str,home_name,away_name,group_code')
+      .select('id,home_player_ids,away_player_ids,round_format,is_singles,handicap_method,hcp_allowance,counting_scores,side_games,status,holes_string,holes_to_play,start_hole,winner,result_str,home_name,away_name,group_code')
       .eq('day_id', dayId)
       .neq('status', 'cancelled');
 
@@ -210,6 +210,7 @@ export default function DayLobby() {
         status:         m.status ?? 'upcoming',
         holes_string:   m.holes_string ?? '..................',
         holesToPlay:    m.holes_to_play ?? null,
+        startHole:      m.start_hole ?? null,
         winner:         m.winner ?? null,
         result_str:     m.result_str ?? null,
         home_player_ids: homeIds,
@@ -426,12 +427,12 @@ export default function DayLobby() {
                 let statusLabel = '';
                 let statusColor = GOLD;
                 if (isMatchplay && hasTeams) {
-                  const { homeUp, played, concluded } = calcHoles(g.holes_string, g.holesToPlay ?? 18);
+                  const { homeUp, played, concluded } = calcHoles(g.holes_string, g.holesToPlay ?? 18, g.startHole ?? 1);
                   if (played === 0) {
                     statusLabel = 'Not Started';
                     statusColor = '#888';
                   } else {
-                    statusLabel = matchLabel(g.status as any, g.winner, g.result_str, g.holes_string, g.holesToPlay ?? 18);
+                    statusLabel = matchLabel(g.status as any, g.winner, g.result_str, g.holes_string, g.holesToPlay ?? 18, g.startHole ?? 1);
                     if (g.status === 'complete' || concluded) {
                       statusColor = '#4ade80';
                     } else if (homeUp < 0) {

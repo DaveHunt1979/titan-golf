@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   RefreshControl, Share, Alert, Image, ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
@@ -61,6 +61,7 @@ export default function LiveTournaments() {
   }, [societyId]);
 
   useEffect(() => { if (!societyLoading) load(); }, [societyLoading, load]);
+  useFocusEffect(useCallback(() => { if (!societyLoading) load(); }, [societyLoading, load]));
 
   if (loading || !fontsLoaded) return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>

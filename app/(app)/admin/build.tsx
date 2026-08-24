@@ -112,7 +112,16 @@ interface DayConfig {
 // unlike the invisible wrong-day-knockout bug this closes.
 function applyLastDayOverride(days: DayConfig[], rules: FormatRules): DayConfig[] {
   if (!rules.lastDaySinglesOverride || days.length === 0) return days;
-  return days.map((d, i) => i === days.length - 1 ? { ...d, format: 'singles' as DayFormatId, hcpPct: 85 } : d);
+  return days.map((d, i) => {
+    if (i !== days.length - 1) return d;
+    // Preserve an already-chosen Singles variant (Stroke Play vs Stableford)
+    // instead of always forcing Stroke Play — re-running this after a
+    // round-count change used to silently revert a deliberate Singles MP–
+    // Stableford pick back to Stroke Play with no warning (Rick's brief,
+    // section 13).
+    const format: DayFormatId = d.format === 'singles' || d.format === 'singles_stableford' ? d.format : 'singles';
+    return { ...d, format, hcpPct: 85 };
+  });
 }
 
 interface CourseItem { name: string; par: number; hasGps: boolean; }
@@ -749,6 +758,14 @@ export default function BuildTournamentScreen() {
     days.forEach((d, i) => {
       if (!d.courseName.trim()) issues.push({ label: `Round ${i + 1} — Course not selected`, jumpToStep: 2 });
       if (!d.teeName.trim())    issues.push({ label: `Round ${i + 1} — Tee not selected`, jumpToStep: 2 });
+      // A blank rating writes course_rating: null (see the save path below),
+      // which silently reintroduces the old broken WHS fallback (bare
+      // rounded handicap index, no course/slope adjustment) for every
+      // handicap calculated on this round — Go Live previously let this
+      // through as long as a tee name was picked (Rick's brief, section 13).
+      if (d.courseName.trim() && !d.courseRating.trim()) {
+        issues.push({ label: `Round ${i + 1} — Course Rating not set`, jumpToStep: 2 });
+      }
     });
 
     if (enrolledCount === 0) issues.push({ label: 'Players — none enrolled', jumpToStep: 3 });
@@ -766,9 +783,29 @@ export default function BuildTournamentScreen() {
     }
 
     if (compId) {
-      const { count } = await supabase
-        .from('prize_categories').select('id', { count: 'exact', head: true }).eq('competition_id', compId);
-      if (!count) issues.push({ label: 'Prize Categories — not configured', jumpToStep: 4 });
+      const { data: cats } = await supabase
+        .from('prize_categories').select('id, prize_payouts(id)').eq('competition_id', compId);
+      if (!cats || cats.length === 0) {
+        issues.push({ label: 'Prize Categories — not configured', jumpToStep: 4 });
+      } else {
+        // A category with zero payouts previously passed Go Live silently —
+        // only the category count was checked, not whether any category
+        // actually had prize money attached (Rick's brief, section 13).
+        const emptyCats = cats.filter((c: any) => !c.prize_payouts || c.prize_payouts.length === 0).length;
+        if (emptyCats > 0) {
+          issues.push({ label: `${emptyCats} Prize Categor${emptyCats === 1 ? 'y' : 'ies'} — no prize amounts set`, jumpToStep: 4 });
+        }
+      }
+      // The overall trophy winner is excluded from their division prize (it
+      // rolls down instead) — if this is left blank, that player wins
+      // nothing at all. Go Live never checked it (same section).
+      if (includeInKronos) {
+        const { data: comp } = await supabase.from('competitions').select('kronos_overall_prize').eq('id', compId).single();
+        const prize = (comp as any)?.kronos_overall_prize;
+        if (prize == null || Number(prize) <= 0) {
+          issues.push({ label: `${individualBoardLabel(selectedFormat)} Trophy — no prize amount set`, jumpToStep: 4 });
+        }
+      }
     }
 
     return issues;

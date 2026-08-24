@@ -26,6 +26,15 @@ const titanLogo = require('../../../assets/TitanAppLogo.png');
 // pairs, 1 for singles) without duplicating the format list.
 const PAIRS_DAY_FORMATS = ['4bbb', 'four_bbb', 'four_bbb_stroke', 'foursomes', 'greensomes'];
 
+// Individual Stableford/Medal groups (no team, no away side) are capped at
+// this many players per group by generateDraw's auto-split — the manual
+// assign/edit modal uses the same cap so editing one never truncates it.
+const INDIVIDUAL_GROUP_SIZE = 4;
+
+function isIndividualMatch(m: { home_team_id: string | null; away_team_id: string | null }): boolean {
+  return !m.home_team_id && !m.away_team_id;
+}
+
 const DAY_FORMAT_LABELS: Record<string, string> = {
   four_bbb: '4BBB Match Play – Stableford', four_bbb_stroke: '4BBB Match Play – Stroke Play',
   foursomes: 'Foursomes', greensomes: 'Greensomes',
@@ -99,7 +108,7 @@ interface MatchRow {
   id: string; day_id: string; match_number: number | null;
   home_player_ids: string[]; away_player_ids: string[];
   home_team_id: string | null; away_team_id: string | null; status: string;
-  winner: string | null; result_str: string | null; holes_string: string; is_singles: boolean;
+  winner: string | null; result_str: string | null; holes_string: string; start_hole: number | null; is_singles: boolean;
 }
 interface SocMember { player_id: string; display_name: string; handicap_index: number | null; team_id: string | null; avatar_url?: string | null; }
 
@@ -163,7 +172,7 @@ export default function TournamentDrawScreen() {
         .select('id,player_id,team_id,handicap_index,is_captain,players(display_name,avatar_url)')
         .eq('competition_id', competitionId),
       supabase.from('teams').select('id,name,accent_color,logo_url').eq('society_id', societyId ?? '').order('sort_order'),
-      supabase.from('matches').select('id,day_id,match_number,home_player_ids,away_player_ids,home_team_id,away_team_id,status,winner,result_str,holes_string,is_singles')
+      supabase.from('matches').select('id,day_id,match_number,home_player_ids,away_player_ids,home_team_id,away_team_id,status,winner,result_str,holes_string,start_hole,is_singles')
         .eq('competition_id', competitionId).order('match_number'),
     ]);
 
@@ -315,7 +324,21 @@ export default function TournamentDrawScreen() {
         handicap_index: m.players?.handicap_index ?? null,
         avatar_url: m.players?.avatar_url ?? null,
         team_id: teamId,
-      })).sort((a, b) => a.display_name.localeCompare(b.display_name));
+      }));
+      // A society-level transfer (admin/transfers.tsx) moves society_members
+      // .team_id only — it deliberately leaves this tournament's own
+      // competition_players.team_id alone. Querying society_members alone
+      // then makes a transferred-but-still-enrolled player vanish from this
+      // team's panel entirely, with no row left to unassign them from
+      // (Rick's brief, section 13) — union in anyone still enrolled here.
+      const rosterIds = new Set(roster.map(r => r.player_id));
+      compPlayers
+        .filter(cp => cp.team_id === teamId && !rosterIds.has(cp.player_id))
+        .forEach(cp => roster.push({
+          player_id: cp.player_id, display_name: cp.display_name,
+          handicap_index: cp.handicap_index, avatar_url: cp.avatar_url, team_id: teamId,
+        }));
+      roster.sort((a, b) => a.display_name.localeCompare(b.display_name));
       setTeamRosterCache(prev => ({ ...prev, [teamId]: roster }));
       setRosterLoadingTeamId(null);
     }
@@ -411,11 +434,10 @@ export default function TournamentDrawScreen() {
         Alert.alert('No players', 'Enrol players before generating the draw.');
         return;
       }
-      const GROUP_SIZE = 4;
       const shuffled = shuffle(allPlayerIds);
       const groups: string[][] = [];
-      for (let i = 0; i < shuffled.length; i += GROUP_SIZE) {
-        groups.push(shuffled.slice(i, i + GROUP_SIZE));
+      for (let i = 0; i < shuffled.length; i += INDIVIDUAL_GROUP_SIZE) {
+        groups.push(shuffled.slice(i, i + INDIVIDUAL_GROUP_SIZE));
       }
       const matchRows = groups.map((group, idx) => ({
         competition_id:  competitionId,
@@ -612,6 +634,17 @@ export default function TournamentDrawScreen() {
       return;
     }
 
+    // Uneven team sizes (e.g. 5 v 4 in a 4BBB day) floor-divide down to
+    // whole pairings, leaving surplus players silently unpaired for the day
+    // — previously the only feedback was the all-zero case above, so an
+    // organiser could go live a day short one player with no warning
+    // (Rick's brief, section 13).
+    const pairedTeamIds = new Set<string>(matchRows.flatMap(m => [m.home_team_id, m.away_team_id]));
+    const usedPlayerIds = new Set<string>();
+    matchRows.forEach(m => { m.home_player_ids.forEach((id: string) => usedPlayerIds.add(id)); m.away_player_ids.forEach((id: string) => usedPlayerIds.add(id)); });
+    const benchedIds = mode === 'manual' ? [] : Array.from(pairedTeamIds)
+      .flatMap(tid => (grouped[tid] ?? []).filter(pid => !usedPlayerIds.has(pid)));
+
     setGenerating(day.id);
     try {
       const { data: inserted, error } = await supabase.from('matches').insert(matchRows).select();
@@ -621,6 +654,13 @@ export default function TournamentDrawScreen() {
       // straight into assigning them instead of leaving empty matches sitting
       // in the list looking broken.
       if (mode === 'manual' && inserted) setAssignModalMatches(inserted as unknown as MatchRow[]);
+      if (benchedIds.length > 0) {
+        const names = benchedIds.map(pid => compPlayers.find(cp => cp.player_id === pid)?.display_name ?? '—').join(', ');
+        Alert.alert(
+          'Some players not paired',
+          `${benchedIds.length} player${benchedIds.length === 1 ? '' : 's'} couldn't be paired today because of uneven team numbers: ${names}. Use the pencil on a match to add them manually.`
+        );
+      }
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Could not generate the draw.');
     } finally {
@@ -662,7 +702,7 @@ export default function TournamentDrawScreen() {
     if ((count ?? 0) > 0) {
       Alert.alert(
         'This match has scores',
-        'Changing the players in this match will not delete any existing scores, but those scores will still be attributed to whoever is currently assigned to each slot. Continue?',
+        'Changing the players in this match will delete its scores so far and restart it from hole 1 with the new players. Continue?',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Continue', style: 'destructive', onPress: () => setAssignModalMatches([m]) },
@@ -953,6 +993,9 @@ export default function TournamentDrawScreen() {
                           return (
                             <View key={m.id} style={[s.matchItem, idx > 0 && { borderTopWidth: 1, borderTopColor: '#1c1c1c' }]}>
                               <Text style={[s.matchTeam, { color: '#fff', flex: 1 }]}>{groupNames}</Text>
+                              <TouchableOpacity onPress={() => openEditMatch(m)} style={s.editMatchBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                <Ionicons name="pencil-outline" size={16} color={GOLD} />
+                              </TouchableOpacity>
                             </View>
                           );
                         }
@@ -1138,6 +1181,17 @@ function MatchAssignModal({
     const init: typeof working = {};
     matches.forEach(m => {
       const day = days.find(d => d.id === m.day_id);
+      // Individual Stableford/Medal groups have no team and no away side at
+      // all (generateDraw's isIndividual branch) — editing one must use the
+      // same group cap as generation, or the extra players get silently
+      // dropped the moment this modal initialises (Rick's brief, section 13).
+      if (isIndividualMatch(m)) {
+        init[m.id] = {
+          home: Array.from({ length: INDIVIDUAL_GROUP_SIZE }, (_, i) => m.home_player_ids[i] ?? null),
+          away: [],
+        };
+        return;
+      }
       const slots = day && PAIRS_DAY_FORMATS.includes(day.day_format ?? '') ? 2 : 1;
       init[m.id] = {
         home: Array.from({ length: slots }, (_, i) => m.home_player_ids[i] ?? null),
@@ -1166,8 +1220,12 @@ function MatchAssignModal({
   function eligiblePlayers(matchId: string, side: 'home' | 'away', idx: number): CompPlayer[] {
     const m = matches.find(mm => mm.id === matchId);
     if (!m) return [];
-    const teamId = side === 'home' ? m.home_team_id : m.away_team_id;
     const used = usedElsewhere(matchId, side, idx);
+    // Individual Stableford/Medal groups have no team — any enrolled player
+    // not already used elsewhere today is eligible, same pool generateDraw
+    // picks the group from.
+    if (isIndividualMatch(m)) return compPlayers.filter(cp => !used.has(cp.player_id));
+    const teamId = side === 'home' ? m.home_team_id : m.away_team_id;
     return compPlayers.filter(cp => cp.team_id === teamId && !used.has(cp.player_id));
   }
 
@@ -1191,15 +1249,57 @@ function MatchAssignModal({
   }
 
   async function save() {
+    for (const m of matches) {
+      const w = working[m.id];
+      if (!w) continue;
+      // Individual Stableford/Medal groups can legitimately run under a full
+      // group of INDIVIDUAL_GROUP_SIZE (e.g. an odd player count) — only
+      // team matches require every slot filled.
+      if (isIndividualMatch(m)) {
+        if (w.home.every(id => !id)) {
+          Alert.alert('Incomplete match', 'Add at least one player before saving.');
+          return;
+        }
+        continue;
+      }
+      if (w.home.some(id => !id) || w.away.some(id => !id)) {
+        Alert.alert('Incomplete match', 'Every player slot must be filled before saving.');
+        return;
+      }
+    }
     setSaving(true);
     try {
+      const sameRoster = (a: string[], b: string[]) => a.length === b.length && a.every(id => b.includes(id));
       for (const m of matches) {
         const w = working[m.id];
         if (!w) continue;
-        const { error } = await supabase.from('matches').update({
-          home_player_ids: w.home.filter((id): id is string => !!id),
-          away_player_ids: w.away.filter((id): id is string => !!id),
-        }).eq('id', m.id);
+        const newHome = w.home.filter((id): id is string => !!id);
+        const newAway = w.away.filter((id): id is string => !!id);
+        const update: Record<string, unknown> = { home_player_ids: newHome, away_player_ids: newAway };
+
+        // A player swap invalidates the per-hole record: match_holes is
+        // keyed by player_id (a removed player's rows would otherwise keep
+        // scoring for a match they're no longer in), and the match-level
+        // holes_string/winner reflect a head-to-head that no longer exists
+        // with the new roster. Reset both rather than let either go stale
+        // (Rick's brief, section 4.12.4 — "correcting a genuine mis-draw" is
+        // legitimate, but it must not leave orphaned or misattributed scores).
+        const rosterChanged = !sameRoster(newHome, m.home_player_ids) || !sameRoster(newAway, m.away_player_ids);
+        if (rosterChanged) {
+          const removedPlayers = [...m.home_player_ids, ...m.away_player_ids]
+            .filter(id => !newHome.includes(id) && !newAway.includes(id));
+          if (removedPlayers.length > 0) {
+            const { error: delErr } = await supabase.from('match_holes')
+              .delete().eq('match_id', m.id).in('player_id', removedPlayers);
+            if (delErr) throw delErr;
+          }
+          update.holes_string = '.'.repeat(m.holes_string?.length || 18);
+          update.status = 'upcoming';
+          update.winner = null;
+          update.result_str = null;
+        }
+
+        const { error } = await supabase.from('matches').update(update).eq('id', m.id);
         if (error) throw error;
       }
       onSaved();
@@ -1233,11 +1333,14 @@ function MatchAssignModal({
               const awayTeam = teams.find(t => t.id === m.away_team_id);
               const w = working[m.id];
               if (!w) return null;
+              const individual = isIndividualMatch(m);
               return (
                 <View key={m.id} style={s.assignMatchCard}>
                   {matches.length > 1 && <Text style={s.assignMatchLabel}>MATCH {mi + 1}</Text>}
 
-                  <Text style={[s.assignTeamName, { color: homeTeam?.accent_color ?? '#fff' }]}>{homeTeam?.name ?? 'Team A'}</Text>
+                  <Text style={[s.assignTeamName, { color: homeTeam?.accent_color ?? '#fff' }]}>
+                    {individual ? 'GROUP' : (homeTeam?.name ?? 'Team A')}
+                  </Text>
                   {w.home.map((pid, idx) => (
                     <TouchableOpacity key={`h${idx}`} style={s.assignSlot} onPress={() => setPickerFor({ matchId: m.id, side: 'home', idx })} activeOpacity={0.8}>
                       <Text style={pid ? s.assignSlotText : s.assignSlotPlaceholder}>{pid ? playerName(pid) : 'Select Player'}</Text>
@@ -1249,19 +1352,23 @@ function MatchAssignModal({
                     </TouchableOpacity>
                   ))}
 
-                  <Text style={s.assignVs}>VS</Text>
+                  {!individual && (
+                    <>
+                      <Text style={s.assignVs}>VS</Text>
 
-                  <Text style={[s.assignTeamName, { color: awayTeam?.accent_color ?? '#fff' }]}>{awayTeam?.name ?? 'Team B'}</Text>
-                  {w.away.map((pid, idx) => (
-                    <TouchableOpacity key={`a${idx}`} style={s.assignSlot} onPress={() => setPickerFor({ matchId: m.id, side: 'away', idx })} activeOpacity={0.8}>
-                      <Text style={pid ? s.assignSlotText : s.assignSlotPlaceholder}>{pid ? playerName(pid) : 'Select Player'}</Text>
-                      {pid && (
-                        <TouchableOpacity onPress={() => clearSlot(m.id, 'away', idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                          <Ionicons name="close-circle" size={16} color="#555" />
+                      <Text style={[s.assignTeamName, { color: awayTeam?.accent_color ?? '#fff' }]}>{awayTeam?.name ?? 'Team B'}</Text>
+                      {w.away.map((pid, idx) => (
+                        <TouchableOpacity key={`a${idx}`} style={s.assignSlot} onPress={() => setPickerFor({ matchId: m.id, side: 'away', idx })} activeOpacity={0.8}>
+                          <Text style={pid ? s.assignSlotText : s.assignSlotPlaceholder}>{pid ? playerName(pid) : 'Select Player'}</Text>
+                          {pid && (
+                            <TouchableOpacity onPress={() => clearSlot(m.id, 'away', idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                              <Ionicons name="close-circle" size={16} color="#555" />
+                            </TouchableOpacity>
+                          )}
                         </TouchableOpacity>
-                      )}
-                    </TouchableOpacity>
-                  ))}
+                      ))}
+                    </>
+                  )}
                 </View>
               );
             })}
@@ -1283,7 +1390,7 @@ function MatchAssignModal({
           <FlatList
             data={pickerFor ? eligiblePlayers(pickerFor.matchId, pickerFor.side, pickerFor.idx) : []}
             keyExtractor={cp => cp.player_id}
-            ListEmptyComponent={<Text style={[s.emptyText, { textAlign: 'center', padding: 20 }]}>No eligible players left on this team for this round.</Text>}
+            ListEmptyComponent={<Text style={[s.emptyText, { textAlign: 'center', padding: 20 }]}>No eligible players left for this round.</Text>}
             renderItem={({ item }) => (
               <TouchableOpacity style={s.pickerItem} onPress={() => selectPlayer(item.player_id)} activeOpacity={0.7}>
                 <Text style={s.pickerItemText}>{item.display_name}</Text>

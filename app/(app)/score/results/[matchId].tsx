@@ -47,6 +47,7 @@ interface MatchRow {
   id: string;
   status: string;
   round_format: string;
+  handicap_method: string | null;
   holes_string: string | null;
   start_hole: number | null;
   home_player_ids: string[];
@@ -356,7 +357,7 @@ export default function ResultsScreen() {
       const { data: matchData } = await supabase
         .from('matches')
         .select(`
-          id, status, round_format, holes_string, start_hole,
+          id, status, round_format, handicap_method, holes_string, start_hole,
           home_player_ids, away_player_ids,
           hcp_allowance, competition_id,
           home_team:home_team_id(name, accent_color),
@@ -444,7 +445,12 @@ export default function ResultsScreen() {
   const firstLabel  = firstNine[0] === 1 ? 'OUT' : 'IN';
   const secondLabel = firstNine[0] === 1 ? 'IN'  : 'OUT';
 
-  const isStableford = match?.round_format === 'stableford';
+  // Singles/4BBB Match Play–Stableford matches keep round_format 'matchplay'
+  // (the format axis is handicap_method) — the PTS row must key off the same
+  // check score/enter/[matchId].tsx uses, or those matches never show points.
+  const isStableford = match?.round_format === 'stableford'
+    || (match?.round_format === 'matchplay'
+        && (match?.handicap_method === 'relative_low_stableford' || match?.handicap_method === 'individual_stableford'));
 
   function getCourseHcp(playerId: string): number {
     const profile = playerMap[playerId];

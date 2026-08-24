@@ -5,13 +5,26 @@ export type HoleResult = 'h' | 'a' | 'f' | null;
 
 export type ScoreCategory = 'eagle' | 'birdie' | 'par' | 'bogey' | 'double';
 
-export function calcHoles(holesStr: string, totalHoles = 18): {
+// holes_string is indexed by absolute hole number (position 0 = hole 1),
+// but a shifted (shotgun) start plays holes in wrapped order starting from
+// start_hole. Reordering into actual play order before scanning for the
+// first '.' is what lets an in-progress shifted-start match be recognised as
+// "some holes played" instead of reading as 0 — without this, holes_string[0]
+// (hole 1, not yet reached) breaks the scan immediately.
+function playOrderChars(holesStr: string, startHole: number): string[] {
+  const chars = holesStr.split('');
+  if (startHole <= 1) return chars;
+  const startIdx = startHole - 1;
+  return [...chars.slice(startIdx), ...chars.slice(0, startIdx)];
+}
+
+export function calcHoles(holesStr: string, totalHoles = 18, startHole = 1): {
   homeUp: number;
   played: number;
   remaining: number;
   concluded: boolean;
 } {
-  const chars = holesStr.split('');
+  const chars = playOrderChars(holesStr, startHole);
   let homeUp = 0, played = 0;
   for (const c of chars) {
     if (c === '.') break;
@@ -28,11 +41,12 @@ export function getEffectiveWinner(
   status: 'upcoming' | 'in_progress' | 'complete',
   winner: string | null,
   holesStr: string,
-  totalHoles = 18
+  totalHoles = 18,
+  startHole = 1
 ): 'home' | 'away' | 'half' | null {
   if (status === 'complete') return winner as 'home' | 'away' | 'half' | null;
   if (status === 'in_progress') {
-    const { homeUp, played, remaining, concluded } = calcHoles(holesStr, totalHoles);
+    const { homeUp, played, remaining, concluded } = calcHoles(holesStr, totalHoles, startHole);
     if (concluded) return homeUp > 0 ? 'home' : 'away';
     if (played === totalHoles) return homeUp === 0 ? 'half' : homeUp > 0 ? 'home' : 'away';
   }
@@ -44,11 +58,12 @@ export function matchLabel(
   winner: string | null,
   resultStr: string | null,
   holesStr: string,
-  totalHoles = 18
+  totalHoles = 18,
+  startHole = 1
 ): string {
   if (status === 'complete') return resultStr ?? 'Complete';
   if (status === 'upcoming') return 'Upcoming';
-  const { homeUp, played, remaining, concluded } = calcHoles(holesStr, totalHoles);
+  const { homeUp, played, remaining, concluded } = calcHoles(holesStr, totalHoles, startHole);
   if (played === 0) return 'In Progress';
   if (concluded) return `${Math.abs(homeUp)}&${remaining}`;
   if (isDormie(homeUp, remaining)) return 'Dormie';
@@ -167,6 +182,7 @@ export function getStandings(
     holes_string: string;
     is_singles: boolean;
     holes_to_play?: number | null;
+    start_hole?: number | null;
   }>,
   ptsWin = 1,
   ptsHalf = 0.5,
@@ -205,7 +221,8 @@ export function getStandings(
       m.status as 'upcoming' | 'in_progress' | 'complete',
       m.winner,
       m.holes_string ?? '..................',
-      m.holes_to_play ?? 18
+      m.holes_to_play ?? 18,
+      m.start_hole ?? 1
     );
     if (!winner) continue;
 
@@ -254,6 +271,7 @@ export function calcSweepBonus(
     winner: string | null;
     holes_string: string;
     holes_to_play?: number | null;
+    start_hole?: number | null;
   }>,
   singlesDayIds: Set<string>,
   bonusPoints: number,
@@ -273,7 +291,8 @@ export function calcSweepBonus(
       m.status as 'upcoming' | 'in_progress' | 'complete',
       m.winner,
       m.holes_string ?? '..................',
-      m.holes_to_play ?? 18
+      m.holes_to_play ?? 18,
+      m.start_hole ?? 1
     ));
     if (winners.some(w => !w || w === 'half')) return;
     if (winners.every(w => w === 'home')) bonusPts[homeTeam] = (bonusPts[homeTeam] ?? 0) + bonusPoints;

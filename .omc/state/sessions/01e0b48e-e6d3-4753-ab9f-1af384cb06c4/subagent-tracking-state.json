@@ -1,0 +1,128 @@
+{
+  "agents": [
+    {
+      "agent_id": "a66daaa50b7286804",
+      "agent_type": "untracked-native-fork",
+      "started_at": "2026-08-24T12:27:21.069Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-24T12:27:21.069Z",
+      "synthetic": true,
+      "telemetry_status": "unmatched_stop",
+      "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    },
+    {
+      "agent_id": "atrace-format-gating-3aa1273b17048be3",
+      "agent_type": "trace-format-gating",
+      "started_at": "2026-08-24T12:28:53.313Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-08-24T12:47:07.958Z",
+      "duration_ms": 1094645,
+      "output_summary": "Marked as stale during unmatched stop reconciliation - exceeded timeout"
+    },
+    {
+      "agent_id": "atrace-game-generation-143f1fe758d2f865",
+      "agent_type": "trace-game-generation",
+      "started_at": "2026-08-24T12:29:00.932Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-08-24T12:47:07.958Z",
+      "duration_ms": 1087026,
+      "output_summary": "Marked as stale during unmatched stop reconciliation - exceeded timeout"
+    },
+    {
+      "agent_id": "atrace-scoring-calcs-d41efc197f18c853",
+      "agent_type": "trace-scoring-calcs",
+      "started_at": "2026-08-24T12:49:04.675Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-24T12:49:35.602Z",
+      "duration_ms": 30927
+    },
+    {
+      "agent_id": "atrace-leaderboards-prizes-828caa801df3c884",
+      "agent_type": "trace-leaderboards-prizes",
+      "started_at": "2026-08-24T12:29:15.221Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-08-24T12:47:07.958Z",
+      "duration_ms": 1072737,
+      "output_summary": "Marked as stale during unmatched stop reconciliation - exceeded timeout"
+    },
+    {
+      "agent_id": "atrace-camera-gps-97b61b89f8396ae6",
+      "agent_type": "trace-camera-gps",
+      "started_at": "2026-08-24T12:48:01.307Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-24T12:48:40.725Z",
+      "duration_ms": 39418
+    },
+    {
+      "agent_id": "atrace-ai-infopack-reload-dc652ede19f01711",
+      "agent_type": "trace-ai-infopack-reload",
+      "started_at": "2026-08-24T12:29:31.240Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-08-24T12:47:07.958Z",
+      "duration_ms": 1056718,
+      "output_summary": "Marked as stale during unmatched stop reconciliation - exceeded timeout"
+    },
+    {
+      "agent_id": "a4c2dc2f9490461ec",
+      "agent_type": "untracked-native-fork",
+      "started_at": "2026-08-24T12:47:07.958Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-24T12:47:07.958Z",
+      "synthetic": true,
+      "telemetry_status": "unmatched_stop",
+      "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    },
+    {
+      "agent_id": "atrace-game-generation-2-d403ce1f0bd6cb64",
+      "agent_type": "trace-game-generation-2",
+      "started_at": "2026-08-24T12:49:19.788Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-24T12:49:50.538Z",
+      "duration_ms": 30750
+    },
+    {
+      "agent_id": "atrace-leaderboards-prizes-2-63c1ea5727a69ec7",
+      "agent_type": "trace-leaderboards-prizes-2",
+      "started_at": "2026-08-24T12:49:44.399Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-08-24T14:21:42.740Z",
+      "duration_ms": 5518341,
+      "output_summary": "Marked as stale during unmatched stop reconciliation - exceeded timeout"
+    },
+    {
+      "agent_id": "atrace-ai-infopack-reload-2-a31f0a565cbf3a13",
+      "agent_type": "trace-ai-infopack-reload-2",
+      "started_at": "2026-08-24T12:49:55.316Z",
+      "parent_mode": "none",
+      "status": "failed",
+      "completed_at": "2026-08-24T14:21:42.740Z",
+      "duration_ms": 5507424,
+      "output_summary": "Marked as stale during unmatched stop reconciliation - exceeded timeout"
+    },
+    {
+      "agent_id": "aa0ace00633238a02",
+      "agent_type": "untracked-native-fork",
+      "started_at": "2026-08-24T14:21:42.740Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-08-24T14:21:42.740Z",
+      "synthetic": true,
+      "telemetry_status": "unmatched_stop",
+      "telemetry_note": "SubagentStop arrived without a matching SubagentStart; native Agent/Task start telemetry was not observed."
+    }
+  ],
+  "total_spawned": 14,
+  "total_completed": 10,
+  "total_failed": 8,
+  "last_updated": "2026-08-24T14:21:42.844Z"
+}

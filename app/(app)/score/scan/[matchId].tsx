@@ -67,6 +67,22 @@ export default function ScanMatchScorecardScreen() {
         .single();
       if (!m) { setLoading(false); return; }
 
+      // This screen writes one player's own gross scores straight into
+      // match_holes/holes_string — correct for stroke play/Stableford, but a
+      // match-play result depends on comparing both sides hole-by-hole, which
+      // this flow has no way to do. Scanning a match-play card here used to
+      // silently mark the match "complete" with holes_string full of a
+      // meaningless placeholder character and no winner ever set.
+      if ((m as any).round_format === 'matchplay') {
+        Alert.alert(
+          'Not available for Match Play',
+          'Scorecard scanning only supports Stroke Play and Stableford rounds. Enter match-play scores hole by hole instead.',
+          [{ text: 'OK', onPress: () => goBack(router, `/(app)/score/${matchId}`) }]
+        );
+        setLoading(false);
+        return;
+      }
+
       const cn = (m as any).day?.course_name ?? null;
       setCourseName(cn);
       setMatchFormat((m as any).round_format ?? null);

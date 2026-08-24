@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert,
   useWindowDimensions, Image, Platform, Animated, Pressable,
@@ -100,66 +100,82 @@ export default function CameraScreen() {
     };
   }, []));
 
-  // Load player + competition info
-  useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+  // Load player + competition info. Re-run on every focus, not just mount —
+  // this is a persistent tab, so a mount-only load left course/hole/match
+  // stuck at whatever they were when the tab was first opened (null if
+  // opened before a round started; stale hole/course if opened mid-round and
+  // returned to later), and that stale data was what got burned permanently
+  // into the photos table (Rick's brief, section 6).
+  const loadRoundContext = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-      const { data: player } = await supabase
-        .from('players')
-        .select('id, display_name, avatar_url')
-        .eq('auth_uid', user.id)
-        .maybeSingle();
-      if (!player) return;
+    const { data: player } = await supabase
+      .from('players')
+      .select('id, display_name, avatar_url')
+      .eq('auth_uid', user.id)
+      .maybeSingle();
+    if (!player) return;
 
-      // Course + current hole come from whatever live round the player is
-      // actually in right now — casual or tournament both carry a day_id
-      // with the real course, unlike the old "active competition" lookup
-      // which only ever matched tournament play and pulled the wrong name.
-      // Recency cutoff + order + limit(1) is required, not cosmetic: a round
-      // left mid-play never flips out of 'in_progress' on its own, so any
-      // player with more than one such stale round makes this match ambiguous
-      // — .maybeSingle() then errors, the error was previously swallowed, and
-      // course/hole silently came back null.
-      let courseName: string | null = null;
-      let hole: number | null = null;
-      let matchId: string | null = null;
-      let dayId: string | null = null;
-      let competitionId: string | null = null;
-      const liveCutoff = new Date(Date.now() - LIVE_MATCH_LOOKBACK_HOURS * 60 * 60 * 1000).toISOString();
-      const { data: match, error: matchErr } = await supabase
-        .from('matches')
-        .select('id, competition_id, day_id, holes_string, holes_to_play, day:day_id(course_name)')
-        .eq('status', 'in_progress')
-        .or(`home_player_ids.cs.{${player.id}},away_player_ids.cs.{${player.id}}`)
-        .gte('created_at', liveCutoff)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (matchErr) console.error('[camera] live match lookup failed', matchErr);
-      if (match) {
-        courseName = (match as any).day?.course_name ?? null;
-        const holesToPlay = (match as any).holes_to_play ?? 18;
-        const played = (match.holes_string as string ?? '').split('').filter(c => c !== '.').length;
-        hole = Math.min(played + 1, holesToPlay);
-        matchId = match.id;
-        dayId = (match as any).day_id ?? null;
-        competitionId = (match as any).competition_id ?? null;
-      }
+    // Course + current hole come from whatever live round the player is
+    // actually in right now — casual or tournament both carry a day_id
+    // with the real course, unlike the old "active competition" lookup
+    // which only ever matched tournament play and pulled the wrong name.
+    // Recency cutoff + order + limit(1) is required, not cosmetic: a round
+    // left mid-play never flips out of 'in_progress' on its own, so any
+    // player with more than one such stale round makes this match ambiguous
+    // — .maybeSingle() then errors, the error was previously swallowed, and
+    // course/hole silently came back null.
+    let courseName: string | null = null;
+    let hole: number | null = null;
+    let matchId: string | null = null;
+    let dayId: string | null = null;
+    let competitionId: string | null = null;
+    const liveCutoff = new Date(Date.now() - LIVE_MATCH_LOOKBACK_HOURS * 60 * 60 * 1000).toISOString();
+    const { data: match, error: matchErr } = await supabase
+      .from('matches')
+      .select('id, competition_id, day_id, holes_string, holes_to_play, start_hole, day:day_id(course_name)')
+      .eq('status', 'in_progress')
+      .or(`home_player_ids.cs.{${player.id}},away_player_ids.cs.{${player.id}}`)
+      .gte('created_at', liveCutoff)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (matchErr) console.error('[camera] live match lookup failed', matchErr);
+    if (match) {
+      courseName = (match as any).day?.course_name ?? null;
+      const holesToPlay = (match as any).holes_to_play ?? 18;
+      const holeChars = ((match.holes_string as string) ?? '..................').padEnd(18, '.').slice(0, 18).split('');
+      // Same start_hole + wrapping-sequence derivation used by score/enter
+      // and score/results — a shifted (shotgun) start plays holes out of
+      // absolute order, so counting played holes from position 0 gives the
+      // wrong hole number on any round that didn't start on hole 1.
+      const startHole = Math.max(1, (match as any).start_hole ?? 1);
+      const fullHoleSequence = startHole > 1
+        ? [...Array.from({ length: 19 - startHole }, (_, i) => startHole + i), ...Array.from({ length: startHole - 1 }, (_, i) => i + 1)]
+        : Array.from({ length: 18 }, (_, i) => i + 1);
+      const holeSequence = fullHoleSequence.slice(0, holesToPlay);
+      const lastSequenceHole = holeSequence[holeSequence.length - 1] ?? 18;
+      const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? lastSequenceHole;
+      hole = currentHole > lastSequenceHole ? lastSequenceHole : currentHole;
+      matchId = match.id;
+      dayId = (match as any).day_id ?? null;
+      competitionId = (match as any).competition_id ?? null;
+    }
 
-      setInfo({
-        name:       player.display_name ?? '',
-        avatarUrl:  player.avatar_url ?? null,
-        playerId:   player.id,
-        courseName,
-        hole,
-        matchId,
-        dayId,
-        competitionId,
-      });
-    })();
+    setInfo({
+      name:       player.display_name ?? '',
+      avatarUrl:  player.avatar_url ?? null,
+      playerId:   player.id,
+      courseName,
+      hole,
+      matchId,
+      dayId,
+      competitionId,
+    });
   }, []);
+
+  useFocusEffect(useCallback(() => { loadRoundContext(); }, [loadRoundContext]));
 
   async function ensurePermissions(): Promise<boolean> {
     if (!camPermission?.granted) {
