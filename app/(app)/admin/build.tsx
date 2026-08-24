@@ -18,6 +18,7 @@ import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 import { individualBoardLabel } from '../../../src/lib/tournamentFormat';
 import PrizeCategoriesEditor from '../../../src/components/PrizeCategoriesEditor';
+import { ukDateToIso, isoToUk, ukDateToDate, dateToUk, dateToHm, hmToDate } from '../../../src/lib/dateHelpers';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -160,41 +161,6 @@ function getSquadTeamLogo(team: SquadTeam) {
 }
 
 const STEPS = ['Format', 'Details', 'Days', 'Draft', 'Prizes', 'Info Pack', 'Review'];
-
-function ukDateToIso(ukDate: string): string {
-  const [dd, mm, yyyy] = ukDate.trim().split('-');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function isoToUk(iso: string): string {
-  const [yyyy, mm, dd] = iso.split('-');
-  return `${dd}-${mm}-${yyyy}`;
-}
-
-function ukDateToDate(ukDate: string): Date {
-  if (!/^\d{2}-\d{2}-\d{4}$/.test(ukDate.trim())) return new Date();
-  const [dd, mm, yyyy] = ukDate.trim().split('-').map(Number);
-  return new Date(yyyy, mm - 1, dd);
-}
-
-function dateToUk(d: Date): string {
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${dd}-${mm}-${d.getFullYear()}`;
-}
-
-function dateToHm(d: Date): string {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-function hmToDate(hm: string): Date {
-  const d = new Date();
-  if (/^\d{2}:\d{2}$/.test(hm)) {
-    const [h, m] = hm.split(':').map(Number);
-    d.setHours(h, m, 0, 0);
-  }
-  return d;
-}
 
 export default function BuildTournamentScreen() {
   const router = useRouter();

@@ -17,6 +17,10 @@ import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
 import { useChatUnread } from '../../../src/lib/useChatUnread';
 import Leaderboard, { type LeaderboardRow } from '../../../src/components/Leaderboard';
 import type { Competition, CompetitionDay, Match, Team, Champion, Notification } from '../../../src/types';
+import {
+  InfoPackView, hasInfoPackContent, emptyInfoPack,
+  type InfoPack, type RoundInfo, type RosterPlayer,
+} from '../feed/index';
 
 // ── TITAN constants ───────────────────────────────────────────────────
 const GOLD  = '#D4AF37';
@@ -27,19 +31,6 @@ const FFB   = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const STORAGE_KEY = 'tour_joined_competition_id';
-
-// ── Info section types (mirrors feed/index) ──────────────────────────
-export type SectionType = 'text' | 'schedule' | 'travel' | 'location' | 'contacts' | 'rules';
-export interface ScheduleItem { time: string; label: string; note?: string; }
-export interface TravelItem   { label: string; detail: string; }
-export interface ContactItem  { name: string; role?: string; phone?: string; }
-export interface TextSection     { id: string; type: 'text';     title: string; content: string; }
-export interface ScheduleSection { id: string; type: 'schedule'; title: string; items: ScheduleItem[]; }
-export interface TravelSection   { id: string; type: 'travel';   title: string; items: TravelItem[]; }
-export interface LocationSection { id: string; type: 'location'; title: string; name: string; address?: string; phone?: string; notes?: string; }
-export interface ContactsSection { id: string; type: 'contacts'; title: string; items: ContactItem[]; }
-export interface RulesSection    { id: string; type: 'rules';    title: string; items: string[]; }
-export type InfoSection = TextSection | ScheduleSection | TravelSection | LocationSection | ContactsSection | RulesSection;
 
 interface PrizeCat {
   id: string; name: string; hcp_min: number | null; hcp_max: number | null; display_order: number;
@@ -111,7 +102,7 @@ export default function TourScreen() {
   const [selectedSection, setSelectedSection] = useState<'standings' | 'info' | 'social' | 'players' | null>(null);
   const [pin, setPin]                 = useState('');
   const [verifying, setVerifying]     = useState(false);
-  const [sections, setSections]         = useState<InfoSection[]>([]);
+  const [infoPack, setInfoPack]         = useState<InfoPack>(emptyInfoPack());
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [instagramUrl, setInstagramUrl] = useState<string | null>(null);
   const [prizeCats, setPrizeCats]       = useState<PrizeCat[]>([]);
@@ -444,7 +435,7 @@ export default function TourScreen() {
     }
 
     setCompetition(comp as unknown as Competition);
-    setSections(((comp as any).info_sections ?? []) as InfoSection[]);
+    setInfoPack({ ...emptyInfoPack(), ...((comp as any).info_pack ?? {}) });
     setJoinedId(alreadyJoinedId);
     if (alreadyJoinedId === comp.id) await loadTournamentData(comp.id, !!(comp as any).include_in_kronos, mySeq, (comp as any).kronos_overall_prize ?? null);
     if (mySeq !== loadSeq.current) return;
@@ -1236,18 +1227,32 @@ export default function TourScreen() {
                 <Text style={infoStyles.heroName}>{competition.name}</Text>
               </View>
             )}
-            {sections.length === 0 && (
-              <View style={infoStyles.empty}>
-                <Text style={infoStyles.emptyTitle}>No info pack yet</Text>
-                <Text style={infoStyles.emptySub}>
-                  Society leaders can add the tour schedule, flights, accommodation and more.
-                </Text>
-                <TouchableOpacity style={infoStyles.emptyBtn} onPress={() => router.push('/(app)/admin/info' as any)} activeOpacity={0.8}>
-                  <Text style={infoStyles.emptyBtnText}>Add Info Pack →</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            {sections.map(section => <SectionView key={section.id} section={section} />)}
+            {(() => {
+              const infoRounds: RoundInfo[] = days.map(d => ({ id: d.id, dayNumber: d.day_number, courseName: d.course_name }));
+              const infoRoster: RosterPlayer[] = players.map(p => ({ id: p.id, name: p.display_name, avatarUrl: p.avatar_url ?? null }));
+              return (
+                <>
+                  {!hasInfoPackContent(infoPack, infoRounds) && (
+                    <View style={infoStyles.empty}>
+                      <Text style={infoStyles.emptyTitle}>No info pack yet</Text>
+                      <Text style={infoStyles.emptySub}>
+                        Society leaders can add the tour schedule, flights, accommodation and more.
+                      </Text>
+                      <TouchableOpacity style={infoStyles.emptyBtn} onPress={() => router.push('/(app)/admin/info' as any)} activeOpacity={0.8}>
+                        <Text style={infoStyles.emptyBtnText}>Add Info Pack →</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  <InfoPackView
+                    pack={infoPack}
+                    startDate={competition?.start_date ?? null}
+                    endDate={competition?.end_date ?? null}
+                    rounds={infoRounds}
+                    roster={infoRoster}
+                  />
+                </>
+              );
+            })()}
           </View>
         )}
 
@@ -1414,102 +1419,6 @@ const st = StyleSheet.create({
   noResults: { fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#fff', textAlign: 'center', padding: 20, lineHeight: 22 },
 });
 
-// ── Info section renderer ─────────────────────────────────────────────
-function SectionView({ section }: { section: InfoSection }) {
-  switch (section.type) {
-    case 'text':     return <TextCard s={section} />;
-    case 'schedule': return <ScheduleCard s={section} />;
-    case 'travel':   return <TravelCard s={section} />;
-    case 'location': return <LocationCard s={section} />;
-    case 'contacts': return <ContactsCard s={section} />;
-    case 'rules':    return <RulesCard s={section} />;
-    default:         return null;
-  }
-}
-
-function CardShell({ title, accent, children }: { title: string; accent?: string; children: React.ReactNode }) {
-  return (
-    <View style={[cardSt.shell, accent ? { borderLeftColor: accent, borderLeftWidth: 3 } : {}]}>
-      <Text style={cardSt.title}>{title}</Text>
-      {children}
-    </View>
-  );
-}
-function TextCard({ s }: { s: TextSection }) {
-  return <CardShell title={s.title}><Text style={cardSt.body}>{s.content}</Text></CardShell>;
-}
-function ScheduleCard({ s }: { s: ScheduleSection }) {
-  return (
-    <CardShell title={s.title} accent='#D4AF37'>
-      {s.items.map((item, i) => (
-        <View key={i} style={schedSt.row}>
-          <View style={schedSt.timeCol}>
-            <Text style={schedSt.time}>{item.time}</Text>
-            {i < s.items.length - 1 && <View style={schedSt.line} />}
-          </View>
-          <View style={schedSt.content}>
-            <Text style={schedSt.label}>{item.label}</Text>
-            {item.note ? <Text style={schedSt.note}>{item.note}</Text> : null}
-          </View>
-        </View>
-      ))}
-    </CardShell>
-  );
-}
-function TravelCard({ s }: { s: TravelSection }) {
-  return (
-    <CardShell title={s.title}>
-      {s.items.map((item, i) => (
-        <View key={i} style={travelSt.row}>
-          <View style={travelSt.dot} />
-          <View style={{ flex: 1 }}>
-            <Text style={travelSt.label}>{item.label}</Text>
-            <Text style={travelSt.detail}>{item.detail}</Text>
-          </View>
-        </View>
-      ))}
-    </CardShell>
-  );
-}
-function LocationCard({ s }: { s: LocationSection }) {
-  return (
-    <CardShell title={s.title}>
-      <Text style={locSt.name}>{s.name}</Text>
-      {s.address ? <Text style={locSt.detail}>{s.address}</Text> : null}
-      {s.phone ? <Text style={locSt.detail}><Text style={{ color: '#fff' }}>T  </Text>{s.phone}</Text> : null}
-      {s.notes ? <Text style={[locSt.detail, { marginTop: 4, fontStyle: 'italic' }]}>{s.notes}</Text> : null}
-    </CardShell>
-  );
-}
-function ContactsCard({ s }: { s: ContactsSection }) {
-  return (
-    <CardShell title={s.title}>
-      {s.items.map((item, i) => (
-        <View key={i} style={[contactSt.row, i < s.items.length - 1 && contactSt.rowBorder]}>
-          <View style={contactSt.avatar}><Text style={contactSt.initial}>{item.name[0] ?? '?'}</Text></View>
-          <View style={{ flex: 1 }}>
-            <Text style={contactSt.name}>{item.name}</Text>
-            {item.role ? <Text style={contactSt.role}>{item.role}</Text> : null}
-          </View>
-          {item.phone ? <Text style={contactSt.phone}>{item.phone}</Text> : null}
-        </View>
-      ))}
-    </CardShell>
-  );
-}
-function RulesCard({ s }: { s: RulesSection }) {
-  return (
-    <CardShell title={s.title}>
-      {s.items.map((rule, i) => (
-        <View key={i} style={rulesSt.row}>
-          <View style={rulesSt.numBadge}><Text style={rulesSt.num}>{i + 1}</Text></View>
-          <Text style={rulesSt.text}>{rule}</Text>
-        </View>
-      ))}
-    </CardShell>
-  );
-}
-
 // ── Live feed card ────────────────────────────────────────────────────
 function TourFeedCard({ n, individualLabel }: { n: Notification; individualLabel: string }) {
   const label = n.type === 'kronos_champ' ? `${individualLabel} Champion` : (NOTIF_LABELS[n.type] ?? n.type);
@@ -1584,45 +1493,6 @@ const infoStyles = StyleSheet.create({
   emptySub:   { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#444', textAlign: 'center', lineHeight: 20, marginBottom: 20 },
   emptyBtn:   { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(212,175,55,0.25)' },
   emptyBtnText: { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37' },
-});
-const cardSt = StyleSheet.create({
-  shell:  { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 16, marginBottom: 12 },
-  title:  { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#fff', letterSpacing: 2, marginBottom: 12, textTransform: 'uppercase' },
-  body:   { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 22 },
-});
-const schedSt = StyleSheet.create({
-  row:     { flexDirection: 'row', marginBottom: 0 },
-  timeCol: { width: 52, alignItems: 'flex-end', marginRight: 12 },
-  time:    { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37', lineHeight: 22 },
-  line:    { width: 1, flex: 1, backgroundColor: 'rgba(212,175,55,0.2)', alignSelf: 'center', marginTop: 2, marginBottom: 2, minHeight: 20 },
-  content: { flex: 1, paddingBottom: 12 },
-  label:   { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', lineHeight: 22 },
-  note:    { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff', marginTop: 1 },
-});
-const travelSt = StyleSheet.create({
-  row:    { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
-  dot:    { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D4AF37', marginTop: 6 },
-  label:  { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 2 },
-  detail: { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
-});
-const locSt = StyleSheet.create({
-  name:   { fontSize: 16, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 6 },
-  detail: { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 20 },
-});
-const contactSt = StyleSheet.create({
-  row:       { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-  rowBorder: { borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
-  avatar:    { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1c1c1c', alignItems: 'center', justifyContent: 'center' },
-  initial:   { fontSize: 16, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37' },
-  name:      { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#ffffff' },
-  role:      { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
-  phone:     { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
-});
-const rulesSt = StyleSheet.create({
-  row:      { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
-  numBadge: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(212,175,55,0.1)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.2)', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  num:      { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#D4AF37' },
-  text:     { flex: 1, fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 22 },
 });
 const feedSt = StyleSheet.create({
   container: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#111', borderRadius: 14, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: '#1c1c1c' },

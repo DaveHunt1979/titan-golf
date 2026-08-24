@@ -8,19 +8,50 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase, freshChannel } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { isoToUk } from '../../../src/lib/dateHelpers';
 import type { Notification } from '../../../src/types';
 
-export type SectionType = 'text' | 'schedule' | 'travel' | 'location' | 'contacts' | 'rules';
-export interface ScheduleItem { time: string; label: string; note?: string; }
-export interface TravelItem   { label: string; detail: string; }
-export interface ContactItem  { name: string; role?: string; phone?: string; }
-export interface TextSection     { id: string; type: 'text';     title: string; content: string; }
-export interface ScheduleSection { id: string; type: 'schedule'; title: string; items: ScheduleItem[]; }
-export interface TravelSection   { id: string; type: 'travel';   title: string; items: TravelItem[]; }
-export interface LocationSection { id: string; type: 'location'; title: string; name: string; address?: string; phone?: string; notes?: string; }
-export interface ContactsSection { id: string; type: 'contacts'; title: string; items: ContactItem[]; }
-export interface RulesSection    { id: string; type: 'rules';    title: string; items: string[]; }
-export type InfoSection = TextSection | ScheduleSection | TravelSection | LocationSection | ContactsSection | RulesSection;
+// Fixed, structured Info Pack shape (Rick's brief, section 5, 2026-08-24) —
+// superseded the old freeform "pick a section type, type everything by
+// hand" model entirely. admin/info.tsx (the editor) imports these same
+// types. Dates and golf courses are deliberately NOT part of this shape —
+// those are derived live from competitions.start_date/end_date and
+// competition_days.course_name so the organiser never re-enters them.
+export interface FlightLeg {
+  airline: string; flightNumber: string;
+  departureAirport: string; arrivalAirport: string;
+  departureDate: string; // DD-MM-YYYY, matches the rest of the app's date-field convention
+  departureTime: string; arrivalTime: string; // HH:mm
+}
+export interface CommitteeEntry { id: string; playerId: string; role: string; }
+export interface DinnerEntry { id: string; day: string; restaurant: string; time: string; dressCode: string; notes: string; }
+export interface RoomEntry { id: string; playerIds: string[]; }
+export type TransportLeg = 'airport-hotel' | 'hotel-golf' | 'golf-hotel' | 'hotel-airport' | 'custom';
+export interface TransportEntry {
+  id: string; leg: TransportLeg; label?: string;
+  pickupTime: string; pickupLocation?: string; provider?: string; notes: string;
+}
+export interface InfoPack {
+  hotels: string[];
+  flights: { outbound: FlightLeg; return: FlightLeg };
+  teeTimes: Record<string, string[]>; // competition_days.id -> times
+  committee: CommitteeEntry[];
+  dinners: DinnerEntry[];
+  rooms: RoomEntry[];
+  transport: TransportEntry[];
+  generalInfo: string;
+}
+export const emptyFlightLeg = (): FlightLeg => ({
+  airline: '', flightNumber: '', departureAirport: '', arrivalAirport: '',
+  departureDate: '', departureTime: '', arrivalTime: '',
+});
+export const emptyInfoPack = (): InfoPack => ({
+  hotels: [], flights: { outbound: emptyFlightLeg(), return: emptyFlightLeg() },
+  teeTimes: {}, committee: [], dinners: [], rooms: [], transport: [], generalInfo: '',
+});
+export interface RoundInfo { id: string; dayNumber: number; courseName: string | null; }
+export interface RosterPlayer { id: string; name: string; avatarUrl: string | null; }
+
 type FeedTab = 'info' | 'live' | 'instagram';
 
 const LABELS: Record<string, string> = {
@@ -79,7 +110,11 @@ export default function FeedScreen() {
   const [areaStats, setAreaStats]     = useState<AreaStats>({ casualGames: 0, tourName: null, tourLive: 0, swindleName: null, swindleCount: 0 });
   const [compName, setCompName]       = useState('');
   const [compId, setCompId]           = useState<string | null>(null);
-  const [sections, setSections]       = useState<InfoSection[]>([]);
+  const [infoPack, setInfoPack]       = useState<InfoPack>(emptyInfoPack());
+  const [compStartDate, setCompStartDate] = useState<string | null>(null);
+  const [compEndDate, setCompEndDate]     = useState<string | null>(null);
+  const [rounds, setRounds]           = useState<RoundInfo[]>([]);
+  const [roster, setRoster]           = useState<RosterPlayer[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [instagramUrl, setInstagramUrl]   = useState<string | null>(null);
   const [loading, setLoading]         = useState(true);
@@ -104,7 +139,7 @@ export default function FeedScreen() {
             supabase.from('players').select('id').eq('auth_uid', user.id).single() as any
           ).single()
         : Promise.resolve({ data: null }),
-      supabase.from('competitions').select('id,name,info_sections').eq('status','active').neq('format','casual').order('created_at',{ascending:false}).limit(1).single(),
+      supabase.from('competitions').select('id,name,info_pack,start_date,end_date').eq('status','active').neq('format','casual').order('created_at',{ascending:false}).limit(1).single(),
       supabase.from('notifications').select('*').order('created_at',{ascending:false}).limit(50),
       supabase.from('societies').select('instagram_url').eq('id',societyId).single(),
       supabase.from('matches').select('id',{count:'exact'}).eq('status','in_progress').is('competition_id', null),
@@ -131,7 +166,19 @@ export default function FeedScreen() {
       swindleCount: (swindleData as any)?.entries_count?.[0]?.count ?? 0,
     });
 
-    if (comp)   { setCompName(comp.name); setCompId(comp.id); setSections((comp.info_sections ?? []) as InfoSection[]); }
+    if (comp) {
+      setCompName(comp.name);
+      setCompId(comp.id);
+      setInfoPack({ ...emptyInfoPack(), ...((comp as any).info_pack ?? {}) });
+      setCompStartDate((comp as any).start_date ?? null);
+      setCompEndDate((comp as any).end_date ?? null);
+      const [{ data: dayRows }, { data: playerRows }] = await Promise.all([
+        supabase.from('competition_days').select('id, day_number, course_name').eq('competition_id', comp.id).order('day_number'),
+        supabase.from('competition_players').select('player_id, players(display_name, avatar_url)').eq('competition_id', comp.id),
+      ]);
+      setRounds((dayRows ?? []).map((d: any) => ({ id: d.id, dayNumber: d.day_number, courseName: d.course_name })));
+      setRoster((playerRows ?? []).map((p: any) => ({ id: p.player_id, name: p.players?.display_name ?? '?', avatarUrl: p.players?.avatar_url ?? null })));
+    }
     if (notifs) setNotifications(notifs);
     if (soc)    setInstagramUrl((soc as any).instagram_url ?? null);
     setLoading(false);
@@ -214,7 +261,7 @@ export default function FeedScreen() {
                   <Text style={styles.heroName}>{compName}</Text>
                 </View>
               ) : null}
-              {sections.length === 0 && (
+              {!hasInfoPackContent(infoPack, rounds) && (
                 <View style={styles.empty}>
                   <Text style={styles.emptyTitle}>No info pack yet</Text>
                   <Text style={styles.emptySub}>Society leaders can add the tour schedule, flights, accommodation and more.</Text>
@@ -223,7 +270,7 @@ export default function FeedScreen() {
                   </TouchableOpacity>
                 </View>
               )}
-              {sections.map(section => <SectionView key={section.id} section={section} />)}
+              <InfoPackView pack={infoPack} startDate={compStartDate} endDate={compEndDate} rounds={rounds} roster={roster} />
             </>
           )}
 
@@ -329,98 +376,165 @@ function InstagramView({ url, onGoAdmin, styles }: { url: string | null; onGoAdm
 }
 
 // ── Section renderer ──────────────────────────────────────────
-function SectionView({ section }: { section: InfoSection }) {
-  switch (section.type) {
-    case 'text':     return <TextCard s={section} />;
-    case 'schedule': return <ScheduleCard s={section} />;
-    case 'travel':   return <TravelCard s={section} />;
-    case 'location': return <LocationCard s={section} />;
-    case 'contacts': return <ContactsCard s={section} />;
-    case 'rules':    return <RulesCard s={section} />;
-    default:         return null;
-  }
-}
-
-function CardShell({ title, accent, children }: { title: string; accent?: string; children: React.ReactNode }) {
+function CardShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <View style={[card.shell, accent ? { borderLeftColor: accent, borderLeftWidth: 3 } : {}]}>
+    <View style={card.shell}>
       <Text style={card.title}>{title}</Text>
       {children}
     </View>
   );
 }
-function TextCard({ s }: { s: TextSection }) {
-  return <CardShell title={s.title}><Text style={card.body}>{s.content}</Text></CardShell>;
-}
-function ScheduleCard({ s }: { s: ScheduleSection }) {
+
+const TRANSPORT_LABELS: Record<string, string> = {
+  'airport-hotel': 'Airport → Hotel',
+  'hotel-golf':    'Hotel → Golf Course',
+  'golf-hotel':    'Golf Course → Hotel',
+  'hotel-airport': 'Hotel → Airport',
+};
+
+export function hasInfoPackContent(pack: InfoPack, rounds: RoundInfo[]): boolean {
   return (
-    <CardShell title={s.title} accent={sched.time.color}>
-      {s.items.map((item, i) => (
-        <View key={i} style={sched.row}>
-          <View style={sched.timeCol}>
-            <Text style={sched.time}>{item.time}</Text>
-            {i < s.items.length - 1 && <View style={sched.line} />}
-          </View>
-          <View style={sched.content}>
-            <Text style={sched.label}>{item.label}</Text>
-            {item.note ? <Text style={sched.note}>{item.note}</Text> : null}
-          </View>
-        </View>
-      ))}
-    </CardShell>
+    pack.hotels.length > 0 ||
+    !!pack.flights.outbound.airline || !!pack.flights.outbound.flightNumber ||
+    !!pack.flights.return.airline   || !!pack.flights.return.flightNumber ||
+    Object.values(pack.teeTimes).some(list => list.length > 0) ||
+    pack.committee.length > 0 ||
+    pack.dinners.length > 0 ||
+    pack.rooms.some(r => r.playerIds.length > 0) ||
+    pack.transport.some(t => !!t.pickupTime || !!t.notes || !!t.provider || !!t.pickupLocation) ||
+    !!pack.generalInfo.trim() ||
+    rounds.some(r => !!r.courseName)
   );
 }
-function TravelCard({ s }: { s: TravelSection }) {
+
+// Read-only render of the fixed Info Pack shape (Rick's brief, section 5) —
+// mirrors admin/info.tsx's 7 editor cards, each shown only when it has
+// content so an in-progress Info Pack doesn't show a wall of empty cards.
+export function InfoPackView({ pack, startDate, endDate, rounds, roster }: {
+  pack: InfoPack; startDate: string | null; endDate: string | null; rounds: RoundInfo[]; roster: RosterPlayer[];
+}) {
+  const playerName = (id: string) => roster.find(p => p.id === id)?.name ?? 'Unknown player';
+  const hasFlight = (f: FlightLeg) => !!(f.airline || f.flightNumber || f.departureAirport || f.arrivalAirport);
+  const courseNames = Array.from(new Set(rounds.map(r => r.courseName).filter(Boolean))) as string[];
+  const activeTransport = pack.transport.filter(t => t.pickupTime || t.pickupLocation || t.provider || t.notes);
+  const roundsWithTeeTimes = rounds.filter(r => (pack.teeTimes[r.id] ?? []).length > 0);
+  const roomsWithPlayers = pack.rooms.filter(r => r.playerIds.length > 0);
+
   return (
-    <CardShell title={s.title}>
-      {s.items.map((item, i) => (
-        <View key={i} style={travel.row}>
-          <View style={travel.dot} />
-          <View style={{ flex: 1 }}>
-            <Text style={travel.label}>{item.label}</Text>
-            <Text style={travel.detail}>{item.detail}</Text>
-          </View>
-        </View>
-      ))}
-    </CardShell>
-  );
-}
-function LocationCard({ s }: { s: LocationSection }) {
-  return (
-    <CardShell title={s.title}>
-      <Text style={loc.name}>{s.name}</Text>
-      {s.address ? <Text style={loc.detail}>{s.address}</Text> : null}
-      {s.phone ? <Text style={loc.detail}><Text style={{ color: '#fff' }}>T  </Text>{s.phone}</Text> : null}
-      {s.notes ? <Text style={[loc.detail, { marginTop: 4, fontStyle: 'italic' }]}>{s.notes}</Text> : null}
-    </CardShell>
-  );
-}
-function ContactsCard({ s }: { s: ContactsSection }) {
-  return (
-    <CardShell title={s.title}>
-      {s.items.map((item, i) => (
-        <View key={i} style={[contact.row, i < s.items.length - 1 && contact.rowBorder]}>
-          <View style={contact.avatar}><Text style={contact.initial}>{item.name[0] ?? '?'}</Text></View>
-          <View style={{ flex: 1 }}>
-            <Text style={contact.name}>{item.name}</Text>
-            {item.role ? <Text style={contact.role}>{item.role}</Text> : null}
-          </View>
-          {item.phone ? <Text style={contact.phone}>{item.phone}</Text> : null}
-        </View>
-      ))}
-    </CardShell>
-  );
-}
-function RulesCard({ s }: { s: RulesSection }) {
-  return (
-    <CardShell title={s.title}>
-      {s.items.map((rule, i) => (
-        <View key={i} style={rules.row}>
-          <View style={rules.numBadge}><Text style={rules.num}>{i + 1}</Text></View>
-          <Text style={rules.text}>{rule}</Text>
-        </View>
-      ))}
-    </CardShell>
+    <>
+      {(hasFlight(pack.flights.outbound) || hasFlight(pack.flights.return)) && (
+        <CardShell title="Travel">
+          {([['outbound', 'Outbound Flight'], ['return', 'Return Flight']] as const).map(([key, label]) => {
+            const f = pack.flights[key];
+            if (!hasFlight(f)) return null;
+            return (
+              <View key={key} style={{ marginBottom: 12 }}>
+                <Text style={ip.legLabel}>{label.toUpperCase()}</Text>
+                {(f.departureAirport || f.arrivalAirport) && (
+                  <View style={ip.route}>
+                    <Text style={ip.routeAirport}>{f.departureAirport || '—'}</Text>
+                    <Text style={ip.routeArrow}>↓</Text>
+                    <Text style={ip.routeAirport}>{f.arrivalAirport || '—'}</Text>
+                  </View>
+                )}
+                {(f.airline || f.flightNumber) && <Text style={ip.flightMeta}>{[f.airline, f.flightNumber].filter(Boolean).join(' · ')}</Text>}
+                {(f.departureDate || f.departureTime || f.arrivalTime) && (
+                  <Text style={ip.flightMeta}>
+                    {[f.departureDate, f.departureTime ? `Dep ${f.departureTime}` : '', f.arrivalTime ? `Arr ${f.arrivalTime}` : ''].filter(Boolean).join('  ·  ')}
+                  </Text>
+                )}
+              </View>
+            );
+          })}
+        </CardShell>
+      )}
+
+      {(pack.hotels.length > 0 || courseNames.length > 0 || startDate || endDate) && (
+        <CardShell title="Accommodation">
+          {(startDate || endDate) && <Text style={ip.rowText}>{startDate ? isoToUk(startDate) : '—'} → {endDate ? isoToUk(endDate) : '—'}</Text>}
+          {pack.hotels.map((h, i) => <Text key={i} style={[ip.rowText, { marginTop: 6 }]}>{h}</Text>)}
+          {courseNames.length > 0 && (
+            <>
+              <Text style={ip.legLabel}>GOLF COURSES</Text>
+              {courseNames.map(n => <Text key={n} style={ip.rowText}>{n}</Text>)}
+            </>
+          )}
+        </CardShell>
+      )}
+
+      {roundsWithTeeTimes.length > 0 && (
+        <CardShell title="Golf">
+          {roundsWithTeeTimes.map(r => (
+            <View key={r.id} style={{ marginBottom: 10 }}>
+              <Text style={ip.legLabel}>ROUND {r.dayNumber}{r.courseName ? ` · ${r.courseName}` : ''}</Text>
+              <View style={ip.timeChipsRow}>
+                {(pack.teeTimes[r.id] ?? []).map((t, i) => (
+                  <View key={i} style={ip.timeChip}><Text style={ip.timeChipText}>{t}</Text></View>
+                ))}
+              </View>
+            </View>
+          ))}
+        </CardShell>
+      )}
+
+      {pack.committee.length > 0 && (
+        <CardShell title="Committee">
+          {pack.committee.map((c, i) => (
+            <View key={c.id} style={[contact.row, i < pack.committee.length - 1 && contact.rowBorder]}>
+              <View style={contact.avatar}><Text style={contact.initial}>{playerName(c.playerId)[0] ?? '?'}</Text></View>
+              <View style={{ flex: 1 }}>
+                <Text style={contact.name}>{playerName(c.playerId)}</Text>
+                {c.role ? <Text style={contact.role}>{c.role}</Text> : null}
+              </View>
+            </View>
+          ))}
+        </CardShell>
+      )}
+
+      {pack.dinners.length > 0 && (
+        <CardShell title="Dinner">
+          {pack.dinners.map((d, i) => (
+            <View key={d.id} style={i < pack.dinners.length - 1 ? ip.row : undefined}>
+              <Text style={ip.legLabel}>{(d.day || 'DINNER').toUpperCase()}</Text>
+              {d.restaurant ? <Text style={ip.rowText}>{d.restaurant}</Text> : null}
+              {(d.time || d.dressCode) ? <Text style={ip.flightMeta}>{[d.time, d.dressCode].filter(Boolean).join(' · ')}</Text> : null}
+              {d.notes ? <Text style={[ip.flightMeta, { fontStyle: 'italic' }]}>{d.notes}</Text> : null}
+            </View>
+          ))}
+        </CardShell>
+      )}
+
+      {roomsWithPlayers.length > 0 && (
+        <CardShell title="Room Sharing">
+          {roomsWithPlayers.map((r, i) => (
+            <View key={r.id} style={{ marginBottom: 8 }}>
+              <Text style={ip.legLabel}>ROOM {i + 1}</Text>
+              {r.playerIds.map(pid => <Text key={pid} style={ip.rowText}>{playerName(pid)}</Text>)}
+            </View>
+          ))}
+        </CardShell>
+      )}
+
+      {activeTransport.length > 0 && (
+        <CardShell title="Transport">
+          {activeTransport.map((t, i) => (
+            <View key={t.id} style={i < activeTransport.length - 1 ? ip.row : undefined}>
+              <Text style={ip.legLabel}>{(TRANSPORT_LABELS[t.leg] ?? t.label ?? 'Transport').toUpperCase()}</Text>
+              {t.pickupTime ? <Text style={ip.rowText}>Pickup {t.pickupTime}</Text> : null}
+              {t.pickupLocation ? <Text style={ip.flightMeta}>{t.pickupLocation}</Text> : null}
+              {t.provider ? <Text style={ip.flightMeta}>{t.provider}</Text> : null}
+              {t.notes ? <Text style={[ip.flightMeta, { fontStyle: 'italic' }]}>{t.notes}</Text> : null}
+            </View>
+          ))}
+        </CardShell>
+      )}
+
+      {pack.generalInfo.trim() ? (
+        <CardShell title="General Information">
+          <Text style={card.body}>{pack.generalInfo}</Text>
+        </CardShell>
+      ) : null}
+    </>
   );
 }
 
@@ -464,24 +578,17 @@ const card = StyleSheet.create({
   title:  { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#fff', letterSpacing: 2, marginBottom: 16, textTransform: 'uppercase' },
   body:   { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 22 },
 });
-const sched = StyleSheet.create({
-  row:     { flexDirection: 'row', marginBottom: 0 },
-  timeCol: { width: 52, alignItems: 'flex-end', marginRight: 16 },
-  time:    { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#d4af37', lineHeight: 22 },
-  line:    { width: 1, flex: 1, backgroundColor: 'rgba(212,175,55,0.2)', alignSelf: 'center', marginTop: 2, marginBottom: 2, minHeight: 20 },
-  content: { flex: 1, paddingBottom: 16 },
-  label:   { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', lineHeight: 22 },
-  note:    { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#fff', marginTop: 1 },
-});
-const travel = StyleSheet.create({
-  row:    { flexDirection: 'row', alignItems: 'flex-start', gap: 16, marginBottom: 16 },
-  dot:    { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d4af37', marginTop: 6 },
-  label:  { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 2 },
-  detail: { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
-});
-const loc = StyleSheet.create({
-  name:   { fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', marginBottom: 4 },
-  detail: { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 20 },
+const ip = StyleSheet.create({
+  route:        { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
+  routeAirport: { fontSize: 13, fontFamily: 'JUSTSans-ExBold', color: '#d4af37', flex: 1 },
+  routeArrow:   { fontSize: 14, color: '#fff' },
+  flightMeta:   { fontSize: 11, fontFamily: 'JUSTSans-ExBold', color: '#fff', marginBottom: 2 },
+  legLabel:     { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#d4af37', letterSpacing: 1, marginBottom: 6 },
+  row:          { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#2c2c2e', marginBottom: 8 },
+  rowText:      { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
+  timeChipsRow: { flexDirection: 'row', flexWrap: 'wrap' },
+  timeChip:     { backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginRight: 8, marginBottom: 8 },
+  timeChipText: { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#d4af37' },
 });
 const contact = StyleSheet.create({
   row:       { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
@@ -491,12 +598,6 @@ const contact = StyleSheet.create({
   name:      { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#ffffff' },
   role:      { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
   phone:     { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#fff' },
-});
-const rules = StyleSheet.create({
-  row:      { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
-  numBadge: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(212,175,55,0.1)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.2)', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  num:      { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: '#d4af37' },
-  text:     { flex: 1, fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: '#fff', lineHeight: 22 },
 });
 const feedCard = StyleSheet.create({
   container: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, backgroundColor: '#1c1c1e', borderRadius: 12, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: '#2c2c2e' },

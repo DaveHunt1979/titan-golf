@@ -2,61 +2,92 @@ import { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput,
   TouchableOpacity, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert, Image,
+  ActivityIndicator, Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '../../../src/lib/supabase';
 import { goBack } from '../../../src/lib/navigation';
-import type {
-  InfoSection, SectionType, ScheduleItem, TravelItem, ContactItem,
-  TextSection, ScheduleSection, TravelSection, LocationSection, ContactsSection, RulesSection,
+import { isoToUk, ukDateToDate, dateToUk, dateToHm, hmToDate } from '../../../src/lib/dateHelpers';
+import PlayerSelectorSheet, { SelectablePlayer } from '../../../src/components/PlayerSelectorSheet';
+import ConfirmDialog from '../../../src/components/ConfirmDialog';
+import {
+  emptyInfoPack,
+  type InfoPack, type FlightLeg, type CommitteeEntry, type DinnerEntry,
+  type RoomEntry, type TransportEntry, type TransportLeg, type RoundInfo, type RosterPlayer,
 } from '../feed/index';
 
 // ── TITAN constants ───────────────────────────────────────────
 const GOLD   = '#D4AF37';
-const GREEN  = '#4ade80';
-const RED    = '#f87171';
-const PURPLE = '#a78bfa';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
-// ── Section defaults ──────────────────────────────────────────
-function newSection(type: SectionType): InfoSection {
-  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  switch (type) {
-    case 'text':     return { id, type, title: '', content: '' };
-    case 'schedule': return { id, type, title: '', items: [{ time: '', label: '', note: '' }] };
-    case 'travel':   return { id, type, title: '', items: [{ label: '', detail: '' }] };
-    case 'location': return { id, type, title: '', name: '', address: '', phone: '', notes: '' };
-    case 'contacts': return { id, type, title: '', items: [{ name: '', role: '', phone: '' }] };
-    case 'rules':    return { id, type, title: '', items: [''] };
-  }
-}
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
-const SECTION_TYPES: Array<{ id: SectionType; label: string; sub: string }> = [
-  { id: 'schedule', label: 'Schedule', sub: 'Timetable with times'    },
-  { id: 'travel',   label: 'Travel',   sub: 'Flights & transfers'      },
-  { id: 'location', label: 'Location', sub: 'Hotel or venue details'   },
-  { id: 'contacts', label: 'Contacts', sub: 'Key people & numbers'     },
-  { id: 'text',     label: 'Text',     sub: 'Note or announcement'     },
-  { id: 'rules',    label: 'Rules',    sub: 'Numbered list of rules'   },
+// Trip-specific committee roles — deliberately separate from
+// society_members.committee_role (a permanent society position like
+// "Secretary"). This trip's role for a given player is suggested from that
+// permanent role if set, but stored independently (Rick's examples —
+// "Tournament Director", "Chairman" — are one-off event roles, not society
+// positions).
+const COMMITTEE_TRIP_ROLES = [
+  'Tournament Director', 'Chairman', 'Treasurer', 'Secretary', 'Vice Captain', 'Social Secretary',
 ];
+
+const STANDARD_LEGS: { id: TransportLeg; label: string; hasLocation: boolean; hasProvider: boolean }[] = [
+  { id: 'airport-hotel', label: 'Airport → Hotel',      hasLocation: true,  hasProvider: true  },
+  { id: 'hotel-golf',    label: 'Hotel → Golf Course',  hasLocation: false, hasProvider: true  },
+  { id: 'golf-hotel',    label: 'Golf Course → Hotel',  hasLocation: false, hasProvider: false },
+  { id: 'hotel-airport', label: 'Hotel → Airport',      hasLocation: false, hasProvider: false },
+];
+
+type CardKey = 'travel' | 'accommodation' | 'golf' | 'committee' | 'dinner' | 'rooms' | 'transport' | 'general';
+const CARDS: { key: CardKey; label: string }[] = [
+  { key: 'travel',        label: 'Travel' },
+  { key: 'accommodation', label: 'Accommodation' },
+  { key: 'golf',          label: 'Golf' },
+  { key: 'committee',     label: 'Committee' },
+  { key: 'dinner',        label: 'Dinner' },
+  { key: 'rooms',         label: 'Room Sharing' },
+  { key: 'transport',     label: 'Transport' },
+  { key: 'general',       label: 'General Information' },
+];
+
+type PickerTarget =
+  | { kind: 'flight-date'; leg: 'outbound' | 'return' }
+  | { kind: 'flight-dep-time'; leg: 'outbound' | 'return' }
+  | { kind: 'flight-arr-time'; leg: 'outbound' | 'return' }
+  | { kind: 'tee-time'; dayId: string; index: number }
+  | { kind: 'dinner-time'; id: string }
+  | { kind: 'transport-time'; leg: TransportLeg; customId?: string };
 
 // ── Main screen ───────────────────────────────────────────────
 export default function InfoEditorScreen() {
   const router = useRouter();
   const { id: paramId, back: backParam } = useLocalSearchParams<{ id?: string; back?: string }>();
   const backTarget = backParam ?? '/(app)/admin/hub-tournament';
+
   const [compId, setCompId]       = useState<string | null>(null);
   const [compName, setCompName]   = useState('');
-  const [sections, setSections]   = useState<InfoSection[]>([]);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [showPicker, setShowPicker] = useState(false);
+  const [societyId, setSocietyId] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate]     = useState<string | null>(null);
+  const [rounds, setRounds]       = useState<RoundInfo[]>([]);
+  const [roster, setRoster]       = useState<RosterPlayer[]>([]);
+  const [pack, setPack]           = useState<InfoPack>(emptyInfoPack());
+  const [expanded, setExpanded]   = useState<CardKey | null>(null);
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
+
+  const [activePicker, setActivePicker]         = useState<PickerTarget | null>(null);
+  const [committeePickerOpen, setCommitteePickerOpen] = useState(false);
+  const [roomPickerFor, setRoomPickerFor]        = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{
+    title: string; message: string; confirmLabel: string; destructive?: boolean; onConfirm: () => void;
+  } | null>(null);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -65,101 +96,193 @@ export default function InfoEditorScreen() {
 
   useEffect(() => {
     (async () => {
-      // Reached from the Tournament Builder's own Info Pack step (Rick's
-      // brief, section 4.11), a draft-status tournament needs to be
-      // targetable here too — the old auto-pick-latest-active query could
-      // never find one, since Info Pack previously only existed as a
-      // post-Go-Live editing surface.
       const { data } = paramId
-        ? await supabase.from('competitions').select('id, name, info_sections').eq('id', paramId).single()
+        ? await supabase.from('competitions').select('id, name, society_id, start_date, end_date, info_pack').eq('id', paramId).single()
         : await supabase
             .from('competitions')
-            .select('id, name, info_sections')
+            .select('id, name, society_id, start_date, end_date, info_pack')
             .eq('status', 'active')
             .neq('format', 'casual')
             .order('created_at', { ascending: false })
             .limit(1)
             .single();
+
       if (data) {
         setCompId(data.id);
         setCompName(data.name);
-        setSections((data.info_sections ?? []) as InfoSection[]);
+        setSocietyId(data.society_id);
+        setStartDate(data.start_date ?? null);
+        setEndDate(data.end_date ?? null);
+        setPack({ ...emptyInfoPack(), ...(data.info_pack ?? {}) });
+
+        const [{ data: dayRows }, { data: playerRows }] = await Promise.all([
+          supabase.from('competition_days').select('id, day_number, course_name').eq('competition_id', data.id).order('day_number'),
+          supabase.from('competition_players').select('player_id, players(display_name, avatar_url)').eq('competition_id', data.id),
+        ]);
+        setRounds((dayRows ?? []).map((d: any) => ({ id: d.id, dayNumber: d.day_number, courseName: d.course_name })));
+        setRoster((playerRows ?? []).map((p: any) => ({ id: p.player_id, name: p.players?.display_name ?? '?', avatarUrl: p.players?.avatar_url ?? null })));
       }
       setLoading(false);
     })();
   }, [paramId]);
 
-  function update(id: string, patch: Partial<InfoSection>) {
-    setSections(prev => prev.map(s => s.id === id ? { ...s, ...patch } as InfoSection : s));
+  function updatePack(patch: Partial<InfoPack>) {
+    setPack(prev => ({ ...prev, ...patch }));
   }
 
-  function remove(id: string) {
-    Alert.alert('Remove Section', 'Delete this section?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => setSections(prev => prev.filter(s => s.id !== id)) },
-    ]);
+  // ── Hotels ──
+  function addHotel() { updatePack({ hotels: [...pack.hotels, ''] }); }
+  function updateHotel(i: number, v: string) { const next = [...pack.hotels]; next[i] = v; updatePack({ hotels: next }); }
+  function removeHotel(i: number) { updatePack({ hotels: pack.hotels.filter((_, idx) => idx !== i) }); }
+
+  // ── Flights ──
+  function updateFlightField(leg: 'outbound' | 'return', field: keyof FlightLeg, value: string) {
+    setPack(prev => ({ ...prev, flights: { ...prev.flights, [leg]: { ...prev.flights[leg], [field]: value } } }));
   }
 
-  function move(id: string, dir: 'up' | 'down') {
-    setSections(prev => {
-      const idx = prev.findIndex(s => s.id === id);
-      const next = dir === 'up' ? idx - 1 : idx + 1;
-      if (next < 0 || next >= prev.length) return prev;
-      const arr = [...prev];
-      [arr[idx], arr[next]] = [arr[next], arr[idx]];
-      return arr;
+  // ── Tee times ──
+  function addTeeTime(dayId: string) {
+    const list = [...(pack.teeTimes[dayId] ?? []), '09:00'];
+    setPack(prev => ({ ...prev, teeTimes: { ...prev.teeTimes, [dayId]: list } }));
+    setActivePicker({ kind: 'tee-time', dayId, index: list.length - 1 });
+  }
+  function updateTeeTime(dayId: string, index: number, value: string) {
+    setPack(prev => {
+      const list = [...(prev.teeTimes[dayId] ?? [])];
+      list[index] = value;
+      return { ...prev, teeTimes: { ...prev.teeTimes, [dayId]: list } };
     });
   }
-
-  function addSection(type: SectionType) {
-    const s = newSection(type);
-    setSections(prev => [...prev, s]);
-    setExpandedId(s.id);
-    setShowPicker(false);
+  function removeTeeTime(dayId: string, index: number) {
+    setPack(prev => ({ ...prev, teeTimes: { ...prev.teeTimes, [dayId]: (prev.teeTimes[dayId] ?? []).filter((_, i) => i !== index) } }));
   }
 
-  function updateItem(sectionId: string, i: number, patch: any) {
-    setSections(prev => prev.map(s => {
-      if (s.id !== sectionId) return s;
-      if (!('items' in s)) return s;
-      const items = [...(s as any).items];
-      items[i] = typeof items[i] === 'string' ? patch : { ...items[i], ...patch };
-      return { ...s, items } as InfoSection;
+  // ── Committee ──
+  async function addCommitteeMember(player: SelectablePlayer) {
+    setCommitteePickerOpen(false);
+    let prefill = '';
+    if (societyId) {
+      const { data } = await supabase.from('society_members').select('committee_role').eq('society_id', societyId).eq('player_id', player.id).maybeSingle();
+      prefill = (data as any)?.committee_role ?? '';
+    }
+    const entry: CommitteeEntry = { id: newId(), playerId: player.id, role: prefill };
+    setPack(prev => ({ ...prev, committee: [...prev.committee, entry] }));
+  }
+  function updateCommitteeRole(id: string, role: string) {
+    setPack(prev => ({ ...prev, committee: prev.committee.map(c => c.id === id ? { ...c, role } : c) }));
+  }
+  function removeCommitteeMember(id: string) {
+    setPack(prev => ({ ...prev, committee: prev.committee.filter(c => c.id !== id) }));
+  }
+
+  // ── Dinner ──
+  function addDinner() {
+    const entry: DinnerEntry = { id: newId(), day: '', restaurant: '', time: '', dressCode: '', notes: '' };
+    setPack(prev => ({ ...prev, dinners: [...prev.dinners, entry] }));
+  }
+  function updateDinner(id: string, patch: Partial<DinnerEntry>) {
+    setPack(prev => ({ ...prev, dinners: prev.dinners.map(d => d.id === id ? { ...d, ...patch } : d) }));
+  }
+  function removeDinner(id: string) {
+    setPack(prev => ({ ...prev, dinners: prev.dinners.filter(d => d.id !== id) }));
+  }
+
+  // ── Room sharing ──
+  function addRoom() {
+    const entry: RoomEntry = { id: newId(), playerIds: [] };
+    setPack(prev => ({ ...prev, rooms: [...prev.rooms, entry] }));
+  }
+  function removeRoom(id: string) {
+    setPack(prev => ({ ...prev, rooms: prev.rooms.filter(r => r.id !== id) }));
+  }
+  function removePlayerFromRoom(roomId: string, playerId: string) {
+    setPack(prev => ({ ...prev, rooms: prev.rooms.map(r => r.id === roomId ? { ...r, playerIds: r.playerIds.filter(id => id !== playerId) } : r) }));
+  }
+  function handleRoomPlayerSelect(player: SelectablePlayer) {
+    const roomId = roomPickerFor;
+    setRoomPickerFor(null);
+    if (!roomId) return;
+    const doAdd = () => setPack(prev => ({
+      ...prev,
+      rooms: prev.rooms.map(r => r.id === roomId ? { ...r, playerIds: [...r.playerIds, player.id] } : r),
     }));
+    const elsewhereIdx = pack.rooms.findIndex(r => r.id !== roomId && r.playerIds.includes(player.id));
+    if (elsewhereIdx >= 0) {
+      setConfirm({
+        title: 'Already Sharing a Room',
+        message: `${player.name} is already assigned to Room ${elsewhereIdx + 1}. Add them here as well?`,
+        confirmLabel: 'Add Anyway',
+        onConfirm: () => { setConfirm(null); doAdd(); },
+      });
+    } else {
+      doAdd();
+    }
   }
 
-  function addItem(sectionId: string) {
-    setSections(prev => prev.map(s => {
-      if (s.id !== sectionId || !('items' in s)) return s;
-      switch (s.type) {
-        case 'schedule': return { ...s, items: [...s.items, { time: '', label: '', note: '' }] };
-        case 'travel':   return { ...s, items: [...s.items, { label: '', detail: '' }] };
-        case 'contacts': return { ...s, items: [...s.items, { name: '', role: '', phone: '' }] };
-        case 'rules':    return { ...s, items: [...s.items, ''] };
-        default: return s;
+  // ── Transport ──
+  function updateStandardLeg(leg: TransportLeg, patch: Partial<TransportEntry>) {
+    setPack(prev => {
+      const exists = prev.transport.find(t => t.leg === leg);
+      const transport = exists
+        ? prev.transport.map(t => t.leg === leg ? { ...t, ...patch } : t)
+        : [...prev.transport, { id: newId(), leg, pickupTime: '', notes: '', ...patch } as TransportEntry];
+      return { ...prev, transport };
+    });
+  }
+  function addCustomTransport() {
+    const entry: TransportEntry = { id: newId(), leg: 'custom', label: '', pickupTime: '', pickupLocation: '', provider: '', notes: '' };
+    setPack(prev => ({ ...prev, transport: [...prev.transport, entry] }));
+  }
+  function updateCustomTransport(id: string, patch: Partial<TransportEntry>) {
+    setPack(prev => ({ ...prev, transport: prev.transport.map(t => t.id === id ? { ...t, ...patch } : t) }));
+  }
+  function removeCustomTransport(id: string) {
+    setPack(prev => ({ ...prev, transport: prev.transport.filter(t => t.id !== id) }));
+  }
+
+  // ── Date/time picker plumbing ──
+  function pickerMode(target: PickerTarget): 'date' | 'time' {
+    return target.kind === 'flight-date' ? 'date' : 'time';
+  }
+  function pickerValue(target: PickerTarget): Date {
+    switch (target.kind) {
+      case 'flight-date':     return pack.flights[target.leg].departureDate ? ukDateToDate(pack.flights[target.leg].departureDate) : new Date();
+      case 'flight-dep-time': return hmToDate(pack.flights[target.leg].departureTime);
+      case 'flight-arr-time': return hmToDate(pack.flights[target.leg].arrivalTime);
+      case 'tee-time':        return hmToDate(pack.teeTimes[target.dayId]?.[target.index] ?? '');
+      case 'dinner-time':     return hmToDate(pack.dinners.find(d => d.id === target.id)?.time ?? '');
+      case 'transport-time': {
+        const t = target.leg === 'custom' ? pack.transport.find(x => x.id === target.customId) : pack.transport.find(x => x.leg === target.leg);
+        return hmToDate(t?.pickupTime ?? '');
       }
-    }));
+    }
   }
-
-  function removeItem(sectionId: string, i: number) {
-    setSections(prev => prev.map(s => {
-      if (s.id !== sectionId || !('items' in s)) return s;
-      return { ...s, items: (s as any).items.filter((_: any, idx: number) => idx !== i) } as InfoSection;
-    }));
+  function applyPickerValue(target: PickerTarget, selected: Date) {
+    switch (target.kind) {
+      case 'flight-date':     updateFlightField(target.leg, 'departureDate', dateToUk(selected)); break;
+      case 'flight-dep-time': updateFlightField(target.leg, 'departureTime', dateToHm(selected)); break;
+      case 'flight-arr-time': updateFlightField(target.leg, 'arrivalTime', dateToHm(selected)); break;
+      case 'tee-time':        updateTeeTime(target.dayId, target.index, dateToHm(selected)); break;
+      case 'dinner-time':     updateDinner(target.id, { time: dateToHm(selected) }); break;
+      case 'transport-time':
+        if (target.leg === 'custom' && target.customId) updateCustomTransport(target.customId, { pickupTime: dateToHm(selected) });
+        else updateStandardLeg(target.leg, { pickupTime: dateToHm(selected) });
+        break;
+    }
   }
 
   async function save() {
     if (!compId) return;
     setSaving(true);
-    const { error } = await supabase
-      .from('competitions')
-      .update({ info_sections: sections })
-      .eq('id', compId);
+    const { error } = await supabase.from('competitions').update({ info_pack: pack }).eq('id', compId);
     setSaving(false);
     if (error) {
-      Alert.alert('Error', error.message);
+      setConfirm({ title: 'Error', message: error.message, confirmLabel: 'OK', onConfirm: () => setConfirm(null) });
     } else {
-      Alert.alert('Saved', 'Info pack updated.', [{ text: 'OK', onPress: () => goBack(router, backTarget) }]);
+      setConfirm({
+        title: 'Saved', message: 'Info pack updated.', confirmLabel: 'OK',
+        onConfirm: () => { setConfirm(null); goBack(router, backTarget); },
+      });
     }
   }
 
@@ -179,6 +302,18 @@ export default function InfoEditorScreen() {
     );
   }
 
+  const courseNames = Array.from(new Set(rounds.map(r => r.courseName).filter(Boolean))) as string[];
+  const committeeRoster = roster.filter(p => !pack.committee.some(c => c.playerId === p.id));
+  const activeRoom = pack.rooms.find(r => r.id === roomPickerFor);
+  const roomRoster = activeRoom ? roster.filter(p => !activeRoom.playerIds.includes(p.id)) : [];
+  const roomFlags: Record<string, string> = {};
+  if (activeRoom) {
+    pack.rooms.forEach((r, idx) => {
+      if (r.id === activeRoom.id) return;
+      r.playerIds.forEach(pid => { roomFlags[pid] = `Already in Room ${idx + 1}`; });
+    });
+  }
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="light" />
@@ -194,243 +329,302 @@ export default function InfoEditorScreen() {
           <Text style={styles.headerSub}>{compName}</Text>
         </View>
         <View style={styles.headerSide}>
-          <TouchableOpacity
-            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-            onPress={save}
-            disabled={saving}
-            activeOpacity={0.8}
-          >
-            {saving
-              ? <ActivityIndicator color="#000" size="small" />
-              : <Text style={styles.saveBtnText}>Save</Text>
-            }
+          <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={save} disabled={saving} activeOpacity={0.8}>
+            {saving ? <ActivityIndicator color="#000" size="small" /> : <Text style={styles.saveBtnText}>Save</Text>}
           </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {CARDS.map(c => (
+          <View key={c.key} style={sc.container}>
+            <TouchableOpacity style={sc.header} onPress={() => setExpanded(expanded === c.key ? null : c.key)} activeOpacity={0.7}>
+              <Text style={sc.cardTitle}>{c.label}</Text>
+              <Text style={sc.chevron}>{expanded === c.key ? '∨' : '›'}</Text>
+            </TouchableOpacity>
 
-        {sections.length === 0 && (
-          <View style={styles.emptyHint}>
-            <Text style={styles.emptyHintText}>Tap "+ Add Section" to start building the info pack.</Text>
-            <Text style={styles.emptyHintSub}>Add your schedule, flights, hotel details, key contacts and rules.</Text>
+            {expanded === c.key && (
+              <View style={sc.editor}>
+                {c.key === 'travel' && (
+                  <>
+                    {(['outbound', 'return'] as const).map(leg => {
+                      const f = pack.flights[leg];
+                      return (
+                        <View key={leg} style={{ marginBottom: 20 }}>
+                          <FieldLabel>{leg === 'outbound' ? 'OUTBOUND FLIGHT' : 'RETURN FLIGHT'}</FieldLabel>
+                          {(f.departureAirport || f.arrivalAirport) && (
+                            <View style={fl.route}>
+                              <Text style={fl.routeAirport}>{f.departureAirport || '—'}</Text>
+                              <Text style={fl.routeArrow}>↓</Text>
+                              <Text style={fl.routeAirport}>{f.arrivalAirport || '—'}</Text>
+                            </View>
+                          )}
+                          <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <Inp value={f.airline} onChange={v => updateFlightField(leg, 'airline', v)} placeholder="Airline" style={{ flex: 1 }} />
+                            <Inp value={f.flightNumber} onChange={v => updateFlightField(leg, 'flightNumber', v)} placeholder="Flight No." style={{ flex: 1 }} />
+                          </View>
+                          <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+                            <Inp value={f.departureAirport} onChange={v => updateFlightField(leg, 'departureAirport', v)} placeholder="Departure Airport" style={{ flex: 1 }} />
+                            <Inp value={f.arrivalAirport} onChange={v => updateFlightField(leg, 'arrivalAirport', v)} placeholder="Arrival Airport" style={{ flex: 1 }} />
+                          </View>
+                          <View style={{ marginTop: 6 }}>
+                            <FieldLabel>DEPARTURE DATE</FieldLabel>
+                            <PickerField value={f.departureDate} placeholder="DD-MM-YYYY" onPress={() => setActivePicker({ kind: 'flight-date', leg })} />
+                          </View>
+                          <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+                            <View style={{ flex: 1 }}>
+                              <FieldLabel>DEP. TIME</FieldLabel>
+                              <PickerField value={f.departureTime} placeholder="--:--" onPress={() => setActivePicker({ kind: 'flight-dep-time', leg })} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <FieldLabel>ARR. TIME</FieldLabel>
+                              <PickerField value={f.arrivalTime} placeholder="--:--" onPress={() => setActivePicker({ kind: 'flight-arr-time', leg })} />
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </>
+                )}
+
+                {c.key === 'accommodation' && (
+                  <>
+                    <FieldLabel>TOURNAMENT DATES</FieldLabel>
+                    <View style={ro.row}>
+                      <Text style={ro.text}>{startDate ? isoToUk(startDate) : 'Not set'} → {endDate ? isoToUk(endDate) : 'Not set'}</Text>
+                    </View>
+                    <Text style={ro.hint}>Inherited from the Tournament Builder.</Text>
+
+                    <FieldLabel>GOLF COURSES</FieldLabel>
+                    {courseNames.length === 0 && <Text style={ro.hint}>No courses set yet in the Builder.</Text>}
+                    {courseNames.map(name => (
+                      <View key={name} style={ro.row}><Text style={ro.text}>{name}</Text></View>
+                    ))}
+
+                    <FieldLabel>HOTELS</FieldLabel>
+                    {pack.hotels.map((h, i) => (
+                      <View key={i} style={sc.itemRow}>
+                        <Inp value={h} onChange={v => updateHotel(i, v)} placeholder="Hotel name" style={{ flex: 1 }} />
+                        <TouchableOpacity onPress={() => removeHotel(i)} hitSlop={hit}><Text style={sc.removeItem}>×</Text></TouchableOpacity>
+                      </View>
+                    ))}
+                    <AddItemBtn label="+ Add Hotel" onPress={addHotel} />
+                  </>
+                )}
+
+                {c.key === 'golf' && (
+                  <>
+                    {rounds.length === 0 && <Text style={ro.hint}>No rounds set yet in the Builder.</Text>}
+                    {rounds.map(r => (
+                      <View key={r.id} style={{ marginBottom: 16 }}>
+                        <FieldLabel>ROUND {r.dayNumber}{r.courseName ? ` · ${r.courseName}` : ''}</FieldLabel>
+                        {(pack.teeTimes[r.id] ?? []).map((t, i) => (
+                          <View key={i} style={sc.itemRow}>
+                            <TouchableOpacity style={[sc.input, sc.timeField]} onPress={() => setActivePicker({ kind: 'tee-time', dayId: r.id, index: i })} activeOpacity={0.8}>
+                              <Text style={{ fontFamily: FF, fontSize: 13, color: '#fff' }}>{t}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => removeTeeTime(r.id, i)} hitSlop={hit}><Text style={sc.removeItem}>×</Text></TouchableOpacity>
+                          </View>
+                        ))}
+                        <AddItemBtn label="+ Add Tee Time" onPress={() => addTeeTime(r.id)} />
+                      </View>
+                    ))}
+                  </>
+                )}
+
+                {c.key === 'committee' && (
+                  <>
+                    {pack.committee.map(entry => {
+                      const player = roster.find(p => p.id === entry.playerId);
+                      return (
+                        <View key={entry.id} style={cm.card}>
+                          <View style={cm.rowHeader}>
+                            <Text style={cm.name}>{player?.name ?? 'Unknown player'}</Text>
+                            <TouchableOpacity onPress={() => removeCommitteeMember(entry.id)} hitSlop={hit}><Text style={sc.removeItem}>×</Text></TouchableOpacity>
+                          </View>
+                          <View style={cm.chips}>
+                            {COMMITTEE_TRIP_ROLES.map(r => (
+                              <TouchableOpacity key={r} style={[cm.chip, entry.role === r && cm.chipOn]} onPress={() => updateCommitteeRole(entry.id, r)} activeOpacity={0.8}>
+                                <Text style={[cm.chipText, entry.role === r && cm.chipTextOn]}>{r}</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                          <Inp value={entry.role} onChange={v => updateCommitteeRole(entry.id, v)} placeholder="Or type a custom role…" small />
+                        </View>
+                      );
+                    })}
+                    <AddItemBtn label="+ Add Committee Member" onPress={() => setCommitteePickerOpen(true)} />
+                  </>
+                )}
+
+                {c.key === 'dinner' && (
+                  <>
+                    {pack.dinners.map(d => (
+                      <View key={d.id} style={cm.card}>
+                        <View style={cm.rowHeader}>
+                          <Inp value={d.day} onChange={v => updateDinner(d.id, { day: v })} placeholder="e.g. Wednesday" style={{ flex: 1 }} />
+                          <TouchableOpacity onPress={() => removeDinner(d.id)} hitSlop={hit}><Text style={sc.removeItem}>×</Text></TouchableOpacity>
+                        </View>
+                        <FieldLabel>RESTAURANT</FieldLabel>
+                        <Inp value={d.restaurant} onChange={v => updateDinner(d.id, { restaurant: v })} placeholder="Restaurant name" />
+                        <FieldLabel>TIME</FieldLabel>
+                        <PickerField value={d.time} placeholder="--:--" onPress={() => setActivePicker({ kind: 'dinner-time', id: d.id })} />
+                        <FieldLabel>DRESS CODE</FieldLabel>
+                        <Inp value={d.dressCode} onChange={v => updateDinner(d.id, { dressCode: v })} placeholder="e.g. Smart Casual" />
+                        <FieldLabel>NOTES</FieldLabel>
+                        <Inp value={d.notes} onChange={v => updateDinner(d.id, { notes: v })} placeholder="Optional notes" multiline />
+                      </View>
+                    ))}
+                    <AddItemBtn label="+ Add Dinner" onPress={addDinner} />
+                  </>
+                )}
+
+                {c.key === 'rooms' && (
+                  <>
+                    {pack.rooms.map((r, idx) => (
+                      <View key={r.id} style={cm.card}>
+                        <View style={cm.rowHeader}>
+                          <Text style={cm.name}>Room {idx + 1}</Text>
+                          <TouchableOpacity onPress={() => removeRoom(r.id)} hitSlop={hit}><Text style={sc.removeItem}>×</Text></TouchableOpacity>
+                        </View>
+                        <View style={cm.chips}>
+                          {r.playerIds.map(pid => {
+                            const player = roster.find(p => p.id === pid);
+                            return (
+                              <View key={pid} style={cm.playerChip}>
+                                <Text style={cm.playerChipText}>{player?.name ?? '?'}</Text>
+                                <TouchableOpacity onPress={() => removePlayerFromRoom(r.id, pid)} hitSlop={hit}>
+                                  <Text style={cm.playerChipRemove}>×</Text>
+                                </TouchableOpacity>
+                              </View>
+                            );
+                          })}
+                        </View>
+                        <AddItemBtn label="+ Add Player" onPress={() => setRoomPickerFor(r.id)} />
+                      </View>
+                    ))}
+                    <AddItemBtn label="+ Add Room" onPress={addRoom} />
+                  </>
+                )}
+
+                {c.key === 'transport' && (
+                  <>
+                    {STANDARD_LEGS.map(leg => {
+                      const entry = pack.transport.find(t => t.leg === leg.id);
+                      return (
+                        <View key={leg.id} style={cm.card}>
+                          <FieldLabel>{leg.label.toUpperCase()}</FieldLabel>
+                          <Text style={ro.hint}>PICKUP TIME</Text>
+                          <PickerField value={entry?.pickupTime ?? ''} placeholder="--:--" onPress={() => setActivePicker({ kind: 'transport-time', leg: leg.id })} />
+                          {leg.hasLocation && (
+                            <>
+                              <FieldLabel>PICKUP LOCATION</FieldLabel>
+                              <Inp value={entry?.pickupLocation ?? ''} onChange={v => updateStandardLeg(leg.id, { pickupLocation: v })} placeholder="Pickup location" />
+                            </>
+                          )}
+                          {leg.hasProvider && (
+                            <>
+                              <FieldLabel>TRANSPORT PROVIDER</FieldLabel>
+                              <Inp value={entry?.provider ?? ''} onChange={v => updateStandardLeg(leg.id, { provider: v })} placeholder="Provider name" />
+                            </>
+                          )}
+                          <FieldLabel>NOTES</FieldLabel>
+                          <Inp value={entry?.notes ?? ''} onChange={v => updateStandardLeg(leg.id, { notes: v })} placeholder="Optional notes" multiline small />
+                        </View>
+                      );
+                    })}
+
+                    {pack.transport.filter(t => t.leg === 'custom').map(t => (
+                      <View key={t.id} style={cm.card}>
+                        <View style={cm.rowHeader}>
+                          <Inp value={t.label ?? ''} onChange={v => updateCustomTransport(t.id, { label: v })} placeholder="e.g. Course transfer" style={{ flex: 1 }} />
+                          <TouchableOpacity onPress={() => removeCustomTransport(t.id)} hitSlop={hit}><Text style={sc.removeItem}>×</Text></TouchableOpacity>
+                        </View>
+                        <FieldLabel>PICKUP TIME</FieldLabel>
+                        <PickerField value={t.pickupTime} placeholder="--:--" onPress={() => setActivePicker({ kind: 'transport-time', leg: 'custom', customId: t.id })} />
+                        <FieldLabel>PICKUP LOCATION</FieldLabel>
+                        <Inp value={t.pickupLocation ?? ''} onChange={v => updateCustomTransport(t.id, { pickupLocation: v })} placeholder="Pickup location" />
+                        <FieldLabel>TRANSPORT PROVIDER</FieldLabel>
+                        <Inp value={t.provider ?? ''} onChange={v => updateCustomTransport(t.id, { provider: v })} placeholder="Provider name" />
+                        <FieldLabel>NOTES</FieldLabel>
+                        <Inp value={t.notes} onChange={v => updateCustomTransport(t.id, { notes: v })} placeholder="Optional notes" multiline small />
+                      </View>
+                    ))}
+                    <AddItemBtn label="+ Add Transport" onPress={addCustomTransport} />
+                  </>
+                )}
+
+                {c.key === 'general' && (
+                  <Inp value={pack.generalInfo} onChange={v => updatePack({ generalInfo: v })} placeholder="Anything else the group needs to know…" multiline />
+                )}
+              </View>
+            )}
           </View>
-        )}
-
-        {sections.map((section, idx) => (
-          <SectionCard
-            key={section.id}
-            section={section}
-            expanded={expandedId === section.id}
-            isFirst={idx === 0}
-            isLast={idx === sections.length - 1}
-            onToggle={() => setExpandedId(expandedId === section.id ? null : section.id)}
-            onUpdate={patch => update(section.id, patch)}
-            onRemove={() => remove(section.id)}
-            onMoveUp={() => move(section.id, 'up')}
-            onMoveDown={() => move(section.id, 'down')}
-            onAddItem={() => addItem(section.id)}
-            onRemoveItem={i => removeItem(section.id, i)}
-            onUpdateItem={(i, patch) => updateItem(section.id, i, patch)}
-          />
         ))}
-
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => setShowPicker(true)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.addBtnText}>+ Add Section</Text>
-        </TouchableOpacity>
-
       </ScrollView>
 
-      {/* Type picker overlay */}
-      {showPicker && (
-        <View style={styles.pickerOverlay}>
-          <TouchableOpacity style={styles.pickerBackdrop} onPress={() => setShowPicker(false)} activeOpacity={1} />
-          <View style={styles.pickerSheet}>
-            <Text style={styles.pickerTitle}>Add Section</Text>
-            {SECTION_TYPES.map(t => (
-              <TouchableOpacity
-                key={t.id}
-                style={styles.pickerRow}
-                onPress={() => addSection(t.id)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.pickerLabel}>{t.label}</Text>
-                <Text style={styles.pickerSub}>{t.sub}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.pickerCancel} onPress={() => setShowPicker(false)} activeOpacity={0.7}>
-              <Text style={styles.pickerCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+      {activePicker && (
+        <DateTimePicker
+          value={pickerValue(activePicker)}
+          mode={pickerMode(activePicker)}
+          display={Platform.OS === 'ios' ? (pickerMode(activePicker) === 'date' ? 'inline' : 'spinner') : 'default'}
+          onChange={(_event, selected) => {
+            const target = activePicker;
+            setActivePicker(null);
+            if (selected && target) applyPickerValue(target, selected);
+          }}
+        />
+      )}
+
+      <PlayerSelectorSheet
+        visible={committeePickerOpen}
+        title="ADD COMMITTEE MEMBER"
+        players={committeeRoster.map(p => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl }))}
+        onSelect={addCommitteeMember}
+        onClose={() => setCommitteePickerOpen(false)}
+      />
+
+      <PlayerSelectorSheet
+        visible={roomPickerFor !== null}
+        title="ADD PLAYER TO ROOM"
+        players={roomRoster.map(p => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl }))}
+        flagLabels={roomFlags}
+        onSelect={handleRoomPlayerSelect}
+        onClose={() => setRoomPickerFor(null)}
+      />
+
+      {confirm && (
+        <ConfirmDialog
+          visible
+          title={confirm.title}
+          message={confirm.message}
+          confirmLabel={confirm.confirmLabel}
+          destructive={confirm.destructive}
+          onConfirm={confirm.onConfirm}
+          onCancel={() => setConfirm(null)}
+        />
       )}
     </KeyboardAvoidingView>
   );
 }
 
-// ── Section card ──────────────────────────────────────────────
-interface SectionCardProps {
-  section: InfoSection;
-  expanded: boolean;
-  isFirst: boolean;
-  isLast: boolean;
-  onToggle: () => void;
-  onUpdate: (patch: Partial<InfoSection>) => void;
-  onRemove: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  onAddItem: () => void;
-  onRemoveItem: (i: number) => void;
-  onUpdateItem: (i: number, patch: any) => void;
-}
-
-function SectionCard(p: SectionCardProps) {
-  const { section, expanded, isFirst, isLast } = p;
-  const typeLabel = SECTION_TYPES.find(t => t.id === section.type)?.label ?? section.type;
-
-  return (
-    <View style={sc.container}>
-      {/* Header row */}
-      <TouchableOpacity style={sc.header} onPress={p.onToggle} activeOpacity={0.7}>
-        <View style={sc.headerLeft}>
-          <View style={sc.typeBadge}>
-            <Text style={sc.typeLabel}>{typeLabel.toUpperCase()}</Text>
-          </View>
-          <Text style={sc.sectionTitle} numberOfLines={1}>
-            {section.title || 'Untitled'}
-          </Text>
-        </View>
-        <View style={sc.headerRight}>
-          <TouchableOpacity onPress={p.onMoveUp} disabled={isFirst} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={[sc.arrow, isFirst && sc.arrowOff]}>↑</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={p.onMoveDown} disabled={isLast} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={[sc.arrow, isLast && sc.arrowOff]}>↓</Text>
-          </TouchableOpacity>
-          <Text style={sc.chevron}>{expanded ? '∨' : '›'}</Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* Editor (expanded) */}
-      {expanded && (
-        <View style={sc.editor}>
-          <FieldLabel>TITLE</FieldLabel>
-          <Inp value={section.title} onChange={v => p.onUpdate({ title: v } as any)} placeholder="Section heading" />
-
-          {section.type === 'text' && (
-            <>
-              <FieldLabel>CONTENT</FieldLabel>
-              <Inp value={section.content} onChange={v => p.onUpdate({ content: v } as any)} placeholder="Enter text..." multiline />
-            </>
-          )}
-
-          {section.type === 'schedule' && (
-            <>
-              <FieldLabel>TIME SLOTS</FieldLabel>
-              {section.items.map((item, i) => (
-                <View key={i} style={sc.itemRow}>
-                  <Inp value={item.time} onChange={v => p.onUpdateItem(i, { time: v })} placeholder="09:00" style={sc.timeField} />
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Inp value={item.label} onChange={v => p.onUpdateItem(i, { label: v })} placeholder="Event" />
-                    <Inp value={item.note ?? ''} onChange={v => p.onUpdateItem(i, { note: v })} placeholder="Note (optional)" small />
-                  </View>
-                  <TouchableOpacity onPress={() => p.onRemoveItem(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={sc.removeItem}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-              <AddItemBtn label="+ Add time slot" onPress={p.onAddItem} />
-            </>
-          )}
-
-          {section.type === 'travel' && (
-            <>
-              <FieldLabel>FLIGHTS / TRANSFERS</FieldLabel>
-              {section.items.map((item, i) => (
-                <View key={i} style={sc.itemRow}>
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Inp value={item.label} onChange={v => p.onUpdateItem(i, { label: v })} placeholder="e.g. Luton → Faro" />
-                    <Inp value={item.detail} onChange={v => p.onUpdateItem(i, { detail: v })} placeholder="Flight no · times" small />
-                  </View>
-                  <TouchableOpacity onPress={() => p.onRemoveItem(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={sc.removeItem}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-              <AddItemBtn label="+ Add flight / transfer" onPress={p.onAddItem} />
-            </>
-          )}
-
-          {section.type === 'location' && (
-            <>
-              <FieldLabel>VENUE NAME</FieldLabel>
-              <Inp value={section.name} onChange={v => p.onUpdate({ name: v } as any)} placeholder="Hotel or venue name" />
-              <FieldLabel>ADDRESS</FieldLabel>
-              <Inp value={section.address ?? ''} onChange={v => p.onUpdate({ address: v } as any)} placeholder="Full address" />
-              <FieldLabel>PHONE</FieldLabel>
-              <Inp value={section.phone ?? ''} onChange={v => p.onUpdate({ phone: v } as any)} placeholder="+351 282..." keyboardType="phone-pad" />
-              <FieldLabel>NOTES</FieldLabel>
-              <Inp value={section.notes ?? ''} onChange={v => p.onUpdate({ notes: v } as any)} placeholder="Check-in times, access info..." multiline />
-            </>
-          )}
-
-          {section.type === 'contacts' && (
-            <>
-              <FieldLabel>PEOPLE</FieldLabel>
-              {section.items.map((item, i) => (
-                <View key={i} style={sc.itemRow}>
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Inp value={item.name} onChange={v => p.onUpdateItem(i, { name: v })} placeholder="Name" />
-                    <View style={{ flexDirection: 'row', gap: 6 }}>
-                      <Inp value={item.role ?? ''} onChange={v => p.onUpdateItem(i, { role: v })} placeholder="Role" style={{ flex: 1 }} small />
-                      <Inp value={item.phone ?? ''} onChange={v => p.onUpdateItem(i, { phone: v })} placeholder="Phone" style={{ flex: 1 }} small keyboardType="phone-pad" />
-                    </View>
-                  </View>
-                  <TouchableOpacity onPress={() => p.onRemoveItem(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={sc.removeItem}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-              <AddItemBtn label="+ Add person" onPress={p.onAddItem} />
-            </>
-          )}
-
-          {section.type === 'rules' && (
-            <>
-              <FieldLabel>RULES</FieldLabel>
-              {section.items.map((item, i) => (
-                <View key={i} style={sc.itemRow}>
-                  <View style={sc.ruleNum}><Text style={sc.ruleNumText}>{i + 1}</Text></View>
-                  <Inp value={item} onChange={v => p.onUpdateItem(i, v)} placeholder="Rule description" style={{ flex: 1 }} />
-                  <TouchableOpacity onPress={() => p.onRemoveItem(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={sc.removeItem}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-              <AddItemBtn label="+ Add rule" onPress={p.onAddItem} />
-            </>
-          )}
-
-          <TouchableOpacity style={sc.deleteBtn} onPress={p.onRemove} activeOpacity={0.7}>
-            <Text style={sc.deleteBtnText}>Remove Section</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
-  );
-}
+const hit = { top: 8, bottom: 8, left: 8, right: 8 };
 
 // ── Small helpers ─────────────────────────────────────────────
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <Text style={sc.fieldLabel}>{children}</Text>;
 }
 
+function PickerField({ value, placeholder, onPress }: { value: string; placeholder: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={sc.input} onPress={onPress} activeOpacity={0.8}>
+      <Text style={{ fontFamily: FF, fontSize: 13, color: value ? '#fff' : '#444' }}>{value || placeholder}</Text>
+    </TouchableOpacity>
+  );
+}
+
 function Inp({
-  value, onChange, placeholder, multiline, small, style, keyboardType,
+  value, onChange, placeholder, multiline, small, style,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -438,7 +632,6 @@ function Inp({
   multiline?: boolean;
   small?: boolean;
   style?: any;
-  keyboardType?: any;
 }) {
   return (
     <TextInput
@@ -448,7 +641,6 @@ function Inp({
       placeholder={placeholder}
       placeholderTextColor="#444"
       multiline={multiline}
-      keyboardType={keyboardType}
       autoCapitalize="sentences"
     />
   );
@@ -488,34 +680,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: { fontSize: 13, fontFamily: FFB, color: '#000' },
 
-  scroll:       { padding: 16, paddingBottom: 48 },
-
-  emptyHint:    { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24 },
-  emptyHintText: { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 8, textAlign: 'center' },
-  emptyHintSub: { fontSize: 13, fontFamily: FFB, color: '#444', textAlign: 'center', lineHeight: 20 },
-
-  addBtn: {
-    borderWidth: 1, borderColor: '#2a2a2a', borderStyle: 'dashed',
-    borderRadius: 14, paddingVertical: 14,
-    alignItems: 'center', marginTop: 8,
-  },
-  addBtnText: { fontSize: 13, fontFamily: FFB, color: '#fff' },
-
-  pickerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end' },
-  pickerBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },
-  pickerSheet: {
-    backgroundColor: '#111', borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: '#1c1c1c',
-  },
-  pickerTitle: { fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 16 },
-  pickerRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
-  },
-  pickerLabel:      { fontSize: 15, fontFamily: FFB, color: '#fff' },
-  pickerSub:        { fontSize: 11, fontFamily: FFB, color: '#fff' },
-  pickerCancel:     { alignItems: 'center', marginTop: 16 },
-  pickerCancelText: { fontSize: 13, fontFamily: FFB, color: '#fff' },
+  scroll: { padding: 16, paddingBottom: 48 },
 });
 
 const sc = StyleSheet.create({
@@ -527,19 +692,8 @@ const sc = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: 14,
   },
-  headerLeft:  { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-
-  typeBadge: {
-    backgroundColor: 'rgba(212,175,55,0.12)', borderRadius: 6,
-    paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)',
-  },
-  typeLabel:    { fontSize: 9, fontFamily: FFB, color: GOLD, letterSpacing: 1 },
-  sectionTitle: { flex: 1, fontSize: 13, fontFamily: FFB, color: '#fff' },
-
-  arrow:    { fontSize: 15, color: '#fff', fontFamily: FFB, padding: 2 },
-  arrowOff: { color: '#222' },
-  chevron:  { fontSize: 15, color: '#fff', width: 16, textAlign: 'center' },
+  cardTitle: { flex: 1, fontSize: 13, fontFamily: FFB, color: '#fff' },
+  chevron:   { fontSize: 15, color: '#fff', width: 16, textAlign: 'center' },
 
   editor: { padding: 14, paddingTop: 0, borderTopWidth: 1, borderTopColor: '#1c1c1c' },
 
@@ -551,26 +705,55 @@ const sc = StyleSheet.create({
     fontSize: 13, fontFamily: FFB, color: '#fff',
   },
   inputSmall: { paddingVertical: 7, fontSize: 11 },
-  inputMulti: { minHeight: 80, textAlignVertical: 'top' },
+  inputMulti: { minHeight: 60, textAlignVertical: 'top' },
 
-  itemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 6 },
-  timeField: { width: 58 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  timeField: { width: 90 },
 
-  ruleNum: {
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: 'rgba(212,175,55,0.12)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)',
-    alignItems: 'center', justifyContent: 'center', marginTop: 8,
-  },
-  ruleNumText: { fontSize: 10, fontFamily: FFB, color: GOLD },
-
-  removeItem: { fontSize: 20, color: '#fff', lineHeight: 22, paddingTop: 8 },
+  removeItem: { fontSize: 20, color: '#fff', lineHeight: 22, paddingHorizontal: 4 },
 
   addItemBtn: {
     marginTop: 6, paddingVertical: 8, alignItems: 'center',
     borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 12, borderStyle: 'dashed',
   },
   addItemBtnText: { fontSize: 11, fontFamily: FFB, color: '#fff' },
+});
 
-  deleteBtn:     { marginTop: 20, paddingVertical: 10, alignItems: 'center' },
-  deleteBtnText: { fontSize: 11, fontFamily: FFB, color: RED, letterSpacing: 0.5 },
+const ro = StyleSheet.create({
+  row:  { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
+  text: { fontSize: 13, fontFamily: FFB, color: '#fff' },
+  hint: { fontSize: 10, fontFamily: FF, color: '#555', marginTop: 4, marginBottom: 4 },
+});
+
+const fl = StyleSheet.create({
+  route: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginBottom: 10, paddingVertical: 8,
+  },
+  routeAirport: { fontSize: 13, fontFamily: FFB, color: GOLD, flex: 1 },
+  routeArrow:   { fontSize: 14, color: '#fff' },
+});
+
+const cm = StyleSheet.create({
+  card: {
+    backgroundColor: '#0a0a0a', borderWidth: 1, borderColor: '#1c1c1c',
+    borderRadius: 12, padding: 12, marginBottom: 10,
+  },
+  rowHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  name: { flex: 1, fontSize: 13, fontFamily: FFB, color: '#fff' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
+  chip: {
+    borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 6,
+  },
+  chipOn:      { backgroundColor: 'rgba(212,175,55,0.12)', borderColor: GOLD },
+  chipText:    { fontSize: 11, fontFamily: FFB, color: '#888' },
+  chipTextOn:  { color: GOLD },
+  playerChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(212,175,55,0.12)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)',
+    borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
+  },
+  playerChipText:   { fontSize: 12, fontFamily: FFB, color: GOLD },
+  playerChipRemove: { fontSize: 14, fontFamily: FFB, color: GOLD, paddingHorizontal: 2 },
 });

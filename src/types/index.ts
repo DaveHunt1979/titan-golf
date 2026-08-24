@@ -40,7 +40,10 @@ export interface Competition {
   format: string;
   status: 'draft' | 'active' | 'complete';
   settings: Json;
-  info_sections: Json[];
+  info_sections: Json[]; // superseded by info_pack (Rick's brief, section 5) — left unused, not dropped
+  info_pack: Json;
+  start_date: string | null;
+  end_date: string | null;
   include_in_kronos: boolean;
   pin: string | null;
   tournament_type: 'casual' | 'ryder_cup' | 'titan_tour';

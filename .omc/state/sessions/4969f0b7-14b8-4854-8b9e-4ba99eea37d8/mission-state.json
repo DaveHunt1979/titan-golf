@@ -1,0 +1,95 @@
+{
+  "updatedAt": "2026-08-24T07:37:25.629Z",
+  "missions": [
+    {
+      "id": "session:4969f0b7-14b8-4854-8b9e-4ba99eea37d8:none",
+      "source": "session",
+      "name": "none",
+      "objective": "Session mission",
+      "createdAt": "2026-08-24T06:46:05.245Z",
+      "updatedAt": "2026-08-24T07:37:25.629Z",
+      "status": "running",
+      "workerCount": 2,
+      "taskCounts": {
+        "total": 2,
+        "pending": 0,
+        "blocked": 0,
+        "inProgress": 1,
+        "completed": 1,
+        "failed": 0
+      },
+      "agents": [
+        {
+          "name": "info-pack-research:ainfo-p",
+          "role": "info-pack-research",
+          "ownership": "ainfo-pack-research-9fdf2e7f0503eada",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T07:37:25.629Z"
+        },
+        {
+          "name": "info-pack-plan:ainfo-p",
+          "role": "info-pack-plan",
+          "ownership": "ainfo-pack-plan-503aecb5e1a2d288",
+          "status": "running",
+          "currentStep": null,
+          "latestUpdate": null,
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T07:06:30.309Z"
+        }
+      ],
+      "timeline": [
+        {
+          "id": "session-stop:ainfo-pack-research-9fdf2e7f0503eada:2026-08-24T06:51:50.568Z",
+          "at": "2026-08-24T06:51:50.568Z",
+          "kind": "completion",
+          "agent": "info-pack-research:ainfo-p",
+          "detail": "completed",
+          "sourceKey": "session-stop:ainfo-pack-research-9fdf2e7f0503eada"
+        },
+        {
+          "id": "session-start:ainfo-pack-research-9fdf2e7f0503eada:2026-08-24T06:52:00.795Z",
+          "at": "2026-08-24T06:52:00.795Z",
+          "kind": "update",
+          "agent": "info-pack-research:ainfo-p",
+          "detail": "started info-pack-research:ainfo-p",
+          "sourceKey": "session-start:ainfo-pack-research-9fdf2e7f0503eada"
+        },
+        {
+          "id": "session-start:ainfo-pack-plan-503aecb5e1a2d288:2026-08-24T07:06:30.309Z",
+          "at": "2026-08-24T07:06:30.309Z",
+          "kind": "update",
+          "agent": "info-pack-plan:ainfo-p",
+          "detail": "started info-pack-plan:ainfo-p",
+          "sourceKey": "session-start:ainfo-pack-plan-503aecb5e1a2d288"
+        },
+        {
+          "id": "session-stop:a5ebcc22c990f772b:2026-08-24T07:33:44.289Z",
+          "at": "2026-08-24T07:33:44.289Z",
+          "kind": "completion",
+          "agent": "info-pack-research:ainfo-p",
+          "detail": "completed",
+          "sourceKey": "session-stop:a5ebcc22c990f772b"
+        },
+        {
+          "id": "session-stop:a885544616a393245:2026-08-24T07:36:45.706Z",
+          "at": "2026-08-24T07:36:45.706Z",
+          "kind": "completion",
+          "agent": "info-pack-research:ainfo-p",
+          "detail": "completed",
+          "sourceKey": "session-stop:a885544616a393245"
+        },
+        {
+          "id": "session-stop:a69f5a0a72db3353e:2026-08-24T07:37:25.629Z",
+          "at": "2026-08-24T07:37:25.629Z",
+          "kind": "completion",
+          "agent": "info-pack-research:ainfo-p",
+          "detail": "completed",
+          "sourceKey": "session-stop:a69f5a0a72db3353e"
+        }
+      ]
+    }
+  ]
+}
