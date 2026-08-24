@@ -1,0 +1,203 @@
+{
+  "updatedAt": "2026-08-24T04:50:24.896Z",
+  "missions": [
+    {
+      "id": "session:756994c5-05fc-4861-836a-179ecb43a9d1:none",
+      "source": "session",
+      "name": "none",
+      "objective": "Session mission",
+      "createdAt": "2026-08-22T05:41:20.721Z",
+      "updatedAt": "2026-08-24T04:50:24.896Z",
+      "status": "done",
+      "workerCount": 12,
+      "taskCounts": {
+        "total": 12,
+        "pending": 0,
+        "blocked": 0,
+        "inProgress": 0,
+        "completed": 12,
+        "failed": 0
+      },
+      "agents": [
+        {
+          "name": "Explore:a52ef6b",
+          "role": "Explore",
+          "ownership": "a52ef6b77c5f8749c",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T04:45:38.240Z"
+        },
+        {
+          "name": "Explore:ac6e0bc",
+          "role": "Explore",
+          "ownership": "ac6e0bc21becdf607",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-22T06:16:12.854Z"
+        },
+        {
+          "name": "scoring-engine-map:ascorin",
+          "role": "scoring-engine-map",
+          "ownership": "ascoring-engine-map-f3a26929819f96a0",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-23T06:40:14.190Z"
+        },
+        {
+          "name": "scoring-duplication-audit:ascorin",
+          "role": "scoring-duplication-audit",
+          "ownership": "ascoring-duplication-audit-82c0c0613b2118f7",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-23T06:41:20.244Z"
+        },
+        {
+          "name": "leaderboard-flow-audit:aleader",
+          "role": "leaderboard-flow-audit",
+          "ownership": "aleaderboard-flow-audit-6198fe8b330c8612",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "Marked as stale during unmatched stop reconciliation - exceed...",
+          "completedSummary": "Marked as stale during unmatched stop reconciliation - exceed...",
+          "updatedAt": "2026-08-23T05:51:32.999Z"
+        },
+        {
+          "name": "persistence-restart-audit:apersis",
+          "role": "persistence-restart-audit",
+          "ownership": "apersistence-restart-audit-043e1d28c02247db",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-23T06:40:18.846Z"
+        },
+        {
+          "name": "Explore:a493459",
+          "role": "Explore",
+          "ownership": "a493459768e03fa93",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "Marked as stale during unmatched stop reconciliation - exceed...",
+          "completedSummary": "Marked as stale during unmatched stop reconciliation - exceed...",
+          "updatedAt": "2026-08-23T05:52:53.979Z"
+        },
+        {
+          "name": "Explore:af7f5cb",
+          "role": "Explore",
+          "ownership": "af7f5cb9d3bbd7098",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "Marked as stale during unmatched stop reconciliation - exceed...",
+          "completedSummary": "Marked as stale during unmatched stop reconciliation - exceed...",
+          "updatedAt": "2026-08-24T03:50:17.578Z"
+        },
+        {
+          "name": "builder-flow-audit:abuilde",
+          "role": "builder-flow-audit",
+          "ownership": "abuilder-flow-audit-262b76e154ae26bc",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T04:46:13.669Z"
+        },
+        {
+          "name": "captain-rotation-audit:acaptai",
+          "role": "captain-rotation-audit",
+          "ownership": "acaptain-rotation-audit-155fc6d98c59c809",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T04:46:24.401Z"
+        },
+        {
+          "name": "kronos-sweepbonus-audit:akronos",
+          "role": "kronos-sweepbonus-audit",
+          "ownership": "akronos-sweepbonus-audit-d8330e1f086e6b2c",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T04:46:38.945Z"
+        },
+        {
+          "name": "live-tournament-gamegen-audit:alive-t",
+          "role": "live-tournament-gamegen-audit",
+          "ownership": "alive-tournament-gamegen-audit-c258ca3606ead972",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T04:50:24.896Z"
+        }
+      ],
+      "timeline": [
+        {
+          "id": "session-stop:aa461b9396d2b0e6a:2026-08-24T04:45:38.240Z",
+          "at": "2026-08-24T04:45:38.240Z",
+          "kind": "completion",
+          "agent": "Explore:a52ef6b",
+          "detail": "completed",
+          "sourceKey": "session-stop:aa461b9396d2b0e6a"
+        },
+        {
+          "id": "session-stop:alive-tournament-gamegen-audit-c258ca3606ead972:2026-08-24T04:45:52.214Z",
+          "at": "2026-08-24T04:45:52.214Z",
+          "kind": "completion",
+          "agent": "live-tournament-gamegen-audit:alive-t",
+          "detail": "completed",
+          "sourceKey": "session-stop:alive-tournament-gamegen-audit-c258ca3606ead972"
+        },
+        {
+          "id": "session-start:alive-tournament-gamegen-audit-c258ca3606ead972:2026-08-24T04:45:56.950Z",
+          "at": "2026-08-24T04:45:56.950Z",
+          "kind": "update",
+          "agent": "live-tournament-gamegen-audit:alive-t",
+          "detail": "started live-tournament-gamegen-audit:alive-t",
+          "sourceKey": "session-start:alive-tournament-gamegen-audit-c258ca3606ead972"
+        },
+        {
+          "id": "session-stop:abuilder-flow-audit-262b76e154ae26bc:2026-08-24T04:46:13.669Z",
+          "at": "2026-08-24T04:46:13.669Z",
+          "kind": "completion",
+          "agent": "builder-flow-audit:abuilde",
+          "detail": "completed",
+          "sourceKey": "session-stop:abuilder-flow-audit-262b76e154ae26bc"
+        },
+        {
+          "id": "session-stop:acaptain-rotation-audit-155fc6d98c59c809:2026-08-24T04:46:24.401Z",
+          "at": "2026-08-24T04:46:24.401Z",
+          "kind": "completion",
+          "agent": "captain-rotation-audit:acaptai",
+          "detail": "completed",
+          "sourceKey": "session-stop:acaptain-rotation-audit-155fc6d98c59c809"
+        },
+        {
+          "id": "session-stop:akronos-sweepbonus-audit-d8330e1f086e6b2c:2026-08-24T04:46:38.945Z",
+          "at": "2026-08-24T04:46:38.945Z",
+          "kind": "completion",
+          "agent": "kronos-sweepbonus-audit:akronos",
+          "detail": "completed",
+          "sourceKey": "session-stop:akronos-sweepbonus-audit-d8330e1f086e6b2c"
+        },
+        {
+          "id": "session-stop:alive-tournament-gamegen-audit-c258ca3606ead972:2026-08-24T04:50:24.896Z",
+          "at": "2026-08-24T04:50:24.896Z",
+          "kind": "completion",
+          "agent": "live-tournament-gamegen-audit:alive-t",
+          "detail": "completed",
+          "sourceKey": "session-stop:alive-tournament-gamegen-audit-c258ca3606ead972"
+        }
+      ]
+    }
+  ]
+}

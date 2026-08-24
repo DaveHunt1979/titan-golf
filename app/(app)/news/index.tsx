@@ -9,6 +9,7 @@ import { useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
 import { titanLogo } from '../../../src/lib/assets';
 import { speakerName, speakerPortrait, sceneImage, type BanterSpeaker } from '../../../src/lib/titanBanter';
+import { articleLabel } from '../../../src/lib/titanNews';
 
 // Must match the key the Home screen's Titan News badge reads in app/(app)/index.tsx.
 const NEWS_READ_KEY = 'titan_news_last_read';
@@ -28,11 +29,10 @@ const BORDER = '#1c1c1c';
 const TEXT = '#fff';
 const MUTED = '#9ca3af';
 
-const STORY_LABEL: Record<string, string> = { preview: 'Preview', round_report: 'Round Report', final_report: 'Final Report', casual_final: 'Match Report' };
-
 type Article = {
   id: string; story_type: string; headline: string | null; summary: string | null; body: string | null;
-  created_at: string; competitions?: { name: string } | null;
+  created_at: string; day_id: string | null; competitions?: { name: string } | null;
+  competition_days?: { day_number: number } | null;
   banter_speaker: BanterSpeaker | null; banter_text: string | null; banter_scene: string | null;
 };
 
@@ -56,7 +56,7 @@ export default function TitanNewsScreen() {
     // left-join embed can't be used to narrow the top-level rows) — only
     // needed for the global view, which scopes to the currently active
     // society rather than every society this player belongs to.
-    const cols = 'id, story_type, headline, summary, body, created_at, banter_speaker, banter_text, banter_scene';
+    const cols = 'id, story_type, headline, summary, body, created_at, day_id, banter_speaker, banter_text, banter_scene, competition_days(day_number)';
     let query = matchId
       ? supabase.from('titan_news')
           .select(cols)
@@ -137,7 +137,7 @@ export default function TitanNewsScreen() {
                 activeOpacity={0.85}
               >
                 <Text style={[s.cardType, { color: GOLD }]}>
-                  {STORY_LABEL[a.story_type] ?? a.story_type}{!competitionId && a.competitions ? ` · ${a.competitions.name}` : ''}
+                  {articleLabel(a.story_type, a.competition_days?.day_number ?? null, a.competitions?.name ?? null)}
                 </Text>
                 <Text style={[s.headline, { color: TEXT }]}>{a.headline}</Text>
                 <Text style={[s.summary, { color: MUTED }]} numberOfLines={isOpen ? undefined : 2}>{a.summary}</Text>

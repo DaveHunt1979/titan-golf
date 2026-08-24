@@ -187,6 +187,26 @@ function dayMatchSummaries(core: Core, dayId: string) {
   }));
 }
 
+// Deterministic stage label — same "Titan calculates, AI only writes" split as the
+// snapshot builders above. Which stage a report belongs to is a fact Titan already
+// knows (story_type + round number), so it's never left to the AI's freeform headline
+// (Rick's brief, 2026-08-22 — "the user should immediately know which round the
+// article relates to", not a generic "Round Preview"/"Round Report").
+export function stageLabel(storyType: string, dayNumber: number | null): string {
+  switch (storyType) {
+    case 'preview':       return dayNumber ? `Round ${dayNumber} Preview` : 'Tournament Preview';
+    case 'round_report':  return dayNumber ? `Round ${dayNumber} Report` : 'Round Report';
+    case 'final_report':  return 'Final Tournament Report';
+    case 'casual_final':  return 'Match Report';
+    default:               return storyType;
+  }
+}
+
+export function articleLabel(storyType: string, dayNumber: number | null, tournamentName: string | null | undefined): string {
+  const stage = stageLabel(storyType, dayNumber);
+  return tournamentName ? `${tournamentName} — ${stage}` : stage;
+}
+
 function tournamentInfo(core: Core, currentDay: any | null) {
   return {
     tournamentName: core.competition.name,

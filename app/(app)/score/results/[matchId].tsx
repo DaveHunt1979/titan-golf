@@ -57,6 +57,9 @@ interface MatchRow {
   day: {
     course_name: string;
     tee_date: string;
+    slope_rating: number | null;
+    course_rating: number | null;
+    course_par: number | null;
     competition: { format: string } | null;
   } | null;
 }
@@ -357,7 +360,7 @@ export default function ResultsScreen() {
           hcp_allowance,
           home_team:home_team_id(name, accent_color),
           away_team:away_team_id(name, accent_color),
-          day:day_id(course_name, tee_date, competition:competition_id(format))
+          day:day_id(course_name, tee_date, slope_rating, course_rating, course_par, competition:competition_id(format))
         `)
         .eq('id', matchId)
         .single();
@@ -423,12 +426,18 @@ export default function ResultsScreen() {
 
   const isStableford = match?.round_format === 'stableford';
 
+  // Same formula as score/enter/[matchId].tsx's playerCourseHcp — this screen
+  // used to skip slope/course rating because its query didn't select them,
+  // which meant its net scores could disagree with the live entry screen's
+  // for the same round on any course where slope != 113 or CR != par.
   function getCourseHcp(playerId: string): number {
     const profile = playerMap[playerId];
     const hcpIndex = profile?.handicap_index ?? 0;
     const allowance = match?.hcp_allowance ?? 100;
-    // No slope/course rating available from this query — use raw index rounded
-    const raw = Math.round(hcpIndex);
+    const day = match?.day;
+    const raw = (!day?.slope_rating || !day?.course_rating || !day?.course_par)
+      ? Math.round(hcpIndex)
+      : calcCourseHandicap(hcpIndex, day.slope_rating, day.course_rating, day.course_par);
     return Math.round(raw * (allowance / 100));
   }
 

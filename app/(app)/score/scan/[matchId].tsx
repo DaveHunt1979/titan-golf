@@ -162,10 +162,30 @@ export default function ScanMatchScorecardScreen() {
         .upsert(rows, { onConflict: 'match_id,player_id,hole_number' });
       if (error) throw new Error(error.message);
 
+      // Scanning a full card used to never touch holes_string at all, so any
+      // screen deriving progress from it (entry screen's active hole, tour/
+      // leaderboards, spectator labels) kept reading the round as "0 holes
+      // played" forever, even with every hole scanned in. Build it from
+      // exactly the holes just written, and drop the old upcoming-only guard
+      // — re-scanning an already-started round must still update the match
+      // row, not silently no-op.
+      const scoredHoles  = new Set(filled.map(f => f.hole));
+      const newHolesStr  = Array.from({ length: 18 }, (_, i) => scoredHoles.has(i + 1) ? 'd' : '.').join('');
+      const isComplete   = filled.length >= 18;
+      const isStableford = matchFormat === 'stableford';
+      const parPlayed    = filled.reduce((s, f) => s + parForHole(f.hole), 0);
+      const vsPar        = totalGross - parPlayed;
+      const resultStr    = isStableford
+        ? `${totalPts} pts`
+        : (vsPar === 0 ? 'E' : vsPar > 0 ? `+${vsPar}` : `${vsPar}`);
+
       await supabase.from('matches')
-        .update({ status: 'in_progress' })
-        .eq('id', matchId)
-        .eq('status', 'upcoming');
+        .update({
+          holes_string: newHolesStr,
+          status: isComplete ? 'complete' : 'in_progress',
+          result_str: resultStr,
+        })
+        .eq('id', matchId);
 
       Alert.alert('Submitted!', 'Your scores have been saved.', [
         { text: 'OK', onPress: () => goBack(router, `/(app)/score/${matchId}`) },

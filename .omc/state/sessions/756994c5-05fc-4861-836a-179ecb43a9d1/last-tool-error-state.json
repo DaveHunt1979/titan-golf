@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"/Users/davehunt/Desktop/titan-golf\\\" && for f in \\\"app/(app)/swindle/[gameId].tsx\\\" \\\"app/(app)/swindle/score/[gameId].tsx\\\" \\\"app/(app)/swindle/scan/[gameId].tsx\\\" \\\"app/(app)/swindl...",
+  "error": "Exit code 1\n=== app/(app)/swindle/[gameId].tsx\n8:import { calcStrokesReceived } from '../../../src/lib/scoring';\n=== app/(app)/swindle/score/[gameId].tsx\n11:import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles } from '../../../../src/lib/scoring';\n=== app/(app)/swindle/scan/[gameId].tsx\n11:import { calcStrokesReceived, calcStablefordPoints, calcCourseHandicap } from '../../../../src/lib/scoring';\n=== app/(app)/swindle/create.tsx\n=== app/(app)/admin/swindle.ts...",
+  "timestamp": "2026-08-23T05:50:20.696Z",
+  "retry_count": 1
+}

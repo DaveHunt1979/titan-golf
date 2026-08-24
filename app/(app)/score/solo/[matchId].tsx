@@ -492,9 +492,20 @@ export default function SoloRoundScreen() {
     const scoredHoles = new Set([...savedScores.map(s => s.hole_number), holeToSave]);
     const newHolesStr = Array.from({ length: 18 }, (_, i) => scoredHoles.has(i + 1) ? 'd' : '.').join('');
     const newStatus   = scoredHoles.size >= holesToPlay ? 'complete' : 'in_progress';
+    // totalPts/vsPar (above) sum ALL of savedScores, which still holds the OLD
+    // value for holeToSave when this is an edit, not a first-time save —
+    // adding the new pts/gross on top of that double-counted the hole being
+    // corrected. Exclude it here, then add the new value exactly once.
+    const priorScores = savedScores.filter(h => h.hole_number !== holeToSave);
+    const priorPts    = priorScores.reduce((s, h) => s + h.pts, 0);
+    const priorGross  = priorScores.reduce((s, h) => s + h.gross, 0);
+    const priorPar    = priorScores.reduce((s, h) => {
+      const ch = courseHoles.find(c => c.hole_number === h.hole_number);
+      return s + (ch?.par ?? 0);
+    }, 0);
     const result      = isStableford
-      ? `${totalPts + pts} pts`
-      : formatVsPar(vsPar + gross - safePar);
+      ? `${priorPts + pts} pts`
+      : formatVsPar((priorGross + gross) - (priorPar + safePar));
 
     // ── Update UI immediately (no await before this) ──
     setModalVisible(false);
@@ -665,8 +676,24 @@ export default function SoloRoundScreen() {
     const chars = [...holeChars];
     chars[lastDone - 1] = '.';
     const newHolesStr = chars.join('');
-    await supabase.from('matches').update({ holes_string: newHolesStr, status: 'in_progress' }).eq('id', match.id);
-    setSavedScores(prev => prev.filter(h => h.hole_number !== lastDone));
+    // Undo previously deleted the hole's score but left the stored result_str
+    // untouched — a round showing "38 pts" kept saying "38 pts" forever after
+    // a hole was undone, even though match_holes now summed to 36. Recompute
+    // (or clear, if nothing's left) from the remaining holes instead.
+    const remainingScores = savedScores.filter(h => h.hole_number !== lastDone);
+    const remainingPts    = remainingScores.reduce((s, h) => s + h.pts, 0);
+    const remainingGross  = remainingScores.reduce((s, h) => s + h.gross, 0);
+    const remainingPar    = remainingScores.reduce((s, h) => {
+      const ch = courseHoles.find(c => c.hole_number === h.hole_number);
+      return s + (ch?.par ?? 0);
+    }, 0);
+    const result = remainingScores.length === 0
+      ? null
+      : isStableford
+        ? `${remainingPts} pts`
+        : formatVsPar(remainingGross - remainingPar);
+    await supabase.from('matches').update({ holes_string: newHolesStr, status: 'in_progress', result_str: result }).eq('id', match.id);
+    setSavedScores(remainingScores);
     setMatch({ ...match, holes_string: newHolesStr, status: 'in_progress' });
     setSaving(false);
   }

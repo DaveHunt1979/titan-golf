@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { buildPreviewSnapshot, buildRoundReportSnapshot, buildFinalReportSnapshot } from '../../../src/lib/titanNews';
+import { buildPreviewSnapshot, buildRoundReportSnapshot, buildFinalReportSnapshot, articleLabel } from '../../../src/lib/titanNews';
 import { sendMatchNotification } from '../../../src/lib/notifications';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
 import { goBack } from '../../../src/lib/navigation';
@@ -32,8 +32,6 @@ type Article = {
   status: 'draft' | 'published' | 'rejected'; created_at: string;
 };
 type Entrant = { player_id: string; display_name: string };
-
-const STORY_LABEL: Record<string, string> = { preview: 'Preview', round_report: 'Round Report', final_report: 'Final Report' };
 
 export default function AdminNewsScreen() {
   const router = useRouter();
@@ -334,11 +332,11 @@ export default function AdminNewsScreen() {
         ) : articles.map(a => {
           const isOpen = expanded === a.id;
           const badgeColor = a.status === 'published' ? GREEN : a.status === 'rejected' ? RED : GOLD;
-          const dayNumber = a.day_id ? days.find(d => d.id === a.day_id)?.day_number : null;
+          const dayNumber = a.day_id ? days.find(d => d.id === a.day_id)?.day_number ?? null : null;
           return (
             <TouchableOpacity key={a.id} style={s.articleCard} onPress={() => setExpanded(isOpen ? null : a.id)} activeOpacity={0.85}>
               <View style={s.articleTop}>
-                <Text style={s.articleType}>{STORY_LABEL[a.story_type] ?? a.story_type}{dayNumber ? ` · Round ${dayNumber}` : ''}</Text>
+                <Text style={s.articleType}>{articleLabel(a.story_type, dayNumber, compName)}</Text>
                 <View style={[s.badge, { borderColor: badgeColor, backgroundColor: badgeColor + '1A' }]}>
                   <Text style={[s.badgeText, { color: badgeColor }]}>{a.status.toUpperCase()}</Text>
                 </View>

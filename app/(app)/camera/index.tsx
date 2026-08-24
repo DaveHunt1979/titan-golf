@@ -6,6 +6,7 @@ import {
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { captureRef } from 'react-native-view-shot';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -16,6 +17,13 @@ import { resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 
 const COMPOSE_WIDTH = 1080; // offscreen render width for the branded photo — good enough for social sharing without being wasteful
+
+// A round left mid-play and never explicitly finished stays status='in_progress'
+// forever (no expiry/cleanup exists) — without this cutoff a player with more
+// than one such stale round makes the live-match lookup below ambiguous and it
+// silently comes back empty (Dave, 2026-08-21 era — "apparently we were on
+// hole 15" days later; regressed once already in commit b53eb72).
+const LIVE_MATCH_LOOKBACK_HOURS = 12;
 
 // ── TITAN design tokens ───────────────────────────────────────
 const GOLD  = '#D4AF37';
@@ -39,6 +47,9 @@ interface PlayerInfo {
   playerId: string | null;
   courseName: string | null;
   hole: number | null;
+  competitionId: string | null;
+  dayId: string | null;
+  matchId: string | null;
 }
 
 function formatTime(secs: number): string {
@@ -71,6 +82,7 @@ export default function CameraScreen() {
 
   const [info, setInfo] = useState<PlayerInfo>({
     name: '', avatarUrl: null, playerId: null, courseName: null, hole: null,
+    competitionId: null, dayId: null, matchId: null,
   });
   const [composing, setComposing] = useState<{ uri: string; width: number; height: number } | null>(null);
   const composeRef = useRef<View>(null);
@@ -105,19 +117,35 @@ export default function CameraScreen() {
       // actually in right now — casual or tournament both carry a day_id
       // with the real course, unlike the old "active competition" lookup
       // which only ever matched tournament play and pulled the wrong name.
+      // Recency cutoff + order + limit(1) is required, not cosmetic: a round
+      // left mid-play never flips out of 'in_progress' on its own, so any
+      // player with more than one such stale round makes this match ambiguous
+      // — .maybeSingle() then errors, the error was previously swallowed, and
+      // course/hole silently came back null.
       let courseName: string | null = null;
       let hole: number | null = null;
-      const { data: match } = await supabase
+      let matchId: string | null = null;
+      let dayId: string | null = null;
+      let competitionId: string | null = null;
+      const liveCutoff = new Date(Date.now() - LIVE_MATCH_LOOKBACK_HOURS * 60 * 60 * 1000).toISOString();
+      const { data: match, error: matchErr } = await supabase
         .from('matches')
-        .select('holes_string, holes_to_play, day:day_id(course_name)')
+        .select('id, competition_id, day_id, holes_string, holes_to_play, day:day_id(course_name)')
         .eq('status', 'in_progress')
         .or(`home_player_ids.cs.{${player.id}},away_player_ids.cs.{${player.id}}`)
+        .gte('created_at', liveCutoff)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
+      if (matchErr) console.error('[camera] live match lookup failed', matchErr);
       if (match) {
         courseName = (match as any).day?.course_name ?? null;
         const holesToPlay = (match as any).holes_to_play ?? 18;
         const played = (match.holes_string as string ?? '').split('').filter(c => c !== '.').length;
         hole = Math.min(played + 1, holesToPlay);
+        matchId = match.id;
+        dayId = (match as any).day_id ?? null;
+        competitionId = (match as any).competition_id ?? null;
       }
 
       setInfo({
@@ -126,6 +154,9 @@ export default function CameraScreen() {
         playerId:   player.id,
         courseName,
         hole,
+        matchId,
+        dayId,
+        competitionId,
       });
     })();
   }, []);
@@ -217,11 +248,49 @@ export default function CameraScreen() {
     }
   }
 
+  // Permanent record — a photos-bucket upload + a photos row tagging the
+  // exact game context Titan already knew at capture time (Rick's brief,
+  // 2026-08-22, Section 6: "must remain associated with the photo
+  // permanently, including after the round/tournament is completed").
+  // Best-effort: a failed upload shouldn't block or alarm a player who just
+  // saved their shot to the camera roll, same "side-effect can fail, the
+  // player's own action still succeeds" pattern as casual match report
+  // generation in titanNews.ts.
+  async function persistPhotoRecord(uri: string) {
+    if (!info.playerId) return;
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const path = `${info.playerId}/${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('photos')
+        .upload(path, bytes, { contentType: 'image/jpeg' });
+      if (uploadError) throw uploadError;
+      const { error: dbError } = await supabase.from('photos').insert({
+        player_id:      info.playerId,
+        competition_id: info.competitionId,
+        day_id:         info.dayId,
+        match_id:       info.matchId,
+        player_name:    info.name || null,
+        course_name:    info.courseName,
+        hole_number:    info.hole,
+        storage_path:   path,
+        taken_at:       new Date().toISOString(),
+      });
+      if (dbError) throw dbError;
+    } catch (e) {
+      console.error('[camera] permanent photo record failed', e);
+    }
+  }
+
   async function saveToLibrary() {
     if (!preview) return;
     setSaving(true);
     try {
       await MediaLibrary.saveToLibraryAsync(preview.uri);
+      if (preview.type === 'photo') persistPhotoRecord(preview.uri);
       Alert.alert('Saved', 'Saved to your camera roll.');
       setPreview(null);
     } catch (e: any) {
@@ -311,45 +380,36 @@ export default function CameraScreen() {
   // ── Camera layout (portrait / landscape) ─────────────────────
   const avatar = info.playerId ? resolveAvatar(info.playerId, info.avatarUrl) : null;
 
-  // Burned into every captured photo (and shown live while framing). Works
-  // with no active round too — just the logo, never fabricated course/hole.
-  // Positioning differs by context (live overlay sits above the controls;
-  // the offscreen composite needs to sit flush with the photo's own bottom
-  // edge), so this is just the visual bar — callers wrap it to position it.
-  const BrandFooterBar = (
+  // Single source of truth for the branded frame — shown live while framing
+  // AND burned into the captured photo via the same JSX (see composeRef
+  // below). Previously these were two separate elements (a live-only banner
+  // with name/avatar, and a composited-only footer with just the logo +
+  // course/hole) which is exactly how player name silently stopped
+  // appearing in saved photos — whatever's true here is now true in both
+  // places by construction. Works with no active round too — just the
+  // player + logo, never fabricated course/hole. Positioning differs by
+  // context (live overlay sits above the controls; the offscreen composite
+  // needs to sit flush with the photo's own bottom edge), so this is just
+  // the visual bar — callers wrap it to position it.
+  const BrandFrame = (
     <View style={s.brandFooter}>
-      <Image source={titanLogo} style={s.brandLogo} resizeMode="contain" />
-      {(info.courseName || info.hole) && (
-        <View style={s.brandTextWrap}>
-          {info.courseName && <Text style={s.brandCourse} numberOfLines={1}>{info.courseName}</Text>}
-          {info.hole && <Text style={s.brandHole}>HOLE {info.hole}</Text>}
-        </View>
-      )}
-    </View>
-  );
-
-  const Banner = (
-    <View style={[s.banner, isLandscape && s.bannerLandscape]}>
-      <View style={s.bannerLeft}>
+      <View style={s.brandLeft}>
         {avatar
-          ? <Image source={avatar} style={s.bannerAvatar} />
-          : <View style={[s.bannerAvatar, s.bannerAvatarFallback]}>
-                <Text style={s.bannerInitial}>{info.name?.[0] ?? '?'}</Text>
+          ? <Image source={avatar} style={s.brandAvatar} />
+          : <View style={[s.brandAvatar, s.brandAvatarFallback]}>
+                <Text style={s.brandInitial}>{info.name?.[0] ?? '?'}</Text>
               </View>
         }
-        <View>
-          <Text style={s.bannerName} numberOfLines={1}>{info.name || 'Player'}</Text>
-          {info.courseName && (
-            <Text style={s.bannerSub} numberOfLines={1}>{info.courseName}</Text>
+        <View style={s.brandTextWrap}>
+          <Text style={s.brandName} numberOfLines={1}>{(info.name || 'Player').toUpperCase()}</Text>
+          {(info.hole || info.courseName) && (
+            <Text style={s.brandSub} numberOfLines={1}>
+              {info.hole ? `HOLE ${info.hole}` : ''}{info.hole && info.courseName ? '   ·   ' : ''}{info.courseName ?? ''}
+            </Text>
           )}
         </View>
       </View>
-      {info.hole && (
-        <View style={s.bannerHoleChip}>
-          <Text style={s.bannerHoleLabel}>HOLE</Text>
-          <Text style={s.bannerHoleNum}>{info.hole}</Text>
-        </View>
-      )}
+      <Image source={titanLogo} style={s.brandLogo} resizeMode="contain" />
     </View>
   );
 
@@ -454,12 +514,10 @@ export default function CameraScreen() {
         <Text style={s.closeBtnText}>✕</Text>
       </TouchableOpacity>
 
-      {/* Player banner */}
-      {Banner}
-
-      {/* Branding footer — same content that gets burned into the photo,
-          shown live so the shot can be framed with it in mind. */}
-      <View style={s.brandFooterLiveWrap} pointerEvents="none">{BrandFooterBar}</View>
+      {/* Branded frame — player, hole, course, logo. Same content burned
+          into the saved photo, shown live so the shot can be framed with it
+          in mind. */}
+      <View style={[s.brandFrameLiveWrap, isLandscape && s.brandFrameLiveWrapLandscape]} pointerEvents="none">{BrandFrame}</View>
 
       {/* Camera controls */}
       {Controls}
@@ -479,14 +537,13 @@ export default function CameraScreen() {
             resizeMode="cover"
             onLoad={onComposeReady}
           />
-          <View style={s.brandFooterComposeWrap}>{BrandFooterBar}</View>
+          <View style={s.brandFrameComposeWrap}>{BrandFrame}</View>
         </View>
       )}
     </View>
   );
 }
 
-const BANNER_HEIGHT   = 72;
 const CONTROLS_HEIGHT = 140;
 
 const s = StyleSheet.create({
@@ -508,54 +565,33 @@ const s = StyleSheet.create({
   },
   closeBtnText: { fontSize: 16, fontFamily: FFB, color: '#fff' },
 
-  // ── Banner
-  banner: {
+  // ── Branded frame — player, hole, course, logo. One bar, shown live and
+  // burned into the saved photo via the same JSX (see BrandFrame above).
+  brandFrameLiveWrap: {
     position: 'absolute',
     bottom: CONTROLS_HEIGHT,
     left: 0, right: 0,
-    height: BANNER_HEIGHT,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
   },
-  bannerLandscape: {
+  brandFrameLiveWrapLandscape: {
     bottom: 0, right: 120, top: 'auto' as any,
-    height: 60,
   },
-  bannerLeft:      { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  bannerAvatar:    { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: GOLD },
-  bannerAvatarFallback: { backgroundColor: 'rgba(212,175,55,0.25)', alignItems: 'center', justifyContent: 'center' },
-  bannerInitial:   { fontSize: 18, fontFamily: FFB, color: GOLD },
-  bannerName:      { fontSize: 15, fontFamily: FFB, color: '#fff' },
-  bannerSub:       { fontSize: 11, fontFamily: FFB, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
-  bannerHoleChip:  {
-    alignItems: 'center', backgroundColor: GOLD,
-    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, minWidth: 44,
-  },
-  bannerHoleLabel: { fontSize: 8, fontFamily: FFB, color: '#000', letterSpacing: 1 },
-  bannerHoleNum:   { fontSize: 22, fontFamily: FFB, color: '#000', lineHeight: 24 },
-
-  // ── Titan branding footer — burned into every captured photo
-  brandFooterLiveWrap: {
-    position: 'absolute',
-    bottom: CONTROLS_HEIGHT + BANNER_HEIGHT,
-    left: 0, right: 0,
-  },
-  brandFooterComposeWrap: {
+  brandFrameComposeWrap: {
     position: 'absolute',
     bottom: 0, left: 0, right: 0,
   },
   brandFooter: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10,
     backgroundColor: 'rgba(0,0,0,0.75)',
     paddingHorizontal: 16, paddingVertical: 10,
   },
-  brandLogo:     { width: 28, height: 28 },
+  brandLeft:     { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  brandAvatar:   { width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: GOLD },
+  brandAvatarFallback: { backgroundColor: 'rgba(212,175,55,0.25)', alignItems: 'center', justifyContent: 'center' },
+  brandInitial:  { fontSize: 16, fontFamily: FFB, color: GOLD },
   brandTextWrap: { flex: 1 },
-  brandCourse:   { fontSize: 13, fontFamily: FFB, color: '#fff' },
-  brandHole:     { fontSize: 11, fontFamily: FFB, color: GOLD, letterSpacing: 0.5, marginTop: 1 },
+  brandName:     { fontSize: 14, fontFamily: FFB, color: '#fff', letterSpacing: 0.3 },
+  brandSub:      { fontSize: 11, fontFamily: FFB, color: GOLD, letterSpacing: 0.3, marginTop: 2 },
+  brandLogo:     { width: 26, height: 26 },
 
   // ── Slide-up menu
   menuBackdrop: {

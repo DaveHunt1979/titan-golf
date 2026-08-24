@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
-import { calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
 import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
@@ -36,7 +36,7 @@ interface Match {
   side_games: string[] | null;
   hcp_allowance: number | null;
   status: string;
-  day: { course_name: string; course_par: number } | null;
+  day: { course_name: string; course_par: number; course_rating: number | null; slope_rating: number | null } | null;
 }
 
 interface Player {
@@ -65,6 +65,17 @@ interface HolePlayerResult {
 interface TeamHoleResult {
   results: HolePlayerResult[];
   teamTotal: number;
+}
+
+// Same formula as score/enter/[matchId].tsx's playerCourseHcp — this screen used
+// to apply the allowance% straight to the raw handicap_index and skip the course
+// handicap conversion entirely, writing a wrong net_score to the DB whenever the
+// course's slope/rating differ from 113/par.
+function playerCourseHcp(hcpIndex: number, day: Match['day'], allowance: number): number {
+  const raw = (!day?.slope_rating || !day?.course_rating || !day?.course_par)
+    ? Math.round(hcpIndex)
+    : calcCourseHandicap(hcpIndex, day.slope_rating, day.course_rating, day.course_par);
+  return Math.round(raw * (allowance / 100));
 }
 
 function Avatar({ name, size = 36, src }: { name: string; size?: number; src?: any }) {
@@ -124,7 +135,7 @@ export default function TeamStablefordScreen() {
 
       const { data: matchData } = await supabase
         .from('matches')
-        .select('*,day:day_id(course_name,course_par)')
+        .select('*,day:day_id(course_name,course_par,course_rating,slope_rating)')
         .eq('id', matchId)
         .single();
 
@@ -165,18 +176,23 @@ export default function TeamStablefordScreen() {
     load();
   }, [matchId]);
 
-  function getPts(playerId: string, holeNum: number): number | null {
-    const gross = scores[playerId]?.[holeNum] ?? null;
+  // scoreOverride lets a caller recompute against a not-yet-rendered score map
+  // (see saveScore's post-completion recompute below) instead of the stale
+  // `scores` state a closure would otherwise capture.
+  function getPts(playerId: string, holeNum: number, scoreOverride?: ScoreMap): number | null {
+    const map = scoreOverride ?? scores;
+    const gross = map[playerId]?.[holeNum] ?? null;
     if (gross === null) return null;
     const player = players.find(p => p.id === playerId);
     const hole = courseHoles.find(h => h.hole_number === holeNum);
     if (!player || !hole) return null;
-    const adjHcp = Math.round(player.handicap_index * ((match?.hcp_allowance ?? 100) / 100));
+    const adjHcp = playerCourseHcp(player.handicap_index, match?.day ?? null, match?.hcp_allowance ?? 100);
     const strokes = calcStrokesReceived(adjHcp, hole.stroke_index);
     return calcStablefordPoints(gross, hole.par, strokes);
   }
 
-  function computeTeamHole(playerIds: string[], holeNum: number): TeamHoleResult {
+  function computeTeamHole(playerIds: string[], holeNum: number, scoreOverride?: ScoreMap): TeamHoleResult {
+    const map = scoreOverride ?? scores;
     const isPar3 = courseHoles.find(h => h.hole_number === holeNum)?.par === 3;
     const effectiveN = (match?.side_games?.includes('par3all') && isPar3)
       ? (match?.team_size ?? 2)
@@ -184,8 +200,8 @@ export default function TeamStablefordScreen() {
     const countN = effectiveN;
     const data = playerIds.map(id => ({
       playerId: id,
-      pts: getPts(id, holeNum) ?? 0,
-      entered: (scores[id]?.[holeNum] ?? null) !== null,
+      pts: getPts(id, holeNum, scoreOverride) ?? 0,
+      entered: (map[id]?.[holeNum] ?? null) !== null,
     }));
     const sorted = [...data].sort((a, b) => b.pts - a.pts);
     const countingIds = new Set(sorted.slice(0, countN).filter(p => p.entered).map(p => p.playerId));
@@ -194,13 +210,31 @@ export default function TeamStablefordScreen() {
     return { results, teamTotal };
   }
 
-  function runningTotal(playerIds: string[]): number {
+  function runningTotal(playerIds: string[], scoreOverride?: ScoreMap): number {
+    const map = scoreOverride ?? scores;
     let total = 0;
     for (let h = 1; h <= 18; h++) {
-      if (!playerIds.some(id => (scores[id]?.[h] ?? null) !== null)) continue;
-      total += computeTeamHole(playerIds, h).teamTotal;
+      if (!playerIds.some(id => (map[id]?.[h] ?? null) !== null)) continue;
+      total += computeTeamHole(playerIds, h, scoreOverride).teamTotal;
     }
     return total;
+  }
+
+  // Shared by completeRound (first completion) and saveScore's post-completion
+  // recompute (editing a hole after the round is already complete) — without
+  // this, the stored winner/result_str were a one-shot snapshot from whenever
+  // Complete Round was tapped, and never changed again no matter what edits
+  // followed (Rick's brief, 2026-08-22, Tournament Mode audit).
+  function computeMatchResult(m: Match, homeTotal: number, awayTotal: number): { winner: string; resultStr: string } {
+    const isMashie = m.away_player_ids.length === 0 && (m.team_size ?? 2) >= 4;
+    if (isMashie) return { winner: 'home', resultStr: `${homeTotal} pts` };
+    const winner = homeTotal > awayTotal ? 'home' : awayTotal > homeTotal ? 'away' : 'half';
+    const lo = Math.min(homeTotal, awayTotal);
+    const hi = Math.max(homeTotal, awayTotal);
+    const resultStr = homeTotal === awayTotal
+      ? `All Square — ${homeTotal} pts each`
+      : `${winner === 'home' ? 'Team A' : 'Team B'} wins ${hi}–${lo}`;
+    return { winner, resultStr };
   }
 
   async function saveScore(playerId: string, gross: number) {
@@ -224,7 +258,7 @@ export default function TeamStablefordScreen() {
       let pts = 0;
       let netScore = g;
       if (holeInfo) {
-        const adjHcp = Math.round(p.handicap_index * ((match?.hcp_allowance ?? 100) / 100));
+        const adjHcp = playerCourseHcp(p.handicap_index, match?.day ?? null, match?.hcp_allowance ?? 100);
         const strokes = calcStrokesReceived(adjHcp, holeInfo.stroke_index);
         pts = calcStablefordPoints(g, holeInfo.par, strokes);
         netScore = g - strokes;
@@ -243,13 +277,24 @@ export default function TeamStablefordScreen() {
     // order they were entered once signal comes back.
     if (pendingCount > 0) await syncStatus.syncNow();
 
-    // This screen only writes the match row when the round is completed, so a
-    // per-hole save has nothing to update there.
+    // Normally this screen only writes the match row when the round is first
+    // completed. But if the round is ALREADY complete and a hole gets edited
+    // (a correction), the stored winner/result_str must be recomputed too —
+    // otherwise it's a one-shot snapshot that silently goes stale the moment
+    // anyone corrects a score after tapping Complete Round.
+    let matchUpdate: Record<string, any> = {};
+    if (match && match.status === 'complete') {
+      const homeTotal = runningTotal(match.home_player_ids, nextScores);
+      const awayTotal = runningTotal(match.away_player_ids, nextScores);
+      const { winner, resultStr } = computeMatchResult(match, homeTotal, awayTotal);
+      matchUpdate = { winner, result_str: resultStr };
+    }
+
     const result = await saveHoleWithOfflineFallback({
       matchId: matchId as string,
       holeNumber: currentHole,
       insertRows,
-      matchUpdate: {},
+      matchUpdate,
     });
 
     if (result.outcome === 'missing_match') {
@@ -270,20 +315,7 @@ export default function TeamStablefordScreen() {
     if (!match) return;
     const homeTotal = runningTotal(match.home_player_ids);
     const awayTotal = runningTotal(match.away_player_ids);
-    const isMashie = match.away_player_ids.length === 0 && (match.team_size ?? 2) >= 4;
-    let winner: string;
-    let resultStr: string;
-    if (isMashie) {
-      winner = 'home';
-      resultStr = `${homeTotal} pts`;
-    } else {
-      winner = homeTotal > awayTotal ? 'home' : awayTotal > homeTotal ? 'away' : 'half';
-      const lo = Math.min(homeTotal, awayTotal);
-      const hi = Math.max(homeTotal, awayTotal);
-      resultStr = homeTotal === awayTotal
-        ? `All Square — ${homeTotal} pts each`
-        : `${winner === 'home' ? 'Team A' : 'Team B'} wins ${hi}–${lo}`;
-    }
+    const { winner, resultStr } = computeMatchResult(match, homeTotal, awayTotal);
     await supabase.from('matches').update({ status: 'complete', winner, result_str: resultStr }).eq('id', matchId);
     setMatch(prev => prev ? { ...prev, status: 'complete' } : prev);
     setShowComplete(true);
@@ -570,6 +602,7 @@ export default function TeamStablefordScreen() {
           playerIds={match.home_player_ids}
           players={players}
           hole={hole}
+          day={match.day}
           hcpAllowance={match.hcp_allowance ?? 100}
           scores={scores}
           holeResult={homeHole}
@@ -583,6 +616,7 @@ export default function TeamStablefordScreen() {
           playerIds={match.away_player_ids}
           players={players}
           hole={hole}
+          day={match.day}
           hcpAllowance={match.hcp_allowance ?? 100}
           scores={scores}
           holeResult={awayHole}
@@ -664,13 +698,14 @@ export default function TeamStablefordScreen() {
 const GROSS_BUTTONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 function TeamSection({
-  label, color, playerIds, players, hole, hcpAllowance, scores, holeResult, getPts, onScore,
+  label, color, playerIds, players, hole, day, hcpAllowance, scores, holeResult, getPts, onScore,
 }: {
   label: string;
   color: string;
   playerIds: string[];
   players: Player[];
   hole: CourseHole | null;
+  day: Match['day'];
   hcpAllowance: number;
   scores: ScoreMap;
   holeResult: TeamHoleResult;
@@ -698,7 +733,7 @@ function TeamSection({
         const gross = scores[id]?.[currentHoleNum] ?? null;
         const pts = getPts(id, currentHoleNum);
         const result = holeResult.results.find(r => r.playerId === id);
-        const adjHcp = Math.round(player.handicap_index * (hcpAllowance / 100));
+        const adjHcp = playerCourseHcp(player.handicap_index, day, hcpAllowance);
         const strokes = hole ? calcStrokesReceived(adjHcp, hole.stroke_index) : 0;
 
         return (
