@@ -7,7 +7,7 @@
 // calculates, AI only writes — this file is the "Titan calculates" half.
 
 import { supabase } from './supabase';
-import { getStandings, calcSweepBonus, scoreVsPar, individualScoreValue, getEffectiveWinner, matchLabel } from './scoring';
+import { getStandings, calcSweepBonus, scoreVsPar, individualScoreValue, getEffectiveWinner, matchLabel, buildKronosTieBreakMaps, kronosTieBreakCompare, type KronosTieBreakMaps } from './scoring';
 import { individualBoardLabel, matchFormatLabel } from './tournamentFormat';
 
 interface Core {
@@ -75,30 +75,20 @@ function individualRanking(core: Core, throughDayNumber: number) {
     .sort((a, b) => b.pts - a.pts);
 }
 
-// Same tie-break ladder the live Kronos/individual leaderboard uses (see
-// tour/index.tsx's `tieBreak`): best final round, then back 9, back 6,
-// back 3, then the 18th hole — all measured within the final competition
-// day only. Ties on raw points otherwise sit in arbitrary object-key order,
-// which is what let the news bot silently declare a "winner" who wasn't
-// really decided by anything (Dave, 2026-08-21).
-function finalDayTieBreakMaps(core: Core, finalDayNumber: number) {
+// Same tie-break ladder the live Kronos/individual leaderboard uses — best
+// final round, then back 9, back 6, back 3, then the 18th hole — all
+// measured within the final competition day only. Ties on raw points
+// otherwise sit in arbitrary object-key order, which is what let the news
+// bot silently declare a "winner" who wasn't really decided by anything
+// (Dave, 2026-08-21). Now a thin wrapper over the single shared
+// implementation in scoring.ts (Rick's brief, 2026-08-25) — also used by
+// tour/index.tsx's live leaderboard and admin/draw.tsx's Titan Way singles
+// seeding, so a tie can never resolve differently on different screens.
+function finalDayTieBreakMaps(core: Core, finalDayNumber: number): KronosTieBreakMaps {
   const finalDay = core.days.find(d => d.day_number === finalDayNumber);
-  const finalRound: Record<string, number> = {};
-  const back9: Record<string, number> = {};
-  const back6: Record<string, number> = {};
-  const back3: Record<string, number> = {};
-  const hole18: Record<string, number> = {};
-  if (!finalDay) return { finalRound, back9, back6, back3, hole18 };
+  if (!finalDay) return { finalRound: {}, back9: {}, back6: {}, back3: {}, hole18: {} };
   const finalDayMatchIds = new Set(core.matches.filter(m => m.day_id === finalDay.id).map(m => m.id));
-  core.holes.forEach(h => {
-    if (h.stableford_pts == null || !finalDayMatchIds.has(h.match_id)) return;
-    finalRound[h.player_id] = (finalRound[h.player_id] ?? 0) + h.stableford_pts;
-    if (h.hole_number >= 10) back9[h.player_id] = (back9[h.player_id] ?? 0) + h.stableford_pts;
-    if (h.hole_number >= 13) back6[h.player_id] = (back6[h.player_id] ?? 0) + h.stableford_pts;
-    if (h.hole_number >= 16) back3[h.player_id] = (back3[h.player_id] ?? 0) + h.stableford_pts;
-    if (h.hole_number === 18) hole18[h.player_id] = h.stableford_pts;
-  });
-  return { finalRound, back9, back6, back3, hole18 };
+  return buildKronosTieBreakMaps(core.holes, finalDayMatchIds);
 }
 
 // Re-sorts a points-tied top of the leaderboard using the tie-break ladder,
@@ -128,13 +118,7 @@ function applyFinalTieBreak(ranking: { playerId: string; name: string; pts: numb
     const stillTied = values.filter(v => v === maxVal).length;
     if (stillTied < tiedRows.length) { winnerDecidedByTieBreak = rung.label; break; }
   }
-  tiedRows.sort((a, b) => {
-    for (const rung of rungs) {
-      const diff = (rung.map[b.playerId] ?? 0) - (rung.map[a.playerId] ?? 0);
-      if (diff !== 0) return diff;
-    }
-    return 0;
-  });
+  tiedRows.sort((a, b) => kronosTieBreakCompare(maps, a.playerId, b.playerId));
   return { ranking: [...tiedRows, ...untiedRows], winnerDecidedByTieBreak };
 }
 

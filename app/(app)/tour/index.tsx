@@ -10,7 +10,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../../src/lib/supabase';
-import { getStandings, getEffectiveWinner, calcSweepBonus, individualScoreValue, formatVsPar } from '../../../src/lib/scoring';
+import { getStandings, getEffectiveWinner, calcSweepBonus, individualScoreValue, formatVsPar, buildKronosTieBreakMaps, kronosTieBreakCompare } from '../../../src/lib/scoring';
 import { individualBoardLabel, getFormatRules } from '../../../src/lib/tournamentFormat';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
@@ -313,11 +313,6 @@ export default function TourScreen() {
       const perDayTotals: Record<string, Record<string, number>> = {};
       const matchDayMap2: Record<string, string> = {};
       (matchesData as any[] ?? []).forEach(m => { matchDayMap2[m.id] = m.day_id; });
-      const finalRound: Record<string, number> = {};
-      const back9:  Record<string, number> = {};
-      const back6:  Record<string, number> = {};
-      const back3:  Record<string, number> = {};
-      const hole18: Record<string, number> = {};
       (holesData as any[]).forEach(h => {
         if (!thisMatchIds.has(h.match_id)) return;
         const par = parForHole(h.match_id, h.hole_number);
@@ -330,15 +325,21 @@ export default function TourScreen() {
           if (!perDayTotals[dId]) perDayTotals[dId] = {};
           perDayTotals[dId][h.player_id] = (perDayTotals[dId][h.player_id] ?? 0) + h.stableford_pts;
         }
-        if (finalDayMatchIds.has(h.match_id)) {
-          const rungValue = allDaysMedal ? (vsPar ?? 0) : h.stableford_pts;
-          finalRound[h.player_id] = (finalRound[h.player_id] ?? 0) + rungValue;
-          if (h.hole_number >= 10) back9[h.player_id] = (back9[h.player_id] ?? 0) + rungValue;
-          if (h.hole_number >= 13) back6[h.player_id] = (back6[h.player_id] ?? 0) + rungValue;
-          if (h.hole_number >= 16) back3[h.player_id] = (back3[h.player_id] ?? 0) + rungValue;
-          if (h.hole_number === 18) hole18[h.player_id] = rungValue;
-        }
       });
+
+      // Shared with titanNews.ts's AI report and admin/draw.tsx's Titan Way
+      // singles-playoff seeding (src/lib/scoring.ts) — one tie-break
+      // implementation so a tie can never resolve differently on different
+      // screens (Rick's brief, 2026-08-25).
+      const kronosMaps = buildKronosTieBreakMaps(
+        (holesData as any[]).filter(h => thisMatchIds.has(h.match_id)),
+        finalDayMatchIds,
+        h => {
+          if (!allDaysMedal) return h.stableford_pts ?? null;
+          const par = parForHole(h.match_id, h.hole_number);
+          return h.gross_score != null && par != null ? h.gross_score - par : null;
+        },
+      );
 
       const cpMap: Record<string, { display_name: string; handicap_index: number | null; avatar_url: string | null; currentTournamentHcp: number | null; totalTournamentCut: number }> = {};
       (cpData as any[]).forEach(cp => {
@@ -373,13 +374,7 @@ export default function TourScreen() {
       // stores Stableford points (higher wins) — the comparison direction
       // flips accordingly rather than negating the stored values, so the
       // per-rung numbers themselves stay directly displayable if ever shown.
-      const rungBetter = (x: number, y: number) => allDaysMedal ? x - y : y - x;
-      const tieBreak = (a: string, b: string) =>
-        rungBetter(finalRound[a] ?? 0, finalRound[b] ?? 0)
-        || rungBetter(back9[a]  ?? 0, back9[b]  ?? 0)
-        || rungBetter(back6[a]  ?? 0, back6[b]  ?? 0)
-        || rungBetter(back3[a]  ?? 0, back3[b]  ?? 0)
-        || rungBetter(hole18[a] ?? 0, hole18[b] ?? 0);
+      const tieBreak = (a: string, b: string) => kronosTieBreakCompare(kronosMaps, a, b, allDaysMedal);
 
       const allPidsForBoard = allDaysMedal ? Object.keys(vsPars) : Object.keys(totals);
       const sorted = allPidsForBoard

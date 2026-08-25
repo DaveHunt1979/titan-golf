@@ -27,12 +27,23 @@ type Member = {
   hole: number | null;
   pts: number | null;
   matchId: string | null;
+  online: boolean;
 };
 
-function InitialAvatar({ name, size = 40 }: { name: string; size?: number }) {
+const GREEN = '#4ade80';
+
+function InitialAvatar({ name, size = 40, online = false, dotBorderColor = '#000' }: { name: string; size?: number; online?: boolean; dotBorderColor?: string }) {
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: `${GOLD}15`, borderWidth: 1.5, borderColor: `${GOLD}30`, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontFamily: FFB, fontSize: size * 0.38, color: GOLD }}>{(name || '?')[0].toUpperCase()}</Text>
+    <View>
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: `${GOLD}15`, borderWidth: 1.5, borderColor: `${GOLD}30`, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontFamily: FFB, fontSize: size * 0.38, color: GOLD }}>{(name || '?')[0].toUpperCase()}</Text>
+      </View>
+      {online && (
+        <View style={{
+          position: 'absolute', bottom: 0, right: 0, width: size * 0.28, height: size * 0.28,
+          borderRadius: size * 0.14, backgroundColor: GREEN, borderWidth: 2, borderColor: dotBorderColor,
+        }} />
+      )}
     </View>
   );
 }
@@ -96,6 +107,13 @@ export default function FriendsScreen() {
       playerMap[p.id] = p;
     }
 
+    // Online presence — batched (players_online_status) rather than the
+    // single-player is_player_online() RPC TCardSheet uses, since this
+    // screen needs it for a whole member list in one round trip.
+    const { data: onlineRows } = await supabase.rpc('players_online_status', { p_player_ids: allMemberIds });
+    const onlineMap: Record<string, boolean> = {};
+    for (const r of (onlineRows ?? []) as any[]) onlineMap[r.player_id] = !!r.online;
+
     // Active matches for any member
     const { data: activeMatches } = await supabase
       .from('matches').select('id,course_name,home_player_ids,away_player_ids')
@@ -148,9 +166,17 @@ export default function FriendsScreen() {
           hole: s ? Math.min(s.maxHole + 1, 18) : null,
           pts: s ? s.pts : null,
           matchId: s?.matchId ?? null,
+          // A player mid-round counts as online even if their heartbeat
+          // hasn't ticked in the last 5 minutes (e.g. patchy course signal) —
+          // being on an active match is itself stronger evidence of presence.
+          online: !!onlineMap[id] || !!s,
         };
       })
-      // playing members first, then alphabetical
+      // Being mid-round is a stronger, more specific signal than a generic
+      // online heartbeat, so it still ranks first; everyone else shown here
+      // is online-but-not-playing, alphabetical (Dave, 2026-08-25 — "only
+      // show who is online or on a course, front of the list").
+      .filter(m => m.online)
       .sort((a, b) => {
         if (a.matchId && !b.matchId) return -1;
         if (!a.matchId && b.matchId) return 1;
@@ -174,7 +200,7 @@ export default function FriendsScreen() {
   }
 
   const playing = members.filter(m => m.matchId);
-  const offline = members.filter(m => !m.matchId);
+  const onlineOnly = members.filter(m => !m.matchId);
 
   return (
     <View style={[s.root, { backgroundColor: dc.bg }]}>
@@ -185,7 +211,7 @@ export default function FriendsScreen() {
         <TouchableOpacity onPress={() => goBack(router, '/(app)/')} style={s.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={s.title}>MEMBERS</Text>
+        <Text style={s.title}>FRIENDS</Text>
         <View style={s.backBtn} />
       </View>
 
@@ -199,13 +225,13 @@ export default function FriendsScreen() {
         )}
         {playing.map(m => <MemberRow key={m.playerId} member={m} dc={dc} onPress={() => setSelected(m)} />)}
 
-        {offline.length > 0 && (
-          <Text style={[s.sectionLabel, { marginTop: playing.length > 0 ? 8 : 0 }]}>NOT PLAYING · {offline.length}</Text>
+        {onlineOnly.length > 0 && (
+          <Text style={[s.sectionLabel, { marginTop: playing.length > 0 ? 8 : 0 }]}>ONLINE · {onlineOnly.length}</Text>
         )}
-        {offline.map(m => <MemberRow key={m.playerId} member={m} dc={dc} onPress={() => setSelected(m)} />)}
+        {onlineOnly.map(m => <MemberRow key={m.playerId} member={m} dc={dc} onPress={() => setSelected(m)} />)}
 
         {members.length === 0 && (
-          <Text style={s.empty}>No members found</Text>
+          <Text style={s.empty}>No one online right now</Text>
         )}
       </ScrollView>
 
@@ -246,13 +272,13 @@ function MemberRow({ member, dc, onPress }: { member: Member; dc: any; onPress: 
       onPress={onPress}
       activeOpacity={0.8}
     >
-      <InitialAvatar name={member.name} size={42} />
+      <InitialAvatar name={member.name} size={42} online={member.online} dotBorderColor={dc.card} />
       <View style={{ flex: 1, marginLeft: 12 }}>
         <Text style={[s.rowName, { color: dc.cardText }]}>{member.name}</Text>
         {isPlaying ? (
           <Text style={s.rowCourse} numberOfLines={1}>{member.courseName} · Hole {member.hole}</Text>
         ) : (
-          <Text style={s.rowOffline}>Not on a round</Text>
+          <Text style={s.rowOffline}>Online</Text>
         )}
       </View>
       {isPlaying && member.pts != null && (

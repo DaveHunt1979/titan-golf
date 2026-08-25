@@ -12,6 +12,8 @@ import { useFonts } from 'expo-font';
 import { supabase, freshChannel } from '../../src/lib/supabase';
 import { resolveAvatar, titanLogo } from '../../src/lib/assets';
 import { useSocietyTheme, useDynamicColors } from '../../src/lib/SocietyThemeContext';
+import TCardSheet, { type PlayingNow } from '../../src/components/TCardSheet';
+import type { EditablePlayer } from '../../src/components/PlayerEditSheet';
 
 const GOLD = '#D4AF37'; // fallback for StyleSheet only — JSX uses dc.gold
 const heroLandscape     = require('../../assets/hero_landscape.png');
@@ -37,7 +39,11 @@ const TILES = [
   { key: 'locker',    label: 'Locker Room',  sub: 'Stats, handicap & equipment',  icon: 'shield-outline' as const, area: 'casual',  route: '/(app)/profile' },
 ] as const;
 
-type FriendRound = { playerId: string; name: string; courseName: string; hole: number; pts: number; matchId: string; };
+type FriendRound = {
+  playerId: string; name: string; courseName: string; hole: number; pts: number; matchId: string;
+  email: string | null; handicapIndex: number | null; avatarUrl: string | null; tTag: string | null;
+  committeeRole: string | null; role: string; membershipTypes: string[];
+};
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -68,6 +74,7 @@ export default function HomeScreen() {
   const [swindleName,    setSwindleName]    = useState<string | null>(null);
   const [swindleCount,   setSwindleCount]   = useState(0);
   const [friendRounds,   setFriendRounds]   = useState<FriendRound[]>([]);
+  const [selectedFriend, setSelectedFriend] = useState<FriendRound | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   useFocusEffect(useCallback(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, []));
 
@@ -163,9 +170,13 @@ export default function HomeScreen() {
     // Friends on a round
     if (pid && SOCIETY_ID) {
       const { data: memberRows } = await supabase
-        .from('society_members').select('player_id')
+        .from('society_members').select('player_id,role,committee_role,membership_types')
         .eq('society_id', SOCIETY_ID).neq('player_id', pid);
       const memberIds = (memberRows ?? []).map((m: any) => m.player_id as string);
+      const memberRoleMap: Record<string, { role: string; committeeRole: string | null; membershipTypes: string[] }> = {};
+      for (const m of (memberRows ?? []) as any[]) {
+        memberRoleMap[m.player_id] = { role: m.role ?? 'member', committeeRole: m.committee_role ?? null, membershipTypes: m.membership_types ?? [] };
+      }
 
       if (memberIds.length > 0) {
         const orFilter = memberIds
@@ -188,11 +199,12 @@ export default function HomeScreen() {
 
           const [{ data: holesData }, { data: friendPlayersData }] = await Promise.all([
             supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id').in('match_id', matchIds),
-            supabase.from('players').select('id,display_name').in('id', playingFriendIds),
+            supabase.from('players').select('id,display_name,email,handicap_index,avatar_url,t_tag').in('id', playingFriendIds),
           ]);
 
           const nameMap: Record<string, string> = {};
-          for (const p of (friendPlayersData ?? []) as any[]) nameMap[p.id] = p.display_name;
+          const playerMap: Record<string, any> = {};
+          for (const p of (friendPlayersData ?? []) as any[]) { nameMap[p.id] = p.display_name; playerMap[p.id] = p; }
 
           const stats: Record<string, { pts: number; maxHole: number }> = {};
           for (const h of (holesData ?? []) as any[]) {
@@ -208,6 +220,7 @@ export default function HomeScreen() {
               const ids: string[] = [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])];
               return ids.includes(id);
             });
+            const p = playerMap[id];
             return {
               playerId: id,
               name: nameMap[id] ?? 'Unknown',
@@ -215,6 +228,13 @@ export default function HomeScreen() {
               hole: Math.min((stats[id]?.maxHole ?? 0) + 1, 18),
               pts: stats[id]?.pts ?? 0,
               matchId: match?.id ?? '',
+              email: p?.email ?? null,
+              handicapIndex: p?.handicap_index ?? null,
+              avatarUrl: p?.avatar_url ?? null,
+              tTag: p?.t_tag ?? null,
+              committeeRole: memberRoleMap[id]?.committeeRole ?? null,
+              role: memberRoleMap[id]?.role ?? 'member',
+              membershipTypes: memberRoleMap[id]?.membershipTypes ?? [],
             };
           }));
         } else {
@@ -369,7 +389,7 @@ export default function HomeScreen() {
                   <TouchableOpacity
                     key={fr.playerId}
                     style={[s.friendCard, { backgroundColor: dc.card, borderColor: dc.border }]}
-                    onPress={() => router.push(`/(app)/spectate/${fr.matchId}` as any)}
+                    onPress={() => setSelectedFriend(fr)}
                     activeOpacity={0.8}
                   >
                     <View style={s.friendAvatar}>
@@ -394,12 +414,32 @@ export default function HomeScreen() {
               >
                 <Text style={s.noFriendsText}>No friends on a round at this time</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
-                  <Text style={s.noFriendsSub}>View all members</Text>
+                  <Text style={s.noFriendsSub}>View all friends</Text>
                   <Ionicons name="chevron-forward" size={11} color="#555" />
                 </View>
               </TouchableOpacity>
             )}
           </View>
+
+          <TCardSheet
+            visible={!!selectedFriend}
+            member={selectedFriend ? {
+              role: selectedFriend.role, committee_role: selectedFriend.committeeRole, membership_types: selectedFriend.membershipTypes,
+              player: {
+                id: selectedFriend.playerId, display_name: selectedFriend.name, email: selectedFriend.email,
+                handicap_index: selectedFriend.handicapIndex, avatar_url: selectedFriend.avatarUrl,
+              },
+            } as EditablePlayer : null}
+            tTag={selectedFriend?.tTag ?? null}
+            playingNow={selectedFriend ? {
+              matchId: selectedFriend.matchId, courseName: selectedFriend.courseName, hole: selectedFriend.hole, pts: selectedFriend.pts,
+            } as PlayingNow : null}
+            isAdmin={false}
+            societyId={SOCIETY_ID ?? ''}
+            myRole="member"
+            onClose={() => setSelectedFriend(null)}
+            onSaved={() => {}}
+          />
 
           {/* ── Quick links ── */}
           <View style={s.quickRow}>

@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"grep -n \\\"competition_players\\\" /Users/davehunt/Desktop/titan-golf/supabase/database.types.ts\"}",
-  "error": "Exit code 2\nugrep: warning: /Users/davehunt/Desktop/titan-golf/supabase/database.types.ts: No such file or directory",
-  "timestamp": "2026-08-24T14:54:41.703Z",
+  "tool_input_preview": "{\"command\":\"wc -l src/lib/tournamentFormat.ts app/(app)/admin/draw.tsx app/(app)/admin/build.tsx src/lib/scoring.ts src/lib/titanNews.ts app/(app)/tour/index.tsx 2>/dev/null\"}",
+  "error": "Exit code 1\n(eval):1: no matches found: app/(app)/admin/draw.tsx",
+  "timestamp": "2026-08-25T03:53:55.969Z",
   "retry_count": 1
 }

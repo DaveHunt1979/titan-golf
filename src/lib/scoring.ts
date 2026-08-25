@@ -378,6 +378,71 @@ export function individualScoreValue(
   return roundFormat === 'medal' ? -vsPar : points;
 }
 
+// Shared Kronos/individual tie-break ladder (Rick's brief, 2026-08-25) —
+// best final round, then back 9, back 6, back 3, then the 18th hole, all
+// measured within one designated "final" day only. Previously implemented
+// twice independently (titanNews.ts's finalDayTieBreakMaps/applyFinalTieBreak
+// and tour/index.tsx's inline finalRound/back9/.../tieBreak) — a third,
+// cruder, tiebreak-free copy in admin/draw.tsx's Titan Way singles seeding
+// was exactly the kind of drift this consolidates against. One source of
+// truth so a tie can never resolve differently on different screens.
+export interface KronosTieBreakMaps {
+  finalRound: Record<string, number>;
+  back9: Record<string, number>;
+  back6: Record<string, number>;
+  back3: Record<string, number>;
+  hole18: Record<string, number>;
+}
+
+export function buildKronosTieBreakMaps<
+  H extends { player_id: string; match_id: string; hole_number: number; stableford_pts?: number | null; gross_score?: number | null },
+>(
+  holes: H[],
+  finalDayMatchIds: Set<string>,
+  // Medal-style callers (tour/index.tsx's allDaysMedal branch) rank on
+  // gross-vs-par per hole instead of Stableford points — Titan Way is
+  // always Stableford-scored so it always uses the default, but the hook
+  // stays genuinely shared rather than forking a Titan-Way-only copy.
+  rungValue: (h: H) => number | null = h => h.stableford_pts ?? null,
+): KronosTieBreakMaps {
+  const maps: KronosTieBreakMaps = { finalRound: {}, back9: {}, back6: {}, back3: {}, hole18: {} };
+  holes.forEach(h => {
+    if (!finalDayMatchIds.has(h.match_id)) return;
+    const v = rungValue(h);
+    if (v == null) return;
+    maps.finalRound[h.player_id] = (maps.finalRound[h.player_id] ?? 0) + v;
+    if (h.hole_number >= 10) maps.back9[h.player_id] = (maps.back9[h.player_id] ?? 0) + v;
+    if (h.hole_number >= 13) maps.back6[h.player_id] = (maps.back6[h.player_id] ?? 0) + v;
+    if (h.hole_number >= 16) maps.back3[h.player_id] = (maps.back3[h.player_id] ?? 0) + v;
+    if (h.hole_number === 18) maps.hole18[h.player_id] = v;
+  });
+  return maps;
+}
+
+// Comparator: higher sortValue wins by default (Stableford points); pass
+// ascending=true for Medal-style gross-vs-par rungs (lower wins), matching
+// tour/index.tsx's existing rungBetter flip.
+export function kronosTieBreakCompare(
+  maps: KronosTieBreakMaps, a: string, b: string, ascending = false,
+): number {
+  const dir = ascending ? -1 : 1;
+  return dir * ((maps.finalRound[b] ?? 0) - (maps.finalRound[a] ?? 0))
+    || dir * ((maps.back9[b]  ?? 0) - (maps.back9[a]  ?? 0))
+    || dir * ((maps.back6[b]  ?? 0) - (maps.back6[a]  ?? 0))
+    || dir * ((maps.back3[b]  ?? 0) - (maps.back3[a]  ?? 0))
+    || dir * ((maps.hole18[b] ?? 0) - (maps.hole18[a] ?? 0));
+}
+
+// Full ranked ordering by cumulative points/value, tie-broken via the
+// ladder above — what admin/draw.tsx's Titan Way singles-playoff seeding
+// needs directly (highest Kronos scorer plays highest, deterministically).
+export function rankPlayersByKronos(
+  playerIds: string[], totals: Record<string, number>, maps: KronosTieBreakMaps, ascending = false,
+): string[] {
+  const dir = ascending ? -1 : 1;
+  return [...playerIds].sort((a, b) => dir * ((totals[b] ?? 0) - (totals[a] ?? 0)) || kronosTieBreakCompare(maps, a, b, ascending));
+}
+
 // One gross-based eagle/birdie/par/bogey/double counter for a player's
 // holes — replaces two independent counters that classified by Stableford
 // points instead (`pts === 3` => "birdie"), which is wrong (a bogey player

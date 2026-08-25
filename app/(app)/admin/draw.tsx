@@ -9,10 +9,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
-import { getStandings, calcSweepBonus } from '../../../src/lib/scoring';
+import { getStandings, calcSweepBonus, buildKronosTieBreakMaps, rankPlayersByKronos, type KronosTieBreakMaps } from '../../../src/lib/scoring';
 import { resolveAvatar, teamLogos } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
-import { getFormatRules } from '../../../src/lib/tournamentFormat';
+import { getFormatRules, checkTitanWayStructure } from '../../../src/lib/tournamentFormat';
+import { generateTitanWaySchedule, computeRoundRobinMatchups } from '../../../src/lib/titanWayDraw';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -146,6 +147,11 @@ export default function TournamentDrawScreen() {
   const [matches, setMatches]           = useState<MatchRow[]>([]);
   const [societyMembers, setSocietyMembers] = useState<SocMember[]>([]);
   const [stablefordTotals, setStablefordTotals] = useState<Record<string, number>>({});
+  // Raw hole rows behind stablefordTotals, kept for the Kronos tie-break
+  // ladder (src/lib/scoring.ts buildKronosTieBreakMaps) — Titan Way's final-
+  // day singles seeding needs more than the raw total to break a tie
+  // deterministically (Rick's brief, 2026-08-25).
+  const [kronosHoleRows, setKronosHoleRows] = useState<{ player_id: string; match_id: string; hole_number: number; stableford_pts: number | null }[]>([]);
 
   const [addModal, setAddModal]         = useState(false);
   const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
@@ -194,14 +200,16 @@ export default function TournamentDrawScreen() {
     if (matchData && (matchData as any[]).length > 0) {
       const matchIds = (matchData as any[]).map(m => m.id);
       const { data: holesData } = await supabase
-        .from('match_holes').select('player_id,stableford_pts').in('match_id', matchIds);
+        .from('match_holes').select('player_id,match_id,hole_number,stableford_pts').in('match_id', matchIds);
       const totals: Record<string, number> = {};
       (holesData as any[] ?? []).forEach(h => {
         if (h.stableford_pts != null) totals[h.player_id] = (totals[h.player_id] ?? 0) + h.stableford_pts;
       });
       setStablefordTotals(totals);
+      setKronosHoleRows((holesData as any[] ?? []));
     } else {
       setStablefordTotals({});
+      setKronosHoleRows([]);
     }
     setLoading(false);
   }, [competitionId, societyId]);
@@ -500,15 +508,32 @@ export default function TournamentDrawScreen() {
     const isFinalDay      = day.day_number === maxDayNumber;
 
     // Order each team's roster for how this day should pair them:
-    // - Singles: best-to-worst by Stableford so far, so pairing by index
-    //   matches best-vs-best across the two sides (spec: auto-pair by rank).
+    // - Singles: best-to-worst by Kronos ranking so far (cumulative
+    //   Stableford, tie-broken by the same deterministic ladder the live
+    //   Kronos leaderboard uses — Rick's brief, 2026-08-25 section 18-19:
+    //   "highest plays highest", never an arbitrary tie), so pairing by
+    //   index matches best-vs-best across the two sides.
     // - Pairs, opening rounds: captain first, partnered with a teammate they
     //   haven't played with yet this opening window; rest shuffled.
     // - Everything else: pure shuffle, as before.
+    let kronosMaps: KronosTieBreakMaps | null = null;
+    if (isSingles) {
+      // "Best final round" for tie-break purposes = the last qualifying
+      // round already played, not the singles day itself (its matches don't
+      // exist yet — Kronos Rankings must be locked BEFORE the playoff they
+      // seed, never computed from it).
+      const otherDayNumbers = days.filter(d => d.id !== day.id).map(d => d.day_number);
+      const lastQualifyingDayNumber = otherDayNumbers.length > 0 ? Math.max(...otherDayNumbers) : null;
+      const lastQualifyingDay = days.find(d => d.day_number === lastQualifyingDayNumber);
+      const finalDayMatchIds = new Set(
+        lastQualifyingDay ? matches.filter(m => m.day_id === lastQualifyingDay.id).map(m => m.id) : []
+      );
+      kronosMaps = buildKronosTieBreakMaps(kronosHoleRows, finalDayMatchIds);
+    }
     for (const tid of teamIds) {
       const roster = grouped[tid];
       if (isSingles) {
-        grouped[tid] = [...roster].sort((a, b) => (stablefordTotals[b] ?? 0) - (stablefordTotals[a] ?? 0));
+        grouped[tid] = rankPlayersByKronos(roster, stablefordTotals, kronosMaps!);
       } else if (isPairs && isOpeningRound) {
         const captain = compPlayers.find(cp => cp.team_id === tid && cp.is_captain)?.player_id;
         if (captain && roster.includes(captain)) {
@@ -673,6 +698,123 @@ export default function TournamentDrawScreen() {
     } finally {
       setGenerating(null);
     }
+  }
+
+  // Titan Way generates every qualifying round TOGETHER as one draw, never
+  // day by day (Rick's brief, 2026-08-25, section 6) — this is the whole-
+  // tournament counterpart to generateDraw() above, used only for
+  // format === 'titan_way' via the banner button in the DRAW tab.
+  async function generateTitanWayDraw(maxDayNumber: number) {
+    if (generating || !comp) return;
+
+    const formatRules = getFormatRules(comp.format);
+    const grouped: Record<string, string[]> = {};
+    for (const cp of compPlayers) {
+      if (!cp.team_id) continue;
+      (grouped[cp.team_id] ??= []).push(cp.player_id);
+    }
+    const teamIds = Object.keys(grouped);
+    const teamsForCheck = teamIds.map(id => ({ id, playerCount: grouped[id].length }));
+    // The pre-draw feasibility check (Rick's brief, section 8) — same
+    // checkTitanWayStructure() Go Live already ran, so the two screens can
+    // never disagree about what's structurally valid. Only runs when the
+    // organiser presses this button, never on screen mount.
+    const structuralIssues = checkTitanWayStructure(formatRules, teamsForCheck);
+    if (structuralIssues.length > 0) {
+      Alert.alert('Titan Way Draw Not Possible', structuralIssues.map(i => `• ${i.label}`).join('\n'));
+      return;
+    }
+
+    const qualifyingDays = days.filter(d => d.day_number !== maxDayNumber);
+    if (qualifyingDays.length === 0) {
+      Alert.alert('No qualifying rounds', 'Add at least one round before the final day to generate a Titan Way draw.');
+      return;
+    }
+    const qualifyingDayIds = new Set(qualifyingDays.map(d => d.id));
+    const existingMatches = matches.filter(m => qualifyingDayIds.has(m.day_id));
+
+    async function proceed() {
+      setGenerating('titan_way');
+      try {
+        if (existingMatches.length > 0) {
+          await supabase.from('matches').delete().in('id', existingMatches.map(m => m.id));
+        }
+        const schedule = generateTitanWaySchedule({
+          teamIds,
+          rosterByTeam: grouped,
+          qualifyingDayNumbers: qualifyingDays.map(d => d.day_number),
+        });
+
+        const matchRows: any[] = [];
+        for (const day of qualifyingDays) {
+          const df = day.day_format ?? 'four_bbb';
+          const roundFmt = dayFormatToRoundFormat(df);
+          const handicapMethod = dayFormatToHandicapMethod(df);
+          const hcp = day.hcp_pct ?? 100;
+          const sideGamesTags = [
+            ...(comp?.settings?.voice_enabled ? ['voice:on'] : []),
+            ...(comp?.settings?.track_stats_enabled ? [] : ['stats:off']),
+          ];
+          const dayMatchups = computeRoundRobinMatchups(teamIds, day.day_number);
+          const dayPairings = schedule.pairingsByDay[day.day_number] ?? {};
+          let matchNum = 1;
+          for (const [tH, tA] of dayMatchups) {
+            const pairingH = dayPairings[tH];
+            const pairingA = dayPairings[tA];
+            if (!pairingH || !pairingA) continue;
+            matchRows.push({
+              competition_id: competitionId, day_id: day.id, match_number: matchNum++,
+              home_team_id: tH, away_team_id: tA,
+              home_player_ids: pairingH.pair1, away_player_ids: pairingA.pair1,
+              round_format: roundFmt, is_singles: false, hcp_allowance: hcp,
+              handicap_method: handicapMethod, status: 'upcoming', side_games: sideGamesTags,
+            });
+            matchRows.push({
+              competition_id: competitionId, day_id: day.id, match_number: matchNum++,
+              home_team_id: tH, away_team_id: tA,
+              home_player_ids: pairingH.pair2, away_player_ids: pairingA.pair2,
+              round_format: roundFmt, is_singles: false, hcp_allowance: hcp,
+              handicap_method: handicapMethod, status: 'upcoming', side_games: sideGamesTags,
+            });
+          }
+        }
+
+        if (matchRows.length === 0) {
+          Alert.alert('No matches', 'Could not generate any matches — check team rosters.');
+          return;
+        }
+        const { error } = await supabase.from('matches').insert(matchRows);
+        if (error) { Alert.alert('Error', error.message); return; }
+        await load();
+      } catch (e: any) {
+        Alert.alert('Error', e?.message ?? 'Could not generate the Titan Way draw.');
+      } finally {
+        setGenerating(null);
+      }
+    }
+
+    // Warn-then-allow on regeneration, matching the exact pattern already
+    // used by clearDay()/openEditMatch() below — never a silent overwrite,
+    // never a hard block either (Dave, 2026-08-25).
+    if (existingMatches.length > 0) {
+      const { count } = await supabase.from('match_holes')
+        .select('id', { count: 'exact', head: true }).in('match_id', existingMatches.map(m => m.id));
+      if ((count ?? 0) > 0) {
+        Alert.alert(
+          'Qualifying rounds have scores',
+          'Regenerating the Titan Way draw will delete every qualifying-round match AND all scores entered against them — this cannot be undone. Continue?',
+          [{ text: 'Cancel', style: 'cancel' }, { text: 'Continue', style: 'destructive', onPress: proceed }]
+        );
+        return;
+      }
+      Alert.alert(
+        'Qualifying rounds already drawn',
+        'This clears the existing qualifying-round matches and generates a new draw. Continue?',
+        [{ text: 'Cancel', style: 'cancel' }, { text: 'Continue', onPress: proceed }]
+      );
+      return;
+    }
+    await proceed();
   }
 
   // Previously deleted a day's matches with no idea whether any scores had
@@ -931,7 +1073,10 @@ export default function TournamentDrawScreen() {
         )}
 
         {/* ── DRAW TAB ─────────────────────────────────────────────── */}
-        {tab === 'draw' && (
+        {tab === 'draw' && (() => {
+          const maxDayNumber = days.length > 0 ? Math.max(...days.map(d => d.day_number)) : 0;
+          const isTitanWay = comp?.format === 'titan_way';
+          return (
           <View>
             <Text style={s.sectionLabel}>{days.length} DAYS</Text>
             {days.length === 0 && (
@@ -939,9 +1084,25 @@ export default function TournamentDrawScreen() {
                 <Text style={s.emptyText}>No days configured. Add days in the tournament builder.</Text>
               </View>
             )}
+            {isTitanWay && days.length > 0 && (
+              <View style={s.titanWayBanner}>
+                <TouchableOpacity
+                  style={s.genBtn}
+                  onPress={() => generateTitanWayDraw(maxDayNumber)}
+                  disabled={!!generating}
+                  activeOpacity={0.8}
+                >
+                  {generating === 'titan_way' ? <ActivityIndicator size="small" color="#000" /> : <Text style={s.genBtnText}>GENERATE TITAN WAY DRAW</Text>}
+                </TouchableOpacity>
+                <Text style={s.titanWayBannerSub}>
+                  Generates every qualifying round (Days 1–{Math.max(1, maxDayNumber - 1)}) together, minimising repeat partners and opponents.
+                </Text>
+              </View>
+            )}
             {days.map(day => {
               const dayMatches = matches.filter(m => m.day_id === day.id);
               const isGen = generating === day.id;
+              const isTitanWayQualifyingDay = isTitanWay && day.day_number !== maxDayNumber;
               return (
                 <View key={day.id} style={s.dayCard}>
                   <View style={s.dayCardHeader}>
@@ -971,6 +1132,11 @@ export default function TournamentDrawScreen() {
                         </TouchableOpacity>
                       ) : isGen ? (
                         <View style={s.genBtn}><ActivityIndicator size="small" color="#000" /></View>
+                      ) : isTitanWayQualifyingDay ? (
+                        // Titan Way's qualifying rounds are generated all
+                        // together (see the banner above), never per-day —
+                        // Rick's brief, 2026-08-25, section 6.
+                        <Text style={[s.fmtBadgeText, { color: '#666', maxWidth: 100, textAlign: 'right' }]}>Use Generate Titan Way Draw above</Text>
                       ) : (
                         <>
                           <TouchableOpacity style={s.genBtn} onPress={() => generateDraw(day, 'auto')} activeOpacity={0.8}>
@@ -1041,7 +1207,8 @@ export default function TournamentDrawScreen() {
               );
             })}
           </View>
-        )}
+          );
+        })()}
 
         {/* ── SUMMARY TAB ──────────────────────────────────────────────
             Was "ACTIVATE" — that button was already permanently dead code
@@ -1499,6 +1666,8 @@ const s = StyleSheet.create({
 
 
   dayCard:       { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', padding: 14, marginBottom: 12 },
+  titanWayBanner: { backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(212,175,55,0.35)', padding: 14, marginTop: 10, marginBottom: 12, gap: 8 },
+  titanWayBannerSub: { fontFamily: 'JUSTSans-ExBold', fontSize: 11, color: '#888', lineHeight: 15 },
   dayCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   dayNum:        { fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: GOLD, letterSpacing: 2, marginBottom: 2 },
   dayName:       { fontFamily: 'JUSTSans-ExBold', fontSize: 15, color: '#fff', marginBottom: 6 },

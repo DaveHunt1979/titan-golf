@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, freshChannel } from '../../../src/lib/supabase';
 import { getMatchPack } from '../../../src/lib/offlinePack';
 import { resolveTournamentHandicaps } from '../../../src/lib/tournamentHandicap';
 import { useSyncStatus } from '../../../src/lib/useSyncStatus';
@@ -244,8 +244,15 @@ export default function SpectateScreen() {
 
   useEffect(() => {
     load();
-    const sub = supabase
-      .channel(`spectate-${matchId}`)
+    // A fixed channel name (`spectate-${matchId}`) re-created on every mount
+    // (e.g. re-entering this screen, or a friend/T-Card flow reopening the
+    // same match) can leave an old subscription registered under the same
+    // topic — Supabase Realtime then silently stops delivering to the new
+    // one, which is exactly what made this screen look like a frozen
+    // one-time snapshot instead of a live spectate view (Dave, 2026-08-25).
+    // freshChannel() removes any stale registration for this topic first —
+    // same fix already applied elsewhere in this app for the same bug class.
+    const sub = freshChannel(`spectate-${matchId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'matches',    filter: `id=eq.${matchId}` },         load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'match_holes', filter: `match_id=eq.${matchId}` }, load)
       .subscribe();

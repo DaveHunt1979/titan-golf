@@ -16,7 +16,7 @@ import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { uploadImage } from '../../../src/lib/uploadImage';
 import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
-import { individualBoardLabel, getFormatRules, FORMAT_RULES, type FormatId, type FormatRules } from '../../../src/lib/tournamentFormat';
+import { individualBoardLabel, getFormatRules, checkTitanWayStructure, FORMAT_RULES, type FormatId, type FormatRules } from '../../../src/lib/tournamentFormat';
 import PrizeCategoriesEditor from '../../../src/components/PrizeCategoriesEditor';
 import { ukDateToIso, isoToUk, ukDateToDate, dateToUk, dateToHm, hmToDate } from '../../../src/lib/dateHelpers';
 import { DEFAULT_HANDICAP_CUT_BANDS, type HandicapCutBand } from '../../../src/lib/tournamentHandicap';
@@ -38,6 +38,7 @@ interface CompFormat {
   id: FormatId;
   label: string;
   sub: string;
+  howItWorks: string[] | null;
   available: boolean;
   defaultDays: number;
   defaultDayFormat: DayFormatId;
@@ -53,6 +54,7 @@ const COMP_FORMATS: CompFormat[] = (Object.keys(FORMAT_RULES) as FormatId[]).map
     id,
     label: r.label,
     sub: r.sub,
+    howItWorks: r.howItWorks,
     available: r.available,
     defaultDays: r.defaultDays,
     defaultDayFormat: r.defaultDayFormat as DayFormatId,
@@ -170,6 +172,7 @@ export default function BuildTournamentScreen() {
   // anything specific to that step.
   useEffect(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, [step]);
   const [selectedFormat, setSelectedFormat] = useState<FormatId | null>(null);
+  const [howItWorksOpenFor, setHowItWorksOpenFor] = useState<FormatId | null>(null);
   const [name, setName]                     = useState('');
   const [year, setYear]                     = useState(String(new Date().getFullYear() + 1));
   const [days, setDays]                     = useState<DayConfig[]>([]);
@@ -393,6 +396,7 @@ export default function BuildTournamentScreen() {
     // Titan Way (Rick's brief, section 9 — "Scoring Options" is a per-format
     // pipeline stage, not a special case).
     if (rules.minTeams != null) setNumTeams(String(rules.minTeams));
+    if (rules.exactPlayersPerTeam != null) setPlayersPerTeam(String(rules.exactPlayersPerTeam));
     setPtsWin(String(rules.defaultPtsWin));
     setPtsHalf(String(rules.defaultPtsHalf));
     // Cleared, not just left unset, when switching to a format with no cap —
@@ -804,6 +808,17 @@ export default function BuildTournamentScreen() {
     if (rules.minPlayers != null && enrolledCount < rules.minPlayers) {
       issues.push({ label: `${rules.label} needs at least ${rules.minPlayers} players — currently ${enrolledCount}`, jumpToStep: 3 });
     }
+    // Structural checks (exact team size, even team count, team-count
+    // ceiling) — Titan Way only, format-driven so this can never disagree
+    // with draw.tsx's own pre-draw feasibility check (Rick's brief, 2026-08-25).
+    if (rules.maxTeams != null || rules.exactPlayersPerTeam != null || rules.requiresEvenTeams) {
+      const countsByTeam = new Map<string, number>();
+      compPlayers.filter(cp => cp.status !== 'declined' && cp.team_id).forEach(cp => {
+        countsByTeam.set(cp.team_id!, (countsByTeam.get(cp.team_id!) ?? 0) + 1);
+      });
+      const teamsForCheck = Array.from(pickedTeamIds).map(id => ({ id, playerCount: countsByTeam.get(id) ?? 0 }));
+      checkTitanWayStructure(rules, teamsForCheck).forEach(issue => issues.push({ label: issue.label, jumpToStep: 3 }));
+    }
 
     if (compId) {
       const { data: cats } = await supabase
@@ -984,6 +999,19 @@ export default function BuildTournamentScreen() {
                 <Text style={[styles.formatSub, !f.available && { color: '#444' }]}>
                   {f.sub}
                 </Text>
+                {f.howItWorks && (
+                  <>
+                    <Text
+                      style={styles.howItWorksToggle}
+                      onPress={(e) => { e.stopPropagation(); setHowItWorksOpenFor(prev => prev === f.id ? null : f.id); }}
+                    >
+                      {howItWorksOpenFor === f.id ? 'HIDE HOW IT WORKS ▲' : 'HOW IT WORKS ▼'}
+                    </Text>
+                    {howItWorksOpenFor === f.id && f.howItWorks.map((step, i) => (
+                      <Text key={i} style={styles.howItWorksStep}>{i + 1}. {step}</Text>
+                    ))}
+                  </>
+                )}
               </TouchableOpacity>
             ))}
           </View>
@@ -1092,10 +1120,12 @@ export default function BuildTournamentScreen() {
 
             {isMatchplay && (() => {
               const teamFloor = Math.max(2, getFormatRules(selectedFormat).minTeams ?? 2);
+              const teamCeil = getFormatRules(selectedFormat).maxTeams;
+              const atCeil = teamCeil != null && (parseInt(numTeams, 10) || 2) >= teamCeil;
               return (
               <>
                 <Text style={styles.fieldLabel}>NUMBER OF TEAMS</Text>
-                <Text style={styles.stepSub}>Must be even so teams can pair up.</Text>
+                <Text style={styles.stepSub}>Must be even so teams can pair up.{teamCeil != null ? ` Up to ${teamCeil} teams.` : ''}</Text>
                 <View style={styles.stepper}>
                   <TouchableOpacity
                     style={[styles.stepperBtn, (parseInt(numTeams, 10) || 2) <= teamFloor && styles.stepperBtnOff]}
@@ -1106,8 +1136,8 @@ export default function BuildTournamentScreen() {
                   </TouchableOpacity>
                   <Text style={styles.stepperValue}>{numTeams} teams</Text>
                   <TouchableOpacity
-                    style={styles.stepperBtn}
-                    onPress={() => setNumTeams(String((parseInt(numTeams, 10) || 2) + 2))}
+                    style={[styles.stepperBtn, atCeil && styles.stepperBtnOff]}
+                    onPress={() => !atCeil && setNumTeams(String((parseInt(numTeams, 10) || 2) + 2))}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.stepperBtnText}>+</Text>
@@ -1521,19 +1551,36 @@ export default function BuildTournamentScreen() {
             {isMatchplay ? (
               <>
                 <Text style={styles.fieldLabel}>PLAYERS PER TEAM</Text>
-                <View style={styles.stepper}>
-                  <TouchableOpacity
-                    style={[styles.stepperBtn, playersPerTeamN <= 1 && styles.stepperBtnOff]}
-                    onPress={() => setPlayersPerTeam(String(Math.max(1, playersPerTeamN - 1)))}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.stepperBtnText}>–</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.stepperValue}>{playersPerTeamN} players</Text>
-                  <TouchableOpacity style={styles.stepperBtn} onPress={() => setPlayersPerTeam(String(playersPerTeamN + 1))} activeOpacity={0.7}>
-                    <Text style={styles.stepperBtnText}>+</Text>
-                  </TouchableOpacity>
-                </View>
+                {(() => {
+                  // Titan Way requires EXACTLY 4 active players per team
+                  // (Rick's brief, 2026-08-25) — lock the stepper rather than
+                  // just validating after the fact, so the invalid state
+                  // can't be created in the first place.
+                  const exact = getFormatRules(selectedFormat).exactPlayersPerTeam;
+                  const locked = exact != null;
+                  return (
+                    <>
+                      {locked && <Text style={styles.stepSub}>{getFormatRules(selectedFormat).label} requires exactly {exact} players per team.</Text>}
+                      <View style={styles.stepper}>
+                        <TouchableOpacity
+                          style={[styles.stepperBtn, (locked || playersPerTeamN <= 1) && styles.stepperBtnOff]}
+                          onPress={() => !locked && setPlayersPerTeam(String(Math.max(1, playersPerTeamN - 1)))}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.stepperBtnText}>–</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.stepperValue}>{playersPerTeamN} players</Text>
+                        <TouchableOpacity
+                          style={[styles.stepperBtn, locked && styles.stepperBtnOff]}
+                          onPress={() => !locked && setPlayersPerTeam(String(playersPerTeamN + 1))}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.stepperBtnText}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  );
+                })()}
 
                 <Text style={styles.fieldLabel}>{pickedTeamIds.size} OF {numTeamsN} TEAMS ADDED — TAP A CREST</Text>
                 {squadTeams.length === 0 && (
@@ -1991,6 +2038,8 @@ const styles = StyleSheet.create({
   formatLabel: { flex: 1, fontSize: 15, fontFamily: FFB, color: '#fff' },
   formatSub: { fontSize: 13, fontFamily: FFB, color: '#fff', lineHeight: 18 },
   comingSoon: { fontSize: 11, fontFamily: FFB, color: '#fff', letterSpacing: 1 },
+  howItWorksToggle: { fontSize: 11, fontFamily: FFB, color: GOLD, letterSpacing: 1, marginTop: 8 },
+  howItWorksStep: { fontSize: 12, fontFamily: FFB, color: '#ccc', lineHeight: 17, marginTop: 6 },
   tick: { fontSize: 15, fontFamily: FFB, color: GOLD },
 
   // Fields

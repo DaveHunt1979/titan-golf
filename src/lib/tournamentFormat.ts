@@ -21,7 +21,11 @@ export interface FormatRules {
   finalDayKnockout: boolean;             // final day pairs by league position instead of round-robin — Titan Way only
   lastDaySinglesOverride: boolean;       // last day auto-set to Singles @ 85% handicap
   minTeams: number | null;               // Go Live validation + Builder team-count floor
+  maxTeams: number | null;               // Go Live validation + Builder team-count ceiling — Titan Way only (Rick's brief, 2026-08-25)
   minPlayers: number | null;             // Go Live validation
+  exactPlayersPerTeam: number | null;    // every team must have exactly this many active players — Titan Way only
+  requiresEvenTeams: boolean;            // team count must be even — Titan Way only (the generic isMatchplay odd-team check in build.tsx predates this and stays as a fallback for other formats)
+  howItWorks: string[] | null;           // "HOW IT WORKS" expandable steps on the format card — Titan Way only
   defaultDays: number;
   defaultDayFormat: string;              // a DayFormatId value — that type stays owned by build.tsx (a separate, round-level axis), cast at the boundary
   defaultHcpPct: number;
@@ -43,7 +47,11 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     finalDayKnockout: false,
     lastDaySinglesOverride: true,
     minTeams: null,
+    maxTeams: null,
     minPlayers: null,
+    exactPlayersPerTeam: null,
+    requiresEvenTeams: false,
+    howItWorks: null,
     defaultDays: 4,
     defaultDayFormat: 'four_bbb',
     defaultHcpPct: 75,
@@ -54,7 +62,11 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
   titan_way: {
     id: 'titan_way',
     label: 'Titan Way',
-    sub: '4BBB Stableford opening rounds build a team league, then a final-day knockout + singles draw — plus a full Kronos individual championship. Minimum 4 teams, 16 players.',
+    // Rick's brief, 2026-08-25 — the format-card copy is sourced from these
+    // same structural fields (minTeams/maxTeams/exactPlayersPerTeam) rather
+    // than hardcoded twice, so the description can never drift from what
+    // Go Live actually enforces.
+    sub: 'Titan’s signature team tournament format. Play through mathematically generated 4BBB team rounds before the tournament moves into a final Singles Playoff. Final team positions determine who plays who, while Kronos performance determines the individual Singles matchups. 4–12 teams (even numbers only), exactly 4 players per team (16–48 players).',
     available: true,
     isTeamFormat: true,
     individualBoardDefaultOn: true,
@@ -63,7 +75,18 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     finalDayKnockout: true,
     lastDaySinglesOverride: true,
     minTeams: 4,
+    maxTeams: 12,
     minPlayers: 16,
+    exactPlayersPerTeam: 4,
+    requiresEvenTeams: true,
+    howItWorks: [
+      'Build Your Teams — create an even number of teams with exactly four active players in each team.',
+      'Titan Builds The Draw — Titan analyses the entire tournament and generates all scheduled 4BBB rounds together, maximising variety and minimising unnecessary repeat opponents and partnerships.',
+      'Play The Team Rounds — team results build the Team Leaderboard, individual Stableford scores build the Kronos Individual Rankings.',
+      'Final Team Positions — once every qualifying round is complete, Titan locks the final Team Rankings and pairs teams by finishing position (1st vs 2nd, 3rd vs 4th, 5th vs 6th, and so on).',
+      'Kronos Sets The Singles Order — within each playoff, players are ranked by Kronos Individual Stableford performance. Highest plays highest, second plays second, and so on.',
+      'The Final Showdown — the final round is Singles Matchplay. Every team has something to play for, and every player has earned their position through their tournament performance.',
+    ],
     defaultDays: 4,
     defaultDayFormat: 'four_bbb',
     defaultHcpPct: 75,
@@ -83,7 +106,11 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     finalDayKnockout: false,
     lastDaySinglesOverride: false,
     minTeams: null,
+    maxTeams: null,
     minPlayers: null,
+    exactPlayersPerTeam: null,
+    requiresEvenTeams: false,
+    howItWorks: null,
     defaultDays: 3,
     defaultDayFormat: 'four_bbb',
     defaultHcpPct: 75,
@@ -103,7 +130,11 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     finalDayKnockout: false,
     lastDaySinglesOverride: false,
     minTeams: null,
+    maxTeams: null,
     minPlayers: null,
+    exactPlayersPerTeam: null,
+    requiresEvenTeams: false,
+    howItWorks: null,
     defaultDays: 4,
     defaultDayFormat: 'stableford',
     defaultHcpPct: 100,
@@ -123,7 +154,11 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     finalDayKnockout: false,
     lastDaySinglesOverride: false,
     minTeams: null,
+    maxTeams: null,
     minPlayers: null,
+    exactPlayersPerTeam: null,
+    requiresEvenTeams: false,
+    howItWorks: null,
     defaultDays: 2,
     defaultDayFormat: 'medal',
     defaultHcpPct: 100,
@@ -143,7 +178,11 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     finalDayKnockout: false,
     lastDaySinglesOverride: false,
     minTeams: null,
+    maxTeams: null,
     minPlayers: null,
+    exactPlayersPerTeam: null,
+    requiresEvenTeams: false,
+    howItWorks: null,
     defaultDays: 1,
     defaultDayFormat: 'singles',
     defaultHcpPct: 75,
@@ -163,6 +202,38 @@ const FALLBACK_RULES: FormatRules = {
 
 export function getFormatRules(format: string | null | undefined): FormatRules {
   return (format && FORMAT_RULES[format as FormatId]) || FALLBACK_RULES;
+}
+
+export interface StructuralIssue { label: string; }
+
+// Format-driven structural hard constraints (Rick's brief, 2026-08-25,
+// section 21 — "Titan Way must reject the tournament configuration if...").
+// Called from both build.tsx's Go Live validation and draw.tsx's pre-draw
+// feasibility check so the two screens can never disagree about what's
+// structurally valid. A no-op for any format that leaves these fields null/
+// false (every format except Titan Way today).
+export function checkTitanWayStructure(
+  rules: FormatRules,
+  teams: { id: string; playerCount: number }[],
+): StructuralIssue[] {
+  const issues: StructuralIssue[] = [];
+  if (rules.minTeams != null && teams.length < rules.minTeams) {
+    issues.push({ label: `${rules.label} needs at least ${rules.minTeams} teams — currently ${teams.length}` });
+  }
+  if (rules.maxTeams != null && teams.length > rules.maxTeams) {
+    issues.push({ label: `${rules.label} allows at most ${rules.maxTeams} teams — currently ${teams.length}` });
+  }
+  if (rules.requiresEvenTeams && teams.length % 2 !== 0) {
+    issues.push({ label: `${rules.label} needs an even number of teams — currently ${teams.length}` });
+  }
+  if (rules.exactPlayersPerTeam != null) {
+    teams.forEach(t => {
+      if (t.playerCount !== rules.exactPlayersPerTeam) {
+        issues.push({ label: `Every team needs exactly ${rules.exactPlayersPerTeam} players — one team currently has ${t.playerCount}` });
+      }
+    });
+  }
+  return issues;
 }
 
 // Titan Way is the only tournament format that uses "Kronos" branding for the
