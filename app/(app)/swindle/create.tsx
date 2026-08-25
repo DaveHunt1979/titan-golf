@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { supabase, fetchAllRows } from '../../../src/lib/supabase';
+import { useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
@@ -40,6 +41,7 @@ function genCode() {
 
 export default function SwindleCreate() {
   const router = useRouter();
+  const { societyId } = useSocietyTheme() as any;
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -123,6 +125,7 @@ export default function SwindleCreate() {
         join_code: code,
         status: 'open',
         created_by: player.id,
+        society_id: societyId ?? null,
         game_date: new Date().toISOString().split('T')[0],
         is_recurring: isRecurring,
         recurring_day: isRecurring ? recurringDay : null,

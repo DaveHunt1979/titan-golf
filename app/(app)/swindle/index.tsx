@@ -215,7 +215,10 @@ export default function SwindleIndex() {
           <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.logo} />
           <Text style={[s.headerSub, { color: dc.cardText }]}>THE SWINDLE</Text>
         </View>
-        <View style={[s.headerSide, { alignItems: 'flex-end' }]}>
+        <View style={[s.headerSide, { flexDirection: 'row', justifyContent: 'flex-end', gap: 16 }]}>
+          <TouchableOpacity onPress={() => router.push('/(app)/swindle/records' as any)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="trophy-outline" size={22} color={PURPLE} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/(app)/chat/swindle' as any)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="chatbubbles-outline" size={22} color={dc.gold} />
             {chatUnread > 0 && (

@@ -18,7 +18,7 @@ const FFB    = 'JUSTSans-ExBold';
 
 interface DM {
   id: string; sender_id: string; recipient_id: string; content: string; created_at: string;
-  message_type: 'text' | 'tournament_invite' | 'newsreel' | 'swindle_settlement' | 'match_report';
+  message_type: 'text' | 'tournament_invite' | 'newsreel' | 'swindle_settlement' | 'match_report' | 'swindle_records';
   competition_id: string | null;
   invite_response: 'accepted' | 'declined' | null;
   link_url: string | null;
@@ -203,6 +203,24 @@ export default function DmThread() {
             {item.link_url && (
               <TouchableOpacity style={ss.inviteYesBtn} onPress={() => Linking.openURL(item.link_url!)} activeOpacity={0.85}>
                 <Text style={ss.inviteYesText}>View & Mark Settled</Text>
+              </TouchableOpacity>
+            )}
+            <Text style={[ss.time, { alignSelf: 'center', marginTop: 8 }]}>{formatTime(item.created_at)}</Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (item.message_type === 'swindle_records') {
+      return (
+        <View style={ss.inviteWrap}>
+          <View style={ss.inviteCard}>
+            <Text style={ss.inviteEmoji}>🏆</Text>
+            <Text style={ss.inviteHeading}>Swindle Season Stats</Text>
+            <Text style={ss.inviteBody}>{item.content}</Text>
+            {item.link_url && (
+              <TouchableOpacity style={ss.inviteYesBtn} onPress={() => Linking.openURL(item.link_url!)} activeOpacity={0.85}>
+                <Text style={ss.inviteYesText}>View the Leaderboard</Text>
               </TouchableOpacity>
             )}
             <Text style={[ss.time, { alignSelf: 'center', marginTop: 8 }]}>{formatTime(item.created_at)}</Text>

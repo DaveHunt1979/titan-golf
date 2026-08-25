@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   ActivityIndicator, RefreshControl, Alert, Platform, Image, Modal,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
@@ -63,6 +63,8 @@ function formatDate(d: string) {
 export default function SwindleAdminScreen() {
   const router = useRouter();
   useDynamicColors();
+  const params = useLocalSearchParams<{ tab?: string; status?: string }>();
+  const statusFilter = params.status === 'active' || params.status === 'complete' ? params.status : undefined;
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -73,7 +75,9 @@ export default function SwindleAdminScreen() {
 
   const [loading, setLoading]           = useState(true);
   const [refreshing, setRefreshing]     = useState(false);
-  const [tab, setTab]                   = useState<'games' | 'money' | 'members'>('games');
+  const [tab, setTab]                   = useState<'games' | 'money' | 'members'>(
+    params.tab === 'money' ? 'money' : params.tab === 'members' ? 'members' : 'games'
+  );
   const [games, setGames]               = useState<SwindleGame[]>([]);
   const [moneyList, setMoneyList]       = useState<MoneyEntry[]>([]);
   const [downloading, setDownloading]   = useState(false);
@@ -296,6 +300,14 @@ export default function SwindleAdminScreen() {
   const statusColor = (s: string) =>
     s === 'complete' ? GREEN : s === 'in_progress' ? GOLD : '#6b7280';
 
+  const displayedGames = statusFilter === 'active'
+    ? games.filter(g => g.status !== 'complete')
+    : statusFilter === 'complete'
+    ? games.filter(g => g.status === 'complete')
+    : games;
+
+  const gamesTabLabel = statusFilter === 'active' ? 'Live' : statusFilter === 'complete' ? 'Results' : 'All Games';
+
   if (loading || !fontsLoaded) return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
@@ -337,7 +349,7 @@ export default function SwindleAdminScreen() {
             activeOpacity={0.7}
           >
             <Text style={[s.tabLabel, tab === t && s.tabLabelActive]}>
-              {t === 'games' ? 'All Games' : t === 'money' ? 'Money List' : 'Members'}
+              {t === 'games' ? gamesTabLabel : t === 'money' ? 'Money List' : 'Members'}
             </Text>
           </TouchableOpacity>
         ))}
@@ -350,10 +362,12 @@ export default function SwindleAdminScreen() {
       >
         {tab === 'games' && (
           <>
-            {games.length === 0 && (
-              <Text style={s.empty}>No swindle games yet.</Text>
+            {displayedGames.length === 0 && (
+              <Text style={s.empty}>
+                {statusFilter === 'active' ? 'No live games right now.' : statusFilter === 'complete' ? 'No completed games yet.' : 'No swindle games yet.'}
+              </Text>
             )}
-            {games.map(g => (
+            {displayedGames.map(g => (
               <View key={g.id} style={s.gameCard}>
                 {/* Purple left accent */}
                 <View style={s.purpleAccent} />
@@ -502,31 +516,12 @@ export default function SwindleAdminScreen() {
           </ScrollView>
         </View>
       </Modal>
-
-      {/* + FAB — create new swindle */}
-      <TouchableOpacity
-        style={s.fab}
-        onPress={() => router.push('/(app)/swindle/create' as any)}
-        activeOpacity={0.85}
-      >
-        <Text style={s.fabIcon}>+</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  fab: {
-    position: 'absolute', bottom: 32, right: 20,
-    width: 60, height: 60, borderRadius: 30,
-    backgroundColor: PURPLE,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: PURPLE, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
-  fabIcon: { fontSize: 32, color: '#fff', lineHeight: 36 },
-
   header: {
     paddingTop: Platform.OS === 'ios' ? 56 : 32,
     paddingHorizontal: 20,

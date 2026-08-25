@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"npx supabase db push 2>&1\",\"description\":\"Push the pending swindle society_id migration to remote\"}",
+  "error": "Exit code 1\nInitialising login role...\nConnecting to remote database...\nApplying migration 20260825040000_swindle_society_and_records_dm.sql...\n{\"_tag\":\"Error\",\"error\":{\"code\":\"LegacyDbPushApplyError\",\"message\":\"ERROR: column \\\"created_at\\\" does not exist (SQLSTATE 42703)\\nThere is a column named \\\"created_at\\\" in table \\\"g\\\", but it cannot be referenced from this part of the query.\\nAt statement: 1\\nUPDATE swindle_games g\\nSET society_id = sm.society_id\\nFROM (\\n  SELECT DISTINCT ON (player_id)...",
+  "timestamp": "2026-08-25T12:21:04.537Z",
+  "retry_count": 1
+}
