@@ -1,6 +1,7 @@
 import { ensureDb } from './localDb';
 import { supabase } from './supabase';
 import { searchCourse, getCourseHoles } from './golfIntelligence';
+import { resolveTournamentHandicaps } from './tournamentHandicap';
 
 const TTL = 14 * 60 * 60 * 1000;
 // Same 30-day window rangefinder's own gi_course_cache read uses — a row
@@ -46,7 +47,12 @@ export async function downloadMatchPack(matchId: string): Promise<void> {
       fallback.push({ player_id: p.id, handicap_index: p.handicap_index ?? 0 });
     }
     const comp = compRes.data as any[] | null;
-    const compPlayers = comp && comp.length > 0 ? comp : fallback;
+    const rawComp = comp && comp.length > 0 ? comp : fallback;
+    // Tournament handicap cuts (if enabled) resolve here too, not just in
+    // the live-fetch path each screen follows up with — an offline/slow
+    // connection instant-paint should already reflect the cut, not the
+    // pre-cut enrollment snapshot.
+    const compPlayers = await resolveTournamentHandicaps(matchData.competition_id, (matchData as any).day_id, rawComp);
 
     const db = await ensureDb();
     if (!db) return;

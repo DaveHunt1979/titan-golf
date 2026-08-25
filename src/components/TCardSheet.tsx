@@ -7,6 +7,20 @@ import { resolveAvatar } from '../lib/assets';
 import { fetchLastRounds, type RecentRound } from '../lib/playerTiers';
 import PlayerEditSheet, { type EditablePlayer } from './PlayerEditSheet';
 
+interface TournamentHandicapSummary {
+  starting: number;
+  current: number;
+  cut: number;
+}
+interface TournamentHandicapHistoryRow {
+  dayNumber: number;
+  handicapBefore: number;
+  stablefordPts: number;
+  pointsOverTrigger: number;
+  cutApplied: number;
+  handicapAfter: number;
+}
+
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
 const FFB   = 'JUSTSans-ExBold';
@@ -25,7 +39,7 @@ export interface PlayingNow {
 // everyone; the Edit button is the one exception, straight into the same
 // merged Players+Access edit sheet.
 export default function TCardSheet({
-  visible, member, tTag, playingNow, isAdmin, societyId, myRole, onClose, onSaved,
+  visible, member, tTag, playingNow, isAdmin, societyId, myRole, onClose, onSaved, competitionId,
 }: {
   visible: boolean;
   member: EditablePlayer | null;
@@ -36,11 +50,19 @@ export default function TCardSheet({
   myRole: string;
   onClose: () => void;
   onSaved: () => void;
+  // Only set by callers with an active tournament context (e.g. the Tour
+  // leaderboard) — when present, shows the locked starting/current/cut
+  // tournament handicap breakdown. Absent for general-context callers
+  // (friends.tsx, Player Library), which simply skip that section.
+  competitionId?: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [online, setOnline] = useState(false);
   const [rounds, setRounds] = useState<RecentRound[] | null>(null);
+  const [tournamentHcp, setTournamentHcp] = useState<TournamentHandicapSummary | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<TournamentHandicapHistoryRow[] | null>(null);
 
   useEffect(() => {
     if (!visible || !member) { setRounds(null); return; }
@@ -48,6 +70,35 @@ export default function TCardSheet({
     supabase.rpc('is_player_online', { p_player_id: playerId }).then(({ data }) => setOnline(!!data));
     fetchLastRounds(playerId, 3).then(setRounds);
   }, [visible, member?.player.id]);
+
+  useEffect(() => {
+    if (!visible || !member || !competitionId) { setTournamentHcp(null); return; }
+    supabase.from('competition_players')
+      .select('starting_tournament_handicap, current_tournament_handicap, total_tournament_cut')
+      .eq('competition_id', competitionId).eq('player_id', member.player.id).maybeSingle()
+      .then(({ data }) => {
+        if (!data || (data as any).starting_tournament_handicap == null) { setTournamentHcp(null); return; }
+        setTournamentHcp({
+          starting: Number((data as any).starting_tournament_handicap),
+          current: Number((data as any).current_tournament_handicap),
+          cut: Number((data as any).total_tournament_cut),
+        });
+      });
+  }, [visible, member?.player.id, competitionId]);
+
+  function openHistory() {
+    if (!member || !competitionId) return;
+    setShowHistory(true);
+    setHistory(null);
+    supabase.from('tournament_handicap_history')
+      .select('day_number, handicap_before_cut, stableford_pts, points_over_trigger, cut_applied, handicap_after_cut')
+      .eq('competition_id', competitionId).eq('player_id', member.player.id).is('superseded_at', null)
+      .order('day_number', { ascending: true })
+      .then(({ data }) => setHistory((data ?? []).map((r: any) => ({
+        dayNumber: r.day_number, handicapBefore: Number(r.handicap_before_cut), stablefordPts: r.stableford_pts,
+        pointsOverTrigger: r.points_over_trigger, cutApplied: Number(r.cut_applied), handicapAfter: Number(r.handicap_after_cut),
+      }))));
+  }
 
   if (!member) return null;
   const { player, committee_role } = member;
@@ -113,6 +164,32 @@ export default function TCardSheet({
               )}
             </View>
 
+            {tournamentHcp && (
+              <TouchableOpacity
+                style={s.lastRoundsBlock}
+                activeOpacity={competitionId ? 0.7 : 1}
+                onPress={openHistory}
+              >
+                <Text style={s.lastRoundsLabel}>TOURNAMENT HANDICAP {tournamentHcp.cut > 0 ? '· TAP FOR HISTORY' : ''}</Text>
+                <View style={s.statRow}>
+                  <View style={s.statBox}>
+                    <Text style={s.statValue}>{tournamentHcp.starting.toFixed(1)} 🔒</Text>
+                    <Text style={s.statLabel}>STARTING</Text>
+                  </View>
+                  <View style={s.statBox}>
+                    <Text style={[s.statValue, { color: GOLD }]}>{tournamentHcp.current.toFixed(1)}</Text>
+                    <Text style={s.statLabel}>CURRENT</Text>
+                  </View>
+                  <View style={s.statBox}>
+                    <Text style={[s.statValue, { color: tournamentHcp.cut > 0 ? GREEN : '#666' }]}>
+                      {tournamentHcp.cut > 0 ? `-${tournamentHcp.cut.toFixed(1)}` : '0.0'}
+                    </Text>
+                    <Text style={s.statLabel}>CUT</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )}
+
             {playingNow && (
               <TouchableOpacity
                 style={s.watchBtn}
@@ -144,6 +221,33 @@ export default function TCardSheet({
                 </TouchableOpacity>
               )}
             </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={showHistory} transparent animationType="fade" onRequestClose={() => setShowHistory(false)}>
+        <Pressable style={s.backdrop} onPress={() => setShowHistory(false)}>
+          <Pressable style={[s.card, { maxHeight: '70%' }]} onPress={() => {}}>
+            <TouchableOpacity style={s.closeBtn} onPress={() => setShowHistory(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="close" size={20} color="#666" />
+            </TouchableOpacity>
+            <Text style={s.name}>Tournament Handicap History</Text>
+            {history === null ? (
+              <ActivityIndicator color="#555" style={{ marginTop: 16 }} />
+            ) : history.length === 0 ? (
+              <Text style={[s.lastRoundsEmpty, { marginTop: 12 }]}>No rounds processed yet</Text>
+            ) : (
+              history.map(h => (
+                <View key={h.dayNumber} style={{ width: '100%', marginTop: 12 }}>
+                  <Text style={{ color: '#888', fontFamily: FFB, fontSize: 11, letterSpacing: 1 }}>ROUND {h.dayNumber}</Text>
+                  <Text style={{ color: '#fff', fontFamily: FFB, fontSize: 13, marginTop: 2 }}>
+                    Played off {h.handicapBefore.toFixed(1)} · {h.stablefordPts} pts
+                    {h.cutApplied > 0 ? ` · -${h.cutApplied.toFixed(1)} cut` : ' · no cut'}
+                  </Text>
+                  <Text style={{ color: GOLD, fontFamily: FFB, fontSize: 12, marginTop: 2 }}>New handicap: {h.handicapAfter.toFixed(1)}</Text>
+                </View>
+              ))
+            )}
           </Pressable>
         </Pressable>
       </Modal>

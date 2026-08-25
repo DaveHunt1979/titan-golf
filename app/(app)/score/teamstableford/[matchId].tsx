@@ -14,6 +14,7 @@ import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
+import { resolveTournamentHandicaps, checkAndProcessDayCuts, reprocessFromDay } from '../../../../src/lib/tournamentHandicap';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
 
@@ -146,7 +147,16 @@ export default function TeamStablefordScreen() {
           : { data: [] },
       ]);
 
-      if (playersRes.data) setPlayers(playersRes.data as Player[]);
+      if (playersRes.data) {
+        // Tournament handicap cuts (if this tournament has them enabled) —
+        // this screen reads live players.handicap_index by default, so the
+        // resolver's rawHandicapIndex input is that value; a casual round
+        // (no competition_id) passes through unchanged.
+        const rawComp = (playersRes.data as any[]).map(p => ({ player_id: p.id, handicap_index: p.handicap_index }));
+        const tournamentComp = await resolveTournamentHandicaps((matchData as any).competition_id, (matchData as any).day_id, rawComp);
+        const adjustedById = new Map(tournamentComp.map(cp => [cp.player_id, cp.handicap_index]));
+        setPlayers((playersRes.data as Player[]).map(p => ({ ...p, handicap_index: adjustedById.get(p.id) ?? p.handicap_index })));
+      }
       if (holesRes.data) setCourseHoles(holesRes.data as CourseHole[]);
 
       if (scoresRes.data && scoresRes.data.length > 0) {
@@ -298,6 +308,10 @@ export default function TeamStablefordScreen() {
       return;
     }
     if (result.outcome === 'saved_offline') syncStatus.syncNow();
+
+    if (match?.status === 'complete' && (match as any).day_id) {
+      reprocessFromDay((match as any).day_id).catch(e => console.warn('[handicapCuts] reprocess failed', e));
+    }
   }
 
   async function completeRound() {
@@ -308,6 +322,7 @@ export default function TeamStablefordScreen() {
     await supabase.from('matches').update({ status: 'complete', winner, result_str: resultStr }).eq('id', matchId);
     setMatch(prev => prev ? { ...prev, status: 'complete' } : prev);
     setShowComplete(true);
+    if ((match as any).day_id) checkAndProcessDayCuts((match as any).day_id).catch(e => console.warn('[handicapCuts] process failed', e));
   }
 
   function confirmDelete() {

@@ -16,6 +16,8 @@ import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyTheme
 import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
 import { useChatUnread } from '../../../src/lib/useChatUnread';
 import Leaderboard, { type LeaderboardRow } from '../../../src/components/Leaderboard';
+import TCardSheet from '../../../src/components/TCardSheet';
+import type { EditablePlayer } from '../../../src/components/PlayerEditSheet';
 import type { Competition, CompetitionDay, Match, Team, Champion, Notification } from '../../../src/types';
 import {
   InfoPackView, hasInfoPackContent, emptyInfoPack,
@@ -37,7 +39,8 @@ interface PrizeCat {
   prize_payouts: { position: number; prize_money: number }[];
 }
 interface IndivEntry {
-  player_id: string; display_name: string; handicap_index: number | null;
+  player_id: string; display_name: string; handicap_index: number | null; avatar_url: string | null;
+  current_tournament_handicap: number | null; total_tournament_cut: number;
   stableford_total: number; vs_par_total: number; category_id: string | null; category_name: string | null;
   category_position: number | null; prize_money: number | null; is_overall_winner: boolean;
 }
@@ -96,6 +99,7 @@ export default function TourScreen() {
   const [leaderboardTab, setLeaderboardTab] = useState<'group' | 'team' | 'kronos' | 'honours'>('group');
   const [champions, setChampions]     = useState<Champion[]>([]);
   const [myPlayerId, setMyPlayerId]   = useState<string | null>(null);
+  const [tcardMember, setTcardMember] = useState<EditablePlayer | null>(null);
   const chatUnread = useChatUnread('tour', SOCIETY_ID, myPlayerId);
   const [loading, setLoading]         = useState(true);
   const [refreshing, setRefreshing]   = useState(false);
@@ -161,7 +165,7 @@ export default function TourScreen() {
       supabase.from('teams').select('*').eq('society_id', SOCIETY_ID ?? '').order('sort_order'),
       supabase.from('champions').select('*').order('year', { ascending: false }),
       supabase.from('competition_players')
-        .select('player_id,team_id,handicap_index,is_captain,players(display_name,avatar_url)')
+        .select('player_id,team_id,handicap_index,is_captain,current_tournament_handicap,total_tournament_cut,players(display_name,avatar_url)')
         .eq('competition_id', compId),
       supabase.from('prize_categories')
         .select('id,name,hcp_min,hcp_max,display_order,prize_payouts(position,prize_money)')
@@ -336,9 +340,14 @@ export default function TourScreen() {
         }
       });
 
-      const cpMap: Record<string, { display_name: string; handicap_index: number | null }> = {};
+      const cpMap: Record<string, { display_name: string; handicap_index: number | null; avatar_url: string | null; currentTournamentHcp: number | null; totalTournamentCut: number }> = {};
       (cpData as any[]).forEach(cp => {
-        cpMap[cp.player_id] = { display_name: cp.players?.display_name ?? '—', handicap_index: cp.handicap_index };
+        cpMap[cp.player_id] = {
+          display_name: cp.players?.display_name ?? '—', handicap_index: cp.handicap_index,
+          avatar_url: cp.players?.avatar_url ?? null,
+          currentTournamentHcp: cp.current_tournament_handicap ?? null,
+          totalTournamentCut: Number(cp.total_tournament_cut ?? 0),
+        };
       });
 
       // Combined Stableford per team — feeds getStandings' tie-break rung 1.
@@ -378,6 +387,9 @@ export default function TourScreen() {
           player_id: pid,
           display_name: cpMap[pid]?.display_name ?? '—',
           handicap_index: cpMap[pid]?.handicap_index ?? null,
+          avatar_url: cpMap[pid]?.avatar_url ?? null,
+          current_tournament_handicap: cpMap[pid]?.currentTournamentHcp ?? null,
+          total_tournament_cut: cpMap[pid]?.totalTournamentCut ?? 0,
           stableford_total: totals[pid] ?? 0,
           vs_par_total: vsPars[pid] ?? 0,
           category_id: null as string | null,
@@ -1207,9 +1219,15 @@ export default function TourScreen() {
               {indivBoard.map((entry, i) => {
                 const isMe = entry.player_id === myPlayerId;
                 const hasPrize = entry.prize_money != null && entry.prize_money > 0;
+                const cutsOn = !!(competition as any)?.handicap_cuts_enabled && entry.current_tournament_handicap != null;
                 return (
-                  <View
+                  <TouchableOpacity
                     key={entry.player_id}
+                    activeOpacity={0.7}
+                    onPress={() => setTcardMember({
+                      role: 'member', committee_role: null, membership_types: [],
+                      player: { id: entry.player_id, display_name: entry.display_name, email: null, handicap_index: entry.handicap_index, avatar_url: entry.avatar_url },
+                    })}
                     style={[
                       st.row,
                       { backgroundColor: dc.card, borderColor: dc.border },
@@ -1227,6 +1245,11 @@ export default function TourScreen() {
                         ) : entry.category_name && (
                           <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: '#555', marginTop: 1 }}>
                             {entry.category_name}{entry.category_position != null ? ` · ${ordinalLabel(entry.category_position)} in cat` : ''}
+                          </Text>
+                        )}
+                        {cutsOn && (
+                          <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: '#555', marginTop: 1 }}>
+                            H'cap {entry.current_tournament_handicap!.toFixed(1)}{entry.total_tournament_cut > 0 ? ` (-${entry.total_tournament_cut.toFixed(1)})` : ''}
                           </Text>
                         )}
                       </View>
@@ -1252,7 +1275,7 @@ export default function TourScreen() {
                         <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 11, color: '#333' }}>—</Text>
                       )}
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
               {indivBoard.length === 0 && (
@@ -1403,6 +1426,19 @@ export default function TourScreen() {
           )}
         </ScrollView>
       )}
+
+      <TCardSheet
+        visible={tcardMember !== null}
+        member={tcardMember}
+        tTag={null}
+        playingNow={null}
+        isAdmin={false}
+        societyId={SOCIETY_ID ?? ''}
+        myRole="member"
+        onClose={() => setTcardMember(null)}
+        onSaved={() => {}}
+        competitionId={competition?.id}
+      />
     </View>
   );
 }

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-24T14:35:41.111Z",
+  "updatedAt": "2026-08-25T03:49:12.000Z",
   "missions": [
     {
       "id": "session:01e0b48e-e6d3-4753-ab9f-1af384cb06c4:none",
@@ -7,15 +7,15 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-08-24T12:28:53.313Z",
-      "updatedAt": "2026-08-24T14:35:41.111Z",
+      "updatedAt": "2026-08-25T03:49:12.000Z",
       "status": "running",
-      "workerCount": 9,
+      "workerCount": 11,
       "taskCounts": {
-        "total": 9,
+        "total": 11,
         "pending": 0,
         "blocked": 0,
         "inProgress": 5,
-        "completed": 4,
+        "completed": 6,
         "failed": 0
       },
       "agents": [
@@ -27,7 +27,7 @@
           "currentStep": null,
           "latestUpdate": "completed",
           "completedSummary": null,
-          "updatedAt": "2026-08-24T14:35:41.111Z"
+          "updatedAt": "2026-08-25T03:49:12.000Z"
         },
         {
           "name": "trace-game-generation:atrace-",
@@ -108,72 +108,76 @@
           "latestUpdate": null,
           "completedSummary": null,
           "updatedAt": "2026-08-24T12:49:55.316Z"
+        },
+        {
+          "name": "Explore:a7cecb0",
+          "role": "Explore",
+          "ownership": "a7cecb0c3e7043f51",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T14:56:37.936Z"
+        },
+        {
+          "name": "Plan:a66a17b",
+          "role": "Plan",
+          "ownership": "a66a17be7f3fe4169",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-08-24T15:04:56.990Z"
         }
       ],
       "timeline": [
         {
-          "id": "session-stop:atrace-game-generation-2-d403ce1f0bd6cb64:2026-08-24T12:49:50.538Z",
-          "at": "2026-08-24T12:49:50.538Z",
-          "kind": "completion",
-          "agent": "trace-game-generation-2:atrace-",
-          "detail": "completed",
-          "sourceKey": "session-stop:atrace-game-generation-2-d403ce1f0bd6cb64"
-        },
-        {
-          "id": "session-stop:atrace-ai-infopack-reload-2-a31f0a565cbf3a13:2026-08-24T12:49:50.566Z",
-          "at": "2026-08-24T12:49:50.566Z",
-          "kind": "completion",
-          "agent": "trace-ai-infopack-reload-2:atrace-",
-          "detail": "completed",
-          "sourceKey": "session-stop:atrace-ai-infopack-reload-2-a31f0a565cbf3a13"
-        },
-        {
-          "id": "session-start:atrace-ai-infopack-reload-2-a31f0a565cbf3a13:2026-08-24T12:49:55.316Z",
-          "at": "2026-08-24T12:49:55.316Z",
+          "id": "session-start:a7cecb0c3e7043f51:2026-08-24T14:54:15.410Z",
+          "at": "2026-08-24T14:54:15.410Z",
           "kind": "update",
-          "agent": "trace-ai-infopack-reload-2:atrace-",
-          "detail": "started trace-ai-infopack-reload-2:atrace-",
-          "sourceKey": "session-start:atrace-ai-infopack-reload-2-a31f0a565cbf3a13"
+          "agent": "Explore:a7cecb0",
+          "detail": "started Explore:a7cecb0",
+          "sourceKey": "session-start:a7cecb0c3e7043f51"
         },
         {
-          "id": "session-stop:aa0ace00633238a02:2026-08-24T14:21:42.740Z",
-          "at": "2026-08-24T14:21:42.740Z",
+          "id": "session-stop:a7cecb0c3e7043f51:2026-08-24T14:56:37.936Z",
+          "at": "2026-08-24T14:56:37.936Z",
+          "kind": "completion",
+          "agent": "Explore:a7cecb0",
+          "detail": "completed",
+          "sourceKey": "session-stop:a7cecb0c3e7043f51"
+        },
+        {
+          "id": "session-start:a66a17be7f3fe4169:2026-08-24T14:58:43.189Z",
+          "at": "2026-08-24T14:58:43.189Z",
+          "kind": "update",
+          "agent": "Plan:a66a17b",
+          "detail": "started Plan:a66a17b",
+          "sourceKey": "session-start:a66a17be7f3fe4169"
+        },
+        {
+          "id": "session-stop:a66a17be7f3fe4169:2026-08-24T15:04:56.990Z",
+          "at": "2026-08-24T15:04:56.990Z",
+          "kind": "completion",
+          "agent": "Plan:a66a17b",
+          "detail": "completed",
+          "sourceKey": "session-stop:a66a17be7f3fe4169"
+        },
+        {
+          "id": "session-stop:a408dbd3d7d19c6f9:2026-08-24T16:13:55.146Z",
+          "at": "2026-08-24T16:13:55.146Z",
           "kind": "completion",
           "agent": "trace-format-gating:atrace-",
           "detail": "completed",
-          "sourceKey": "session-stop:aa0ace00633238a02"
+          "sourceKey": "session-stop:a408dbd3d7d19c6f9"
         },
         {
-          "id": "session-stop:a2946062d0393e879:2026-08-24T14:24:57.311Z",
-          "at": "2026-08-24T14:24:57.311Z",
+          "id": "session-stop:a954cadc33bf77110:2026-08-25T03:49:12.000Z",
+          "at": "2026-08-25T03:49:12.000Z",
           "kind": "completion",
           "agent": "trace-format-gating:atrace-",
           "detail": "completed",
-          "sourceKey": "session-stop:a2946062d0393e879"
-        },
-        {
-          "id": "session-stop:a90c9ae3ef80323c9:2026-08-24T14:27:20.277Z",
-          "at": "2026-08-24T14:27:20.277Z",
-          "kind": "completion",
-          "agent": "trace-format-gating:atrace-",
-          "detail": "completed",
-          "sourceKey": "session-stop:a90c9ae3ef80323c9"
-        },
-        {
-          "id": "session-stop:a04e439133b57f8da:2026-08-24T14:31:07.528Z",
-          "at": "2026-08-24T14:31:07.528Z",
-          "kind": "completion",
-          "agent": "trace-format-gating:atrace-",
-          "detail": "completed",
-          "sourceKey": "session-stop:a04e439133b57f8da"
-        },
-        {
-          "id": "session-stop:a549461dd547317f5:2026-08-24T14:35:41.111Z",
-          "at": "2026-08-24T14:35:41.111Z",
-          "kind": "completion",
-          "agent": "trace-format-gating:atrace-",
-          "detail": "completed",
-          "sourceKey": "session-stop:a549461dd547317f5"
+          "sourceKey": "session-stop:a954cadc33bf77110"
         }
       ]
     }

@@ -12,6 +12,7 @@ import { goBack } from '../../../../src/lib/navigation';
 import { useDynamicColors } from '../../../../src/lib/SocietyThemeContext';
 import { useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../../src/lib/assets';
+import { resolveTournamentHandicaps } from '../../../../src/lib/tournamentHandicap';
 import {
   calcStrokesReceived,
   playerCourseHcp,
@@ -48,6 +49,7 @@ interface MatchRow {
   status: string;
   round_format: string;
   handicap_method: string | null;
+  day_id: string | null;
   holes_string: string | null;
   start_hole: number | null;
   home_player_ids: string[];
@@ -357,7 +359,7 @@ export default function ResultsScreen() {
       const { data: matchData } = await supabase
         .from('matches')
         .select(`
-          id, status, round_format, handicap_method, holes_string, start_hole,
+          id, status, round_format, handicap_method, holes_string, start_hole, day_id,
           home_player_ids, away_player_ids,
           hcp_allowance, competition_id,
           home_team:home_team_id(name, accent_color),
@@ -415,7 +417,14 @@ export default function ResultsScreen() {
             ? { id: row.player_id, display_name: row.players?.display_name ?? '—', handicap_index: row.handicap_index }
             : { id: row.id, display_name: row.display_name, handicap_index: row.handicap_index }
         );
-        setPlayers(normalized);
+        // A completed round must show the handicap it was actually played
+        // off, frozen — resolveTournamentHandicaps returns that historic
+        // snapshot once the round's cut has been processed, never the
+        // player's live current_tournament_handicap (Rick's brief, section 9).
+        const rawComp = normalized.map(p => ({ player_id: p.id, handicap_index: p.handicap_index ?? 0 }));
+        const tournamentComp = await resolveTournamentHandicaps(m.competition_id, m.day_id, rawComp);
+        const adjustedById = new Map(tournamentComp.map(cp => [cp.player_id, cp.handicap_index]));
+        setPlayers(normalized.map(p => ({ ...p, handicap_index: adjustedById.get(p.id) ?? p.handicap_index })));
       }
       if (holesData) setCourseHoles(holesData as CourseHole[]);
       if (matchHolesData) setMatchHoles(matchHolesData as MatchHole[]);

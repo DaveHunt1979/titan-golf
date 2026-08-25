@@ -258,20 +258,20 @@
   "hotPaths": [
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 128,
-      "lastAccessed": 1787580848290,
+      "accessCount": 146,
+      "lastAccessed": 1787587604797,
       "type": "file"
     },
     {
       "path": "app/(app)/admin/draw.tsx",
-      "accessCount": 125,
-      "lastAccessed": 1787581192464,
+      "accessCount": 129,
+      "lastAccessed": 1787584956646,
       "type": "file"
     },
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 80,
-      "lastAccessed": 1787579664364,
+      "accessCount": 99,
+      "lastAccessed": 1787584684817,
       "type": "file"
     },
     {
@@ -281,21 +281,27 @@
       "type": "file"
     },
     {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 36,
+      "lastAccessed": 1787584210270,
+      "type": "file"
+    },
+    {
       "path": "src/lib/titanNews.ts",
       "accessCount": 35,
       "lastAccessed": 1787579487669,
       "type": "file"
     },
     {
-      "path": "src/lib/scoring.ts",
-      "accessCount": 33,
-      "lastAccessed": 1787579535393,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/admin/live-tournaments.tsx",
       "accessCount": 30,
       "lastAccessed": 1787581774391,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 30,
+      "lastAccessed": 1787584781178,
       "type": "file"
     },
     {
@@ -308,12 +314,6 @@
       "path": "app/(app)/admin/prizes.tsx",
       "accessCount": 23,
       "lastAccessed": 1787551963805,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/solo/[matchId].tsx",
-      "accessCount": 23,
-      "lastAccessed": 1787566651828,
       "type": "file"
     },
     {
@@ -330,8 +330,8 @@
     },
     {
       "path": "app/(app)/admin/news.tsx",
-      "accessCount": 12,
-      "lastAccessed": 1787581708414,
+      "accessCount": 13,
+      "lastAccessed": 1787583652839,
       "type": "file"
     },
     {
@@ -383,6 +383,12 @@
       "type": "file"
     },
     {
+      "path": "supabase/schema.sql",
+      "accessCount": 4,
+      "lastAccessed": 1787583539102,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/index.tsx",
       "accessCount": 3,
       "lastAccessed": 1787318685598,
@@ -398,12 +404,6 @@
       "path": "web/src/app/newsreel/[competitionId]/page.tsx",
       "accessCount": 3,
       "lastAccessed": 1787379087947,
-      "type": "file"
-    },
-    {
-      "path": "supabase/schema.sql",
-      "accessCount": 3,
-      "lastAccessed": 1787463820756,
       "type": "file"
     },
     {
@@ -428,6 +428,24 @@
       "path": "src/lib/navigation.ts",
       "accessCount": 2,
       "lastAccessed": 1787566607776,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260821050000_handicap_lock.sql",
+      "accessCount": 2,
+      "lastAccessed": 1787583265664,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260816000000_team_roster.sql",
+      "accessCount": 2,
+      "lastAccessed": 1787583292973,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260821030000_kronos_overall_prize.sql",
+      "accessCount": 2,
+      "lastAccessed": 1787583353976,
       "type": "file"
     },
     {
@@ -473,12 +491,6 @@
       "type": "file"
     },
     {
-      "path": "supabase/migrations/20260821030000_kronos_overall_prize.sql",
-      "accessCount": 1,
-      "lastAccessed": 1787318220078,
-      "type": "file"
-    },
-    {
       "path": "supabase/migrations/20260821040000_direct_messages_delete.sql",
       "accessCount": 1,
       "lastAccessed": 1787318382424,
@@ -488,18 +500,6 @@
       "path": "supabase/migrations/20260806b_tournament_engine_phase5.sql",
       "accessCount": 1,
       "lastAccessed": 1787319116955,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260816000000_team_roster.sql",
-      "accessCount": 1,
-      "lastAccessed": 1787319138747,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260821050000_handicap_lock.sql",
-      "accessCount": 1,
-      "lastAccessed": 1787319766370,
       "type": "file"
     },
     {

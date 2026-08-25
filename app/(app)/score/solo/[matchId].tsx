@@ -25,6 +25,7 @@ import { sendSoloMatchToWatch, clearSoloMatchFromWatch, onWatchSoloScoreEntry, o
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
+import { resolveTournamentHandicaps, checkAndProcessDayCuts, reprocessFromDay } from '../../../../src/lib/tournamentHandicap';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
 import { IS_PAD, GPS_PANEL_ENABLED } from '../../../../src/lib/useDeviceLayout';
@@ -188,7 +189,9 @@ export default function SoloRoundScreen() {
           const p = playerData as any;
           setPlayerName(p.display_name ?? '');
           setAvatarUrl(p.avatar_url ?? null);
-          const hcp = p.handicap_index ?? 0;
+          const rawHcp = p.handicap_index ?? 0;
+          const tournamentComp = await resolveTournamentHandicaps(m.competition_id, m.day_id, [{ player_id: playerId, handicap_index: rawHcp }]);
+          const hcp = tournamentComp[0]?.handicap_index ?? rawHcp;
           setPlayerHcp(hcp);
           if (m.day?.slope_rating && m.day?.course_rating && m.day?.course_par) {
             setCourseHcp(calcCourseHandicap(hcp, m.day.slope_rating, m.day.course_rating, m.day.course_par));
@@ -445,6 +448,7 @@ export default function SoloRoundScreen() {
 
   async function saveScore() {
     if (selectedScore === null || !match) return;
+    const wasAlreadyComplete = match.status === 'complete';
 
     const safePar    = courseHole?.par ?? 4;
     const safeShots  = courseHole ? shots : 0;
@@ -598,6 +602,14 @@ export default function SoloRoundScreen() {
           // Casual Golf's one final match report — see the identical
           // trigger + explanation in score/enter/[matchId].tsx.
           if (!match.competition_id) newsReportPromiseRef.current = generateCasualMatchReport(matchId as string);
+        }
+      }
+
+      if (match.day_id) {
+        if (wasAlreadyComplete) {
+          reprocessFromDay(match.day_id).catch(e => console.warn('[handicapCuts] reprocess failed', e));
+        } else if (newStatus === 'complete') {
+          checkAndProcessDayCuts(match.day_id).catch(e => console.warn('[handicapCuts] process failed', e));
         }
       }
     } finally {

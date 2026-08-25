@@ -19,6 +19,7 @@ import { goBack } from '../../../src/lib/navigation';
 import { individualBoardLabel, getFormatRules, FORMAT_RULES, type FormatId, type FormatRules } from '../../../src/lib/tournamentFormat';
 import PrizeCategoriesEditor from '../../../src/components/PrizeCategoriesEditor';
 import { ukDateToIso, isoToUk, ukDateToDate, dateToUk, dateToHm, hmToDate } from '../../../src/lib/dateHelpers';
+import { DEFAULT_HANDICAP_CUT_BANDS, type HandicapCutBand } from '../../../src/lib/tournamentHandicap';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -178,6 +179,14 @@ export default function BuildTournamentScreen() {
   const [bonusPoints, setBonusPoints]     = useState('2');
   const [sweepBonusEnabled, setSweepBonusEnabled] = useState(true);
   const [includeInKronos, setIncludeInKronos] = useState(false);
+  // Automatic Tournament Handicap Cuts (Rick's brief, 2026-08-25) — off by
+  // default, per-tournament, locked once the tournament goes live (see
+  // finishDraft() and handicapCutsLockedAt below).
+  const [handicapCutsEnabled, setHandicapCutsEnabled] = useState(false);
+  const [handicapCutTrigger, setHandicapCutTrigger]   = useState('36');
+  const [handicapCutMinimum, setHandicapCutMinimum]   = useState('0');
+  const [handicapCutBands, setHandicapCutBands]       = useState<HandicapCutBand[]>(DEFAULT_HANDICAP_CUT_BANDS);
+  const [handicapCutsLockedAt, setHandicapCutsLockedAt] = useState<string | null>(null);
   const [voiceEnabled, setVoiceEnabled]        = useState(false);
   const [statsEnabled, setStatsEnabled]        = useState(false);
   const [description, setDescription]     = useState('');
@@ -256,6 +265,11 @@ export default function BuildTournamentScreen() {
     setBonusPoints('2');
     setSweepBonusEnabled(true);
     setIncludeInKronos(false);
+    setHandicapCutsEnabled(false);
+    setHandicapCutTrigger('36');
+    setHandicapCutMinimum('0');
+    setHandicapCutBands(DEFAULT_HANDICAP_CUT_BANDS);
+    setHandicapCutsLockedAt(null);
     setVoiceEnabled(false);
     setStatsEnabled(false);
     setDescription('');
@@ -319,6 +333,11 @@ export default function BuildTournamentScreen() {
       setBonusPoints(String(c.bonus_points || 2));
       setSweepBonusEnabled((c.bonus_points ?? 0) > 0);
       setIncludeInKronos(!!c.include_in_kronos);
+      setHandicapCutsEnabled(!!c.handicap_cuts_enabled);
+      setHandicapCutTrigger(String(c.handicap_cut_trigger_score ?? 36));
+      setHandicapCutMinimum(String(c.handicap_cut_minimum ?? 0));
+      setHandicapCutBands((c.handicap_cut_bands as HandicapCutBand[] | null) ?? DEFAULT_HANDICAP_CUT_BANDS);
+      setHandicapCutsLockedAt(c.handicap_cuts_config_locked_at ?? null);
       // Previously missing — resuming a draft silently reset both to their
       // useState(false) defaults, then the next save persisted that wrong
       // default, permanently losing the organiser's original choice (Rick's
@@ -504,6 +523,10 @@ export default function BuildTournamentScreen() {
       max_handicap:    maxHandicapN,
       settings,
       include_in_kronos: includeInKronos,
+      handicap_cuts_enabled:      handicapCutsEnabled,
+      handicap_cut_trigger_score: parseInt(handicapCutTrigger, 10) || 36,
+      handicap_cut_minimum:       parseFloat(handicapCutMinimum) || 0,
+      handicap_cut_bands:         handicapCutBands,
     };
 
     let comp: { id: string };
@@ -839,6 +862,24 @@ export default function BuildTournamentScreen() {
 
     await supabase.from('competitions').update({ status: 'active' }).eq('id', compId);
 
+    // Automatic Tournament Handicap Cuts (Rick's brief, 2026-08-25, section
+    // 17) — the starting handicap is captured the instant the tournament
+    // goes live and is then permanently locked; only Titan's own engine may
+    // reduce current_tournament_handicap from here on. Reuses the
+    // enrollment handicap_index already clamped to max_handicap — nothing
+    // new to compute.
+    if (handicapCutsEnabled) {
+      await Promise.all(compPlayers.map(cp =>
+        supabase.from('competition_players').update({
+          starting_tournament_handicap: cp.handicap_index,
+          current_tournament_handicap: cp.handicap_index,
+        }).eq('id', cp.id)
+      ));
+      await supabase.from('competitions').update({
+        handicap_cuts_config_locked_at: new Date().toISOString(),
+      }).eq('id', compId);
+    }
+
     if (me) {
       const pinFormatted = `${compPin.slice(0, 3)} ${compPin.slice(3)}`;
       const rows = compPlayers
@@ -1162,6 +1203,67 @@ export default function BuildTournamentScreen() {
                 thumbColor={includeInKronos ? GOLD : '#555'}
               />
             </View>
+
+            <Text style={styles.fieldLabel}>AUTOMATIC HANDICAP CUTS</Text>
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.toggleLabel}>Cut handicaps for strong rounds</Text>
+                <Text style={styles.toggleSub}>
+                  A tournament-only handicap that automatically reduces after a round beating the trigger score — never touches anyone's official handicap.
+                  {handicapCutsLockedAt ? ' Locked once the tournament went live.' : ''}
+                </Text>
+              </View>
+              <Switch
+                value={handicapCutsEnabled}
+                onValueChange={setHandicapCutsEnabled}
+                disabled={!!handicapCutsLockedAt}
+                trackColor={{ false: '#1c1c1c', true: `${GOLD}66` }}
+                thumbColor={handicapCutsEnabled ? GOLD : '#555'}
+              />
+            </View>
+            {handicapCutsEnabled && (
+              <>
+                <Text style={styles.fieldLabel}>TRIGGER SCORE (STABLEFORD PTS)</Text>
+                <Text style={styles.stepSub}>A cut only applies for points scored above this. Scaled down automatically for 9-hole rounds.</Text>
+                <TextInput
+                  style={styles.input}
+                  value={handicapCutTrigger}
+                  onChangeText={setHandicapCutTrigger}
+                  placeholder="36"
+                  placeholderTextColor="#444"
+                  keyboardType="number-pad"
+                  editable={!handicapCutsLockedAt}
+                />
+                <Text style={styles.fieldLabel}>MINIMUM TOURNAMENT HANDICAP</Text>
+                <TextInput
+                  style={styles.input}
+                  value={handicapCutMinimum}
+                  onChangeText={setHandicapCutMinimum}
+                  placeholder="0"
+                  placeholderTextColor="#444"
+                  keyboardType="decimal-pad"
+                  editable={!handicapCutsLockedAt}
+                />
+                <Text style={styles.fieldLabel}>CUT PER POINT OVER TRIGGER</Text>
+                <Text style={styles.stepSub}>Which band a player's cut uses is decided by their tournament handicap at the START of that round.</Text>
+                {handicapCutBands.map((band, i) => (
+                  <View key={`${band.min}-${band.max}`} style={[styles.toggleRow, { alignItems: 'center' }]}>
+                    <Text style={[styles.toggleLabel, { flex: 1 }]}>
+                      {band.min}{band.max != null ? ` – ${band.max}` : '+'}
+                    </Text>
+                    <TextInput
+                      style={[styles.input, { width: 80, marginBottom: 0 }]}
+                      value={String(band.cutPerPoint)}
+                      onChangeText={v => setHandicapCutBands(prev => prev.map((b, bi) => bi === i ? { ...b, cutPerPoint: parseFloat(v) || 0 } : b))}
+                      placeholder="0.5"
+                      placeholderTextColor="#444"
+                      keyboardType="decimal-pad"
+                      editable={!handicapCutsLockedAt}
+                    />
+                  </View>
+                ))}
+              </>
+            )}
 
             <Text style={styles.fieldLabel}>CHIP & BIRDIE</Text>
             <View style={styles.toggleRow}>

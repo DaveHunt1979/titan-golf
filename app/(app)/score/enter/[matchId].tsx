@@ -30,6 +30,7 @@ import { startLiveActivity, updateLiveActivity, endLiveActivity } from '../../..
 import { enqueueHole, isNetworkError } from '../../../../src/lib/offlineQueue';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
+import { resolveTournamentHandicaps, checkAndProcessDayCuts, reprocessFromDay } from '../../../../src/lib/tournamentHandicap';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
 import { dedupeInitials } from '../../../../src/lib/playerDisplay';
@@ -108,7 +109,7 @@ interface MatchInfo {
     course_rating: number;
     slope_rating: number;
     day_number: number;
-    competition: { format: string; include_in_kronos: boolean } | null;
+    competition: { format: string; include_in_kronos: boolean; handicap_cuts_enabled: boolean } | null;
   } | null;
 }
 
@@ -247,7 +248,7 @@ export default function EnterScoresScreen() {
             *,
             home_team:home_team_id(name,accent_color),
             away_team:away_team_id(name,accent_color),
-            day:day_id(course_name,course_par,course_rating,slope_rating,day_number,competition:competition_id(format,include_in_kronos))
+            day:day_id(course_name,course_par,course_rating,slope_rating,day_number,competition:competition_id(format,include_in_kronos,handicap_cuts_enabled))
           `)
           .eq('id', matchId)
           .single();
@@ -262,7 +263,7 @@ export default function EnterScoresScreen() {
         // though they don't set secondary_format the way Casual games do
         // (Dave, 2026-08-21: matches were ending at "3&2" and losing the
         // remaining holes' Kronos points).
-        const needsFullPlay = !!matchData.secondary_format || !!(matchData as any).day?.competition?.include_in_kronos;
+        const needsFullPlay = !!matchData.secondary_format || !!(matchData as any).day?.competition?.include_in_kronos || !!(matchData as any).day?.competition?.handicap_cuts_enabled;
         if (matchData.round_format === 'matchplay' && needsFullPlay && matchData.status === 'in_progress') {
           const { concluded } = calcHoles(matchData.holes_string ?? '..................', matchData.holes_to_play ?? 18);
           if (concluded) setContinuingSecondary(true);
@@ -304,8 +305,12 @@ export default function EnterScoresScreen() {
           const compMap = new Map((comp ?? []).map(cp => [cp.player_id, cp]));
           const rawComp = fallback.map(f => compMap.get(f.player_id) ?? f);
           baseCompRef.current = rawComp;
+          // Tournament handicap cuts (if this tournament has them enabled)
+          // resolve BEFORE player_overrides, so an admin's explicit manual
+          // override still wins over the automatic cut, unchanged.
+          const tournamentComp = await resolveTournamentHandicaps(matchData.competition_id, matchData.day_id, rawComp);
           const povs = (matchData as any).player_overrides ?? {};
-          const effectiveComp = rawComp.map(cp => {
+          const effectiveComp = tournamentComp.map(cp => {
             const ov = povs[cp.player_id];
             return ov?.hcp != null ? { ...cp, handicap_index: ov.hcp } : cp;
           });
@@ -349,7 +354,7 @@ export default function EnterScoresScreen() {
           *,
           home_team:home_team_id(name,accent_color),
           away_team:away_team_id(name,accent_color),
-          day:day_id(course_name,course_par,course_rating,slope_rating,day_number,competition:competition_id(format,include_in_kronos))
+          day:day_id(course_name,course_par,course_rating,slope_rating,day_number,competition:competition_id(format,include_in_kronos,handicap_cuts_enabled))
         `)
         .eq('id', matchId)
         .single();
@@ -754,7 +759,7 @@ export default function EnterScoresScreen() {
         // Kronos-enabled tournament must always populate it regardless of
         // whether this particular day also has its own side game on
         // (Dave, 2026-08-19 — Kronos wasn't updating for a team day alongside it).
-        const needsStablefordPts = match.round_format === 'stableford' || !!match.secondary_format || !!match.day?.competition?.include_in_kronos;
+        const needsStablefordPts = match.round_format === 'stableford' || !!match.secondary_format || !!match.day?.competition?.include_in_kronos || !!match.day?.competition?.handicap_cuts_enabled;
         return {
           match_id: matchId,
           player_id: id,
@@ -955,7 +960,7 @@ export default function EnterScoresScreen() {
       // Kronos rides on this same column tournament-wide though, so a
       // Kronos-enabled competition needs it populated even when this
       // specific team match has no side game of its own switched on.
-      const needsStablefordPts = !!match.secondary_format || !!match.day?.competition?.include_in_kronos;
+      const needsStablefordPts = !!match.secondary_format || !!match.day?.competition?.include_in_kronos || !!match.day?.competition?.handicap_cuts_enabled;
       return {
         match_id: matchId,
         player_id: id,
@@ -1154,13 +1159,15 @@ export default function EnterScoresScreen() {
           setRecordsBroken(broken);
         } else if (continuingSecondary) {
           setContinuingSecondary(false);
-        } else if ((match.secondary_format || match.day?.competition?.include_in_kronos) && match.round_format === 'matchplay') {
+        } else if ((match.secondary_format || match.day?.competition?.include_in_kronos || match.day?.competition?.handicap_cuts_enabled) && match.round_format === 'matchplay') {
           const secLabel = match.secondary_format
             ? (match.secondary_format === 'stableford' ? 'Stableford' : 'Stroke Play')
             : 'Stableford';
           const reason = match.secondary_format
             ? `You have a ${secLabel} secondary game running`
-            : `This tournament's ${individualBoardLabel(match.day?.competition?.format)} standings need every hole's Stableford points`;
+            : match.day?.competition?.include_in_kronos
+              ? `This tournament's ${individualBoardLabel(match.day?.competition?.format)} standings need every hole's Stableford points`
+              : `This tournament's automatic handicap cuts need every hole's Stableford points`;
           Alert.alert(
             'Matchplay Complete',
             `${msg}\n\n${reason} — continue to finish all 18 holes.`,
@@ -1186,6 +1193,21 @@ export default function EnterScoresScreen() {
           format: 'matchplay',
           matchplay: { homeTeam, awayTeam, homeUp: newHomeUp, remaining: newRemaining },
         });
+      }
+    }
+
+    // Tournament handicap cuts (Rick's brief, 2026-08-25) — fire-and-forget,
+    // idempotent server-side (checkAndProcessDayCuts re-checks every match
+    // in the day is actually complete before doing anything, and
+    // processDayCuts is itself safe against double-processing). A
+    // correction to an already-complete match takes the separate
+    // reprocess path instead, which reverses and rebuilds the cut chain
+    // from this round forward.
+    if (match.competition_id && match.day_id) {
+      if (wasAlreadyComplete) {
+        reprocessFromDay(match.day_id).catch(e => console.warn('[handicapCuts] reprocess failed', e));
+      } else if (newStatus === 'complete') {
+        checkAndProcessDayCuts(match.day_id).catch(e => console.warn('[handicapCuts] process failed', e));
       }
     }
   }

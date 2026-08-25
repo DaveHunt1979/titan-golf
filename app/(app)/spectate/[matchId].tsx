@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { getMatchPack } from '../../../src/lib/offlinePack';
+import { resolveTournamentHandicaps } from '../../../src/lib/tournamentHandicap';
 import { useSyncStatus } from '../../../src/lib/useSyncStatus';
 import { matchLabel, getEffectiveWinner, calcHoles, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, scoreVsPar, SCORE_COLORS, playerCourseHcp as sharedPlayerCourseHcp } from '../../../src/lib/scoring';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
@@ -221,8 +222,9 @@ export default function SpectateScreen() {
         const compMap = new Map((cpData ?? []).map(cp => [cp.player_id, cp]));
         const fallback: CompPlayer[] = (pd as Player[]).map(p => ({ player_id: p.id, handicap_index: p.handicap_index ?? 0 }));
         const rawComp = fallback.map(f => compMap.get(f.player_id) ?? f);
+        const tournamentComp = await resolveTournamentHandicaps((matchData as any).competition_id, (matchData as any).day_id, rawComp);
         const overrides = (matchData as any).player_overrides ?? {};
-        const effectiveComp = rawComp.map(cp => {
+        const effectiveComp = tournamentComp.map(cp => {
           const ov = overrides[cp.player_id]?.hcp;
           return ov != null ? { ...cp, handicap_index: ov } : cp;
         });

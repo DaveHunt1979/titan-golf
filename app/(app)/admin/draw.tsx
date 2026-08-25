@@ -87,6 +87,7 @@ interface CompInfo {
   id: string; name: string; status: string; format: string;
   tournament_type: string; pts_win: number; pts_half: number;
   opening_rounds: number; bonus_points: number; max_handicap: number | null;
+  handicap_cuts_enabled: boolean;
   settings: { num_teams?: number | null; voice_enabled?: boolean; track_stats_enabled?: boolean } | null;
 }
 interface DayRow {
@@ -166,7 +167,7 @@ export default function TournamentDrawScreen() {
       { data: teamsData },
       { data: matchData },
     ] = await Promise.all([
-      supabase.from('competitions').select('id,name,status,format,tournament_type,pts_win,pts_half,opening_rounds,bonus_points,max_handicap,settings').eq('id', competitionId).single(),
+      supabase.from('competitions').select('id,name,status,format,tournament_type,pts_win,pts_half,opening_rounds,bonus_points,max_handicap,handicap_cuts_enabled,settings').eq('id', competitionId).single(),
       supabase.from('competition_days').select('id,day_number,course_name,day_format,hcp_pct').eq('competition_id', competitionId).order('day_number'),
       supabase.from('competition_players')
         .select('id,player_id,team_id,handicap_index,is_captain,players(display_name,avatar_url)')
@@ -364,6 +365,12 @@ export default function TournamentDrawScreen() {
         await supabase.from('competition_players').insert({
           competition_id: competitionId, player_id: member.player_id, team_id: teamId,
           handicap_index: hcp, status: 'enrolled',
+          // A mid-tournament joiner never goes through build.tsx's
+          // finishDraft() Go-Live snapshot, so without this they'd silently
+          // fall back to the raw handicap forever (Rick's brief, 2026-08-25).
+          // Starting from THEIR OWN enrollment handicap here, not any
+          // already-cut value, is deliberate — they're joining fresh.
+          ...(comp?.handicap_cuts_enabled ? { starting_tournament_handicap: hcp, current_tournament_handicap: hcp } : {}),
         });
         await load();
       }
