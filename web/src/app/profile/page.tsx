@@ -69,6 +69,25 @@ type Club = {
   nfc_tag_id: string | null;
 };
 
+type CompetitionLite = { id: string; name: string; start_date: string | null; end_date: string | null };
+type NewsReportRow = {
+  id: string; story_type: string; headline: string | null; summary: string | null;
+  created_at: string; dayNumber: number | null;
+};
+type ReportGroup = { competition: CompetitionLite; reports: NewsReportRow[] };
+
+function fmtDate(d: string | null) {
+  if (!d) return null;
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function reportLabel(r: { story_type: string; dayNumber: number | null }) {
+  if (r.story_type === 'final_report') return 'Final Report';
+  if (r.story_type === 'round_report') return r.dayNumber != null ? `Day ${r.dayNumber}` : 'Round Report';
+  if (r.story_type === 'preview') return 'Preview';
+  return r.story_type;
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
@@ -85,6 +104,7 @@ export default function ProfilePage() {
   const [societyName, setSocietyName] = useState<string | null>(null);
   const [joinedAt,    setJoinedAt]    = useState<string | null>(null);
   const [stats,       setStats]       = useState({ rounds: 0, best: null as number | null, avg: null as number | null, eagles: 0, birdies: 0, pars: 0 });
+  const [reportGroups, setReportGroups] = useState<ReportGroup[]>([]);
 
   // Edit fields
   const [name,     setName]     = useState('');
@@ -149,6 +169,41 @@ export default function ProfilePage() {
         avg: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null,
         eagles, birdies, pars,
       });
+    }
+
+    // My Reports — published Titan News stories from every tournament this player played in.
+    // Scoped by "tournaments I played in" (competition_players), not "stories that mention me" —
+    // titan_news.featured_players only stores names off the AI snapshot, no player_id link yet.
+    const { data: cpRows } = await supabase.from('competition_players').select('competition_id').eq('player_id', p.id);
+    const compIds = [...new Set((cpRows ?? []).map((c: { competition_id: string }) => c.competition_id))];
+    if (compIds.length) {
+      const [{ data: compsData }, { data: daysData }, { data: newsData }] = await Promise.all([
+        supabase.from('competitions').select('id, name, start_date, end_date').in('id', compIds),
+        supabase.from('competition_days').select('id, day_number, competition_id').in('competition_id', compIds),
+        supabase.from('titan_news')
+          .select('id, competition_id, day_id, story_type, headline, summary, created_at')
+          .in('competition_id', compIds).eq('status', 'published').order('created_at', { ascending: false }),
+      ]);
+      const dayNumberById: Record<string, number> = {};
+      (daysData ?? []).forEach((d: { id: string; day_number: number }) => { dayNumberById[d.id] = d.day_number; });
+      const compsById: Record<string, CompetitionLite> = {};
+      (compsData ?? []).forEach((c: CompetitionLite) => { compsById[c.id] = c; });
+      const groups: Record<string, ReportGroup> = {};
+      type NewsRawRow = {
+        id: string; competition_id: string; day_id: string | null; story_type: string;
+        headline: string | null; summary: string | null; created_at: string;
+      };
+      (newsData ?? []).forEach((n: NewsRawRow) => {
+        const competition = compsById[n.competition_id];
+        if (!competition) return;
+        (groups[n.competition_id] ??= { competition, reports: [] }).reports.push({
+          id: n.id, story_type: n.story_type, headline: n.headline, summary: n.summary,
+          created_at: n.created_at, dayNumber: n.day_id ? dayNumberById[n.day_id] ?? null : null,
+        });
+      });
+      setReportGroups(
+        Object.values(groups).sort((a, b) => (b.competition.start_date ?? '').localeCompare(a.competition.start_date ?? ''))
+      );
     }
 
     setLoading(false);
@@ -475,6 +530,48 @@ export default function ProfilePage() {
           </p>
         </div>
       </div>
+
+      {/* ── My Tournament Reports ──────────────────────────── */}
+      {reportGroups.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">My Tournament Reports</h2>
+          <div className="space-y-4">
+            {reportGroups.map(g => (
+              <div key={g.competition.id} className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111]">
+                <div className="flex items-center justify-between gap-4 border-b border-[#1c1c1c] px-5 py-4">
+                  <div>
+                    <div className="text-sm font-black text-white">{g.competition.name}</div>
+                    <div className="text-xs text-neutral-500">
+                      {[fmtDate(g.competition.start_date), fmtDate(g.competition.end_date)].filter(Boolean).join(' – ')}
+                    </div>
+                  </div>
+                  <a
+                    href={`/newsreel/${g.competition.id}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="shrink-0 text-xs font-bold text-[#D4AF37] hover:underline"
+                  >
+                    View Newsreel →
+                  </a>
+                </div>
+                <div className="divide-y divide-[#1c1c1c]">
+                  {g.reports.map(r => (
+                    <div key={r.id} className="px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/8 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#D4AF37]">
+                          {reportLabel(r)}
+                        </span>
+                        <span className="text-[11px] text-neutral-600">{fmtDate(r.created_at)}</span>
+                      </div>
+                      {r.headline && <div className="mt-2 text-sm font-bold text-white">{r.headline}</div>}
+                      {r.summary && <p className="mt-1 text-xs text-neutral-400">{r.summary}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

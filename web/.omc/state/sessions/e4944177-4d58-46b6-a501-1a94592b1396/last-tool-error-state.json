@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"git stash && npx eslint src/app/profile/page.tsx 2>&1 | tail -5; git stash pop\",\"description\":\"Check if lint errors pre-existed before this change\"}",
+  "error": "Exit code 1\nSaved working directory and index state WIP on main: e85f7bb memory 25_Aug after course\n  522 |   }, [club.brand, club.model]);\n  523 |            react-hooks/set-state-in-effect\n\n✖ 10 problems (10 errors, 0 warnings)\n\nerror: Your local changes to the following files would be overwritten by merge:\n\t.omc/state/hud-stdin-cache.json\nPlease commit your changes or stash them before you merge.\nAborting\nOn branch main\nYour branch is up to date with 'origin/main'.\n\nChanges not staged for com...",
+  "timestamp": "2026-08-25T11:22:03.274Z",
+  "retry_count": 2
+}
