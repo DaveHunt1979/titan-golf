@@ -131,7 +131,7 @@ function applyLastDayOverride(days: DayConfig[], rules: FormatRules): DayConfig[
   });
 }
 
-interface CourseItem { name: string; par: number; hasGps: boolean; }
+interface CourseItem { name: string; par: number; hasGps: boolean; region: string | null; }
 interface CourseHole { hole_number: number; par: number; }
 interface DraftPlayer {
   id: string; player_id: string; team_id: string | null;
@@ -241,9 +241,12 @@ export default function BuildTournamentScreen() {
     // exact string), so picking from here instead of free-typing is what
     // keeps a tournament day's holes/par/stroke-index actually linked up.
     // hole_number+par per row also builds the side-games par-3/par-5 picker.
-    fetchAllRows<{ course_name: string; hole_number: number; par: number; green_lat: number | null; green_lng: number | null }>(
-      (from, to) => supabase.from('course_holes').select('course_name, hole_number, par, green_lat, green_lng').range(from, to)
-    ).then(data => {
+    Promise.all([
+      fetchAllRows<{ course_name: string; hole_number: number; par: number; green_lat: number | null; green_lng: number | null }>(
+        (from, to) => supabase.from('course_holes').select('course_name, hole_number, par, green_lat, green_lng').range(from, to)
+      ),
+      supabase.from('courses').select('name, region'),
+    ]).then(([data, { data: regionRows }]) => {
       const parMap: Record<string, number> = {};
       const gpsMap: Record<string, boolean> = {};
       const holesMap: Record<string, CourseHole[]> = {};
@@ -252,8 +255,10 @@ export default function BuildTournamentScreen() {
         if (row.green_lat != null && row.green_lng != null) gpsMap[row.course_name] = true;
         (holesMap[row.course_name] ??= []).push({ hole_number: row.hole_number, par: row.par });
       }
+      const regionMap: Record<string, string | null> = {};
+      for (const r of (regionRows ?? []) as any[]) regionMap[r.name] = r.region;
       setCourses(Object.entries(parMap)
-        .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name] }))
+        .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name], region: regionMap[name] ?? null }))
         .sort((a, b) => a.name.localeCompare(b.name)));
       setCourseHolesMap(holesMap);
     });
@@ -2059,6 +2064,8 @@ export default function BuildTournamentScreen() {
   );
 }
 
+const BUILD_REGION_ORDER = ['England', 'Spain', 'France', 'Scotland', 'Portugal', 'Ireland & Northern Ireland', 'Orlando / Central Florida', 'Wales', 'Turkey'];
+
 function CourseSheet({
   visible, courses, selected, onSelect, onClose,
 }: {
@@ -2066,13 +2073,34 @@ function CourseSheet({
   onSelect: (name: string) => void; onClose: () => void;
 }) {
   const [search, setSearch] = useState('');
-  const filtered = courses.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+  const [region, setRegion] = useState<string | null>(null);
+  const availableRegions = BUILD_REGION_ORDER.filter(r => courses.some(c => c.region === r));
+  const hasOther = courses.some(c => !c.region);
+  const filtered = courses
+    .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
+    .filter(c => region === null || (region === 'Other' ? !c.region : c.region === region));
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={sheetStyles.overlay} activeOpacity={1} onPress={onClose} />
       <View style={sheetStyles.sheet}>
         <View style={sheetStyles.handle} />
         <Text style={sheetStyles.sheetTitle}>Select Course</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 48, marginBottom: 10, flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 2, alignItems: 'center' }}>
+          {[{ key: null, label: 'All' }, ...availableRegions.map(r => ({ key: r, label: r })), ...(hasOther ? [{ key: 'Other', label: 'Other' }] : [])].map(opt => (
+            <TouchableOpacity
+              key={opt.label}
+              onPress={() => setRegion(opt.key)}
+              activeOpacity={0.7}
+              style={{
+                paddingHorizontal: 14, paddingVertical: 7, borderRadius: 100,
+                borderWidth: 1, borderColor: region === opt.key ? GOLD : '#2a2a2a',
+                backgroundColor: region === opt.key ? 'rgba(212,175,55,0.14)' : 'transparent',
+              }}
+            >
+              <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 12.5, lineHeight: 18, color: region === opt.key ? GOLD : '#9ca3af' }}>{opt.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
         <TextInput
           style={sheetStyles.searchInput}
           placeholder="Search courses…"
@@ -2090,7 +2118,7 @@ function CourseSheet({
           renderItem={({ item }) => {
             const on = item.name === selected;
             return (
-              <TouchableOpacity style={sheetStyles.sheetRow} onPress={() => { onSelect(item.name); onClose(); setSearch(''); }} activeOpacity={0.7}>
+              <TouchableOpacity style={sheetStyles.sheetRow} onPress={() => { onSelect(item.name); onClose(); setSearch(''); setRegion(null); }} activeOpacity={0.7}>
                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={[sheetStyles.sheetOpt, on && { color: GOLD }]} numberOfLines={1}>{item.name}</Text>
                   {item.hasGps && <Ionicons name="location" size={13} color={GOLD} />}
@@ -2101,7 +2129,7 @@ function CourseSheet({
             );
           }}
         />
-        <TouchableOpacity style={sheetStyles.cancelBtn} onPress={() => { onClose(); setSearch(''); }} activeOpacity={0.7}>
+        <TouchableOpacity style={sheetStyles.cancelBtn} onPress={() => { onClose(); setSearch(''); setRegion(null); }} activeOpacity={0.7}>
           <Text style={sheetStyles.cancelText}>Cancel</Text>
         </TouchableOpacity>
       </View>

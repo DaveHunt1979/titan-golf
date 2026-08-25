@@ -1,7 +1,7 @@
 {
-  "tool_name": "Agent",
-  "tool_input_preview": "{\"description\":\"Wire WHS resolver into swindle scoring screens\",\"prompt\":\"Titan Golf (React Native/Expo + Supabase). We're adding an optional WHS (World Handicap System) layer. This is a MECHANICAL, L...",
-  "error": "Agent type 'executor' not found. Available agents: claude, claude-code-guide, Explore, general-purpose, oh-my-claudecode:analyst, oh-my-claudecode:architect, oh-my-claudecode:code-reviewer, oh-my-claudecode:code-simplifier, oh-my-claudecode:critic, oh-my-claudecode:debugger, oh-my-claudecode:designer, oh-my-claudecode:document-specialist, oh-my-claudecode:executor, oh-my-claudecode:explore, oh-my-claudecode:git-master, oh-my-claudecode:planner, oh-my-claudecode:qa-tester, oh-my-claudecode:scient...",
-  "timestamp": "2026-08-25T07:37:52.695Z",
-  "retry_count": 3
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"pgrep -fl \\\"Exponent\\\" 2>&1\\necho \\\"---\\\"\\npgrep -fl \\\"titangolf\\\\|Titan\\\" 2>&1\",\"description\":\"Find the actual host process for the running Expo Go app\"}",
+  "error": "Exit code 1\n---",
+  "timestamp": "2026-08-25T08:41:15.026Z",
+  "retry_count": 1
 }

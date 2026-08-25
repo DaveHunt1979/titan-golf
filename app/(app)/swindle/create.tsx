@@ -11,6 +11,8 @@ const PURPLE = '#a78bfa';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 
+const REGION_ORDER = ['England', 'Spain', 'France', 'Scotland', 'Portugal', 'Ireland & Northern Ireland', 'Orlando / Central Florida', 'Wales', 'Turkey'];
+
 const HCP_ALLOWANCES = [
   { value: 100, label: 'Full',    desc: '100%'    },
   { value: 90,  label: '9/10',   desc: '90%'     },
@@ -47,10 +49,11 @@ export default function SwindleCreate() {
 
   const [name,          setName]          = useState('');
   const [course,        setCourse]        = useState('');
-  const [courses,       setCourses]       = useState<string[]>([]);
+  const [courses,       setCourses]       = useState<{ name: string; region: string | null }[]>([]);
   const [courseHoles,   setCourseHoles]   = useState<CourseHole[]>([]);
   const [showPicker,    setShowPicker]    = useState(false);
   const [courseSearch,  setCourseSearch]  = useState('');
+  const [courseRegion,  setCourseRegion]  = useState<string | null>(null);
   const [fee,           setFee]           = useState('5');
   const [currency,      setCurrency]      = useState('£');
   const [splitIdx,      setSplitIdx]      = useState(0);
@@ -73,11 +76,16 @@ export default function SwindleCreate() {
   const [whsEnabled,   setWhsEnabled]   = useState(false);
 
   useEffect(() => {
-    fetchAllRows<{ course_name: string }>(
-      (from, to) => supabase.from('course_holes').select('course_name').range(from, to)
-    ).then(data => {
+    Promise.all([
+      fetchAllRows<{ course_name: string }>(
+        (from, to) => supabase.from('course_holes').select('course_name').range(from, to)
+      ),
+      supabase.from('courses').select('name, region'),
+    ]).then(([data, { data: regionRows }]) => {
+      const regionMap: Record<string, string | null> = {};
+      for (const r of (regionRows ?? []) as any[]) regionMap[r.name] = r.region;
       const names = [...new Set(data.map(r => r.course_name).filter(Boolean))].sort() as string[];
-      setCourses(names);
+      setCourses(names.map(name => ({ name, region: regionMap[name] ?? null })));
     });
   }, []);
 
@@ -525,6 +533,25 @@ export default function SwindleCreate() {
                 <Text style={s.pickerClose}>✕</Text>
               </TouchableOpacity>
             </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 48, marginBottom: 10, flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 2, alignItems: 'center' }}>
+              {[{ key: null, label: 'All' },
+                ...REGION_ORDER.filter(r => courses.some(c => c.region === r)).map(r => ({ key: r, label: r })),
+                ...(courses.some(c => !c.region) ? [{ key: 'Other', label: 'Other' }] : []),
+              ].map(opt => (
+                <TouchableOpacity
+                  key={opt.label}
+                  onPress={() => setCourseRegion(opt.key)}
+                  activeOpacity={0.7}
+                  style={{
+                    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 100,
+                    borderWidth: 1, borderColor: courseRegion === opt.key ? GOLD : '#2a2a2a',
+                    backgroundColor: courseRegion === opt.key ? 'rgba(212,175,55,0.14)' : 'transparent',
+                  }}
+                >
+                  <Text style={{ fontFamily: FFB, fontSize: 12.5, lineHeight: 18, color: courseRegion === opt.key ? GOLD : '#9ca3af' }}>{opt.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
             <TextInput
               style={s.pickerSearch}
               placeholder="Search courses…"
@@ -534,21 +561,23 @@ export default function SwindleCreate() {
               autoFocus
             />
             <FlatList
-              data={courses.filter(c => c.toLowerCase().includes(courseSearch.toLowerCase()))}
-              keyExtractor={item => item}
+              data={courses
+                .filter(c => c.name.toLowerCase().includes(courseSearch.toLowerCase()))
+                .filter(c => courseRegion === null || (courseRegion === 'Other' ? !c.region : c.region === courseRegion))}
+              keyExtractor={item => item.name}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={[s.pickerItem, course === item && s.pickerItemActive]}
-                  onPress={() => { setCourse(item); setShowPicker(false); }}
+                  style={[s.pickerItem, course === item.name && s.pickerItemActive]}
+                  onPress={() => { setCourse(item.name); setShowPicker(false); setCourseSearch(''); setCourseRegion(null); }}
                   activeOpacity={0.8}
                 >
-                  <Text style={[s.pickerItemText, course === item && s.pickerItemTextActive]}>{item}</Text>
-                  <Text style={s.pickerChevron}>{course === item ? '✓' : '›'}</Text>
+                  <Text style={[s.pickerItemText, course === item.name && s.pickerItemTextActive]}>{item.name}</Text>
+                  <Text style={s.pickerChevron}>{course === item.name ? '✓' : '›'}</Text>
                 </TouchableOpacity>
               )}
               ListEmptyComponent={<Text style={s.pickerEmpty}>No courses found</Text>}
             />
-            <TouchableOpacity style={s.pickerClear} onPress={() => { setCourse(''); setShowPicker(false); }}>
+            <TouchableOpacity style={s.pickerClear} onPress={() => { setCourse(''); setShowPicker(false); setCourseSearch(''); setCourseRegion(null); }}>
               <Text style={s.pickerClearText}>Clear selection</Text>
             </TouchableOpacity>
           </View>

@@ -25,7 +25,7 @@ type GameMode  = '4bbb' | '4bbb_stroke' | 'singles' | 'stableford' | 'medal' | '
 type HolesMode = 'full18' | 'front9' | 'back9';
 
 interface Player      { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
-interface CourseItem  { name: string; par: number; hasGps: boolean; }
+interface CourseItem  { name: string; par: number; hasGps: boolean; region: string | null; }
 interface PlayerGroup { id: string; name: string; player_ids: string[]; }
 
 const GREEN = '#22c55e';
@@ -420,6 +420,11 @@ function MashieGroupSheet({
 
 // ── Course picker sheet ───────────────────────────────────────
 
+// Regions ordered biggest-first (matches the real split of the course
+// database) rather than alphabetically, so the tabs a user reaches for most
+// often sit closest to "All".
+const REGION_ORDER = ['England', 'Spain', 'France', 'Scotland', 'Portugal', 'Ireland & Northern Ireland', 'Orlando / Central Florida', 'Wales', 'Turkey'];
+
 function CourseSheet({
   visible, courses, selected, onSelect, onClose, ps, GOLD,
 }: {
@@ -428,13 +433,34 @@ function CourseSheet({
   ps: any; GOLD: string;
 }) {
   const [search, setSearch] = useState('');
-  const filtered = courses.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+  const [region, setRegion] = useState<string | null>(null);
+  const availableRegions = REGION_ORDER.filter(r => courses.some(c => c.region === r));
+  const hasOther = courses.some(c => !c.region);
+  const filtered = courses
+    .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
+    .filter(c => region === null || (region === 'Other' ? !c.region : c.region === region));
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={onClose} />
       <View style={[ps.sheet, { maxHeight: '75%' }]}>
         <View style={ps.handle} />
         <Text style={ps.sheetTitle}>Select Course</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 48, marginBottom: 10, flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 2, alignItems: 'center' }}>
+          {[{ key: null, label: 'All' }, ...availableRegions.map(r => ({ key: r, label: r })), ...(hasOther ? [{ key: 'Other', label: 'Other' }] : [])].map(opt => (
+            <TouchableOpacity
+              key={opt.label}
+              onPress={() => setRegion(opt.key)}
+              activeOpacity={0.7}
+              style={{
+                paddingHorizontal: 14, paddingVertical: 7, borderRadius: 100,
+                borderWidth: 1, borderColor: region === opt.key ? GOLD : '#2a2a2a',
+                backgroundColor: region === opt.key ? 'rgba(212,175,55,0.14)' : 'transparent',
+              }}
+            >
+              <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 12.5, lineHeight: 18, color: region === opt.key ? GOLD : '#9ca3af' }}>{opt.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
         <TextInput
           style={ps.searchInput}
           placeholder="Search courses…"
@@ -451,7 +477,7 @@ function CourseSheet({
           renderItem={({ item }) => {
             const on = item.name === selected;
             return (
-              <TouchableOpacity style={ps.sheetRow} onPress={() => { onSelect(item.name); onClose(); setSearch(''); }} activeOpacity={0.7}>
+              <TouchableOpacity style={ps.sheetRow} onPress={() => { onSelect(item.name); onClose(); setSearch(''); setRegion(null); }} activeOpacity={0.7}>
                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={[ps.sheetOpt, on && ps.sheetOptOn]} numberOfLines={1}>{item.name}</Text>
                   {item.hasGps && <Ionicons name="location" size={13} color={GOLD} />}
@@ -462,7 +488,7 @@ function CourseSheet({
             );
           }}
         />
-        <TouchableOpacity style={ps.cancelBtn} onPress={() => { onClose(); setSearch(''); }} activeOpacity={0.7}>
+        <TouchableOpacity style={ps.cancelBtn} onPress={() => { onClose(); setSearch(''); setRegion(null); }} activeOpacity={0.7}>
           <Text style={ps.cancelText}>Cancel</Text>
         </TouchableOpacity>
       </View>
@@ -617,17 +643,22 @@ export default function NewGameScreen() {
     // green_lat/green_lng populated (via the admin GPS download tool) is
     // the same signal the rangefinder itself checks for — a course "has
     // GPS data" once at least one hole carries it.
-    fetchAllRows<{ course_name: string; par: number; green_lat: number | null; green_lng: number | null }>(
-      (from, to) => supabase.from('course_holes').select('course_name, par, green_lat, green_lng').range(from, to)
-    ).then(data => {
+    Promise.all([
+      fetchAllRows<{ course_name: string; par: number; green_lat: number | null; green_lng: number | null }>(
+        (from, to) => supabase.from('course_holes').select('course_name, par, green_lat, green_lng').range(from, to)
+      ),
+      supabase.from('courses').select('name, region'),
+    ]).then(([data, { data: regionRows }]) => {
       const parMap: Record<string, number> = {};
       const gpsMap: Record<string, boolean> = {};
       for (const row of data) {
         parMap[row.course_name] = (parMap[row.course_name] ?? 0) + row.par;
         if (row.green_lat != null && row.green_lng != null) gpsMap[row.course_name] = true;
       }
+      const regionMap: Record<string, string | null> = {};
+      for (const r of (regionRows ?? []) as any[]) regionMap[r.name] = r.region;
       setCourses(Object.entries(parMap)
-        .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name] }))
+        .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name], region: regionMap[name] ?? null }))
         .sort((a, b) => a.name.localeCompare(b.name)));
       setLoadingCourses(false);
     });

@@ -311,6 +311,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 26,
+      "lastAccessed": 1787647322601,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/admin/prizes.tsx",
       "accessCount": 23,
       "lastAccessed": 1787551963805,
@@ -320,12 +326,6 @@
       "path": "app/(app)/index.tsx",
       "accessCount": 20,
       "lastAccessed": 1787636178724,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 20,
-      "lastAccessed": 1787644824580,
       "type": "file"
     },
     {

@@ -1,42 +1,18 @@
 {
   "version": 1,
   "entries": {
+    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
+      "last_emitted_at_ms": 1787648002493,
+      "message": "Read multiple files in parallel when possible for faster analysis."
+    },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1787645709602,
+      "last_emitted_at_ms": 1787647865598,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1787645705480,
+      "last_emitted_at_ms": 1787646730209,
       "message": "Verify changes work after editing. Test functionality before marking complete."
-    },
-    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1787645424527,
-      "message": "Read multiple files in parallel when possible for faster analysis."
-    },
-    "ddb9ffed290678d5218622108c689b96b8b569937a78075cd19f61b433277a5a": {
-      "last_emitted_at_ms": 1787644128542,
-      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Wire WHS resolver into swindle scoring screens"
-    },
-    "d628256706bcecd06c222dceac58a88d7f61237ebaf6b6b49070b17013c7b842": {
-      "last_emitted_at_ms": 1787644112728,
-      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Wire WHS resolver into casual scoring screens B"
-    },
-    "d88ca3c0819be1a22857e1dd5941bc932ebcec5ebc22efa4c6e46beb29576044": {
-      "last_emitted_at_ms": 1787644094718,
-      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Wire WHS resolver into casual scoring screens A"
-    },
-    "a9cd2167c6fc63e488b5f0fc1c7d8bcc7304005aba59621bf019cc4d99615fc5": {
-      "last_emitted_at_ms": 1787643470915,
-      "message": "Spawning agent: executor (opus) | Task: Wire WHS resolver into swindle scoring screens"
-    },
-    "dbb212c366edffe7232446660aa7473dac763d3e3a5c54f92ceb0feaf907b928": {
-      "last_emitted_at_ms": 1787643450995,
-      "message": "Spawning agent: executor (opus) | Task: Wire WHS resolver into casual scoring screens B"
-    },
-    "16e6684008e4bfc1171dba685edfc35d5b5bafe66218bbe4312eb531e338a7bc": {
-      "last_emitted_at_ms": 1787643432454,
-      "message": "Spawning agent: executor (opus) | Task: Wire WHS resolver into casual scoring screens A"
     }
   },
-  "updated_at": "2026-08-25T08:15:09.602Z"
+  "updated_at": "2026-08-25T08:53:22.493Z"
 }
