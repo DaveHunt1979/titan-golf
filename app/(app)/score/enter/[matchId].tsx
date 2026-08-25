@@ -14,8 +14,8 @@ import {
   calcHoles, matchLabel, isDormie,
   calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, individualScoreValue,
   scoreVsPar, formatVsPar, SCORE_COLORS,
-  playerCourseHcp as sharedPlayerCourseHcp,
 } from '../../../../src/lib/scoring';
+import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { courseHasGps } from '../../../../src/lib/courseGps';
 import { speakHole, speakPressure } from '../../../../src/lib/caddie';
@@ -116,9 +116,12 @@ interface MatchInfo {
 interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; tee_yardages: Record<string, number> | null; green_lat?: number | null; green_lng?: number | null; }
 interface CompPlayer { player_id: string; handicap_index: number; }
 
-function playerCourseHcp(playerId: string, compPlayers: CompPlayer[], day: MatchInfo['day'], hcpAllowance: number = 100): number {
+function playerCourseHcp(
+  playerId: string, compPlayers: CompPlayer[], day: MatchInfo['day'], hcpAllowance: number = 100,
+  roundPlayerTees: Record<string, RoundPlayerTeeSnapshot> = {},
+): number {
   const cp = compPlayers.find(c => c.player_id === playerId);
-  return sharedPlayerCourseHcp(cp?.handicap_index ?? 0, day, hcpAllowance);
+  return resolvePlayingHandicap(cp?.handicap_index ?? 0, day, hcpAllowance, roundPlayerTees[playerId]);
 }
 
 export default function EnterScoresScreen() {
@@ -134,6 +137,7 @@ export default function EnterScoresScreen() {
   const [match, setMatch] = useState<MatchInfo | null>(null);
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
   const [compPlayers, setCompPlayers] = useState<CompPlayer[]>([]);
+  const [roundPlayerTees, setRoundPlayerTees] = useState<Record<string, RoundPlayerTeeSnapshot>>({});
   const baseCompRef = useRef<CompPlayer[]>([]);
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
   const [playerAvatars, setPlayerAvatars] = useState<Record<string, string | null>>({});
@@ -272,7 +276,7 @@ export default function EnterScoresScreen() {
         const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
 
         console.log('[enter.load] fetching holes + competition_players + players...', { playerCount: allIds.length });
-        const [{ data: holesData }, { data: compData }, { data: playersData }] = await Promise.all([
+        const [{ data: holesData }, { data: compData }, { data: playersData }, { data: rptData }] = await Promise.all([
           matchData.day?.course_name
             ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages,green_lat,green_lng').eq('course_name', matchData.day.course_name).order('hole_number')
             : Promise.resolve({ data: [] }),
@@ -282,9 +286,17 @@ export default function EnterScoresScreen() {
           allIds.length
             ? supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allIds)
             : Promise.resolve({ data: [] }),
+          matchData.day_id && allIds.length
+            ? supabase.from('round_player_tees').select('player_id,whs_enabled_at_start,playing_handicap_at_start').eq('day_id', matchData.day_id).in('player_id', allIds)
+            : Promise.resolve({ data: [] }),
         ]);
 
         if (holesData) setCourseHoles(holesData);
+        if (rptData) {
+          const rpt: Record<string, RoundPlayerTeeSnapshot> = {};
+          (rptData as any[]).forEach(r => { rpt[r.player_id] = r; });
+          setRoundPlayerTees(rpt);
+        }
         if (playersData) {
           const names: Record<string, string> = {};
           const avatars: Record<string, string | null> = {};
@@ -622,9 +634,9 @@ export default function EnterScoresScreen() {
   // (Rick's spec — never applies to the Stableford side game, which always
   // stays on each player's own full handicap).
   function matchplayHcp(id: string): number {
-    const base = playerCourseHcp(id, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100);
+    const base = playerCourseHcp(id, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100, roundPlayerTees);
     if (match?.handicap_method !== 'relative_low' && match?.handicap_method !== 'relative_low_stableford') return base;
-    const groupHcps = allPlayerIds.map(pid => playerCourseHcp(pid, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100));
+    const groupHcps = allPlayerIds.map(pid => playerCourseHcp(pid, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100, roundPlayerTees));
     return Math.max(0, base - Math.min(...groupHcps));
   }
 
@@ -745,7 +757,7 @@ export default function EnterScoresScreen() {
     if (isStrokePlay) {
       // Compute all data first so we can queue offline if needed
       const spRows = allPlayerIds.map(id => {
-        const hcp = playerCourseHcp(id, compPlayers, day, match.hcp_allowance ?? 100);
+        const hcp = playerCourseHcp(id, compPlayers, day, match.hcp_allowance ?? 100, roundPlayerTees);
         const shots = calcStrokesReceived(hcp, si);
         const gross = scores[id] ?? null;
         const net = gross !== null ? gross - shots : null;
@@ -952,7 +964,7 @@ export default function EnterScoresScreen() {
       // The background Stableford side game always runs off full handicap —
       // it's independent of whatever % allowance the primary matchplay match
       // is using (Rick: "Side game should always be 100%").
-      const fullHcp = playerCourseHcp(id, compPlayers, day, 100);
+      const fullHcp = playerCourseHcp(id, compPlayers, day, 100, roundPlayerTees);
       const sideShots = calcStrokesReceived(fullHcp, si);
       // Same as the stroke-play write path: only compute this when the
       // side game is actually switched on (secondary_format set) — toggling

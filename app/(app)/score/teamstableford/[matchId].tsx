@@ -9,7 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
-import { calcStrokesReceived, calcStablefordPoints, playerCourseHcp } from '../../../../src/lib/scoring';
+import { calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
@@ -91,6 +92,7 @@ export default function TeamStablefordScreen() {
 
   const [match, setMatch]           = useState<Match | null>(null);
   const [players, setPlayers]       = useState<Player[]>([]);
+  const [roundPlayerTees, setRoundPlayerTees] = useState<Record<string, RoundPlayerTeeSnapshot>>({});
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
   const [scores, setScores]         = useState<ScoreMap>({});
   const [currentHole, setCurrentHole] = useState(1);
@@ -135,7 +137,7 @@ export default function TeamStablefordScreen() {
 
       const allIds = [...((matchData as any).home_player_ids ?? []), ...((matchData as any).away_player_ids ?? [])];
 
-      const [playersRes, holesRes, scoresRes] = await Promise.all([
+      const [playersRes, holesRes, scoresRes, rptRes] = await Promise.all([
         allIds.length
           ? supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allIds)
           : { data: [] },
@@ -145,7 +147,16 @@ export default function TeamStablefordScreen() {
         allIds.length
           ? supabase.from('match_holes').select('hole_number,player_id,gross_score').eq('match_id', matchId).in('player_id', allIds)
           : { data: [] },
+        (matchData as any).day_id && allIds.length
+          ? supabase.from('round_player_tees').select('player_id,whs_enabled_at_start,playing_handicap_at_start').eq('day_id', (matchData as any).day_id).in('player_id', allIds)
+          : { data: [] },
       ]);
+
+      if (rptRes.data) {
+        const rpt: Record<string, RoundPlayerTeeSnapshot> = {};
+        (rptRes.data as any[]).forEach(r => { rpt[r.player_id] = r; });
+        setRoundPlayerTees(rpt);
+      }
 
       if (playersRes.data) {
         // Tournament handicap cuts (if this tournament has them enabled) —
@@ -185,7 +196,7 @@ export default function TeamStablefordScreen() {
     const player = players.find(p => p.id === playerId);
     const hole = courseHoles.find(h => h.hole_number === holeNum);
     if (!player || !hole) return null;
-    const adjHcp = playerCourseHcp(player.handicap_index, match?.day ?? null, match?.hcp_allowance ?? 100);
+    const adjHcp = resolvePlayingHandicap(player.handicap_index, match?.day ?? null, match?.hcp_allowance ?? 100, roundPlayerTees[playerId]);
     const strokes = calcStrokesReceived(adjHcp, hole.stroke_index);
     return calcStablefordPoints(gross, hole.par, strokes);
   }
@@ -257,7 +268,7 @@ export default function TeamStablefordScreen() {
       let pts = 0;
       let netScore = g;
       if (holeInfo) {
-        const adjHcp = playerCourseHcp(p.handicap_index, match?.day ?? null, match?.hcp_allowance ?? 100);
+        const adjHcp = resolvePlayingHandicap(p.handicap_index, match?.day ?? null, match?.hcp_allowance ?? 100, roundPlayerTees[p.id]);
         const strokes = calcStrokesReceived(adjHcp, holeInfo.stroke_index);
         pts = calcStablefordPoints(g, holeInfo.par, strokes);
         netScore = g - strokes;
@@ -608,6 +619,7 @@ export default function TeamStablefordScreen() {
           hole={hole}
           day={match.day}
           hcpAllowance={match.hcp_allowance ?? 100}
+          roundPlayerTees={roundPlayerTees}
           scores={scores}
           holeResult={homeHole}
           getPts={getPts}
@@ -622,6 +634,7 @@ export default function TeamStablefordScreen() {
           hole={hole}
           day={match.day}
           hcpAllowance={match.hcp_allowance ?? 100}
+          roundPlayerTees={roundPlayerTees}
           scores={scores}
           holeResult={awayHole}
           getPts={getPts}
@@ -702,7 +715,7 @@ export default function TeamStablefordScreen() {
 const GROSS_BUTTONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 function TeamSection({
-  label, color, playerIds, players, hole, day, hcpAllowance, scores, holeResult, getPts, onScore,
+  label, color, playerIds, players, hole, day, hcpAllowance, roundPlayerTees, scores, holeResult, getPts, onScore,
 }: {
   label: string;
   color: string;
@@ -711,6 +724,7 @@ function TeamSection({
   hole: CourseHole | null;
   day: Match['day'];
   hcpAllowance: number;
+  roundPlayerTees: Record<string, RoundPlayerTeeSnapshot>;
   scores: ScoreMap;
   holeResult: TeamHoleResult;
   getPts: (id: string, hole: number) => number | null;
@@ -737,7 +751,7 @@ function TeamSection({
         const gross = scores[id]?.[currentHoleNum] ?? null;
         const pts = getPts(id, currentHoleNum);
         const result = holeResult.results.find(r => r.playerId === id);
-        const adjHcp = playerCourseHcp(player.handicap_index, day, hcpAllowance);
+        const adjHcp = resolvePlayingHandicap(player.handicap_index, day, hcpAllowance, roundPlayerTees[player.id]);
         const strokes = hole ? calcStrokesReceived(adjHcp, hole.stroke_index) : 0;
 
         return (

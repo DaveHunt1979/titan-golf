@@ -10,7 +10,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { speakIntro } from '../../../../src/lib/caddie';
-import { calcCourseHandicap } from '../../../../src/lib/scoring';
+import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 import { goBack } from '../../../../src/lib/navigation';
 import { matchFormatLabel } from '../../../../src/lib/tournamentFormat';
 
@@ -64,6 +64,7 @@ export default function MatchPreviewScreen() {
 
   const [match, setMatch] = useState<MatchPreview | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [roundPlayerTees, setRoundPlayerTees] = useState<Record<string, RoundPlayerTeeSnapshot>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [retryTick, setRetryTick] = useState(0);
@@ -87,12 +88,20 @@ export default function MatchPreviewScreen() {
         const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
         if (allIds.length) {
           console.log('[preview.load] fetching players + competition_players...', { playerCount: allIds.length });
-          const [{ data: playersData }, { data: compData }] = await Promise.all([
+          const [{ data: playersData }, { data: compData }, { data: rptData }] = await Promise.all([
             supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allIds),
             matchData.competition_id
               ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', matchData.competition_id).in('player_id', allIds)
               : Promise.resolve({ data: [] as { player_id: string; handicap_index: number }[] }),
+            matchData.day_id
+              ? supabase.from('round_player_tees').select('player_id,whs_enabled_at_start,playing_handicap_at_start').eq('day_id', matchData.day_id).in('player_id', allIds)
+              : Promise.resolve({ data: [] }),
           ]);
+          if (rptData) {
+            const rpt: Record<string, RoundPlayerTeeSnapshot> = {};
+            (rptData as any[]).forEach(r => { rpt[r.player_id] = r; });
+            setRoundPlayerTees(rpt);
+          }
           if (playersData) {
             // Same precedence the live scoring screen uses: competition_players
             // (which already has max_handicap capping applied at enrollment)
@@ -215,10 +224,7 @@ export default function MatchPreviewScreen() {
   const groupLowestCutHcp = isRelativeHcp
     ? Math.min(...[...homePlayers, ...awayPlayers].map(p => {
         const allowance = match.hcp_allowance ?? 100;
-        const raw = (!match.day?.slope_rating || !match.day?.course_rating || !match.day?.course_par)
-          ? Math.round(p.handicap_index)
-          : calcCourseHandicap(p.handicap_index, match.day.slope_rating, match.day.course_rating, match.day.course_par);
-        return Math.round(raw * (allowance / 100));
+        return resolvePlayingHandicap(p.handicap_index, match.day, allowance, roundPlayerTees[p.id]);
       }))
     : 0;
 
@@ -287,17 +293,17 @@ export default function MatchPreviewScreen() {
         {/* Players */}
         <View style={isSolo ? s.soloRow : s.matchupRow}>
           {isSolo ? (
-            homePlayers.map(p => <PlayerCard key={p.id} player={p} size={homePlayers.length > 2 ? 60 : 80} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} />)
+            homePlayers.map(p => <PlayerCard key={p.id} player={p} size={homePlayers.length > 2 ? 60 : 80} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} roundPlayerTee={roundPlayerTees[p.id]} />)
           ) : (
             <>
               <View style={s.side}>
-                {homePlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} />)}
+                {homePlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} roundPlayerTee={roundPlayerTees[p.id]} />)}
               </View>
               <View style={s.vsWrap}>
                 <Text style={s.vsText}>VS</Text>
               </View>
               <View style={s.side}>
-                {awayPlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} />)}
+                {awayPlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} roundPlayerTee={roundPlayerTees[p.id]} />)}
               </View>
             </>
           )}
@@ -359,9 +365,9 @@ export default function MatchPreviewScreen() {
   );
 }
 
-function PlayerCard({ player, size, hcpAllowance, day, isRelativeHcp, groupLowestCutHcp }: {
+function PlayerCard({ player, size, hcpAllowance, day, isRelativeHcp, groupLowestCutHcp, roundPlayerTee }: {
   player: Player; size: number; hcpAllowance: number | null; day: MatchPreview['day'];
-  isRelativeHcp?: boolean; groupLowestCutHcp?: number;
+  isRelativeHcp?: boolean; groupLowestCutHcp?: number; roundPlayerTee?: RoundPlayerTeeSnapshot;
 }) {
   const avatar = player.avatar_url ?? getPlayerAvatar(player.id, 'normal');
   const firstName = player.display_name.split(' ')[0];
@@ -369,10 +375,7 @@ function PlayerCard({ player, size, hcpAllowance, day, isRelativeHcp, groupLowes
   // Same formula the live scoring screen uses, so this preview matches what
   // actually happens hole-by-hole rather than showing the raw, un-cut index.
   const allowance = hcpAllowance ?? 100;
-  const rawCourseHcp = (!day?.slope_rating || !day?.course_rating || !day?.course_par)
-    ? Math.round(player.handicap_index)
-    : calcCourseHandicap(player.handicap_index, day.slope_rating, day.course_rating, day.course_par);
-  const cutHcp = Math.round(rawCourseHcp * (allowance / 100));
+  const cutHcp = resolvePlayingHandicap(player.handicap_index, day, allowance, roundPlayerTee);
   const isCut = allowance !== 100;
 
   // 4BBB Stroke Matchplay: shots actually received once the group's lowest

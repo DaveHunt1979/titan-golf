@@ -8,7 +8,8 @@ import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../../../../src/lib/supabase';
 import { scanPlayerScoresFromCamera, scanPlayerScoresFromLibrary, ScannedScore } from '../../../../src/lib/scanScorecard';
-import { calcStrokesReceived, calcStablefordPoints, calcCourseHandicap } from '../../../../src/lib/scoring';
+import { calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
+import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 import { goBack } from '../../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
@@ -44,6 +45,7 @@ export default function SwindleScan() {
   const [slopeRating, setSlopeRating] = useState(113);
   const [courseRating,setCourseRating]= useState<number | null>(null);
   const [hcpAllowance,setHcpAllowance]= useState(100);
+  const [roundPlayerTees, setRoundPlayerTees] = useState<Record<string, RoundPlayerTeeSnapshot>>({});
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -60,11 +62,18 @@ export default function SwindleScan() {
   useEffect(() => { load(); }, [gameId]);
 
   async function load() {
-    const [{ data: gameData }, { data: entriesData }, { data: scoresData }] = await Promise.all([
+    const [{ data: gameData }, { data: entriesData }, { data: scoresData }, { data: rptData }] = await Promise.all([
       supabase.from('swindle_games').select('course_name, slope_rating, course_rating, hcp_allowance').eq('id', gameId).single(),
       supabase.from('swindle_entries').select('player_id, handicap, players(display_name, handicap_index)').eq('game_id', gameId),
       supabase.from('swindle_scores').select('player_id').eq('game_id', gameId),
+      supabase.from('round_player_tees').select('player_id,whs_enabled_at_start,playing_handicap_at_start').eq('swindle_game_id', gameId),
     ]);
+
+    if (rptData) {
+      const rpt: Record<string, RoundPlayerTeeSnapshot> = {};
+      (rptData as any[]).forEach(r => { rpt[r.player_id] = r; });
+      setRoundPlayerTees(rpt);
+    }
 
     const g = gameData as any;
     if (g?.slope_rating)         setSlopeRating(g.slope_rating);
@@ -95,8 +104,8 @@ export default function SwindleScan() {
     if (!player) return 0;
     const idx = player.hcpIndex ?? (player.handicap ?? 0);
     const par = courseHoles.length > 0 ? courseHoles.reduce((s, h) => s + h.par, 0) : 72;
-    const ch  = calcCourseHandicap(idx, slopeRating, courseRating ?? par, par);
-    return Math.round(ch * (hcpAllowance / 100));
+    const gameAsDay = { slope_rating: slopeRating, course_rating: courseRating ?? par, course_par: par };
+    return resolvePlayingHandicap(idx, gameAsDay, hcpAllowance, roundPlayerTees[player.player_id]);
   }
 
   async function doScan(fromLibrary = false) {

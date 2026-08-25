@@ -8,7 +8,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, scoreVsPar, formatVsPar, SCORE_COLORS, ptsColor } from '../../../../src/lib/scoring';
+import { calcStrokesReceived, calcStablefordPoints, scoreVsPar, formatVsPar, SCORE_COLORS, ptsColor } from '../../../../src/lib/scoring';
+import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 import { goBack } from '../../../../src/lib/navigation';
 import { formatRoundDuration } from '../../../../src/lib/roundTimer';
 import { resolveAvatar } from '../../../../src/lib/assets';
@@ -92,6 +93,7 @@ export default function SoloRoundScreen() {
   const [avatarUrl, setAvatarUrl]     = useState<string | null>(null);
   const [playerHcp, setPlayerHcp]     = useState(0);
   const [courseHcp, setCourseHcp]     = useState(0);
+  const [roundPlayerTees, setRoundPlayerTees] = useState<Record<string, RoundPlayerTeeSnapshot>>({});
   const [savedScores, setSavedScores] = useState<HoleScore[]>([]);
   const [loading, setLoading]         = useState(true);
   const [loadError, setLoadError]     = useState(false);
@@ -150,11 +152,7 @@ export default function SoloRoundScreen() {
             setAvatarUrl(pp.avatar_url ?? null);
             const hcp = pp.handicap_index ?? 0;
             setPlayerHcp(hcp);
-            setCourseHcp(
-              pm.day?.slope_rating && pm.day?.course_rating && pm.day?.course_par
-                ? calcCourseHandicap(hcp, pm.day.slope_rating, pm.day.course_rating, pm.day.course_par)
-                : Math.round(hcp)
-            );
+            setCourseHcp(resolvePlayingHandicap(hcp, pm.day, undefined, pid ? roundPlayerTees[pid] : undefined));
           }
           setRoundDone(pm.status === 'complete');
           setLoading(false);
@@ -176,15 +174,23 @@ export default function SoloRoundScreen() {
 
         const playerId = m.home_player_ids[0];
         console.log('[solo.load] fetching holes + player + scores...');
-        const [{ data: holesData }, { data: playerData }, { data: scoresData }] = await Promise.all([
+        const [{ data: holesData }, { data: playerData }, { data: scoresData }, { data: rptData }] = await Promise.all([
           m.day?.course_name
             ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages,green_lat,green_lng').eq('course_name', m.day.course_name).order('hole_number')
             : Promise.resolve({ data: [] }),
           supabase.from('players').select('display_name,handicap_index,avatar_url').eq('id', playerId).single(),
           supabase.from('match_holes').select('hole_number,gross_score,net_score,stableford_pts').eq('match_id', matchId).eq('player_id', playerId),
+          m.day_id && playerId
+            ? supabase.from('round_player_tees').select('player_id,whs_enabled_at_start,playing_handicap_at_start').eq('day_id', m.day_id).in('player_id', [playerId])
+            : Promise.resolve({ data: [] }),
         ]);
 
         if (holesData) setCourseHoles(holesData);
+        const rpt: Record<string, RoundPlayerTeeSnapshot> = {};
+        if (rptData) {
+          (rptData as any[]).forEach(r => { rpt[r.player_id] = r; });
+          setRoundPlayerTees(rpt);
+        }
         if (playerData) {
           const p = playerData as any;
           setPlayerName(p.display_name ?? '');
@@ -193,11 +199,7 @@ export default function SoloRoundScreen() {
           const tournamentComp = await resolveTournamentHandicaps(m.competition_id, m.day_id, [{ player_id: playerId, handicap_index: rawHcp }]);
           const hcp = tournamentComp[0]?.handicap_index ?? rawHcp;
           setPlayerHcp(hcp);
-          if (m.day?.slope_rating && m.day?.course_rating && m.day?.course_par) {
-            setCourseHcp(calcCourseHandicap(hcp, m.day.slope_rating, m.day.course_rating, m.day.course_par));
-          } else {
-            setCourseHcp(Math.round(hcp));
-          }
+          setCourseHcp(resolvePlayingHandicap(hcp, m.day, undefined, rpt[playerId]));
         }
         if (scoresData) {
           setSavedScores((scoresData as any[]).map(r => ({

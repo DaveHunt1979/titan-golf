@@ -1,7 +1,7 @@
 {
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"/Users/davehunt/Desktop/titan-golf\\\" && python3 -c \\\"\\nimport openpyxl\\np = 'screenshots/Golf courses/UK & Ireland/TITAN_GLOBAL_GOLF_COURSE_MASTER_AUDITED.xlsx'\\nwb = openpyxl.load_wo...",
-  "error": "Exit code 1\nTraceback (most recent call last):\n  File \"<string>\", line 9, in <module>\n    print('---', sheet, 'dims', ws.dimensions)\n                                ^^^^^^^^^^^^^\nAttributeError: 'ReadOnlyWorksheet' object has no attribute 'dimensions'\nSheets: ['Courses', 'Tee Ratings', 'Hole Data', 'Audit Summary', 'Master Rules']",
-  "timestamp": "2026-08-25T06:31:15.692Z",
-  "retry_count": 1
+  "tool_name": "Agent",
+  "tool_input_preview": "{\"description\":\"Wire WHS resolver into swindle scoring screens\",\"prompt\":\"Titan Golf (React Native/Expo + Supabase). We're adding an optional WHS (World Handicap System) layer. This is a MECHANICAL, L...",
+  "error": "Agent type 'executor' not found. Available agents: claude, claude-code-guide, Explore, general-purpose, oh-my-claudecode:analyst, oh-my-claudecode:architect, oh-my-claudecode:code-reviewer, oh-my-claudecode:code-simplifier, oh-my-claudecode:critic, oh-my-claudecode:debugger, oh-my-claudecode:designer, oh-my-claudecode:document-specialist, oh-my-claudecode:executor, oh-my-claudecode:explore, oh-my-claudecode:git-master, oh-my-claudecode:planner, oh-my-claudecode:qa-tester, oh-my-claudecode:scient...",
+  "timestamp": "2026-08-25T07:37:52.695Z",
+  "retry_count": 3
 }

@@ -5,7 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { calcCourseHandicap, calcStrokesReceived } from '../../../../src/lib/scoring';
+import { calcStrokesReceived } from '../../../../src/lib/scoring';
+import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
@@ -24,13 +25,14 @@ interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 interface Match { id: string; home_player_ids: string[]; status?: string; day: { course_name: string; course_par: number; course_rating: number; slope_rating: number; } | null; }
 interface PlayerInfo { id: string; name: string; courseHcp: number; }
 
-function buildPlayerInfo(ids: string[], day: Match['day'], rows: any[]): PlayerInfo[] {
+function buildPlayerInfo(
+  ids: string[], day: Match['day'], rows: any[],
+  roundPlayerTees: Record<string, RoundPlayerTeeSnapshot> = {},
+): PlayerInfo[] {
   return ids.map(id => {
     const p = rows.find(x => x.id === id);
     const hcpIdx = p?.handicap_index ?? 0;
-    const courseHcp = day
-      ? calcCourseHandicap(hcpIdx, day.slope_rating, day.course_rating, day.course_par)
-      : Math.round(hcpIdx);
+    const courseHcp = resolvePlayingHandicap(hcpIdx, day, undefined, roundPlayerTees[id]);
     return { id, name: (p?.display_name ?? '?').split(' ')[0], courseHcp };
   });
 }
@@ -64,6 +66,7 @@ export default function ModifiedStablefordScreen() {
   const [holeIdx, setHoleIdx]   = useState(0);
   const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
+  const [roundPlayerTees, setRoundPlayerTees] = useState<Record<string, RoundPlayerTeeSnapshot>>({});
   const syncStatus = useSyncStatus();
   const pendingCount = syncStatus.pendingCount;
   const [showConflicts, setShowConflicts] = useState(false);
@@ -95,6 +98,7 @@ export default function ModifiedStablefordScreen() {
         pack.match?.home_player_ids ?? [],
         pack.match?.day ?? null,
         Object.entries(pack.players).map(([id, p]) => ({ id, ...p })),
+        roundPlayerTees,
       ));
       setLoading(false);
     }
@@ -108,7 +112,7 @@ export default function ModifiedStablefordScreen() {
     const day = (m as any).day;
     const ids: string[] = (m as any).home_player_ids ?? [];
 
-    const [holesRes, playersRes, existingRes] = await Promise.all([
+    const [holesRes, playersRes, existingRes, rptRes] = await Promise.all([
       day?.course_name
         ? supabase.from('course_holes').select('hole_number,par,stroke_index').eq('course_name', day.course_name).order('hole_number')
         : Promise.resolve({ data: [] }),
@@ -116,12 +120,21 @@ export default function ModifiedStablefordScreen() {
         ? supabase.from('players').select('id,display_name,handicap_index').in('id', ids)
         : Promise.resolve({ data: [] }),
       supabase.from('match_holes').select('player_id,hole_number,gross_score').eq('match_id', matchId),
+      (m as any).day_id && ids.length
+        ? supabase.from('round_player_tees').select('player_id,whs_enabled_at_start,playing_handicap_at_start').eq('day_id', (m as any).day_id).in('player_id', ids)
+        : Promise.resolve({ data: [] }),
     ]);
 
     if (holesRes.data) setHoles(holesRes.data as CourseHole[]);
 
+    const rpt: Record<string, RoundPlayerTeeSnapshot> = {};
+    if (rptRes.data) {
+      (rptRes.data as any[]).forEach(r => { rpt[r.player_id] = r; });
+      setRoundPlayerTees(rpt);
+    }
+
     if (playersRes.data) {
-      setPlayers(buildPlayerInfo(ids, day, playersRes.data as any[]));
+      setPlayers(buildPlayerInfo(ids, day, playersRes.data as any[], rpt));
     }
 
     if (existingRes.data) {

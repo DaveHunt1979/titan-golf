@@ -6,7 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { searchUKClubs, getUKClub, clubLocation, type UKClub } from '../../../src/lib/ukgolf';
 import { scanScorecardFromCamera, scanScorecardFromLibrary, type ScannedCourse } from '../../../src/lib/scanScorecard';
@@ -85,21 +85,21 @@ export default function CoursesScreen() {
   });
 
   const loadCourses = useCallback(async () => {
-    const { data } = await supabase.from('course_holes').select('course_name, par');
-    if (data) {
-      const map: Record<string, { totalPar: number; count: number; allPar4: boolean }> = {};
-      for (const row of data as any[]) {
-        if (!map[row.course_name]) map[row.course_name] = { totalPar: 0, count: 0, allPar4: true };
-        map[row.course_name].totalPar += row.par;
-        map[row.course_name].count++;
-        if (row.par !== 4) map[row.course_name].allPar4 = false;
-      }
-      setCourses(
-        Object.entries(map)
-          .map(([name, v]) => ({ name, par: v.totalPar, holeCount: v.count, incomplete: v.allPar4 }))
-          .sort((a, b) => a.name.localeCompare(b.name)),
-      );
+    const data = await fetchAllRows<{ course_name: string; par: number }>(
+      (from, to) => supabase.from('course_holes').select('course_name, par').range(from, to)
+    );
+    const map: Record<string, { totalPar: number; count: number; allPar4: boolean }> = {};
+    for (const row of data) {
+      if (!map[row.course_name]) map[row.course_name] = { totalPar: 0, count: 0, allPar4: true };
+      map[row.course_name].totalPar += row.par;
+      map[row.course_name].count++;
+      if (row.par !== 4) map[row.course_name].allPar4 = false;
     }
+    setCourses(
+      Object.entries(map)
+        .map(([name, v]) => ({ name, par: v.totalPar, holeCount: v.count, incomplete: v.allPar4 }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    );
     setLoading(false);
   }, []);
 

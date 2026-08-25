@@ -11,7 +11,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { uploadImage } from '../../../src/lib/uploadImage';
 import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
@@ -20,6 +20,8 @@ import { individualBoardLabel, getFormatRules, checkTitanWayStructure, FORMAT_RU
 import PrizeCategoriesEditor from '../../../src/components/PrizeCategoriesEditor';
 import { ukDateToIso, isoToUk, ukDateToDate, dateToUk, dateToHm, hmToDate } from '../../../src/lib/dateHelpers';
 import { DEFAULT_HANDICAP_CUT_BANDS, type HandicapCutBand } from '../../../src/lib/tournamentHandicap';
+import TeePickerSheet, { fetchCourseTees, SelectableTee } from '../../../src/components/TeePickerSheet';
+import { calculateWHSPlayingHandicap } from '../../../src/lib/whs';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -92,6 +94,8 @@ interface DayConfig {
   slopeRating: string;
   courseRating: string;
   teeName: string;
+  whsEnabled: boolean;
+  playerTees: Record<string, { tee_name: string; gender: string; par: number | null; course_rating: number | null; slope_rating: number | null }>;
   teeTime: string;
   playDate: string;
   format: DayFormatId;
@@ -206,6 +210,8 @@ export default function BuildTournamentScreen() {
   const [courseSheetDay, setCourseSheetDay] = useState<number | null>(null);
   const [dayDatePickerFor, setDayDatePickerFor] = useState<number | null>(null);
   const [dayTimePickerFor, setDayTimePickerFor] = useState<number | null>(null);
+  const [teePickerFor, setTeePickerFor] = useState<{ dayIndex: number; playerId: string } | null>(null);
+  const [teePickerTees, setTeePickerTees] = useState<SelectableTee[]>([]);
 
   // Draft step (player selection) — only usable once the competition shell
   // actually exists, since competition_players needs a real competition_id.
@@ -235,12 +241,13 @@ export default function BuildTournamentScreen() {
     // exact string), so picking from here instead of free-typing is what
     // keeps a tournament day's holes/par/stroke-index actually linked up.
     // hole_number+par per row also builds the side-games par-3/par-5 picker.
-    supabase.from('course_holes').select('course_name, hole_number, par, green_lat, green_lng').then(({ data }) => {
-      if (!data) return;
+    fetchAllRows<{ course_name: string; hole_number: number; par: number; green_lat: number | null; green_lng: number | null }>(
+      (from, to) => supabase.from('course_holes').select('course_name, hole_number, par, green_lat, green_lng').range(from, to)
+    ).then(data => {
       const parMap: Record<string, number> = {};
       const gpsMap: Record<string, boolean> = {};
       const holesMap: Record<string, CourseHole[]> = {};
-      for (const row of data as any[]) {
+      for (const row of data) {
         parMap[row.course_name] = (parMap[row.course_name] ?? 0) + row.par;
         if (row.green_lat != null && row.green_lng != null) gpsMap[row.course_name] = true;
         (holesMap[row.course_name] ??= []).push({ hole_number: row.hole_number, par: row.par });
@@ -363,6 +370,8 @@ export default function BuildTournamentScreen() {
         slopeRating:  d.slope_rating != null ? String(d.slope_rating) : '113',
         courseRating: d.course_rating != null ? String(d.course_rating) : '',
         teeName:      d.tee_name ?? '',
+        whsEnabled:   d.whs_enabled ?? false,
+        playerTees:   {},
         teeTime:      d.tee_time ? String(d.tee_time).slice(0, 5) : '',
         playDate:     d.play_date ? isoToUk(d.play_date) : '',
         format:       (d.day_format ?? 'four_bbb') as DayFormatId,
@@ -371,6 +380,28 @@ export default function BuildTournamentScreen() {
         ntpEnabled:   d.ntp_hole != null, ntpHole: d.ntp_hole ?? null,
       }));
       setDays(loadedDays);
+
+      const dayIds = ((daysData ?? []) as any[]).map(d => d.id);
+      if (dayIds.some(id => loadedDays[dayIds.indexOf(id)]?.whsEnabled)) {
+        const { data: rptRows } = await supabase.from('round_player_tees')
+          .select('day_id, player_id, tee_name, gender, par_at_start, course_rating_at_start, slope_at_start')
+          .in('day_id', dayIds);
+        if (rptRows) {
+          setDays(prev => prev.map((day, i) => {
+            const dayId = dayIds[i];
+            const rowsForDay = (rptRows as any[]).filter(r => r.day_id === dayId);
+            if (rowsForDay.length === 0) return day;
+            const playerTees: DayConfig['playerTees'] = {};
+            for (const r of rowsForDay) {
+              playerTees[r.player_id] = {
+                tee_name: r.tee_name, gender: r.gender ?? '',
+                par: r.par_at_start, course_rating: r.course_rating_at_start, slope_rating: r.slope_at_start,
+              };
+            }
+            return { ...day, playerTees };
+          }));
+        }
+      }
 
       setStep(1);
       setLoadingExisting(false);
@@ -385,7 +416,7 @@ export default function BuildTournamentScreen() {
     setSelectedFormat(f.id);
     setIncludeInKronos(rules.individualBoardDefaultOn);
     const builtDays: DayConfig[] = Array.from({ length: f.defaultDays }, () => ({
-      courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeTime: '', playDate: '',
+      courseName: '', slopeRating: '113', courseRating: '', teeName: '', whsEnabled: false, playerTees: {}, teeTime: '', playDate: '',
       format: f.defaultDayFormat,
       hcpPct: f.defaultHcp,
       ldEnabled: false, ldHole: null,
@@ -411,6 +442,13 @@ export default function BuildTournamentScreen() {
     }
   }
 
+  useEffect(() => {
+    if (!teePickerFor) { setTeePickerTees([]); return; }
+    const courseName = days[teePickerFor.dayIndex]?.courseName;
+    if (!courseName) { setTeePickerTees([]); return; }
+    fetchCourseTees(courseName).then(setTeePickerTees);
+  }, [teePickerFor]);
+
   function updateDay(i: number, patch: Partial<DayConfig>) {
     setDays(prev => prev.map((d, idx) => idx === i ? { ...d, ...patch } : d));
   }
@@ -418,7 +456,7 @@ export default function BuildTournamentScreen() {
   function addDay() {
     if (days.length >= 10) return;
     setDays(prev => applyLastDayOverride([...prev, {
-      courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeTime: '', playDate: '',
+      courseName: '', slopeRating: '113', courseRating: '', teeName: '', whsEnabled: false, playerTees: {}, teeTime: '', playDate: '',
       format: formatDef?.defaultDayFormat ?? 'four_bbb',
       hcpPct: formatDef?.defaultHcp ?? 75,
       ldEnabled: false, ldHole: null,
@@ -599,6 +637,7 @@ export default function BuildTournamentScreen() {
       course_rating:  d.courseRating.trim() ? (parseFloat(d.courseRating) || null) : null,
       slope_rating:   parseInt(d.slopeRating, 10) || 113,
       tee_name:       d.teeName.trim() || null,
+      whs_enabled:    d.whsEnabled,
       tee_time:       d.teeTime || null,
       play_date:      d.playDate ? ukDateToIso(d.playDate) : null,
       day_format:     d.format,
@@ -793,6 +832,14 @@ export default function BuildTournamentScreen() {
       if (d.courseName.trim() && !d.courseRating.trim()) {
         issues.push({ label: `Round ${i + 1} — Course Rating not set`, jumpToStep: 2 });
       }
+      if (d.whsEnabled) {
+        compPlayers.filter(cp => cp.status !== 'declined').forEach(cp => {
+          const tee = d.playerTees[cp.player_id];
+          if (!tee || tee.par == null || tee.course_rating == null || tee.slope_rating == null) {
+            issues.push({ label: `Round ${i + 1} — WHS cannot calculate ${cp.display_name}'s handicap (no rated tee selected)`, jumpToStep: 2 });
+          }
+        });
+      }
     });
 
     if (enrolledCount === 0) issues.push({ label: 'Players — none enrolled', jumpToStep: 3 });
@@ -893,6 +940,46 @@ export default function BuildTournamentScreen() {
       await supabase.from('competitions').update({
         handicap_cuts_config_locked_at: new Date().toISOString(),
       }).eq('id', compId);
+    }
+
+    // WHS round snapshot — frozen the moment the tournament goes live, per
+    // player per day, using the tee each player picked in the builder.
+    // Reads the just-saved competition_days back to get real day_id values;
+    // does nothing for a day where whsEnabled is false (existing behaviour
+    // is unaffected — no round_player_tees rows get written for it).
+    if (days.some(d => d.whsEnabled)) {
+      const { data: savedDays } = await supabase
+        .from('competition_days').select('id, day_number').eq('competition_id', compId).order('day_number');
+      if (savedDays) {
+        const snapshotRows: any[] = [];
+        days.forEach((d, i) => {
+          if (!d.whsEnabled) return;
+          const dayId = (savedDays as any[])[i]?.id;
+          if (!dayId) return;
+          compPlayers.filter(cp => cp.status !== 'declined').forEach(cp => {
+            const tee = d.playerTees[cp.player_id];
+            if (!tee || tee.par == null || tee.course_rating == null || tee.slope_rating == null || cp.handicap_index == null) return;
+            const whs = calculateWHSPlayingHandicap(cp.handicap_index, tee.slope_rating, tee.course_rating, tee.par, d.hcpPct);
+            snapshotRows.push({
+              day_id: dayId,
+              player_id: cp.player_id,
+              tee_name: tee.tee_name,
+              gender: tee.gender,
+              handicap_index_at_start: cp.handicap_index,
+              slope_at_start: tee.slope_rating,
+              course_rating_at_start: tee.course_rating,
+              par_at_start: tee.par,
+              course_handicap_at_start: whs.courseHandicapUnrounded,
+              allowance_at_start: d.hcpPct,
+              playing_handicap_at_start: whs.playingHandicap,
+              whs_enabled_at_start: true,
+            });
+          });
+        });
+        if (snapshotRows.length > 0) {
+          await supabase.from('round_player_tees').upsert(snapshotRows, { onConflict: 'day_id,player_id' });
+        }
+      }
     }
 
     if (me) {
@@ -1422,6 +1509,45 @@ export default function BuildTournamentScreen() {
                   </View>
                 </View>
 
+                {/* WHS Handicap — off by default; existing per-day slope/course
+                    rating fields above are unchanged and keep driving today's
+                    scoring exactly as before until this is switched on. */}
+                <Text style={styles.fieldLabel}>WHS HANDICAP</Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                  {([false, true] as const).map(v => (
+                    <TouchableOpacity
+                      key={String(v)}
+                      style={[styles.chip, day.whsEnabled === v && styles.chipOn]}
+                      onPress={() => updateDay(i, { whsEnabled: v })}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.chipText, day.whsEnabled === v && styles.chipTextOn]}>{v ? 'On' : 'Off'}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {day.whsEnabled && day.courseName && (
+                  <View style={{ marginBottom: 8 }}>
+                    <Text style={styles.fieldLabel}>PLAYER TEES</Text>
+                    {compPlayers.filter(cp => cp.status !== 'declined').map(cp => {
+                      const tee = day.playerTees[cp.player_id];
+                      return (
+                        <TouchableOpacity
+                          key={cp.player_id}
+                          style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }]}
+                          onPress={() => setTeePickerFor({ dayIndex: i, playerId: cp.player_id })}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={{ color: '#fff', fontFamily: 'JUSTSans-ExBold', fontSize: 13 }}>{cp.display_name}</Text>
+                          <Text style={{ color: tee ? GOLD : '#f87171', fontFamily: 'JUSTSans-ExBold', fontSize: 12 }}>
+                            {tee ? `${tee.tee_name}${tee.gender ? ` (${tee.gender})` : ''}` : 'Select tee'}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+
                 <Text style={styles.fieldLabel}>FORMAT</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
                   <View style={{ flexDirection: 'row', gap: 8, paddingRight: 16 }}>
@@ -1820,6 +1946,20 @@ export default function BuildTournamentScreen() {
         selected={courseSheetDay !== null ? days[courseSheetDay]?.courseName ?? null : null}
         onSelect={name => { if (courseSheetDay !== null) updateDay(courseSheetDay, { courseName: name }); }}
         onClose={() => setCourseSheetDay(null)}
+      />
+
+      <TeePickerSheet
+        visible={teePickerFor !== null}
+        title={`Select tee — ${teePickerFor ? compPlayers.find(cp => cp.player_id === teePickerFor.playerId)?.display_name ?? '' : ''}`}
+        tees={teePickerTees}
+        onSelect={tee => {
+          if (!teePickerFor) return;
+          const { dayIndex, playerId } = teePickerFor;
+          const day = days[dayIndex];
+          updateDay(dayIndex, { playerTees: { ...day.playerTees, [playerId]: tee } });
+          setTeePickerFor(null);
+        }}
+        onClose={() => setTeePickerFor(null)}
       />
 
       <GoLiveIssuesSheet

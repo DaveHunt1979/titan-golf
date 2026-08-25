@@ -9,7 +9,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 import { ensureDb } from '../../../src/lib/localDb';
@@ -222,9 +222,9 @@ export default function RangefinderScreen() {
   // ── Load course list ──────────────────────────────────────────────
   useEffect(() => {
     if (pCourse) return;
-    supabase.from('course_holes').select('course_name').then(({ data }) => {
-      if (data) setCourses([...new Set((data as any[]).map(r => r.course_name))].sort());
-    });
+    fetchAllRows<{ course_name: string }>(
+      (from, to) => supabase.from('course_holes').select('course_name').range(from, to)
+    ).then(data => setCourses([...new Set(data.map(r => r.course_name))].sort()));
   }, []);
 
   // ── Reset GI mode when course is cleared ────────────────────────

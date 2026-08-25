@@ -270,8 +270,14 @@
     },
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 99,
-      "lastAccessed": 1787584684817,
+      "accessCount": 111,
+      "lastAccessed": 1787644171623,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 45,
+      "lastAccessed": 1787642571323,
       "type": "file"
     },
     {
@@ -281,27 +287,21 @@
       "type": "file"
     },
     {
-      "path": "src/lib/scoring.ts",
-      "accessCount": 41,
-      "lastAccessed": 1787639303703,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/score/day/[dayId].tsx",
       "accessCount": 39,
       "lastAccessed": 1787579575114,
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/live-tournaments.tsx",
-      "accessCount": 30,
-      "lastAccessed": 1787581774391,
+      "path": "app/(app)/score/solo/[matchId].tsx",
+      "accessCount": 38,
+      "lastAccessed": 1787644342857,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/solo/[matchId].tsx",
+      "path": "app/(app)/admin/live-tournaments.tsx",
       "accessCount": 30,
-      "lastAccessed": 1787584781178,
+      "lastAccessed": 1787581774391,
       "type": "file"
     },
     {
@@ -320,6 +320,12 @@
       "path": "app/(app)/index.tsx",
       "accessCount": 20,
       "lastAccessed": 1787636178724,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 20,
+      "lastAccessed": 1787644824580,
       "type": "file"
     },
     {
@@ -347,15 +353,15 @@
       "type": "file"
     },
     {
-      "path": "src/types/index.ts",
-      "accessCount": 7,
-      "lastAccessed": 1787579544220,
+      "path": "supabase/schema.sql",
+      "accessCount": 8,
+      "lastAccessed": 1787642089681,
       "type": "file"
     },
     {
-      "path": "supabase/schema.sql",
+      "path": "src/types/index.ts",
       "accessCount": 7,
-      "lastAccessed": 1787639679607,
+      "lastAccessed": 1787579544220,
       "type": "file"
     },
     {
@@ -407,6 +413,12 @@
       "type": "file"
     },
     {
+      "path": "supabase/migrations/20260821050000_handicap_lock.sql",
+      "accessCount": 3,
+      "lastAccessed": 1787642124313,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/inbox/index.tsx",
       "accessCount": 2,
       "lastAccessed": 1787318395318,
@@ -419,21 +431,9 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1787379318547,
-      "type": "file"
-    },
-    {
       "path": "src/lib/navigation.ts",
       "accessCount": 2,
       "lastAccessed": 1787566607776,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260821050000_handicap_lock.sql",
-      "accessCount": 2,
-      "lastAccessed": 1787583265664,
       "type": "file"
     },
     {

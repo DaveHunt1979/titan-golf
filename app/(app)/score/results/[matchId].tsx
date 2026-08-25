@@ -15,8 +15,8 @@ import { titanLogo } from '../../../../src/lib/assets';
 import { resolveTournamentHandicaps } from '../../../../src/lib/tournamentHandicap';
 import {
   calcStrokesReceived,
-  playerCourseHcp,
 } from '../../../../src/lib/scoring';
+import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 
 // ── Design tokens ───────────────────────────────────────────────
 const GOLD  = '#D4AF37';
@@ -347,6 +347,7 @@ export default function ResultsScreen() {
   });
 
   const [match, setMatch] = useState<MatchRow | null>(null);
+  const [roundPlayerTees, setRoundPlayerTees] = useState<Record<string, RoundPlayerTeeSnapshot>>({});
   const [players, setPlayers] = useState<Profile[]>([]);
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
   const [matchHoles, setMatchHoles] = useState<MatchHole[]>([]);
@@ -381,6 +382,7 @@ export default function ResultsScreen() {
         { data: holesData },
         { data: matchHolesData },
         { data: holeStatsData },
+        { data: rptData },
       ] = await Promise.all([
         // Locked tournament handicap (competition_players), not the live
         // players.handicap_index — this screen used to read the live index,
@@ -409,7 +411,16 @@ export default function ResultsScreen() {
         supabase.from('hole_stats')
           .select('player_id, hole_number, fairway_hit, fairway_direction, putts, bunker_shots, penalty_strokes, chip_shots')
           .eq('match_id', matchId),
+        m.day_id && allIds.length
+          ? supabase.from('round_player_tees').select('player_id,whs_enabled_at_start,playing_handicap_at_start').eq('day_id', m.day_id).in('player_id', allIds)
+          : Promise.resolve({ data: [] }),
       ]);
+
+      if (rptData) {
+        const rpt: Record<string, RoundPlayerTeeSnapshot> = {};
+        (rptData as any[]).forEach(r => { rpt[r.player_id] = r; });
+        setRoundPlayerTees(rpt);
+      }
 
       if (profilesData) {
         const normalized: Profile[] = (profilesData as any[]).map(row =>
@@ -463,7 +474,7 @@ export default function ResultsScreen() {
 
   function getCourseHcp(playerId: string): number {
     const profile = playerMap[playerId];
-    return playerCourseHcp(profile?.handicap_index ?? 0, match?.day, match?.hcp_allowance ?? 100);
+    return resolvePlayingHandicap(profile?.handicap_index ?? 0, match?.day, match?.hcp_allowance ?? 100, roundPlayerTees[playerId]);
   }
 
   const selectedProfile = selectedPlayerId ? playerMap[selectedPlayerId] : null;

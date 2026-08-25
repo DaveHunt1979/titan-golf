@@ -29,3 +29,23 @@ export function freshChannel(name: string) {
   if (existing) supabase.removeChannel(existing);
   return supabase.channel(name);
 }
+
+// PostgREST caps an unbounded .select() at 1000 rows by default — fine when
+// course_holes held 738 rows total, silently truncating "list every course"
+// queries now that the course-master import brought it to 13k+ (2026-08-25).
+// Pages through with .range() until a short page signals the end.
+export async function fetchAllRows<T>(
+  queryFactory: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+  pageSize = 1000,
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await queryFactory(from, from + pageSize - 1);
+    if (error || !data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}

@@ -5,7 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
-import { calcCourseHandicap, calcStrokesReceived } from '../../../../src/lib/scoring';
+import { calcStrokesReceived } from '../../../../src/lib/scoring';
+import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 import { goBack } from '../../../../src/lib/navigation';
 import { saveHoleWithOfflineFallback } from '../../../../src/lib/offlineSave';
 import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
@@ -54,6 +55,7 @@ export default function ParBogeyScreen() {
   const [holeIdx, setHoleIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
+  const [roundPlayerTees, setRoundPlayerTees] = useState<Record<string, RoundPlayerTeeSnapshot>>({});
   const syncStatus = useSyncStatus();
   const pendingCount = syncStatus.pendingCount;
   const [showConflicts, setShowConflicts] = useState(false);
@@ -81,9 +83,7 @@ export default function ParBogeyScreen() {
         return {
           id,
           name: (p?.display_name ?? '?').split(' ')[0],
-          courseHcp: packDay
-            ? calcCourseHandicap(hcpIdx, packDay.slope_rating, packDay.course_rating, packDay.course_par)
-            : Math.round(hcpIdx),
+          courseHcp: resolvePlayingHandicap(hcpIdx, packDay, undefined, roundPlayerTees[id]),
         };
       }));
       setLoading(false);
@@ -98,7 +98,7 @@ export default function ParBogeyScreen() {
     const day = (m as any).day;
     const ids: string[] = (m as any).home_player_ids ?? [];
 
-    const [holesRes, playersRes, existingRes] = await Promise.all([
+    const [holesRes, playersRes, existingRes, rptRes] = await Promise.all([
       day?.course_name
         ? supabase.from('course_holes').select('hole_number,par,stroke_index').eq('course_name', day.course_name).order('hole_number')
         : Promise.resolve({ data: [] }),
@@ -106,17 +106,24 @@ export default function ParBogeyScreen() {
         ? supabase.from('players').select('id,display_name,handicap_index').in('id', ids)
         : Promise.resolve({ data: [] }),
       supabase.from('match_holes').select('player_id,hole_number,gross_score').eq('match_id', matchId),
+      (m as any).day_id && ids.length
+        ? supabase.from('round_player_tees').select('player_id,whs_enabled_at_start,playing_handicap_at_start').eq('day_id', (m as any).day_id).in('player_id', ids)
+        : Promise.resolve({ data: [] }),
     ]);
 
     if (holesRes.data) setHoles(holesRes.data as CourseHole[]);
+
+    const rpt: Record<string, RoundPlayerTeeSnapshot> = {};
+    if (rptRes.data) {
+      (rptRes.data as any[]).forEach(r => { rpt[r.player_id] = r; });
+      setRoundPlayerTees(rpt);
+    }
 
     if (playersRes.data) {
       const info: PlayerInfo[] = ids.map(id => {
         const p = (playersRes.data as any[]).find(x => x.id === id);
         const hcpIdx = p?.handicap_index ?? 0;
-        const courseHcp = day
-          ? calcCourseHandicap(hcpIdx, day.slope_rating, day.course_rating, day.course_par)
-          : Math.round(hcpIdx);
+        const courseHcp = resolvePlayingHandicap(hcpIdx, day, undefined, rpt[id]);
         return { id, name: (p?.display_name ?? '?').split(' ')[0], courseHcp };
       });
       setPlayers(info);

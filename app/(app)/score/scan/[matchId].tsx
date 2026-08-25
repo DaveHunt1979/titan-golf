@@ -8,7 +8,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { scanPlayerScoresFromCamera, scanPlayerScoresFromLibrary } from '../../../../src/lib/scanScorecard';
-import { calcStrokesReceived, calcStablefordPoints, playerCourseHcp, formatVsPar } from '../../../../src/lib/scoring';
+import { calcStrokesReceived, calcStablefordPoints, formatVsPar } from '../../../../src/lib/scoring';
+import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 import { goBack } from '../../../../src/lib/navigation';
 
 // ── TITAN Design Constants ──────────────────────────────────────────────────
@@ -62,7 +63,7 @@ export default function ScanMatchScorecardScreen() {
       setMyPlayerId((p as any).id);
 
       const { data: m } = await supabase.from('matches')
-        .select('round_format, hcp_allowance, day:day_id(course_name, slope_rating, course_rating, course_par)')
+        .select('round_format, hcp_allowance, day_id, day:day_id(course_name, slope_rating, course_rating, course_par)')
         .eq('id', matchId)
         .single();
       if (!m) { setLoading(false); return; }
@@ -89,7 +90,18 @@ export default function ScanMatchScorecardScreen() {
       // Course-handicap conversion + allowance — this screen used to write
       // stableford_pts/net_score straight from the raw handicap index, the
       // only score-entry path in the app skipping it (Rick's brief, section 10).
-      setMyCourseHcp(playerCourseHcp((p as any).handicap_index ?? 0, (m as any).day, (m as any).hcp_allowance ?? 100));
+      // WHS layer: if the round was started with WHS on, the frozen playing
+      // handicap from round_player_tees wins; with WHS off there's no row and
+      // resolvePlayingHandicap falls through to the same playerCourseHcp maths
+      // this line always used.
+      const { data: rptData } = (m as any).day_id
+        ? await supabase.from('round_player_tees')
+            .select('player_id,whs_enabled_at_start,playing_handicap_at_start')
+            .eq('day_id', (m as any).day_id)
+            .in('player_id', [(p as any).id])
+        : { data: [] };
+      const myTee = ((rptData as RoundPlayerTeeSnapshot[] | null) ?? [])[0];
+      setMyCourseHcp(resolvePlayingHandicap((p as any).handicap_index ?? 0, (m as any).day, (m as any).hcp_allowance ?? 100, myTee));
 
       if (cn) {
         const { data: holes } = await supabase.from('course_holes')

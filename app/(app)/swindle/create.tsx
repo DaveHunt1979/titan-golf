@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert,
 import { useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { goBack } from '../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
@@ -70,13 +70,14 @@ export default function SwindleCreate() {
   const [hcpAllowance, setHcpAllowance] = useState(100);
   const [slope,        setSlope]        = useState('113');
   const [cRating,      setCRating]      = useState('');
+  const [whsEnabled,   setWhsEnabled]   = useState(false);
 
   useEffect(() => {
-    supabase.from('course_holes').select('course_name').then(({ data }) => {
-      if (data) {
-        const names = [...new Set((data as any[]).map(r => r.course_name).filter(Boolean))].sort() as string[];
-        setCourses(names);
-      }
+    fetchAllRows<{ course_name: string }>(
+      (from, to) => supabase.from('course_holes').select('course_name').range(from, to)
+    ).then(data => {
+      const names = [...new Set(data.map(r => r.course_name).filter(Boolean))].sort() as string[];
+      setCourses(names);
     });
   }, []);
 
@@ -121,6 +122,7 @@ export default function SwindleCreate() {
         hcp_allowance: hcpAllowance,
         slope_rating:  parseInt(slope) || 113,
         course_rating: cRating.trim() ? parseFloat(cRating) || null : null,
+        whs_enabled: whsEnabled,
         twos_enabled: twosEnabled,
         twos_fee: twosEnabled && twosFee ? parseFloat(twosFee) || 0 : 0,
         ntp_hole: ntpEnabled ? ntpHole : null,
@@ -189,6 +191,17 @@ export default function SwindleCreate() {
                 <Text style={[s.toggleSub, hcpAllowance === opt.value && s.toggleSubActive]}>
                   {opt.desc}
                 </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Field>
+
+        {/* WHS Handicap — off by default; existing scoring is unchanged until this is switched on */}
+        <Field label="WHS HANDICAP" hint="Calculates each player's handicap from their own selected tee">
+          <View style={s.toggleRow}>
+            {([false, true] as const).map(v => (
+              <TouchableOpacity key={String(v)} style={[s.toggleBtn, whsEnabled === v && s.toggleBtnActive]} onPress={() => setWhsEnabled(v)} activeOpacity={0.8}>
+                <Text style={[s.toggleText, whsEnabled === v && s.toggleTextActive]}>{v ? 'On' : 'Off'}</Text>
               </TouchableOpacity>
             ))}
           </View>

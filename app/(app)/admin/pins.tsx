@@ -8,7 +8,7 @@ import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { goBack } from '../../../src/lib/navigation';
 
 // ── TITAN constants ───────────────────────────────────────────
@@ -68,8 +68,10 @@ export default function PinsScreen() {
   }, []);
 
   async function loadCourses() {
-    const { data } = await supabase.from('course_holes').select('course_name');
-    if (data) setCourses([...new Set((data as any[]).map(r => r.course_name))].sort());
+    const data = await fetchAllRows<{ course_name: string }>(
+      (from, to) => supabase.from('course_holes').select('course_name').range(from, to)
+    );
+    setCourses([...new Set(data.map(r => r.course_name))].sort());
     setLoading(false);
   }
 

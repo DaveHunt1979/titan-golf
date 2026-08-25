@@ -8,7 +8,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useSociety } from '../../../src/lib/useSociety';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { getPlayerAvatar } from '../../../src/lib/assets';
@@ -16,6 +16,8 @@ import { downloadMatchPack, downloadCourseGps } from '../../../src/lib/offlinePa
 import { fetchFavouriteIds, fetchRecentlyPlayedWithIds, toggleFavourite } from '../../../src/lib/playerTiers';
 import GroupBuilderSheet, { BuiltMatch, PlayerOverride } from './GroupBuilderSheet';
 import { goBack } from '../../../src/lib/navigation';
+import TeePickerSheet, { fetchCourseTees, SelectableTee } from '../../../src/components/TeePickerSheet';
+import { calculateWHSPlayingHandicap } from '../../../src/lib/whs';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -522,6 +524,11 @@ export default function NewGameScreen() {
   const [extraTeams, setExtraTeams] = useState<string[][]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string | null>(preselectedCourse ?? null);
   const [hcpAllowance, setHcpAllowance]     = useState<number>(100);
+  const [whsEnabled, setWhsEnabled]         = useState(false);
+  const [courseTees, setCourseTees]         = useState<SelectableTee[]>([]);
+  const [playerTees, setPlayerTees]         = useState<Record<string, SelectableTee>>({});
+  const [teePickerPlayerId, setTeePickerPlayerId] = useState<string | null>(null);
+  const [showWhsDetails, setShowWhsDetails] = useState(false);
   const [sideGames, setSideGames]           = useState<string[]>([]);
   const [secondaryFormat, setSecondaryFormat] = useState<string | null>('stableford');
   const [holesMode, setHoles]               = useState<HolesMode>('full18');
@@ -571,6 +578,7 @@ export default function NewGameScreen() {
     setPair1([]); setPair2([]); setPairStep(1);
     setSelectedCourse(existingDayId && preselectedCourse ? preselectedCourse : null);
     setHcpAllowance(100); setSideGames([]); setSecondaryFormat('stableford');
+    setWhsEnabled(false); setPlayerTees({}); setTeePickerPlayerId(null); setShowWhsDetails(false);
     setHoles('full18'); setVoiceEnabled(false); setStatsEnabled(false); setLdActive(false); setNpActive(false);
     setLdHole(null); setNtpHole(null); setCreating(false); setTakenPlayerIds([]);
     setTeamSize(2); setCounting(2); setNumTeams(2); setExtraTeams([]);
@@ -599,22 +607,28 @@ export default function NewGameScreen() {
   }, [selectedCourse]);
 
   useEffect(() => {
+    setPlayerTees({});
+    if (!selectedCourse) { setCourseTees([]); return; }
+    fetchCourseTees(selectedCourse).then(setCourseTees);
+  }, [selectedCourse]);
+
+  useEffect(() => {
     if (societyLoading) return;
     // green_lat/green_lng populated (via the admin GPS download tool) is
     // the same signal the rangefinder itself checks for — a course "has
     // GPS data" once at least one hole carries it.
-    supabase.from('course_holes').select('course_name, par, green_lat, green_lng').then(({ data }) => {
-      if (data) {
-        const parMap: Record<string, number> = {};
-        const gpsMap: Record<string, boolean> = {};
-        for (const row of data as any[]) {
-          parMap[row.course_name] = (parMap[row.course_name] ?? 0) + row.par;
-          if (row.green_lat != null && row.green_lng != null) gpsMap[row.course_name] = true;
-        }
-        setCourses(Object.entries(parMap)
-          .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name] }))
-          .sort((a, b) => a.name.localeCompare(b.name)));
+    fetchAllRows<{ course_name: string; par: number; green_lat: number | null; green_lng: number | null }>(
+      (from, to) => supabase.from('course_holes').select('course_name, par, green_lat, green_lng').range(from, to)
+    ).then(data => {
+      const parMap: Record<string, number> = {};
+      const gpsMap: Record<string, boolean> = {};
+      for (const row of data) {
+        parMap[row.course_name] = (parMap[row.course_name] ?? 0) + row.par;
+        if (row.green_lat != null && row.green_lng != null) gpsMap[row.course_name] = true;
       }
+      setCourses(Object.entries(parMap)
+        .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name] }))
+        .sort((a, b) => a.name.localeCompare(b.name)));
       setLoadingCourses(false);
     });
     if (!societyId) { setLoadingPlayers(false); return; }
@@ -756,11 +770,30 @@ export default function NewGameScreen() {
   const allTeamsFilled = numTeams === 2
     ? pair2.length >= 1
     : (pair2.length >= 1 && extraTeams.filter(t => t.length >= 1).length >= numTeams - 2);
-  const canStart     = !!selectedCourse && !!builtMatches && builtMatches.length > 0 && !creating;
+  const allRoundPlayerIds = useMemo(
+    () => builtMatches ? [...new Set(builtMatches.flatMap(m => [...m.home, ...m.away]))] : [],
+    [builtMatches]
+  );
+  const whsReady = !whsEnabled || allRoundPlayerIds.every(pid => {
+    const t = playerTees[pid];
+    return t && t.par != null && t.course_rating != null && t.slope_rating != null;
+  });
+  const canStart     = !!selectedCourse && !!builtMatches && builtMatches.length > 0 && !creating && whsReady;
   const selectedItem = courses.find(c => c.name === selectedCourse);
 
   async function createGame() {
     if (!selectedCourse || !societyId || creating) return;
+    if (whsEnabled) {
+      const missing = allRoundPlayerIds.filter(pid => {
+        const t = playerTees[pid];
+        return !t || t.par == null || t.course_rating == null || t.slope_rating == null;
+      });
+      if (missing.length > 0) {
+        const names = missing.map(pid => players.find(p => p.id === pid)?.display_name ?? 'a player').join(', ');
+        Alert.alert('WHS Handicap', `Select a rated tee for: ${names}`);
+        return;
+      }
+    }
     console.log('[createGame] start', { mode, selectedCourse });
     setCreating(true);
     try {
@@ -781,6 +814,32 @@ export default function NewGameScreen() {
         resolvedDayId = row.day_id;
         dayCode = row.join_code;
         console.log('[createGame] game day created', { resolvedDayId, dayCode });
+      }
+
+      if (whsEnabled) {
+        await supabase.from('competition_days').update({ whs_enabled: true }).eq('id', resolvedDayId);
+        const snapshotRows = allRoundPlayerIds.map(pid => {
+          const p = players.find(pl => pl.id === pid)!;
+          const tee = playerTees[pid];
+          const whs = calculateWHSPlayingHandicap(p.handicap_index, tee.slope_rating!, tee.course_rating!, tee.par!, hcpAllowance);
+          return {
+            day_id: resolvedDayId,
+            player_id: pid,
+            tee_name: tee.tee_name,
+            gender: tee.gender,
+            handicap_index_at_start: p.handicap_index,
+            slope_at_start: tee.slope_rating,
+            course_rating_at_start: tee.course_rating,
+            par_at_start: tee.par,
+            course_handicap_at_start: whs.courseHandicapUnrounded,
+            allowance_at_start: hcpAllowance,
+            playing_handicap_at_start: whs.playingHandicap,
+            whs_enabled_at_start: true,
+          };
+        });
+        if (snapshotRows.length > 0) {
+          await supabase.from('round_player_tees').upsert(snapshotRows, { onConflict: 'day_id,player_id' });
+        }
       }
 
       const matchNum = Math.floor(Date.now() / 1000) % 100000;
@@ -1163,6 +1222,46 @@ export default function NewGameScreen() {
           <SettingRow icon="stats-chart-outline" label="Handicap" value={hcpLabel} onPress={() => setShowHcp(true)} s={s} GOLD={GOLD} />
           <View style={s.settingDivider} />
 
+          {/* WHS Handicap — off by default; existing behaviour is unchanged until this is switched on */}
+          <SettingRow
+            icon="calculator-outline" label="WHS Handicap"
+            value={whsEnabled ? 'On' : 'Off'} valueColor={whsEnabled ? GOLD : '#6b7280'}
+            onPress={() => whsEnabled && setShowWhsDetails(true)}
+            s={s} GOLD={GOLD}
+          >
+            <TouchableOpacity
+              onPress={() => setWhsEnabled(v => !v)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <View style={[s.toggle, whsEnabled && s.toggleOn]}>
+                <View style={[s.toggleThumb, whsEnabled && s.toggleThumbOn]} />
+              </View>
+            </TouchableOpacity>
+          </SettingRow>
+          <View style={s.settingDivider} />
+
+          {whsEnabled && allRoundPlayerIds.length > 0 && (
+            <>
+              {allRoundPlayerIds.map(pid => {
+                const p = players.find(pl => pl.id === pid);
+                const tee = playerTees[pid];
+                return (
+                  <View key={pid}>
+                    <SettingRow
+                      icon="flag-outline"
+                      label={p?.display_name ?? 'Player'}
+                      value={tee ? `${tee.tee_name}${tee.gender ? ` (${tee.gender})` : ''}` : 'Select tee'}
+                      valueColor={tee ? GOLD : '#f87171'}
+                      onPress={() => setTeePickerPlayerId(pid)}
+                      s={s} GOLD={GOLD}
+                    />
+                    <View style={s.settingDivider} />
+                  </View>
+                );
+              })}
+            </>
+          )}
+
           {/* Chip & Birdie */}
           <SettingRow icon="mic-outline" label="Chip & Birdie" value={voiceEnabled ? 'On' : 'Off'} valueColor={voiceEnabled ? GOLD : '#6b7280'} onPress={() => setVoiceEnabled(v => !v)} s={s} GOLD={GOLD}>
             <View style={[s.toggle, voiceEnabled && s.toggleOn]}>
@@ -1305,6 +1404,18 @@ export default function NewGameScreen() {
               {selectedCourse ? 'Set' : 'Not set'}
             </Text>
           </View>
+          {whsEnabled && (
+            <>
+              <View style={s.readyDivider} />
+              <View style={s.readyItem}>
+                <Ionicons name="calculator-outline" size={20} color={GOLD} />
+                <Text style={s.readyLabel}>WHS</Text>
+                <Text style={[s.readyValue, { color: whsReady ? GREEN : '#f87171' }]}>
+                  {whsReady ? 'Set' : 'Tees needed'}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* ── Main CTA ────────────────────────────────────────── */}
@@ -1326,6 +1437,44 @@ export default function NewGameScreen() {
       </ScrollView>
 
       {/* ── Pickers ───────────────────────────────────────────── */}
+      <TeePickerSheet
+        visible={!!teePickerPlayerId}
+        title={`Select tee — ${players.find(p => p.id === teePickerPlayerId)?.display_name ?? ''}`}
+        tees={courseTees}
+        onSelect={tee => {
+          if (teePickerPlayerId) setPlayerTees(prev => ({ ...prev, [teePickerPlayerId]: tee }));
+          setTeePickerPlayerId(null);
+        }}
+        onClose={() => setTeePickerPlayerId(null)}
+      />
+      <Modal visible={showWhsDetails} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowWhsDetails(false)}>
+        <View style={{ flex: 1, backgroundColor: '#000', paddingTop: 20 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' }}>
+            <TouchableOpacity onPress={() => setShowWhsDetails(false)}><Text style={{ color: '#fff', fontFamily: 'JUSTSans-ExBold', fontSize: 14 }}>Close</Text></TouchableOpacity>
+            <Text style={{ color: '#fff', fontFamily: 'JUSTSans-ExBold', fontSize: 13, letterSpacing: 1 }}>WHS HANDICAPS</Text>
+            <View style={{ width: 50 }} />
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16 }}>
+            {allRoundPlayerIds.map(pid => {
+              const p = players.find(pl => pl.id === pid);
+              const tee = playerTees[pid];
+              const ready = p && tee && tee.par != null && tee.course_rating != null && tee.slope_rating != null;
+              const whs = ready ? calculateWHSPlayingHandicap(p!.handicap_index, tee!.slope_rating!, tee!.course_rating!, tee!.par!, hcpAllowance) : null;
+              return (
+                <View key={pid} style={{ marginBottom: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' }}>
+                  <Text style={{ color: '#fff', fontFamily: 'JUSTSans-ExBold', fontSize: 14, marginBottom: 4 }}>{p?.display_name}</Text>
+                  <Text style={{ color: '#9ca3af', fontFamily: 'JUSTSans-ExBold', fontSize: 11 }}>
+                    HI {p?.handicap_index}{tee ? ` · Tee ${tee.tee_name}${tee.gender ? ` (${tee.gender})` : ''} · CR ${tee.course_rating ?? '—'} · Slope ${tee.slope_rating ?? '—'}` : ' · No tee selected'}
+                  </Text>
+                  <Text style={{ color: GOLD, fontFamily: 'JUSTSans-ExBold', fontSize: 20, marginTop: 6 }}>
+                    {whs ? `PLAYING HANDICAP: ${whs.playingHandicap}` : 'Unavailable — select a rated tee'}
+                  </Text>
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Modal>
       <FormatSheet visible={showFormat} selected={mode} onSelect={selectMode} onClose={() => setShowFormat(false)} ps={ps} GOLD={GOLD} />
       <PlayerSheet
         visible={showPlayers} players={players} groups={groups} pair1={pair1} pair2={pair2}

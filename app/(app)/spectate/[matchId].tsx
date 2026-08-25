@@ -11,7 +11,8 @@ import { supabase, freshChannel } from '../../../src/lib/supabase';
 import { getMatchPack } from '../../../src/lib/offlinePack';
 import { resolveTournamentHandicaps } from '../../../src/lib/tournamentHandicap';
 import { useSyncStatus } from '../../../src/lib/useSyncStatus';
-import { matchLabel, getEffectiveWinner, calcHoles, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, scoreVsPar, SCORE_COLORS, playerCourseHcp as sharedPlayerCourseHcp } from '../../../src/lib/scoring';
+import { matchLabel, getEffectiveWinner, calcHoles, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, scoreVsPar, SCORE_COLORS } from '../../../src/lib/scoring';
+import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../src/lib/whs';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
 import { dedupeInitials } from '../../../src/lib/playerDisplay';
 import NewsTicker from '../../../src/components/NewsTicker';
@@ -80,10 +81,15 @@ function formatVsPar(n: number): string {
 
 // Same formula as score/enter/[matchId].tsx's playerCourseHcp — Rick was
 // explicit that the calculation must not change, only where it's displayed,
-// so this is copied verbatim rather than approximated.
-function playerCourseHcp(playerId: string, compPlayers: CompPlayer[], day: MatchDetail['day'], hcpAllowance: number = 100): number {
+// so this is copied verbatim rather than approximated. This screen is
+// read-only: it never recalculates or guesses a WHS handicap, it just reads
+// the same round_player_tees snapshot the scoring screens read.
+function playerCourseHcp(
+  playerId: string, compPlayers: CompPlayer[], day: MatchDetail['day'], hcpAllowance: number = 100,
+  roundPlayerTees: Record<string, RoundPlayerTeeSnapshot> = {},
+): number {
   const cp = compPlayers.find(c => c.player_id === playerId);
-  return sharedPlayerCourseHcp(cp?.handicap_index ?? 0, day, hcpAllowance);
+  return resolvePlayingHandicap(cp?.handicap_index ?? 0, day, hcpAllowance, roundPlayerTees[playerId]);
 }
 
 function SideAvatar({ playerIds, team, teamId, size, getFirstName, getAvatar }: {
@@ -130,6 +136,7 @@ export default function SpectateScreen() {
   const [players, setPlayers]         = useState<Player[]>([]);
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
   const [compPlayers, setCompPlayers] = useState<CompPlayer[]>([]);
+  const [roundPlayerTees, setRoundPlayerTees] = useState<Record<string, RoundPlayerTeeSnapshot>>({});
   const [holeRows, setHoleRows]       = useState<HoleRow[]>([]);
   const [loading, setLoading]         = useState(true);
   const pulse = useRef(new Animated.Value(1)).current;
@@ -194,7 +201,7 @@ export default function SpectateScreen() {
       const courseName = (matchData as any).day?.course_name;
       const compId     = (matchData as any).day?.competition_id;
 
-      const [{ data: pd }, { data: cd }, { data: compData }, { data: cpData }, { data: mhData }] = await Promise.all([
+      const [{ data: pd }, { data: cd }, { data: compData }, { data: cpData }, { data: mhData }, { data: rptData }] = await Promise.all([
         allIds.length
           ? supabase.from('players').select('id,display_name,avatar_url,handicap_index').in('id', allIds)
           : Promise.resolve({ data: [] }),
@@ -215,7 +222,18 @@ export default function SpectateScreen() {
         // (Stableford points / Medal vs-par / Team Stableford total) instead
         // of assuming every format is Match Play.
         supabase.from('match_holes').select('player_id,hole_number,gross_score,stableford_pts').eq('match_id', matchId),
+        // Read-only WHS lookup: the frozen playing handicap the round was
+        // actually started with, if WHS was on. Never recalculated here.
+        (matchData as any).day_id && allIds.length
+          ? supabase.from('round_player_tees').select('player_id,whs_enabled_at_start,playing_handicap_at_start').eq('day_id', (matchData as any).day_id).in('player_id', allIds)
+          : Promise.resolve({ data: [] }),
       ]);
+
+      if (rptData) {
+        const rpt: Record<string, RoundPlayerTeeSnapshot> = {};
+        (rptData as any[]).forEach(r => { rpt[r.player_id] = r; });
+        setRoundPlayerTees(rpt);
+      }
 
       if (pd) {
         setPlayers(pd);
@@ -395,7 +413,7 @@ export default function SpectateScreen() {
       const player = players.find(p => p.id === id);
       let pts = 0;
       if (gross != null && player) {
-        const adjHcp = playerCourseHcp(id, compPlayers, match!.day, match!.hcp_allowance ?? 100);
+        const adjHcp = playerCourseHcp(id, compPlayers, match!.day, match!.hcp_allowance ?? 100, roundPlayerTees);
         pts = calcStablefordPoints(gross, hole.par, calcStrokesReceived(adjHcp, hole.stroke_index));
       }
       return { id, pts, entered: gross != null };
@@ -448,7 +466,7 @@ export default function SpectateScreen() {
   const showStrokeAllocation = allPlayerIds.length > 1 && playedCourseHoles.length > 0 && players.length > 0;
   const strokeAllocation = showStrokeAllocation
     ? (() => {
-        const cutHcpFor = (id: string) => playerCourseHcp(id, compPlayers, match.day, match.hcp_allowance ?? 100);
+        const cutHcpFor = (id: string) => playerCourseHcp(id, compPlayers, match.day, match.hcp_allowance ?? 100, roundPlayerTees);
         const isRelativeHcp = match.handicap_method === 'relative_low' || match.handicap_method === 'relative_low_stableford';
         const groupLowest = isRelativeHcp ? Math.min(...allPlayerIds.map(cutHcpFor)) : 0;
         return allPlayerIds.map(id => {

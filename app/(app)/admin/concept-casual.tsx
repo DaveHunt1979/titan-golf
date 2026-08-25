@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
 
@@ -245,10 +245,12 @@ export default function ConceptCasualScreen() {
     }
 
     // Courses
-    const { data: holes } = await supabase.from('course_holes').select('course_name, par');
-    if (holes) {
+    const holes = await fetchAllRows<{ course_name: string; par: number }>(
+      (from, to) => supabase.from('course_holes').select('course_name, par').range(from, to)
+    );
+    {
       const map: Record<string, number> = {};
-      for (const row of holes as any[]) map[row.course_name] = (map[row.course_name] ?? 0) + row.par;
+      for (const row of holes) map[row.course_name] = (map[row.course_name] ?? 0) + row.par;
       const list = Object.entries(map).map(([name, par]) => ({ name, par })).sort((a, b) => a.name.localeCompare(b.name));
       setCourses(list);
       if (list.length > 0) setSelectedCourse(list[0].name);

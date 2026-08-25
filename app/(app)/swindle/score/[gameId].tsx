@@ -8,7 +8,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
-import { calcCourseHandicap, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, scoreVsPar, formatVsPar, SCORE_COLORS, ptsColor } from '../../../../src/lib/scoring';
+import { calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, scoreVsPar, formatVsPar, SCORE_COLORS, ptsColor } from '../../../../src/lib/scoring';
+import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 import { resolveAvatar } from '../../../../src/lib/assets';
 import { courseHasGps } from '../../../../src/lib/courseGps';
 import { dedupeInitials } from '../../../../src/lib/playerDisplay';
@@ -137,9 +138,22 @@ export default function SwindleScoreScreen() {
         const coursePar = holes.length > 0 ? holes.reduce((s, h) => s + h.par, 0) : 72;
         const slope = g.slope_rating ?? 113;
         const rating = g.course_rating ?? coursePar;
-        const allowance = (g.hcp_allowance ?? 100) / 100;
-        const myCh = calcCourseHandicap(p.handicap_index ?? 0, slope, rating, coursePar);
-        setCourseHcp(Math.round(myCh * allowance));
+        // Percentage, matching swindle_games.hcp_allowance and
+        // resolvePlayingHandicap's convention (not a 0-1 fraction).
+        const allowance = g.hcp_allowance ?? 100;
+        const gameAsDay = { slope_rating: slope, course_rating: rating, course_par: coursePar };
+
+        // WHS layer: a frozen per-player snapshot, if this game was started
+        // with WHS on. With no row (every existing game) resolvePlayingHandicap
+        // falls through to exactly the previous calcCourseHandicap maths.
+        const { data: rptData } = await supabase
+          .from('round_player_tees')
+          .select('player_id,whs_enabled_at_start,playing_handicap_at_start')
+          .eq('swindle_game_id', gameId);
+        const roundPlayerTees: Record<string, RoundPlayerTeeSnapshot> = {};
+        for (const r of (rptData ?? []) as any[]) roundPlayerTees[r.player_id] = r;
+
+        setCourseHcp(resolvePlayingHandicap(p.handicap_index ?? 0, gameAsDay, allowance, roundPlayerTees[p.id]));
 
         // Does this player belong to a tee-time group for this swindle? If
         // so, "Score My Round" scores the whole group (one scorer, everyone
@@ -202,7 +216,6 @@ export default function SwindleScoreScreen() {
           const built: GroupPlayer[] = realRows.map(r => {
             const info = playerMap[r.player_id] ?? { display_name: '—', avatar_url: null, handicap_index: 0 };
             const hcp = info.handicap_index ?? 0;
-            const ch = calcCourseHandicap(hcp, slope, rating, coursePar);
             const scores: Record<number, { gross: number; pts: number }> = {};
             for (const row of (groupScores ?? []) as any[]) {
               if (row.player_id !== r.player_id) continue;
@@ -210,7 +223,7 @@ export default function SwindleScoreScreen() {
             }
             return {
               playerId: r.player_id, name: info.display_name ?? '—', avatarUrl: info.avatar_url ?? null,
-              handicapIndex: hcp, courseHcp: Math.round(ch * allowance), scores,
+              handicapIndex: hcp, courseHcp: resolvePlayingHandicap(hcp, gameAsDay, allowance, roundPlayerTees[r.player_id]), scores,
             };
           });
           setGroupPlayers(built);
