@@ -9,6 +9,8 @@
 -- match_holes.
 DROP POLICY IF EXISTS "swindle_scores_upsert" ON swindle_scores;
 DROP POLICY IF EXISTS "swindle_scores_update" ON swindle_scores;
+DROP POLICY IF EXISTS "Auth insert swindle_scores" ON swindle_scores;
+DROP POLICY IF EXISTS "Auth update swindle_scores" ON swindle_scores;
 
 CREATE POLICY "Auth insert swindle_scores" ON swindle_scores FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL);

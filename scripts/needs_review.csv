@@ -1,0 +1,9 @@
+region,key,reason,course_ids
+England,Dorset Golf and Country Club,"invalid par/stroke_index/hole value for tee ('Yellow', 'M'): [{'course_id': 'DORSET_GCC_PARKLAND', 'tee_name': 'Yellow', 'gender': 'M', 'hole': 8, 'distance': 343, 'par': 6, 'stroke_index': 10, 'source': 'https://www.golfify.io/courses/dorset-golf-and-country-club-parkland'}, {'course_id': 'DORSET_GCC_PARKLAND', 'tee_name': 'Yellow', 'gender': 'M', 'hole': 17, 'distance': 343, 'par': 6, 'stroke_index': 9, 'source': 'https://www.golfify.io/courses/dorset-golf-and-country-club-parkland'}] — excluded","DORSET_GCC_PARKLAND,DORSET_GCC_LAKELAND"
+England,The London Golf Club - Heritage,"incomplete hole data for tee ('White', 'M'): 36/18 holes — excluded","LONDON_HERITAGE,LONDON_HERITAGE__BLUE_M,LONDON_HERITAGE__WHITE_M,LONDON_HERITAGE__YELLOW_M,LONDON_HERITAGE__RED_F,LONDON_CLUB_HERITAGE_WHITE_M"
+France,Belle Dune,"invalid par/stroke_index/hole value for tee ('Blanc', 'M'): [{'course_id': 'FRA_BELLE_DUNE_BLANC', 'tee_name': 'Blanc', 'gender': 'M', 'hole': 15, 'distance': 352, 'par': 6, 'stroke_index': 1, 'source': 'https://www.golfify.io/courses/golf-de-belle-dune'}] — excluded",FRA_BELLE_DUNE_BLANC
+France,Belle Dune,no complete tee configuration survived — course excluded entirely,FRA_BELLE_DUNE_BLANC
+France,Golf du Champ de Bataille,"incomplete hole data for tee ('Blanc', 'M'): 16/18 holes — excluded",FRA_CHAMP_BATAILLE_WHITE
+France,Golf du Champ de Bataille,no complete tee configuration survived — course excluded entirely,FRA_CHAMP_BATAILLE_WHITE
+Wales,Machynys Peninsula Golf & Country Club,"incomplete hole data for tee ('Nicklaus', 'M'): 18/Nicklaus holes — excluded",WALES_MACHYNYS_NICKLAUS
+Wales,Machynys Peninsula Golf & Country Club,no complete tee configuration survived — course excluded entirely,WALES_MACHYNYS_NICKLAUS

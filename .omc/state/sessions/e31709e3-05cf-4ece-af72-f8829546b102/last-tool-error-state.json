@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"/Users/davehunt/Desktop/titan-golf\\\" && python3 -c \\\"\\nimport openpyxl\\np = 'screenshots/Golf courses/UK & Ireland/TITAN_GLOBAL_GOLF_COURSE_MASTER_AUDITED.xlsx'\\nwb = openpyxl.load_wo...",
+  "error": "Exit code 1\nTraceback (most recent call last):\n  File \"<string>\", line 9, in <module>\n    print('---', sheet, 'dims', ws.dimensions)\n                                ^^^^^^^^^^^^^\nAttributeError: 'ReadOnlyWorksheet' object has no attribute 'dimensions'\nSheets: ['Courses', 'Tee Ratings', 'Hole Data', 'Audit Summary', 'Master Rules']",
+  "timestamp": "2026-08-25T06:31:15.692Z",
+  "retry_count": 1
+}

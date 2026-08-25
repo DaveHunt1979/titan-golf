@@ -282,8 +282,8 @@
     },
     {
       "path": "src/lib/scoring.ts",
-      "accessCount": 40,
-      "lastAccessed": 1787631343788,
+      "accessCount": 41,
+      "lastAccessed": 1787639303703,
       "type": "file"
     },
     {
@@ -353,6 +353,12 @@
       "type": "file"
     },
     {
+      "path": "supabase/schema.sql",
+      "accessCount": 7,
+      "lastAccessed": 1787639679607,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/inbox/[playerId].tsx",
       "accessCount": 6,
       "lastAccessed": 1787318426532,
@@ -386,12 +392,6 @@
       "path": "web/src/app/layout.tsx",
       "accessCount": 4,
       "lastAccessed": 1787318075889,
-      "type": "file"
-    },
-    {
-      "path": "supabase/schema.sql",
-      "accessCount": 4,
-      "lastAccessed": 1787583539102,
       "type": "file"
     },
     {
@@ -449,6 +449,12 @@
       "type": "file"
     },
     {
+      "path": "supabase/migrations/20260806b_tournament_engine_phase5.sql",
+      "accessCount": 2,
+      "lastAccessed": 1787637781196,
+      "type": "file"
+    },
+    {
       "path": "supabase/migrations/20260818020000_direct_messages.sql",
       "accessCount": 1,
       "lastAccessed": 1787317396656,
@@ -494,12 +500,6 @@
       "path": "supabase/migrations/20260821040000_direct_messages_delete.sql",
       "accessCount": 1,
       "lastAccessed": 1787318382424,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260806b_tournament_engine_phase5.sql",
-      "accessCount": 1,
-      "lastAccessed": 1787319116955,
       "type": "file"
     },
     {

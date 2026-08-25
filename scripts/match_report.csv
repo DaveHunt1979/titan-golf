@@ -1,0 +1,42 @@
+live_course_name,bucket,match_course_id,match_name,match_country,similarity
+Ballards Gore Golf Club,enrich_in_place,BALLARDS_GORE_GOLF_CLUB,Ballards Gore Golf Club,England,1.00
+Barnehurst Golf Club,no_match_stays_as_is,,,,
+Bexleyheath Golf Club,enrich_in_place,BEXLEYHEATH_GOLF_CLUB,Bexleyheath Golf Club,England,1.00
+Centurion Golf Club,ambiguous,CENTURION_CLUB,Centurion Club,England,0.78
+Chart Hills Golf Club,enrich_in_place,CHART_HILLS_GOLF_CLUB,Chart Hills Golf Club,England,1.00
+Chelsfield Lakes Golf Club,ambiguous,CHELSFIELD_LAKES_GOLF_CENTRE,Chelsfield Lakes Golf Centre,England,0.73
+Darenth Valley Golf Course,enrich_in_place,DARENTH_VALLEY_GOLF_COURSE,Darenth Valley Golf Course,England,1.00
+Dartford GC,no_match_stays_as_is,,,,
+Gillingham GC,enrich_in_place,GILLINGHAM_GOLF_CLUB,Gillingham Golf Club,England,1.00
+Gleneagles Golf Club Kings Course,enrich_in_place,GLENEAGLES_GOLF_CLUB_KINGS_COURSE,Gleneagles Golf Club - King's Course,England,1.00
+Gleneagles Golf Resort Queens Course,ambiguous,"GLENEAGLES_GOLF_CLUB_QUEENS_COURSE,GLENEAGLES_QUEENS_COURSE,GLENEAGLES_GOLF_CLUB_KINGS_COURSE",Gleneagles Golf Club - Queen's Course | Gleneagles - Queen's Course | Gleneagles Golf Club - King's Course,England | Scotland | England,"0.86,0.80,0.75"
+Gleneagles PGA Centenary,enrich_in_place,GLENEAGLES_PGA_CENTENARY,Gleneagles - PGA Centenary,Scotland,1.00
+Jandía Golf Course,no_match_stays_as_is,,,,
+Knole Park Golf Club,enrich_in_place,KNOLE_PARK_GOLF_CLUB,Knole Park Golf Club,England,1.00
+Lamberhurst GC,enrich_in_place,LAMBERHURST_GOLF_CLUB,Lamberhurst Golf Club,England,1.00
+London Club Heritage GC,ambiguous,THE_LONDON_GOLF_CLUB_HERITAGE,The London Golf Club - Heritage,England,0.82
+London Club International GC,ambiguous,THE_LONDON_GOLF_CLUB_INTERNATIONAL,The London Golf Club - International,England,0.85
+Lullingstone Park Golf Club,no_match_stays_as_is,,,,
+Mid Kent GC,ambiguous,THE_MID_KENT_GOLF_CLUB,The Mid Kent Golf Club,England,0.80
+North Foreland Golf Club,ambiguous,NORTH_OXFORD_GOLF_CLUB,North Oxford Golf Club,England,0.77
+Praia D'El Rey,no_match_stays_as_is,,,,
+Prince's Golf Club - Dunes,ambiguous,"PRINCES_GOLF_CLUB_SHORE_DUNES,PRINCES_GOLF_CLUB_DUNES_HIMALAYAS,SUENO_GOLF_CLUB_DUNES",Princes Golf Club - Shore / Dunes | Princes Golf Club - Dunes / Himalayas | Sueno Golf Club Dunes,England | England | Turkey,"0.88,0.82,0.77"
+Prince's Golf Club - Dunes & Himalyas,ambiguous,PRINCES_GOLF_CLUB_DUNES_HIMALAYAS,Princes Golf Club - Dunes / Himalayas,England,0.93
+Prince's Golf Club - Himalyas,ambiguous,PRINCES_GOLF_CLUB_DUNES_HIMALAYAS,Princes Golf Club - Dunes / Himalayas,England,0.88
+Prince's Golf Club - Shore,ambiguous,PRINCES_GOLF_CLUB_SHORE_DUNES,Princes Golf Club - Shore / Dunes,England,0.88
+Prince's Golf Club - Shore & Dunes,ambiguous,PRINCES_GOLF_CLUB_SHORE_DUNES,Princes Golf Club - Shore / Dunes,England,0.94
+Prince's Golf Club - Shore & Himalyas,ambiguous,"PRINCES_GOLF_CLUB_DUNES_HIMALAYAS,PRINCES_GOLF_CLUB_SHORE_DUNES",Princes Golf Club - Dunes / Himalayas | Princes Golf Club - Shore / Dunes,England | England,"0.81,0.80"
+Sundridge East Course GC,ambiguous,SUNDRIDGE_PARK_GOLF_CLUB_EAST_COURSE,Sundridge Park Golf Club - East Course,England,0.74
+Sundridge West Course GC,ambiguous,SUNDRIDGE_PARK_GOLF_CLUB_WEST_COURSE,Sundridge Park Golf Club - West Course,England,0.74
+The Hertfordshire GC,enrich_in_place,THE_HERTFORDSHIRE_GOLF_CLUB,The Hertfordshire Golf Club,England,1.00
+The Melbourne Club At Brocket Hall,no_match_stays_as_is,,,,
+The Oxfordshire GC,enrich_in_place,THE_OXFORDSHIRE,The Oxfordshire,England,1.00
+The Palmerston Course GC,ambiguous,BROCKET_HALL_PALMERSTON_COURSE,Brocket Hall - Palmerston Course,England,0.78
+The Shire London Golf Club,no_match_stays_as_is,,,,
+Thorpe Hall Golf Club,enrich_in_place,THORPE_HALL_GOLF_CLUB,Thorpe Hall Golf Club,England,1.00
+Upchurch River Valley Golf Club,no_match_stays_as_is,,,,
+West Cliffs,enrich_in_place,WEST_CLIFFS,West Cliffs,Portugal,1.00
+Wildernesse Golf Club,enrich_in_place,WILDERNESSE_GOLF_CLUB,Wildernesse Golf Club,England,1.00
+Woburn Golf Club - The Duchess,ambiguous,"WOBURN_GOLF_CLUB_DUCHESS_COURSE,WOBURN_GOLF_CLUB_DUKES_COURSE",Woburn Golf Club - Duchess Course | Woburn Golf Club - Duke's Course,England | England,"0.81,0.77"
+Woburn Golf Club - The Duke,ambiguous,WOBURN_GOLF_CLUB_DUKES_COURSE,Woburn Golf Club - Duke's Course,England,0.78
+Wrotham Heath Golf Club,enrich_in_place,WROTHAM_HEATH_GOLF_CLUB,Wrotham Heath Golf Club,England,1.00
