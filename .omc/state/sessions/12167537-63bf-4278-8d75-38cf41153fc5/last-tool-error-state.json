@@ -1,7 +1,7 @@
 {
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"/Users/davehunt/Desktop/titan-golf\\\" && d=$PWD; while :; do\\n  grep -Hm1 '^description:' \\\"$d\\\"/.claude/skills/*/SKILL.md 2>/dev/null\\n  [ -e \\\"$d/.git\\\" ] || [ \\\"$d\\\" = / ] && break\\...",
-  "error": "Exit code 1\n(eval):2: no matches found: /Users/davehunt/Desktop/titan-golf/.claude/skills/*/SKILL.md",
-  "timestamp": "2026-08-26T06:58:32.168Z",
+  "tool_name": "mcp__firecrawl__firecrawl_scrape",
+  "tool_input_preview": "{\"url\":\"https://www.golfpass.com/travel-advisor/courses/25007-les-aisses-golf-club-les-aisses-course\",\"formats\":[\"markdown\"],\"onlyMainContent\":true}",
+  "error": "Tool 'firecrawl_scrape' execution failed: An unexpected error occurred. Please contact help@firecrawl.com for help. Your exception ID is 01a03d2c-ceae-74fe-a521-b5c9c46609dc",
+  "timestamp": "2026-08-26T08:25:41.902Z",
   "retry_count": 1
 }

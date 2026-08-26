@@ -164,7 +164,7 @@ SOURCES = [
         # valid tee across all duplicate sources, so adding this alongside
         # master's existing England rows is safe by construction.
         "label": "England (Rick, 2026-08-25)",
-        "file": ROOT / "screenshots" / "TITAN_ENGLAND_API_SAFE_MASTER_PROGRESS_33_CONTINUED_PUSH.xlsx",
+        "file": GC / "TITAN_ENGLAND_API_SAFE_MASTER_PROGRESS_33_CONTINUED_PUSH.xlsx",
         "sheet_names": {"courses": "Courses", "tees": "Tee Ratings", "holes": "Hole Data"},
         "country_const": "England", "distance_unit_const": "yd",
         "courses_map": {
@@ -189,7 +189,7 @@ SOURCES = [
         # reasoning as England above -- kept alongside the older Spain file
         # rather than replacing it.
         "label": "Spain (Rick, 2026-08-25)",
-        "file": ROOT / "screenshots" / "Spain_GOLFBREAKS_YGT_TEE_SET_AUDIT_FINAL.xlsx",
+        "file": GC / "Spain_GOLFBREAKS_YGT_TEE_SET_AUDIT_FINAL.xlsx",
         "sheet_names": {"courses": "Courses", "tees": "Tee Ratings", "holes": "Hole Data"},
         "country_const": "Spain", "distance_unit_const": "yd",
         "courses_map": {
@@ -219,7 +219,7 @@ SOURCES = [
         # under a nominal "yd" label -- kept accurate here since the source
         # itself removes the ambiguity.
         "label": "Turkey (Rick, 2026-08-25)",
-        "file": ROOT / "screenshots" / "Turkey_MASTER_Golf_Course_Database_TEE_SET_AUDIT_FINISHED.xlsx",
+        "file": GC / "Turkey_MASTER_Golf_Course_Database_TEE_SET_AUDIT_FINISHED.xlsx",
         "sheet_names": {"courses": "Courses", "tees": "Tee Ratings", "holes": "Hole Data"},
         "country_const": "Turkey", "distance_unit_const": "m",
         "courses_map": {
