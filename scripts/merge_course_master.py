@@ -155,6 +155,112 @@ SOURCES = [
             "Yardage": "distance", "Par": "par", "Stroke Index": "stroke_index", "Source": "source",
         },
     },
+    {
+        # Rick-supplied, dropped 2026-08-25 directly in screenshots/ (not yet
+        # filed under a country subfolder). Same column shape as France/Spain
+        # above; kept as an ADDITIONAL source rather than replacing the older
+        # England rows already inside "master" -- the grouping/dedup pass
+        # picks whichever member has more tees as canonical and merges every
+        # valid tee across all duplicate sources, so adding this alongside
+        # master's existing England rows is safe by construction.
+        "label": "England (Rick, 2026-08-25)",
+        "file": ROOT / "screenshots" / "TITAN_ENGLAND_API_SAFE_MASTER_PROGRESS_33_CONTINUED_PUSH.xlsx",
+        "sheet_names": {"courses": "Courses", "tees": "Tee Ratings", "holes": "Hole Data"},
+        "country_const": "England", "distance_unit_const": "yd",
+        "courses_map": {
+            "Course ID": "course_id", "Official Course Name": "name",
+            "Club Name": "club", "County": "region", "Town/Area": "town",
+            "Course / Layout": "layout", "Holes": "holes",
+            "Verification Status": "status", "Primary Source": "source",
+            "Last Verified": "verified", "Source Quality": "notes",
+        },
+        "tees_map": {
+            "Course ID": "course_id", "Tee Name": "tee_name", "Gender": "gender",
+            "Total Par": "par", "Total Length (yds)": "distance",
+            "Course Rating": "course_rating", "Slope Rating": "slope_rating", "Source": "source",
+        },
+        "holes_map": {
+            "Course ID": "course_id", "Tee Name": "tee_name", "Gender": "gender", "Hole": "hole",
+            "Yardage": "distance", "Par": "par", "Stroke Index": "stroke_index", "Source": "source",
+        },
+    },
+    {
+        # Rick-supplied, dropped 2026-08-25. Additional Spain source, same
+        # reasoning as England above -- kept alongside the older Spain file
+        # rather than replacing it.
+        "label": "Spain (Rick, 2026-08-25)",
+        "file": ROOT / "screenshots" / "Spain_GOLFBREAKS_YGT_TEE_SET_AUDIT_FINAL.xlsx",
+        "sheet_names": {"courses": "Courses", "tees": "Tee Ratings", "holes": "Hole Data"},
+        "country_const": "Spain", "distance_unit_const": "yd",
+        "courses_map": {
+            "Course ID": "course_id", "Official Course Name": "name",
+            "Club Name": "club", "Region": "region", "Town/Area": "town",
+            "Course / Layout": "layout", "Holes": "holes",
+            "Verification Status": "status", "Primary Source": "source",
+            "Last Verified": "verified", "Source Quality": "notes",
+        },
+        "tees_map": {
+            "Course ID": "course_id", "Tee Name": "tee_name", "Gender": "gender",
+            "Total Par": "par", "Total Length (yds)": "distance",
+            "Course Rating": "course_rating", "Slope Rating": "slope_rating", "Source": "source",
+        },
+        "holes_map": {
+            "Course ID": "course_id", "Tee Name": "tee_name", "Gender": "gender", "Hole": "hole",
+            "Yardage": "distance", "Par": "par", "Stroke Index": "stroke_index", "Source": "source",
+        },
+    },
+    {
+        # Rick-supplied, dropped 2026-08-25. Turkey was never wired into this
+        # merge at all before now (neither this file nor the older
+        # euro-courses Turkey workbook) -- adding both; the older one may
+        # still hold courses this newer "TEE SET AUDIT FINISHED" pass didn't
+        # re-cover. Distances are explicitly labelled Distance_m (unambiguous
+        # metres), unlike the French/Spanish sources which store raw numbers
+        # under a nominal "yd" label -- kept accurate here since the source
+        # itself removes the ambiguity.
+        "label": "Turkey (Rick, 2026-08-25)",
+        "file": ROOT / "screenshots" / "Turkey_MASTER_Golf_Course_Database_TEE_SET_AUDIT_FINISHED.xlsx",
+        "sheet_names": {"courses": "Courses", "tees": "Tee Ratings", "holes": "Hole Data"},
+        "country_const": "Turkey", "distance_unit_const": "m",
+        "courses_map": {
+            "Course_ID": "course_id", "Course_Name": "name", "Club": "club",
+            "Region": "region", "Town": "town", "Layout": "layout", "Holes": "holes",
+            "Status": "status", "Source_URL": "source", "Verified_Date": "verified",
+            "Notes": "notes",
+        },
+        "tees_map": {
+            "Course_ID": "course_id", "Tee": "tee_name", "Gender": "gender", "Par": "par",
+            "Distance_m": "distance", "Course_Rating": "course_rating",
+            "Slope_Rating": "slope_rating", "Source_URL": "source",
+        },
+        "holes_map": {
+            "Course_ID": "course_id", "Tee": "tee_name", "Gender": "gender", "Hole": "hole",
+            "Distance_m": "distance", "Par": "par", "Stroke_Index": "stroke_index",
+            "Source_URL": "source",
+        },
+    },
+    {
+        "label": "Turkey (old, previously never wired in)",
+        "file": GC / "euro courses" / "Turkey_MASTER_Golf_Course_Database_WITH_DALAMAN_EXCEPTION_18.xlsx",
+        "sheet_names": {"courses": "Courses", "tees": "Tee Ratings", "holes": "Hole Data"},
+        "country_const": "Turkey", "distance_unit_const": "m",
+        "courses_map": {
+            "Course_ID": "course_id", "Course_Name": "name", "Club": "club",
+            "Region": "region", "Town": "town", "Layout": "layout", "Holes": "holes",
+            "Status": "status", "Source_URL": "source", "Verified_Date": "verified",
+            "Notes": "notes",
+        },
+        "tees_map": {
+            "Course_ID": "course_id", "Tee": "tee_name", "Gender": "gender", "Par": "par",
+            "Distance_m": "distance", "Course_Rating": "course_rating",
+            "Slope_Rating": "slope_rating", "Source_URL": "source",
+        },
+        "holes_map": {
+            "Course_ID": "course_id", "Tee": "tee_name", "Gender": "gender", "Hole": "hole",
+            "Distance_m": "distance", "Par": "par", "Stroke_Index": "stroke_index",
+            "Source_URL": "source",
+        },
+    },
 ]
 
 
@@ -326,13 +432,45 @@ def main():
                 })
                 continue
             bad = [h for h in tee_holes
-                   if not (isinstance(h.get("par"), int) and 3 <= h["par"] <= 5)
+                   if not (isinstance(h.get("par"), int) and 3 <= h["par"] <= 6)
                    or not (isinstance(h.get("stroke_index"), int) and 1 <= h["stroke_index"] <= 18)
                    or not (isinstance(h.get("hole"), int) and 1 <= h["hole"] <= 18)]
             if bad:
                 review_rows.append({
                     "region": country, "key": base_name,
                     "reason": f"invalid par/stroke_index/hole value for tee {tk}: {bad} — excluded",
+                    "course_ids": ",".join(str(m['course_id']) for m in members),
+                })
+                continue
+            # A genuine 18-hole layout essentially never repeats its exact
+            # (distance, par) sequence between front and back nine — this
+            # signature means a scraper duplicated one 9 onto the other
+            # (found via the Dorset Golf and Country Club "Yellow" tee,
+            # where holes 1-9 are byte-identical to holes 10-18).
+            #
+            # EXCEPTION: some real venues genuinely are a 9-hole course
+            # played twice for an "18-hole" round, which produces this exact
+            # signature legitimately (real-world-confirmed 2026-08-26: Crane
+            # Valley, Leeds Castle, Lullingstone Park - Valley Course, Meon
+            # Valley Marriott, Parley Golf Centre, Westridge Golf Centre,
+            # Pine Cliffs). Course names below are exempted from this check;
+            # everything else still gets flagged and excluded by default.
+            NINE_HOLE_PLAYED_TWICE_VENUES = {
+                "crane valley golf club", "leeds castle golf course",
+                "lullingstone park golf course valley course",
+                "meon valley marriott hotel and country club",
+                "parley golf centre",
+                "westridge golf centre", "pine cliffs golf course",
+            }
+            by_hole = {h["hole"]: (h.get("distance"), h.get("par")) for h in tee_holes}
+            front9 = [by_hole.get(i) for i in range(1, 10)]
+            back9 = [by_hole.get(i) for i in range(10, 19)]
+            if (len(by_hole) == 18 and front9 == back9
+                    and normalize_key(base_name) not in NINE_HOLE_PLAYED_TWICE_VENUES):
+                review_rows.append({
+                    "region": country, "key": base_name,
+                    "reason": f"front/back nine (distance, par) sequence identical for tee {tk} — "
+                              f"looks like duplicated scrape data, not a real 18-hole layout — excluded",
                     "course_ids": ",".join(str(m['course_id']) for m in members),
                 })
                 continue

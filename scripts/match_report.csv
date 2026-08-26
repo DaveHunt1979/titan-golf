@@ -15,8 +15,8 @@ Jandía Golf Course,no_match_stays_as_is,,,,
 Knole Park Golf Club,enrich_in_place,KNOLE_PARK_GOLF_CLUB,Knole Park Golf Club,England,1.00
 Lamberhurst GC,enrich_in_place,LAMBERHURST_GOLF_CLUB,Lamberhurst Golf Club,England,1.00
 London Club Heritage GC,ambiguous,THE_LONDON_GOLF_CLUB_HERITAGE,The London Golf Club - Heritage,England,0.82
-London Club International GC,ambiguous,THE_LONDON_GOLF_CLUB_INTERNATIONAL,The London Golf Club - International,England,0.85
-Lullingstone Park Golf Club,no_match_stays_as_is,,,,
+London Club International GC,ambiguous,LONDON_GOLF_CLUB_THE_INTERNATIONAL,London Golf Club - The International,England,0.85
+Lullingstone Park Golf Club,enrich_in_place,LULLINGSTONE_PARK_GOLF_COURSE,Lullingstone Park Golf Course,England,1.00
 Mid Kent GC,ambiguous,THE_MID_KENT_GOLF_CLUB,The Mid Kent Golf Club,England,0.80
 North Foreland Golf Club,ambiguous,NORTH_OXFORD_GOLF_CLUB,North Oxford Golf Club,England,0.77
 Praia D'El Rey,no_match_stays_as_is,,,,
@@ -26,15 +26,15 @@ Prince's Golf Club - Himalyas,ambiguous,PRINCES_GOLF_CLUB_DUNES_HIMALAYAS,Prince
 Prince's Golf Club - Shore,ambiguous,PRINCES_GOLF_CLUB_SHORE_DUNES,Princes Golf Club - Shore / Dunes,England,0.88
 Prince's Golf Club - Shore & Dunes,ambiguous,PRINCES_GOLF_CLUB_SHORE_DUNES,Princes Golf Club - Shore / Dunes,England,0.94
 Prince's Golf Club - Shore & Himalyas,ambiguous,"PRINCES_GOLF_CLUB_DUNES_HIMALAYAS,PRINCES_GOLF_CLUB_SHORE_DUNES",Princes Golf Club - Dunes / Himalayas | Princes Golf Club - Shore / Dunes,England | England,"0.81,0.80"
-Sundridge East Course GC,ambiguous,SUNDRIDGE_PARK_GOLF_CLUB_EAST_COURSE,Sundridge Park Golf Club - East Course,England,0.74
-Sundridge West Course GC,ambiguous,SUNDRIDGE_PARK_GOLF_CLUB_WEST_COURSE,Sundridge Park Golf Club - West Course,England,0.74
+Sundridge East Course GC,no_match_stays_as_is,,,,
+Sundridge West Course GC,no_match_stays_as_is,,,,
 The Hertfordshire GC,enrich_in_place,THE_HERTFORDSHIRE_GOLF_CLUB,The Hertfordshire Golf Club,England,1.00
 The Melbourne Club At Brocket Hall,no_match_stays_as_is,,,,
 The Oxfordshire GC,enrich_in_place,THE_OXFORDSHIRE,The Oxfordshire,England,1.00
 The Palmerston Course GC,ambiguous,BROCKET_HALL_PALMERSTON_COURSE,Brocket Hall - Palmerston Course,England,0.78
 The Shire London Golf Club,no_match_stays_as_is,,,,
 Thorpe Hall Golf Club,enrich_in_place,THORPE_HALL_GOLF_CLUB,Thorpe Hall Golf Club,England,1.00
-Upchurch River Valley Golf Club,no_match_stays_as_is,,,,
+Upchurch River Valley Golf Club,enrich_in_place,UPCHURCH_RIVER_VALLEY_GOLF_COURSE,Upchurch River Valley Golf Course,England,1.00
 West Cliffs,enrich_in_place,WEST_CLIFFS,West Cliffs,Portugal,1.00
 Wildernesse Golf Club,enrich_in_place,WILDERNESSE_GOLF_CLUB,Wildernesse Golf Club,England,1.00
 Woburn Golf Club - The Duchess,ambiguous,"WOBURN_GOLF_CLUB_DUCHESS_COURSE,WOBURN_GOLF_CLUB_DUKES_COURSE",Woburn Golf Club - Duchess Course | Woburn Golf Club - Duke's Course,England | England,"0.81,0.77"

@@ -24,6 +24,7 @@ Usage:
     python3 scripts/generate_migration.py
 """
 import json
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -32,7 +33,12 @@ import openpyxl
 ROOT = Path(__file__).resolve().parent.parent
 UNIFIED_PATH = ROOT / "screenshots" / "Golf courses" / "UK & Ireland" / "TITAN_GLOBAL_GOLF_COURSE_MASTER_UNIFIED.xlsx"
 DECISIONS_PATH = ROOT / "scripts" / "match_decisions.json"
-OUT_PATH = ROOT / "supabase" / "migrations" / "20260825010000_course_master_import.sql"
+# Pass a filename to write a NEW migration (e.g. for a follow-up data pass) --
+# defaults to the original first-run filename, so omitting it reproduces
+# that exact already-applied file rather than silently drifting.
+OUT_PATH = ROOT / "supabase" / "migrations" / (
+    sys.argv[1] if len(sys.argv) > 1 else "20260825010000_course_master_import.sql"
+)
 
 BATCH_SIZE = 300
 
@@ -161,7 +167,7 @@ CREATE TABLE IF NOT EXISTS course_tee_holes (
   gender           TEXT NOT NULL DEFAULT '' CHECK (gender IN ('M','F','')),
   hole_number      INTEGER NOT NULL CHECK (hole_number BETWEEN 1 AND 18),
   distance         INTEGER,
-  par              INTEGER NOT NULL CHECK (par BETWEEN 3 AND 5),
+  par              INTEGER NOT NULL CHECK (par BETWEEN 3 AND 6),
   stroke_index     INTEGER NOT NULL CHECK (stroke_index BETWEEN 1 AND 18),
   source_course_id TEXT,
   UNIQUE (course_name, tee_name, gender, hole_number),

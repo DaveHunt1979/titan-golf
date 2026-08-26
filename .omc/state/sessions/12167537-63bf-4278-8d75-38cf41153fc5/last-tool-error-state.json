@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"/Users/davehunt/Desktop/titan-golf\\\" && supabase db push 2>&1\"}",
+  "error": "Exit code 1\nInitialising login role...\nConnecting to remote database...\nApplying migration 20260826000000_france_belle_dune_champ_bataille.sql...\n{\"_tag\":\"Error\",\"error\":{\"code\":\"LegacyDbPushApplyError\",\"message\":\"ERROR: new row for relation \\\"course_holes\\\" violates check constraint \\\"course_holes_par_check\\\" (SQLSTATE 23514)\\nFailing row contains (03316881-4f90-496e-96bf-83716ffa1aaf, Belle Dune, 15, 6, 1, 352, null, null, null, null, null, null, null, null, null, {}).\\nAt statement: 4\\nINSERT...",
+  "timestamp": "2026-08-26T06:51:08.183Z",
+  "retry_count": 1
+}
