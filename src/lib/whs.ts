@@ -32,6 +32,11 @@ export function calculateWHSPlayingHandicap(
 export interface RoundPlayerTeeSnapshot {
   whs_enabled_at_start?: boolean | null;
   playing_handicap_at_start?: number | null;
+  // Present regardless of WHS on/off — the tee a player chose for the round,
+  // used to show their real per-tee yardage (course_tee_holes) even when no
+  // handicap math is involved. See round_player_tees' original design note.
+  tee_name?: string | null;
+  gender?: string | null;
 }
 
 // The one new call every scoring screen adopts in place of calling

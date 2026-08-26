@@ -115,6 +115,7 @@ interface MatchInfo {
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; tee_yardages: Record<string, number> | null; green_lat?: number | null; green_lng?: number | null; }
 interface CompPlayer { player_id: string; handicap_index: number; }
+interface CourseTeeHole { tee_name: string; gender: string; hole_number: number; distance: number | null; }
 
 function playerCourseHcp(
   playerId: string, compPlayers: CompPlayer[], day: MatchInfo['day'], hcpAllowance: number = 100,
@@ -138,6 +139,7 @@ export default function EnterScoresScreen() {
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
   const [compPlayers, setCompPlayers] = useState<CompPlayer[]>([]);
   const [roundPlayerTees, setRoundPlayerTees] = useState<Record<string, RoundPlayerTeeSnapshot>>({});
+  const [courseTeeHoles, setCourseTeeHoles] = useState<CourseTeeHole[]>([]);
   const baseCompRef = useRef<CompPlayer[]>([]);
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
   const [playerAvatars, setPlayerAvatars] = useState<Record<string, string | null>>({});
@@ -276,7 +278,7 @@ export default function EnterScoresScreen() {
         const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
 
         console.log('[enter.load] fetching holes + competition_players + players...', { playerCount: allIds.length });
-        const [{ data: holesData }, { data: compData }, { data: playersData }, { data: rptData }] = await Promise.all([
+        const [{ data: holesData }, { data: compData }, { data: playersData }, { data: rptData }, { data: teeHolesData }] = await Promise.all([
           matchData.day?.course_name
             ? supabase.from('course_holes').select('hole_number,par,stroke_index,yardage,tee_yardages,green_lat,green_lng').eq('course_name', matchData.day.course_name).order('hole_number')
             : Promise.resolve({ data: [] }),
@@ -287,11 +289,19 @@ export default function EnterScoresScreen() {
             ? supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allIds)
             : Promise.resolve({ data: [] }),
           matchData.day_id && allIds.length
-            ? supabase.from('round_player_tees').select('player_id,whs_enabled_at_start,playing_handicap_at_start').eq('day_id', matchData.day_id).in('player_id', allIds)
+            ? supabase.from('round_player_tees').select('player_id,tee_name,gender,whs_enabled_at_start,playing_handicap_at_start').eq('day_id', matchData.day_id).in('player_id', allIds)
+            : Promise.resolve({ data: [] }),
+          // Real per-tee yardage (course_tee_holes) — only meaningful once a
+          // player has actually picked a tee (round_player_tees above), so
+          // this is purely additive: no selection means no lookup, and the
+          // existing courseHole.yardage display is untouched either way.
+          matchData.day?.course_name
+            ? supabase.from('course_tee_holes').select('tee_name,gender,hole_number,distance').eq('course_name', matchData.day.course_name)
             : Promise.resolve({ data: [] }),
         ]);
 
         if (holesData) setCourseHoles(holesData);
+        if (teeHolesData) setCourseTeeHoles(teeHolesData as CourseTeeHole[]);
         if (rptData) {
           const rpt: Record<string, RoundPlayerTeeSnapshot> = {};
           (rptData as any[]).forEach(r => { rpt[r.player_id] = r; });
@@ -602,6 +612,23 @@ export default function EnterScoresScreen() {
   const holeYardage = courseHole
     ? ((teeColor && courseHole.tee_yardages?.[teeColor]) || courseHole.yardage || null)
     : null;
+  // Real per-tee yardage for whichever tee(s) players on this match actually
+  // picked (round_player_tees, set regardless of WHS — see games/new.tsx).
+  // Empty whenever nobody selected a tee, so holeYardage above still drives
+  // the display exactly as before for every existing round.
+  const selectedTeeKeys = [...new Set(
+    allPlayerIds
+      .map(id => roundPlayerTees[id])
+      .filter((t): t is RoundPlayerTeeSnapshot & { tee_name: string } => !!t?.tee_name)
+      .map(t => `${t.tee_name}|${t.gender ?? ''}`)
+  )];
+  const teeYardages = selectedTeeKeys
+    .map(key => {
+      const [teeName, gender] = key.split('|');
+      const row = courseTeeHoles.find(h => h.tee_name === teeName && h.gender === gender && h.hole_number === activeHole);
+      return row?.distance != null ? { label: teeName.toUpperCase(), yards: row.distance } : null;
+    })
+    .filter((t): t is { label: string; yards: number } => t != null);
 
   const sideGameByHole = (match?.side_games ?? []).reduce((acc, sg) => {
     const [type, hole] = sg.split(':');
@@ -1780,7 +1807,13 @@ export default function EnterScoresScreen() {
                         <>
                           <View style={[s.holeChip, isSinglePlayerStableford && s.holeChipSolo]}><Text style={[s.holeChipText, isSinglePlayerStableford && s.holeChipTextSolo]}>Par {courseHole.par}</Text></View>
                           <View style={[s.holeChip, isSinglePlayerStableford && s.holeChipSolo]}><Text style={[s.holeChipText, isSinglePlayerStableford && s.holeChipTextSolo]}>SI {courseHole.stroke_index}</Text></View>
-                          {holeYardage ? <View style={[s.holeChip, isSinglePlayerStableford && s.holeChipSolo]}><Text style={[s.holeChipText, isSinglePlayerStableford && s.holeChipTextSolo]}>{holeYardage} YARDS</Text></View> : null}
+                          {teeYardages.length > 0
+                            ? teeYardages.map(t => (
+                                <View key={t.label} style={[s.holeChip, isSinglePlayerStableford && s.holeChipSolo]}>
+                                  <Text style={[s.holeChipText, isSinglePlayerStableford && s.holeChipTextSolo]}>{t.label} {t.yards}Y</Text>
+                                </View>
+                              ))
+                            : (holeYardage ? <View style={[s.holeChip, isSinglePlayerStableford && s.holeChipSolo]}><Text style={[s.holeChipText, isSinglePlayerStableford && s.holeChipTextSolo]}>{holeYardage} YARDS</Text></View> : null)}
                         </>
                       )}
                     </View>

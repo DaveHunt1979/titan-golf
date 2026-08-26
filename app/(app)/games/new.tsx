@@ -849,28 +849,44 @@ export default function NewGameScreen() {
 
       if (whsEnabled) {
         await supabase.from('competition_days').update({ whs_enabled: true }).eq('id', resolvedDayId);
-        const snapshotRows = allRoundPlayerIds.map(pid => {
+      }
+      // Tee choice is stored regardless of WHS — off WHS it's yardage-only
+      // (no handicap fields), matching round_player_tees' original design
+      // ("needed regardless of WHS on/off, so the scorecard/yardages can
+      // reflect a mixed-tee group" — see 20260825020000_whs_layer.sql).
+      // Players who didn't pick a tee are skipped entirely so scoring falls
+      // back to today's single course_holes yardage exactly as before.
+      const teeSelections = allRoundPlayerIds.filter(pid => playerTees[pid]);
+      if (teeSelections.length > 0) {
+        const snapshotRows = teeSelections.map(pid => {
           const p = players.find(pl => pl.id === pid)!;
           const tee = playerTees[pid];
-          const whs = calculateWHSPlayingHandicap(p.handicap_index, tee.slope_rating!, tee.course_rating!, tee.par!, hcpAllowance);
+          if (whsEnabled) {
+            const whs = calculateWHSPlayingHandicap(p.handicap_index, tee.slope_rating!, tee.course_rating!, tee.par!, hcpAllowance);
+            return {
+              day_id: resolvedDayId,
+              player_id: pid,
+              tee_name: tee.tee_name,
+              gender: tee.gender,
+              handicap_index_at_start: p.handicap_index,
+              slope_at_start: tee.slope_rating,
+              course_rating_at_start: tee.course_rating,
+              par_at_start: tee.par,
+              course_handicap_at_start: whs.courseHandicapUnrounded,
+              allowance_at_start: hcpAllowance,
+              playing_handicap_at_start: whs.playingHandicap,
+              whs_enabled_at_start: true,
+            };
+          }
           return {
             day_id: resolvedDayId,
             player_id: pid,
             tee_name: tee.tee_name,
             gender: tee.gender,
-            handicap_index_at_start: p.handicap_index,
-            slope_at_start: tee.slope_rating,
-            course_rating_at_start: tee.course_rating,
-            par_at_start: tee.par,
-            course_handicap_at_start: whs.courseHandicapUnrounded,
-            allowance_at_start: hcpAllowance,
-            playing_handicap_at_start: whs.playingHandicap,
-            whs_enabled_at_start: true,
+            whs_enabled_at_start: false,
           };
         });
-        if (snapshotRows.length > 0) {
-          await supabase.from('round_player_tees').upsert(snapshotRows, { onConflict: 'day_id,player_id' });
-        }
+        await supabase.from('round_player_tees').upsert(snapshotRows, { onConflict: 'day_id,player_id' });
       }
 
       const matchNum = Math.floor(Date.now() / 1000) % 100000;
@@ -1271,18 +1287,22 @@ export default function NewGameScreen() {
           </SettingRow>
           <View style={s.settingDivider} />
 
-          {whsEnabled && allRoundPlayerIds.length > 0 && (
+          {allRoundPlayerIds.length > 0 && (
             <>
               {allRoundPlayerIds.map(pid => {
                 const p = players.find(pl => pl.id === pid);
                 const tee = playerTees[pid];
+                // Off WHS, picking a tee is optional (yardage-only — see
+                // TeePickerSheet/round_player_tees) so an unset tee isn't an
+                // error here the way it is when WHS requires a rated tee.
+                const missingIsError = whsEnabled;
                 return (
                   <View key={pid}>
                     <SettingRow
                       icon="flag-outline"
                       label={p?.display_name ?? 'Player'}
-                      value={tee ? `${tee.tee_name}${tee.gender ? ` (${tee.gender})` : ''}` : 'Select tee'}
-                      valueColor={tee ? GOLD : '#f87171'}
+                      value={tee ? `${tee.tee_name}${tee.gender ? ` (${tee.gender})` : ''}` : (missingIsError ? 'Select tee' : 'Any tee')}
+                      valueColor={tee ? GOLD : (missingIsError ? '#f87171' : '#6b7280')}
                       onPress={() => setTeePickerPlayerId(pid)}
                       s={s} GOLD={GOLD}
                     />

@@ -272,14 +272,14 @@
     },
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 111,
-      "lastAccessed": 1787644171623,
+      "accessCount": 124,
+      "lastAccessed": 1787728657123,
       "type": "file"
     },
     {
       "path": "src/lib/scoring.ts",
-      "accessCount": 45,
-      "lastAccessed": 1787642571323,
+      "accessCount": 46,
+      "lastAccessed": 1787728284170,
       "type": "file"
     },
     {
@@ -301,6 +301,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 36,
+      "lastAccessed": 1787729139680,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/admin/live-tournaments.tsx",
       "accessCount": 30,
       "lastAccessed": 1787581774391,
@@ -310,12 +316,6 @@
       "path": "app/(app)/camera/index.tsx",
       "accessCount": 26,
       "lastAccessed": 1787579703309,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 26,
-      "lastAccessed": 1787647322601,
       "type": "file"
     },
     {
