@@ -187,6 +187,18 @@
       "accessCount": 1,
       "lastAccessed": 1786017864969,
       "type": "file"
+    },
+    {
+      "path": "src/app/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787754718931,
+      "type": "file"
+    },
+    {
+      "path": "src/app/dashboard/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1787754719352,
+      "type": "file"
     }
   ],
   "userDirectives": []

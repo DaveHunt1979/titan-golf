@@ -66,6 +66,17 @@ function isMissingMatchError(err: any): boolean {
   return err?.code === '23503' || /foreign key/i.test(String(err?.message ?? ''));
 }
 
+// Raw Postgres/Supabase errors (RLS policy names, table names, SQL codes)
+// must never reach the scoring UI — keep them in the dev console only.
+function friendlyScoreError(err: any): string {
+  const raw = String(err?.message ?? err ?? '');
+  console.error('[score/enter] save failed:', raw);
+  if (err?.code === '42501' || /row-level security/i.test(raw)) {
+    return "You don't have permission to score this match.";
+  }
+  return "Score couldn't be saved. Please try again.";
+}
+
 function Avatar({ name, color, size = 36, source }: { name: string; color: string; size?: number; source?: any }) {
   if (source) {
     const imgSrc = typeof source === 'string' ? { uri: source } : source;
@@ -858,7 +869,7 @@ export default function EnterScoresScreen() {
         }
         if (!isNetworkError(err)) {
           setSaving(false);
-          Alert.alert('Error', String(err.message ?? err));
+          Alert.alert('Error', friendlyScoreError(err));
           return;
         }
         savedOffline = true;
@@ -1080,7 +1091,7 @@ export default function EnterScoresScreen() {
       }
       if (!isNetworkError(err)) {
         setSaving(false);
-        Alert.alert('Error', String(err.message ?? err));
+        Alert.alert('Error', friendlyScoreError(err));
         return;
       }
       savedOffline = true;

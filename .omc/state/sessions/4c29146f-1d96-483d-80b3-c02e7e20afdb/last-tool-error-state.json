@@ -1,0 +1,7 @@
+{
+  "tool_name": "mcp__claude-in-chrome__tabs_close_mcp",
+  "tool_input_preview": "{\"tabId\":2131386082}",
+  "error": "This session's tab group no longer exists. Call tabs_context_mcp first to re-establish context.",
+  "timestamp": "2026-08-26T14:28:24.738Z",
+  "retry_count": 1
+}
