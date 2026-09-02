@@ -182,24 +182,43 @@ export default function HomeScreen() {
         const orFilter = memberIds
           .flatMap(id => [`home_player_ids.cs.{"${id}"}`, `away_player_ids.cs.{"${id}"}`])
           .join(',');
+        // A round that never got marked complete (a known recurring class of
+        // bug in this app) used to leave a friend "on the course" forever —
+        // 24h is well past any real round, so treat an older in_progress
+        // match as abandoned rather than actually live (Dave, 2026-09-02).
+        // started_at is set the moment the first hole is scored, so this
+        // also naturally excludes a match that's in_progress with no
+        // started_at yet (gte against null never matches).
+        const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         const { data: activeMatches } = await supabase
           .from('matches')
           .select('id,home_player_ids,away_player_ids,day:day_id(course_name)')
           .eq('status', 'in_progress')
+          .gte('started_at', dayAgo)
           .or(orFilter);
 
         const friendMatches = activeMatches ?? [];
 
         if (friendMatches.length > 0) {
           const matchIds = friendMatches.map((m: any) => m.id);
-          const playingFriendIds = [...new Set(
+          const candidateFriendIds = [...new Set(
             friendMatches.flatMap((m: any): string[] => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])])
               .filter((id: string) => memberIds.includes(id))
           )];
 
+          // Being mid-match isn't enough on its own — the app they're
+          // scoring on may have been closed/killed hours ago with the match
+          // still sitting at in_progress. Only show a friend who's actually
+          // active right now (same batched presence check friends.tsx uses).
+          const { data: onlineRows } = candidateFriendIds.length
+            ? await supabase.rpc('players_online_status', { p_player_ids: candidateFriendIds })
+            : { data: [] as any[] };
+          const onlineSet = new Set((onlineRows ?? []).filter((r: any) => r.online).map((r: any) => r.player_id));
+          const playingFriendIds = candidateFriendIds.filter(id => onlineSet.has(id));
+
           const [{ data: holesData }, { data: friendPlayersData }] = await Promise.all([
-            supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id').in('match_id', matchIds),
-            supabase.from('players').select('id,display_name,email,handicap_index,avatar_url,t_tag').in('id', playingFriendIds),
+            playingFriendIds.length ? supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id').in('match_id', matchIds) : Promise.resolve({ data: [] as any[] }),
+            playingFriendIds.length ? supabase.from('players').select('id,display_name,email,handicap_index,avatar_url,t_tag').in('id', playingFriendIds) : Promise.resolve({ data: [] as any[] }),
           ]);
 
           const nameMap: Record<string, string> = {};
@@ -394,6 +413,10 @@ export default function HomeScreen() {
                   >
                     <View style={s.friendAvatar}>
                       <Text style={s.friendAvatarText}>{(fr.name[0] ?? '?').toUpperCase()}</Text>
+                      {/* Every entry here is already online-filtered (see
+                          load()), so this always renders — it's the visual
+                          confirmation Dave asked for, not a conditional. */}
+                      <View style={[s.friendLiveDot, { borderColor: dc.card }]} />
                     </View>
                     <Text style={[s.friendName, { color: dc.cardText }]} numberOfLines={1}>{fr.name.split(' ')[0]}</Text>
                     <Text style={s.friendCourse} numberOfLines={1}>{fr.courseName}</Text>
@@ -583,6 +606,7 @@ const s = StyleSheet.create({
   sectionTitle:    { fontFamily: FFB, fontSize: 10, color: '#888', letterSpacing: 1.5, marginBottom: 10 },
   friendCard:      { width: 140, borderRadius: 14, borderWidth: 1, padding: 12 },
   friendAvatar:    { width: 36, height: 36, borderRadius: 18, backgroundColor: `${GOLD}15`, borderWidth: 1, borderColor: `${GOLD}30`, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  friendLiveDot:   { position: 'absolute', bottom: -1, right: -1, width: 11, height: 11, borderRadius: 5.5, backgroundColor: '#4ade80', borderWidth: 2 },
   friendAvatarText:{ fontFamily: FFB, fontSize: 15, color: GOLD },
   friendName:      { fontFamily: FFB, fontSize: 13, color: '#fff' },
   friendCourse:    { fontFamily: FFB, fontSize: 10, color: '#666', marginTop: 1 },

@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
+import { sendPushNotification } from '../../../src/lib/notifications';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -117,6 +118,9 @@ export default function DmThread() {
       setText(content);
     } else if (data) {
       setMessages(prev => [data as unknown as DM, ...prev]);
+      supabase.from('players').select('display_name').eq('id', myId).single().then(({ data: me }) => {
+        sendPushNotification(me?.display_name ?? 'New message', content, [playerId as string], { type: 'message', senderId: myId });
+      });
     }
     setSending(false);
   }

@@ -1,14 +1,16 @@
 import { type ReactNode, useEffect, useState, useRef } from 'react';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs, useRouter, usePathname } from 'expo-router';
 import { AppState, Platform, View, TouchableOpacity, StyleSheet, Animated, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 import { CommonActions } from '@react-navigation/native';
 import { supabase } from '../../src/lib/supabase';
-import { registerForPushNotifications } from '../../src/lib/notifications';
+import { registerForPushNotifications, currentRoute } from '../../src/lib/notifications';
 import { titanLogo } from '../../src/lib/assets';
 import { SocietyThemeProvider, useSocietyTheme } from '../../src/lib/SocietyThemeContext';
 import { IS_PAD, SIDEBAR_W } from '../../src/lib/useDeviceLayout';
 import IpadSidebar from '../../src/components/ipad/IpadSidebar';
+import MessageAlert from '../../src/components/MessageAlert';
 
 // Every section below with its own nested Stack (admin/, score/, swindle/,
 // tour/, range/, games/, inbox/, profile/, trips/, chat/) keeps its full
@@ -107,12 +109,37 @@ export default function AppLayout() {
 function AppLayoutInner() {
   const { palette } = useSocietyTheme();
   const router = useRouter();
+  const pathname = usePathname();
   const [isAdmin,    setIsAdmin]    = useState(false);
   const [avatarUrl,  setAvatarUrl]  = useState<string | null>(null);
   const [playerId,   setPlayerId]   = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
+  const [messageAlert, setMessageAlert] = useState<{ senderName: string; preview: string; senderId?: string; channel?: string } | null>(null);
 
   useEffect(() => { loadProfile(); }, []);
+
+  // Kept in a plain module ref (not React state) so notifications.ts's
+  // handleNotification — a bare function, no hooks — can read the current
+  // screen without needing to be a component itself.
+  useEffect(() => { currentRoute.path = pathname; }, [pathname]);
+
+  // Foreground-only: a message notification arriving while mid-round shows
+  // the MessageAlert splash instead of the (now-suppressed, see
+  // notifications.ts) system banner. Everywhere else the system banner
+  // still handles it, so this only ever adds behavior, never removes it.
+  useEffect(() => {
+    const sub = Notifications.addNotificationReceivedListener(notification => {
+      const data = notification.request.content.data as { type?: string; senderId?: string; channel?: string } | undefined;
+      if (data?.type !== 'message' || !currentRoute.path.startsWith('/score/')) return;
+      setMessageAlert({
+        senderName: notification.request.content.title ?? 'New message',
+        preview: notification.request.content.body ?? '',
+        senderId: data.senderId,
+        channel: data.channel,
+      });
+    });
+    return () => sub.remove();
+  }, []);
 
   // T-Card's live green dot (Dave, 2026-08-21) — a plain heartbeat, not
   // Realtime Presence: while the app is foregrounded, ping every 60s so
@@ -209,6 +236,20 @@ function AppLayoutInner() {
       {IS_PAD && <IpadSidebar isAdmin={isAdmin} avatarUrl={avatarUrl} playerId={playerId} />}
 
       {showSplash && <SplashOverlay onDone={() => setShowSplash(false)} />}
+
+      <MessageAlert
+        visible={!!messageAlert}
+        senderName={messageAlert?.senderName ?? ''}
+        preview={messageAlert?.preview ?? ''}
+        onDismiss={() => setMessageAlert(null)}
+        onView={() => {
+          const alert = messageAlert;
+          setMessageAlert(null);
+          if (!alert) return;
+          if (alert.senderId) router.push(`/(app)/inbox/${alert.senderId}` as any);
+          else if (alert.channel) router.push((alert.channel === 'general' ? '/(app)/chat' : `/(app)/chat/${alert.channel}`) as any);
+        }}
+      />
     </View>
   );
 }

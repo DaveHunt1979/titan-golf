@@ -46,6 +46,7 @@ export function computeRoundRobinMatchups(
 export type TitanWayConstraintKind =
   | 'exact_team_size'
   | 'even_teams'
+  | 'odd_teams'
   | 'min_teams'
   | 'max_teams'
   | 'captain_rotation';
@@ -57,13 +58,17 @@ export interface TitanWayConstraint {
 }
 
 export function buildTitanWayConstraints(rules: FormatRules): TitanWayConstraint[] {
-  return [
+  const constraints: TitanWayConstraint[] = [
     { kind: 'min_teams', severity: 'hard', describe: () => `At least ${rules.minTeams} teams` },
     { kind: 'max_teams', severity: 'hard', describe: () => `At most ${rules.maxTeams} teams` },
-    { kind: 'even_teams', severity: 'hard', describe: () => 'An even number of teams' },
+  ];
+  if (rules.requiresEvenTeams) constraints.push({ kind: 'even_teams', severity: 'hard', describe: () => 'An even number of teams' });
+  if (rules.requiresOddTeams) constraints.push({ kind: 'odd_teams', severity: 'hard', describe: () => 'An odd number of teams' });
+  constraints.push(
     { kind: 'exact_team_size', severity: 'hard', describe: () => `Exactly ${rules.exactPlayersPerTeam} players per team` },
     { kind: 'captain_rotation', severity: 'optimisation', describe: () => 'Spread each captain across different partners in opening rounds' },
-  ];
+  );
+  return constraints;
 }
 
 // ── Whole-tournament partnership-split optimizer ──

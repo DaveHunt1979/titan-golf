@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, ActivityIndicator,
   TouchableOpacity, Image, RefreshControl, TextInput,
-  KeyboardAvoidingView, Platform, Alert, Linking,
+  KeyboardAvoidingView, Platform, Alert, Linking, Modal,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -10,7 +10,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, fetchAllRows } from '../../../src/lib/supabase';
-import { getStandings, getEffectiveWinner, calcSweepBonus, individualScoreValue, formatVsPar, buildKronosTieBreakMaps, kronosTieBreakCompare } from '../../../src/lib/scoring';
+import { getStandings, getEffectiveWinner, calcSweepBonus, individualScoreValue, formatVsPar, buildKronosTieBreakMaps, kronosTieBreakCompare, scoreVsPar, SCORE_COLORS } from '../../../src/lib/scoring';
 import { individualBoardLabel, getFormatRules } from '../../../src/lib/tournamentFormat';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
@@ -96,7 +96,15 @@ export default function TourScreen() {
     avatarUrl: string | null; teamName: string | null; teamAccentColor: string | null;
     teamLogoUrl: string | null; isCaptain: boolean; byDay: (number | null)[];
   }[]>([]);
-  const [leaderboardTab, setLeaderboardTab] = useState<'group' | 'team' | 'kronos' | 'honours'>('group');
+  const [leaderboardTab, setLeaderboardTab] = useState<'group' | 'team' | 'playoff' | 'kronos' | 'money' | 'honours'>('group');
+  // Per-player, per-day hole-by-hole detail — feeds the scorecard modal
+  // opened by tapping a Kronos row. Keyed by player_id then day_id so the
+  // modal's round tabs (1/2/3/4) can pull one day's 18 holes at a time
+  // instead of the whole tournament in one scroll.
+  type ScorecardHole = { hole: number; par?: number; strokeIndex?: number | null; gross: number | null; pts: number | null };
+  const [scorecardsByPlayer, setScorecardsByPlayer] = useState<Record<string, Record<string, ScorecardHole[]>>>({});
+  const [scorecardPlayerId, setScorecardPlayerId] = useState<string | null>(null);
+  const [scorecardDayIdx, setScorecardDayIdx] = useState(0);
   const [champions, setChampions]     = useState<Champion[]>([]);
   const [myPlayerId, setMyPlayerId]   = useState<string | null>(null);
   const [tcardMember, setTcardMember] = useState<EditablePlayer | null>(null);
@@ -221,23 +229,30 @@ export default function TourScreen() {
     const allDaysMedal = (daysData as CompetitionDay[] ?? []).length > 0
       && (daysData as CompetitionDay[]).every(d => d.day_format === 'medal');
     const courseNames = [...new Set((daysData as CompetitionDay[] ?? []).map(d => d.course_name).filter(Boolean))] as string[];
-    const { data: courseHolesData } = allDaysMedal && courseNames.length
-      ? await supabase.from('course_holes').select('course_name,hole_number,par').in('course_name', courseNames)
+    // Was gated on allDaysMedal (only fetched for all-Medal tournaments) —
+    // but the Kronos scorecard needs par/SI for every format, not just
+    // Medal, so a Titan Way tournament (never Medal) was silently showing
+    // blank Par/SI on every scorecard (found 2026-09-02 building that
+    // feature). Fetch whenever there's a course to look up, regardless of
+    // format.
+    const { data: courseHolesData } = courseNames.length
+      ? await supabase.from('course_holes').select('course_name,hole_number,par,stroke_index').in('course_name', courseNames)
       : { data: [] as any[] };
-    const parByCourseHole = new Map<string, Map<number, number>>();
+    const holeInfoByCourseHole = new Map<string, Map<number, { par: number; strokeIndex: number | null }>>();
     (courseHolesData ?? []).forEach((h: any) => {
-      if (!parByCourseHole.has(h.course_name)) parByCourseHole.set(h.course_name, new Map());
-      parByCourseHole.get(h.course_name)!.set(h.hole_number, h.par);
+      if (!holeInfoByCourseHole.has(h.course_name)) holeInfoByCourseHole.set(h.course_name, new Map());
+      holeInfoByCourseHole.get(h.course_name)!.set(h.hole_number, { par: h.par, strokeIndex: h.stroke_index ?? null });
     });
     const dayCourseByMatch: Record<string, string | null> = {};
     (matchesData as any[] ?? []).forEach(m => {
       const day = (daysData as CompetitionDay[] ?? []).find(d => d.id === m.day_id);
       dayCourseByMatch[m.id] = day?.course_name ?? null;
     });
-    const parForHole = (matchId: string, holeNumber: number): number | undefined => {
+    const holeInfoForHole = (matchId: string, holeNumber: number): { par: number; strokeIndex: number | null } | undefined => {
       const courseName = dayCourseByMatch[matchId];
-      return courseName ? parByCourseHole.get(courseName)?.get(holeNumber) : undefined;
+      return courseName ? holeInfoByCourseHole.get(courseName)?.get(holeNumber) : undefined;
     };
+    const parForHole = (matchId: string, holeNumber: number): number | undefined => holeInfoForHole(matchId, holeNumber)?.par;
 
     // Kronos is this tournament's own individual championship — cumulative
     // Stableford across only this tournament's rounds, not a season-wide
@@ -300,8 +315,26 @@ export default function TourScreen() {
           - individualScoreValue(allDaysMedal ? 'medal' : 'stableford', a.total, a.vsParTotal)
         );
       setKronosRows(rows);
+
+      const cards: Record<string, Record<string, ScorecardHole[]>> = {};
+      (holesData as any[]).forEach(h => {
+        if (!kronosMatchIds.has(h.match_id)) return;
+        const dayId = matchDayMap[h.match_id];
+        (cards[h.player_id] ??= {})[dayId] ??= [];
+        const info = holeInfoForHole(h.match_id, h.hole_number);
+        cards[h.player_id][dayId].push({
+          hole: h.hole_number,
+          par: info?.par,
+          strokeIndex: info?.strokeIndex ?? null,
+          gross: h.gross_score ?? null,
+          pts: h.stableford_pts ?? null,
+        });
+      });
+      Object.values(cards).forEach(byDay => Object.values(byDay).forEach(holes => holes.sort((a, b) => a.hole - b.hole)));
+      setScorecardsByPlayer(cards);
     } else {
       setKronosRows([]);
+      setScorecardsByPlayer({});
     }
 
     // Individual tournament leaderboard with prize positions
@@ -661,10 +694,23 @@ export default function TourScreen() {
   // that actually define a knockout playoff; a plain Multi-Team Tour's
   // singles day is a normal scoring round like any other.
   const excludePlayoffFromPoints = getFormatRules(competition?.format).finalDayKnockout;
-  const qualifyingMatches = excludePlayoffFromPoints
+  // Odd Titan (Dave, 2026-09-02): an odd number of teams can't be bracketed
+  // 1v2/3v4 the way Titan Way locks final position, so instead the final
+  // round's team points are each team's summed player Stableford for that
+  // round — added straight onto the Rounds 1-3 match-play total rather than
+  // deciding position via a knockout. Still needs the final round excluded
+  // from the normal match-play win/half/loss tally below, same as Titan
+  // Way's playoff exclusion, just for a different reason.
+  const finalRoundStablefordTeamPoints = getFormatRules(competition?.format).finalRoundStablefordTeamPoints;
+  const excludeFinalRoundFromMatchPoints = excludePlayoffFromPoints || finalRoundStablefordTeamPoints;
+  const qualifyingMatches = excludeFinalRoundFromMatchPoints
     ? (matches as any[]).filter((m: any) => !singlesDayIds.has(m.day_id))
     : (matches as any[]);
-  const bonusPts = calcSweepBonus(qualifyingMatches as Match[], singlesDayIds, (competition as any).bonus_points ?? 2);
+  const finalRoundDayId = finalRoundStablefordTeamPoints ? [...singlesDayIds][0] : undefined;
+  const finalRoundTeamStableford = finalRoundDayId ? (teamStablefordByDay[finalRoundDayId] ?? {}) : {};
+  const bonusPts = finalRoundStablefordTeamPoints
+    ? finalRoundTeamStableford
+    : calcSweepBonus(qualifyingMatches as Match[], singlesDayIds, (competition as any).bonus_points ?? 2);
 
   const standings = getStandings(
     qualifyingMatches.filter((m: any) => m.home_team_id && m.away_team_id),
@@ -677,6 +723,89 @@ export default function TourScreen() {
     const t = teams.find(t => t.id === s.teamId);
     return { ...s, name: t?.name ?? '—', accent_color: t?.accent_color ?? '#555', logo_url: t?.logo_url ?? null };
   });
+
+  // Playoff: the knockout day shown as team-vs-team brackets, not a scoring
+  // round — grouped by (day, home team, away team) since several brackets
+  // run at once, seeded by the same locked qualifying-round `standings`
+  // used for the Team tab above (so a bracket's "1st vs 2nd" label always
+  // matches the position that decided it).
+  const playoffSeeds: Record<string, number> = {};
+  standings.forEach((s, i) => { playoffSeeds[s.teamId] = i + 1; });
+  const playoffBracketMap: Record<string, any[]> = {};
+  if (excludePlayoffFromPoints) {
+    (matches as any[])
+      .filter((m: any) => singlesDayIds.has(m.day_id) && m.home_team_id && m.away_team_id)
+      .forEach((m: any) => {
+        const key = `${m.day_id}:${m.home_team_id}:${m.away_team_id}`;
+        (playoffBracketMap[key] ??= []).push(m);
+      });
+  }
+  const playoffBrackets = Object.values(playoffBracketMap).map(bracketMatches => {
+    const first = bracketMatches[0];
+    const winners = bracketMatches.map(m => getEffectiveWinner(
+      m.status, m.winner, m.holes_string ?? '..................', m.holes_to_play ?? 18, m.start_hole ?? 1
+    ));
+    const homeWins = winners.filter(w => w === 'home').length;
+    const awayWins = winners.filter(w => w === 'away').length;
+    const halves = winners.filter(w => w === 'half').length;
+    return {
+      key: `${first.day_id}:${first.home_team_id}:${first.away_team_id}`,
+      homeTeam: teams.find(t => t.id === first.home_team_id),
+      awayTeam: teams.find(t => t.id === first.away_team_id),
+      homeSeed: playoffSeeds[first.home_team_id] ?? null,
+      awaySeed: playoffSeeds[first.away_team_id] ?? null,
+      homeWins, awayWins, halves,
+      swept: (homeWins === bracketMatches.length || awayWins === bracketMatches.length) && winners.every(w => !!w),
+      matches: bracketMatches.slice().sort((a, b) => (a.match_number ?? 0) - (b.match_number ?? 0)),
+    };
+  }).sort((a, b) => (a.homeSeed ?? 99) - (b.homeSeed ?? 99));
+
+  // Final table: the playoff decides overall position, it doesn't just add
+  // points (Dave, 2026-09-02) — winning your bracket moves you to the
+  // higher slot within your qualifying pair (1v2's winner takes 1st, loser
+  // takes 2nd; 3v4's winner takes 3rd, and so on). A team can never jump
+  // out of its own pair regardless of margin — a 3rd/4th seed's ceiling is
+  // 3rd, a 5th/6th seed's ceiling is 5th. Falls back to the qualifying seed
+  // order for any pair whose bracket isn't decided yet (not generated, or
+  // still in progress) so the table degrades gracefully before/during the
+  // playoff.
+  const finalPositionByTeam: Record<string, number> = {};
+  if (excludePlayoffFromPoints) {
+    for (let i = 0; i < standings.length; i += 2) {
+      const upperSeedId = standings[i]?.teamId;
+      const lowerSeedId = standings[i + 1]?.teamId;
+      if (!upperSeedId) continue;
+      if (!lowerSeedId) { finalPositionByTeam[upperSeedId] = i + 1; continue; } // odd one out, no pair
+      const bracket = playoffBrackets.find(b =>
+        (b.homeTeam?.id === upperSeedId && b.awayTeam?.id === lowerSeedId) ||
+        (b.homeTeam?.id === lowerSeedId && b.awayTeam?.id === upperSeedId)
+      );
+      const decided = bracket && bracket.matches.length > 0 && bracket.matches.every((m: any) => m.status === 'complete');
+      let winnerId = upperSeedId; // undecided/tied fallback: higher qualifying seed keeps the upper slot
+      if (decided && bracket) {
+        if (bracket.homeWins !== bracket.awayWins) {
+          winnerId = (bracket.homeWins > bracket.awayWins ? bracket.homeTeam?.id : bracket.awayTeam?.id) ?? upperSeedId;
+        }
+      }
+      const loserId = winnerId === upperSeedId ? lowerSeedId : upperSeedId;
+      finalPositionByTeam[winnerId] = i + 1;
+      finalPositionByTeam[loserId] = i + 2;
+    }
+  }
+
+  // Money: team prize (competitions.prize_pool split by prize_split% per
+  // final position — real fields, added 2026-08-19, previously unused
+  // anywhere in this screen) ordered by finalPositionByTeam where the
+  // playoff decides it, falling back to the plain (already points-sorted)
+  // `enriched` order otherwise.
+  const prizePool = (competition as any)?.prize_pool ?? null;
+  const prizeSplit: number[] = (competition as any)?.prize_split ?? [];
+  const teamsInFinalOrder = enriched
+    .map((s, i) => ({ ...s, finalPos: finalPositionByTeam[s.teamId] ?? (i + 1) }))
+    .sort((a, b) => a.finalPos - b.finalPos);
+  const kronosChampion = indivBoard.find(e => e.is_overall_winner) ?? null;
+  const hasMoney = (prizePool != null && prizeSplit.length > 0) || kronosChampion?.prize_money != null || prizeCats.length > 0;
+
   // Read off the format registry, not the legacy tournament_type column
   // (which collapses Titan Way and Multi-Team Tour into the same value and
   // can't be used to tell them apart — Rick's brief, section 9).
@@ -693,6 +822,11 @@ export default function TourScreen() {
   // (below) deliberately keeps using the unfiltered `sortedDays` — its D1-D4
   // columns legitimately span the playoff day too.
   const teamSortedDays = sortedDays.filter(d => !excludePlayoffFromPoints || !singlesDayIds.has(d.id));
+  // Odd Titan shows the final round as a normal R-column (unlike Titan Way,
+  // which hides it into its own Playoff tab) — teamSortedDays above already
+  // keeps it since excludePlayoffFromPoints is false for this format; the
+  // dayPtsByTeam loop below just needs to fill that column from summed
+  // Stableford rather than match-play win/half/loss.
   // Same "every round is Medal" check loadTournamentData used to decide
   // vs-par vs Stableford ranking — kept in sync so the Kronos tab and the
   // Players/Individual board never rank the same tournament two different
@@ -700,6 +834,14 @@ export default function TourScreen() {
   const daysAllMedal = days.length > 0 && days.every(d => d.day_format === 'medal');
   const dayPtsByTeam: Record<string, number[]> = {};
   teamSortedDays.forEach(day => {
+    const dayIdx = teamSortedDays.indexOf(day);
+    if (finalRoundStablefordTeamPoints && singlesDayIds.has(day.id)) {
+      Object.entries(teamStablefordByDay[day.id] ?? {}).forEach(([teamId, pts]) => {
+        if (!dayPtsByTeam[teamId]) dayPtsByTeam[teamId] = [];
+        dayPtsByTeam[teamId][dayIdx] = pts;
+      });
+      return;
+    }
     const dayMatches = (matches as any[]).filter((m: any) => m.day_id === day.id && m.home_team_id && m.away_team_id);
     const daySinglesIds = (day.day_format === 'singles' || day.day_format === 'singles_stableford') ? new Set([day.id]) : new Set<string>();
     const dayBonus = calcSweepBonus(dayMatches as Match[], daySinglesIds, (competition as any)?.bonus_points ?? 2);
@@ -712,13 +854,21 @@ export default function TourScreen() {
     );
     dayStandings.forEach(ds => {
       if (!dayPtsByTeam[ds.teamId]) dayPtsByTeam[ds.teamId] = [];
-      dayPtsByTeam[ds.teamId][teamSortedDays.indexOf(day)] = ds.pts;
+      dayPtsByTeam[ds.teamId][dayIdx] = ds.pts;
     });
   });
 
   const teamLeaderboardRows: LeaderboardRow[] = enriched.map(s => ({
     id: s.teamId,
-    sortKey: s.pts,
+    // For a knockout-playoff format, rank by finalPositionByTeam (which
+    // already mirrors qualifying order before the playoff, then reflects
+    // each bracket's winner once played) rather than raw points — otherwise
+    // the row order could contradict the very playoff result shown one tab
+    // over. Negated so a better (lower-numbered) position sorts first under
+    // the existing descending `sort((a,b) => b.sortKey - a.sortKey)` below.
+    // Non-knockout formats have no entries in finalPositionByTeam at all,
+    // so they fall through to the original points-based order, unchanged.
+    sortKey: finalPositionByTeam[s.teamId] != null ? -finalPositionByTeam[s.teamId] : s.pts,
     name: s.name,
     subtitle: `${s.w}W ${s.h}H ${s.l}L`,
     teamName: s.name,
@@ -727,6 +877,7 @@ export default function TourScreen() {
     columns: teamSortedDays.map((_, i) => dayPtsByTeam[s.teamId]?.[i] ?? '–'),
     totalDisplay: String(s.pts),
   }));
+
   const teamPointsKey = [
     { label: 'Match Win', value: `${(competition as any)?.pts_win ?? 1}pt${((competition as any)?.pts_win ?? 1) === 1 ? '' : 's'}` },
     { label: 'Match Half', value: `${(competition as any)?.pts_half ?? 0.5}pts` },
@@ -979,9 +1130,19 @@ export default function TourScreen() {
                   <Text style={[st.lbTabText, leaderboardTab === 'team' && st.lbTabTextOn]}>Team</Text>
                 </TouchableOpacity>
               )}
+              {excludePlayoffFromPoints && playoffBrackets.length > 0 && (
+                <TouchableOpacity style={[st.lbTab, leaderboardTab === 'playoff' && st.lbTabOn]} onPress={() => setLeaderboardTab('playoff')} activeOpacity={0.8}>
+                  <Text style={[st.lbTabText, leaderboardTab === 'playoff' && st.lbTabTextOn]}>Playoff</Text>
+                </TouchableOpacity>
+              )}
               {competition?.include_in_kronos && (
                 <TouchableOpacity style={[st.lbTab, leaderboardTab === 'kronos' && st.lbTabOn]} onPress={() => setLeaderboardTab('kronos')} activeOpacity={0.8}>
                   <Text style={[st.lbTabText, leaderboardTab === 'kronos' && st.lbTabTextOn]}>{individualLabel}</Text>
+                </TouchableOpacity>
+              )}
+              {hasMoney && (
+                <TouchableOpacity style={[st.lbTab, leaderboardTab === 'money' && st.lbTabOn]} onPress={() => setLeaderboardTab('money')} activeOpacity={0.8}>
+                  <Text style={[st.lbTabText, leaderboardTab === 'money' && st.lbTabTextOn]}>Money</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={[st.lbTab, leaderboardTab === 'honours' && st.lbTabOn]} onPress={() => setLeaderboardTab('honours')} activeOpacity={0.8}>
@@ -1158,13 +1319,80 @@ export default function TourScreen() {
 
             {/* ── Team: combined standings across every day ── */}
             {leaderboardTab === 'team' && (
-              <Leaderboard
-                rows={[...teamLeaderboardRows].sort((a, b) => b.sortKey - a.sortKey)}
-                columnLabels={teamSortedDays.map((_, i) => `R${i + 1}`)}
-                totalLabel="TOTAL"
-                pointsKey={teamPointsKey}
-                emptyMessage="No matches played yet. Results will appear here as games complete."
-              />
+              <View>
+                {excludePlayoffFromPoints && playoffBrackets.length > 0 && (
+                  <Text style={{ fontSize: 12, fontFamily: FF, color: dc.cardText, opacity: 0.6, marginBottom: 12, lineHeight: 17 }}>
+                    Final position reflects the Playoff result — see the Playoff tab. Points/W-L below are from the qualifying rounds only.
+                  </Text>
+                )}
+                <Leaderboard
+                  rows={[...teamLeaderboardRows].sort((a, b) => b.sortKey - a.sortKey)}
+                  columnLabels={teamSortedDays.map((_, i) => `R${i + 1}`)}
+                  totalLabel="TOTAL"
+                  pointsKey={teamPointsKey}
+                  emptyMessage="No matches played yet. Results will appear here as games complete."
+                />
+              </View>
+            )}
+
+            {/* ── Playoff: Titan Way's locked-position knockout, shown as
+                brackets — never folds back into the Team points above. */}
+            {leaderboardTab === 'playoff' && (
+              <View>
+                <Text style={{ fontSize: 12, fontFamily: FF, color: dc.cardText, opacity: 0.6, marginBottom: 16, lineHeight: 17 }}>
+                  Final team positions are locked from the qualifying rounds above — this is a straight knockout for pride between fixed positions, and doesn't change the Team standings.
+                </Text>
+                {playoffBrackets.map(b => (
+                  <View key={b.key} style={[st.champCard, { backgroundColor: dc.card, borderColor: dc.border, marginBottom: 16 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {b.homeTeam?.name && teamLogos[b.homeTeam.name] && (
+                          <Image source={teamLogos[b.homeTeam.name]} style={{ width: 20, height: 20 }} resizeMode="contain" />
+                        )}
+                        <Text style={{ fontSize: 14, fontFamily: FFB, color: b.homeTeam?.accent_color ?? dc.cardText, flexShrink: 1 }} numberOfLines={1}>
+                          {b.homeSeed ? `${ordinalLabel(b.homeSeed)} ` : ''}{b.homeTeam?.name ?? '—'}
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: 11, fontFamily: FFB, color: dc.cardText, opacity: 0.5, marginHorizontal: 8 }}>VS</Text>
+                      <View style={{ flex: 1, flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                        {b.awayTeam?.name && teamLogos[b.awayTeam.name] && (
+                          <Image source={teamLogos[b.awayTeam.name]} style={{ width: 20, height: 20 }} resizeMode="contain" />
+                        )}
+                        <Text style={{ fontSize: 14, fontFamily: FFB, color: b.awayTeam?.accent_color ?? dc.cardText, flexShrink: 1, textAlign: 'right' }} numberOfLines={1}>
+                          {b.awaySeed ? `${ordinalLabel(b.awaySeed)} ` : ''}{b.awayTeam?.name ?? '—'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text style={{ fontSize: 22, fontFamily: FFB, color: dc.gold, textAlign: 'center', marginVertical: 8 }}>
+                      {b.homeWins} – {b.awayWins}{b.halves > 0 ? `  (${b.halves} halved)` : ''}
+                    </Text>
+                    {b.swept && (
+                      <Text style={{ fontSize: 10, fontFamily: FFB, color: GREEN, textAlign: 'center', letterSpacing: 1, marginBottom: 8 }}>
+                        CLEAN SWEEP
+                      </Text>
+                    )}
+
+                    {b.matches.map((m: any) => {
+                      const homePlayer = players.find(p => p.id === m.home_player_ids[0]);
+                      const awayPlayer = players.find(p => p.id === m.away_player_ids[0]);
+                      const statusLabel = m.status === 'complete' ? (m.result_str ?? '—') : m.status === 'in_progress' ? 'LIVE' : 'UPCOMING';
+                      return (
+                        <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 7, borderTopWidth: 1, borderTopColor: dc.border }}>
+                          <Text style={{ fontSize: 12, fontFamily: FF, color: dc.cardText, flex: 1 }} numberOfLines={1}>{homePlayer?.display_name ?? '—'}</Text>
+                          <Text style={{ fontSize: 11, fontFamily: FFB, color: m.status === 'complete' ? dc.gold : m.status === 'in_progress' ? GREEN : dc.cardText, marginHorizontal: 8 }}>
+                            {statusLabel}
+                          </Text>
+                          <Text style={{ fontSize: 12, fontFamily: FF, color: dc.cardText, flex: 1, textAlign: 'right' }} numberOfLines={1}>{awayPlayer?.display_name ?? '—'}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
+                {playoffBrackets.length === 0 && (
+                  <Text style={st.noResults}>Playoff bracket not generated yet.</Text>
+                )}
+              </View>
             )}
 
             {/* ── Kronos: one row per player, D1-D4 columns + total ── */}
@@ -1185,7 +1413,49 @@ export default function TourScreen() {
                 columnLabels={sortedDays.map((_, i) => `D${i + 1}`)}
                 totalLabel="TOT"
                 emptyMessage="No Stableford scores yet."
+                onRowPress={row => { setScorecardPlayerId(row.playerId ?? null); setScorecardDayIdx(0); }}
               />
+            )}
+
+            {/* ── Money: every payout in the tournament, together ── */}
+            {leaderboardTab === 'money' && (
+              <View>
+                {prizePool != null && prizeSplit.length > 0 && (
+                  <>
+                    <Text style={st.sectionHeader}>TEAM PRIZE — £{Number(prizePool).toLocaleString('en-GB')}</Text>
+                    {teamsInFinalOrder.slice(0, prizeSplit.length).map((s, i) => (
+                      <View key={s.teamId} style={[st.champCard, { backgroundColor: dc.card, borderColor: dc.border, marginBottom: 10, flexDirection: 'row', alignItems: 'center' }]}>
+                        <Text style={{ width: 40, fontSize: 13, fontFamily: FFB, color: dc.textSecondary }}>{ordinalLabel(i + 1)}</Text>
+                        {teamLogos[s.name] && <Image source={teamLogos[s.name]} style={{ width: 24, height: 24, marginRight: 8 }} resizeMode="contain" />}
+                        <Text style={{ flex: 1, fontSize: 15, fontFamily: FFB, color: s.accent_color ?? dc.cardText }} numberOfLines={1}>{s.name}</Text>
+                        <Text style={{ fontSize: 15, fontFamily: FFB, color: GOLD }}>
+                          £{Number(prizePool * prizeSplit[i] / 100).toLocaleString('en-GB', { minimumFractionDigits: 0 })}
+                        </Text>
+                      </View>
+                    ))}
+                  </>
+                )}
+
+                {kronosChampion?.prize_money != null && (
+                  <>
+                    <Text style={[st.sectionHeader, { marginTop: prizePool != null ? 20 : 0 }]}>{individualLabel.toUpperCase()} CHAMPION</Text>
+                    <View style={[st.champCard, { backgroundColor: dc.card, borderColor: dc.border, marginBottom: 10, flexDirection: 'row', alignItems: 'center' }]}>
+                      <Text style={{ flex: 1, fontSize: 15, fontFamily: FFB, color: dc.cardText }} numberOfLines={1}>{kronosChampion.display_name}</Text>
+                      <Text style={{ fontSize: 15, fontFamily: FFB, color: GOLD }}>
+                        £{Number(kronosChampion.prize_money).toLocaleString('en-GB', { minimumFractionDigits: 0 })}
+                      </Text>
+                    </View>
+                  </>
+                )}
+
+                {prizeCats.length > 0 && (
+                  <Text style={{ fontSize: 12, fontFamily: FF, color: dc.cardText, opacity: 0.6, marginTop: 20, lineHeight: 17 }}>
+                    Individual handicap-category prizes are in Players → Prize Categories, further down.
+                  </Text>
+                )}
+
+                {!hasMoney && <Text style={st.noResults}>No prize money set for this tournament.</Text>}
+              </View>
             )}
 
             {/* ── Honours: past champions ── */}
@@ -1459,6 +1729,125 @@ export default function TourScreen() {
         onSaved={() => {}}
         competitionId={competition?.id}
       />
+
+      {/* Scorecard — opened by tapping a Kronos row. Round tabs (1/2/3/4)
+          instead of one long scroll of every hole in the tournament. */}
+      <Modal visible={scorecardPlayerId !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setScorecardPlayerId(null)}>
+        <View style={{ flex: 1, backgroundColor: dc.bg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : 24, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: dc.border }}>
+            <Text style={{ fontSize: 16, fontFamily: FFB, color: dc.cardText }} numberOfLines={1}>
+              {players.find(p => p.id === scorecardPlayerId)?.display_name ?? 'Scorecard'}
+            </Text>
+            <TouchableOpacity onPress={() => setScorecardPlayerId(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={{ fontSize: 15, fontFamily: FFB, color: GOLD }}>Done</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12, gap: 8 }}>
+            {sortedDays.map((day, i) => (
+              <TouchableOpacity
+                key={day.id}
+                onPress={() => setScorecardDayIdx(i)}
+                style={[st.lbTab, { flex: 0, paddingHorizontal: 18 }, scorecardDayIdx === i && st.lbTabOn]}
+                activeOpacity={0.8}
+              >
+                <Text style={[st.lbTabText, scorecardDayIdx === i && st.lbTabTextOn]}>{i + 1}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+            {(() => {
+              const day = sortedDays[scorecardDayIdx];
+              const holes = (scorecardPlayerId && day) ? (scorecardsByPlayer[scorecardPlayerId]?.[day.id] ?? []) : [];
+              if (holes.length === 0) {
+                return <Text style={st.noResults}>No scores recorded for this round.</Text>;
+              }
+              const totalGross = holes.reduce((sum, h) => sum + (h.gross ?? 0), 0);
+              const totalPts = holes.reduce((sum, h) => sum + (h.pts ?? 0), 0);
+              // Same grid grammar as RoundScorecard (score/enter, spectate,
+              // profile/round) — HOLE/PAR/SI header rows, one 9-hole block
+              // at a time, colored score pill — so this looks like the rest
+              // of the app's scorecards, not a bespoke list (Dave, 2026-09-02
+              // — "can it be more appealing... I like the PGA style we have").
+              const nines = [holes.filter(h => h.hole <= 9), holes.filter(h => h.hole > 9)].filter(n => n.length > 0);
+              return (
+                <>
+                  {day.course_name && (
+                    <Text style={{ fontSize: 12, fontFamily: FFB, color: dc.cardText, opacity: 0.6, marginBottom: 12 }}>{day.course_name}</Text>
+                  )}
+                  {nines.map((nine, ni) => {
+                    const ninePar = nine.reduce((a, h) => a + (h.par ?? 0), 0);
+                    const nineGross = nine.reduce((a, h) => a + (h.gross ?? 0), 0);
+                    const ninePts = nine.reduce((a, h) => a + (h.pts ?? 0), 0);
+                    return (
+                      <View key={ni} style={sc.container}>
+                        <Text style={sc.title}>{nine[0].hole <= 9 ? 'FRONT 9' : 'BACK 9'}</Text>
+
+                        <View style={sc.headerRow}>
+                          <Text allowFontScaling={false} style={[sc.cell, sc.labelCell, { color: '#fff' }]}>HOLE</Text>
+                          {nine.map(h => <Text allowFontScaling={false} key={h.hole} style={[sc.cell, sc.holeCell, { color: '#fff' }]}>{h.hole}</Text>)}
+                          <Text allowFontScaling={false} style={[sc.cell, sc.totalCell, { color: '#fff' }]}>TOT</Text>
+                        </View>
+
+                        <View style={[sc.row, { backgroundColor: '#0a0a0a' }]}>
+                          <Text allowFontScaling={false} style={[sc.cell, sc.labelCell, { color: GOLD }]}>PAR</Text>
+                          {nine.map(h => <Text allowFontScaling={false} key={h.hole} style={[sc.cell, sc.holeCell, { color: GOLD }]}>{h.par ?? '—'}</Text>)}
+                          <Text allowFontScaling={false} style={[sc.cell, sc.totalCell, { color: GOLD }]}>{ninePar || '—'}</Text>
+                        </View>
+
+                        <View style={sc.row}>
+                          <Text allowFontScaling={false} style={[sc.cell, sc.labelCell, { color: '#fff' }]}>SI</Text>
+                          {nine.map(h => <Text allowFontScaling={false} key={h.hole} style={[sc.cell, sc.holeCell, { color: '#fff', fontSize: 9 }]}>{h.strokeIndex ?? '—'}</Text>)}
+                          <Text allowFontScaling={false} style={[sc.cell, sc.totalCell, { color: '#fff' }]}>—</Text>
+                        </View>
+
+                        <View style={[sc.row, { borderBottomWidth: 0 }]}>
+                          <Text allowFontScaling={false} style={[sc.cell, sc.labelCell, { color: '#fff' }]} numberOfLines={1}>SCORE</Text>
+                          {nine.map(h => {
+                            const cat = (h.gross != null && h.par != null) ? scoreVsPar(h.gross, h.par) : null;
+                            const cellColor = cat ? SCORE_COLORS[cat] : '#333';
+                            return (
+                              <View key={h.hole} style={[sc.cell, sc.holeCell, { gap: 2 }]}>
+                                {h.gross != null ? (
+                                  <>
+                                    <View style={[sc.scorePill, { borderColor: `${cellColor}50`, backgroundColor: `${cellColor}12` }]}>
+                                      <Text allowFontScaling={false} style={[sc.scorePillText, { color: cellColor }]}>{h.gross}</Text>
+                                    </View>
+                                    {h.pts != null && (
+                                      <Text allowFontScaling={false} style={[sc.ptsText, { color: GOLD }]}>{h.pts}pt</Text>
+                                    )}
+                                  </>
+                                ) : (
+                                  <Text style={{ fontFamily: FFB, fontSize: 10, color: '#444' }}>—</Text>
+                                )}
+                              </View>
+                            );
+                          })}
+                          <Text allowFontScaling={false} style={[sc.cell, sc.totalCell, { color: nineGross > 0 ? '#ffffff' : '#333' }]}>
+                            {nineGross > 0 ? nineGross : '—'}
+                          </Text>
+                        </View>
+                        {ninePts > 0 && (
+                          <Text style={{ fontFamily: FFB, fontSize: 10, color: GOLD, textAlign: 'right', paddingHorizontal: 12, paddingBottom: 8 }}>
+                            {ninePts} pts this 9
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })}
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, marginTop: 4, borderTopWidth: 2, borderTopColor: GOLD }}>
+                    <Text style={{ flex: 1, fontSize: 13, fontFamily: FFB, color: dc.cardText }}>ROUND TOTAL</Text>
+                    <Text style={{ fontSize: 18, fontFamily: FFB, color: dc.cardText, marginRight: 12 }}>{totalGross || '–'}</Text>
+                    <Text style={{ fontSize: 14, fontFamily: FFB, color: GOLD }}>{totalPts} pts</Text>
+                  </View>
+                </>
+              );
+            })()}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1662,4 +2051,21 @@ const igSt = StyleSheet.create({
   openBtn:    { backgroundColor: '#833AB4', borderRadius: 10, paddingVertical: 14, paddingHorizontal: 32 },
   openBtnText:{ fontSize: 16, fontFamily: 'JUSTSans-ExBold', color: '#ffffff', letterSpacing: 0.5 },
   webLink:    { fontSize: 14, fontFamily: 'JUSTSans-ExBold', color: '#fff', textDecorationLine: 'underline' },
+});
+
+// Kronos player-scorecard grid — same tokens as src/components/RoundScorecard.tsx
+// (score/enter, spectate, profile/round) so this reads as the same scorecard
+// everywhere in the app rather than a one-off list.
+const sc = StyleSheet.create({
+  container:    { backgroundColor: '#111111', borderRadius: 14, borderWidth: 1, borderColor: '#1c1c1c', overflow: 'hidden', marginBottom: 16 },
+  title:        { fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: GOLD, letterSpacing: 2, padding: 12, paddingBottom: 4 },
+  headerRow:    { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1a1a1a', backgroundColor: '#0a0a0a' },
+  row:          { flexDirection: 'row', paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: '#141414' },
+  cell:         { alignItems: 'center', justifyContent: 'center' },
+  labelCell:    { width: 56, paddingLeft: 10, alignItems: 'flex-start' },
+  holeCell:     { flex: 1, fontFamily: 'JUSTSans-ExBold', fontSize: 11, color: '#fff', textAlign: 'center' },
+  totalCell:    { width: 34, fontFamily: 'JUSTSans-ExBold', fontSize: 11, color: '#ffffff', textAlign: 'center' },
+  scorePill:    { borderWidth: 1, borderRadius: 5, paddingHorizontal: 4, paddingVertical: 1, minWidth: 20, alignItems: 'center' },
+  scorePillText:{ fontFamily: 'JUSTSans-ExBold', fontSize: 11 },
+  ptsText:      { fontFamily: 'JUSTSans-ExBold', fontSize: 9, textAlign: 'center' },
 });

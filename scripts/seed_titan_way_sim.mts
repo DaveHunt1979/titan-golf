@@ -352,17 +352,18 @@ async function main() {
   players.forEach((p: any) => { nameByPlayerId[p.id] = p.display_name; });
   console.log('Kronos leaderboard top 5:', kronosSorted.slice(0, 5).map(([pid, pts]) => `${nameByPlayerId[pid]} (${pts})`).join(' | '));
 
-  // ── Prize categories (fake, "go full out") ──
-  const [cat1, cat2, cat3] = await insert<any>('prize_categories', [
-    { competition_id: comp.id, name: 'Winning Team', display_order: 1 },
-    { competition_id: comp.id, name: 'Kronos Individual Champion', display_order: 2 },
-    { competition_id: comp.id, name: 'Runner-Up Team', display_order: 3 },
-  ]);
-  await insert('prize_payouts', [
-    { category_id: cat1.id, position: 1, prize_money: 2400 },
-    { category_id: cat2.id, position: 1, prize_money: 1500 },
-    { category_id: cat3.id, position: 1, prize_money: 900 },
-  ]);
+  // Team prize money already lives on the competition itself
+  // (prize_pool/prize_split, set above) and the Kronos champion prize is
+  // kronos_overall_prize (also set above) — those are the real fields the
+  // app reads for this, paid out by finalPositionByTeam once the playoff
+  // decides it. An earlier version of this script also created
+  // `prize_categories` rows ("Winning Team"/"Runner-Up Team") for the same
+  // money, which is the wrong table (prize_categories is a handicap-banded
+  // *individual* prize structure, joined to players by hcp range — it has
+  // no team concept, so those rows never correctly attributed money to a
+  // team and just double-counted the real fields). Removed; add real
+  // prize_categories rows here only if this tournament should also pay out
+  // by handicap band, which wasn't part of the original ask.
 
   // ── Mark complete ──
   await sb.from('competitions').update({ status: 'complete' }).eq('id', comp.id);

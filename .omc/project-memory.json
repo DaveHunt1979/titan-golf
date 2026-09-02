@@ -261,15 +261,15 @@
   },
   "hotPaths": [
     {
-      "path": "app/(app)/admin/draw.tsx",
-      "accessCount": 169,
-      "lastAccessed": 1788326817287,
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 242,
+      "lastAccessed": 1788338442314,
       "type": "file"
     },
     {
-      "path": "app/(app)/tour/index.tsx",
-      "accessCount": 166,
-      "lastAccessed": 1788326786017,
+      "path": "app/(app)/admin/draw.tsx",
+      "accessCount": 176,
+      "lastAccessed": 1788338476232,
       "type": "file"
     },
     {
@@ -315,6 +315,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/index.tsx",
+      "accessCount": 28,
+      "lastAccessed": 1788336487076,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/camera/index.tsx",
       "accessCount": 26,
       "lastAccessed": 1787579703309,
@@ -324,12 +330,6 @@
       "path": "app/(app)/admin/prizes.tsx",
       "accessCount": 23,
       "lastAccessed": 1787551963805,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/index.tsx",
-      "accessCount": 20,
-      "lastAccessed": 1787636178724,
       "type": "file"
     },
     {
@@ -351,15 +351,21 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/inbox/[playerId].tsx",
+      "accessCount": 12,
+      "lastAccessed": 1788335335737,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/news/index.tsx",
       "accessCount": 10,
       "lastAccessed": 1787656136066,
       "type": "file"
     },
     {
-      "path": "app/(app)/inbox/[playerId].tsx",
+      "path": "app/(app)/_layout.tsx",
       "accessCount": 9,
-      "lastAccessed": 1787660292333,
+      "lastAccessed": 1788335515306,
       "type": "file"
     },
     {
@@ -372,6 +378,12 @@
       "path": "src/types/index.ts",
       "accessCount": 7,
       "lastAccessed": 1787579544220,
+      "type": "file"
+    },
+    {
+      "path": "src/components/Leaderboard.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1788330729969,
       "type": "file"
     },
     {
@@ -435,12 +447,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/_layout.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1787322567656,
-      "type": "file"
-    },
-    {
       "path": "supabase/migrations/20260816000000_team_roster.sql",
       "accessCount": 2,
       "lastAccessed": 1787583292973,
@@ -480,12 +486,6 @@
       "path": "supabase/migrations/20260804040000_tournament_engine_phase1.sql",
       "accessCount": 1,
       "lastAccessed": 1787317486321,
-      "type": "file"
-    },
-    {
-      "path": "src/components/Leaderboard.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1787317508839,
       "type": "file"
     },
     {

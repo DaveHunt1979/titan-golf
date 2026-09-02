@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../lib/supabase';
 import { resolveAvatar } from '../lib/assets';
 import { useSocietyTheme } from '../lib/SocietyThemeContext';
+import { sendPushNotification } from '../lib/notifications';
 
 const GOLD  = '#D4AF37';
 const FF    = 'JUSTSans';
@@ -138,6 +139,12 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
     if (error) {
       console.error('send message failed:', error);
       setText(content);
+    } else {
+      supabase.from('society_members').select('player_id').eq('society_id', societyId).neq('player_id', me.id)
+        .then(({ data: rows }) => {
+          const recipientIds = (rows ?? []).map(r => r.player_id);
+          sendPushNotification(me.display_name, content, recipientIds, { type: 'message', channel, societyId });
+        });
     }
     setSending(false);
   }

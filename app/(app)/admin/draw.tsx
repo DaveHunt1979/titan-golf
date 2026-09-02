@@ -1082,7 +1082,8 @@ export default function TournamentDrawScreen() {
         {/* ── DRAW TAB ─────────────────────────────────────────────── */}
         {tab === 'draw' && (() => {
           const maxDayNumber = days.length > 0 ? Math.max(...days.map(d => d.day_number)) : 0;
-          const isTitanWay = comp?.format === 'titan_way';
+          const drawFormatRules = getFormatRules(comp?.format);
+          const usesWholeTournamentDraw = drawFormatRules.wholeTournamentDraw;
           return (
           <View>
             <Text style={s.sectionLabel}>{days.length} DAYS</Text>
@@ -1091,7 +1092,7 @@ export default function TournamentDrawScreen() {
                 <Text style={s.emptyText}>No days configured. Add days in the tournament builder.</Text>
               </View>
             )}
-            {isTitanWay && days.length > 0 && (
+            {usesWholeTournamentDraw && days.length > 0 && (
               <View style={s.titanWayBanner}>
                 <TouchableOpacity
                   style={s.genBtn}
@@ -1099,7 +1100,7 @@ export default function TournamentDrawScreen() {
                   disabled={!!generating}
                   activeOpacity={0.8}
                 >
-                  {generating === 'titan_way' ? <ActivityIndicator size="small" color="#000" /> : <Text style={s.genBtnText}>GENERATE TITAN WAY DRAW</Text>}
+                  {generating === 'titan_way' ? <ActivityIndicator size="small" color="#000" /> : <Text style={s.genBtnText}>GENERATE {drawFormatRules.label.toUpperCase()} DRAW</Text>}
                 </TouchableOpacity>
                 <Text style={s.titanWayBannerSub}>
                   Generates every qualifying round (Days 1–{Math.max(1, maxDayNumber - 1)}) together, minimising repeat partners and opponents.
@@ -1109,7 +1110,7 @@ export default function TournamentDrawScreen() {
             {days.map(day => {
               const dayMatches = matches.filter(m => m.day_id === day.id);
               const isGen = generating === day.id;
-              const isTitanWayQualifyingDay = isTitanWay && day.day_number !== maxDayNumber;
+              const isTitanWayQualifyingDay = usesWholeTournamentDraw && day.day_number !== maxDayNumber;
               return (
                 <View key={day.id} style={s.dayCard}>
                   <View style={s.dayCardHeader}>

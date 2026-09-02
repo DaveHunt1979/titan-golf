@@ -19,6 +19,7 @@ const TILES = [
   { key: 'branding', label: 'Branding', sub: 'Logo, colours & social media',               icon: 'color-palette-outline'   as const, route: '/(app)/admin/branding' },
   { key: 'transfer', label: 'Teams/Players', sub: 'Create teams, crests & move players',   icon: 'people-outline'          as const, route: '/(app)/admin/transfers' },
   { key: 'info',     label: 'Info Pack',sub: 'Schedule, rules & travel',                   icon: 'document-text-outline'   as const, route: '/(app)/admin/info' },
+  { key: 'simulate', label: 'Simulate', sub: 'Stress-test a format at scale',              icon: 'flask-outline'            as const, route: '/(app)/admin/simulate' },
 ] as const;
 
 export default function TournamentHubScreen() {

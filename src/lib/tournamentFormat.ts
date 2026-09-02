@@ -7,7 +7,7 @@
 // selection now flows through a single table: Available Rules ->
 // Terminology -> Scoring Options -> Game Generation Rules -> Leaderboard
 // Behaviour -> Validation, all read from here.
-export type FormatId = 'team_matchplay' | 'titan_way' | 'ryder_cup' | 'stableford' | 'medal' | 'knockout';
+export type FormatId = 'team_matchplay' | 'titan_way' | 'odd_titan' | 'ryder_cup' | 'stableford' | 'medal' | 'knockout';
 
 export interface FormatRules {
   id: FormatId;
@@ -25,6 +25,9 @@ export interface FormatRules {
   minPlayers: number | null;             // Go Live validation
   exactPlayersPerTeam: number | null;    // every team must have exactly this many active players — Titan Way only
   requiresEvenTeams: boolean;            // team count must be even — Titan Way only (the generic isMatchplay odd-team check in build.tsx predates this and stays as a fallback for other formats)
+  requiresOddTeams: boolean;             // team count must be odd — Odd Titan only (Titan Way's knockout playoff needs even pairs; this format's final round doesn't pair teams at all, so odd is the whole point)
+  wholeTournamentDraw: boolean;          // qualifying rounds generated together via titanWayDraw.ts's partnership optimizer, not day-by-day — Titan Way + Odd Titan
+  finalRoundStablefordTeamPoints: boolean; // final round's team points = sum of each team's players' Stableford points that round, added to the Rounds 1-3 match-play total — Odd Titan only (Dave, 2026-09-02: odd team counts can't be bracketed 1v2/3v4 the way Titan Way locks final position, so the last round counts toward the same table instead of deciding it via a knockout)
   howItWorks: string[] | null;           // "HOW IT WORKS" expandable steps on the format card — Titan Way only
   defaultDays: number;
   defaultDayFormat: string;              // a DayFormatId value — that type stays owned by build.tsx (a separate, round-level axis), cast at the boundary
@@ -51,6 +54,9 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     minPlayers: null,
     exactPlayersPerTeam: null,
     requiresEvenTeams: false,
+    requiresOddTeams: false,
+    wholeTournamentDraw: false,
+    finalRoundStablefordTeamPoints: false,
     howItWorks: null,
     defaultDays: 4,
     defaultDayFormat: 'four_bbb',
@@ -79,6 +85,9 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     minPlayers: 16,
     exactPlayersPerTeam: 4,
     requiresEvenTeams: true,
+    requiresOddTeams: false,
+    wholeTournamentDraw: true,
+    finalRoundStablefordTeamPoints: false,
     howItWorks: [
       'Build Your Teams — create an even number of teams with exactly four active players in each team.',
       'Titan Builds The Draw — Titan analyses the entire tournament and generates all scheduled 4BBB rounds together, maximising variety and minimising unnecessary repeat opponents and partnerships.',
@@ -86,6 +95,39 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
       'Final Team Positions — once every qualifying round is complete, Titan locks the final Team Rankings and pairs teams by finishing position (1st vs 2nd, 3rd vs 4th, 5th vs 6th, and so on).',
       'Kronos Sets The Singles Order — within each playoff, players are ranked by Kronos Individual Stableford performance. Highest plays highest, second plays second, and so on.',
       'The Final Showdown — the final round is Singles Matchplay. Every team has something to play for, and every player has earned their position through their tournament performance.',
+    ],
+    defaultDays: 4,
+    defaultDayFormat: 'four_bbb',
+    defaultHcpPct: 75,
+    defaultPtsWin: 3,
+    defaultPtsHalf: 1,
+    defaultMaxHandicap: 18,
+  },
+  odd_titan: {
+    id: 'odd_titan',
+    label: 'Odd Titan',
+    sub: 'Titan Way for an odd number of teams. Play through mathematically generated 4BBB team rounds, then a final Singles round whose Stableford points are added straight onto the Team Leaderboard rather than deciding a separate knockout. 3–11 teams (odd numbers only), exactly 4 players per team.',
+    available: true,
+    isTeamFormat: true,
+    individualBoardDefaultOn: true,
+    individualBoardLabel: 'Kronos',
+    captainRotation: true,
+    finalDayKnockout: false,
+    lastDaySinglesOverride: true,
+    minTeams: 3,
+    maxTeams: 11,
+    minPlayers: 12,
+    exactPlayersPerTeam: 4,
+    requiresEvenTeams: false,
+    requiresOddTeams: true,
+    wholeTournamentDraw: true,
+    finalRoundStablefordTeamPoints: true,
+    howItWorks: [
+      'Build Your Teams — create an odd number of teams with exactly four active players in each team.',
+      'Titan Builds The Draw — Titan analyses the entire tournament and generates all scheduled 4BBB rounds together, maximising variety and minimising unnecessary repeat opponents and partnerships.',
+      'Play The Team Rounds — team results build the Team Leaderboard, individual Stableford scores build the Kronos Individual Rankings.',
+      'The Final Round Is Singles — an odd number of teams can’t be bracketed 1v2, 3v4 the way Titan Way locks final position, so the last round pairs players across different teams instead, ranked by Kronos.',
+      'Stableford Decides It — every player’s Stableford points from that final round are added up per team and go straight onto the Team Leaderboard alongside the match-play points from the earlier rounds, deciding the outright winner.',
     ],
     defaultDays: 4,
     defaultDayFormat: 'four_bbb',
@@ -110,6 +152,9 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     minPlayers: null,
     exactPlayersPerTeam: null,
     requiresEvenTeams: false,
+    requiresOddTeams: false,
+    wholeTournamentDraw: false,
+    finalRoundStablefordTeamPoints: false,
     howItWorks: null,
     defaultDays: 3,
     defaultDayFormat: 'four_bbb',
@@ -134,6 +179,9 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     minPlayers: null,
     exactPlayersPerTeam: null,
     requiresEvenTeams: false,
+    requiresOddTeams: false,
+    wholeTournamentDraw: false,
+    finalRoundStablefordTeamPoints: false,
     howItWorks: null,
     defaultDays: 4,
     defaultDayFormat: 'stableford',
@@ -158,6 +206,9 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     minPlayers: null,
     exactPlayersPerTeam: null,
     requiresEvenTeams: false,
+    requiresOddTeams: false,
+    wholeTournamentDraw: false,
+    finalRoundStablefordTeamPoints: false,
     howItWorks: null,
     defaultDays: 2,
     defaultDayFormat: 'medal',
@@ -182,6 +233,9 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     minPlayers: null,
     exactPlayersPerTeam: null,
     requiresEvenTeams: false,
+    requiresOddTeams: false,
+    wholeTournamentDraw: false,
+    finalRoundStablefordTeamPoints: false,
     howItWorks: null,
     defaultDays: 1,
     defaultDayFormat: 'singles',
@@ -225,6 +279,9 @@ export function checkTitanWayStructure(
   }
   if (rules.requiresEvenTeams && teams.length % 2 !== 0) {
     issues.push({ label: `${rules.label} needs an even number of teams — currently ${teams.length}` });
+  }
+  if (rules.requiresOddTeams && teams.length % 2 === 0) {
+    issues.push({ label: `${rules.label} needs an odd number of teams — currently ${teams.length}` });
   }
   if (rules.exactPlayersPerTeam != null) {
     teams.forEach(t => {

@@ -863,7 +863,7 @@ export default function BuildTournamentScreen() {
     // Structural checks (exact team size, even team count, team-count
     // ceiling) — Titan Way only, format-driven so this can never disagree
     // with draw.tsx's own pre-draw feasibility check (Rick's brief, 2026-08-25).
-    if (rules.maxTeams != null || rules.exactPlayersPerTeam != null || rules.requiresEvenTeams) {
+    if (rules.maxTeams != null || rules.exactPlayersPerTeam != null || rules.requiresEvenTeams || rules.requiresOddTeams) {
       const countsByTeam = new Map<string, number>();
       compPlayers.filter(cp => cp.status !== 'declined' && cp.team_id).forEach(cp => {
         countsByTeam.set(cp.team_id!, (countsByTeam.get(cp.team_id!) ?? 0) + 1);

@@ -4,15 +4,30 @@ import { supabase } from './supabase';
 
 const PROJECT_ID = '595df628-ba81-4fe5-82f7-d33ef97f274d';
 
+// Updated by the root layout's usePathname() on every navigation — read
+// here (a plain module, no hooks) to decide whether a message notification
+// arriving in the foreground should show the system banner or be suppressed
+// in favor of the in-game MessageAlert splash (Dave, 2026-09-02: "if it is
+// in a game, can we have a little pop up like the birdie or eagle splash
+// screen" instead of the default banner interrupting live scoring).
+export const currentRoute = { path: '' };
+export function isOnLiveScoreScreen() {
+  return currentRoute.path.startsWith('/score/');
+}
+
 export async function registerForPushNotifications(playerId: string) {
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
+    handleNotification: async (notification) => {
+      const isMessage = notification.request.content.data?.type === 'message';
+      const suppress = isMessage && isOnLiveScoreScreen();
+      return {
+        shouldShowAlert: !suppress,
+        shouldShowBanner: !suppress,
+        shouldShowList: !suppress,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      };
+    },
   });
 
   if (Platform.OS === 'android') {
@@ -43,6 +58,16 @@ export async function registerForPushNotifications(playerId: string) {
 export async function sendMatchNotification(competitionId: string, title: string, body: string, playerIds?: string[]) {
   try {
     await supabase.functions.invoke('send-push', { body: { competitionId, title, body, playerIds } });
+  } catch {}
+}
+
+// Generic sibling to sendMatchNotification for anything not scoped to a
+// competition (DMs, chat channels) — send-push already accepts a direct
+// playerIds array with no competitionId, so no edge-function change needed.
+export async function sendPushNotification(title: string, body: string, playerIds: string[], data?: Record<string, unknown>) {
+  if (!playerIds.length) return;
+  try {
+    await supabase.functions.invoke('send-push', { body: { title, body, playerIds, data } });
   } catch {}
 }
 

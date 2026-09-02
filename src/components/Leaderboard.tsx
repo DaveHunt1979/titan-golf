@@ -1,4 +1,4 @@
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDynamicColors } from '../lib/SocietyThemeContext';
 import { resolveAvatar, teamLogos } from '../lib/assets';
@@ -36,6 +36,10 @@ export interface LeaderboardProps {
   rows: LeaderboardRow[];
   emptyMessage?: string;
   pointsKey?: { label: string; value: string }[];
+  // Optional — rows render as plain Views when omitted, unchanged from
+  // before this existed. Only Kronos (tap a player for their scorecard)
+  // uses this today.
+  onRowPress?: (row: LeaderboardRow) => void;
 }
 
 function tierColor(rank: number, rowCount: number): string {
@@ -70,7 +74,7 @@ function RowIcon({ row, size, dc }: { row: LeaderboardRow; size: number; dc: Ret
   );
 }
 
-export default function Leaderboard({ title, columnLabels, totalLabel = 'TOTAL', rows, emptyMessage = 'No results yet', pointsKey }: LeaderboardProps) {
+export default function Leaderboard({ title, columnLabels, totalLabel = 'TOTAL', rows, emptyMessage = 'No results yet', pointsKey, onRowPress }: LeaderboardProps) {
   const dc = useDynamicColors();
 
   // Tie-aware ranking: same sortKey as the row before it → shares that
@@ -108,9 +112,12 @@ export default function Leaderboard({ title, columnLabels, totalLabel = 'TOTAL',
         <Text style={[s.empty, { color: dc.textSecondary }]}>{emptyMessage}</Text>
       ) : ranked.map(({ row, rank, tied }) => {
         const accent = tierColor(rank, ranked.length);
+        const RowContainer: any = onRowPress ? TouchableOpacity : View;
         return (
-          <View
+          <RowContainer
             key={row.id}
+            activeOpacity={onRowPress ? 0.7 : undefined}
+            onPress={onRowPress ? () => onRowPress(row) : undefined}
             style={[
               s.row,
               { backgroundColor: dc.card, borderColor: dc.border, borderLeftColor: accent, borderLeftWidth: accent === 'transparent' ? 1 : 3 },
@@ -130,7 +137,7 @@ export default function Leaderboard({ title, columnLabels, totalLabel = 'TOTAL',
               <Text key={i} style={[s.cell, { color: dc.textSecondary }]}>{val ?? '–'}</Text>
             ))}
             <Text style={[s.total, { color: rank === 1 ? dc.gold : dc.cardText }]}>{row.totalDisplay}</Text>
-          </View>
+          </RowContainer>
         );
       })}
 
