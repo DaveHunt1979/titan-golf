@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { CommonActions } from '@react-navigation/native';
 import { supabase } from '../../src/lib/supabase';
-import { registerForPushNotifications, currentRoute } from '../../src/lib/notifications';
+import { registerForPushNotifications, currentRoute, clearBadgeCount } from '../../src/lib/notifications';
 import { titanLogo } from '../../src/lib/assets';
 import { SocietyThemeProvider, useSocietyTheme } from '../../src/lib/SocietyThemeContext';
 import { IS_PAD, SIDEBAR_W } from '../../src/lib/useDeviceLayout';
@@ -161,6 +161,14 @@ function AppLayoutInner() {
     startIfActive(AppState.currentState);
     const sub = AppState.addEventListener('change', startIfActive);
     return () => { sub.remove(); if (interval) clearInterval(interval); };
+  }, []);
+
+  // Opening the app counts as "seen it" — clear the icon badge every time
+  // it comes to the foreground, not just once on login (Dave, 2026-09-03).
+  useEffect(() => {
+    clearBadgeCount();
+    const sub = AppState.addEventListener('change', state => { if (state === 'active') clearBadgeCount(); });
+    return () => sub.remove();
   }, []);
 
   async function loadProfile() {

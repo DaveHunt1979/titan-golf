@@ -11,6 +11,7 @@ import { supabase } from '../../../../src/lib/supabase';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { speakIntro } from '../../../../src/lib/caddie';
 import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
+import { formatStrokeHoles } from '../../../../src/lib/scoring';
 import { goBack } from '../../../../src/lib/navigation';
 import { matchFormatLabel } from '../../../../src/lib/tournamentFormat';
 
@@ -65,6 +66,7 @@ export default function MatchPreviewScreen() {
   const [match, setMatch] = useState<MatchPreview | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [roundPlayerTees, setRoundPlayerTees] = useState<Record<string, RoundPlayerTeeSnapshot>>({});
+  const [courseHoles, setCourseHoles] = useState<{ hole_number: number; stroke_index: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [retryTick, setRetryTick] = useState(0);
@@ -84,6 +86,13 @@ export default function MatchPreviewScreen() {
         if (!matchData) { console.warn('[preview.load] no match found', { matchId }); setLoadError(true); return; }
         console.log('[preview.load] match fetched', { matchId, status: matchData.status, round_format: matchData.round_format });
         setMatch(matchData as any);
+
+        if (matchData.day?.course_name) {
+          const { data: holesData } = await supabase
+            .from('course_holes').select('hole_number,stroke_index')
+            .eq('course_name', matchData.day.course_name);
+          setCourseHoles((holesData as any[]) ?? []);
+        }
 
         const allIds = [...(matchData.home_player_ids ?? []), ...(matchData.away_player_ids ?? [])];
         if (allIds.length) {
@@ -293,17 +302,17 @@ export default function MatchPreviewScreen() {
         {/* Players */}
         <View style={isSolo ? s.soloRow : s.matchupRow}>
           {isSolo ? (
-            homePlayers.map(p => <PlayerCard key={p.id} player={p} size={homePlayers.length > 2 ? 60 : 80} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} roundPlayerTee={roundPlayerTees[p.id]} />)
+            homePlayers.map(p => <PlayerCard key={p.id} player={p} size={homePlayers.length > 2 ? 60 : 80} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} roundPlayerTee={roundPlayerTees[p.id]} courseHoles={courseHoles} />)
           ) : (
             <>
               <View style={s.side}>
-                {homePlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} roundPlayerTee={roundPlayerTees[p.id]} />)}
+                {homePlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} roundPlayerTee={roundPlayerTees[p.id]} courseHoles={courseHoles} />)}
               </View>
               <View style={s.vsWrap}>
                 <Text style={s.vsText}>VS</Text>
               </View>
               <View style={s.side}>
-                {awayPlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} roundPlayerTee={roundPlayerTees[p.id]} />)}
+                {awayPlayers.map(p => <PlayerCard key={p.id} player={p} size={60} hcpAllowance={match.hcp_allowance} day={match.day} isRelativeHcp={isRelativeHcp} groupLowestCutHcp={groupLowestCutHcp} roundPlayerTee={roundPlayerTees[p.id]} courseHoles={courseHoles} />)}
               </View>
             </>
           )}
@@ -365,9 +374,10 @@ export default function MatchPreviewScreen() {
   );
 }
 
-function PlayerCard({ player, size, hcpAllowance, day, isRelativeHcp, groupLowestCutHcp, roundPlayerTee }: {
+function PlayerCard({ player, size, hcpAllowance, day, isRelativeHcp, groupLowestCutHcp, roundPlayerTee, courseHoles }: {
   player: Player; size: number; hcpAllowance: number | null; day: MatchPreview['day'];
   isRelativeHcp?: boolean; groupLowestCutHcp?: number; roundPlayerTee?: RoundPlayerTeeSnapshot;
+  courseHoles?: { hole_number: number; stroke_index: number }[];
 }) {
   const avatar = player.avatar_url ?? getPlayerAvatar(player.id, 'normal');
   const firstName = player.display_name.split(' ')[0];
@@ -377,10 +387,17 @@ function PlayerCard({ player, size, hcpAllowance, day, isRelativeHcp, groupLowes
   const allowance = hcpAllowance ?? 100;
   const cutHcp = resolvePlayingHandicap(player.handicap_index, day, allowance, roundPlayerTee);
   const isCut = allowance !== 100;
+  // A WHS round's Playing Handicap is a real slope/course-rating adjustment,
+  // not just the raw index — worth showing even with no cut applied (Dave,
+  // 2026-09-03: "any game where WHS is selected... handicap and adjusted
+  // handicap"), whereas off WHS with no cut, index and course handicap can
+  // legitimately be the same number and showing both would just be noise.
+  const isWhs = !!roundPlayerTee?.whs_enabled_at_start;
 
   // 4BBB Stroke Matchplay: shots actually received once the group's lowest
   // cut handicap is subtracted (that player plays off scratch).
   const shotsReceived = isRelativeHcp ? Math.max(0, cutHcp - (groupLowestCutHcp ?? 0)) : null;
+  const strokeHoles = courseHoles && courseHoles.length > 0 ? formatStrokeHoles(cutHcp, courseHoles) : '';
 
   return (
     <View style={s.playerCard}>
@@ -391,8 +408,11 @@ function PlayerCard({ player, size, hcpAllowance, day, isRelativeHcp, groupLowes
       <Text style={s.playerHcp}>
         {shotsReceived !== null
           ? `Playing Hcp ${cutHcp} · ${shotsReceived} shot${shotsReceived === 1 ? '' : 's'}`
-          : isCut ? `Playing Hcp ${cutHcp} (Idx ${player.handicap_index})` : `Hcp ${player.handicap_index}`}
+          : (isCut || isWhs) ? `Playing Hcp ${cutHcp} (Idx ${player.handicap_index})` : `Hcp ${player.handicap_index}`}
       </Text>
+      {strokeHoles !== '' && (
+        <Text style={s.playerStrokeHoles}>{strokeHoles}</Text>
+      )}
     </View>
   );
 }
@@ -438,6 +458,7 @@ const s = StyleSheet.create({
   avatarRing: { borderWidth: 2, borderColor: `${GOLD}40`, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   playerName: { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
   playerHcp:  { fontFamily: FFB, fontSize: 12, color: '#fff' },
+  playerStrokeHoles: { fontFamily: FFB, fontSize: 10, color: GOLD, marginTop: 2, textAlign: 'center' },
 
   detailCard: {
     backgroundColor: '#111111', borderRadius: 14,

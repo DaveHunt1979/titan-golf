@@ -9,8 +9,8 @@ import { calcStrokesReceived } from '../../../src/lib/scoring';
 import { goBack } from '../../../src/lib/navigation';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
 import { useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
-import TeePickerSheet, { fetchCourseTees, SelectableTee } from '../../../src/components/TeePickerSheet';
-import { calculateWHSPlayingHandicap } from '../../../src/lib/whs';
+import type { SelectableTee } from '../../../src/components/TeePickerSheet';
+import { buildSwindleTeeSnapshot } from '../../../src/lib/whs';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -29,6 +29,8 @@ type Game = {
   registration_closed_at: string | null;
   prize_money_method: 'collector' | 'direct'; collector_player_id: string | null;
   whs_enabled: boolean; hcp_allowance: number;
+  tee_name: string | null; tee_gender: string | null; tee_par: number | null;
+  course_rating: number | null; slope_rating: number | null;
 };
 type SwindleGroup = {
   id: string; tee_time: string; course_tee: string | null; created_by: string;
@@ -59,10 +61,8 @@ export default function SwindleGame() {
   const [joining,      setJoining]      = useState(false);
   const [refreshing,   setRefreshing]   = useState(false);
   const [courseHoles,  setCourseHoles]  = useState<HoleInfo[]>([]);
-  const [courseTees,   setCourseTees]   = useState<SelectableTee[]>([]);
   const [myTee,        setMyTee]        = useState<SelectableTee | null>(null);
   const [myPlayingHandicap, setMyPlayingHandicap] = useState<number | null>(null);
-  const [showTeePicker, setShowTeePicker] = useState(false);
   const [allScores,    setAllScores]    = useState<PlayerScore[]>([]);
   const [showWinner,   setShowWinner]   = useState<'ntp' | 'ld' | null>(null);
   const [groups,       setGroups]       = useState<SwindleGroup[]>([]);
@@ -155,10 +155,6 @@ export default function SwindleGame() {
           .from('course_holes').select('hole_number,par,stroke_index')
           .eq('course_name', gameData.course_name).order('hole_number');
         if (holes) setCourseHoles(holes as HoleInfo[]);
-
-        if (gameData.whs_enabled) {
-          fetchCourseTees(gameData.course_name).then(setCourseTees);
-        }
       }
 
       if (gameData.whs_enabled && myPlayerId) {
@@ -228,6 +224,13 @@ export default function SwindleGame() {
       game_id: game.id, player_id: p.id, handicap: p.handicap_index ?? null,
     });
     if (error && error.code !== '23505') Alert.alert('Error', error.message);
+    const snapshot = buildSwindleTeeSnapshot(game, p.handicap_index);
+    if (snapshot) {
+      await supabase.from('round_player_tees').upsert(
+        { swindle_game_id: game.id, player_id: p.id, ...snapshot },
+        { onConflict: 'swindle_game_id,player_id' },
+      );
+    }
     setJoining(false);
     load();
   }
@@ -514,18 +517,19 @@ export default function SwindleGame() {
           </View>
         </View>
 
-        {/* WHS tee — each player picks their own tee independently; the
-            resulting Playing Handicap is only ever frozen once they've
-            picked a rated tee, never guessed. */}
+        {/* Tee Box — one tee the game creator set for everyone (Dave,
+            2026-09-02: "whatever Rick sets up, that is what it is"), not
+            each player picking their own. Read-only here; round_player_tees
+            is written once at join time (buildSwindleTeeSnapshot). */}
         {inGame && game.whs_enabled && (
           <View style={s.section}>
             <Text style={s.sectionLabel}>WHS HANDICAP</Text>
-            <TouchableOpacity style={s.card} onPress={() => setShowTeePicker(true)} activeOpacity={0.7}>
+            <View style={s.card}>
               <View style={s.cardRow}>
                 <Text style={s.cardRowLabel}>⛳️</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={s.cardRowName}>
-                    {myTee ? `${myTee.tee_name}${myTee.gender ? ` (${myTee.gender})` : ''}` : 'Select your tee'}
+                    {myTee ? `${myTee.tee_name}${myTee.gender ? ` (${myTee.gender})` : ''}` : 'No tee set for this game'}
                   </Text>
                   {myPlayingHandicap != null && (
                     <Text style={{ color: GOLD, fontFamily: FFB, fontSize: 11, marginTop: 2 }}>
@@ -533,9 +537,8 @@ export default function SwindleGame() {
                     </Text>
                   )}
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#444" />
               </View>
-            </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -981,43 +984,6 @@ export default function SwindleGame() {
         onCancel={() => setDeletingGroup(null)}
       />
 
-      <TeePickerSheet
-        visible={showTeePicker}
-        title="Select your tee"
-        tees={courseTees}
-        onClose={() => setShowTeePicker(false)}
-        onSelect={async tee => {
-          setShowTeePicker(false);
-          if (!myId) return;
-          let hcpIndex = myEntry?.handicap;
-          if (hcpIndex == null) {
-            const { data: pl } = await supabase.from('players').select('handicap_index').eq('id', myId).maybeSingle();
-            hcpIndex = pl?.handicap_index ?? null;
-          }
-          if (hcpIndex == null || tee.par == null || tee.course_rating == null || tee.slope_rating == null) {
-            setMyTee(tee);
-            setMyPlayingHandicap(null);
-            return;
-          }
-          const whs = calculateWHSPlayingHandicap(hcpIndex, tee.slope_rating, tee.course_rating, tee.par, game.hcp_allowance ?? 100);
-          await supabase.from('round_player_tees').upsert({
-            swindle_game_id: gameId,
-            player_id: myId,
-            tee_name: tee.tee_name,
-            gender: tee.gender,
-            handicap_index_at_start: hcpIndex,
-            slope_at_start: tee.slope_rating,
-            course_rating_at_start: tee.course_rating,
-            par_at_start: tee.par,
-            course_handicap_at_start: whs.courseHandicapUnrounded,
-            allowance_at_start: game.hcp_allowance ?? 100,
-            playing_handicap_at_start: whs.playingHandicap,
-            whs_enabled_at_start: true,
-          }, { onConflict: 'swindle_game_id,player_id' });
-          setMyTee(tee);
-          setMyPlayingHandicap(whs.playingHandicap);
-        }}
-      />
     </View>
   );
 }

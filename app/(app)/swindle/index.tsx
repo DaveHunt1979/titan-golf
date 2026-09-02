@@ -9,6 +9,7 @@ import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyTheme
 import { titanLogo } from '../../../src/lib/assets';
 import { useChatUnread } from '../../../src/lib/useChatUnread';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
+import { buildSwindleTeeSnapshot } from '../../../src/lib/whs';
 
 const GOLD   = '#D4AF37';
 const PURPLE = '#a78bfa';
@@ -29,6 +30,13 @@ type Game = {
   created_by: string;
   entry_count?: number;
   am_entered?: boolean;
+  tee_name: string | null;
+  tee_gender: string | null;
+  tee_par: number | null;
+  course_rating: number | null;
+  slope_rating: number | null;
+  whs_enabled: boolean;
+  hcp_allowance: number | null;
 };
 
 export default function SwindleIndex() {
@@ -113,6 +121,14 @@ export default function SwindleIndex() {
     if (!myId || imInBusy) return;
     setImInBusy(game.id);
     await supabase.from('swindle_entries').insert({ game_id: game.id, player_id: myId });
+    const { data: me } = await supabase.from('players').select('handicap_index').eq('id', myId).maybeSingle();
+    const snapshot = buildSwindleTeeSnapshot(game, me?.handicap_index ?? null);
+    if (snapshot) {
+      await supabase.from('round_player_tees').upsert(
+        { swindle_game_id: game.id, player_id: myId, ...snapshot },
+        { onConflict: 'swindle_game_id,player_id' },
+      );
+    }
     // Re-fetch rather than optimistically +1 locally — a local increment
     // only reflects this device's last-seen count, so two people joining
     // within seconds of each other (as testers do) each show a stale

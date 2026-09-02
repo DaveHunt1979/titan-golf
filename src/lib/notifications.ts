@@ -25,7 +25,11 @@ export async function registerForPushNotifications(playerId: string) {
         shouldShowBanner: !suppress,
         shouldShowList: !suppress,
         shouldPlaySound: true,
-        shouldSetBadge: false,
+        // The icon badge itself comes from the push payload's own `badge`
+        // value (send-push sets it server-side so it's right even for a
+        // killed app) — this only governs whether the OS applies that
+        // number while the notification is actually being delivered here.
+        shouldSetBadge: true,
       };
     },
   });
@@ -52,6 +56,16 @@ export async function registerForPushNotifications(playerId: string) {
     if (token) {
       await supabase.from('players').update({ push_token: token } as any).eq('id', playerId);
     }
+  } catch {}
+}
+
+// Opening the app is treated as "seen your notifications" — clears both the
+// OS-level icon badge immediately and the server-side counter so the next
+// push starts counting up from 0 again instead of stacking on the old total.
+export async function clearBadgeCount() {
+  try {
+    await Notifications.setBadgeCountAsync(0);
+    await supabase.rpc('reset_my_badge_count');
   } catch {}
 }
 

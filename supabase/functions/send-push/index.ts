@@ -31,23 +31,22 @@ Deno.serve(async (req) => {
 
     if (!playerIds.length) return new Response(JSON.stringify({ ok: true }), { headers: CORS });
 
-    // Get push tokens for those players
-    const { data: players } = await supabase
-      .from('players')
-      .select('push_token')
-      .in('id', playerIds)
-      .not('push_token', 'is', null);
-
-    const tokens = (players ?? []).map((p: any) => p.push_token).filter(Boolean);
-    if (!tokens.length) return new Response(JSON.stringify({ ok: true }), { headers: CORS });
+    // Bumps each recipient's badge_count and hands back their new total in
+    // the same round trip — APNs sets the icon badge from this payload
+    // value directly, so a killed/backgrounded app still shows the right
+    // number (the client's own notification handler only affects what
+    // happens while the app is actually open, not this).
+    const { data: recipients } = await supabase.rpc('increment_badge_counts', { p_player_ids: playerIds });
+    if (!recipients?.length) return new Response(JSON.stringify({ ok: true }), { headers: CORS });
 
     // Send via Expo Push API
-    const messages = tokens.map((token: string) => ({
-      to: token,
+    const messages = (recipients as { push_token: string; badge_count: number }[]).map(r => ({
+      to: r.push_token,
       sound: 'default',
       title,
       body,
       data: data ?? {},
+      badge: r.badge_count,
     }));
 
     const res = await fetch('https://exp.host/--/api/v2/push/send', {

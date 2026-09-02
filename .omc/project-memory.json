@@ -280,8 +280,14 @@
     },
     {
       "path": "src/lib/scoring.ts",
-      "accessCount": 49,
-      "lastAccessed": 1788275862906,
+      "accessCount": 50,
+      "lastAccessed": 1788343151894,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 48,
+      "lastAccessed": 1788341283157,
       "type": "file"
     },
     {
@@ -300,12 +306,6 @@
       "path": "app/(app)/score/solo/[matchId].tsx",
       "accessCount": 38,
       "lastAccessed": 1787644342857,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 36,
-      "lastAccessed": 1787729139680,
       "type": "file"
     },
     {
@@ -351,6 +351,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 13,
+      "lastAccessed": 1788344009889,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/inbox/[playerId].tsx",
       "accessCount": 12,
       "lastAccessed": 1788335335737,
@@ -360,12 +366,6 @@
       "path": "app/(app)/news/index.tsx",
       "accessCount": 10,
       "lastAccessed": 1787656136066,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/_layout.tsx",
-      "accessCount": 9,
-      "lastAccessed": 1788335515306,
       "type": "file"
     },
     {

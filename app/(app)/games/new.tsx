@@ -805,8 +805,15 @@ export default function NewGameScreen() {
     () => builtMatches ? [...new Set(builtMatches.flatMap(m => [...m.home, ...m.away]))] : [],
     [builtMatches]
   );
+  // Whoever's first picks the tee everyone else is on by default (32
+  // players are almost never on 32 different tees) — tapping any other
+  // player still overrides just them, for the couple of real exceptions
+  // (e.g. a lady playing a forward tee). Only ever falls back to the
+  // player actually first in the list, never invented from nothing.
+  const defaultTee: SelectableTee | undefined = allRoundPlayerIds.length > 0 ? playerTees[allRoundPlayerIds[0]] : undefined;
+  const effectiveTee = (pid: string) => playerTees[pid] ?? defaultTee;
   const whsReady = !whsEnabled || allRoundPlayerIds.every(pid => {
-    const t = playerTees[pid];
+    const t = effectiveTee(pid);
     return t && t.par != null && t.course_rating != null && t.slope_rating != null;
   });
   const canStart     = !!selectedCourse && !!builtMatches && builtMatches.length > 0 && !creating && whsReady;
@@ -816,7 +823,7 @@ export default function NewGameScreen() {
     if (!selectedCourse || !societyId || creating) return;
     if (whsEnabled) {
       const missing = allRoundPlayerIds.filter(pid => {
-        const t = playerTees[pid];
+        const t = effectiveTee(pid);
         return !t || t.par == null || t.course_rating == null || t.slope_rating == null;
       });
       if (missing.length > 0) {
@@ -854,13 +861,17 @@ export default function NewGameScreen() {
       // (no handicap fields), matching round_player_tees' original design
       // ("needed regardless of WHS on/off, so the scorecard/yardages can
       // reflect a mixed-tee group" — see 20260825020000_whs_layer.sql).
-      // Players who didn't pick a tee are skipped entirely so scoring falls
-      // back to today's single course_holes yardage exactly as before.
-      const teeSelections = allRoundPlayerIds.filter(pid => playerTees[pid]);
+      // A player who didn't pick their own tee inherits whoever's first in
+      // the list — the couple of real exceptions (e.g. a lady on a forward
+      // tee) are the only ones who ever need the picker (Dave, 2026-09-02).
+      // Only a player with neither their own pick nor a default to fall
+      // back on (nobody in the round picked any tee) is skipped, exactly as
+      // before.
+      const teeSelections = allRoundPlayerIds.filter(pid => effectiveTee(pid));
       if (teeSelections.length > 0) {
         const snapshotRows = teeSelections.map(pid => {
           const p = players.find(pl => pl.id === pid)!;
-          const tee = playerTees[pid];
+          const tee = effectiveTee(pid)!;
           if (whsEnabled) {
             const whs = calculateWHSPlayingHandicap(p.handicap_index, tee.slope_rating!, tee.course_rating!, tee.par!, hcpAllowance);
             return {
@@ -1292,17 +1303,19 @@ export default function NewGameScreen() {
               {allRoundPlayerIds.map(pid => {
                 const p = players.find(pl => pl.id === pid);
                 const tee = playerTees[pid];
+                const inherited = !tee && defaultTee;
                 // Off WHS, picking a tee is optional (yardage-only — see
                 // TeePickerSheet/round_player_tees) so an unset tee isn't an
                 // error here the way it is when WHS requires a rated tee.
                 const missingIsError = whsEnabled;
+                const shown = tee ?? (inherited ? defaultTee : undefined);
                 return (
                   <View key={pid}>
                     <SettingRow
                       icon="flag-outline"
                       label={p?.display_name ?? 'Player'}
-                      value={tee ? `${tee.tee_name}${tee.gender ? ` (${tee.gender})` : ''}` : (missingIsError ? 'Select tee' : 'Any tee')}
-                      valueColor={tee ? GOLD : (missingIsError ? '#f87171' : '#6b7280')}
+                      value={shown ? `${shown.tee_name}${shown.gender ? ` (${shown.gender})` : ''}${inherited ? ' (default)' : ''}` : (missingIsError ? 'Select tee' : 'Any tee')}
+                      valueColor={tee ? GOLD : inherited ? '#6b7280' : (missingIsError ? '#f87171' : '#6b7280')}
                       onPress={() => setTeePickerPlayerId(pid)}
                       s={s} GOLD={GOLD}
                     />
@@ -1508,7 +1521,7 @@ export default function NewGameScreen() {
           <ScrollView contentContainerStyle={{ padding: 16 }}>
             {allRoundPlayerIds.map(pid => {
               const p = players.find(pl => pl.id === pid);
-              const tee = playerTees[pid];
+              const tee = effectiveTee(pid);
               const ready = p && tee && tee.par != null && tee.course_rating != null && tee.slope_rating != null;
               const whs = ready ? calculateWHSPlayingHandicap(p!.handicap_index, tee!.slope_rating!, tee!.course_rating!, tee!.par!, hcpAllowance) : null;
               return (

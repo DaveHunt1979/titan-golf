@@ -2,25 +2,21 @@
   "version": 1,
   "entries": {
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1788339597299,
+      "last_emitted_at_ms": 1788344015633,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
-    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1788339075248,
-      "message": "Read multiple files in parallel when possible for faster analysis."
-    },
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1788338969442,
+      "last_emitted_at_ms": 1788343880070,
       "message": "Verify changes work after editing. Test functionality before marking complete."
     },
-    "21d649e44cb826d7e301d3ef712dc75512472c67295622f247df278773832c18": {
-      "last_emitted_at_ms": 1788338704319,
-      "message": "Spawning agent: fork (inherit) | Task: Extend simulator to every tournament/swindle mode"
+    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
+      "last_emitted_at_ms": 1788343870259,
+      "message": "Read multiple files in parallel when possible for faster analysis."
     },
-    "745edc21df81bace5cc387c06897e36a61091e8f2238d5f1e5f7403af9209e36": {
-      "last_emitted_at_ms": 1788337337063,
-      "message": "Spawning agent: fork (inherit) | Task: Build in-app tournament/swindle simulator"
+    "639730bd335e4427df95a697e947b09adefbc3ac48d505c92e5a8b159c54d769": {
+      "last_emitted_at_ms": 1788342259211,
+      "message": "Spawning agent: fork (inherit) | Task: Switch Swindle to single shared tee box"
     }
   },
-  "updated_at": "2026-09-02T08:59:57.299Z"
+  "updated_at": "2026-09-02T10:13:35.633Z"
 }

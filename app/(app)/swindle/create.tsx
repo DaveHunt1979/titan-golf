@@ -6,6 +6,8 @@ import { StatusBar } from 'expo-status-bar';
 import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
+import TeePickerSheet, { fetchCourseTees, SelectableTee } from '../../../src/components/TeePickerSheet';
+import { buildSwindleTeeSnapshot } from '../../../src/lib/whs';
 
 const GOLD   = '#D4AF37';
 const PURPLE = '#a78bfa';
@@ -73,9 +75,10 @@ export default function SwindleCreate() {
   const [recurringDay,  setRecurringDay]  = useState<string>('saturday');
   const [saving,        setSaving]        = useState(false);
   const [hcpAllowance, setHcpAllowance] = useState(100);
-  const [slope,        setSlope]        = useState('113');
-  const [cRating,      setCRating]      = useState('');
   const [whsEnabled,   setWhsEnabled]   = useState(false);
+  const [courseTees,    setCourseTees]  = useState<SelectableTee[]>([]);
+  const [tee,            setTee]        = useState<SelectableTee | null>(null);
+  const [showTeePicker,  setShowTeePicker] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -92,9 +95,18 @@ export default function SwindleCreate() {
   }, []);
 
   useEffect(() => {
-    if (!course) { setCourseHoles([]); setNtpHole(null); setLdHole(null); return; }
+    if (!course) { setCourseHoles([]); setNtpHole(null); setLdHole(null); setCourseTees([]); setTee(null); return; }
     supabase.from('course_holes').select('hole_number,par').eq('course_name', course).order('hole_number')
       .then(({ data }) => { if (data) setCourseHoles(data as CourseHole[]); });
+    setTee(null);
+    fetchCourseTees(course).then(tees => {
+      setCourseTees(tees);
+      // Same default-tee convention as the tournament builder (Dave, earlier
+      // today) — prefer a "White" men's tee since that's this society's
+      // usual default, else the first tee with complete rating data.
+      const complete = tees.filter(t => t.course_rating != null && t.slope_rating != null);
+      setTee(complete.find(t => t.tee_name.toLowerCase() === 'white') ?? complete[0] ?? null);
+    });
   }, [course]);
 
   const par3s = courseHoles.filter(h => h.par === 3);
@@ -108,7 +120,7 @@ export default function SwindleCreate() {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaving(false); return; }
-    const { data: player } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
+    const { data: player } = await supabase.from('players').select('id, handicap_index').eq('auth_uid', user.id).maybeSingle();
     if (!player) { setSaving(false); return; }
 
     let code = genCode();
@@ -131,8 +143,11 @@ export default function SwindleCreate() {
         recurring_day: isRecurring ? recurringDay : null,
         format,
         hcp_allowance: hcpAllowance,
-        slope_rating:  parseInt(slope) || 113,
-        course_rating: cRating.trim() ? parseFloat(cRating) || null : null,
+        tee_name:      tee?.tee_name ?? null,
+        tee_gender:    tee?.gender ?? null,
+        tee_par:       tee?.par ?? null,
+        slope_rating:  tee?.slope_rating ?? 113,
+        course_rating: tee?.course_rating ?? null,
         whs_enabled: whsEnabled,
         twos_enabled: twosEnabled,
         twos_fee: twosEnabled && twosFee ? parseFloat(twosFee) || 0 : 0,
@@ -144,6 +159,16 @@ export default function SwindleCreate() {
 
       if (!error && data) {
         await supabase.from('swindle_entries').insert({ game_id: data.id, player_id: player.id });
+        const snapshot = buildSwindleTeeSnapshot(
+          { tee_name: tee?.tee_name ?? null, tee_gender: tee?.gender ?? null, tee_par: tee?.par ?? null, course_rating: tee?.course_rating ?? null, slope_rating: tee?.slope_rating ?? null, whs_enabled: whsEnabled, hcp_allowance: hcpAllowance },
+          player.handicap_index,
+        );
+        if (snapshot) {
+          await supabase.from('round_player_tees').upsert(
+            { swindle_game_id: data.id, player_id: player.id, ...snapshot },
+            { onConflict: 'swindle_game_id,player_id' },
+          );
+        }
         setSaving(false);
         router.replace(`/(app)/swindle/${data.id}` as any);
         return;
@@ -231,32 +256,21 @@ export default function SwindleCreate() {
           </TouchableOpacity>
         </Field>
 
-        {/* Slope & course rating */}
-        <Field label="SLOPE & RATING" hint="from scorecard — leave blank if unknown">
-          <View style={s.feeRow}>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={s.slotLabel}>SLOPE</Text>
-              <TextInput
-                style={s.input}
-                value={slope}
-                onChangeText={setSlope}
-                keyboardType="number-pad"
-                placeholder="113"
-                placeholderTextColor="#444"
-              />
-            </View>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={s.slotLabel}>COURSE RATING</Text>
-              <TextInput
-                style={s.input}
-                value={cRating}
-                onChangeText={setCRating}
-                keyboardType="decimal-pad"
-                placeholder="= par"
-                placeholderTextColor="#444"
-              />
-            </View>
-          </View>
+        {/* Tee Box — one tee for the whole game, set by the creator (Dave,
+            2026-09-02: "whatever Rick sets up, that is what it is"), not
+            each player picking their own. Same picker tournament uses. */}
+        <Field label="TEE BOX" hint={course ? undefined : 'select a course first'}>
+          <TouchableOpacity
+            style={[s.input, s.pickerBtn, !course && { opacity: 0.5 }]}
+            onPress={() => course && setShowTeePicker(true)}
+            activeOpacity={0.8}
+            disabled={!course}
+          >
+            <Text style={tee ? s.pickerBtnText : s.pickerBtnPlaceholder}>
+              {tee ? `${tee.tee_name}${tee.gender ? ` (${tee.gender})` : ''} · CR ${tee.course_rating ?? '—'} · Slope ${tee.slope_rating ?? '—'}` : 'Select tee…'}
+            </Text>
+            <Text style={s.pickerArrow}>›</Text>
+          </TouchableOpacity>
         </Field>
 
         {/* Entry fee */}
@@ -586,6 +600,14 @@ export default function SwindleCreate() {
           </View>
         </View>
       </Modal>
+
+      <TeePickerSheet
+        visible={showTeePicker}
+        title="Select tee — everyone plays this tee"
+        tees={courseTees}
+        onSelect={t => { setTee(t); setShowTeePicker(false); }}
+        onClose={() => setShowTeePicker(false)}
+      />
     </View>
   );
 }
