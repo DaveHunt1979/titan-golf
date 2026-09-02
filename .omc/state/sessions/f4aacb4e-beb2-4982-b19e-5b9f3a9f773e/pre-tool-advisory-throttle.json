@@ -1,22 +1,26 @@
 {
   "version": 1,
   "entries": {
-    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1788344015633,
-      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
-    },
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1788343880070,
+      "last_emitted_at_ms": 1788357994172,
       "message": "Verify changes work after editing. Test functionality before marking complete."
     },
+    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
+      "last_emitted_at_ms": 1788357781071,
+      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
+    },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1788343870259,
+      "last_emitted_at_ms": 1788357121710,
       "message": "Read multiple files in parallel when possible for faster analysis."
     },
-    "639730bd335e4427df95a697e947b09adefbc3ac48d505c92e5a8b159c54d769": {
-      "last_emitted_at_ms": 1788342259211,
-      "message": "Spawning agent: fork (inherit) | Task: Switch Swindle to single shared tee box"
+    "9a5da2010bc7959940e8a4b4af84e17f557528d9a831ec48f930ca2b2c258c39": {
+      "last_emitted_at_ms": 1788356051375,
+      "message": "Spawning agent: fork (inherit) | Task: Replace color-dot tees with real tee picker in group builder"
+    },
+    "608cfb34cd0ef2c84ee71a299f92883a9f820985d1c36faa3a669acef6347f1c": {
+      "last_emitted_at_ms": 1788354575695,
+      "message": "Spawning agent: fork (inherit) | Task: Move tournament tee picking into Draft Players step"
     }
   },
-  "updated_at": "2026-09-02T10:13:35.633Z"
+  "updated_at": "2026-09-02T14:06:34.172Z"
 }

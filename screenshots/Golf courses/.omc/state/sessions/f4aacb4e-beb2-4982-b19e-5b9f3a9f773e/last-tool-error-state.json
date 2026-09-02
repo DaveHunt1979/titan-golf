@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"/Users/davehunt/Desktop/titan-golf/screenshots/Golf courses/\\\" && python3 << 'EOF'\\nimport openpyxl\\nfiles = [\\n    \\\"Austria_TITAN_GOLF_COURSE_DATABASE_EXPANDED_VERIFIED.xlsx\\\",\\n   ...",
+  "error": "Exit code 1\n===== Austria_TITAN_GOLF_COURSE_DATABASE_EXPANDED_VERIFIED.xlsx =====\nsheets: ['Courses', 'Tee Ratings', 'Hole Data', 'Expansion Targets', 'Inclusion Rules', 'Progress']\nTraceback (most recent call last):\n  File \"<stdin>\", line 14, in <module>\nAttributeError: 'ReadOnlyWorksheet' object has no attribute 'dimensions'",
+  "timestamp": "2026-09-02T11:52:03.464Z",
+  "retry_count": 1
+}

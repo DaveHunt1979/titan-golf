@@ -95,7 +95,6 @@ interface DayConfig {
   courseRating: string;
   teeName: string;
   whsEnabled: boolean;
-  playerTees: Record<string, { tee_name: string; gender: string; par: number | null; course_rating: number | null; slope_rating: number | null }>;
   teeTime: string;
   playDate: string;
   format: DayFormatId;
@@ -131,7 +130,7 @@ function applyLastDayOverride(days: DayConfig[], rules: FormatRules): DayConfig[
   });
 }
 
-interface CourseItem { name: string; par: number; hasGps: boolean; region: string | null; }
+interface CourseItem { name: string; par: number; hasGps: boolean; region: string | null; country: string | null; }
 interface CourseHole { hole_number: number; par: number; }
 interface DraftPlayer {
   id: string; player_id: string; team_id: string | null;
@@ -210,8 +209,16 @@ export default function BuildTournamentScreen() {
   const [courseSheetDay, setCourseSheetDay] = useState<number | null>(null);
   const [dayDatePickerFor, setDayDatePickerFor] = useState<number | null>(null);
   const [dayTimePickerFor, setDayTimePickerFor] = useState<number | null>(null);
-  const [teePickerFor, setTeePickerFor] = useState<{ dayIndex: number; playerId: string } | null>(null);
+  const [teePickerFor, setTeePickerFor] = useState<string | null>(null);
   const [teePickerTees, setTeePickerTees] = useState<SelectableTee[]>([]);
+  // Tee choice is tournament-wide, not per-round (Dave, 2026-09-04 — an
+  // organiser sets it once while drafting players; picking a tee per round
+  // per player was the old, removed design). Only the color/gender choice
+  // is stored here — the actual par/course rating/slope for WHS purposes is
+  // course-specific, so that's resolved separately for each round against
+  // that round's own course_tees at the two places that actually need
+  // numbers (Go Live validation and the round_player_tees snapshot write).
+  const [playerTeeChoice, setPlayerTeeChoice] = useState<Record<string, { tee_name: string; gender: string }>>({});
 
   // Draft step (player selection) — only usable once the competition shell
   // actually exists, since competition_players needs a real competition_id.
@@ -245,8 +252,16 @@ export default function BuildTournamentScreen() {
       fetchAllRows<{ course_name: string; hole_number: number; par: number; green_lat: number | null; green_lng: number | null }>(
         (from, to) => supabase.from('course_holes').select('course_name, hole_number, par, green_lat, green_lng').range(from, to)
       ),
-      supabase.from('courses').select('name, region'),
-    ]).then(([data, { data: regionRows }]) => {
+      // Crossed the 1000-row PostgREST default cap the moment the course
+      // database rebuild took this table past 733 rows (now 1,241+) —
+      // unpaginated, this silently dropped every course past row 1000 out
+      // of region/country lookup entirely, dumping all of them into "Other"
+      // (Dave, 2026-09-04 — same bug class already hit twice today
+      // elsewhere, e.g. tour/index.tsx's Kronos leaderboard).
+      fetchAllRows<{ name: string; region: string | null; country: string | null }>(
+        (from, to) => supabase.from('courses').select('name, region, country').range(from, to)
+      ),
+    ]).then(([data, regionRows]) => {
       const parMap: Record<string, number> = {};
       const gpsMap: Record<string, boolean> = {};
       const holesMap: Record<string, CourseHole[]> = {};
@@ -256,9 +271,10 @@ export default function BuildTournamentScreen() {
         (holesMap[row.course_name] ??= []).push({ hole_number: row.hole_number, par: row.par });
       }
       const regionMap: Record<string, string | null> = {};
-      for (const r of (regionRows ?? []) as any[]) regionMap[r.name] = r.region;
+      const countryMap: Record<string, string | null> = {};
+      for (const r of regionRows) { regionMap[r.name] = r.region; countryMap[r.name] = r.country; }
       setCourses(Object.entries(parMap)
-        .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name], region: regionMap[name] ?? null }))
+        .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name], region: regionMap[name] ?? null, country: countryMap[name] ?? null }))
         .sort((a, b) => a.name.localeCompare(b.name)));
       setCourseHolesMap(holesMap);
     });
@@ -301,6 +317,7 @@ export default function BuildTournamentScreen() {
     setPlayersPerTeam('4');
     setExpandedTeamId(null);
     setTeamRosterCache({});
+    setPlayerTeeChoice({});
   }, [editCompId]));
 
   // Re-fetches the squad list on every focus (not just on first load) so
@@ -376,7 +393,6 @@ export default function BuildTournamentScreen() {
         courseRating: d.course_rating != null ? String(d.course_rating) : '',
         teeName:      d.tee_name ?? '',
         whsEnabled:   d.whs_enabled ?? false,
-        playerTees:   {},
         teeTime:      d.tee_time ? String(d.tee_time).slice(0, 5) : '',
         playDate:     d.play_date ? isoToUk(d.play_date) : '',
         format:       (d.day_format ?? 'four_bbb') as DayFormatId,
@@ -389,22 +405,19 @@ export default function BuildTournamentScreen() {
       const dayIds = ((daysData ?? []) as any[]).map(d => d.id);
       if (dayIds.some(id => loadedDays[dayIds.indexOf(id)]?.whsEnabled)) {
         const { data: rptRows } = await supabase.from('round_player_tees')
-          .select('day_id, player_id, tee_name, gender, par_at_start, course_rating_at_start, slope_at_start')
+          .select('day_id, player_id, tee_name, gender')
           .in('day_id', dayIds);
-        if (rptRows) {
-          setDays(prev => prev.map((day, i) => {
-            const dayId = dayIds[i];
-            const rowsForDay = (rptRows as any[]).filter(r => r.day_id === dayId);
-            if (rowsForDay.length === 0) return day;
-            const playerTees: DayConfig['playerTees'] = {};
-            for (const r of rowsForDay) {
-              playerTees[r.player_id] = {
-                tee_name: r.tee_name, gender: r.gender ?? '',
-                par: r.par_at_start, course_rating: r.course_rating_at_start, slope_rating: r.slope_at_start,
-              };
-            }
-            return { ...day, playerTees };
-          }));
+        if (rptRows && rptRows.length > 0) {
+          // Tee choice is tournament-wide now (see playerTeeChoice above) —
+          // an existing draft's per-round round_player_tees rows are still
+          // the source of truth to resume from, so take whichever round has
+          // data first, per player, rather than requiring every round to
+          // agree (they were all the same choice before this rework anyway).
+          const choice: Record<string, { tee_name: string; gender: string }> = {};
+          for (const r of (rptRows as any[]).sort((a, b) => dayIds.indexOf(a.day_id) - dayIds.indexOf(b.day_id))) {
+            if (!choice[r.player_id]) choice[r.player_id] = { tee_name: r.tee_name, gender: r.gender ?? '' };
+          }
+          setPlayerTeeChoice(choice);
         }
       }
 
@@ -421,7 +434,7 @@ export default function BuildTournamentScreen() {
     setSelectedFormat(f.id);
     setIncludeInKronos(rules.individualBoardDefaultOn);
     const builtDays: DayConfig[] = Array.from({ length: f.defaultDays }, () => ({
-      courseName: '', slopeRating: '113', courseRating: '', teeName: '', whsEnabled: false, playerTees: {}, teeTime: '', playDate: '',
+      courseName: '', slopeRating: '113', courseRating: '', teeName: '', whsEnabled: false, teeTime: '', playDate: '',
       format: f.defaultDayFormat,
       hcpPct: f.defaultHcp,
       ldEnabled: false, ldHole: null,
@@ -449,7 +462,12 @@ export default function BuildTournamentScreen() {
 
   useEffect(() => {
     if (!teePickerFor) { setTeePickerTees([]); return; }
-    const courseName = days[teePickerFor.dayIndex]?.courseName;
+    // Tournament-wide now — the first configured round's course is just the
+    // reference for which tee names/genders are on offer (tee naming like
+    // White/Yellow/Red is consistent society-to-society); the real
+    // per-course numbers for each round are resolved separately where
+    // actually needed (Go Live validation, round_player_tees write).
+    const courseName = days[0]?.courseName;
     if (!courseName) { setTeePickerTees([]); return; }
     fetchCourseTees(courseName).then(setTeePickerTees);
   }, [teePickerFor]);
@@ -461,7 +479,7 @@ export default function BuildTournamentScreen() {
   function addDay() {
     if (days.length >= 10) return;
     setDays(prev => applyLastDayOverride([...prev, {
-      courseName: '', slopeRating: '113', courseRating: '', teeName: '', whsEnabled: false, playerTees: {}, teeTime: '', playDate: '',
+      courseName: '', slopeRating: '113', courseRating: '', teeName: '', whsEnabled: false, teeTime: '', playDate: '',
       format: formatDef?.defaultDayFormat ?? 'four_bbb',
       hcpPct: formatDef?.defaultHcp ?? 75,
       ldEnabled: false, ldHole: null,
@@ -472,6 +490,24 @@ export default function BuildTournamentScreen() {
   function removeLastDay() {
     if (days.length <= 1) return;
     setDays(prev => applyLastDayOverride(prev.slice(0, -1), getFormatRules(selectedFormat)));
+  }
+
+  // The tee CHOICE (name/gender) is tournament-wide, but course_rating/
+  // slope_rating/par are course-specific — resolved here, per round, only
+  // where actual WHS numbers are needed. One fetch per distinct course
+  // across all rounds, not one per round.
+  async function fetchTeesForRounds(relevantDays: DayConfig[]): Promise<Record<string, SelectableTee[]>> {
+    const byCourse: Record<string, SelectableTee[]> = {};
+    for (const d of relevantDays) {
+      if (!d.courseName || byCourse[d.courseName]) continue;
+      byCourse[d.courseName] = await fetchCourseTees(d.courseName);
+    }
+    return byCourse;
+  }
+  function resolveTeeForRound(courseTees: SelectableTee[], playerId: string): SelectableTee | undefined {
+    const choice = effectiveTeeChoice(playerId);
+    if (!choice) return undefined;
+    return courseTees.find(t => t.tee_name === choice.tee_name && (t.gender ?? '') === (choice.gender ?? ''));
   }
 
   // tournament_type is a coarser, legacy 3-value column (CHECK-constrained,
@@ -736,6 +772,15 @@ export default function BuildTournamentScreen() {
   const playersPerTeamN = parseInt(playersPerTeam, 10) || 1;
   const pickedTeamIds = new Set(compPlayers.map(cp => cp.team_id).filter(Boolean) as string[]);
 
+  // Whoever's first in the enrolled list sets the tee everyone else is on
+  // by default — tapping any other player still overrides just them, for
+  // the real exceptions (e.g. a lady on a forward tee). Same pattern as
+  // Casual Golf's games/new.tsx, applied tournament-wide here rather than
+  // per-round.
+  const enrolledPlayerIds = compPlayers.filter(cp => cp.status !== 'declined').map(cp => cp.player_id);
+  const defaultTeeChoice = enrolledPlayerIds.length > 0 ? playerTeeChoice[enrolledPlayerIds[0]] : undefined;
+  const effectiveTeeChoice = (playerId: string) => playerTeeChoice[playerId] ?? defaultTeeChoice;
+
   // Team drafting is a different shape to the flat player pool singles
   // uses — everything (badges, that team's roster, who's already in)
   // lives on this one screen, no separate picker screens.
@@ -826,6 +871,8 @@ export default function BuildTournamentScreen() {
     if (!selectedFormat) issues.push({ label: 'Tournament Format — not selected', jumpToStep: 0 });
 
     if (days.length === 0) issues.push({ label: 'Rounds — none configured', jumpToStep: 2 });
+    const whsDaysForCheck = days.filter(d => d.whsEnabled);
+    const teesByCourseForCheck = await fetchTeesForRounds(whsDaysForCheck);
     days.forEach((d, i) => {
       if (!d.courseName.trim()) issues.push({ label: `Round ${i + 1} — Course not selected`, jumpToStep: 2 });
       if (!d.teeName.trim())    issues.push({ label: `Round ${i + 1} — Tee not selected`, jumpToStep: 2 });
@@ -838,10 +885,11 @@ export default function BuildTournamentScreen() {
         issues.push({ label: `Round ${i + 1} — Course Rating not set`, jumpToStep: 2 });
       }
       if (d.whsEnabled) {
+        const courseTees = teesByCourseForCheck[d.courseName] ?? [];
         compPlayers.filter(cp => cp.status !== 'declined').forEach(cp => {
-          const tee = d.playerTees[cp.player_id];
+          const tee = resolveTeeForRound(courseTees, cp.player_id);
           if (!tee || tee.par == null || tee.course_rating == null || tee.slope_rating == null) {
-            issues.push({ label: `Round ${i + 1} — WHS cannot calculate ${cp.display_name}'s handicap (no rated tee selected)`, jumpToStep: 2 });
+            issues.push({ label: `Round ${i + 1} — WHS cannot calculate ${cp.display_name}'s handicap (no rated tee selected)`, jumpToStep: 3 });
           }
         });
       }
@@ -948,7 +996,9 @@ export default function BuildTournamentScreen() {
     }
 
     // WHS round snapshot — frozen the moment the tournament goes live, per
-    // player per day, using the tee each player picked in the builder.
+    // player per day, resolving each player's tournament-wide tee choice
+    // against that specific round's own course_tees (par/course rating/
+    // slope are course-specific even when the tee name is shared).
     // Reads the just-saved competition_days back to get real day_id values;
     // does nothing for a day where whsEnabled is false (existing behaviour
     // is unaffected — no round_player_tees rows get written for it).
@@ -956,13 +1006,16 @@ export default function BuildTournamentScreen() {
       const { data: savedDays } = await supabase
         .from('competition_days').select('id, day_number').eq('competition_id', compId).order('day_number');
       if (savedDays) {
+        const whsDays = days.filter(d => d.whsEnabled);
+        const teesByCourse = await fetchTeesForRounds(whsDays);
         const snapshotRows: any[] = [];
         days.forEach((d, i) => {
           if (!d.whsEnabled) return;
           const dayId = (savedDays as any[])[i]?.id;
           if (!dayId) return;
+          const courseTees = teesByCourse[d.courseName] ?? [];
           compPlayers.filter(cp => cp.status !== 'declined').forEach(cp => {
-            const tee = d.playerTees[cp.player_id];
+            const tee = resolveTeeForRound(courseTees, cp.player_id);
             if (!tee || tee.par == null || tee.course_rating == null || tee.slope_rating == null || cp.handicap_index == null) return;
             const whs = calculateWHSPlayingHandicap(cp.handicap_index, tee.slope_rating, tee.course_rating, tee.par, d.hcpPct);
             snapshotRows.push({
@@ -1531,26 +1584,10 @@ export default function BuildTournamentScreen() {
                   ))}
                 </View>
 
-                {day.whsEnabled && day.courseName && (
-                  <View style={{ marginBottom: 8 }}>
-                    <Text style={styles.fieldLabel}>PLAYER TEES</Text>
-                    {compPlayers.filter(cp => cp.status !== 'declined').map(cp => {
-                      const tee = day.playerTees[cp.player_id];
-                      return (
-                        <TouchableOpacity
-                          key={cp.player_id}
-                          style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }]}
-                          onPress={() => setTeePickerFor({ dayIndex: i, playerId: cp.player_id })}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={{ color: '#fff', fontFamily: 'JUSTSans-ExBold', fontSize: 13 }}>{cp.display_name}</Text>
-                          <Text style={{ color: tee ? GOLD : '#f87171', fontFamily: 'JUSTSans-ExBold', fontSize: 12 }}>
-                            {tee ? `${tee.tee_name}${tee.gender ? ` (${tee.gender})` : ''}` : 'Select tee'}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                {day.whsEnabled && (
+                  <Text style={[styles.stepSub, { marginBottom: 8 }]}>
+                    Tee boxes are set once for the whole tournament — see the Draft Players step.
+                  </Text>
                 )}
 
                 <Text style={styles.fieldLabel}>FORMAT</Text>
@@ -1867,6 +1904,42 @@ export default function BuildTournamentScreen() {
                 )}
               </>
             )}
+
+            {/* Tee boxes — tournament-wide, set once here rather than per
+                round (Dave, 2026-09-04: "the first player is the default
+                and then we can click on other players to change if need
+                be"). Only matters when at least one round actually uses
+                WHS; the course_rating/slope numbers for each round are
+                resolved separately at Go Live / go-live time. */}
+            {days.some(d => d.whsEnabled) && compPlayers.length > 0 && (
+              <>
+                <Text style={[styles.fieldLabel, { marginTop: 20 }]}>TEE BOXES</Text>
+                {!days[0]?.courseName ? (
+                  <Text style={styles.stepSub}>Configure a round with a course first, then set tee boxes here.</Text>
+                ) : (
+                  compPlayers.filter(cp => cp.status !== 'declined').map(cp => {
+                    const isDefaultSource = cp.player_id === enrolledPlayerIds[0];
+                    const own = playerTeeChoice[cp.player_id];
+                    const shown = effectiveTeeChoice(cp.player_id);
+                    return (
+                      <TouchableOpacity
+                        key={cp.player_id}
+                        style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }]}
+                        onPress={() => setTeePickerFor(cp.player_id)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={{ color: '#fff', fontFamily: 'JUSTSans-ExBold', fontSize: 13 }}>{cp.display_name}</Text>
+                        <Text style={{ color: shown ? GOLD : '#f87171', fontFamily: 'JUSTSans-ExBold', fontSize: 12 }}>
+                          {shown
+                            ? `${shown.tee_name}${shown.gender ? ` (${shown.gender})` : ''}${!own && !isDefaultSource ? ' (default)' : ''}`
+                            : 'Select tee'}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+              </>
+            )}
           </View>
         )}
 
@@ -1977,13 +2050,11 @@ export default function BuildTournamentScreen() {
 
       <TeePickerSheet
         visible={teePickerFor !== null}
-        title={`Select tee — ${teePickerFor ? compPlayers.find(cp => cp.player_id === teePickerFor.playerId)?.display_name ?? '' : ''}`}
+        title={`Select tee — ${teePickerFor ? compPlayers.find(cp => cp.player_id === teePickerFor)?.display_name ?? '' : ''}`}
         tees={teePickerTees}
         onSelect={tee => {
           if (!teePickerFor) return;
-          const { dayIndex, playerId } = teePickerFor;
-          const day = days[dayIndex];
-          updateDay(dayIndex, { playerTees: { ...day.playerTees, [playerId]: tee } });
+          setPlayerTeeChoice(prev => ({ ...prev, [teePickerFor]: { tee_name: tee.tee_name, gender: tee.gender } }));
           setTeePickerFor(null);
         }}
         onClose={() => setTeePickerFor(null)}
@@ -2086,7 +2157,20 @@ export default function BuildTournamentScreen() {
   );
 }
 
-const BUILD_REGION_ORDER = ['England', 'Spain', 'France', 'Scotland', 'Portugal', 'Ireland & Northern Ireland', 'Orlando / Central Florida', 'Wales', 'Turkey'];
+// Tabbed by continent-group, not the fine county/state/province detail
+// courses.region holds (e.g. "Surrey", "Bavaria") — 190+ distinct region
+// values across 1,241 courses is too granular to tab by, but still worth
+// keeping visible per-row (Dave, 2026-09-04). Grouped from courses.country,
+// added in the same rebuild as the 20-country course-database expansion.
+const COUNTRY_TO_GROUP: Record<string, string> = {
+  England: 'UK', Scotland: 'UK', Wales: 'UK', Ireland: 'UK', 'Northern Ireland': 'UK', 'Isle of Man': 'UK',
+  France: 'Europe', Spain: 'Europe', Portugal: 'Europe', Italy: 'Europe', Germany: 'Europe', Austria: 'Europe',
+  Belgium: 'Europe', Netherlands: 'Europe', Denmark: 'Europe', 'Czech Republic': 'Europe', Greece: 'Europe', Turkey: 'Europe',
+  USA: 'USA',
+  Morocco: 'Africa', 'South Africa': 'Africa',
+  UAE: 'Middle East',
+};
+const COURSE_GROUP_ORDER = ['UK', 'Europe', 'USA', 'Africa', 'Middle East'];
 
 function CourseSheet({
   visible, courses, selected, onSelect, onClose,
@@ -2095,31 +2179,37 @@ function CourseSheet({
   onSelect: (name: string) => void; onClose: () => void;
 }) {
   const [search, setSearch] = useState('');
-  const [region, setRegion] = useState<string | null>(null);
-  const availableRegions = BUILD_REGION_ORDER.filter(r => courses.some(c => c.region === r));
-  const hasOther = courses.some(c => !c.region);
+  const [group, setGroup] = useState<string | null>(null);
+  const groupOf = (c: CourseItem) => (c.country ? COUNTRY_TO_GROUP[c.country] ?? null : null);
+  const availableGroups = COURSE_GROUP_ORDER.filter(g => courses.some(c => groupOf(c) === g));
+  const hasOther = courses.some(c => groupOf(c) === null);
   const filtered = courses
     .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
-    .filter(c => region === null || (region === 'Other' ? !c.region : c.region === region));
+    .filter(c => group === null || (group === 'Other' ? groupOf(c) === null : groupOf(c) === group));
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={sheetStyles.overlay} activeOpacity={1} onPress={onClose} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        pointerEvents="box-none"
+      >
       <View style={sheetStyles.sheet}>
         <View style={sheetStyles.handle} />
         <Text style={sheetStyles.sheetTitle}>Select Course</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 48, marginBottom: 10, flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 2, alignItems: 'center' }}>
-          {[{ key: null, label: 'All' }, ...availableRegions.map(r => ({ key: r, label: r })), ...(hasOther ? [{ key: 'Other', label: 'Other' }] : [])].map(opt => (
+          {[{ key: null, label: 'All' }, ...availableGroups.map(g => ({ key: g, label: g })), ...(hasOther ? [{ key: 'Other', label: 'Other' }] : [])].map(opt => (
             <TouchableOpacity
               key={opt.label}
-              onPress={() => setRegion(opt.key)}
+              onPress={() => setGroup(opt.key)}
               activeOpacity={0.7}
               style={{
                 paddingHorizontal: 14, paddingVertical: 7, borderRadius: 100,
-                borderWidth: 1, borderColor: region === opt.key ? GOLD : '#2a2a2a',
-                backgroundColor: region === opt.key ? 'rgba(212,175,55,0.14)' : 'transparent',
+                borderWidth: 1, borderColor: group === opt.key ? GOLD : '#2a2a2a',
+                backgroundColor: group === opt.key ? 'rgba(212,175,55,0.14)' : 'transparent',
               }}
             >
-              <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 12.5, lineHeight: 18, color: region === opt.key ? GOLD : '#9ca3af' }}>{opt.label}</Text>
+              <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 12.5, lineHeight: 18, color: group === opt.key ? GOLD : '#9ca3af' }}>{opt.label}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -2140,10 +2230,13 @@ function CourseSheet({
           renderItem={({ item }) => {
             const on = item.name === selected;
             return (
-              <TouchableOpacity style={sheetStyles.sheetRow} onPress={() => { onSelect(item.name); onClose(); setSearch(''); setRegion(null); }} activeOpacity={0.7}>
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[sheetStyles.sheetOpt, on && { color: GOLD }]} numberOfLines={1}>{item.name}</Text>
-                  {item.hasGps && <Ionicons name="location" size={13} color={GOLD} />}
+              <TouchableOpacity style={sheetStyles.sheetRow} onPress={() => { onSelect(item.name); onClose(); setSearch(''); setGroup(null); }} activeOpacity={0.7}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={[sheetStyles.sheetOpt, on && { color: GOLD }]} numberOfLines={1}>{item.name}</Text>
+                    {item.hasGps && <Ionicons name="location" size={13} color={GOLD} />}
+                  </View>
+                  {item.region && <Text style={sheetStyles.courseRegionLabel} numberOfLines={1}>{item.region}{item.country ? `, ${item.country}` : ''}</Text>}
                 </View>
                 <Text style={sheetStyles.courseParLabel}>Par {item.par}</Text>
                 {on && <Ionicons name="checkmark" size={16} color={GOLD} style={{ marginLeft: 6 }} />}
@@ -2151,10 +2244,11 @@ function CourseSheet({
             );
           }}
         />
-        <TouchableOpacity style={sheetStyles.cancelBtn} onPress={() => { onClose(); setSearch(''); setRegion(null); }} activeOpacity={0.7}>
+        <TouchableOpacity style={sheetStyles.cancelBtn} onPress={() => { onClose(); setSearch(''); setGroup(null); }} activeOpacity={0.7}>
           <Text style={sheetStyles.cancelText}>Cancel</Text>
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -2428,6 +2522,7 @@ const sheetStyles = StyleSheet.create({
   cancelBtn:  { marginTop: 12, alignItems: 'center', paddingVertical: 14 },
   cancelText: { fontFamily: FFB, fontSize: 16, color: '#fff' },
   courseParLabel: { fontFamily: FFB, fontSize: 12, color: '#fff' },
+  courseRegionLabel: { fontFamily: FF, fontSize: 11, color: '#777', marginTop: 1 },
   searchInput: {
     backgroundColor: '#1a1a1a', borderRadius: 10, borderWidth: 1, borderColor: '#2a2a2a',
     paddingHorizontal: 12, paddingVertical: 10, color: '#fff',

@@ -7,17 +7,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { resolveAvatar } from '../../../src/lib/assets';
 import { partitionIntoTiers } from '../../../src/lib/playerTiers';
+import { fetchCourseTees, type SelectableTee } from '../../../src/components/TeePickerSheet';
 
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
-
-const TEE_OPTIONS = [
-  { label: 'Yellow', color: '#EAB308' },
-  { label: 'White',  color: '#D1D5DB' },
-  { label: 'Red',    color: '#EF4444' },
-  { label: 'Blue',   color: '#3B82F6' },
-  { label: 'Black',  color: '#6B7280' },
-];
 
 type GameMode =
   | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble'
@@ -104,6 +97,7 @@ function restoreGroups(matches: BuiltMatch[], m: GameMode): GroupState[] {
 export default function GroupBuilderSheet({
   visible, mode, players, teamSize, initialStartHole, initialMatches,
   favouriteIds, recentIds, myPlayerId, friendOnlyIds, onToggleFavourite, onDone, onClose,
+  courseName, playerTees, onSetPlayerTee,
 }: {
   visible: boolean;
   mode: GameMode;
@@ -118,6 +112,14 @@ export default function GroupBuilderSheet({
   onToggleFavourite?: (targetId: string, makeFavourite: boolean) => void;
   onDone: (matches: BuiltMatch[], overrides: Record<string, PlayerOverride>) => void;
   onClose: () => void;
+  // Real, course-linked tee data — lifted to the parent (games/new.tsx
+  // already owns this for the round) rather than this sheet keeping its
+  // own separate copy, which was the exact split that let a fake
+  // decorative color-dot picker exist alongside the real one (Dave,
+  // 2026-09-04: "this is where the list should be not the dots and colours").
+  courseName?: string | null;
+  playerTees: Record<string, SelectableTee>;
+  onSetPlayerTee: (playerId: string, tee: SelectableTee | null) => void;
 }) {
   const dc = useDynamicColors();
   const GOLD = dc.gold;
@@ -134,7 +136,23 @@ export default function GroupBuilderSheet({
     gi?: number; si?: number; side?: 'home' | 'away';
   } | null>(null);
   const [profileHcp, setProfileHcp] = useState('');
-  const [profileTee, setProfileTee] = useState<string | null>(null);
+  const [profileTeeChoice, setProfileTeeChoice] = useState<SelectableTee | null>(null);
+  const [courseTees, setCourseTees] = useState<SelectableTee[]>([]);
+
+  useEffect(() => {
+    if (courseName) fetchCourseTees(courseName).then(setCourseTees);
+    else setCourseTees([]);
+  }, [courseName]);
+
+  // Whoever's first in the round sets the tee everyone else defaults to —
+  // same rule as the read-only settings list on the main screen, just
+  // live here as players are actually being added (Dave, 2026-09-04).
+  const orderedPlayerIds = useMemo(
+    () => groups.flatMap(g => g.slots.flatMap(s => [...s.home, ...s.away])),
+    [groups],
+  );
+  const defaultTee = orderedPlayerIds.length > 0 ? playerTees[orderedPlayerIds[0]] : undefined;
+  const effectiveTee = (pid: string) => playerTees[pid] ?? defaultTee;
 
   useEffect(() => {
     if (visible) {
@@ -260,7 +278,9 @@ export default function GroupBuilderSheet({
     const p = players.find(x => x.id === profileTarget.playerId);
     const ov = overrides[profileTarget.playerId];
     setProfileHcp(String(ov?.hcp ?? p?.handicap_index ?? ''));
-    setProfileTee(ov?.tee ?? null);
+    // Own pick only, not the inherited default — leaving this null means
+    // "keep inheriting" on save, exactly like the read-only settings list.
+    setProfileTeeChoice(playerTees[profileTarget.playerId] ?? null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileTarget?.playerId]);
 
@@ -272,11 +292,12 @@ export default function GroupBuilderSheet({
     const originalHcp = player?.handicap_index ?? 0;
     const hcpVal = isNaN(parsedHcp) ? null : parsedHcp;
     const hcpChanged = hcpVal !== null && hcpVal !== originalHcp;
-    if (hcpChanged || profileTee !== null) {
-      setOverrides(prev => ({ ...prev, [playerId]: { hcp: hcpChanged ? hcpVal : null, tee: profileTee } }));
+    if (hcpChanged) {
+      setOverrides(prev => ({ ...prev, [playerId]: { hcp: hcpVal, tee: prev[playerId]?.tee ?? null } }));
     } else {
       setOverrides(prev => { const next = { ...prev }; delete next[playerId]; return next; });
     }
+    onSetPlayerTee(playerId, profileTeeChoice);
     if (fromPicker && gi !== undefined && si !== undefined && side) {
       setGroups(prev => prev.map((g, i) => i !== gi ? g : {
         ...g, slots: g.slots.map((s, j) => j !== si ? s : ({ ...s, [side]: [...s[side], playerId] })),
@@ -302,7 +323,12 @@ export default function GroupBuilderSheet({
     if (!p) return null;
     const ov = overrides[pid];
     const displayHcp = ov?.hcp ?? p.handicap_index;
-    const hasOverride = ov?.hcp != null || ov?.tee != null;
+    const ownTee = playerTees[pid];
+    const shownTee = effectiveTee(pid);
+    const hasOverride = ov?.hcp != null || ownTee != null;
+    const teeLabel = shownTee
+      ? `${shownTee.tee_name}${shownTee.gender ? ` (${shownTee.gender})` : ''}${!ownTee && pid !== orderedPlayerIds[0] ? ' (default)' : ''}`
+      : null;
     return (
       <View style={[css.playerRow, { borderColor: dc.border }]}>
         <TouchableOpacity
@@ -315,7 +341,7 @@ export default function GroupBuilderSheet({
             <Text style={[css.playerName, { color: dc.white }]} numberOfLines={1}>{p.display_name}</Text>
             {displayHcp != null && (
               <Text style={[css.playerHcp, hasOverride && { color: GOLD }]}>
-                {hasOverride ? '★ ' : ''}HCP {displayHcp}{ov?.tee ? ` · ${ov.tee}` : ''}
+                {hasOverride ? '★ ' : ''}HCP {displayHcp}{teeLabel ? ` · ${teeLabel}` : ''}
               </Text>
             )}
           </View>
@@ -623,24 +649,34 @@ export default function GroupBuilderSheet({
                     blurOnSubmit
                   />
 
-                  {/* Tee picker */}
-                  <Text style={[css.profileLabel, { marginTop: 16 }]}>PLAYING TEES</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                    {TEE_OPTIONS.map(t => {
-                      const selected = profileTee === t.label;
-                      return (
-                        <TouchableOpacity
-                          key={t.label}
-                          style={[css.teePill, { borderColor: selected ? t.color : dc.border, backgroundColor: selected ? `${t.color}20` : 'transparent' }]}
-                          onPress={() => setProfileTee(selected ? null : t.label)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={[css.teeCircle, { backgroundColor: t.color }]} />
-                          <Text style={[css.teePillText, { color: selected ? t.color : '#888' }]}>{t.label}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                  {/* Tee picker — real course tees, not the old decorative
+                      colour dots. Whoever's added first sets the default;
+                      picking here for anyone else is an explicit override. */}
+                  <Text style={[css.profileLabel, { marginTop: 16 }]}>PLAYING TEE</Text>
+                  {courseTees.length === 0 ? (
+                    <Text style={[css.profileNote, { marginTop: 8 }]}>
+                      {courseName ? 'No tee data available for this course' : 'Pick a course to choose a tee'}
+                    </Text>
+                  ) : (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                      {courseTees.map(t => {
+                        const selected = profileTeeChoice?.tee_name === t.tee_name && profileTeeChoice?.gender === t.gender;
+                        const isDefault = !selected && defaultTee?.tee_name === t.tee_name && defaultTee?.gender === t.gender
+                          && profileTeeChoice == null && profileTarget?.playerId !== orderedPlayerIds[0];
+                        const label = `${t.tee_name}${t.gender ? ` (${t.gender})` : ''}${isDefault ? ' · default' : ''}`;
+                        return (
+                          <TouchableOpacity
+                            key={`${t.tee_name}-${t.gender}`}
+                            style={[css.teePill, { borderColor: selected || isDefault ? GOLD : dc.border, backgroundColor: selected ? `${GOLD}20` : 'transparent' }]}
+                            onPress={() => setProfileTeeChoice(selected ? null : t)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[css.teePillText, { color: selected || isDefault ? GOLD : '#888' }]}>{label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
 
                   <Text style={css.profileNote}>Changes apply to this round only</Text>
 

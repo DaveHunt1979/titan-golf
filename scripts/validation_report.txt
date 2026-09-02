@@ -1,0 +1,524 @@
+=== SKIPPED COURSES (no 18-hole tee) ===
+
+=== VALIDATION FAILURES (SI/par) ===
+
+=== CROSS-TEE PAR/SI DISAGREEMENT (informational, canonical kept) ===
+Golf Château de la Tournette (English Course)
+Royal Waterloo Golf Club (La Marache)
+Le Golf National (Albatros)
+Le Touquet Golf Resort (La Mer)
+Spérone
+Golf du Touquet (La Forêt)
+Golf de Faulquemont-Pontpierre
+Golf de la Grande Bastide
+Golf d'Opio Valbonne
+Frankfurter Golf Club
+Golf Club St. Leon-Rot (Rot)
+Golf Club St. Leon-Rot (St. Leon)
+Golfclub München Eichenried (B-C)
+Fota Island Resort — Barryscourt Course
+Mount Juliet Estate — Mount Juliet Golf Course
+Powerscourt Golf Club — West Course
+The Royal Dublin Golf Club
+Le Robinie Golf Club
+Marco Simone Golf & Country Club (Championship)
+West Cliffs
+Gleneagles - PGA Centenary
+Gleneagles - King's Course
+Gleneagles - Queen's Course
+Royal Dornoch - Championship
+Trump Turnberry - Ailsa
+St Andrews Links - Old Course
+Nairn Dunbar Golf Club
+Fairmont St Andrews - Kittocks
+Fairmont St Andrews - Torrance
+Murcar Links - Championship
+St Andrews Links - Jubilee Course
+Trump International Golf Links Scotland
+Strathmore Golf Centre - Rannaleroch
+Southerness Golf Club
+Murrayfield Golf Club
+Machrihanish Dunes Golf Course
+Trump Turnberry - King Robert the Bruce
+Muirfield
+Dalmahoy - East Course
+Blairgowrie - Lansdowne
+Kilmarnock (Barassie) - Barassie Links
+Craigtoun Course (formerly The Duke's Course)
+Glenbervie Golf Club
+Moray Golf Club - Old Course
+Kingussie Golf Club
+Monifieth Golf Links - Ashludie
+West Kilbride Golf Club
+Irvine Golf Club
+The Musselburgh Golf Club
+Luffness New Golf Club
+Deeside Golf Club - Haughton
+Newburgh-on-Ythan Golf Club
+Lochmaben Golf Club
+Muir of Ord Golf Club
+Ratho Park Golf Club
+Gleddoch Golf Course
+Meldrum House Golf Course
+Dumfries & Galloway Golf Club
+Duff House Royal Golf Club
+Paisley Golf Club
+Pearl Valley Golf Estates
+Fancourt — Montagu
+Fancourt — Outeniqua
+Fancourt — The Links
+Real Club Valderrama
+Real Sociedad Hipica Espanola (North)
+Finca Cortesin Golf Club
+Real Club La Moraleja (3)
+Real Sociedad Hipica Espanola (South)
+Aloha Golf Club
+Real Club de la Puerta de Hierro (Lower)
+The San Roque Club (Old)
+Hacienda Riquelme Golf Resort
+Real Club Pineda de Sevilla
+Estepona Golf
+Valle Romano Golf & Resort
+Atalaya Golf & Country Club (Old)
+Cabopino Golf
+Hacienda del Alamo
+El Valle
+Amarilla Golf
+Arabella Golf Son Quint
+Golf Maioris
+Peralada Golf Club
+Club de Golf Barcelona — Masia
+Real Club La Moraleja (4)
+The Mid Kent Golf Club
+Ashford (Kent) Golf Club
+Buckingham Golf Club
+Faversham Golf Club
+Littlehampton Golf Club
+Theale Golf Club
+Dunstable Downs Golf Club
+London Golf Club - The Heritage
+Hartley Wintney Golf Club
+Ilford Golf Club
+Pyecombe Golf Club
+Lee-on-the-Solent Golf Club
+Langley Park Golf Club
+Okehampton Golf Club
+Osborne Golf Club
+Burhill Golf Club
+Thorpe Hall Golf Club
+Bird Hills Golf Centre
+Piltdown Golf Club
+London Golf Club - The International
+Bearsted Golf Club
+Upchurch River Valley Golf Course
+Bridport & West Dorset Golf Club
+Bude & North Cornwall Golf Club
+Crewe Golf Club
+Dewsbury District Golf Club
+Chestfield Golf Club
+Knole Park Golf Club
+Hill Barn Golf Club
+Beaconsfield Golf Club
+Swinley Forest Golf Club
+The Oxfordshire
+Boundary Lakes Golf Course
+Worthing Golf Club - Colt Course
+Hadden Hill Golf Club
+Oxford Golf Club
+Royal Eastbourne Golf Club - Devonshire
+Hindhead Golf Club
+Surrey National Golf Club
+West Hove Golf Club
+Tandridge Golf Club
+Silvermere Golf Club
+West Sussex Golf Club
+Surbiton Golf Club
+Betchworth Park Golf Club
+Eastbourne Downs Golf Club
+Pedham Place Golf Centre
+Chichester Golf Club - Tower
+Cams Hall Golf Club - Creek Course
+Cobtree Manor Golf Club
+Park Wood Golf Club
+Corhampton Golf Club
+Hampton Court Palace Golf Club
+Rochester & Cobham Park Golf Club
+The Hampshire Golf Club
+Hayling Golf Club
+Sweetwoods Park Golf Club
+Broome Park Golf Club
+North Oxford Golf Club
+Army Golf Club
+China Fleet Country Club
+Eltham Warren Golf Club
+Orsett Golf Club
+Wrotham Heath Golf Club
+Stoneham Golf Club
+Sittingbourne & Milton Regis Golf Club
+Royal Winchester Golf Club
+Sherborne Golf Club
+Sundridge Park Golf Club - West Course
+Leeds Golf Club
+Wellow Golf Club — Ryedown & Embley
+Woburn Golf Club - Duchess Course
+Woburn Golf Club - Duke's Course
+Woburn Golf Club - Marquess Course
+Whipsnade Park Golf Club
+West Hill Golf Club
+Waterlooville Golf Club
+Wareham Golf Club
+Weymouth Golf Club
+Wycombe Heights Golf Centre
+Shirley Golf Club
+Ashford Manor Golf Club
+Hollywood Golf Club - Lakes Course
+Castle Eden Golf Club
+Cleethorpes Golf Club
+Doncaster Golf Club
+Hartlepool Golf Club
+Alton Golf Club
+Leasowe Golf Club
+Wellingborough Golf Club
+Cotswolds Club
+Delapre Golf Centre - The Oaks
+Croham Hurst Golf Club
+Chesterfield Golf Club
+Malden Golf Club
+Bromborough Golf Club
+Brampton Heath Golf Centre
+Caldy Golf Club
+Rushden Golf Club
+Copt Heath Golf Club
+Abbey Hotel Golf & Spa - The Abbey Golf Course
+Edgbaston Golf Club
+Coventry Hearsall Golf Club
+Nuneaton Golf Club
+Sutton Coldfield Golf Club - The Championship Course
+Aston Wood Golf Club - Championship Course
+Little Aston Golf Club
+Burford Golf Club
+Cherwell Edge Golf Club
+Pype Hayes Golf Club
+Moor Hall Golf Club
+Thorndon Park Golf Club
+Top Meadow Golf Club and Hotel - Top Meadow Golf Club
+Upminster Golf Club
+Tinsley Park Golf Club
+The Worcestershire Golf Club
+Gaudet Luce Golf and Leisure Complex - Phoenix
+Ombersley Golf Club
+Rochford Hundred Golf Club
+Braintree Golf Club
+Bewdley Pines Golf Club - 18-hole Course
+Kidderminster Golf Club
+Hagley Golf Country Club - Main Course
+Little Lakes Golf Club
+Brentwood Golf Club
+Kington Golf Club
+Burghill Valley Golf Club
+Arcot Hall Golf Club
+Three Rivers Golf & Country Club - Kings
+The Northumberland Golf Club
+Berkhamsted Golf Club
+Clacton-on-Sea Golf Club
+Alnmouth Golf Club - The 18-Hole Course
+Dunstanburgh Castle Golf Club
+Harpenden Common Golf Club
+Chesfield Downs Golf & Country Club
+Willesley Park Golf Club
+Birstall Golf Club
+Arscott Golf Club
+Telford Hotel, Spa & Golf Resort - Telford
+Glen Gorse Golf Club
+Shrewsbury Golf Club - 18-Hole Course
+Wrekin Golf Club
+Beeston Fields Golf Club
+Chilwell Manor Golf Club - 18-Hole Course
+Kirby Muxloe Golf Club - 18-Hole Course
+Lingdale Golf Club
+Ramsdale Park Golf Centre - The Seely Course
+Market Drayton Golf Club
+Beedles Lake Golf Centre - Beedles Lake
+Greetham Valley Golf Club - Lakes Course
+Lanhydrock Hotel and Golf Club
+Holsworthy Golf Club
+Ham Manor Golf Club
+Walmer & Kingsdown Golf Club
+Westgate and Birchington Golf Club
+Gillingham Golf Club
+Woldingham Golf Club
+Hever Castle Golf Club - Championship Course
+Heythrop Park Golf Club - Bainbridge Course
+Copthorne Golf Club
+Ifield Golf Club
+Crowborough Beacon Golf Club
+Harewood Downs Golf Club
+Dainton Park Golf Club
+North Warwickshire Golf Club
+Reigate Heath Golf Club
+Badgemore Park Golf Club
+Clandon Regis Golf Club
+Clandon Golf
+Coombe Wood Golf Club
+Lyme Regis Golf Club
+Trethorne Golf Club
+Rookwood Golf Course
+Upavon Golf Club
+Wrag Barn Golf & Country Club
+Welwyn Garden City Golf Club
+Selby Golf Club
+Selsey Golf Club
+Huddersfield Golf Club
+Sidmouth Golf Club
+Pannal Golf Club
+Flamborough Head Golf Club
+Moortown Golf Club
+Scalm Park Golf Club
+Ilkley Golf Club
+Otley Golf Club
+Wakefield Golf Club
+Shipley Golf Club
+Woodsome Hall Golf Club
+Outlane Golf Club
+Crosland Heath Golf Club
+Thonock Park Golf Club
+Market Rasen & District Golf Club
+John O'Gaunt Golf Club
+Seckford Golf Club
+Blankney Golf Club
+Carholme Golf Club
+Brett Vale Golf Club
+Serlby Park Golf Club
+Sleaford Golf Club - 18 Hole Course
+Belton Park Golf Club - Ancaster Course
+Belton Park Golf Club - Belmont Course
+Belton Park Golf Club - Brownlow Course
+Stoke Rochford Golf Club
+Grimsby Golf Club
+The Essex Golf & Country Club - Championship Course
+Hintlesham Golf Club
+Bedfordshire Golf Club - Stagsden
+Bush Hill Park Golf Club
+Datchet Golf Club
+Windmill Hill Golf Centre
+Pavenham Park Golf Club
+Colmworth and North Beds Golf Club - Championship Course
+Flackwell Heath Golf Club - Main Course
+Aylesbury Vale Golf Club
+Richings Park Golf Club
+Weston Turville Golf Club - 18-Hole Course
+Leighton Buzzard Golf Club
+Oakland Park Golf Club
+Tilsworth Golf Centre
+South Beds Golf Club - Galley Hill
+Stocks Golf Club
+Ellesborough Golf Club
+Chiltern Forest Golf Club
+Crews Hill Golf Club
+The Hertfordshire Golf Club
+Ballards Gore Golf Club
+Maldon Golf Club - Alternate Tees
+Castle Point Golf Centre
+Forest Hills Golf Club
+The Addington Golf Club
+Woodcote Park Golf Club
+Epsom Golf Club
+Boyce Hill Golf Club
+High Elms Golf Club
+Lamberhurst Golf Club
+Kingswood Golf Club
+Chislehurst Golf Club
+West Byfleet Golf Club
+Dartford Golf Club
+Epping Golf Course
+Cherry Lodge Golf Club
+March Golf Club
+Sheerness Golf Club
+Lytham Green Drive Golf Club
+Canterbury Golf Club
+Denham Golf Club
+Weald of Kent Golf Club
+Puttenham Golf Club
+Tehidy Park Golf Club
+Brokenhurst Manor Golf Club
+Freshwater Bay Golf Club
+Mid Sussex Golf Club
+The Berkshire Golf Club - Blue
+Birchwood Park Golf Centre - Birchwood Park Golf Club
+Addington Palace Golf Club
+Banstead Downs Golf Club
+Cavendish Golf Club
+Felixstowe Ferry Golf Club (The Martello Course)
+Frilford Heath Golf Club (Blue)
+Frilford Heath Golf Club (Green)
+Frilford Heath Golf Club (Red)
+Fulford Golf Club
+Letchworth Golf Club (Heritage Course)
+Muswell Hill Golf Club
+Sandy Lodge Golf Club
+Seaton Carew Golf Club (New Course)
+Seaton Carew Golf Club (Micklem)
+Seaton Carew Golf Club (Bishop)
+Slaley Hall Golf Club (Hunting)
+Slaley Hall (Priestman Course)
+Southport & Ainsdale Golf Club (Championship Course)
+St Annes Old Links Golf Club
+Stockport Golf Club
+Sunningdale Golf Club (Old Course)
+The Bristol Golf Club (Championship Course)
+Bishop's Stortford Golf Club
+Blackmoor Golf Club
+Bowood Park Hotel & Golf Club
+Broadstone Golf Club
+Collingtree Park Golf Club
+Dunston Hall Golf Club
+Enville Golf Club (Highgate Course)
+Forest Pines Golf Club (Beeches / Forest)
+Forest Pines Golf Club (Forest / Pines)
+Hadley Wood Golf Club
+Liphook Golf Club
+Royal Ashdown Forest Golf Club (Old Course)
+Seaford Head Golf Course
+Temple Golf Club
+The Drift Golf Club
+The Mere Golf Resort & Spa
+The Nevill Golf Club
+Thorpeness Golf Club
+Trevose Golf Club (Championship Course)
+De Vere Wychwood Park
+Hanbury Manor Golf & Country Club
+The Caversham
+Guildford Golf Club
+Furzeley Golf Club
+Mullion Golf Club
+Coombe Hill Golf Club
+Ganton Golf Club
+St Enodoc Golf Club (Church Course)
+Cleeve Hill Golf Club
+Yelverton Golf Club
+North Hants Golf Club
+Ogbourne Downs Golf Club
+Westerham Golf Club (Championship Course)
+Ealing Golf Club
+Hesketh Golf Club
+Prestbury Golf Club
+Chigwell Golf Club
+Hunstanton Golf Club
+The Herefordshire Golf Club
+Royal Birkdale Golf Club
+Walton Heath Golf Club (New Course)
+The Belfry - Brabazon
+The Belfry - PGA National
+Carden Park - Cheshire Course
+Carden Park - Nicklaus Course
+East Sussex National - East Course
+East Sussex National - West Course
+Belton Woods - Lakes Course
+Belton Woods - Woods Course
+Brocket Hall - Palmerston Course
+Brocket Hall - Melbourne Course
+Hill Valley - Emerald Course
+Gosfield Lake - Lakes Course
+Foxhills Golf Club - Longcross
+Meon Valley Golf & Country Club - Meon Course
+Perranporth Golf Club
+West Lancashire Golf Club
+Centurion Club
+Cooden Beach Golf Club
+Harleyford Golf Club
+Seaford Golf Club
+Enmore Park Golf Club
+Addington Court Golf Club - Championship Course
+Andover Golf Club
+Avisford Park Golf Club
+Bexleyheath Golf Club
+Carlyon Bay Golf Club
+Churston Golf Club
+Exeter Golf & Country Club
+Falmouth Golf Club
+Kings Hill Golf Club
+Launceston Golf Club
+Leatherhead Golf Club
+Looe Golf Club
+Porthpean Golf Club
+Teignmouth Golf Club
+West Malling Golf Club - Hurricane Course
+Haywards Heath Golf Club
+Lydd Golf Club
+Minehead & West Somerset Golf Club
+Royal Epping Forest Golf Club
+Salisbury & South Wilts Golf Club - Cathedral Course
+Shrivenham Park Golf Club
+Skylark Golf & Country Club
+Sunbury Golf Centre - 18 Hole Course
+Wheathill Golf Club
+Hoebridge Golf Club - Hoebridge Course
+Oulton Hall Golf Club - 1–9 / 19–27 Course
+Pyrford Lakes
+The Nottinghamshire Golf & Country Club - Signature Course
+The Astbury
+Easingwold Golf Club
+Cumberwell Park - Red / Yellow
+Cumberwell Park - Blue / Red
+Cumberwell Park - Red / Orange
+Cumberwell Park - Yellow / Blue
+Cumberwell Park - Orange / Yellow
+Cumberwell Park - Blue / Orange
+Stoke Park Golf Club
+St Mellion - Kernow Course
+St Mellion - Nicklaus Course
+Ferndown Golf Club - Old Course
+Woking Golf Club
+Forest of Arden - Arden Course
+Forest of Arden - Aylesford Course
+Bramshaw Golf Club - Manor Course
+Bramshaw Golf Club - Forest Course
+St George's Hill - Red / Blue
+St George's Hill - Blue / Green
+St George's Hill - Red / Green
+St George's Hill - Green / Blue
+The Shire London
+Cottesmore Golf & Country Club
+The Players Golf Club - Codrington Course
+New Zealand Golf Club
+Tavistock Golf Club
+Bovey Castle Golf Club
+Portal Golf Club - Championship Course
+Portal Golf Club - Premier Course
+Parkstone Golf Club
+Rockliffe Golf Club
+The Manor House Golf Club
+Mad Swans in the Mendips
+Bowood Hotel Spa & Golf Resort
+The Heron Golf Club - Heron / Hawk
+The Heron Golf Club - Hawk / Vixen
+The Heron Golf Club - Vixen / Heron
+Hollinwell Golf Club
+Mottram Hall Golf & Country Club
+Cape Cornwall Club
+Coulsdon Court Golf Club
+Bournemouth & Meyrick Park Golf Club
+Parley Court Golf Club
+Poult Wood Golf Centre
+Royal Mid-Surrey - J. H. Taylor Course
+Royal Mid-Surrey - Pam Barton Course
+Royal Mid-Surrey - Composite Course
+Tilgate Forest Golf Centre
+Chichester Golf Club - Cathedral Course
+Leeds Castle Golf Club
+Mannings Heath - Kingfisher Course
+Meon Valley Golf & Country Club - Valley Course
+Darenth Valley Golf Course
+Sunningdale Heath Golf Club
+The Belfry - Derby
+Carya Golf Club
+Robinson Nobilis Golf Club
+The Montgomerie Maxx Royal
+Lykia Links Antalya
+Address Montgomerie — Championship Course
+Jumeirah Golf Estates — Earth Course
+Jumeirah Golf Estates — Fire Course
+
+=== DUPLICATE course_tees KEYS ===
+
+=== DUPLICATE course_tee_holes KEYS ===

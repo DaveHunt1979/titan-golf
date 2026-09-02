@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, Modal, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, Modal, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
@@ -14,7 +14,17 @@ const PURPLE = '#a78bfa';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 
-const REGION_ORDER = ['England', 'Spain', 'France', 'Scotland', 'Portugal', 'Ireland & Northern Ireland', 'Orlando / Central Florida', 'Wales', 'Turkey'];
+// Same grouping as the tournament/casual-round course pickers (Dave,
+// 2026-09-04) — keep in sync if that list ever changes.
+const COUNTRY_TO_GROUP: Record<string, string> = {
+  England: 'UK', Scotland: 'UK', Wales: 'UK', Ireland: 'UK', 'Northern Ireland': 'UK', 'Isle of Man': 'UK',
+  France: 'Europe', Spain: 'Europe', Portugal: 'Europe', Italy: 'Europe', Germany: 'Europe', Austria: 'Europe',
+  Belgium: 'Europe', Netherlands: 'Europe', Denmark: 'Europe', 'Czech Republic': 'Europe', Greece: 'Europe', Turkey: 'Europe',
+  USA: 'USA',
+  Morocco: 'Africa', 'South Africa': 'Africa',
+  UAE: 'Middle East',
+};
+const COURSE_GROUP_ORDER = ['UK', 'Europe', 'USA', 'Africa', 'Middle East'];
 
 const HCP_ALLOWANCES = [
   { value: 100, label: 'Full',    desc: '100%'    },
@@ -53,7 +63,7 @@ export default function SwindleCreate() {
 
   const [name,          setName]          = useState('');
   const [course,        setCourse]        = useState('');
-  const [courses,       setCourses]       = useState<{ name: string; region: string | null }[]>([]);
+  const [courses,       setCourses]       = useState<{ name: string; region: string | null; country: string | null }[]>([]);
   const [courseHoles,   setCourseHoles]   = useState<CourseHole[]>([]);
   const [showPicker,    setShowPicker]    = useState(false);
   const [courseSearch,  setCourseSearch]  = useState('');
@@ -85,12 +95,20 @@ export default function SwindleCreate() {
       fetchAllRows<{ course_name: string }>(
         (from, to) => supabase.from('course_holes').select('course_name').range(from, to)
       ),
-      supabase.from('courses').select('name, region'),
-    ]).then(([data, { data: regionRows }]) => {
+      // Crossed the 1000-row PostgREST default cap once the course-database
+      // rebuild took this table past 733 rows (now 1,241+) — unpaginated,
+      // this silently dropped every course past row 1000 out of
+      // region/country lookup entirely, dumping all of them into "Other"
+      // (Dave, 2026-09-04).
+      fetchAllRows<{ name: string; region: string | null; country: string | null }>(
+        (from, to) => supabase.from('courses').select('name, region, country').range(from, to)
+      ),
+    ]).then(([data, regionRows]) => {
       const regionMap: Record<string, string | null> = {};
-      for (const r of (regionRows ?? []) as any[]) regionMap[r.name] = r.region;
+      const countryMap: Record<string, string | null> = {};
+      for (const r of regionRows) { regionMap[r.name] = r.region; countryMap[r.name] = r.country; }
       const names = [...new Set(data.map(r => r.course_name).filter(Boolean))].sort() as string[];
-      setCourses(names.map(name => ({ name, region: regionMap[name] ?? null })));
+      setCourses(names.map(name => ({ name, region: regionMap[name] ?? null, country: countryMap[name] ?? null })));
     });
   }, []);
 
@@ -542,6 +560,10 @@ export default function SwindleCreate() {
 
       {/* Course picker modal */}
       <Modal visible={showPicker} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <View style={s.pickerOverlay}>
           <View style={s.pickerSheet}>
             <View style={s.pickerHeader}>
@@ -552,8 +574,8 @@ export default function SwindleCreate() {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 48, marginBottom: 10, flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 2, alignItems: 'center' }}>
               {[{ key: null, label: 'All' },
-                ...REGION_ORDER.filter(r => courses.some(c => c.region === r)).map(r => ({ key: r, label: r })),
-                ...(courses.some(c => !c.region) ? [{ key: 'Other', label: 'Other' }] : []),
+                ...COURSE_GROUP_ORDER.filter(g => courses.some(c => (c.country ? COUNTRY_TO_GROUP[c.country] : null) === g)).map(g => ({ key: g, label: g })),
+                ...(courses.some(c => !c.country || !COUNTRY_TO_GROUP[c.country]) ? [{ key: 'Other', label: 'Other' }] : []),
               ].map(opt => (
                 <TouchableOpacity
                   key={opt.label}
@@ -580,7 +602,11 @@ export default function SwindleCreate() {
             <FlatList
               data={courses
                 .filter(c => c.name.toLowerCase().includes(courseSearch.toLowerCase()))
-                .filter(c => courseRegion === null || (courseRegion === 'Other' ? !c.region : c.region === courseRegion))}
+                .filter(c => {
+                  if (courseRegion === null) return true;
+                  const g = c.country ? COUNTRY_TO_GROUP[c.country] ?? null : null;
+                  return courseRegion === 'Other' ? g === null : g === courseRegion;
+                })}
               keyExtractor={item => item.name}
               renderItem={({ item }) => (
                 <TouchableOpacity
@@ -599,6 +625,7 @@ export default function SwindleCreate() {
             </TouchableOpacity>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <TeePickerSheet

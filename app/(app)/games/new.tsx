@@ -3,6 +3,7 @@ import { useFocusEffect } from 'expo-router';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, ActivityIndicator, Alert, TextInput, Modal, FlatList,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -16,7 +17,7 @@ import { downloadMatchPack, downloadCourseGps } from '../../../src/lib/offlinePa
 import { fetchFavouriteIds, fetchRecentlyPlayedWithIds, toggleFavourite } from '../../../src/lib/playerTiers';
 import GroupBuilderSheet, { BuiltMatch, PlayerOverride } from './GroupBuilderSheet';
 import { goBack } from '../../../src/lib/navigation';
-import TeePickerSheet, { fetchCourseTees, SelectableTee } from '../../../src/components/TeePickerSheet';
+import { SelectableTee } from '../../../src/components/TeePickerSheet';
 import { calculateWHSPlayingHandicap } from '../../../src/lib/whs';
 
 // ── Constants ─────────────────────────────────────────────────
@@ -25,7 +26,7 @@ type GameMode  = '4bbb' | '4bbb_stroke' | 'singles' | 'stableford' | 'medal' | '
 type HolesMode = 'full18' | 'front9' | 'back9';
 
 interface Player      { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
-interface CourseItem  { name: string; par: number; hasGps: boolean; region: string | null; }
+interface CourseItem  { name: string; par: number; hasGps: boolean; region: string | null; country: string | null; }
 interface PlayerGroup { id: string; name: string; player_ids: string[]; }
 
 const GREEN = '#22c55e';
@@ -420,10 +421,20 @@ function MashieGroupSheet({
 
 // ── Course picker sheet ───────────────────────────────────────
 
-// Regions ordered biggest-first (matches the real split of the course
-// database) rather than alphabetically, so the tabs a user reaches for most
-// often sit closest to "All".
-const REGION_ORDER = ['England', 'Spain', 'France', 'Scotland', 'Portugal', 'Ireland & Northern Ireland', 'Orlando / Central Florida', 'Wales', 'Turkey'];
+// Tabbed by continent-group, not the fine county/state/province detail
+// courses.region holds (e.g. "Surrey", "Bavaria") — 190+ distinct region
+// values across 1,241 courses is too granular to tab by, but still worth
+// keeping visible per-row (Dave, 2026-09-04). Grouped from courses.country,
+// added in the same rebuild as the 20-country course-database expansion.
+const COUNTRY_TO_GROUP: Record<string, string> = {
+  England: 'UK', Scotland: 'UK', Wales: 'UK', Ireland: 'UK', 'Northern Ireland': 'UK', 'Isle of Man': 'UK',
+  France: 'Europe', Spain: 'Europe', Portugal: 'Europe', Italy: 'Europe', Germany: 'Europe', Austria: 'Europe',
+  Belgium: 'Europe', Netherlands: 'Europe', Denmark: 'Europe', 'Czech Republic': 'Europe', Greece: 'Europe', Turkey: 'Europe',
+  USA: 'USA',
+  Morocco: 'Africa', 'South Africa': 'Africa',
+  UAE: 'Middle East',
+};
+const COURSE_GROUP_ORDER = ['UK', 'Europe', 'USA', 'Africa', 'Middle East'];
 
 function CourseSheet({
   visible, courses, selected, onSelect, onClose, ps, GOLD,
@@ -433,31 +444,37 @@ function CourseSheet({
   ps: any; GOLD: string;
 }) {
   const [search, setSearch] = useState('');
-  const [region, setRegion] = useState<string | null>(null);
-  const availableRegions = REGION_ORDER.filter(r => courses.some(c => c.region === r));
-  const hasOther = courses.some(c => !c.region);
+  const [group, setGroup] = useState<string | null>(null);
+  const groupOf = (c: CourseItem) => (c.country ? COUNTRY_TO_GROUP[c.country] ?? null : null);
+  const availableGroups = COURSE_GROUP_ORDER.filter(g => courses.some(c => groupOf(c) === g));
+  const hasOther = courses.some(c => groupOf(c) === null);
   const filtered = courses
     .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
-    .filter(c => region === null || (region === 'Other' ? !c.region : c.region === region));
+    .filter(c => group === null || (group === 'Other' ? groupOf(c) === null : groupOf(c) === group));
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={onClose} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        pointerEvents="box-none"
+      >
       <View style={[ps.sheet, { maxHeight: '75%' }]}>
         <View style={ps.handle} />
         <Text style={ps.sheetTitle}>Select Course</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 48, marginBottom: 10, flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 2, alignItems: 'center' }}>
-          {[{ key: null, label: 'All' }, ...availableRegions.map(r => ({ key: r, label: r })), ...(hasOther ? [{ key: 'Other', label: 'Other' }] : [])].map(opt => (
+          {[{ key: null, label: 'All' }, ...availableGroups.map(g => ({ key: g, label: g })), ...(hasOther ? [{ key: 'Other', label: 'Other' }] : [])].map(opt => (
             <TouchableOpacity
               key={opt.label}
-              onPress={() => setRegion(opt.key)}
+              onPress={() => setGroup(opt.key)}
               activeOpacity={0.7}
               style={{
                 paddingHorizontal: 14, paddingVertical: 7, borderRadius: 100,
-                borderWidth: 1, borderColor: region === opt.key ? GOLD : '#2a2a2a',
-                backgroundColor: region === opt.key ? 'rgba(212,175,55,0.14)' : 'transparent',
+                borderWidth: 1, borderColor: group === opt.key ? GOLD : '#2a2a2a',
+                backgroundColor: group === opt.key ? 'rgba(212,175,55,0.14)' : 'transparent',
               }}
             >
-              <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 12.5, lineHeight: 18, color: region === opt.key ? GOLD : '#9ca3af' }}>{opt.label}</Text>
+              <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 12.5, lineHeight: 18, color: group === opt.key ? GOLD : '#9ca3af' }}>{opt.label}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -477,10 +494,13 @@ function CourseSheet({
           renderItem={({ item }) => {
             const on = item.name === selected;
             return (
-              <TouchableOpacity style={ps.sheetRow} onPress={() => { onSelect(item.name); onClose(); setSearch(''); setRegion(null); }} activeOpacity={0.7}>
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[ps.sheetOpt, on && ps.sheetOptOn]} numberOfLines={1}>{item.name}</Text>
-                  {item.hasGps && <Ionicons name="location" size={13} color={GOLD} />}
+              <TouchableOpacity style={ps.sheetRow} onPress={() => { onSelect(item.name); onClose(); setSearch(''); setGroup(null); }} activeOpacity={0.7}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={[ps.sheetOpt, on && ps.sheetOptOn]} numberOfLines={1}>{item.name}</Text>
+                    {item.hasGps && <Ionicons name="location" size={13} color={GOLD} />}
+                  </View>
+                  {item.region && <Text style={{ fontFamily: 'JUSTSans', fontSize: 11, color: '#777', marginTop: 1 }} numberOfLines={1}>{item.region}{item.country ? `, ${item.country}` : ''}</Text>}
                 </View>
                 <Text style={ps.courseParLabel}>Par {item.par}</Text>
                 {on && <Ionicons name="checkmark" size={16} color={GOLD} style={{ marginLeft: 6 }} />}
@@ -488,10 +508,11 @@ function CourseSheet({
             );
           }}
         />
-        <TouchableOpacity style={ps.cancelBtn} onPress={() => { onClose(); setSearch(''); setRegion(null); }} activeOpacity={0.7}>
+        <TouchableOpacity style={ps.cancelBtn} onPress={() => { onClose(); setSearch(''); setGroup(null); }} activeOpacity={0.7}>
           <Text style={ps.cancelText}>Cancel</Text>
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -551,9 +572,7 @@ export default function NewGameScreen() {
   const [selectedCourse, setSelectedCourse] = useState<string | null>(preselectedCourse ?? null);
   const [hcpAllowance, setHcpAllowance]     = useState<number>(100);
   const [whsEnabled, setWhsEnabled]         = useState(false);
-  const [courseTees, setCourseTees]         = useState<SelectableTee[]>([]);
   const [playerTees, setPlayerTees]         = useState<Record<string, SelectableTee>>({});
-  const [teePickerPlayerId, setTeePickerPlayerId] = useState<string | null>(null);
   const [showWhsDetails, setShowWhsDetails] = useState(false);
   const [sideGames, setSideGames]           = useState<string[]>([]);
   const [secondaryFormat, setSecondaryFormat] = useState<string | null>('stableford');
@@ -604,7 +623,7 @@ export default function NewGameScreen() {
     setPair1([]); setPair2([]); setPairStep(1);
     setSelectedCourse(existingDayId && preselectedCourse ? preselectedCourse : null);
     setHcpAllowance(100); setSideGames([]); setSecondaryFormat('stableford');
-    setWhsEnabled(false); setPlayerTees({}); setTeePickerPlayerId(null); setShowWhsDetails(false);
+    setWhsEnabled(false); setPlayerTees({}); setShowWhsDetails(false);
     setHoles('full18'); setVoiceEnabled(false); setStatsEnabled(false); setLdActive(false); setNpActive(false);
     setLdHole(null); setNtpHole(null); setCreating(false); setTakenPlayerIds([]);
     setTeamSize(2); setCounting(2); setNumTeams(2); setExtraTeams([]);
@@ -634,8 +653,6 @@ export default function NewGameScreen() {
 
   useEffect(() => {
     setPlayerTees({});
-    if (!selectedCourse) { setCourseTees([]); return; }
-    fetchCourseTees(selectedCourse).then(setCourseTees);
   }, [selectedCourse]);
 
   useEffect(() => {
@@ -647,8 +664,15 @@ export default function NewGameScreen() {
       fetchAllRows<{ course_name: string; par: number; green_lat: number | null; green_lng: number | null }>(
         (from, to) => supabase.from('course_holes').select('course_name, par, green_lat, green_lng').range(from, to)
       ),
-      supabase.from('courses').select('name, region'),
-    ]).then(([data, { data: regionRows }]) => {
+      // Crossed the 1000-row PostgREST default cap once the course-database
+      // rebuild took this table past 733 rows (now 1,241+) — unpaginated,
+      // this silently dropped every course past row 1000 out of
+      // region/country lookup entirely, dumping all of them into "Other"
+      // (Dave, 2026-09-04).
+      fetchAllRows<{ name: string; region: string | null; country: string | null }>(
+        (from, to) => supabase.from('courses').select('name, region, country').range(from, to)
+      ),
+    ]).then(([data, regionRows]) => {
       const parMap: Record<string, number> = {};
       const gpsMap: Record<string, boolean> = {};
       for (const row of data) {
@@ -656,9 +680,10 @@ export default function NewGameScreen() {
         if (row.green_lat != null && row.green_lng != null) gpsMap[row.course_name] = true;
       }
       const regionMap: Record<string, string | null> = {};
-      for (const r of (regionRows ?? []) as any[]) regionMap[r.name] = r.region;
+      const countryMap: Record<string, string | null> = {};
+      for (const r of regionRows) { regionMap[r.name] = r.region; countryMap[r.name] = r.country; }
       setCourses(Object.entries(parMap)
-        .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name], region: regionMap[name] ?? null }))
+        .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name], region: regionMap[name] ?? null, country: countryMap[name] ?? null }))
         .sort((a, b) => a.name.localeCompare(b.name)));
       setLoadingCourses(false);
     });
@@ -1298,34 +1323,6 @@ export default function NewGameScreen() {
           </SettingRow>
           <View style={s.settingDivider} />
 
-          {allRoundPlayerIds.length > 0 && (
-            <>
-              {allRoundPlayerIds.map(pid => {
-                const p = players.find(pl => pl.id === pid);
-                const tee = playerTees[pid];
-                const inherited = !tee && defaultTee;
-                // Off WHS, picking a tee is optional (yardage-only — see
-                // TeePickerSheet/round_player_tees) so an unset tee isn't an
-                // error here the way it is when WHS requires a rated tee.
-                const missingIsError = whsEnabled;
-                const shown = tee ?? (inherited ? defaultTee : undefined);
-                return (
-                  <View key={pid}>
-                    <SettingRow
-                      icon="flag-outline"
-                      label={p?.display_name ?? 'Player'}
-                      value={shown ? `${shown.tee_name}${shown.gender ? ` (${shown.gender})` : ''}${inherited ? ' (default)' : ''}` : (missingIsError ? 'Select tee' : 'Any tee')}
-                      valueColor={tee ? GOLD : inherited ? '#6b7280' : (missingIsError ? '#f87171' : '#6b7280')}
-                      onPress={() => setTeePickerPlayerId(pid)}
-                      s={s} GOLD={GOLD}
-                    />
-                    <View style={s.settingDivider} />
-                  </View>
-                );
-              })}
-            </>
-          )}
-
           {/* Chip & Birdie */}
           <SettingRow icon="mic-outline" label="Chip & Birdie" value={voiceEnabled ? 'On' : 'Off'} valueColor={voiceEnabled ? GOLD : '#6b7280'} onPress={() => setVoiceEnabled(v => !v)} s={s} GOLD={GOLD}>
             <View style={[s.toggle, voiceEnabled && s.toggleOn]}>
@@ -1501,16 +1498,6 @@ export default function NewGameScreen() {
       </ScrollView>
 
       {/* ── Pickers ───────────────────────────────────────────── */}
-      <TeePickerSheet
-        visible={!!teePickerPlayerId}
-        title={`Select tee — ${players.find(p => p.id === teePickerPlayerId)?.display_name ?? ''}`}
-        tees={courseTees}
-        onSelect={tee => {
-          if (teePickerPlayerId) setPlayerTees(prev => ({ ...prev, [teePickerPlayerId]: tee }));
-          setTeePickerPlayerId(null);
-        }}
-        onClose={() => setTeePickerPlayerId(null)}
-      />
       <Modal visible={showWhsDetails} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowWhsDetails(false)}>
         <View style={{ flex: 1, backgroundColor: '#000', paddingTop: 20 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' }}>
@@ -1574,6 +1561,12 @@ export default function NewGameScreen() {
         onToggleFavourite={handleToggleFavourite}
         onDone={handleGroupBuilderDone}
         onClose={() => setShowGroupBuilder(false)}
+        courseName={selectedCourse}
+        playerTees={playerTees}
+        onSetPlayerTee={(pid, tee) => setPlayerTees(prev => {
+          if (tee) return { ...prev, [pid]: tee };
+          const next = { ...prev }; delete next[pid]; return next;
+        })}
       />
       <CourseSheet visible={showCourse} courses={courses} selected={selectedCourse} onSelect={setSelectedCourse} onClose={() => setShowCourse(false)} ps={ps} GOLD={GOLD} />
       <PickerSheet
