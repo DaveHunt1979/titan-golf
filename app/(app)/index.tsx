@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   Image, ActivityIndicator, RefreshControl, Dimensions, Linking, useWindowDimensions,
+  Animated, PanResponder,
 } from 'react-native';
 import { IS_PAD } from '../../src/lib/useDeviceLayout';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -14,6 +15,7 @@ import { resolveAvatar, titanLogo } from '../../src/lib/assets';
 import { useSocietyTheme, useDynamicColors } from '../../src/lib/SocietyThemeContext';
 import TCardSheet, { type PlayingNow } from '../../src/components/TCardSheet';
 import type { EditablePlayer } from '../../src/components/PlayerEditSheet';
+import { computeSuggestedHandicap, type SuggestedHandicapResult } from '../../src/lib/suggestedHandicap';
 
 const GOLD = '#D4AF37'; // fallback for StyleSheet only — JSX uses dc.gold
 const heroLandscape     = require('../../assets/hero_landscape.png');
@@ -35,7 +37,7 @@ function greet(): string {
 const TILES = [
   { key: 'play',      label: 'Play',        sub: 'Start a casual round',        icon: 'golf-outline'   as const, area: 'casual',  route: '/(app)/score' },
   { key: 'events',    label: 'Tournaments',  sub: 'Tournaments & leagues',        icon: 'trophy-outline' as const, area: 'tour',    route: '/(app)/tour'    },
-  { key: 'clubhouse', label: 'Clubhouse',    sub: 'Swindles & roll-ups',          icon: 'people-outline' as const, area: 'swindle', route: '/(app)/swindle' },
+  { key: 'clubhouse', label: 'Clubhouse',    sub: 'Swindles & roll-ups',          icon: 'people-outline' as const, area: 'swindle', route: '/(app)/clubhouse' },
   { key: 'locker',    label: 'Locker Room',  sub: 'Stats, handicap & equipment',  icon: 'shield-outline' as const, area: 'casual',  route: '/(app)/profile' },
 ] as const;
 
@@ -75,8 +77,38 @@ export default function HomeScreen() {
   const [swindleCount,   setSwindleCount]   = useState(0);
   const [friendRounds,   setFriendRounds]   = useState<FriendRound[]>([]);
   const [selectedFriend, setSelectedFriend] = useState<FriendRound | null>(null);
+  const [suggestedHcp,   setSuggestedHcp]   = useState<SuggestedHandicapResult | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   useFocusEffect(useCallback(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, []));
+
+  // Runs quietly off actual rounds played in the app — no manual entry.
+  // Cache-then-refresh (like the course list cache) so the swipe has
+  // something to show instantly, refreshed at most every 12h since it scans
+  // real match history and isn't cheap to recompute on every screen focus.
+  useEffect(() => {
+    if (!playerId) return;
+    let cancelled = false;
+    const cacheKey = `suggested_hcp_cache:${playerId}`;
+
+    (async () => {
+      const raw = await AsyncStorage.getItem(cacheKey);
+      let stale = true;
+      if (raw) {
+        try {
+          const cached = JSON.parse(raw) as SuggestedHandicapResult & { computedAt: number };
+          if (!cancelled) setSuggestedHcp({ value: cached.value, roundsUsed: cached.roundsUsed });
+          stale = Date.now() - cached.computedAt > 12 * 60 * 60 * 1000;
+        } catch { /* corrupt cache — recompute below */ }
+      }
+      if (!stale) return;
+      const result = await computeSuggestedHandicap(playerId);
+      if (cancelled || !result) return;
+      setSuggestedHcp(result);
+      AsyncStorage.setItem(cacheKey, JSON.stringify({ ...result, computedAt: Date.now() })).catch(() => {});
+    })();
+
+    return () => { cancelled = true; };
+  }, [playerId]);
 
   async function checkUnread(pid: string | null) {
     if (!SOCIETY_ID) return;
@@ -329,10 +361,7 @@ export default function HomeScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Text style={s.greetName}>{playerName.split(' ')[0] || 'Golfer'}</Text>
               {handicapIndex != null && (
-                <View style={s.hcpChip}>
-                  <Text style={s.hcpLabel}>HCP</Text>
-                  <Text style={s.hcpValue}>{handicapIndex % 1 === 0 ? handicapIndex.toFixed(0) : handicapIndex.toFixed(1)}</Text>
-                </View>
+                <HcpSwipeChip official={handicapIndex} suggested={suggestedHcp} />
               )}
             </View>
           </View>
@@ -511,6 +540,60 @@ function QuickBtn({ icon, label, cardBg, iconColor, textColor, onPress, badge, b
   );
 }
 
+// Swipe (or tap) between the declared Handicap Index and a Suggested
+// Handicap computed from actual rounds played — built so a player whose
+// stated handicap never moves, no matter how many rounds they play, still
+// shows what they're really playing off (Dave, 2026-09-02). PanResponder,
+// not react-native-gesture-handler — same reasoning as swindle/index.tsx's
+// SwipeableRow: no native dep needed, works immediately.
+function HcpSwipeChip({ official, suggested }: { official: number; suggested: SuggestedHandicapResult | null }) {
+  const [showSuggested, setShowSuggested] = useState(false);
+  const slide = useRef(new Animated.Value(0)).current;
+
+  const flip = () => {
+    if (!suggested) return;
+    const dir = showSuggested ? 1 : -1;
+    Animated.timing(slide, { toValue: dir * -14, duration: 90, useNativeDriver: true }).start(() => {
+      setShowSuggested(v => !v);
+      slide.setValue(dir * 14);
+      Animated.spring(slide, { toValue: 0, useNativeDriver: true, bounciness: 8 }).start();
+    });
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onPanResponderRelease: flip,
+    })
+  ).current;
+
+  const isSuggested = showSuggested && !!suggested;
+  const value = isSuggested ? suggested!.value : official;
+  const delta = suggested ? Math.round((suggested.value - official) * 10) / 10 : 0;
+
+  return (
+    <TouchableOpacity activeOpacity={suggested ? 0.7 : 1} onPress={flip} {...(suggested ? panResponder.panHandlers : {})}>
+      <Animated.View
+        style={[s.hcpChip, isSuggested && s.hcpChipSuggested, { transform: [{ translateX: slide }] }]}
+      >
+        <Text style={[s.hcpLabel, isSuggested && s.hcpLabelSuggested]}>{isSuggested ? 'SUGGESTED' : 'HCP'}</Text>
+        <Text style={[s.hcpValue, isSuggested && s.hcpValueSuggested]}>
+          {value % 1 === 0 ? value.toFixed(0) : value.toFixed(1)}
+        </Text>
+        {isSuggested && delta !== 0 && (
+          <Text style={s.hcpDelta}>{delta < 0 ? '▼' : '▲'}{Math.abs(delta).toFixed(1)} vs stated</Text>
+        )}
+      </Animated.View>
+      {suggested && (
+        <View style={s.hcpDots}>
+          <View style={[s.hcpDot, !isSuggested && s.hcpDotOn]} />
+          <View style={[s.hcpDot, isSuggested && s.hcpDotOn]} />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
 const s = StyleSheet.create({
   root:    { flex: 1, backgroundColor: '#000000' },
   centered:{ flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -598,9 +681,16 @@ const s = StyleSheet.create({
   quickBadgeText: { fontFamily: FFB, fontSize: 9, color: '#000' },
 
   // HCP chip
-  hcpChip:  { backgroundColor: `${GOLD}15`, borderWidth: 1, borderColor: `${GOLD}40`, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, alignItems: 'center' },
+  hcpChip:  { backgroundColor: `${GOLD}15`, borderWidth: 1, borderColor: `${GOLD}40`, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, alignItems: 'center', minWidth: 56 },
   hcpLabel: { fontFamily: FFB, fontSize: 8, color: GOLD, letterSpacing: 1.5 },
   hcpValue: { fontFamily: FFB, fontSize: 16, color: GOLD, lineHeight: 18 },
+  hcpChipSuggested:  { backgroundColor: `${GREEN}15`, borderColor: `${GREEN}40` },
+  hcpLabelSuggested: { color: GREEN },
+  hcpValueSuggested: { color: GREEN },
+  hcpDelta: { fontFamily: FFB, fontSize: 8, color: GREEN, marginTop: 1 },
+  hcpDots:  { flexDirection: 'row', gap: 3, justifyContent: 'center', marginTop: 4 },
+  hcpDot:   { width: 4, height: 4, borderRadius: 2, backgroundColor: '#3a3a3a' },
+  hcpDotOn: { backgroundColor: GOLD },
 
   // Friends on a round
   sectionTitle:    { fontFamily: FFB, fontSize: 10, color: '#888', letterSpacing: 1.5, marginBottom: 10 },

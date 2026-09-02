@@ -9,6 +9,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useSociety } from '../../../src/lib/useSociety';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
@@ -436,6 +437,10 @@ const COUNTRY_TO_GROUP: Record<string, string> = {
 };
 const COURSE_GROUP_ORDER = ['UK', 'Europe', 'USA', 'Africa', 'Middle East'];
 
+// Bump this if CourseItem's shape ever changes, so stale cached JSON isn't
+// read back as a mismatched shape.
+const COURSE_CACHE_KEY = 'course_list_cache_v1';
+
 function CourseSheet({
   visible, courses, selected, onSelect, onClose, ps, GOLD,
 }: {
@@ -455,11 +460,10 @@ function CourseSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={onClose} />
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '75%' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        pointerEvents="box-none"
       >
-      <View style={[ps.sheet, { maxHeight: '75%' }]}>
+      <View style={ps.sheetKb}>
         <View style={ps.handle} />
         <Text style={ps.sheetTitle}>Select Course</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 48, marginBottom: 10, flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 2, alignItems: 'center' }}>
@@ -491,6 +495,7 @@ function CourseSheet({
           data={filtered}
           keyExtractor={c => c.name}
           style={{ flexGrow: 0 }}
+          keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => {
             const on = item.name === selected;
             return (
@@ -657,6 +662,23 @@ export default function NewGameScreen() {
 
   useEffect(() => {
     if (societyLoading) return;
+
+    // The full course_holes + courses read (~1,241 courses / ~22k hole rows,
+    // paginated past PostgREST's 1000-row cap) was making every visit to
+    // this screen wait on a cold network fetch. Courses barely change day
+    // to day, so serve last time's list from disk instantly, then refresh
+    // from the network in the background and re-cache (Dave, 2026-09-02).
+    AsyncStorage.getItem(COURSE_CACHE_KEY).then(cached => {
+      if (!cached) return;
+      try {
+        const parsed = JSON.parse(cached) as CourseItem[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCourses(parsed);
+          setLoadingCourses(false);
+        }
+      } catch { /* corrupt cache — fall through to network fetch */ }
+    });
+
     // green_lat/green_lng populated (via the admin GPS download tool) is
     // the same signal the rangefinder itself checks for — a course "has
     // GPS data" once at least one hole carries it.
@@ -682,10 +704,12 @@ export default function NewGameScreen() {
       const regionMap: Record<string, string | null> = {};
       const countryMap: Record<string, string | null> = {};
       for (const r of regionRows) { regionMap[r.name] = r.region; countryMap[r.name] = r.country; }
-      setCourses(Object.entries(parMap)
+      const list = Object.entries(parMap)
         .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name], region: regionMap[name] ?? null, country: countryMap[name] ?? null }))
-        .sort((a, b) => a.name.localeCompare(b.name)));
+        .sort((a, b) => a.name.localeCompare(b.name));
+      setCourses(list);
       setLoadingCourses(false);
+      AsyncStorage.setItem(COURSE_CACHE_KEY, JSON.stringify(list)).catch(() => {});
     });
     if (!societyId) { setLoadingPlayers(false); return; }
     (async () => {
@@ -1165,6 +1189,14 @@ export default function NewGameScreen() {
     overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
     sheet: {
       position: 'absolute', bottom: 0, left: 0, right: 0,
+      backgroundColor: CARD, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      paddingBottom: 34, paddingHorizontal: 16,
+    },
+    // Same look as `sheet`, minus the absolute positioning — used inside a
+    // KeyboardAvoidingView that is itself pinned to the bottom, so the
+    // keyboard shrinks this sheet's available height instead of the
+    // keyboard just covering an absolutely-positioned sheet underneath it.
+    sheetKb: {
       backgroundColor: CARD, borderTopLeftRadius: 20, borderTopRightRadius: 20,
       paddingBottom: 34, paddingHorizontal: 16,
     },

@@ -258,6 +258,12 @@
   },
   "hotPaths": [
     {
+      "path": "app/(app)/admin/season-manage.tsx",
+      "accessCount": 27,
+      "lastAccessed": 1788374191541,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/games/GroupBuilderSheet.tsx",
       "accessCount": 18,
       "lastAccessed": 1788356863100,
@@ -270,15 +276,231 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/season/index.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1788373428795,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/seasonClose.ts",
+      "accessCount": 9,
+      "lastAccessed": 1788374795660,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/seasonRoundIngestion.ts",
+      "accessCount": 7,
+      "lastAccessed": 1788374773495,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1788370550220,
+      "type": "file"
+    },
+    {
+      "path": "supabase/functions/titan-news/index.ts",
+      "accessCount": 4,
+      "lastAccessed": 1788374644309,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/seasonDivisions.ts",
+      "accessCount": 4,
+      "lastAccessed": 1788374686217,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/clubhouse/index.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1788370508036,
+      "type": "file"
+    },
+    {
+      "path": "app.json",
+      "accessCount": 3,
+      "lastAccessed": 1788375722005,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/swindle/index.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1788370455039,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 2,
+      "lastAccessed": 1788370763492,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/index.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1788371765495,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf/Info.plist",
+      "accessCount": 2,
+      "lastAccessed": 1788375728528,
+      "type": "file"
+    },
+    {
+      "path": "ios/titangolf.xcodeproj/project.pbxproj",
+      "accessCount": 2,
+      "lastAccessed": 1788375737663,
+      "type": "file"
+    },
+    {
       "path": "src/components/TeePickerSheet.tsx",
       "accessCount": 1,
       "lastAccessed": 1788356841341,
       "type": "file"
     },
     {
-      "path": "app.json",
+      "path": "screenshots/Titan_Season_Mode_Full_Product_Technical_Specification.md",
       "accessCount": 1,
-      "lastAccessed": 1788357994260,
+      "lastAccessed": 1788370375551,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/swindle/_layout.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788370409669,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/index.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788370464998,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/clubhouse/_layout.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788370471334,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/season/_layout.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788370474128,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/index.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788370554262,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260825020000_whs_layer.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788370749363,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260905000000_titan_season_data_model.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788370912829,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/seasonScoring.ts",
+      "accessCount": 1,
+      "lastAccessed": 1788371080651,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/hub-swindle.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788371709666,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/dateHelpers.ts",
+      "accessCount": 1,
+      "lastAccessed": 1788371746394,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/hub-season.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788371782961,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/season-create.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788371853839,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260804030000_swindle_groups.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788372401234,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260906000000_titan_season_round_sources.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788372420611,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/season/join.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788372601070,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/season-requests.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788372672908,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/seasonLeaderboard.ts",
+      "accessCount": 1,
+      "lastAccessed": 1788373051177,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/season/table.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788373135810,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/season/majors.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788373411546,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/titanNews.ts",
+      "accessCount": 1,
+      "lastAccessed": 1788374524491,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/notifications.ts",
+      "accessCount": 1,
+      "lastAccessed": 1788374585233,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260907000000_titan_season_news.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788374612596,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/seasonNews.ts",
+      "accessCount": 1,
+      "lastAccessed": 1788374667050,
       "type": "file"
     }
   ],

@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
+import { calcDifferential, whsBestCount, calcHandicapIndex } from '../../../src/lib/whs';
 
 // ── TITAN design constants ───────────────────────────────────────────────────
 const GOLD = '#D4AF37';
@@ -24,29 +25,6 @@ interface Round {
 
 function blankRound(): Round {
   return { score: '', rating: '72', slope: '113' };
-}
-
-function calcDifferential(score: number, rating: number, slope: number): number {
-  return (score - rating) * 113 / slope;
-}
-
-function whsBestCount(n: number): number {
-  if (n <= 5)  return 1;
-  if (n <= 8)  return 2;
-  if (n <= 11) return 3;
-  if (n <= 14) return 4;
-  if (n <= 16) return 5;
-  if (n <= 18) return 6;
-  if (n === 19) return 7;
-  return 8;
-}
-
-function calcHandicapIndex(differentials: number[]): number {
-  const sorted = [...differentials].sort((a, b) => a - b);
-  const n = whsBestCount(sorted.length);
-  const best = sorted.slice(0, n);
-  const avg = best.reduce((a, b) => a + b, 0) / best.length;
-  return Math.round(avg * 0.96 * 10) / 10;
 }
 
 export default function HandicapCalculatorScreen() {

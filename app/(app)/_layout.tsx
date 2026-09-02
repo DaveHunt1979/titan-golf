@@ -13,7 +13,8 @@ import IpadSidebar from '../../src/components/ipad/IpadSidebar';
 import MessageAlert from '../../src/components/MessageAlert';
 
 // Every section below with its own nested Stack (admin/, score/, swindle/,
-// tour/, range/, games/, inbox/, profile/, trips/, chat/) keeps its full
+// clubhouse/, season/, tour/, range/, games/, inbox/, profile/, trips/,
+// chat/) keeps its full
 // push history alive across tab switches — that's what makes Back work
 // correctly while you're IN a section, but it also means returning to a
 // tab you've drilled into resumes exactly where you left off instead of
@@ -216,6 +217,8 @@ function AppLayoutInner() {
         <Tabs.Screen name="score"          options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="tour"           options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="swindle"        options={{ href: null }} listeners={resetOnTabPress()} />
+        <Tabs.Screen name="clubhouse"      options={{ href: null }} listeners={resetOnTabPress()} />
+        <Tabs.Screen name="season"         options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="watch/index"    options={{ href: null }} />
         <Tabs.Screen name="chat"           options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="inbox"            options={{ href: null }} listeners={resetOnTabPress()} />

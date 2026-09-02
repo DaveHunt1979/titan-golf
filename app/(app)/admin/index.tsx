@@ -18,12 +18,14 @@ const GOLD   = '#D4AF37';
 const RED    = '#f87171';
 const PURPLE = '#a78bfa';
 const BLUE   = '#60a5fa';
+const GREEN  = '#4ade80';
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
 
 const BUCKETS = [
   { key: 'swindle',    label: 'Swindle',    sub: 'Weekly games & money list',      icon: 'cash-outline'     as const, accent: PURPLE, route: '/(app)/admin/hub-swindle' },
   { key: 'tournament', label: 'Tournament', sub: 'Branding, teams & schedule',     icon: 'trophy-outline'   as const, accent: GOLD,   route: '/(app)/admin/hub-tournament' },
+  { key: 'season',     label: 'Season',     sub: 'Divisions, Majors & league setup', icon: 'layers-outline' as const, accent: GREEN,  route: '/(app)/admin/hub-season' },
   { key: 'platform',   label: 'Platform',   sub: 'Players, courses & the rest',    icon: 'settings-outline' as const, accent: BLUE,   route: '/(app)/admin/hub-platform' },
 ] as const;
 

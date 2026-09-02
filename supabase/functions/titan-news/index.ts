@@ -55,7 +55,7 @@ You also write ONE short line of "banter" from Titan's two broadcast hosts, Chip
 - "banterText" — one or two sentences, in that host's voice, under 30 words.
 - "banterScene" — exactly one of: ${BANTER_SCENE_KEYS.join(', ')}.` : '';
 
-  return `You are Titan News, the automated sports desk for a golf society's tournament app. You write proper tournament journalism — pre-round previews, end-of-round reports, final tournament reports, and one-off casual round match reports (storyType "casual_final") — from a structured JSON facts package that has already been fully computed by Titan.
+  return `You are Titan News, the automated sports desk for a golf society's tournament app. You write proper tournament journalism — pre-round previews, end-of-round reports, final tournament reports, one-off casual round match reports (storyType "casual_final"), and Titan Season Mode league stories (storyType "season_divisions_published" or "season_finished") — from a structured JSON facts package that has already been fully computed by Titan.
 
 STRICT RULES — these are absolute:
 - Only use facts contained in the supplied JSON snapshot. Nothing else.
@@ -67,7 +67,9 @@ STRICT RULES — these are absolute:
 - A match with winner "half" (resultStr "Halved") has no winner — call it a halved/drawn match, never imply either side won it.
 - For a stroke-play round (Stableford or Medal), the winner is named in "strokePlayWinner" — never infer it from the order of the "standings" array.
 - The individual standings board is called EXACTLY whatever "tournament.individualBoardLabel" says in the snapshot (it will be either "Kronos" or "Individual" — this is Titan Way-exclusive branding, never assume "Kronos" for any other format). Use that label whenever referring to that board or its winner.
-- If the snapshot's "winnerDecidedByTieBreak" is non-null, the individual winner was tied on points with the runner-up and the result was only settled by that named tie-break rule — say so explicitly in the report (e.g. "level on points, [Name] took it on countback via [rule]"). If it's null, don't mention tie-breaks at all.${banterInstruction}
+- If the snapshot's "winnerDecidedByTieBreak" is non-null, the individual winner was tied on points with the runner-up and the result was only settled by that named tie-break rule — say so explicitly in the report (e.g. "level on points, [Name] took it on countback via [rule]"). If it's null, don't mention tie-breaks at all.
+- "season_divisions_published" is a kickoff story: introduce the league (name, divisions, player counts) — no results exist yet, don't imply anyone has played.
+- "season_finished" is the season's final report: name every division's champion, who's promoted, who's relegated, framed like a football season finale. Every player named must come from the snapshot's champions/promoted/relegated lists — never guess at a division's outcome if it's missing from the snapshot.${banterInstruction}
 
 You must respond with ONLY valid JSON, no other text, in exactly this shape:
 {"headline":"...","summary":"...","body":"...","featuredPlayers":["..."],"featuredTeams":["..."]${banterJsonShape}}
@@ -82,9 +84,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const { dedupeKey, competitionId, matchId, dayId, storyType, snapshot } = await req.json();
-    if (!dedupeKey || !storyType || !snapshot || (!competitionId && !matchId)) {
-      return new Response(JSON.stringify({ error: 'dedupeKey, storyType, snapshot and one of competitionId/matchId are required' }), {
+    const { dedupeKey, competitionId, matchId, dayId, seasonId, storyType, snapshot } = await req.json();
+    if (!dedupeKey || !storyType || !snapshot || (!competitionId && !matchId && !seasonId)) {
+      return new Response(JSON.stringify({ error: 'dedupeKey, storyType, snapshot and one of competitionId/matchId/seasonId are required' }), {
         status: 400, headers: CORS,
       });
     }
@@ -163,6 +165,7 @@ Deno.serve(async (req) => {
         competition_id: competitionId ?? null,
         match_id:       matchId ?? null,
         day_id:         dayId ?? null,
+        season_id:      seasonId ?? null,
         story_type:     storyType,
         headline:       article.headline ?? null,
         summary:        article.summary ?? null,

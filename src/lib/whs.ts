@@ -89,3 +89,32 @@ export function resolvePlayingHandicap(
   }
   return playerCourseHcp(hcpIndex, day, allowance);
 }
+
+// ── WHS Handicap Index formula ──────────────────────────────────────────
+// Shared by the manual "enter 3+ scorecards" calculator (profile/handicap.tsx)
+// and the automatic suggested-handicap engine (suggestedHandicap.ts) so both
+// always agree on the same math (Dave, 2026-09-02).
+
+export function calcDifferential(score: number, rating: number, slope: number): number {
+  return (score - rating) * 113 / slope;
+}
+
+// Official WHS "how many of your best differentials count" table.
+export function whsBestCount(n: number): number {
+  if (n <= 5)  return 1;
+  if (n <= 8)  return 2;
+  if (n <= 11) return 3;
+  if (n <= 14) return 4;
+  if (n <= 16) return 5;
+  if (n <= 18) return 6;
+  if (n === 19) return 7;
+  return 8;
+}
+
+export function calcHandicapIndex(differentials: number[]): number {
+  const sorted = [...differentials].sort((a, b) => a - b);
+  const n = whsBestCount(sorted.length);
+  const best = sorted.slice(0, n);
+  const avg = best.reduce((a, b) => a + b, 0) / best.length;
+  return Math.round(avg * 0.96 * 10) / 10;
+}
