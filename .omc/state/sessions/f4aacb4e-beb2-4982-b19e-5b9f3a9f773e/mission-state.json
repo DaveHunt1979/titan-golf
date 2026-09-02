@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-02T08:58:15.811Z",
+  "updatedAt": "2026-09-02T09:03:39.309Z",
   "missions": [
     {
       "id": "session:f4aacb4e-beb2-4982-b19e-5b9f3a9f773e:none",
@@ -7,7 +7,7 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-09-01T14:18:35.855Z",
-      "updatedAt": "2026-09-02T08:58:15.811Z",
+      "updatedAt": "2026-09-02T09:03:39.309Z",
       "status": "done",
       "workerCount": 6,
       "taskCounts": {
@@ -27,7 +27,7 @@
           "currentStep": null,
           "latestUpdate": "completed",
           "completedSummary": null,
-          "updatedAt": "2026-09-02T08:58:15.811Z"
+          "updatedAt": "2026-09-02T09:03:39.309Z"
         },
         {
           "name": "fork:add925c",
@@ -208,6 +208,14 @@
           "agent": "fork:acf8393",
           "detail": "completed",
           "sourceKey": "session-stop:afe8d358e7a030735"
+        },
+        {
+          "id": "session-stop:a4915111e7f29a48c:2026-09-02T09:03:39.309Z",
+          "at": "2026-09-02T09:03:39.309Z",
+          "kind": "completion",
+          "agent": "fork:acf8393",
+          "detail": "completed",
+          "sourceKey": "session-stop:a4915111e7f29a48c"
         }
       ]
     }
