@@ -277,16 +277,22 @@ export function calcSweepBonus(
   bonusPoints: number,
 ): Record<string, number> {
   const bonusPts: Record<string, number> = {};
-  const singlesByDay: Record<string, typeof matches> = {};
+  // Keyed by day + the specific team pairing, not day alone — a singles day
+  // with more than 2 teams (any real Titan Way tournament: 4-12 teams) runs
+  // several simultaneous brackets (e.g. 1st-vs-2nd, 3rd-vs-4th, 5th-vs-6th),
+  // and grouping by day_id alone compared every match against the first
+  // bracket's teams, so "sameFixture" was false for the whole day and no
+  // sweep ever paid out once a tournament had more than 2 teams (found
+  // 2026-09-01 via a full sim: a genuine 4-0 sweep scored zero bonus).
+  const byFixture: Record<string, typeof matches> = {};
   matches.forEach(m => {
     if (!m.day_id || !singlesDayIds.has(m.day_id) || !m.home_team_id || !m.away_team_id) return;
-    (singlesByDay[m.day_id] ??= []).push(m);
+    const key = `${m.day_id}:${m.home_team_id}:${m.away_team_id}`;
+    (byFixture[key] ??= []).push(m);
   });
-  Object.values(singlesByDay).forEach(dayMatches => {
+  Object.values(byFixture).forEach(dayMatches => {
     const homeTeam = dayMatches[0].home_team_id!;
     const awayTeam = dayMatches[0].away_team_id!;
-    const sameFixture = dayMatches.every(m => m.home_team_id === homeTeam && m.away_team_id === awayTeam);
-    if (!sameFixture) return;
     const winners = dayMatches.map(m => getEffectiveWinner(
       m.status as 'upcoming' | 'in_progress' | 'complete',
       m.winner,

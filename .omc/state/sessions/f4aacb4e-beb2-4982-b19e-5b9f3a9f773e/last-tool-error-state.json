@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cat > /tmp/check_rosters.mjs << 'EOF'\\nimport { createClient } from '@supabase/supabase-js';\\nimport fs from 'node:fs';\\nconst envText = fs.readFileSync('.env.local', 'utf8');\\nconst env =...",
+  "error": "Exit code 1\nnode:internal/modules/package_json_reader:301\n  throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);\n        ^\n\nError [ERR_MODULE_NOT_FOUND]: Cannot find package '@supabase/supabase-js' imported from /private/tmp/check_rosters.mjs\n    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)\n    at packageResolve (node:internal/modules/esm/resolve:768:81)\n    at moduleResolve (node:internal/modules/esm/resolve:859:18)\n    at defaultResolve (node...",
+  "timestamp": "2026-09-01T15:03:10.572Z",
+  "retry_count": 2
+}

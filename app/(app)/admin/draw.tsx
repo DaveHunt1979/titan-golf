@@ -585,14 +585,21 @@ export default function TournamentDrawScreen() {
       // leaderboard uses, or the two screens can show contradictory
       // positions on the day it matters most.
       const singlesDayIds = new Set(days.filter(d => d.day_format === 'singles' || d.day_format === 'singles_stableford').map(d => d.id));
-      const bonusPts = calcSweepBonus(matches as any, singlesDayIds, comp?.bonus_points ?? 2);
+      // Seeding must come from the locked qualifying-round standings only —
+      // excluded explicitly (not just relying on this day's own matches not
+      // existing yet) so a re-generate of an already-played final day can
+      // never accidentally feed its own playoff results back into the
+      // seeding that's supposed to have decided it (see tour/index.tsx's
+      // matching exclusion for the same reasoning).
+      const qualifyingMatches = matches.filter(m => !singlesDayIds.has(m.day_id));
+      const bonusPts = calcSweepBonus(qualifyingMatches as any, singlesDayIds, comp?.bonus_points ?? 2);
       const teamStableford: Record<string, number> = {};
       compPlayers.forEach(cp => {
         if (!cp.team_id) return;
         teamStableford[cp.team_id] = (teamStableford[cp.team_id] ?? 0) + (stablefordTotals[cp.player_id] ?? 0);
       });
       const standings = getStandings(
-        matches.filter(m => m.home_team_id && m.away_team_id) as any,
+        qualifyingMatches.filter(m => m.home_team_id && m.away_team_id) as any,
         comp?.pts_win ?? 1, comp?.pts_half ?? 0.5,
         teamStableford, bonusPts,
       );
@@ -1488,8 +1495,7 @@ function MatchAssignModal({
   const playerName = (id: string) => compPlayers.find(cp => cp.player_id === id)?.display_name ?? '—';
 
   return (
-    <>
-      <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
         <View style={s.modal}>
           <View style={s.modalHeader}>
             <TouchableOpacity onPress={onClose}>
@@ -1547,33 +1553,39 @@ function MatchAssignModal({
               );
             })}
           </ScrollView>
-        </View>
-      </Modal>
 
-      {/* Player picker — a second, smaller sheet on top, matching the sheet
-          pattern used elsewhere (e.g. NTP/LD winner pickers in admin/news.tsx). */}
-      <Modal visible={pickerFor !== null} transparent animationType="slide" onRequestClose={() => setPickerFor(null)}>
-        <TouchableOpacity style={s.pickerOverlay} activeOpacity={1} onPress={() => setPickerFor(null)} />
-        <View style={s.pickerSheet}>
-          <View style={s.pickerHeader}>
-            <Text style={s.pickerTitle}>Select Player</Text>
-            <TouchableOpacity onPress={() => setPickerFor(null)} activeOpacity={0.7}>
-              <Text style={s.pickerClose}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={pickerFor ? eligiblePlayers(pickerFor.matchId, pickerFor.side, pickerFor.idx) : []}
-            keyExtractor={cp => cp.player_id}
-            ListEmptyComponent={<Text style={[s.emptyText, { textAlign: 'center', padding: 20 }]}>No eligible players left for this round.</Text>}
-            renderItem={({ item }) => (
-              <TouchableOpacity style={s.pickerItem} onPress={() => selectPlayer(item.player_id)} activeOpacity={0.7}>
-                <Text style={s.pickerItemText}>{item.display_name}</Text>
-              </TouchableOpacity>
-            )}
-          />
+          {/* Player picker — rendered as an overlay INSIDE this same Modal,
+              not as a second <Modal>. Two native Modals stacked from one
+              screen silently fails on iOS ("Attempt to present ... which is
+              already presenting ...") — the second present() is a no-op, so
+              tapping a player slot looked like the whole screen had frozen.
+              An in-place overlay reproduces the identical look (dim
+              background + bottom sheet) without a second presentation. */}
+          {pickerFor !== null && (
+            <View style={StyleSheet.absoluteFillObject}>
+              <TouchableOpacity style={s.pickerOverlay} activeOpacity={1} onPress={() => setPickerFor(null)} />
+              <View style={s.pickerSheet}>
+                <View style={s.pickerHeader}>
+                  <Text style={s.pickerTitle}>Select Player</Text>
+                  <TouchableOpacity onPress={() => setPickerFor(null)} activeOpacity={0.7}>
+                    <Text style={s.pickerClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <FlatList
+                  data={pickerFor ? eligiblePlayers(pickerFor.matchId, pickerFor.side, pickerFor.idx) : []}
+                  keyExtractor={cp => cp.player_id}
+                  ListEmptyComponent={<Text style={[s.emptyText, { textAlign: 'center', padding: 20 }]}>No eligible players left for this round.</Text>}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity style={s.pickerItem} onPress={() => selectPlayer(item.player_id)} activeOpacity={0.7}>
+                      <Text style={s.pickerItemText}>{item.display_name}</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            </View>
+          )}
         </View>
-      </Modal>
-    </>
+    </Modal>
   );
 }
 

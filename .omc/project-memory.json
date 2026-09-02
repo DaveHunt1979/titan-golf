@@ -262,26 +262,26 @@
   "hotPaths": [
     {
       "path": "app/(app)/admin/draw.tsx",
-      "accessCount": 156,
-      "lastAccessed": 1787631705105,
+      "accessCount": 169,
+      "lastAccessed": 1788326817287,
       "type": "file"
     },
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 153,
-      "lastAccessed": 1787631327043,
+      "accessCount": 166,
+      "lastAccessed": 1788326786017,
       "type": "file"
     },
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 133,
-      "lastAccessed": 1788243122627,
+      "accessCount": 135,
+      "lastAccessed": 1788272897510,
       "type": "file"
     },
     {
       "path": "src/lib/scoring.ts",
-      "accessCount": 46,
-      "lastAccessed": 1787728284170,
+      "accessCount": 49,
+      "lastAccessed": 1788275862906,
       "type": "file"
     },
     {
@@ -381,6 +381,12 @@
       "type": "file"
     },
     {
+      "path": "src/lib/navigation.ts",
+      "accessCount": 6,
+      "lastAccessed": 1788272024409,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/help/index.tsx",
       "accessCount": 5,
       "lastAccessed": 1787551097771,
@@ -432,12 +438,6 @@
       "path": "app/(app)/_layout.tsx",
       "accessCount": 2,
       "lastAccessed": 1787322567656,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/navigation.ts",
-      "accessCount": 2,
-      "lastAccessed": 1787566607776,
       "type": "file"
     },
     {

@@ -1893,7 +1893,7 @@ export default function BuildTournamentScreen() {
             <Text style={styles.stepSub}>Schedule, travel, rules and contacts players will see for this tournament. Optional — can be added any time.</Text>
             <TouchableOpacity
               style={styles.infoPackBtn}
-              onPress={() => router.push(`/(app)/admin/info?id=${compId}&back=/(app)/admin/build?id=${compId}` as any)}
+              onPress={() => router.push(`/(app)/admin/info?id=${compId}&back=${encodeURIComponent(`/(app)/admin/build?id=${compId}`)}` as any)}
               activeOpacity={0.85}
             >
               <Ionicons name="document-text-outline" size={18} color={GOLD} />
@@ -1949,7 +1949,29 @@ export default function BuildTournamentScreen() {
         visible={courseSheetDay !== null}
         courses={courses}
         selected={courseSheetDay !== null ? days[courseSheetDay]?.courseName ?? null : null}
-        onSelect={name => { if (courseSheetDay !== null) updateDay(courseSheetDay, { courseName: name }); }}
+        onSelect={name => {
+          if (courseSheetDay === null) return;
+          const dayIndex = courseSheetDay;
+          updateDay(dayIndex, { courseName: name });
+          // Pick a sensible default tee's rating so Dave isn't forced to
+          // manually type Course Rating / Slope for every course when the
+          // data already exists (course_tees, from the course-master
+          // import) — prefer a "White" men's tee since that's this
+          // society's usual default, else the first tee with complete
+          // rating data. A player can still pick their own tee later via
+          // TeePickerSheet for the real per-player WHS numbers; this only
+          // seeds the day-level fallback fields.
+          fetchCourseTees(name).then(tees => {
+            const complete = tees.filter(t => t.course_rating != null && t.slope_rating != null);
+            const defaultTee = complete.find(t => t.tee_name.toLowerCase() === 'white') ?? complete[0];
+            if (defaultTee) {
+              updateDay(dayIndex, {
+                courseRating: String(defaultTee.course_rating),
+                slopeRating: String(defaultTee.slope_rating),
+              });
+            }
+          });
+        }}
         onClose={() => setCourseSheetDay(null)}
       />
 

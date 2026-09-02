@@ -9,7 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { getStandings, getEffectiveWinner, calcSweepBonus, individualScoreValue, formatVsPar, buildKronosTieBreakMaps, kronosTieBreakCompare } from '../../../src/lib/scoring';
 import { individualBoardLabel, getFormatRules } from '../../../src/lib/tournamentFormat';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
@@ -194,10 +194,18 @@ export default function TourScreen() {
       ...(matchesData as any[] ?? []).flatMap(m => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]),
       ...((cpData as any[] ?? []).map(cp => cp.player_id)),
     ])];
-    const [{ data: holesData }, { data: playersData }] = await Promise.all([
+    // PostgREST caps an unbounded .select() at 1000 rows — a Titan Way
+    // tournament's match_holes easily exceeds that (24+ players x up to 4
+    // rounds x 18 holes), which was silently truncating Kronos, dropping
+    // whichever days landed past row 1000 (surfaced 2026-09-01: a 30-match
+    // sim tournament had 1,520 match_holes rows and Day 4 showed zero
+    // Kronos points because its rows never made it into holesData).
+    const [holesData, { data: playersData }] = await Promise.all([
       matchIds.length
-        ? supabase.from('match_holes').select('player_id,stableford_pts,gross_score,match_id,hole_number').in('match_id', matchIds)
-        : Promise.resolve({ data: [] as any[] }),
+        ? fetchAllRows<{ player_id: string; stableford_pts: number | null; gross_score: number | null; match_id: string; hole_number: number }>(
+            (from, to) => supabase.from('match_holes').select('player_id,stableford_pts,gross_score,match_id,hole_number').in('match_id', matchIds).range(from, to)
+          )
+        : Promise.resolve([] as any[]),
       allPlayerIds.length
         ? supabase.from('players').select('id,display_name,avatar_url').in('id', allPlayerIds)
         : Promise.resolve({ data: [] as any[] }),
@@ -645,10 +653,21 @@ export default function TourScreen() {
   // Bonus points for sweeping every singles match on a day — shared with
   // admin/draw.tsx's final-day knockout seeding so they can't disagree.
   const singlesDayIds = new Set(days.filter(d => d.day_format === 'singles' || d.day_format === 'singles_stableford').map(d => d.id));
-  const bonusPts = calcSweepBonus(matches as Match[], singlesDayIds, (competition as any).bonus_points ?? 2);
+  // Titan Way's whole structure is "qualifying rounds decide final position,
+  // then the playoff is a fixed-position showdown" (Rick, 2026-09-02) — the
+  // singles/playoff day must never feed team points or it can re-shuffle a
+  // position the format promises is already locked (e.g. a low seed sweeping
+  // their bracket and leapfrogging into 1st). Only exclude it for formats
+  // that actually define a knockout playoff; a plain Multi-Team Tour's
+  // singles day is a normal scoring round like any other.
+  const excludePlayoffFromPoints = getFormatRules(competition?.format).finalDayKnockout;
+  const qualifyingMatches = excludePlayoffFromPoints
+    ? (matches as any[]).filter((m: any) => !singlesDayIds.has(m.day_id))
+    : (matches as any[]);
+  const bonusPts = calcSweepBonus(qualifyingMatches as Match[], singlesDayIds, (competition as any).bonus_points ?? 2);
 
   const standings = getStandings(
-    (matches as any[]).filter((m: any) => m.home_team_id && m.away_team_id),
+    qualifyingMatches.filter((m: any) => m.home_team_id && m.away_team_id),
     (competition as any).pts_win  ?? 1,
     (competition as any).pts_half ?? 0.5,
     teamStableford,
@@ -668,13 +687,19 @@ export default function TourScreen() {
   // just called once per day with that day's matches only, so each column
   // shows points earned that round rather than a running total.
   const sortedDays = [...days].sort((a, b) => a.day_number - b.day_number);
+  // Team-only: the playoff day gets its own tab (below), not an R-column
+  // here, when the format locks position before it — otherwise a knockout
+  // day would show up as a normal scoring round in the Team table. Kronos
+  // (below) deliberately keeps using the unfiltered `sortedDays` — its D1-D4
+  // columns legitimately span the playoff day too.
+  const teamSortedDays = sortedDays.filter(d => !excludePlayoffFromPoints || !singlesDayIds.has(d.id));
   // Same "every round is Medal" check loadTournamentData used to decide
   // vs-par vs Stableford ranking — kept in sync so the Kronos tab and the
   // Players/Individual board never rank the same tournament two different
   // ways (Rick's brief, section 13).
   const daysAllMedal = days.length > 0 && days.every(d => d.day_format === 'medal');
   const dayPtsByTeam: Record<string, number[]> = {};
-  sortedDays.forEach(day => {
+  teamSortedDays.forEach(day => {
     const dayMatches = (matches as any[]).filter((m: any) => m.day_id === day.id && m.home_team_id && m.away_team_id);
     const daySinglesIds = (day.day_format === 'singles' || day.day_format === 'singles_stableford') ? new Set([day.id]) : new Set<string>();
     const dayBonus = calcSweepBonus(dayMatches as Match[], daySinglesIds, (competition as any)?.bonus_points ?? 2);
@@ -687,7 +712,7 @@ export default function TourScreen() {
     );
     dayStandings.forEach(ds => {
       if (!dayPtsByTeam[ds.teamId]) dayPtsByTeam[ds.teamId] = [];
-      dayPtsByTeam[ds.teamId][sortedDays.indexOf(day)] = ds.pts;
+      dayPtsByTeam[ds.teamId][teamSortedDays.indexOf(day)] = ds.pts;
     });
   });
 
@@ -699,7 +724,7 @@ export default function TourScreen() {
     teamName: s.name,
     teamLogoUrl: s.logo_url,
     teamAccentColor: s.accent_color,
-    columns: sortedDays.map((_, i) => dayPtsByTeam[s.teamId]?.[i] ?? '–'),
+    columns: teamSortedDays.map((_, i) => dayPtsByTeam[s.teamId]?.[i] ?? '–'),
     totalDisplay: String(s.pts),
   }));
   const teamPointsKey = [
@@ -1135,7 +1160,7 @@ export default function TourScreen() {
             {leaderboardTab === 'team' && (
               <Leaderboard
                 rows={[...teamLeaderboardRows].sort((a, b) => b.sortKey - a.sortKey)}
-                columnLabels={sortedDays.map((_, i) => `R${i + 1}`)}
+                columnLabels={teamSortedDays.map((_, i) => `R${i + 1}`)}
                 totalLabel="TOTAL"
                 pointsKey={teamPointsKey}
                 emptyMessage="No matches played yet. Results will appear here as games complete."
