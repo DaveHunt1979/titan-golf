@@ -108,6 +108,8 @@ export default function ProfilePage() {
   const [societyName, setSocietyName] = useState<string | null>(null);
   const [joinedAt,    setJoinedAt]    = useState<string | null>(null);
   const [stats,       setStats]       = useState({ rounds: 0, best: null as number | null, avg: null as number | null, eagles: 0, birdies: 0, pars: 0 });
+  /** Stableford total per round, oldest → newest, last 6 rounds. */
+  const [trend,       setTrend]       = useState<number[]>([]);
   const [reportGroups, setReportGroups] = useState<ReportGroup[]>([]);
 
   // Edit fields
@@ -152,27 +154,33 @@ export default function ProfilePage() {
     setSocietyName((sm as any)?.societies?.name ?? null);
     setJoinedAt((sm as any)?.joined_at ?? null);
 
-    // Career stats
+    // Career stats + Stableford trend.
+    // Same source as before (sum match_holes.stableford_pts per match_id), plus
+    // updated_at so rounds can be ordered oldest → newest for the trend chart —
+    // exactly how PlayerProfilePanel orders the same data. No new scoring maths.
     const { data: holes } = await supabase
-      .from('match_holes').select('match_id, stableford_pts').eq('player_id', p.id);
+      .from('match_holes').select('match_id, stableford_pts, updated_at').eq('player_id', p.id);
     if (holes) {
-      const matchPts: Record<string, number> = {};
+      const perMatch: Record<string, { pts: number; last: string }> = {};
       let eagles = 0, birdies = 0, pars = 0;
-      holes.forEach((h: any) => {
-        if (h.stableford_pts != null) {
-          matchPts[h.match_id] = (matchPts[h.match_id] ?? 0) + h.stableford_pts;
+      (holes as { match_id: string; stableford_pts: number | null; updated_at: string | null }[])
+        .forEach(h => {
+          if (h.stableford_pts == null) return;
+          const row = (perMatch[h.match_id] ??= { pts: 0, last: '' });
+          row.pts += h.stableford_pts;
+          if ((h.updated_at ?? '') > row.last) row.last = h.updated_at ?? '';
           if (h.stableford_pts >= 4) eagles++;
           if (h.stableford_pts === 3) birdies++;
           if (h.stableford_pts === 2) pars++;
-        }
-      });
-      const vals = Object.values(matchPts);
+        });
+      const vals = Object.values(perMatch).sort((a, b) => a.last.localeCompare(b.last)).map(r => r.pts);
       setStats({
         rounds: vals.length,
         best: vals.length ? Math.max(...vals) : null,
         avg: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null,
         eagles, birdies, pars,
       });
+      setTrend(vals.slice(-6));
     }
 
     // My Reports — published Titan News stories from every tournament this player played in.
@@ -305,37 +313,44 @@ export default function ProfilePage() {
 
   const hcpDisplay  = player.handicap_index != null ? Number(player.handicap_index).toFixed(1) : '—';
 
-  // Stat tiles — handicap/rounds/in-bag from the old hero badges, plus the
-  // Career Stats numbers (best/avg/birdies) relocated up here from lower down.
+  // Stat tiles — handicap/rounds/in-bag from the old hero badges, plus every
+  // Career Stats number the load() query computes (best/avg/eagles/birdies/pars).
   const statTiles: { label: string; value: string | number; gold?: boolean }[] = [
-    { label: 'Handicap', value: hcpDisplay, gold: true },
-    { label: 'Rounds',   value: stats.rounds },
-    { label: 'In Bag',   value: inBagCount },
+    { label: 'Handicap',   value: hcpDisplay, gold: true },
+    { label: 'Rounds',     value: stats.rounds },
+    { label: 'Best Round', value: stats.best != null ? stats.best : '—', gold: true },
+    { label: 'Average',    value: stats.avg  != null ? stats.avg  : '—' },
+    { label: 'Eagles+',    value: stats.eagles },
+    { label: 'Birdies',    value: stats.birdies },
+    { label: 'Pars',       value: stats.pars },
+    { label: 'In Bag',     value: inBagCount },
   ];
-  if (stats.rounds > 0) {
-    statTiles.push(
-      { label: 'Best Round', value: stats.best != null ? `${stats.best} pts` : '—' },
-      { label: 'Average',    value: stats.avg  != null ? `${stats.avg} pts`  : '—' },
-      { label: 'Birdies',    value: stats.birdies },
-    );
-  }
 
-  const heroSubtitle = [
+  const metaChips = [
     societyName,
     joinedAt ? `Member since ${new Date(joinedAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}` : null,
     player.cdh_number ? `CDH ${player.cdh_number}` : null,
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean) as string[];
+
+  const trendDelta = trend.length > 1 ? trend[trend.length - 1] - trend[0] : null;
 
   return (
-    <div className="mx-auto max-w-screen-xl px-6 py-12">
+    <div className="relative">
+      {/* Ambient gold wash behind the hero — same top-of-page treatment as the command deck. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[460px] bg-[radial-gradient(1100px_460px_at_80%_-14%,var(--gold-glow),transparent_62%)]"
+      />
+
+      <div className="relative mx-auto max-w-screen-xl px-6 py-12">
 
       {/* ── Header ─────────────────────────────────────────── */}
-      <div className="mb-6 flex items-end justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">
-            {societyName ?? 'Titan Golf'}
+            {societyName ?? 'Titan Golf'} · Player Card
           </div>
-          <h1 className="mt-1 text-5xl font-black text-white">Locker Room</h1>
+          <h1 className="mt-1 text-5xl font-black tracking-tight text-white">Locker Room</h1>
         </div>
         {editing && (
           <div className="flex items-center gap-2">
@@ -361,36 +376,85 @@ export default function ProfilePage() {
 
         <div className="space-y-4">
 
-          {/* Hero */}
-          <div className="flex flex-col items-center gap-5 rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6 text-center sm:flex-row sm:text-left">
-            <div className="relative shrink-0">
-              <div className="flex h-[88px] w-[88px] items-center justify-center rounded-full border-2 border-[#D4AF37] bg-[#1a1a1a] text-3xl font-black text-[#D4AF37] shadow-[0_0_0_4px_rgba(74,222,128,0.10),0_0_28px_-8px_rgba(212,175,55,0.6)]">
-                {initial}
+          {/* Hero — identity left, real Stableford trend right */}
+          <div className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111]">
+            <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,368px)] lg:gap-8">
+
+              {/* Identity */}
+              <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:text-left">
+                <div className="relative shrink-0">
+                  <div className="flex h-[112px] w-[112px] items-center justify-center rounded-full border-2 border-[#D4AF37] bg-[#1a1a1a] text-[38px] font-black leading-none text-[var(--gold-bright)] shadow-[0_0_0_5px_rgba(74,222,128,0.10),0_0_38px_-6px_rgba(212,175,55,0.55)]">
+                    {initial}
+                  </div>
+                  <span
+                    title="Handicap Index"
+                    className="absolute -right-2.5 -top-1.5 rounded-full border-2 border-[#111111] bg-[#4ade80] px-2.5 py-0.5 font-mono text-[12px] font-bold tabular-nums text-[#052012]"
+                  >
+                    {hcpDisplay}
+                  </span>
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-600">
+                    {stats.rounds > 0 ? `${stats.rounds} rounds logged` : 'No rounds logged yet'}
+                  </div>
+                  <h2 className="mt-1.5 text-[40px] font-black leading-[0.95] tracking-tight text-white">
+                    {player.display_name}
+                  </h2>
+                  {player.nickname && (
+                    <div className="mt-2 text-sm font-bold text-[#4ade80]">&ldquo;{player.nickname}&rdquo;</div>
+                  )}
+                  {metaChips.length > 0 && (
+                    <div className="mt-3.5 flex flex-wrap justify-center gap-1.5 sm:justify-start">
+                      {metaChips.map(chip => (
+                        <span
+                          key={chip}
+                          className="rounded-full border border-[#1c1c1c] bg-[#0a0a0a] px-2.5 py-1 text-[11px] font-semibold text-neutral-400"
+                        >
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { setEditing(true); scrollToSection('profile-details'); }}
+                    className="mt-5 inline-flex items-center gap-2 rounded-full bg-[linear-gradient(155deg,var(--gold-bright),var(--gold-deep))] px-5 py-2.5 text-[12.5px] font-black tracking-wide text-[#181200] transition-[filter] hover:brightness-110"
+                  >
+                    <Edit2 size={13} />
+                    Edit Profile
+                  </button>
+                </div>
               </div>
-              <span
-                title="Handicap Index"
-                className="absolute -right-2 -top-1.5 rounded-full border-2 border-[#111111] bg-[#4ade80] px-2 py-0.5 text-[11px] font-bold tabular-nums text-[#052012]"
-              >
-                {hcpDisplay}
-              </span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-3xl font-black leading-tight text-white">{player.display_name}</div>
-              {player.nickname && (
-                <div className="mt-1 text-sm font-bold text-[#4ade80]">&ldquo;{player.nickname}&rdquo;</div>
-              )}
-              {heroSubtitle && (
-                <div className="mt-2 text-xs text-neutral-500">{heroSubtitle}</div>
-              )}
+
+              {/* Real trend chart — last 6 scored rounds */}
+              <div className="rounded-xl border border-[#1c1c1c] bg-[#0a0a0a] p-4">
+                <div className="mb-3 flex items-baseline justify-between gap-3">
+                  <span className="text-[11.5px] font-bold text-neutral-400">
+                    Stableford — Last {trend.length || 6} Rounds
+                  </span>
+                  {trendDelta != null && (
+                    <span className="font-mono text-[11px] tabular-nums" style={{ color: 'var(--teal)' }}>
+                      {trendDelta >= 0 ? '+' : ''}{trendDelta} pts
+                    </span>
+                  )}
+                </div>
+                {trend.length > 1 ? (
+                  <TrendChart pts={trend} />
+                ) : (
+                  <div className="flex h-[132px] items-center justify-center rounded-lg border border-dashed border-[#1c1c1c] px-4 text-center text-xs text-neutral-600">
+                    Not enough scored rounds yet.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Stat tiles */}
-          <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#1c1c1c]">
+          {/* Stat tiles — hairline grid, same treatment as the tee-sheet player card */}
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#1c1c1c] sm:grid-cols-4">
             {statTiles.map(s => (
-              <div key={s.label} className="bg-[#111111] px-3 py-3 sm:px-4 sm:py-3.5">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">{s.label}</div>
-                <div className={`mt-1.5 text-2xl font-black tabular-nums ${s.gold ? 'text-[#D4AF37]' : 'text-white'}`}>
+              <div key={s.label} className="bg-[#111111] px-4 py-3.5">
+                <div className="text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-600">{s.label}</div>
+                <div className={`mt-1.5 font-mono text-[26px] font-bold leading-none tabular-nums ${s.gold ? 'text-[var(--gold-bright)]' : 'text-white'}`}>
                   {s.value}
                 </div>
               </div>
@@ -399,9 +463,10 @@ export default function ProfilePage() {
         </div>
 
         {/* Buttons down the side */}
-        <div className="flex flex-col gap-2 lg:sticky lg:top-6 lg:self-start">
-          <div className="px-1 pb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-600">
-            Quick Actions
+        <div className="flex flex-col gap-1.5 lg:sticky lg:top-6 lg:self-start">
+          <div className="mb-1 flex items-center gap-2 px-1">
+            <span className="text-[9.5px] font-bold uppercase tracking-[0.16em] text-neutral-600">Quick Actions</span>
+            <span className="h-px flex-1 bg-[#1c1c1c]" />
           </div>
           <SideButton
             icon={<Edit2 size={15} />}
@@ -441,7 +506,7 @@ export default function ProfilePage() {
 
           {/* Profile details */}
           <section id="profile-details" className="scroll-mt-6">
-            <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Profile Details</h2>
+            <SectionHeading label="Profile Details" hint={editing ? 'Editing' : undefined} />
             <div className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] divide-y divide-[#1c1c1c]">
               <ProfileField label="Display Name"   value={name}     onChange={setName}     editing={editing} placeholder="Your name" />
               <ProfileField label="Nickname"        value={nickname} onChange={setNickname} editing={editing} placeholder='"The Machine"' />
@@ -467,11 +532,11 @@ export default function ProfilePage() {
             )}
           </section>
 
-          {/* Career stats are now shown as tiles beside the hero above. */}
+          {/* Career stats live in the hero stat grid + trend chart above. */}
 
           {/* Account */}
           <section id="account" className="scroll-mt-6">
-            <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Account</h2>
+            <SectionHeading label="Account" />
             <div className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] divide-y divide-[#1c1c1c]">
 
               {/* Change password */}
@@ -541,7 +606,7 @@ export default function ProfilePage() {
 
         {/* ── RIGHT: My Bag ─────────────────────────────────── */}
         <div id="my-bag" className="scroll-mt-6">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">My Bag</h2>
+          <SectionHeading label="My Bag" hint={`${inBagCount} in bag`} />
           <div className="space-y-4">
             {CATEGORY_ORDER.map(cat => {
               const group = byCategory[cat];
@@ -576,10 +641,10 @@ export default function ProfilePage() {
       {/* ── My Tournament Reports ──────────────────────────── */}
       {reportGroups.length > 0 && (
         <section id="my-reports" className="mt-8 scroll-mt-6">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">My Tournament Reports</h2>
+          <SectionHeading label="My Tournament Reports" hint={`${reportGroups.length} tournament${reportGroups.length === 1 ? '' : 's'}`} />
           <div className="space-y-4">
             {reportGroups.map(g => (
-              <div key={g.competition.id} className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111]">
+              <div key={g.competition.id} className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] transition-colors hover:border-neutral-800">
                 <div className="flex items-center justify-between gap-4 border-b border-[#1c1c1c] px-5 py-4">
                   <div>
                     <div className="text-sm font-black text-white">{g.competition.name}</div>
@@ -614,7 +679,87 @@ export default function ProfilePage() {
           </div>
         </section>
       )}
+      </div>
     </div>
+  );
+}
+
+// ── SectionHeading ────────────────────────────────────────────────────────────
+
+function SectionHeading({ label, hint }: { label: string; hint?: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-3">
+      <h2 className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">{label}</h2>
+      <span className="h-px flex-1 bg-[#1c1c1c]" />
+      {hint && <span className="text-[11px] font-semibold text-neutral-600">{hint}</span>}
+    </div>
+  );
+}
+
+// ── TrendChart ────────────────────────────────────────────────────────────────
+
+/**
+ * Last-6-rounds Stableford trend. Same drawing recipe as the tee-sheet's
+ * PlayerProfilePanel (grid lines, gradient fill, emphasised newest point),
+ * sized for the wider full-page hero. The viewBox aspect matches the
+ * container's aspect ratio so preserveAspectRatio="none" scales uniformly.
+ */
+function TrendChart({ pts }: { pts: number[] }) {
+  const w = 336, h = 132, pad = 10;
+  const max = Math.max(...pts);
+  const min = Math.min(...pts);
+  const range = Math.max(1, max - min);
+  const stepX = pts.length > 1 ? (w - pad * 2) / (pts.length - 1) : 0;
+
+  const coords = pts.map((v, i) => {
+    const x = pad + i * stepX;
+    const y = pad + (h - pad * 2) * (1 - (v - min) / range);
+    return [x, y] as const;
+  });
+
+  const linePath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'}${c[0].toFixed(1)},${c[1].toFixed(1)}`).join(' ');
+  const fillPath = `${linePath} L${coords[coords.length - 1][0].toFixed(1)},${h - pad} L${coords[0][0].toFixed(1)},${h - pad} Z`;
+
+  return (
+    <>
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        preserveAspectRatio="none"
+        className="aspect-[336/132] w-full overflow-visible"
+      >
+        <defs>
+          <linearGradient id="profileTrendGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor="var(--teal)" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="var(--teal)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[0.25, 0.5, 0.75].map(f => {
+          const y = pad + (h - pad * 2) * f;
+          return <line key={f} x1={pad} y1={y} x2={w - pad} y2={y} stroke="#1c1c1c" strokeWidth={1} />;
+        })}
+        <path d={fillPath} fill="url(#profileTrendGrad)" />
+        <path d={linePath} fill="none" stroke="var(--teal)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+        {coords.map((c, i) => {
+          const isLast = i === coords.length - 1;
+          return (
+            <circle
+              key={i}
+              cx={c[0]} cy={c[1]} r={isLast ? 4.5 : 2.8}
+              fill={isLast ? 'var(--teal)' : '#050908'}
+              stroke={isLast ? '#050908' : 'var(--teal)'}
+              strokeWidth={2}
+            />
+          );
+        })}
+      </svg>
+      <div className="mt-2 flex justify-between">
+        {pts.map((v, i) => (
+          <span key={i} className="font-mono text-[9.5px] tabular-nums text-neutral-600">
+            {i === pts.length - 1 ? `${v} pts` : `R${i + 1}`}
+          </span>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -626,13 +771,11 @@ function SideButton({ icon, label, onClick, danger = false }: {
   return (
     <button
       onClick={onClick}
-      className={`group flex w-full items-center gap-3 rounded-xl border border-[#1c1c1c] bg-[#111111] px-3.5 py-3 text-left text-[13px] font-semibold transition-colors ${
-        danger
-          ? 'text-neutral-400 hover:border-[#f87171]/40 hover:bg-[#1a1a1a] hover:text-[#f87171]'
-          : 'text-neutral-400 hover:border-[#D4AF37]/40 hover:bg-[#1a1a1a] hover:text-white'
+      className={`group flex w-full items-center gap-3 rounded-xl border border-[#1c1c1c] bg-[#111111] px-3.5 py-3 text-left text-[12.5px] font-semibold text-neutral-400 transition-colors hover:border-neutral-700 hover:bg-[#1a1a1a] ${
+        danger ? 'hover:text-[#f87171]' : 'hover:text-white'
       }`}
     >
-      <span className={`shrink-0 text-neutral-600 transition-colors ${danger ? 'group-hover:text-[#f87171]' : 'group-hover:text-[#D4AF37]'}`}>
+      <span className={`shrink-0 text-neutral-600 transition-colors ${danger ? 'group-hover:text-[#f87171]' : 'group-hover:text-[var(--gold-bright)]'}`}>
         {icon}
       </span>
       {label}
@@ -696,7 +839,7 @@ function ClubRow({ club, onToggleBag, onSaveBrandModel }: {
   const models = BRAND_MODELS[brand] ?? [];
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 transition-opacity ${!club.in_bag ? 'opacity-40' : ''}`}>
+    <div className={`flex items-center gap-3 px-4 py-3 transition-[opacity,background-color] hover:bg-white/[0.015] ${!club.in_bag ? 'opacity-40' : ''}`}>
       {/* In-bag toggle */}
       <button
         onClick={onToggleBag}

@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"pkill -f \\\"next dev\\\" ; git -C /Users/davehunt/Desktop/titan-golf diff --stat -- web/src; echo \\\"=== leftovers ===\\\"; grep -n \\\"console.log\\\\|TODO\\\\|HACK\\\\|debugger\\\\|heroSubtitle\\\\|Career...",
+  "error": "Exit code 2\n web/src/app/globals.css       |   5 +\n web/src/app/profile/page.tsx  | 275 ++++++++++++++++++++++++++++++++----------\n web/src/components/Navbar.tsx |  13 +-\n 3 files changed, 215 insertions(+), 78 deletions(-)\n=== leftovers ===\nugrep: warning: web/src/app/profile/page.tsx: No such file or directory",
+  "timestamp": "2026-09-03T12:33:50.364Z",
+  "retry_count": 2
+}

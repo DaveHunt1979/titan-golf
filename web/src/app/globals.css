@@ -8,6 +8,11 @@
   --gold: #D4AF37;
   --gold-dim: rgba(212,175,55,0.08);
   --gold-border: rgba(212,175,55,0.25);
+  /* Gold gradient stops + ambient page glow, taken from the command-deck
+     design language (hero CTAs, avatar bloom, top-of-page wash). */
+  --gold-bright: #f0cf5c;
+  --gold-deep: #8a6d1f;
+  --gold-glow: rgba(212,175,55,0.07);
   --text: #ffffff;
   --text-secondary: #aaaaaa;
   --text-muted: #555555;

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ShoppingBag, User, LogOut } from 'lucide-react';
+import { User, LogOut } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -119,17 +119,6 @@ export default function Navbar() {
               )}
             </div>
           ))}
-        </div>
-
-        {/* Shop */}
-        <div className="hidden items-center md:flex">
-          <div className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-600 text-neutral-300 cursor-default">
-            <ShoppingBag size={15} className="text-neutral-400" />
-            Shop
-            <span className="rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#D4AF37]">
-              Soon
-            </span>
-          </div>
         </div>
 
         {/* Right side */}
