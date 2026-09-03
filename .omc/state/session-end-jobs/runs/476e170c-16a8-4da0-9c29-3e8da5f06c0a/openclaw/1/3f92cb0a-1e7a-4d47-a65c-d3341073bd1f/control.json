@@ -1,0 +1,13 @@
+{
+  "jobId": "476e170c-16a8-4da0-9c29-3e8da5f06c0a",
+  "action": "openclaw",
+  "attempt": 1,
+  "runnerNonce": "3f92cb0a-1e7a-4d47-a65c-d3341073bd1f",
+  "ownerNonce": "76099cd0-56f8-4e40-a5ec-3b76db75fbe6",
+  "runner": {
+    "pid": 96191,
+    "processStartIdentity": "1788376942000"
+  },
+  "deadlineAt": "2026-09-02T19:22:24.003Z",
+  "idempotencyKey": "31fe8f6e1cf204e27006de511df257326fdd98655122ca437013e8779ffc735b"
+}

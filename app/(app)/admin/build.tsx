@@ -93,7 +93,14 @@ interface DayConfig {
   // ratings table to look these up from.
   slopeRating: string;
   courseRating: string;
+  // One tee box per round, chosen once by the organiser and played by every
+  // enrolled player in that round (Dave, 2026-09-08 — per-player tee picking
+  // is a Casual Golf-only thing; Tournament and Swindle are "whatever the
+  // organiser sets, that is what it is"). gender is stored alongside the name
+  // because course_tees is keyed by (course_name, tee_name, gender) and the
+  // M/F rows of the same colour carry different course/slope ratings.
   teeName: string;
+  teeGender: string;
   whsEnabled: boolean;
   teeTime: string;
   playDate: string;
@@ -209,16 +216,10 @@ export default function BuildTournamentScreen() {
   const [courseSheetDay, setCourseSheetDay] = useState<number | null>(null);
   const [dayDatePickerFor, setDayDatePickerFor] = useState<number | null>(null);
   const [dayTimePickerFor, setDayTimePickerFor] = useState<number | null>(null);
-  const [teePickerFor, setTeePickerFor] = useState<string | null>(null);
+  // Which ROUND's tee box is being picked (day index), not which player's —
+  // the tee is a round-level decision now (see DayConfig.teeName above).
+  const [teePickerFor, setTeePickerFor] = useState<number | null>(null);
   const [teePickerTees, setTeePickerTees] = useState<SelectableTee[]>([]);
-  // Tee choice is tournament-wide, not per-round (Dave, 2026-09-04 — an
-  // organiser sets it once while drafting players; picking a tee per round
-  // per player was the old, removed design). Only the color/gender choice
-  // is stored here — the actual par/course rating/slope for WHS purposes is
-  // course-specific, so that's resolved separately for each round against
-  // that round's own course_tees at the two places that actually need
-  // numbers (Go Live validation and the round_player_tees snapshot write).
-  const [playerTeeChoice, setPlayerTeeChoice] = useState<Record<string, { tee_name: string; gender: string }>>({});
 
   // Draft step (player selection) — only usable once the competition shell
   // actually exists, since competition_players needs a real competition_id.
@@ -317,7 +318,6 @@ export default function BuildTournamentScreen() {
     setPlayersPerTeam('4');
     setExpandedTeamId(null);
     setTeamRosterCache({});
-    setPlayerTeeChoice({});
   }, [editCompId]));
 
   // Re-fetches the squad list on every focus (not just on first load) so
@@ -392,6 +392,7 @@ export default function BuildTournamentScreen() {
         slopeRating:  d.slope_rating != null ? String(d.slope_rating) : '113',
         courseRating: d.course_rating != null ? String(d.course_rating) : '',
         teeName:      d.tee_name ?? '',
+        teeGender:    d.tee_gender ?? '',
         whsEnabled:   d.whs_enabled ?? false,
         teeTime:      d.tee_time ? String(d.tee_time).slice(0, 5) : '',
         playDate:     d.play_date ? isoToUk(d.play_date) : '',
@@ -402,24 +403,10 @@ export default function BuildTournamentScreen() {
       }));
       setDays(loadedDays);
 
-      const dayIds = ((daysData ?? []) as any[]).map(d => d.id);
-      if (dayIds.some(id => loadedDays[dayIds.indexOf(id)]?.whsEnabled)) {
-        const { data: rptRows } = await supabase.from('round_player_tees')
-          .select('day_id, player_id, tee_name, gender')
-          .in('day_id', dayIds);
-        if (rptRows && rptRows.length > 0) {
-          // Tee choice is tournament-wide now (see playerTeeChoice above) —
-          // an existing draft's per-round round_player_tees rows are still
-          // the source of truth to resume from, so take whichever round has
-          // data first, per player, rather than requiring every round to
-          // agree (they were all the same choice before this rework anyway).
-          const choice: Record<string, { tee_name: string; gender: string }> = {};
-          for (const r of (rptRows as any[]).sort((a, b) => dayIds.indexOf(a.day_id) - dayIds.indexOf(b.day_id))) {
-            if (!choice[r.player_id]) choice[r.player_id] = { tee_name: r.tee_name, gender: r.gender ?? '' };
-          }
-          setPlayerTeeChoice(choice);
-        }
-      }
+      // The round's tee choice now lives on competition_days itself
+      // (tee_name/tee_gender, loaded above), so resuming a draft no longer
+      // needs to reverse-engineer it out of round_player_tees — those rows
+      // are only written at Go Live anyway.
 
       setStep(1);
       setLoadingExisting(false);
@@ -434,7 +421,7 @@ export default function BuildTournamentScreen() {
     setSelectedFormat(f.id);
     setIncludeInKronos(rules.individualBoardDefaultOn);
     const builtDays: DayConfig[] = Array.from({ length: f.defaultDays }, () => ({
-      courseName: '', slopeRating: '113', courseRating: '', teeName: '', whsEnabled: false, teeTime: '', playDate: '',
+      courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeGender: '', whsEnabled: false, teeTime: '', playDate: '',
       format: f.defaultDayFormat,
       hcpPct: f.defaultHcp,
       ldEnabled: false, ldHole: null,
@@ -461,13 +448,13 @@ export default function BuildTournamentScreen() {
   }
 
   useEffect(() => {
-    if (!teePickerFor) { setTeePickerTees([]); return; }
-    // Tournament-wide now — the first configured round's course is just the
-    // reference for which tee names/genders are on offer (tee naming like
-    // White/Yellow/Red is consistent society-to-society); the real
-    // per-course numbers for each round are resolved separately where
-    // actually needed (Go Live validation, round_player_tees write).
-    const courseName = days[0]?.courseName;
+    if (teePickerFor === null) { setTeePickerTees([]); return; }
+    // Scoped to the round actually being edited. This used to always read
+    // days[0]'s course, so a round 2 on a different course was offered round
+    // 1's tee list and could never be given a tee that existed on its own
+    // course — the real cause of Go Live's "Round 2 — no rated tee selected"
+    // (Rick, 2026-09-08).
+    const courseName = days[teePickerFor]?.courseName;
     if (!courseName) { setTeePickerTees([]); return; }
     fetchCourseTees(courseName).then(setTeePickerTees);
   }, [teePickerFor]);
@@ -479,7 +466,7 @@ export default function BuildTournamentScreen() {
   function addDay() {
     if (days.length >= 10) return;
     setDays(prev => applyLastDayOverride([...prev, {
-      courseName: '', slopeRating: '113', courseRating: '', teeName: '', whsEnabled: false, teeTime: '', playDate: '',
+      courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeGender: '', whsEnabled: false, teeTime: '', playDate: '',
       format: formatDef?.defaultDayFormat ?? 'four_bbb',
       hcpPct: formatDef?.defaultHcp ?? 75,
       ldEnabled: false, ldHole: null,
@@ -492,9 +479,9 @@ export default function BuildTournamentScreen() {
     setDays(prev => applyLastDayOverride(prev.slice(0, -1), getFormatRules(selectedFormat)));
   }
 
-  // The tee CHOICE (name/gender) is tournament-wide, but course_rating/
-  // slope_rating/par are course-specific — resolved here, per round, only
-  // where actual WHS numbers are needed. One fetch per distinct course
+  // Each round's own tee choice resolved against that round's own course's
+  // course_tees — par/course rating/slope are course-specific, so the numbers
+  // can only come from the round's own course. One fetch per distinct course
   // across all rounds, not one per round.
   async function fetchTeesForRounds(relevantDays: DayConfig[]): Promise<Record<string, SelectableTee[]>> {
     const byCourse: Record<string, SelectableTee[]> = {};
@@ -504,10 +491,18 @@ export default function BuildTournamentScreen() {
     }
     return byCourse;
   }
-  function resolveTeeForRound(courseTees: SelectableTee[], playerId: string): SelectableTee | undefined {
-    const choice = effectiveTeeChoice(playerId);
-    if (!choice) return undefined;
-    return courseTees.find(t => t.tee_name === choice.tee_name && (t.gender ?? '') === (choice.gender ?? ''));
+  // One tee per round for everyone — no per-player branch. Falls back to
+  // matching on tee name alone for drafts saved before tee_gender existed
+  // (tee_name used to be free text), preferring a fully rated row so an old
+  // draft still resolves to usable WHS numbers rather than none.
+  function resolveTeeForRound(courseTees: SelectableTee[], day: DayConfig): SelectableTee | undefined {
+    const teeName = day.teeName.trim();
+    if (!teeName) return undefined;
+    const sameName = courseTees.filter(t => t.tee_name === teeName);
+    const exact = sameName.find(t => (t.gender ?? '') === (day.teeGender ?? ''));
+    if (exact) return exact;
+    if (day.teeGender) return undefined;
+    return sameName.find(t => t.par != null && t.course_rating != null && t.slope_rating != null) ?? sameName[0];
   }
 
   // tournament_type is a coarser, legacy 3-value column (CHECK-constrained,
@@ -678,6 +673,7 @@ export default function BuildTournamentScreen() {
       course_rating:  d.courseRating.trim() ? (parseFloat(d.courseRating) || null) : null,
       slope_rating:   parseInt(d.slopeRating, 10) || 113,
       tee_name:       d.teeName.trim() || null,
+      tee_gender:     d.teeGender.trim() || null,
       whs_enabled:    d.whsEnabled,
       tee_time:       d.teeTime || null,
       play_date:      d.playDate ? ukDateToIso(d.playDate) : null,
@@ -771,15 +767,6 @@ export default function BuildTournamentScreen() {
   const numTeamsN = parseInt(numTeams, 10) || 0;
   const playersPerTeamN = parseInt(playersPerTeam, 10) || 1;
   const pickedTeamIds = new Set(compPlayers.map(cp => cp.team_id).filter(Boolean) as string[]);
-
-  // Whoever's first in the enrolled list sets the tee everyone else is on
-  // by default — tapping any other player still overrides just them, for
-  // the real exceptions (e.g. a lady on a forward tee). Same pattern as
-  // Casual Golf's games/new.tsx, applied tournament-wide here rather than
-  // per-round.
-  const enrolledPlayerIds = compPlayers.filter(cp => cp.status !== 'declined').map(cp => cp.player_id);
-  const defaultTeeChoice = enrolledPlayerIds.length > 0 ? playerTeeChoice[enrolledPlayerIds[0]] : undefined;
-  const effectiveTeeChoice = (playerId: string) => playerTeeChoice[playerId] ?? defaultTeeChoice;
 
   // Team drafting is a different shape to the flat player pool singles
   // uses — everything (badges, that team's roster, who's already in)
@@ -884,14 +871,14 @@ export default function BuildTournamentScreen() {
       if (d.courseName.trim() && !d.courseRating.trim()) {
         issues.push({ label: `Round ${i + 1} — Course Rating not set`, jumpToStep: 2 });
       }
+      // One tee per round, so this is a per-round check now — it used to run
+      // per player and report the same missing tee once per name.
       if (d.whsEnabled) {
         const courseTees = teesByCourseForCheck[d.courseName] ?? [];
-        compPlayers.filter(cp => cp.status !== 'declined').forEach(cp => {
-          const tee = resolveTeeForRound(courseTees, cp.player_id);
-          if (!tee || tee.par == null || tee.course_rating == null || tee.slope_rating == null) {
-            issues.push({ label: `Round ${i + 1} — WHS cannot calculate ${cp.display_name}'s handicap (no rated tee selected)`, jumpToStep: 3 });
-          }
-        });
+        const tee = resolveTeeForRound(courseTees, d);
+        if (!tee || tee.par == null || tee.course_rating == null || tee.slope_rating == null) {
+          issues.push({ label: `Round ${i + 1} — WHS needs a rated tee box for this round's course`, jumpToStep: 2 });
+        }
       }
     });
 
@@ -996,9 +983,10 @@ export default function BuildTournamentScreen() {
     }
 
     // WHS round snapshot — frozen the moment the tournament goes live, per
-    // player per day, resolving each player's tournament-wide tee choice
-    // against that specific round's own course_tees (par/course rating/
-    // slope are course-specific even when the tee name is shared).
+    // player per day. The tee itself is the round's single organiser-set tee
+    // resolved against that round's own course_tees, written identically to
+    // every enrolled player (the per-player handicap numbers still differ, of
+    // course — same tee, each player's own index).
     // Reads the just-saved competition_days back to get real day_id values;
     // does nothing for a day where whsEnabled is false (existing behaviour
     // is unaffected — no round_player_tees rows get written for it).
@@ -1014,19 +1002,21 @@ export default function BuildTournamentScreen() {
           const dayId = (savedDays as any[])[i]?.id;
           if (!dayId) return;
           const courseTees = teesByCourse[d.courseName] ?? [];
+          const tee = resolveTeeForRound(courseTees, d);
+          if (!tee || tee.par == null || tee.course_rating == null || tee.slope_rating == null) return;
+          const { par, course_rating: courseRating, slope_rating: slopeRating } = tee;
           compPlayers.filter(cp => cp.status !== 'declined').forEach(cp => {
-            const tee = resolveTeeForRound(courseTees, cp.player_id);
-            if (!tee || tee.par == null || tee.course_rating == null || tee.slope_rating == null || cp.handicap_index == null) return;
-            const whs = calculateWHSPlayingHandicap(cp.handicap_index, tee.slope_rating, tee.course_rating, tee.par, d.hcpPct);
+            if (cp.handicap_index == null) return;
+            const whs = calculateWHSPlayingHandicap(cp.handicap_index, slopeRating, courseRating, par, d.hcpPct);
             snapshotRows.push({
               day_id: dayId,
               player_id: cp.player_id,
               tee_name: tee.tee_name,
               gender: tee.gender,
               handicap_index_at_start: cp.handicap_index,
-              slope_at_start: tee.slope_rating,
-              course_rating_at_start: tee.course_rating,
-              par_at_start: tee.par,
+              slope_at_start: slopeRating,
+              course_rating_at_start: courseRating,
+              par_at_start: par,
               course_handicap_at_start: whs.courseHandicapUnrounded,
               allowance_at_start: d.hcpPct,
               playing_handicap_at_start: whs.playingHandicap,
@@ -1493,14 +1483,24 @@ export default function BuildTournamentScreen() {
 
                 <View style={{ flexDirection: 'row', gap: 12 }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.fieldLabel}>TEE</Text>
-                    <TextInput
+                    {/* One tee box for this round, played by everyone in it
+                        (Dave, 2026-09-08). Picked from the round's OWN course
+                        so a round 2 elsewhere gets its own real tee list. */}
+                    <Text style={styles.fieldLabel}>TEE BOX</Text>
+                    <TouchableOpacity
                       style={styles.input}
-                      value={day.teeName}
-                      onChangeText={v => updateDay(i, { teeName: v })}
-                      placeholder="e.g. White"
-                      placeholderTextColor="#444"
-                    />
+                      onPress={() => day.courseName && setTeePickerFor(i)}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={{ fontFamily: FF, fontSize: 15, color: day.teeName ? '#fff' : '#444' }}
+                        numberOfLines={1}
+                      >
+                        {day.teeName
+                          ? `${day.teeName}${day.teeGender ? ` (${day.teeGender})` : ''}`
+                          : (day.courseName ? 'Select tee…' : 'Course first')}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.fieldLabel}>DATE</Text>
@@ -1586,7 +1586,7 @@ export default function BuildTournamentScreen() {
 
                 {day.whsEnabled && (
                   <Text style={[styles.stepSub, { marginBottom: 8 }]}>
-                    Tee boxes are set once for the whole tournament — see the Draft Players step.
+                    Every player in this round plays the Tee Box set above.
                   </Text>
                 )}
 
@@ -1905,41 +1905,10 @@ export default function BuildTournamentScreen() {
               </>
             )}
 
-            {/* Tee boxes — tournament-wide, set once here rather than per
-                round (Dave, 2026-09-04: "the first player is the default
-                and then we can click on other players to change if need
-                be"). Only matters when at least one round actually uses
-                WHS; the course_rating/slope numbers for each round are
-                resolved separately at Go Live / go-live time. */}
-            {days.some(d => d.whsEnabled) && compPlayers.length > 0 && (
-              <>
-                <Text style={[styles.fieldLabel, { marginTop: 20 }]}>TEE BOXES</Text>
-                {!days[0]?.courseName ? (
-                  <Text style={styles.stepSub}>Configure a round with a course first, then set tee boxes here.</Text>
-                ) : (
-                  compPlayers.filter(cp => cp.status !== 'declined').map(cp => {
-                    const isDefaultSource = cp.player_id === enrolledPlayerIds[0];
-                    const own = playerTeeChoice[cp.player_id];
-                    const shown = effectiveTeeChoice(cp.player_id);
-                    return (
-                      <TouchableOpacity
-                        key={cp.player_id}
-                        style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }]}
-                        onPress={() => setTeePickerFor(cp.player_id)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={{ color: '#fff', fontFamily: 'JUSTSans-ExBold', fontSize: 13 }}>{cp.display_name}</Text>
-                        <Text style={{ color: shown ? GOLD : '#f87171', fontFamily: 'JUSTSans-ExBold', fontSize: 12 }}>
-                          {shown
-                            ? `${shown.tee_name}${shown.gender ? ` (${shown.gender})` : ''}${!own && !isDefaultSource ? ' (default)' : ''}`
-                            : 'Select tee'}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })
-                )}
-              </>
-            )}
+            {/* The per-player tee list that used to sit here is gone — the
+                organiser sets one Tee Box per round in Round Setup and every
+                player in that round plays it (Dave, 2026-09-08). Per-player
+                tee picking stays a Casual Golf-only feature. */}
           </View>
         )}
 
@@ -2025,20 +1994,23 @@ export default function BuildTournamentScreen() {
         onSelect={name => {
           if (courseSheetDay === null) return;
           const dayIndex = courseSheetDay;
-          updateDay(dayIndex, { courseName: name });
-          // Pick a sensible default tee's rating so Dave isn't forced to
-          // manually type Course Rating / Slope for every course when the
-          // data already exists (course_tees, from the course-master
-          // import) — prefer a "White" men's tee since that's this
-          // society's usual default, else the first tee with complete
-          // rating data. A player can still pick their own tee later via
-          // TeePickerSheet for the real per-player WHS numbers; this only
-          // seeds the day-level fallback fields.
+          // Clear the old tee too — a tee colour picked on the previous
+          // course usually doesn't exist on the new one, and a stale name
+          // would silently fail to resolve against the new course_tees.
+          updateDay(dayIndex, { courseName: name, teeName: '', teeGender: '' });
+          // Seed this round's tee (and its ratings) so Dave isn't forced to
+          // pick one manually for every course when the data already exists
+          // (course_tees, from the course-master import) — prefer a "White"
+          // men's tee since that's this society's usual default, else the
+          // first tee with complete rating data. Still fully overridable via
+          // the round's Tee Box picker.
           fetchCourseTees(name).then(tees => {
             const complete = tees.filter(t => t.course_rating != null && t.slope_rating != null);
             const defaultTee = complete.find(t => t.tee_name.toLowerCase() === 'white') ?? complete[0];
             if (defaultTee) {
               updateDay(dayIndex, {
+                teeName: defaultTee.tee_name,
+                teeGender: defaultTee.gender ?? '',
                 courseRating: String(defaultTee.course_rating),
                 slopeRating: String(defaultTee.slope_rating),
               });
@@ -2050,11 +2022,20 @@ export default function BuildTournamentScreen() {
 
       <TeePickerSheet
         visible={teePickerFor !== null}
-        title={`Select tee — ${teePickerFor ? compPlayers.find(cp => cp.player_id === teePickerFor)?.display_name ?? '' : ''}`}
+        title={teePickerFor !== null ? `Round ${teePickerFor + 1} tee — everyone plays this tee` : ''}
         tees={teePickerTees}
         onSelect={tee => {
-          if (!teePickerFor) return;
-          setPlayerTeeChoice(prev => ({ ...prev, [teePickerFor]: { tee_name: tee.tee_name, gender: tee.gender } }));
+          if (teePickerFor === null) return;
+          // The picked tee's own rating data also fills this round's Course
+          // Rating / Slope fields — those drive the non-WHS scoring path, and
+          // leaving them on another tee's numbers is exactly the kind of
+          // silent mismatch Go Live can't see.
+          updateDay(teePickerFor, {
+            teeName: tee.tee_name,
+            teeGender: tee.gender ?? '',
+            ...(tee.course_rating != null ? { courseRating: String(tee.course_rating) } : {}),
+            ...(tee.slope_rating  != null ? { slopeRating:  String(tee.slope_rating)  } : {}),
+          });
           setTeePickerFor(null);
         }}
         onClose={() => setTeePickerFor(null)}

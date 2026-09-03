@@ -25,6 +25,116 @@ const COMPOSE_WIDTH = 1080; // offscreen render width for the branded photo — 
 // hole 15" days later; regressed once already in commit b53eb72).
 const LIVE_MATCH_LOOKBACK_HOURS = 12;
 
+// Local (not UTC) YYYY-MM-DD — competition_days.play_date/day_date are DATE
+// columns holding the local calendar day the round is played on, so comparing
+// them against a UTC ISO date would roll over an hour early for UK evening
+// rounds in BST.
+function localDateString(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// The day a round is actually played on. Tournaments carry play_date (set in
+// the builder's Round Setup); casual rounds only ever have day_date, which
+// create_game_day_with_code stamps with current_date at creation. play_date
+// wins where both exist — a tournament day is created weeks before it's
+// played, so its day_date is the day the organiser built the draw.
+function roundPlayDate(m: any): string | null {
+  const d = m?.day?.play_date ?? m?.day?.day_date ?? null;
+  return d ? String(d).slice(0, 10) : null;
+}
+
+// Which of this player's open matches is the round they're standing on a tee
+// in right now.
+//
+// The old lookup was `status = 'in_progress' AND created_at >= now() - 12h`,
+// which silently excluded every tournament round (Dave, 2026-09-03 — "the
+// names or courses dont come up when your in a round"):
+//   • tournament matches are inserted by the admin's draw days or weeks
+//     ahead, so created_at is nowhere near the 12-hour window; and
+//   • they sit at status 'upcoming' until the first score is saved, i.e. for
+//     exactly the walk down the 1st where the photo gets taken.
+// Casual matches are inserted 'in_progress' with a same-day day_date, so they
+// were the only kind that ever worked.
+//
+// A round played today is the strongest signal and covers both; the old
+// recency rule is kept as the fallback for a live round whose day carries no
+// usable date, and still keeps a stale never-finished round from being
+// mistaken for the current one.
+function pickLiveMatch(rows: any[], todayStr: string, liveCutoffMs: number): any | null {
+  const ranked = rows
+    .map(m => ({
+      match: m,
+      isToday: roundPlayDate(m) === todayStr,
+      isLive:  m.status === 'in_progress',
+      startedMs: new Date(m.started_at ?? m.created_at ?? 0).getTime(),
+    }))
+    .filter(r => r.isToday || (r.isLive && r.startedMs >= liveCutoffMs));
+  if (ranked.length === 0) return null;
+  ranked.sort((a, b) =>
+    Number(b.isToday) - Number(a.isToday) ||
+    Number(b.isLive)  - Number(a.isLive)  ||
+    b.startedMs - a.startedMs
+  );
+  return ranked[0].match;
+}
+
+// Play order for a round that may start on a hole other than 1 (shotgun /
+// two-tee start) — identical shape to score/enter's fullHoleSequence, sliced
+// to holes_to_play for a 9-hole round.
+function buildHoleSequence(startHole: number, holesToPlay: number): number[] {
+  const full = startHole > 1
+    ? [...Array.from({ length: 19 - startHole }, (_, i) => startHole + i), ...Array.from({ length: startHole - 1 }, (_, i) => i + 1)]
+    : Array.from({ length: 18 }, (_, i) => i + 1);
+  return full.slice(0, holesToPlay);
+}
+
+// Swindle's own "which round am I in, and what hole am I on" lookup. Swindle
+// never writes a `matches` row (its own swindle_games/entries/scores tables
+// predate the shared match model), so the match lookup above can never see
+// one — this is the same three facts read from the swindle equivalents that
+// swindle/score/[gameId].tsx reads them from, so the overlay says exactly
+// what the swindle scorecard says.
+async function loadSwindleRoundContext(
+  playerId: string,
+  todayStr: string,
+): Promise<{ courseName: string | null; hole: number | null } | null> {
+  const { data: entries, error } = await supabase
+    .from('swindle_entries')
+    .select('game_id, start_hole, game:game_id!inner(course_name, game_date, status)')
+    .eq('player_id', playerId)
+    .eq('game.game_date', todayStr)
+    .in('game.status', ['open', 'in_progress'])
+    .limit(1);
+  if (error) { console.error('[camera] live swindle lookup failed', error); return null; }
+  const entry = (entries ?? [])[0] as any;
+  if (!entry) return null;
+
+  // A player in a tee-time group starts on that group's hole, not their own
+  // entry's — same precedence swindle/score/[gameId].tsx applies.
+  const [{ data: membership }, { data: scores }] = await Promise.all([
+    supabase
+      .from('swindle_group_players')
+      .select('swindle_groups!inner(game_id, start_hole)')
+      .eq('player_id', playerId)
+      .eq('is_guest', false)
+      .eq('swindle_groups.game_id', entry.game_id)
+      .maybeSingle(),
+    supabase
+      .from('swindle_scores')
+      .select('hole_number')
+      .eq('game_id', entry.game_id)
+      .eq('player_id', playerId),
+  ]);
+
+  const startHole = Math.max(1, (membership as any)?.swindle_groups?.start_hole ?? entry.start_hole ?? 1);
+  const holeSequence = buildHoleSequence(startHole, 18);
+  const scored = new Set(((scores ?? []) as any[]).map(r => r.hole_number));
+  return {
+    courseName: entry.game?.course_name ?? null,
+    hole: holeSequence.find(h => !scored.has(h)) ?? holeSequence[holeSequence.length - 1] ?? 18,
+  };
+}
+
 // ── TITAN design tokens ───────────────────────────────────────
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -121,46 +231,62 @@ export default function CameraScreen() {
     // actually in right now — casual or tournament both carry a day_id
     // with the real course, unlike the old "active competition" lookup
     // which only ever matched tournament play and pulled the wrong name.
-    // Recency cutoff + order + limit(1) is required, not cosmetic: a round
-    // left mid-play never flips out of 'in_progress' on its own, so any
-    // player with more than one such stale round makes this match ambiguous
-    // — .maybeSingle() then errors, the error was previously swallowed, and
-    // course/hole silently came back null.
+    // The candidate list is deliberately narrowed in JS (pickLiveMatch)
+    // rather than by more SQL filters: "today's round" spans two different
+    // date columns and two different statuses, and the previous single
+    // status+created_at filter pair is exactly what silently excluded every
+    // tournament round. Ordering + a small limit still keeps a stale
+    // never-finished round from being mistaken for the live one.
     let courseName: string | null = null;
     let hole: number | null = null;
     let matchId: string | null = null;
     let dayId: string | null = null;
     let competitionId: string | null = null;
-    const liveCutoff = new Date(Date.now() - LIVE_MATCH_LOOKBACK_HOURS * 60 * 60 * 1000).toISOString();
-    const { data: match, error: matchErr } = await supabase
+    const todayStr = localDateString(new Date());
+    const liveCutoffMs = Date.now() - LIVE_MATCH_LOOKBACK_HOURS * 60 * 60 * 1000;
+    const { data: candidates, error: matchErr } = await supabase
       .from('matches')
-      .select('id, competition_id, day_id, holes_string, holes_to_play, start_hole, day:day_id(course_name)')
-      .eq('status', 'in_progress')
+      .select('id, competition_id, day_id, status, started_at, created_at, holes_string, holes_to_play, start_hole, day:day_id(course_name, day_date, play_date)')
+      .in('status', ['in_progress', 'upcoming'])
       .or(`home_player_ids.cs.{${player.id}},away_player_ids.cs.{${player.id}}`)
-      .gte('created_at', liveCutoff)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(20);
     if (matchErr) console.error('[camera] live match lookup failed', matchErr);
+    const match = pickLiveMatch((candidates ?? []) as any[], todayStr, liveCutoffMs);
     if (match) {
-      courseName = (match as any).day?.course_name ?? null;
-      const holesToPlay = (match as any).holes_to_play ?? 18;
+      courseName = match.day?.course_name ?? null;
+      const holesToPlay = match.holes_to_play ?? 18;
       const holeChars = ((match.holes_string as string) ?? '..................').padEnd(18, '.').slice(0, 18).split('');
       // Same start_hole + wrapping-sequence derivation used by score/enter
       // and score/results — a shifted (shotgun) start plays holes out of
       // absolute order, so counting played holes from position 0 gives the
       // wrong hole number on any round that didn't start on hole 1.
-      const startHole = Math.max(1, (match as any).start_hole ?? 1);
-      const fullHoleSequence = startHole > 1
-        ? [...Array.from({ length: 19 - startHole }, (_, i) => startHole + i), ...Array.from({ length: startHole - 1 }, (_, i) => i + 1)]
-        : Array.from({ length: 18 }, (_, i) => i + 1);
-      const holeSequence = fullHoleSequence.slice(0, holesToPlay);
-      const lastSequenceHole = holeSequence[holeSequence.length - 1] ?? 18;
-      const currentHole = holeSequence.find(h => holeChars[h - 1] === '.') ?? lastSequenceHole;
-      hole = currentHole > lastSequenceHole ? lastSequenceHole : currentHole;
+      const holeSequence = buildHoleSequence(Math.max(1, match.start_hole ?? 1), holesToPlay);
+      // First unplayed hole in PLAY order, falling back to the last hole of
+      // the sequence once they're all in. There is deliberately no clamp
+      // against the last hole's *number* here — on a wrapped sequence (a
+      // hole-5 start plays 5…18,1,2,3,4) that number is 4, so clamping made
+      // the overlay read "HOLE 4" for the entire front half of every
+      // shotgun round. Same trap score/enter documents at its allHolesFilled.
+      hole = holeSequence.find(h => holeChars[h - 1] === '.') ?? holeSequence[holeSequence.length - 1] ?? 18;
       matchId = match.id;
-      dayId = (match as any).day_id ?? null;
-      competitionId = (match as any).competition_id ?? null;
+      dayId = match.day_id ?? null;
+      competitionId = match.competition_id ?? null;
+    }
+
+    // Swindle rounds live in their own tables and never create a `matches`
+    // row at all, so the lookup above can't see them — the overlay came up
+    // blank for the whole of every swindle (Dave, 2026-09-03). Same
+    // course/current-hole facts, read from the swindle equivalents that
+    // swindle/score/[gameId].tsx itself uses: swindle_games.course_name,
+    // swindle_groups.start_hole (tee-time group) or swindle_entries.start_hole
+    // (solo), and swindle_scores for what's already been played.
+    if (!courseName && !hole) {
+      const swindle = await loadSwindleRoundContext(player.id, todayStr);
+      if (swindle) {
+        courseName = swindle.courseName;
+        hole = swindle.hole;
+      }
     }
 
     setInfo({

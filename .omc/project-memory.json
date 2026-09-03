@@ -259,8 +259,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/admin/season-manage.tsx",
-      "accessCount": 27,
-      "lastAccessed": 1788374191541,
+      "accessCount": 32,
+      "lastAccessed": 1788415552603,
       "type": "file"
     },
     {
@@ -270,15 +270,27 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 11,
-      "lastAccessed": 1788357395741,
+      "path": "app/(app)/news/index.tsx",
+      "accessCount": 14,
+      "lastAccessed": 1788418139860,
       "type": "file"
     },
     {
       "path": "app/(app)/season/index.tsx",
-      "accessCount": 9,
-      "lastAccessed": 1788373428795,
+      "accessCount": 12,
+      "lastAccessed": 1788415441640,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/season/join.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1788415594775,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 11,
+      "lastAccessed": 1788357395741,
       "type": "file"
     },
     {
@@ -291,6 +303,12 @@
       "path": "src/lib/seasonRoundIngestion.ts",
       "accessCount": 7,
       "lastAccessed": 1788374773495,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/camera/index.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1788418151161,
       "type": "file"
     },
     {
@@ -324,6 +342,30 @@
       "type": "file"
     },
     {
+      "path": "src/components/TeePickerSheet.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1788415397834,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260825020000_whs_layer.sql",
+      "accessCount": 3,
+      "lastAccessed": 1788415425168,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/season-requests.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1788415427922,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260905000000_titan_season_data_model.sql",
+      "accessCount": 3,
+      "lastAccessed": 1788415430844,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/swindle/index.tsx",
       "accessCount": 2,
       "lastAccessed": 1788370455039,
@@ -354,9 +396,15 @@
       "type": "file"
     },
     {
-      "path": "src/components/TeePickerSheet.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788356841341,
+      "path": "app/(app)/admin/season-create.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1788415155310,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/titanNews.ts",
+      "accessCount": 2,
+      "lastAccessed": 1788417831088,
       "type": "file"
     },
     {
@@ -396,18 +444,6 @@
       "type": "file"
     },
     {
-      "path": "supabase/migrations/20260825020000_whs_layer.sql",
-      "accessCount": 1,
-      "lastAccessed": 1788370749363,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260905000000_titan_season_data_model.sql",
-      "accessCount": 1,
-      "lastAccessed": 1788370912829,
-      "type": "file"
-    },
-    {
       "path": "src/lib/seasonScoring.ts",
       "accessCount": 1,
       "lastAccessed": 1788371080651,
@@ -432,12 +468,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/season-create.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788371853839,
-      "type": "file"
-    },
-    {
       "path": "supabase/migrations/20260804030000_swindle_groups.sql",
       "accessCount": 1,
       "lastAccessed": 1788372401234,
@@ -447,18 +477,6 @@
       "path": "supabase/migrations/20260906000000_titan_season_round_sources.sql",
       "accessCount": 1,
       "lastAccessed": 1788372420611,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/season/join.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788372601070,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/admin/season-requests.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788372672908,
       "type": "file"
     },
     {
@@ -480,12 +498,6 @@
       "type": "file"
     },
     {
-      "path": "src/lib/titanNews.ts",
-      "accessCount": 1,
-      "lastAccessed": 1788374524491,
-      "type": "file"
-    },
-    {
       "path": "src/lib/notifications.ts",
       "accessCount": 1,
       "lastAccessed": 1788374585233,
@@ -501,6 +513,48 @@
       "path": "src/lib/seasonNews.ts",
       "accessCount": 1,
       "lastAccessed": 1788374667050,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-09-03 at 06.54.46.png",
+      "accessCount": 1,
+      "lastAccessed": 1788415047343,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-09-03 at 06.55.01.png",
+      "accessCount": 1,
+      "lastAccessed": 1788415047781,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-09-03 at 06.54.58.png",
+      "accessCount": 1,
+      "lastAccessed": 1788415047840,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260824000000_round_tee_and_date.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788415470971,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260908000000_round_tee_gender.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788415484196,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260908000000_season_join_no_approval.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788415569023,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260823000000_photos.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788417734427,
       "type": "file"
     }
   ],

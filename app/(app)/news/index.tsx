@@ -31,10 +31,40 @@ const MUTED = '#9ca3af';
 
 type Article = {
   id: string; story_type: string; headline: string | null; summary: string | null; body: string | null;
-  created_at: string; day_id: string | null; competitions?: { name: string } | null;
+  created_at: string; day_id: string | null; match_id: string | null; competition_id: string | null;
+  competitions?: { name: string } | null;
   competition_days?: { day_number: number } | null;
   banter_speaker: BanterSpeaker | null; banter_text: string | null; banter_scene: string | null;
 };
+
+type RoundPhoto = {
+  id: string; match_id: string | null; day_id: string | null; competition_id: string | null;
+  player_name: string | null; hole_number: number | null; storage_path: string; taken_at: string;
+  url: string;
+};
+
+// Photos are capped per article so a chatty group can't turn a report into a
+// hundred-image scroll — newest last, i.e. the round told in the order it
+// was played.
+const MAX_PHOTOS_PER_ARTICLE = 12;
+const PHOTO_URL_TTL_SECONDS = 60 * 60;
+
+// Which round's photos belong to which article. The camera tags every shot
+// with the match/day/competition it was taken in at capture time (see
+// app/(app)/camera/index.tsx's persistPhotoRecord), so this is a straight
+// key match, narrowest key first — a casual report is one match, a round
+// report is one day (all groups out that day), a final report is the whole
+// competition.
+function photosForArticle(article: Article, photos: RoundPhoto[]): RoundPhoto[] {
+  const matched = article.match_id
+    ? photos.filter(p => p.match_id === article.match_id)
+    : article.day_id
+    ? photos.filter(p => p.day_id === article.day_id)
+    : article.competition_id
+    ? photos.filter(p => p.competition_id === article.competition_id)
+    : [];
+  return matched.slice(0, MAX_PHOTOS_PER_ARTICLE);
+}
 
 export default function TitanNewsScreen() {
   const router = useRouter();
@@ -47,16 +77,54 @@ export default function TitanNewsScreen() {
   });
 
   const [articles, setArticles]   = useState<Article[]>([]);
+  const [photos, setPhotos]       = useState<RoundPhoto[]>([]);
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded]   = useState<string | null>(null);
+
+  // The round's own photos, taken in-round on the Camera tab. Best-effort:
+  // the article is the point of this screen, so a failed photo fetch just
+  // means a report with no pictures, never a blank screen (same "side-effect
+  // can fail, the main thing still works" pattern as persistPhotoRecord on
+  // the capture side).
+  const loadPhotos = useCallback(async (rows: Article[]) => {
+    const matchIds = [...new Set(rows.map(a => a.match_id).filter(Boolean))] as string[];
+    const dayIds   = [...new Set(rows.filter(a => !a.match_id).map(a => a.day_id).filter(Boolean))] as string[];
+    const compIds  = [...new Set(rows.filter(a => !a.match_id && !a.day_id).map(a => a.competition_id).filter(Boolean))] as string[];
+    if (matchIds.length === 0 && dayIds.length === 0 && compIds.length === 0) { setPhotos([]); return; }
+
+    const cols = 'id, match_id, day_id, competition_id, player_name, hole_number, storage_path, taken_at';
+    const results = await Promise.all([
+      matchIds.length ? supabase.from('photos').select(cols).in('match_id', matchIds) : Promise.resolve({ data: [] as any[] }),
+      dayIds.length   ? supabase.from('photos').select(cols).in('day_id', dayIds)     : Promise.resolve({ data: [] as any[] }),
+      compIds.length  ? supabase.from('photos').select(cols).in('competition_id', compIds) : Promise.resolve({ data: [] as any[] }),
+    ]);
+
+    // A tournament photo carries all three keys, so the three queries above
+    // overlap — dedupe by id before signing anything.
+    const byId = new Map<string, any>();
+    results.forEach(r => ((r as any).data ?? []).forEach((p: any) => byId.set(p.id, p)));
+    const rowsToSign = [...byId.values()].sort((a, b) => (a.taken_at ?? '').localeCompare(b.taken_at ?? ''));
+    if (rowsToSign.length === 0) { setPhotos([]); return; }
+
+    // The photos bucket is private (20260823000000_photos.sql), so the image
+    // needs a signed URL — a plain public URL would 400.
+    const { data: signed, error } = await supabase.storage
+      .from('photos')
+      .createSignedUrls(rowsToSign.map(p => p.storage_path), PHOTO_URL_TTL_SECONDS);
+    if (error) { console.error('[news] photo url signing failed', error); setPhotos([]); return; }
+    const urlByPath = new Map((signed ?? []).map(s => [s.path ?? '', s.signedUrl]));
+    setPhotos(rowsToSign
+      .map(p => ({ ...p, url: urlByPath.get(p.storage_path) ?? '' }))
+      .filter(p => !!p.url) as RoundPhoto[]);
+  }, []);
 
   const load = useCallback(async () => {
     // Filtering on an embedded relation's column requires `!inner` (a plain
     // left-join embed can't be used to narrow the top-level rows) — only
     // needed for the global view, which scopes to the currently active
     // society rather than every society this player belongs to.
-    const cols = 'id, story_type, headline, summary, body, created_at, day_id, banter_speaker, banter_text, banter_scene, competition_days(day_number)';
+    const cols = 'id, story_type, headline, summary, body, created_at, day_id, match_id, competition_id, banter_speaker, banter_text, banter_scene, competition_days(day_number)';
     let query = matchId
       ? supabase.from('titan_news')
           .select(cols)
@@ -70,10 +138,12 @@ export default function TitanNewsScreen() {
           .eq('competitions.society_id', societyId);
 
     const { data } = await query.eq('status', 'published').order('created_at', { ascending: false });
-    setArticles((data ?? []) as any as Article[]);
+    const rows = (data ?? []) as any as Article[];
+    setArticles(rows);
+    loadPhotos(rows).catch(e => { console.error('[news] round photo load failed', e); setPhotos([]); });
     setLoading(false);
     setRefreshing(false);
-  }, [competitionId, matchId, societyId]);
+  }, [competitionId, matchId, societyId, loadPhotos]);
 
   useFocusEffect(useCallback(() => {
     load();
@@ -110,7 +180,7 @@ export default function TitanNewsScreen() {
         <View style={s.headerSide} />
       </View>
       <Text style={[s.subtitle, { color: MUTED }]}>
-        {competitionId ? 'AI-written reports for this tournament' : 'AI-written tournament reports across your society'}
+        Titan News Reporters Davey McFadey and Rick Driver are on hand to give you updates
       </Text>
 
       {loading ? (
@@ -129,6 +199,7 @@ export default function TitanNewsScreen() {
           ) : articles.map(a => {
             const isOpen = expanded === a.id;
             const scene = sceneImage(a.banter_scene);
+            const roundPhotos = photosForArticle(a, photos);
             return (
               <TouchableOpacity
                 key={a.id}
@@ -142,6 +213,25 @@ export default function TitanNewsScreen() {
                 <Text style={[s.headline, { color: TEXT }]}>{a.headline}</Text>
                 <Text style={[s.summary, { color: MUTED }]} numberOfLines={isOpen ? undefined : 2}>{a.summary}</Text>
                 {isOpen && !!a.body && <Text style={[s.body, { color: MUTED }]}>{a.body}</Text>}
+
+                {/* The round's own photos — already branded with player,
+                    course and hole by the camera that took them, so they need
+                    no caption of their own beyond the hole they came from. */}
+                {isOpen && roundPhotos.length > 0 && (
+                  <View style={s.photoBlock}>
+                    <Text style={[s.photoLabel, { color: GOLD }]}>FROM THE ROUND</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.photoStrip}>
+                      {roundPhotos.map(p => (
+                        <View key={p.id} style={s.photoItem}>
+                          <Image source={{ uri: p.url }} style={s.photo} resizeMode="cover" />
+                          {p.hole_number != null && (
+                            <Text style={[s.photoHole, { color: MUTED }]}>HOLE {p.hole_number}</Text>
+                          )}
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
 
                 {a.banter_speaker && a.banter_text && (
                   <View style={s.banterRow}>
@@ -182,6 +272,13 @@ const s = StyleSheet.create({
   headline: { fontSize: 16, fontFamily: FFB, marginBottom: 6 },
   summary:  { fontSize: 13, fontFamily: FF, lineHeight: 19 },
   body:     { fontSize: 13, fontFamily: FF, lineHeight: 20, marginTop: 12 },
+
+  photoBlock:  { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: BORDER, gap: 8 },
+  photoLabel:  { fontSize: 9, fontFamily: FFB, letterSpacing: 1 },
+  photoStrip:  { gap: 8, paddingRight: 4 },
+  photoItem:   { alignItems: 'center', gap: 4 },
+  photo:       { width: 108, height: 144, borderRadius: 10, borderWidth: 1, borderColor: `${GOLD}30`, backgroundColor: BG },
+  photoHole:   { fontSize: 9, fontFamily: FFB, letterSpacing: 1 },
 
   banterRow: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 14,

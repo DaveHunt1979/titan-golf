@@ -1,0 +1,13 @@
+-- One Tee Box per ROUND, set by the organiser, played by everyone in that
+-- round (Dave, 2026-09-08 — "the person setting the tee boxes, and that is
+-- set in stone for everyone... it is only casual that we do what we do").
+-- Exactly the same model Swindle moved to in 20260903000000_swindle_shared_tee.
+--
+-- competition_days.tee_name already existed (20260824000000) but was a free
+-- text reference field. course_tees is keyed by (course_name, tee_name,
+-- gender) — the same tee colour has separate M/F rows with different
+-- course/slope ratings — so the gender half of the organiser's pick has to be
+-- stored too, otherwise the WHS resolution can land on the wrong rated row.
+-- Additive and nullable: existing rounds keep working (resolution falls back
+-- to matching on tee_name alone when gender is NULL).
+ALTER TABLE competition_days ADD COLUMN IF NOT EXISTS tee_gender TEXT;

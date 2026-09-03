@@ -26,10 +26,14 @@ const STATUS_LABEL: Record<string, string> = {
   verification_grace: 'Verification Grace', finalising: 'Finalising', locked: 'Locked', archived: 'Archived',
 };
 
+// No "Join Requests" row any more — joining is instant off the PIN
+// (season/join.tsx), so nothing new ever lands in season_join_requests.
+// The admin screen itself (season-requests.tsx) is left on disk, just
+// unreachable, rather than deleted.
 interface SeasonRow {
   id: string; name: string; season_year: number; status: string; join_pin: string | null;
   start_at: string | null; end_at: string | null;
-  division_count: number; pending_requests: number;
+  division_count: number;
 }
 
 export default function SeasonManageScreen() {
@@ -56,18 +60,10 @@ export default function SeasonManageScreen() {
       .order('created_at', { ascending: false });
     const rows = (data ?? []) as any[];
 
-    const seasonIds = rows.map(r => r.id);
-    const { data: pendingRows } = seasonIds.length
-      ? await supabase.from('season_join_requests').select('season_id').eq('status', 'pending_approval').in('season_id', seasonIds)
-      : { data: [] as any[] };
-    const pendingBySeasonId: Record<string, number> = {};
-    for (const r of (pendingRows ?? []) as any[]) pendingBySeasonId[r.season_id] = (pendingBySeasonId[r.season_id] ?? 0) + 1;
-
     setSeasons(rows.map(r => ({
       id: r.id, name: r.name, season_year: r.season_year, status: r.status, join_pin: r.join_pin,
       start_at: r.start_at, end_at: r.end_at,
       division_count: r.season_divisions?.[0]?.count ?? 0,
-      pending_requests: pendingBySeasonId[r.id] ?? 0,
     })));
     setLoading(false);
   }, [societyId]);
@@ -208,19 +204,6 @@ export default function SeasonManageScreen() {
                     </TouchableOpacity>
                   </View>
                 )}
-                <TouchableOpacity
-                  style={s.requestsRow}
-                  onPress={() => router.push({ pathname: '/(app)/admin/season-requests' as any, params: { seasonId: season.id, seasonName: season.name } })}
-                  activeOpacity={0.7}
-                >
-                  <Text style={s.requestsText}>Join Requests</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    {season.pending_requests > 0 && (
-                      <View style={s.requestsBadge}><Text style={s.requestsBadgeText}>{season.pending_requests}</Text></View>
-                    )}
-                    <Ionicons name="chevron-forward" size={14} color="#666" />
-                  </View>
-                </TouchableOpacity>
               </View>
             ))
           )}
@@ -262,11 +245,6 @@ const s = StyleSheet.create({
   closeBtnText: { fontFamily: FFB, fontSize: 12, color: RED },
   lockedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
   lockedText: { fontFamily: FFB, fontSize: 12, color: '#666' },
-
-  requestsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#1c1c1c' },
-  requestsText: { fontFamily: FFB, fontSize: 12, color: '#ccc' },
-  requestsBadge: { backgroundColor: GREEN, borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
-  requestsBadgeText: { fontFamily: FFB, fontSize: 11, color: '#000' },
 
   empty: { alignItems: 'center', paddingTop: 80, gap: 8 },
   emptyTitle: { fontFamily: FFB, fontSize: 16, color: '#fff', marginTop: 8 },

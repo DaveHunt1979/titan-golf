@@ -13,11 +13,15 @@ const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
 
 interface SeasonSummary {
-  id: string; name: string; season_year: number; join_requires_approval: boolean;
+  id: string; name: string; season_year: number;
   start_at: string | null; end_at: string | null;
 }
 
-type Step = 'pin' | 'preview' | 'requested' | 'already_entered' | 'already_pending';
+// No approval step any more — holding the 6-digit PIN IS the authorization,
+// because the admin is the one who handed it out (Dave, 2026-09-08). The
+// seasons.join_requires_approval column and the admin requests screen are
+// left in place but nothing routes through them.
+type Step = 'pin' | 'preview' | 'already_entered';
 
 export default function SeasonJoinScreen() {
   const router = useRouter();
@@ -41,7 +45,7 @@ export default function SeasonJoinScreen() {
     setLooking(true);
     const { data: found } = await supabase
       .from('seasons')
-      .select('id, name, season_year, join_requires_approval, start_at, end_at')
+      .select('id, name, season_year, start_at, end_at')
       .eq('join_pin', code)
       .maybeSingle();
     if (!found) {
@@ -57,15 +61,11 @@ export default function SeasonJoinScreen() {
       : { data: null };
 
     if (me) {
-      const [{ data: entry }, { data: request }] = await Promise.all([
-        supabase.from('season_entries').select('id').eq('season_id', (found as any).id).eq('player_id', me.id).maybeSingle(),
-        supabase.from('season_join_requests').select('id, status').eq('season_id', (found as any).id).eq('player_id', me.id).maybeSingle(),
-      ]);
+      const { data: entry } = await supabase
+        .from('season_entries').select('id').eq('season_id', (found as any).id).eq('player_id', me.id).maybeSingle();
       setLooking(false);
       setSeason(found as SeasonSummary);
-      if (entry) { setStep('already_entered'); return; }
-      if (request && (request as any).status === 'pending_approval') { setStep('already_pending'); return; }
-      setStep('preview');
+      setStep(entry ? 'already_entered' : 'preview');
       return;
     }
 
@@ -74,7 +74,7 @@ export default function SeasonJoinScreen() {
     setStep('preview');
   }
 
-  async function requestToJoin() {
+  async function joinSeason() {
     if (!season) return;
     setJoining(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -82,24 +82,15 @@ export default function SeasonJoinScreen() {
     const { data: me } = await supabase.from('players').select('id, handicap_index').eq('auth_uid', user.id).maybeSingle();
     if (!me) { setJoining(false); return; }
 
-    if (!season.join_requires_approval) {
-      const { error } = await supabase.from('season_entries').insert({
-        season_id: season.id, player_id: (me as any).id,
-        entry_handicap_index: (me as any).handicap_index ?? null,
-        join_status: 'approved', qualification_status: 'provisional',
-      } as any);
-      setJoining(false);
-      if (error && (error as any).code !== '23505') { setStep('pin'); return; }
-      setStep('already_entered');
-      return;
-    }
-
-    const { error } = await supabase.from('season_join_requests').insert({
-      season_id: season.id, player_id: (me as any).id, status: 'pending_approval',
+    const { error } = await supabase.from('season_entries').insert({
+      season_id: season.id, player_id: (me as any).id,
+      entry_handicap_index: (me as any).handicap_index ?? null,
+      join_status: 'approved', qualification_status: 'provisional',
     } as any);
     setJoining(false);
-    if (error && (error as any).code !== '23505') return;
-    setStep('requested');
+    // 23505 = they're already entered, which is the same outcome as joining.
+    if (error && (error as any).code !== '23505') { setStep('pin'); return; }
+    setStep('already_entered');
   }
 
   return (
@@ -146,21 +137,13 @@ export default function SeasonJoinScreen() {
             <Text style={s.title}>{season.name}</Text>
             <Text style={s.sub}>{season.season_year}</Text>
             <View style={s.summaryCard}>
-              <View style={s.summaryRow}><Text style={s.summaryLabel}>Joining</Text><Text style={s.summaryValue}>{season.join_requires_approval ? 'Requires admin approval' : 'Instant'}</Text></View>
+              <View style={s.summaryRow}><Text style={s.summaryLabel}>Joining</Text><Text style={s.summaryValue}>Instant — the PIN is your entry</Text></View>
               <View style={s.summaryRow}><Text style={s.summaryLabel}>Rounds count</Text><Text style={s.summaryValue}>Casual, Tournament & Swindle rounds played with another app player</Text></View>
               <View style={s.summaryRow}><Text style={s.summaryLabel}>Solo rounds</Text><Text style={s.summaryValue}>Never count</Text></View>
             </View>
-            <TouchableOpacity style={s.primaryBtn} onPress={requestToJoin} disabled={joining} activeOpacity={0.85}>
-              {joining ? <ActivityIndicator color="#000" /> : <Text style={s.primaryBtnText}>{season.join_requires_approval ? 'Request to Join' : 'Join Season'}</Text>}
+            <TouchableOpacity style={s.primaryBtn} onPress={joinSeason} disabled={joining} activeOpacity={0.85}>
+              {joining ? <ActivityIndicator color="#000" /> : <Text style={s.primaryBtnText}>Join Season</Text>}
             </TouchableOpacity>
-          </>
-        )}
-
-        {step === 'requested' && (
-          <>
-            <View style={s.heroIconWrap}><Ionicons name="time-outline" size={28} color={GREEN} /></View>
-            <Text style={s.title}>Request Sent</Text>
-            <Text style={s.sub}>Waiting for your society admin to approve your entry into {season?.name}.</Text>
           </>
         )}
 
@@ -168,15 +151,7 @@ export default function SeasonJoinScreen() {
           <>
             <View style={s.heroIconWrap}><Ionicons name="checkmark-circle" size={28} color={GREEN} /></View>
             <Text style={s.title}>You're In</Text>
-            <Text style={s.sub}>You're already entered in {season?.name}.</Text>
-          </>
-        )}
-
-        {step === 'already_pending' && (
-          <>
-            <View style={s.heroIconWrap}><Ionicons name="time-outline" size={28} color={GREEN} /></View>
-            <Text style={s.title}>Already Requested</Text>
-            <Text style={s.sub}>Your request to join {season?.name} is still waiting for approval.</Text>
+            <Text style={s.sub}>You're entered in {season?.name}.</Text>
           </>
         )}
       </View>
