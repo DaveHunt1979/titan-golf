@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"ls web/src/app/tournament/ && ls web/src/lib/ -R && echo \\\"---PKG---\\\" && cat web/package.json\"}",
+  "error": "Exit code 1\narchive\nnew\nls: -R: No such file or directory\nweb/src/lib/:\nsupabase",
+  "timestamp": "2026-09-03T09:31:05.223Z",
+  "retry_count": 1
+}

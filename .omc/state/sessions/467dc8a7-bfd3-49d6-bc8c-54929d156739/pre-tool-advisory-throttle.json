@@ -1,38 +1,10 @@
 {
   "version": 1,
   "entries": {
-    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1788418118918,
-      "message": "Read multiple files in parallel when possible for faster analysis."
-    },
-    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1788418067491,
-      "message": "Verify changes work after editing. Test functionality before marking complete."
-    },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1788418019441,
+      "last_emitted_at_ms": 1788431982029,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
-    },
-    "2867bd48c59bfb50c5d69c00e9ddc9b445556e5efa8d3a29ad39f3f1ee926568": {
-      "last_emitted_at_ms": 1788417714167,
-      "message": "Spawning agent: oh-my-claudecode:executor (inherit) | Task: Rebrand AI News disclosure to named reporter byline"
-    },
-    "0a81f29f49215d7b05acc6d3525e3cf451035db54253ba7942759c2559315d82": {
-      "last_emitted_at_ms": 1788417704717,
-      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Fix in-round camera overlay + wire photos into news reports"
-    },
-    "5ba8c38abfcc52f8ac72ab200cff3f969f54977b0ffa7c65ae1947dbb5e0235a": {
-      "last_emitted_at_ms": 1788415422199,
-      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Remove Season join approval gate, unblock stuck joiners"
-    },
-    "128313dd8317b32e900b3e1cc1d022a16c0f6d45a835fed94d2624e9582d83d9": {
-      "last_emitted_at_ms": 1788415391628,
-      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Rework tournament/swindle tee selection to one locked choice per round"
-    },
-    "838e7b9285ba96530787481ab3abb888dc4148e6e512b0e364d945524bcd57c3": {
-      "last_emitted_at_ms": 1788415071515,
-      "message": "Spawning agent: Explore (inherit) | Task: Find tee-box setup and season join-approval code"
     }
   },
-  "updated_at": "2026-09-03T06:48:38.918Z"
+  "updated_at": "2026-09-03T10:39:42.029Z"
 }

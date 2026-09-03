@@ -47,10 +47,11 @@ export default async function AdminPage() {
       </div>
 
       {/* Quick actions */}
-      <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {[
           { icon: '🏆', label: 'New Competition',    href: '/tournament/new',    desc: 'Create a new season or casual comp'   },
           { icon: '📋', label: 'Tournament Archive',  href: '/tournament/archive', desc: 'All competitions, champions & PINs' },
+          { icon: '⛳', label: 'Tee Sheet',           href: '/admin/tee-sheet',    desc: 'Drag groups & set tee times'         },
           { icon: '🏌️', label: 'Leaderboard',        href: '/leaderboard',        desc: 'Live Kronos & team standings'        },
           { icon: '🔑', label: 'Codes & PINs',       href: '/admin/codes',        desc: 'Join codes, tournament PINs & more'  },
         ].map(item => (

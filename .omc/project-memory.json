@@ -330,6 +330,12 @@
       "type": "file"
     },
     {
+      "path": "supabase/migrations/20260905000000_titan_season_data_model.sql",
+      "accessCount": 4,
+      "lastAccessed": 1788426559087,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/clubhouse/index.tsx",
       "accessCount": 3,
       "lastAccessed": 1788370508036,
@@ -357,12 +363,6 @@
       "path": "app/(app)/admin/season-requests.tsx",
       "accessCount": 3,
       "lastAccessed": 1788415427922,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260905000000_titan_season_data_model.sql",
-      "accessCount": 3,
-      "lastAccessed": 1788415430844,
       "type": "file"
     },
     {
@@ -405,6 +405,18 @@
       "path": "src/lib/titanNews.ts",
       "accessCount": 2,
       "lastAccessed": 1788417831088,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260824000000_round_tee_and_date.sql",
+      "accessCount": 2,
+      "lastAccessed": 1788426546389,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260804030000_swindle_groups.sql",
+      "accessCount": 2,
+      "lastAccessed": 1788426546897,
       "type": "file"
     },
     {
@@ -468,12 +480,6 @@
       "type": "file"
     },
     {
-      "path": "supabase/migrations/20260804030000_swindle_groups.sql",
-      "accessCount": 1,
-      "lastAccessed": 1788372401234,
-      "type": "file"
-    },
-    {
       "path": "supabase/migrations/20260906000000_titan_season_round_sources.sql",
       "accessCount": 1,
       "lastAccessed": 1788372420611,
@@ -531,12 +537,6 @@
       "path": "screenshots/Screenshot 2026-09-03 at 06.54.58.png",
       "accessCount": 1,
       "lastAccessed": 1788415047840,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260824000000_round_tee_and_date.sql",
-      "accessCount": 1,
-      "lastAccessed": 1788415470971,
       "type": "file"
     },
     {

@@ -1,0 +1,15 @@
+-- Per-group tee time on the tee sheet (Dave, 2026-09-10 — the web Command
+-- Deck board where an organiser drags groups around and every group's tee
+-- time recalculates off the one above it).
+--
+-- competition_days.tee_time already exists (20260824000000_round_tee_and_date)
+-- but it is the whole-day default — one time for the round, not per group.
+-- The board needs a real time per group, so it gets its own column here
+-- rather than overloading the day-level one.
+--
+-- Additive and nullable on purpose: every existing match keeps working with
+-- no tee time at all, and ordering still comes from match_number exactly as
+-- it does today (app/(app)/admin/draw.tsx orders by match_number and is not
+-- changed by this migration). No backfill — a NULL simply means "no explicit
+-- tee time set for this group yet".
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS tee_time TIME;

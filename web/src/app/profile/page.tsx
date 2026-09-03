@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { Edit2, Save, X, RefreshCw, Key, LogOut, Wifi, ChevronRight, ChevronDown } from 'lucide-react';
+import { Edit2, Save, X, RefreshCw, Key, LogOut, Wifi, ChevronRight, ChevronDown, Briefcase, Newspaper } from 'lucide-react';
 
 // ── Club data (mirrors mobile bag.tsx) ───────────────────────────────────────
 
@@ -79,6 +79,10 @@ type ReportGroup = { competition: CompetitionLite; reports: NewsReportRow[] };
 function fmtDate(d: string | null) {
   if (!d) return null;
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function reportLabel(r: { story_type: string; dayNumber: number | null }) {
@@ -299,25 +303,41 @@ export default function ProfilePage() {
     (acc[c.category] ??= []).push(c); return acc;
   }, {});
 
+  const hcpDisplay  = player.handicap_index != null ? Number(player.handicap_index).toFixed(1) : '—';
+
+  // Stat tiles — handicap/rounds/in-bag from the old hero badges, plus the
+  // Career Stats numbers (best/avg/birdies) relocated up here from lower down.
+  const statTiles: { label: string; value: string | number; gold?: boolean }[] = [
+    { label: 'Handicap', value: hcpDisplay, gold: true },
+    { label: 'Rounds',   value: stats.rounds },
+    { label: 'In Bag',   value: inBagCount },
+  ];
+  if (stats.rounds > 0) {
+    statTiles.push(
+      { label: 'Best Round', value: stats.best != null ? `${stats.best} pts` : '—' },
+      { label: 'Average',    value: stats.avg  != null ? `${stats.avg} pts`  : '—' },
+      { label: 'Birdies',    value: stats.birdies },
+    );
+  }
+
+  const heroSubtitle = [
+    societyName,
+    joinedAt ? `Member since ${new Date(joinedAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}` : null,
+    player.cdh_number ? `CDH ${player.cdh_number}` : null,
+  ].filter(Boolean).join(' · ');
+
   return (
     <div className="mx-auto max-w-screen-xl px-6 py-12">
 
       {/* ── Header ─────────────────────────────────────────── */}
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-6 flex items-end justify-between gap-4">
         <div>
           <div className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">
             {societyName ?? 'Titan Golf'}
           </div>
           <h1 className="mt-1 text-5xl font-black text-white">Locker Room</h1>
         </div>
-        {!editing ? (
-          <button
-            onClick={() => setEditing(true)}
-            className="flex items-center gap-2 rounded-lg border border-[#D4AF37]/40 px-4 py-2 text-sm font-bold text-[#D4AF37] transition-colors hover:bg-[#D4AF37]/10"
-          >
-            <Edit2 size={15} /> Edit Profile
-          </button>
-        ) : (
+        {editing && (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setEditing(false)}
@@ -336,42 +356,81 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* ── Profile hero ───────────────────────────────────── */}
-      <div className="mb-8 flex flex-col items-start gap-5 rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6 sm:flex-row sm:items-center">
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 border-[#D4AF37]/40 bg-[#D4AF37]/10 text-3xl font-black text-[#D4AF37]">
-          {initial}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-2xl font-black text-white">{player.display_name}</div>
-          {player.nickname && (
-            <div className="mt-1 text-sm font-bold text-[#22c55e]">"{player.nickname}"</div>
-          )}
-          {joinedAt && (
-            <div className="mt-1 text-xs text-neutral-500">
-              Member since {new Date(joinedAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+      {/* ── Profile hero + buttons down the side ───────────── */}
+      <div className="mb-8 grid gap-4 lg:grid-cols-[minmax(0,1fr)_248px]">
+
+        <div className="space-y-4">
+
+          {/* Hero */}
+          <div className="flex flex-col items-center gap-5 rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6 text-center sm:flex-row sm:text-left">
+            <div className="relative shrink-0">
+              <div className="flex h-[88px] w-[88px] items-center justify-center rounded-full border-2 border-[#D4AF37] bg-[#1a1a1a] text-3xl font-black text-[#D4AF37] shadow-[0_0_0_4px_rgba(74,222,128,0.10),0_0_28px_-8px_rgba(212,175,55,0.6)]">
+                {initial}
+              </div>
+              <span
+                title="Handicap Index"
+                className="absolute -right-2 -top-1.5 rounded-full border-2 border-[#111111] bg-[#4ade80] px-2 py-0.5 text-[11px] font-bold tabular-nums text-[#052012]"
+              >
+                {hcpDisplay}
+              </span>
             </div>
-          )}
-          {player.cdh_number && (
-            <div className="mt-1 text-xs text-neutral-500">CDH: {player.cdh_number}</div>
-          )}
-        </div>
-        <div className="flex gap-3">
-          <div className="rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/8 px-6 py-4 text-center">
-            <div className="text-3xl font-black text-[#D4AF37]">
-              {player.handicap_index != null ? Number(player.handicap_index).toFixed(1) : '—'}
+            <div className="min-w-0 flex-1">
+              <div className="text-3xl font-black leading-tight text-white">{player.display_name}</div>
+              {player.nickname && (
+                <div className="mt-1 text-sm font-bold text-[#4ade80]">&ldquo;{player.nickname}&rdquo;</div>
+              )}
+              {heroSubtitle && (
+                <div className="mt-2 text-xs text-neutral-500">{heroSubtitle}</div>
+              )}
             </div>
-            <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">Handicap</div>
           </div>
-          <div className="rounded-xl border border-[#1c1c1c] bg-[#000000] px-6 py-4 text-center">
-            <div className="text-3xl font-black text-white">{inBagCount}</div>
-            <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">In Bag</div>
+
+          {/* Stat tiles */}
+          <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#1c1c1c]">
+            {statTiles.map(s => (
+              <div key={s.label} className="bg-[#111111] px-3 py-3 sm:px-4 sm:py-3.5">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">{s.label}</div>
+                <div className={`mt-1.5 text-2xl font-black tabular-nums ${s.gold ? 'text-[#D4AF37]' : 'text-white'}`}>
+                  {s.value}
+                </div>
+              </div>
+            ))}
           </div>
-          {stats.rounds > 0 && (
-            <div className="rounded-xl border border-[#1c1c1c] bg-[#000000] px-6 py-4 text-center">
-              <div className="text-3xl font-black text-white">{stats.rounds}</div>
-              <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">Rounds</div>
-            </div>
+        </div>
+
+        {/* Buttons down the side */}
+        <div className="flex flex-col gap-2 lg:sticky lg:top-6 lg:self-start">
+          <div className="px-1 pb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-600">
+            Quick Actions
+          </div>
+          <SideButton
+            icon={<Edit2 size={15} />}
+            label={editing ? 'Cancel Editing' : 'Edit Profile'}
+            onClick={() => { setEditing(v => !v); scrollToSection('profile-details'); }}
+          />
+          <SideButton
+            icon={<Briefcase size={15} />}
+            label="My Bag"
+            onClick={() => scrollToSection('my-bag')}
+          />
+          {reportGroups.length > 0 && (
+            <SideButton
+              icon={<Newspaper size={15} />}
+              label="Tournament Reports"
+              onClick={() => scrollToSection('my-reports')}
+            />
           )}
+          <SideButton
+            icon={<Key size={15} />}
+            label="Change Password"
+            onClick={() => { setShowPw(true); setPwError(''); scrollToSection('account'); }}
+          />
+          <SideButton
+            icon={<LogOut size={15} />}
+            label="Sign Out"
+            onClick={signOut}
+            danger
+          />
         </div>
       </div>
 
@@ -381,7 +440,7 @@ export default function ProfilePage() {
         <div className="space-y-6">
 
           {/* Profile details */}
-          <section>
+          <section id="profile-details" className="scroll-mt-6">
             <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Profile Details</h2>
             <div className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] divide-y divide-[#1c1c1c]">
               <ProfileField label="Display Name"   value={name}     onChange={setName}     editing={editing} placeholder="Your name" />
@@ -408,27 +467,10 @@ export default function ProfilePage() {
             )}
           </section>
 
-          {/* Career stats */}
-          {stats.rounds > 0 && (
-            <section>
-              <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Career Stats</h2>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: 'Best Round', value: stats.best != null ? `${stats.best} pts` : '—' },
-                  { label: 'Average',    value: stats.avg  != null ? `${stats.avg} pts`  : '—' },
-                  { label: 'Birdies',    value: stats.birdies },
-                ].map(s => (
-                  <div key={s.label} className="rounded-xl border border-[#1c1c1c] bg-[#111111] p-4 text-center">
-                    <div className="text-2xl font-black text-white">{s.value}</div>
-                    <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-neutral-500">{s.label}</div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
+          {/* Career stats are now shown as tiles beside the hero above. */}
 
           {/* Account */}
-          <section>
+          <section id="account" className="scroll-mt-6">
             <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Account</h2>
             <div className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] divide-y divide-[#1c1c1c]">
 
@@ -498,7 +540,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ── RIGHT: My Bag ─────────────────────────────────── */}
-        <div>
+        <div id="my-bag" className="scroll-mt-6">
           <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">My Bag</h2>
           <div className="space-y-4">
             {CATEGORY_ORDER.map(cat => {
@@ -533,7 +575,7 @@ export default function ProfilePage() {
 
       {/* ── My Tournament Reports ──────────────────────────── */}
       {reportGroups.length > 0 && (
-        <section className="mt-8">
+        <section id="my-reports" className="mt-8 scroll-mt-6">
           <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">My Tournament Reports</h2>
           <div className="space-y-4">
             {reportGroups.map(g => (
@@ -573,6 +615,28 @@ export default function ProfilePage() {
         </section>
       )}
     </div>
+  );
+}
+
+// ── SideButton ────────────────────────────────────────────────────────────────
+
+function SideButton({ icon, label, onClick, danger = false }: {
+  icon: ReactNode; label: string; onClick: () => void; danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`group flex w-full items-center gap-3 rounded-xl border border-[#1c1c1c] bg-[#111111] px-3.5 py-3 text-left text-[13px] font-semibold transition-colors ${
+        danger
+          ? 'text-neutral-400 hover:border-[#f87171]/40 hover:bg-[#1a1a1a] hover:text-[#f87171]'
+          : 'text-neutral-400 hover:border-[#D4AF37]/40 hover:bg-[#1a1a1a] hover:text-white'
+      }`}
+    >
+      <span className={`shrink-0 text-neutral-600 transition-colors ${danger ? 'group-hover:text-[#f87171]' : 'group-hover:text-[#D4AF37]'}`}>
+        {icon}
+      </span>
+      {label}
+    </button>
   );
 }
 

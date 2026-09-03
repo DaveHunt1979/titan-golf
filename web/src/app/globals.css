@@ -13,6 +13,10 @@
   --text-muted: #555555;
   --green: #4ade80;
   --red: #f87171;
+  /* Secondary chart accent — used for trend lines that must read as data,
+     not as a gold/green/red status. No existing token covered this. */
+  --teal: #2dd4bf;
+  --teal-fill: rgba(45,212,191,0.28);
 }
 
 * { box-sizing: border-box; }
@@ -28,6 +32,16 @@ body {
   background: rgba(212,175,55,0.3);
 }
 
-::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* Tee sheet — a group card whose tee time just changed flashes gold once. */
+@keyframes teeFlash {
+  0%   { background: rgba(212,175,55,0.16); }
+  100% { background: var(--card-alt); }
+}
+.tee-flash { animation: teeFlash 0.8s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .tee-flash { animation: none; }
+}
