@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/service';
-import { Trophy, PoundSterling } from 'lucide-react';
+import { Trophy, PoundSterling, Medal, Flag } from 'lucide-react';
 
 // Public, no-login "season stats" page for a society's Swindle — same
 // mechanism as /newsreel/[competitionId] (service-role client, no auth
@@ -164,98 +164,222 @@ export default async function SwindleSeasonPage({ params }: { params: Promise<{ 
 
   const lastPlayed = games.length ? fmtDate(games.map(g => g.game_date).sort().at(-1) ?? null) : null;
 
+  // Hero chips + stat tiles — pure re-presentation of the numbers already
+  // computed above, no new queries.
+  const societyName = (society as { name: string } | null)?.name ?? 'Titan Golf';
+  const completedGames = games.filter(g => g.status === 'complete').length;
+  const totalPaid = moneyList.reduce((s, p) => s + p.earnings, 0);
+
+  const metaChips = [
+    `${games.length} game${games.length === 1 ? '' : 's'} this season`,
+    lastPlayed ? `Last played ${lastPlayed}` : null,
+    orderOfMerit.length ? `${orderOfMerit.length} player${orderOfMerit.length === 1 ? '' : 's'} ranked` : null,
+  ].filter(Boolean) as string[];
+
+  const statTiles: { label: string; value: string | number; suffix?: string; gold?: boolean }[] = [
+    { label: 'Games Played',  value: games.length },
+    { label: 'Completed',     value: completedGames },
+    { label: 'Rounds Logged', value: allRounds.length },
+    { label: 'Prize Money',   value: `£${totalPaid.toFixed(2)}`, gold: true },
+  ];
+
   return (
-    <div className="mx-auto max-w-screen-xl px-6 py-12">
-      <div className="mb-10">
-        <div className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">
-          {(society as { name: string } | null)?.name ?? 'Titan Golf'}
-        </div>
-        <h1 className="mt-1 flex items-center gap-3 text-5xl font-black text-white">
-          <Trophy size={36} className="text-[#a78bfa]" />
-          <span>The Swindle — Season Stats</span>
-        </h1>
-        <p className="mt-2 text-neutral-400">
-          {games.length} game{games.length === 1 ? '' : 's'} this season{lastPlayed ? ` · last played ${lastPlayed}` : ''}.
-        </p>
-      </div>
+    <div className="relative">
+      {/* Ambient gold wash behind the hero — same top-of-page treatment as the Locker Room. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[460px] bg-[radial-gradient(1100px_460px_at_80%_-14%,var(--gold-glow),transparent_62%)]"
+      />
 
-      {!games.length ? (
-        <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-12 text-center">
-          <div className="mb-3 flex justify-center"><Trophy size={36} className="text-[#a78bfa]/40" /></div>
-          <h3 className="text-lg font-bold text-white">No swindles yet</h3>
-          <p className="mt-1 text-sm text-neutral-400">Season stats will appear here once games are played.</p>
-        </div>
-      ) : (
-        <div className="space-y-12">
+      <div className="relative mx-auto max-w-screen-xl px-6 py-12">
 
-          <section>
-            <h2 className="mb-1 text-lg font-black text-white">Order of Merit</h2>
-            <p className="mb-4 text-xs text-neutral-500">Eagle +4 · Birdie +3 · Par +2 · Blob −1</p>
-            <div className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111]">
-              {orderOfMerit.slice(0, 20).map((p, i) => (
-                <div key={p.playerId} className={`flex items-center gap-4 px-5 py-3 ${i > 0 ? 'border-t border-[#1c1c1c]' : ''} ${i === 0 ? 'bg-[#a78bfa]/8' : ''}`}>
-                  <span className="w-6 text-center text-sm font-bold text-white">{i + 1}</span>
-                  <div className="flex-1">
-                    <div className="text-sm font-bold text-white">{p.name}</div>
-                    <div className="text-xs text-neutral-500">{p.appearances} round{p.appearances !== 1 ? 's' : ''} · avg {p.average}</div>
+        {/* ── Hero ───────────────────────────────────────────── */}
+        <div className="mb-4 overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111]">
+          <div className="flex flex-col items-center gap-6 p-6 text-center sm:flex-row sm:text-left">
+            <div className="shrink-0">
+              <div className="flex h-[112px] w-[112px] items-center justify-center rounded-full border-2 border-[#D4AF37] bg-[#1a1a1a] text-[var(--gold-bright)] shadow-[0_0_0_5px_rgba(74,222,128,0.10),0_0_38px_-6px_rgba(212,175,55,0.55)]">
+                <Trophy size={44} />
+              </div>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#D4AF37]">{societyName}</div>
+              <h1 className="mt-1.5 text-[44px] font-black leading-[0.95] tracking-tight text-white">The Swindle</h1>
+              <div className="mt-1.5 text-sm font-semibold uppercase tracking-[0.16em] text-neutral-500">Season Stats</div>
+              <div className="mt-3.5 flex flex-wrap justify-center gap-1.5 sm:justify-start">
+                {metaChips.map(chip => (
+                  <span
+                    key={chip}
+                    className="rounded-full border border-[#1c1c1c] bg-[#0a0a0a] px-2.5 py-1 text-[11px] font-semibold text-neutral-400"
+                  >
+                    {chip}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {!games.length ? (
+          <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-12 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-[#D4AF37]/25 bg-[#D4AF37]/8 text-[var(--gold-bright)] shadow-[0_0_38px_-10px_rgba(212,175,55,0.55)]">
+              <Trophy size={28} />
+            </div>
+            <h3 className="text-lg font-black text-white">No swindles yet</h3>
+            <p className="mx-auto mt-1.5 max-w-sm text-sm text-neutral-400">Season stats will appear here once games are played.</p>
+          </div>
+        ) : (
+          <>
+            {/* ── Quick stats ──────────────────────────────────── */}
+            <div className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#1c1c1c] sm:grid-cols-4">
+              {statTiles.map(s => (
+                <div key={s.label} className="bg-[#111111] px-4 py-3.5">
+                  <div className="text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-600">{s.label}</div>
+                  <div className={`mt-1.5 font-mono text-[26px] font-bold leading-none tabular-nums ${s.gold ? 'text-[var(--gold-bright)]' : 'text-white'}`}>
+                    {s.value}
+                    {s.suffix && <span className="ml-1 text-[12px] font-bold text-neutral-600">{s.suffix}</span>}
                   </div>
-                  <span className="text-lg font-black text-white">{p.points}</span>
                 </div>
               ))}
             </div>
-          </section>
 
-          <section>
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-white"><PoundSterling size={18} className="text-[#D4AF37]" /> Money List</h2>
-            <div className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111]">
-              {moneyList.length === 0 && <div className="p-6 text-center text-sm text-neutral-500">No completed games yet.</div>}
-              {moneyList.slice(0, 20).map((p, i) => (
-                <div key={p.playerId} className={`flex items-center gap-4 px-5 py-3 ${i > 0 ? 'border-t border-[#1c1c1c]' : ''}`}>
-                  <span className="w-6 text-center text-sm font-bold text-white">{i + 1}</span>
-                  <div className="flex-1">
-                    <div className="text-sm font-bold text-white">{p.name}</div>
-                    <div className="text-xs text-neutral-500">{p.wins} win{p.wins !== 1 ? 's' : ''} · {p.games} game{p.games !== 1 ? 's' : ''}</div>
-                  </div>
-                  <span className="text-lg font-black text-[#D4AF37]">£{p.earnings.toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <h2 className="mb-4 text-lg font-black text-white">Season Counts</h2>
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              {countBoards.map(board => (
-                <div key={board.label} className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5">
-                  <div className="mb-3 text-sm font-bold" style={{ color: board.color }}>{board.label}</div>
-                  {board.list.length === 0 && <div className="text-xs text-neutral-600">—</div>}
-                  {board.list.slice(0, 5).map((p, i) => (
-                    <div key={p.playerId} className="flex items-center justify-between py-1 text-xs">
-                      <span className="truncate text-neutral-300">{i + 1}. {p.name}</span>
-                      <span className="font-bold" style={{ color: board.color }}>{p.value}</span>
-                    </div>
+            {/* ── Order of Merit ───────────────────────────────── */}
+            <div className="mb-8">
+              <SectionHeading label="Order of Merit" hint="Eagle +4 · Birdie +3 · Par +2 · Blob −1" />
+              <div className="overflow-hidden rounded-2xl border border-[#1c1c1c]">
+                <div className="grid grid-cols-[2.5rem_1fr_5rem_5rem_5.5rem] gap-4 border-b border-[#1c1c1c] bg-[#111111] px-5 py-3">
+                  {['#', 'Player', 'Rounds', 'Avg', 'Points'].map(h => (
+                    <div key={h} className={`text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-600 ${h !== 'Player' ? 'text-center' : ''}`}>{h}</div>
                   ))}
                 </div>
-              ))}
+                {orderOfMerit.slice(0, 20).map((p, i) => (
+                  <div
+                    key={p.playerId}
+                    className={`grid grid-cols-[2.5rem_1fr_5rem_5rem_5.5rem] items-center gap-4 border-b border-[#1c1c1c] px-5 py-4 transition-colors last:border-0 hover:bg-white/3 ${
+                      i === 0 ? 'bg-[#D4AF37]/6' : i % 2 === 0 ? 'bg-[#000000]' : 'bg-[#0a0a0a]'
+                    }`}
+                  >
+                    <div className={`text-center font-mono text-sm font-bold tabular-nums ${i === 0 ? 'text-[var(--gold-bright)]' : 'text-neutral-500'}`}>
+                      {i + 1}
+                    </div>
+                    <div className="min-w-0 flex items-center gap-2">
+                      <span className={`truncate text-sm font-semibold ${i === 0 ? 'text-[var(--gold-bright)]' : 'text-white'}`}>{p.name}</span>
+                      {i === 0 && <Medal size={13} className="shrink-0 text-[var(--gold-bright)]" />}
+                    </div>
+                    <div className="text-center font-mono text-sm tabular-nums text-neutral-400">{p.appearances}</div>
+                    <div className="text-center font-mono text-sm tabular-nums text-neutral-400">{p.average}</div>
+                    <div className={`text-center font-mono text-sm font-bold tabular-nums ${i === 0 ? 'text-[var(--gold-bright)]' : 'text-white'}`}>{p.points}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </section>
 
-          <section>
-            <h2 className="mb-4 text-lg font-black text-white">Records</h2>
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              {records.map(r => (
-                <div key={r.label} className="rounded-2xl border bg-[#111111] p-6 text-center" style={{ borderColor: r.rec ? `${r.color}44` : '#1c1c1c' }}>
-                  <div className="text-3xl font-black" style={{ color: r.color }}>{r.rec ? `${r.rec.value}${r.unit ? ` ${r.unit}` : ''}` : '—'}</div>
-                  <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">{r.label}</div>
-                  <div className="mt-2 text-sm font-semibold text-white">{r.rec ? r.rec.name : '—'}</div>
-                  {r.rec && <div className="mt-1 text-xs text-neutral-600">{r.rec.gameName}</div>}
+            {/* ── Money List ───────────────────────────────────── */}
+            <div className="mb-8">
+              <SectionHeading label="Money List" hint={totalPaid > 0 ? `£${totalPaid.toFixed(2)} paid out` : undefined} />
+              <div className="overflow-hidden rounded-2xl border border-[#1c1c1c]">
+                <div className="grid grid-cols-[2.5rem_1fr_5rem_5rem_7rem] gap-4 border-b border-[#1c1c1c] bg-[#111111] px-5 py-3">
+                  {['#', 'Player', 'Wins', 'Games', 'Earnings'].map(h => (
+                    <div key={h} className={`text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-600 ${h !== 'Player' ? 'text-center' : ''}`}>{h}</div>
+                  ))}
                 </div>
-              ))}
+                {moneyList.length === 0 && (
+                  <div className="bg-[#000000] px-5 py-8 text-center text-sm text-neutral-500">No completed games yet.</div>
+                )}
+                {moneyList.slice(0, 20).map((p, i) => (
+                  <div
+                    key={p.playerId}
+                    className={`grid grid-cols-[2.5rem_1fr_5rem_5rem_7rem] items-center gap-4 border-b border-[#1c1c1c] px-5 py-4 transition-colors last:border-0 hover:bg-white/3 ${
+                      i === 0 ? 'bg-[#D4AF37]/6' : i % 2 === 0 ? 'bg-[#000000]' : 'bg-[#0a0a0a]'
+                    }`}
+                  >
+                    <div className={`text-center font-mono text-sm font-bold tabular-nums ${i === 0 ? 'text-[var(--gold-bright)]' : 'text-neutral-500'}`}>
+                      {i + 1}
+                    </div>
+                    <div className="min-w-0 flex items-center gap-2">
+                      <span className={`truncate text-sm font-semibold ${i === 0 ? 'text-[var(--gold-bright)]' : 'text-white'}`}>{p.name}</span>
+                      {i === 0 && <PoundSterling size={13} className="shrink-0 text-[var(--gold-bright)]" />}
+                    </div>
+                    <div className="text-center font-mono text-sm tabular-nums text-neutral-400">{p.wins}</div>
+                    <div className="text-center font-mono text-sm tabular-nums text-neutral-400">{p.games}</div>
+                    <div className="text-center font-mono text-sm font-bold tabular-nums text-[var(--gold-bright)]">£{p.earnings.toFixed(2)}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </section>
 
-        </div>
-      )}
+            {/* ── Season Counts ────────────────────────────────── */}
+            <div className="mb-8">
+              <SectionHeading label="Season Counts" hint="Top 5 each" />
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {countBoards.map(board => (
+                  <div
+                    key={board.label}
+                    className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5 transition-colors hover:border-neutral-700"
+                  >
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: board.color }} />
+                      <span className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: board.color }}>{board.label}</span>
+                    </div>
+                    {board.list.length === 0 && <div className="text-xs text-neutral-600">—</div>}
+                    {board.list.slice(0, 5).map((p, i) => (
+                      <div
+                        key={p.playerId}
+                        className="flex items-center justify-between gap-2 border-b border-dashed border-[#1c1c1c] py-1.5 text-xs last:border-b-0"
+                      >
+                        <span className="min-w-0 truncate">
+                          <span className="mr-1.5 font-mono tabular-nums text-neutral-600">{i + 1}</span>
+                          <span className="text-neutral-300">{p.name}</span>
+                        </span>
+                        <span className="shrink-0 font-mono text-sm font-bold tabular-nums" style={{ color: board.color }}>{p.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Records ──────────────────────────────────────── */}
+            <div>
+              <SectionHeading label="Records" hint={`${records.filter(r => r.rec).length} of ${records.length} set`} />
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {records.map(r => (
+                  <div
+                    key={r.label}
+                    className="rounded-2xl border bg-[#111111] p-5 text-center transition-colors"
+                    style={{ borderColor: r.rec ? `${r.color}44` : '#1c1c1c' }}
+                  >
+                    <div className="text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-600">{r.label}</div>
+                    <div className="mt-2 font-mono text-[30px] font-bold leading-none tabular-nums" style={{ color: r.rec ? r.color : '#404040' }}>
+                      {r.rec ? r.rec.value : '—'}
+                      {r.rec && r.unit && <span className="ml-1 text-[12px] font-bold text-neutral-600">{r.unit}</span>}
+                    </div>
+                    <div className="mt-3 truncate text-sm font-semibold text-white">{r.rec ? r.rec.name : '—'}</div>
+                    {r.rec && (
+                      <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[11px] text-neutral-600">
+                        <Flag size={10} className="shrink-0" />
+                        <span className="truncate">{r.rec.gameName}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── SectionHeading ────────────────────────────────────────────────────────────
+
+function SectionHeading({ label, hint }: { label: string; hint?: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-3">
+      <h2 className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">{label}</h2>
+      <span className="h-px flex-1 bg-[#1c1c1c]" />
+      {hint && <span className="text-[11px] font-semibold text-neutral-600">{hint}</span>}
     </div>
   );
 }

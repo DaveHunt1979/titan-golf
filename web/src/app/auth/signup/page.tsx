@@ -33,12 +33,35 @@ export default function SignupPage() {
   if (done) {
     return (
       <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4">
-        <div className="w-full max-w-sm text-center">
-          <div className="mb-4 text-4xl">📧</div>
-          <h2 className="mb-2 text-xl font-black text-white">Check your email</h2>
-          <p className="text-sm text-neutral-400">
-            We&apos;ve sent a confirmation link to <span className="text-white">{email}</span>.
-            Click it to activate your account.
+        <div className="w-full max-w-sm">
+          {/* Logo */}
+          <div className="mb-8 flex flex-col items-center gap-3">
+            <Image src="/logo_trans.png" alt="Titan Golf" width={56} height={56} className="opacity-90" />
+            <div className="text-center">
+              <div className="text-xl font-black tracking-tight">
+                <span className="text-[#D4AF37]">TITAN</span>
+                <span className="text-white"> GOLF</span>
+              </div>
+              <div className="mt-1 text-sm text-neutral-400">Almost there</div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-8 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-[#D4AF37]/25 bg-[#D4AF37]/8 text-2xl shadow-[0_0_38px_-10px_rgba(212,175,55,0.55)]">
+              📧
+            </div>
+            <h2 className="text-lg font-black text-white">Check your email</h2>
+            <p className="mt-1.5 text-sm text-neutral-400">
+              We&apos;ve sent a confirmation link to <span className="font-semibold text-white">{email}</span>.
+              Click it to activate your account.
+            </p>
+          </div>
+
+          <p className="mt-6 text-center text-sm text-neutral-500">
+            Already confirmed?{' '}
+            <Link href="/auth/login" className="font-semibold text-[#D4AF37] hover:underline">
+              Sign in
+            </Link>
           </p>
         </div>
       </div>

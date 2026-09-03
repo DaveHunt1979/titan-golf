@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { Copy, Check, Trophy } from 'lucide-react';
+import { Copy, Check, Trophy, Minus, Plus } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -178,41 +178,59 @@ export default function NewTournamentPage() {
   // ── Success screen ────────────────────────────────────────────────────────
   if (created) {
     return (
-      <div className="flex min-h-[70vh] items-center justify-center px-6">
-        <div className="w-full max-w-lg text-center">
-          <div className="mb-6 flex justify-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10">
-              <Trophy size={36} className="text-[#D4AF37]" />
+      <div className="relative">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[460px] bg-[radial-gradient(1100px_460px_at_80%_-14%,var(--gold-glow),transparent_62%)]"
+        />
+        <div className="relative flex min-h-[70vh] items-center justify-center px-6 py-12">
+          <div className="w-full max-w-lg text-center">
+            <div className="mb-6 flex justify-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-[#D4AF37] bg-[#1a1a1a] text-[var(--gold-bright)] shadow-[0_0_0_5px_rgba(74,222,128,0.10),0_0_38px_-6px_rgba(212,175,55,0.55)]">
+                <Trophy size={36} />
+              </div>
             </div>
-          </div>
-          <div className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Tournament Created</div>
-          <h1 className="mt-2 text-4xl font-black text-white">{created.name}</h1>
-          <p className="mt-3 text-neutral-400">Share this PIN with your players. They enter it in the Titan Golf app to unlock the Tour tab.</p>
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#D4AF37]">Tournament Created</div>
+            <h1 className="mt-1.5 text-[40px] font-black leading-[0.95] tracking-tight text-white">{created.name}</h1>
+            <p className="mx-auto mt-3 max-w-sm text-sm text-neutral-400">
+              Share this PIN with your players. They enter it in the Titan Golf app to unlock the Tour tab.
+            </p>
 
-          {/* Big PIN */}
-          <div className="my-8 rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/8 p-8">
-            <div className="text-xs font-bold uppercase tracking-widest text-neutral-500">Tournament PIN</div>
-            <div className="mt-3 text-7xl font-black tracking-[12px] text-[#D4AF37]">{created.pin}</div>
-            <button
-              onClick={copyPin}
-              className="mt-5 flex items-center gap-2 mx-auto rounded-lg border border-[#D4AF37]/40 px-5 py-2.5 text-sm font-bold text-[#D4AF37] transition-colors hover:bg-[#D4AF37]/10"
-            >
-              {copied ? <Check size={15} /> : <Copy size={15} />}
-              {copied ? 'Copied!' : 'Copy PIN'}
-            </button>
-          </div>
+            {/* Big PIN */}
+            <div className="my-8 rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/8 p-8">
+              <div className="text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-500">Tournament PIN</div>
+              <div className="mt-3 font-mono text-[64px] font-bold leading-none tabular-nums tracking-[10px] text-[var(--gold-bright)]">
+                {created.pin}
+              </div>
+              <button
+                onClick={copyPin}
+                className="mx-auto mt-6 flex items-center gap-2 rounded-full border border-[#D4AF37]/40 px-5 py-2.5 text-[12.5px] font-black tracking-wide text-[#D4AF37] transition-colors hover:bg-[#D4AF37]/10"
+              >
+                {copied ? <Check size={15} /> : <Copy size={15} />}
+                {copied ? 'Copied!' : 'Copy PIN'}
+              </button>
+            </div>
 
-          <p className="mb-8 text-xs text-neutral-500">
-            The tournament is saved as a draft. Activate it from the admin panel when you're ready to start.
-          </p>
+            <div className="mb-8 flex justify-center">
+              <span className="rounded-full border border-[#1c1c1c] bg-[#0a0a0a] px-2.5 py-1 text-[11px] font-semibold text-neutral-500">
+                Saved as a draft — activate it from the admin panel when you&apos;re ready
+              </span>
+            </div>
 
-          <div className="flex gap-3 justify-center">
-            <Link href="/admin" className="rounded-xl border border-[#1c1c1c] px-6 py-3 text-sm font-bold text-neutral-300 transition-colors hover:text-white">
-              Admin Panel
-            </Link>
-            <Link href="/tournament/archive" className="rounded-xl bg-[#D4AF37] px-6 py-3 text-sm font-bold text-[#000000] transition-opacity hover:opacity-90">
-              View Archive →
-            </Link>
+            <div className="flex justify-center gap-3">
+              <Link
+                href="/admin"
+                className="rounded-full border border-[#1c1c1c] bg-[#111111] px-6 py-2.5 text-[12.5px] font-black tracking-wide text-neutral-300 transition-colors hover:border-neutral-700 hover:text-white"
+              >
+                Admin Panel
+              </Link>
+              <Link
+                href="/tournament/archive"
+                className="rounded-full bg-[linear-gradient(155deg,var(--gold-bright),var(--gold-deep))] px-6 py-2.5 text-[12.5px] font-black tracking-wide text-[#181200] transition-[filter] hover:brightness-110"
+              >
+                View Archive →
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -221,254 +239,348 @@ export default function NewTournamentPage() {
 
   // ── Wizard ────────────────────────────────────────────────────────────────
   return (
-    <div className="mx-auto max-w-2xl px-6 py-12">
+    <div className="relative">
+      {/* Ambient gold wash behind the header — same top-of-page treatment as the Locker Room. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[460px] bg-[radial-gradient(1100px_460px_at_80%_-14%,var(--gold-glow),transparent_62%)]"
+      />
 
-      {/* Header */}
-      <div className="mb-8">
-        <Link href="/tournament/archive" className="text-sm text-[#D4AF37] hover:underline">← Back to Archive</Link>
+      <div className="relative mx-auto max-w-2xl px-6 py-12">
 
-        {/* Progress bar */}
-        <div className="mt-6 flex gap-2">
-          {STEPS.map((_, i) => (
-            <div key={i} className={`h-1 flex-1 rounded-full transition-all ${i <= step ? 'bg-[#D4AF37]' : 'bg-[#1c1c1c]'}`} />
-          ))}
+        {/* Header */}
+        <div className="mb-8">
+          <Link
+            href="/tournament/archive"
+            className="text-[11px] font-bold uppercase tracking-widest text-neutral-500 transition-colors hover:text-[var(--gold-bright)]"
+          >
+            ← Back to Archive
+          </Link>
+
+          <div className="mt-5 overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111]">
+            <div className="p-6">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#D4AF37]">New Competition</div>
+              <div className="mt-1.5 flex items-baseline justify-between gap-4">
+                <h1 className="text-[40px] font-black leading-[0.95] tracking-tight text-white">{STEPS[step]}</h1>
+                <span className="shrink-0 font-mono text-[11px] font-bold uppercase tracking-widest tabular-nums text-neutral-600">
+                  Step {step + 1} / {STEPS.length}
+                </span>
+              </div>
+            </div>
+
+            {/* Step indicator — gold for done/active, neutral for upcoming. */}
+            <div className="border-t border-[#1c1c1c] bg-[#0a0a0a] px-6 py-4">
+              <div className="flex items-center">
+                {STEPS.map((label, i) => {
+                  const done   = i < step;
+                  const active = i === step;
+                  return (
+                    <div key={label} className="flex flex-1 items-center last:flex-none">
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border font-mono text-[11px] font-bold tabular-nums transition-colors ${
+                            active
+                              ? 'border-[#D4AF37] bg-[#D4AF37]/12 text-[var(--gold-bright)] shadow-[0_0_18px_-4px_rgba(212,175,55,0.75)]'
+                              : done
+                                ? 'border-[#D4AF37]/40 bg-[#D4AF37]/8 text-[#D4AF37]'
+                                : 'border-[#1c1c1c] bg-[#111111] text-neutral-600'
+                          }`}
+                        >
+                          {done ? <Check size={13} /> : i + 1}
+                        </span>
+                        <span
+                          className={`hidden text-[10px] font-black uppercase tracking-[0.13em] sm:block ${
+                            active ? 'text-[var(--gold-bright)]' : done ? 'text-neutral-400' : 'text-neutral-600'
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      </div>
+                      {i < STEPS.length - 1 && (
+                        <span className={`mx-3 h-px flex-1 ${i < step ? 'bg-[#D4AF37]/40' : 'bg-[#1c1c1c]'}`} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="mt-3 flex items-baseline justify-between">
-          <h1 className="text-4xl font-black text-white">{STEPS[step]}</h1>
-          <span className="text-xs font-bold text-neutral-500">Step {step + 1} of {STEPS.length}</span>
-        </div>
-      </div>
 
-      {/* ── Step 0: Format ──────────────────────────────────── */}
-      {step === 0 && (
-        <div>
-          <p className="mb-6 text-neutral-400">Pick the competition type. You can mix formats on different days.</p>
-          <div className="space-y-3">
-            {COMP_FORMATS.map(f => (
+        {/* ── Step 0: Format ──────────────────────────────────── */}
+        {step === 0 && (
+          <div>
+            <p className="mb-4 text-sm text-neutral-400">Pick the competition type. You can mix formats on different days.</p>
+            <div className="space-y-3">
+              {COMP_FORMATS.map(f => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => pickFormat(f)}
+                  disabled={!f.available}
+                  className={`w-full rounded-2xl border px-6 py-5 text-left transition-colors disabled:opacity-40 ${
+                    selectedFormat === f.id
+                      ? 'border-[#D4AF37]/50 bg-[#D4AF37]/8'
+                      : 'border-[#1c1c1c] bg-[#111111] hover:border-neutral-700 hover:bg-[#1a1a1a]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`flex-1 font-black ${selectedFormat === f.id ? 'text-[var(--gold-bright)]' : 'text-white'}`}>{f.label}</div>
+                    {!f.available && (
+                      <span className="rounded-full border border-[#1c1c1c] bg-[#000000] px-2.5 py-1 text-[9.5px] font-black uppercase tracking-widest text-neutral-500">
+                        Coming Soon
+                      </span>
+                    )}
+                    {selectedFormat === f.id && (
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#D4AF37]/15 text-[var(--gold-bright)]">
+                        <Check size={13} />
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1.5 text-sm leading-relaxed text-neutral-400">{f.sub}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 1: Details ─────────────────────────────────── */}
+        {step === 1 && (
+          <div className="space-y-5">
+            <p className="text-sm text-neutral-400">Name it, set the year, and choose how many days you&apos;ll play.</p>
+
+            <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6">
+              <div className="mb-5">
+                <label className="mb-1.5 block text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-500">Competition Name</label>
+                <input
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="e.g. Titan Tour 2027"
+                  className="w-full rounded-lg border border-[#1c1c1c] bg-[#000000] px-4 py-3 text-sm text-white placeholder-neutral-600 outline-none transition-colors focus:border-[#D4AF37]/50 focus:ring-1 focus:ring-[#D4AF37]/20"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-500">Year</label>
+                <input
+                  type="number"
+                  value={year}
+                  onChange={e => setYear(e.target.value)}
+                  min="2020" max="2040"
+                  className="w-full rounded-lg border border-[#1c1c1c] bg-[#000000] px-4 py-3 font-mono text-sm tabular-nums text-white outline-none transition-colors focus:border-[#D4AF37]/50 focus:ring-1 focus:ring-[#D4AF37]/20"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6">
+              <label className="mb-3 block text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-500">Number of Days</label>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={removeDay}
+                  disabled={days.length <= 1}
+                  aria-label="Remove a day"
+                  className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#1c1c1c] bg-[#000000] text-[#D4AF37] transition-colors hover:border-[#D4AF37]/40 hover:bg-[#D4AF37]/8 disabled:opacity-30 disabled:hover:border-[#1c1c1c] disabled:hover:bg-[#000000]"
+                >
+                  <Minus size={18} />
+                </button>
+                <span className="min-w-[6rem] text-center font-mono text-[26px] font-bold leading-none tabular-nums text-white">
+                  {days.length}
+                  <span className="ml-1.5 text-[12px] font-bold text-neutral-600">{days.length === 1 ? 'day' : 'days'}</span>
+                </span>
+                <button
+                  onClick={addDay}
+                  disabled={days.length >= 10}
+                  aria-label="Add a day"
+                  className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#1c1c1c] bg-[#000000] text-[#D4AF37] transition-colors hover:border-[#D4AF37]/40 hover:bg-[#D4AF37]/8 disabled:opacity-30 disabled:hover:border-[#1c1c1c] disabled:hover:bg-[#000000]"
+                >
+                  <Plus size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className={`flex items-center gap-4 rounded-2xl border p-5 transition-colors ${
+              includeInKronos ? 'border-[#D4AF37]/30 bg-[#D4AF37]/5' : 'border-[#1c1c1c] bg-[#111111]'
+            }`}>
+              <div className="flex-1">
+                <div className={`font-bold ${includeInKronos ? 'text-[var(--gold-bright)]' : 'text-white'}`}>Include in Kronos Trophy</div>
+                <div className="mt-0.5 text-sm text-neutral-500">Individual Stableford scores count toward the season leaderboard</div>
+              </div>
               <button
-                key={f.id}
-                type="button"
-                onClick={() => pickFormat(f)}
-                disabled={!f.available}
-                className={`w-full rounded-2xl border px-6 py-5 text-left transition-all disabled:opacity-40 ${
-                  selectedFormat === f.id
-                    ? 'border-[#D4AF37]/50 bg-[#D4AF37]/8'
-                    : 'border-[#1c1c1c] bg-[#111111] hover:border-[#D4AF37]/20'
+                onClick={() => setIncludeInKronos(v => !v)}
+                aria-pressed={includeInKronos}
+                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+                  includeInKronos ? 'bg-[linear-gradient(155deg,var(--gold-bright),var(--gold-deep))]' : 'bg-[#1c1c1c]'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <div className={`flex-1 font-black ${selectedFormat === f.id ? 'text-[#D4AF37]' : 'text-white'}`}>{f.label}</div>
-                  {!f.available && (
-                    <span className="rounded-full border border-neutral-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
-                      Coming Soon
+                <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${includeInKronos ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 2: Day Setup ───────────────────────────────── */}
+        {step === 2 && (
+          <div>
+            <p className="mb-4 text-sm text-neutral-400">Set the course and format for each day. You can mix it up every year.</p>
+            <div className="space-y-4">
+              {days.map((day, i) => (
+                <div key={i} className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111]">
+                  <div className="flex items-center gap-3 border-b border-[#1c1c1c] bg-[#0a0a0a] px-6 py-3">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/8 font-mono text-[11px] font-bold tabular-nums text-[var(--gold-bright)]">
+                      {i + 1}
                     </span>
-                  )}
-                  {selectedFormat === f.id && (
-                    <span className="text-sm font-black text-[#D4AF37]">✓</span>
-                  )}
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#D4AF37]">Day {i + 1}</span>
+                    <span className="h-px flex-1 bg-[#1c1c1c]" />
+                    <span className="text-[11px] font-semibold text-neutral-600">{day.hcpPct}% hcp</span>
+                  </div>
+
+                  <div className="p-6">
+                    <div className="mb-5">
+                      <label className="mb-1.5 block text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-500">Course</label>
+                      <input
+                        value={day.courseName}
+                        onChange={e => updateDay(i, { courseName: e.target.value })}
+                        placeholder="e.g. West Cliffs"
+                        className="w-full rounded-lg border border-[#1c1c1c] bg-[#000000] px-4 py-3 text-sm text-white placeholder-neutral-600 outline-none transition-colors focus:border-[#D4AF37]/50 focus:ring-1 focus:ring-[#D4AF37]/20"
+                      />
+                    </div>
+
+                    <div className="mb-5">
+                      <label className="mb-2 block text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-500">Format</label>
+                      <div className="flex flex-wrap gap-2">
+                        {DAY_FORMATS.map(f => (
+                          <button
+                            key={f.id}
+                            onClick={() => updateDay(i, { format: f.id })}
+                            className={`rounded-xl border px-4 py-2 text-left text-sm transition-colors ${
+                              day.format === f.id
+                                ? 'border-[#D4AF37]/50 bg-[#D4AF37]/10'
+                                : 'border-[#1c1c1c] bg-[#000000] hover:border-neutral-700 hover:bg-[#111111]'
+                            }`}
+                          >
+                            <div className={`font-bold ${day.format === f.id ? 'text-[var(--gold-bright)]' : 'text-neutral-300'}`}>{f.label}</div>
+                            <div className={`text-[10px] ${day.format === f.id ? 'text-[#D4AF37]/70' : 'text-neutral-600'}`}>{f.sub}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-500">Handicap Allowance</label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {HCP_OPTIONS.map(h => (
+                          <button
+                            key={h.pct}
+                            onClick={() => updateDay(i, { hcpPct: h.pct })}
+                            className={`rounded-xl border py-2.5 text-xs font-bold transition-colors ${
+                              day.hcpPct === h.pct
+                                ? 'border-[#D4AF37]/50 bg-[#D4AF37]/10 text-[var(--gold-bright)]'
+                                : 'border-[#1c1c1c] bg-[#000000] text-neutral-400 hover:border-neutral-700 hover:bg-[#111111]'
+                            }`}
+                          >
+                            {h.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <p className="mt-1 text-sm text-neutral-400">{f.sub}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Step 1: Details ─────────────────────────────────── */}
-      {step === 1 && (
-        <div className="space-y-6">
-          <p className="text-neutral-400">Name it, set the year, and choose how many days you'll play.</p>
-
-          <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-neutral-400">Competition Name</label>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. Titan Tour 2027"
-              className="w-full rounded-xl border border-[#1c1c1c] bg-[#111111] px-4 py-3 text-white placeholder-neutral-600 focus:border-[#D4AF37]/40 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-neutral-400">Year</label>
-            <input
-              type="number"
-              value={year}
-              onChange={e => setYear(e.target.value)}
-              min="2020" max="2040"
-              className="w-full rounded-xl border border-[#1c1c1c] bg-[#111111] px-4 py-3 text-white focus:border-[#D4AF37]/40 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="mb-3 block text-xs font-bold uppercase tracking-widest text-neutral-400">Number of Days</label>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={removeDay}
-                disabled={days.length <= 1}
-                className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#1c1c1c] bg-[#111111] text-2xl font-black text-[#D4AF37] disabled:opacity-30 hover:border-[#D4AF37]/30"
-              >
-                –
-              </button>
-              <span className="min-w-[6rem] text-center text-2xl font-black text-white">
-                {days.length} {days.length === 1 ? 'day' : 'days'}
-              </span>
-              <button
-                onClick={addDay}
-                disabled={days.length >= 10}
-                className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#1c1c1c] bg-[#111111] text-2xl font-black text-[#D4AF37] disabled:opacity-30 hover:border-[#D4AF37]/30"
-              >
-                +
-              </button>
+              ))}
             </div>
           </div>
+        )}
 
-          <div className="flex items-center gap-4 rounded-xl border border-[#1c1c1c] bg-[#111111] p-4">
-            <div className="flex-1">
-              <div className="font-bold text-white">Include in Kronos Trophy</div>
-              <div className="mt-0.5 text-sm text-neutral-400">Individual Stableford scores count toward the season leaderboard</div>
+        {/* ── Step 3: Review ──────────────────────────────────── */}
+        {step === 3 && (
+          <div>
+            <p className="mb-4 text-sm text-neutral-400">Review your setup. The tournament is created as a draft — activate it from admin when ready.</p>
+
+            {/* Summary — hairline grid, same treatment as the dashboard stat tiles. */}
+            <div className="mb-4 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#1c1c1c] sm:grid-cols-3">
+              {[
+                { key: 'Format',  val: formatDef?.label ?? '—',                            gold: true  },
+                { key: 'Name',    val: name.trim() || '—',                                 gold: false },
+                { key: 'Year',    val: year,                                               gold: false },
+                { key: 'Days',    val: String(days.length),                                gold: false },
+                { key: 'Kronos',  val: includeInKronos ? '✓ Included' : 'Not included',    gold: includeInKronos },
+              ].map(row => (
+                <div key={row.key} className="bg-[#111111] px-4 py-3.5">
+                  <div className="text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-600">{row.key}</div>
+                  <div className={`mt-1.5 truncate text-[15px] font-bold leading-tight ${row.gold ? 'text-[var(--gold-bright)]' : 'text-white'}`}>
+                    {row.val}
+                  </div>
+                </div>
+              ))}
             </div>
-            <button
-              onClick={() => setIncludeInKronos(v => !v)}
-              className={`relative h-7 w-12 rounded-full transition-colors ${includeInKronos ? 'bg-[#D4AF37]' : 'bg-[#1c1c1c]'}`}
+
+            <div className="mb-6 overflow-hidden rounded-2xl border border-[#1c1c1c]">
+              <div className="grid grid-cols-[4.5rem_1fr_5rem] gap-4 border-b border-[#1c1c1c] bg-[#111111] px-5 py-3">
+                {['Day', 'Course & Format', 'Hcp'].map(h => (
+                  <div key={h} className={`text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-600 ${h === 'Hcp' ? 'text-center' : ''}`}>{h}</div>
+                ))}
+              </div>
+              {days.map((d, i) => {
+                const fmt = DAY_FORMATS.find(f => f.id === d.format);
+                return (
+                  <div
+                    key={i}
+                    className={`grid grid-cols-[4.5rem_1fr_5rem] items-center gap-4 border-b border-[#1c1c1c] px-5 py-4 last:border-0 ${
+                      i % 2 === 0 ? 'bg-[#000000]' : 'bg-[#0a0a0a]'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-[0.13em] text-[#D4AF37]">Day {i + 1}</span>
+                    <span className="min-w-0 truncate text-sm text-neutral-300">
+                      <span className="font-semibold text-white">{d.courseName || 'TBC'}</span>
+                      <span className="text-neutral-600"> · </span>
+                      {fmt?.label}
+                    </span>
+                    <span className="text-center font-mono text-sm font-bold tabular-nums text-[var(--gold-bright)]">{d.hcpPct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {error && (
+              <div className="mb-4 rounded-xl border border-[#f87171]/30 bg-[#f87171]/8 px-4 py-3 text-sm text-[#f87171]">{error}</div>
+            )}
+          </div>
+        )}
+
+        {/* ── Footer nav ──────────────────────────────────────── */}
+        <div className="mt-8 flex gap-3">
+          {step === 0 ? (
+            <Link
+              href="/tournament/archive"
+              className="flex items-center rounded-full border border-[#1c1c1c] bg-[#111111] px-6 py-3.5 text-[12.5px] font-black tracking-wide text-neutral-400 transition-colors hover:border-neutral-700 hover:text-white"
             >
-              <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${includeInKronos ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              Cancel
+            </Link>
+          ) : (
+            <button
+              onClick={() => setStep(s => s - 1)}
+              className="rounded-full border border-[#1c1c1c] bg-[#111111] px-6 py-3.5 text-[12.5px] font-black tracking-wide text-neutral-400 transition-colors hover:border-neutral-700 hover:text-white"
+            >
+              ← Back
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Step 2: Day Setup ───────────────────────────────── */}
-      {step === 2 && (
-        <div>
-          <p className="mb-6 text-neutral-400">Set the course and format for each day. You can mix it up every year.</p>
-          <div className="space-y-6">
-            {days.map((day, i) => (
-              <div key={i} className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6">
-                <div className="mb-4 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Day {i + 1}</div>
-
-                <div className="mb-4">
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-neutral-500">Course</label>
-                  <input
-                    value={day.courseName}
-                    onChange={e => updateDay(i, { courseName: e.target.value })}
-                    placeholder="e.g. West Cliffs"
-                    className="w-full rounded-xl border border-[#1c1c1c] bg-[#000000] px-4 py-3 text-sm text-white placeholder-neutral-600 focus:border-[#D4AF37]/40 focus:outline-none"
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-neutral-500">Format</label>
-                  <div className="flex flex-wrap gap-2">
-                    {DAY_FORMATS.map(f => (
-                      <button
-                        key={f.id}
-                        onClick={() => updateDay(i, { format: f.id })}
-                        className={`rounded-xl border px-4 py-2 text-sm transition-all ${
-                          day.format === f.id
-                            ? 'border-[#D4AF37] bg-[#D4AF37] font-bold text-[#000000]'
-                            : 'border-[#1c1c1c] bg-[#000000] text-neutral-300 hover:border-[#D4AF37]/30'
-                        }`}
-                      >
-                        <div className="font-bold">{f.label}</div>
-                        <div className={`text-[10px] ${day.format === f.id ? 'text-[#000000]/60' : 'text-neutral-500'}`}>{f.sub}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-neutral-500">Handicap Allowance</label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {HCP_OPTIONS.map(h => (
-                      <button
-                        key={h.pct}
-                        onClick={() => updateDay(i, { hcpPct: h.pct })}
-                        className={`rounded-xl border py-2.5 text-xs font-bold transition-all ${
-                          day.hcpPct === h.pct
-                            ? 'border-[#D4AF37]/50 bg-[#D4AF37]/10 text-[#D4AF37]'
-                            : 'border-[#1c1c1c] bg-[#000000] text-neutral-400 hover:border-[#D4AF37]/20'
-                        }`}
-                      >
-                        {h.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Step 3: Review ──────────────────────────────────── */}
-      {step === 3 && (
-        <div>
-          <p className="mb-6 text-neutral-400">Review your setup. The tournament is created as a draft — activate it from admin when ready.</p>
-
-          <div className="mb-4 overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] divide-y divide-[#1c1c1c]">
-            {[
-              { key: 'Format',  val: formatDef?.label ?? '—' },
-              { key: 'Name',    val: name.trim() || '—' },
-              { key: 'Year',    val: year },
-              { key: 'Days',    val: String(days.length) },
-              { key: 'Kronos',  val: includeInKronos ? '✓ Included' : 'Not included' },
-            ].map(row => (
-              <div key={row.key} className="flex items-center gap-6 px-6 py-4">
-                <span className="w-20 text-xs font-bold uppercase tracking-widest text-neutral-500">{row.key}</span>
-                <span className="flex-1 font-semibold text-white">{row.val}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="mb-6 overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] divide-y divide-[#1c1c1c]">
-            {days.map((d, i) => {
-              const fmt = DAY_FORMATS.find(f => f.id === d.format);
-              return (
-                <div key={i} className="flex items-center gap-6 px-6 py-4">
-                  <span className="w-20 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Day {i + 1}</span>
-                  <span className="flex-1 text-sm text-neutral-300">
-                    {d.courseName || 'TBC'} · {fmt?.label} · {d.hcpPct}% hcp
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {error && (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</div>
+          )}
+          {step < 3 ? (
+            <button
+              onClick={() => setStep(s => s + 1)}
+              disabled={!canNext}
+              className="flex-1 rounded-full bg-[linear-gradient(155deg,var(--gold-bright),var(--gold-deep))] py-3.5 text-[12.5px] font-black tracking-wide text-[#181200] transition-[filter] hover:brightness-110 disabled:opacity-40 disabled:hover:brightness-100"
+            >
+              Next →
+            </button>
+          ) : (
+            <button
+              onClick={create}
+              disabled={creating}
+              className="flex-1 rounded-full bg-[linear-gradient(155deg,var(--gold-bright),var(--gold-deep))] py-3.5 text-[12.5px] font-black tracking-wide text-[#181200] transition-[filter] hover:brightness-110 disabled:opacity-50 disabled:hover:brightness-100"
+            >
+              {creating ? 'Creating…' : 'Create Tournament'}
+            </button>
           )}
         </div>
-      )}
-
-      {/* ── Footer nav ──────────────────────────────────────── */}
-      <div className="mt-8 flex gap-3">
-        {step === 0 ? (
-          <Link href="/tournament/archive" className="rounded-xl border border-[#1c1c1c] px-6 py-4 text-sm font-bold text-neutral-400 hover:text-white">
-            Cancel
-          </Link>
-        ) : (
-          <button onClick={() => setStep(s => s - 1)} className="rounded-xl border border-[#1c1c1c] px-6 py-4 text-sm font-bold text-neutral-400 transition-colors hover:text-white">
-            ← Back
-          </button>
-        )}
-        {step < 3 ? (
-          <button
-            onClick={() => setStep(s => s + 1)}
-            disabled={!canNext}
-            className="flex-1 rounded-xl bg-[#D4AF37] py-4 font-black text-[#000000] transition-opacity hover:opacity-90 disabled:opacity-40"
-          >
-            Next →
-          </button>
-        ) : (
-          <button
-            onClick={create}
-            disabled={creating}
-            className="flex-1 rounded-xl bg-[#D4AF37] py-4 font-black text-[#000000] transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {creating ? 'Creating…' : 'Create Tournament'}
-          </button>
-        )}
       </div>
     </div>
   );

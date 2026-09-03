@@ -124,8 +124,20 @@
   "hotPaths": [
     {
       "path": "src/app/profile/page.tsx",
-      "accessCount": 19,
-      "lastAccessed": 1788438850345,
+      "accessCount": 32,
+      "lastAccessed": 1788441366241,
+      "type": "file"
+    },
+    {
+      "path": "src/app/tournament/new/page.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1788441437626,
+      "type": "file"
+    },
+    {
+      "path": "src/app/rounds/page.tsx",
+      "accessCount": 8,
+      "lastAccessed": 1788441209034,
       "type": "file"
     },
     {
@@ -135,27 +147,57 @@
       "type": "file"
     },
     {
-      "path": "src/app/rounds/page.tsx",
-      "accessCount": 5,
-      "lastAccessed": 1786017056200,
+      "path": "src/app/tournament/archive/page.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1788441308473,
       "type": "file"
     },
     {
-      "path": "src/app/globals.css",
-      "accessCount": 3,
-      "lastAccessed": 1788438657985,
-      "type": "file"
-    },
-    {
-      "path": "src/app/tournament/new/page.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1784272698884,
+      "path": "src/app/dashboard/page.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1788441133832,
       "type": "file"
     },
     {
       "path": "src/app/admin/page.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1784272763865,
+      "accessCount": 4,
+      "lastAccessed": 1788441157529,
+      "type": "file"
+    },
+    {
+      "path": "src/app/globals.css",
+      "accessCount": 4,
+      "lastAccessed": 1788441214366,
+      "type": "file"
+    },
+    {
+      "path": "src/app/rounds/[id]/page.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1788441294317,
+      "type": "file"
+    },
+    {
+      "path": "src/app/stats/page.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1788441411189,
+      "type": "file"
+    },
+    {
+      "path": "src/app/admin/tee-sheet/page.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1788441134318,
+      "type": "file"
+    },
+    {
+      "path": "src/app/admin/codes/page.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1788441203209,
+      "type": "file"
+    },
+    {
+      "path": "src/app/swindle/[societyId]/page.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1788441226486,
       "type": "file"
     },
     {
@@ -171,39 +213,39 @@
       "type": "file"
     },
     {
-      "path": "src/app/dashboard/page.tsx",
+      "path": "src/components/PlayerProfilePanel.tsx",
       "accessCount": 2,
-      "lastAccessed": 1788434397796,
+      "lastAccessed": 1788441108282,
       "type": "file"
     },
     {
-      "path": "src/app/tournament/archive/page.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1784272557974,
+      "path": "src/app/auth/login/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1788441140343,
       "type": "file"
     },
     {
-      "path": "src/app/admin/codes/page.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1784272743331,
+      "path": "src/app/leaderboard/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1788441197664,
       "type": "file"
     },
     {
-      "path": "src/app/rounds/[id]/page.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1786017013607,
+      "path": "src/app/auth/signup/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1788441215184,
+      "type": "file"
+    },
+    {
+      "path": "src/app/records/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1788441248942,
       "type": "file"
     },
     {
       "path": "src/app/page.tsx",
       "accessCount": 1,
       "lastAccessed": 1787754718931,
-      "type": "file"
-    },
-    {
-      "path": "src/components/PlayerProfilePanel.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788438553953,
       "type": "file"
     }
   ],

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { Edit2, Save, X, RefreshCw, Key, LogOut, Wifi, ChevronRight, ChevronDown, Briefcase, Newspaper } from 'lucide-react';
+import { Edit2, Save, X, RefreshCw, Key, LogOut, Wifi, ChevronRight, ChevronDown, Briefcase, Newspaper, RotateCw, RotateCcw } from 'lucide-react';
 
 // ── Club data (mirrors mobile bag.tsx) ───────────────────────────────────────
 
@@ -76,6 +76,9 @@ type NewsReportRow = {
 };
 type ReportGroup = { competition: CompetitionLite; reports: NewsReportRow[] };
 
+/** T-Card back face — mirrors mobile's RecentRound (src/lib/playerTiers.ts). */
+type RecentRound = { matchId: string; courseName: string | null; points: number | null };
+
 function fmtDate(d: string | null) {
   if (!d) return null;
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -111,6 +114,9 @@ export default function ProfilePage() {
   /** Stableford total per round, oldest → newest, last 6 rounds. */
   const [trend,       setTrend]       = useState<number[]>([]);
   const [reportGroups, setReportGroups] = useState<ReportGroup[]>([]);
+  /** Titan T-Card — live dot + back-face rounds. `null` = still loading. */
+  const [online,      setOnline]      = useState(false);
+  const [lastRounds,  setLastRounds]  = useState<RecentRound[] | null>(null);
 
   // Edit fields
   const [name,     setName]     = useState('');
@@ -181,6 +187,47 @@ export default function ProfilePage() {
         eagles, birdies, pars,
       });
       setTrend(vals.slice(-6));
+    }
+
+    // Titan T-Card — live status. Same RPC the mobile T-Card uses
+    // (players.last_active_at > now() - 5 min). If the RPC is missing or
+    // errors we simply never show the badge; the page must not break.
+    try {
+      const { data: isOnline, error: onlineErr } = await supabase.rpc('is_player_online', { p_player_id: p.id });
+      if (!onlineErr) setOnline(!!isOnline);
+    } catch { /* no online badge */ }
+
+    // Titan T-Card back face — last 3 COMPLETED rounds, newest first.
+    // Deliberately its own round-trip: the Career Stats query above pulls
+    // every match_hole with no `status`/`completed_at` to order by, so it
+    // cannot express "last 3 complete". Exact port of mobile's
+    // fetchLastRounds() (src/lib/playerTiers.ts).
+    const { data: recentMatches } = await supabase
+      .from('matches')
+      .select('id, completed_at, day:day_id(course_name)')
+      .or(`home_player_ids.cs.{${p.id}},away_player_ids.cs.{${p.id}}`)
+      .eq('status', 'complete')
+      .order('completed_at', { ascending: false })
+      .limit(3);
+
+    // PostgREST types the `day:day_id(...)` embed as an array; a to-one
+    // relation actually comes back as a single object, so accept both.
+    type DayEmbed = { course_name: string | null } | { course_name: string | null }[] | null;
+    const matchRows = (recentMatches ?? []) as unknown as { id: string; day: DayEmbed }[];
+    if (matchRows.length) {
+      const { data: roundHoles } = await supabase
+        .from('match_holes').select('match_id, stableford_pts')
+        .in('match_id', matchRows.map(m => m.id)).eq('player_id', p.id);
+      const ptsByMatch: Record<string, number> = {};
+      (roundHoles ?? []).forEach((h: { match_id: string; stableford_pts: number | null }) => {
+        ptsByMatch[h.match_id] = (ptsByMatch[h.match_id] ?? 0) + (h.stableford_pts ?? 0);
+      });
+      setLastRounds(matchRows.map(m => {
+        const day = Array.isArray(m.day) ? m.day[0] : m.day;
+        return { matchId: m.id, courseName: day?.course_name ?? null, points: ptsByMatch[m.id] ?? null };
+      }));
+    } else {
+      setLastRounds([]);
     }
 
     // My Reports — published Titan News stories from every tournament this player played in.
@@ -462,9 +509,22 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Buttons down the side */}
+        {/* T-Card + buttons down the side */}
         <div className="flex flex-col gap-1.5 lg:sticky lg:top-6 lg:self-start">
-          <div className="mb-1 flex items-center gap-2 px-1">
+
+          {/* Titan T-Card — the mobile T-Card as a real flip card */}
+          <TitanTCard
+            initial={initial}
+            avatarUrl={player.avatar_url ?? null}
+            name={player.display_name}
+            nickname={player.nickname ?? null}
+            societyName={societyName}
+            hcpDisplay={hcpDisplay}
+            online={online}
+            rounds={lastRounds}
+          />
+
+          <div className="mb-1 mt-4 flex items-center gap-2 px-1">
             <span className="text-[9.5px] font-bold uppercase tracking-[0.16em] text-neutral-600">Quick Actions</span>
             <span className="h-px flex-1 bg-[#1c1c1c]" />
           </div>
@@ -681,6 +741,161 @@ export default function ProfilePage() {
       )}
       </div>
     </div>
+  );
+}
+
+// ── TitanTCard ────────────────────────────────────────────────────────────────
+
+/**
+ * The mobile T-Card (src/components/TCardSheet.tsx) as a web trading card that
+ * physically flips: a `perspective` wrapper holds a `preserve-3d` inner that
+ * rotates 180° on Y, with both faces `backface-visibility: hidden`. Under
+ * `prefers-reduced-motion` the transition is dropped so the faces swap
+ * instantly instead of spinning.
+ *
+ * Front: avatar, name, live dot, handicap index. Back: last 3 completed rounds.
+ */
+function TitanTCard({ initial, avatarUrl, name, nickname, societyName, hcpDisplay, online, rounds }: {
+  initial: string;
+  avatarUrl: string | null;
+  name: string;
+  nickname: string | null;
+  societyName: string | null;
+  hcpDisplay: string;
+  online: boolean;
+  rounds: RecentRound[] | null;
+}) {
+  const [flipped, setFlipped] = useState(false);
+
+  const face =
+    'absolute inset-0 flex flex-col overflow-hidden rounded-[20px] border border-[var(--gold-border)] ' +
+    'p-4 [backface-visibility:hidden] [-webkit-backface-visibility:hidden] ' +
+    'shadow-[0_0_0_1px_rgba(212,175,55,0.10),0_26px_60px_-30px_rgba(212,175,55,0.7)]';
+
+  const flipBtn =
+    'flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--gold-border)] ' +
+    'bg-[var(--gold-dim)] px-3 py-2 text-[10.5px] font-black uppercase tracking-[0.1em] ' +
+    'text-[var(--gold-bright)] transition-colors hover:bg-[rgba(212,175,55,0.16)]';
+
+  return (
+    <div className="[perspective:1400px]">
+      <div
+        className={`relative aspect-[5/7] w-full transition-transform duration-700 [transform-style:preserve-3d] motion-reduce:transition-none ${
+          flipped ? '[transform:rotateY(180deg)]' : ''
+        }`}
+      >
+
+        {/* ── Front ─────────────────────────────────────── */}
+        <div
+          aria-hidden={flipped}
+          className={`${face} bg-[linear-gradient(163deg,#181305_0%,#0c0c0c_46%,#111111_100%)] ${flipped ? 'pointer-events-none' : ''}`}
+        >
+          <TCardWatermark />
+
+          <div className="relative flex items-center justify-between">
+            <span className="text-[8.5px] font-black uppercase tracking-[0.2em] text-[var(--gold)]">Titan T-Card</span>
+            {online && (
+              <span className="flex items-center gap-1">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--green)] opacity-70 motion-reduce:animate-none" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--green)]" />
+                </span>
+                <span className="text-[8.5px] font-black uppercase tracking-[0.14em] text-[var(--green)]">Online</span>
+              </span>
+            )}
+          </div>
+
+          <div className="relative mt-4 flex flex-col items-center text-center">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt={name}
+                className="h-[74px] w-[74px] rounded-full border-2 border-[var(--gold)] object-cover shadow-[0_0_34px_-8px_rgba(212,175,55,0.75)]"
+              />
+            ) : (
+              <div className="flex h-[74px] w-[74px] items-center justify-center rounded-full border-2 border-[var(--gold)] bg-[#1a1a1a] text-[27px] font-black leading-none text-[var(--gold-bright)] shadow-[0_0_34px_-8px_rgba(212,175,55,0.75)]">
+                {initial}
+              </div>
+            )}
+            <div className="mt-3 text-[16px] font-black leading-tight text-white">{name}</div>
+            {nickname
+              ? <div className="mt-1 text-[10.5px] font-bold text-[var(--green)]">&ldquo;{nickname}&rdquo;</div>
+              : societyName && <div className="mt-1 text-[10px] font-semibold text-neutral-500">{societyName}</div>}
+          </div>
+
+          <div className="relative mt-auto mb-3 text-center">
+            <div className="text-[8.5px] font-black uppercase tracking-[0.18em] text-neutral-600">Handicap Index</div>
+            <div className="font-mono text-[40px] font-bold leading-none tabular-nums text-[var(--gold-bright)]">
+              {hcpDisplay}
+            </div>
+          </div>
+
+          <button onClick={() => setFlipped(true)} tabIndex={flipped ? -1 : 0} className={flipBtn}>
+            <RotateCw size={12} /> Last 3 Rounds
+            <ChevronRight size={12} />
+          </button>
+        </div>
+
+        {/* ── Back ──────────────────────────────────────── */}
+        <div
+          aria-hidden={!flipped}
+          className={`${face} bg-[linear-gradient(163deg,#111111_0%,#0c0c0c_54%,#181305_100%)] [transform:rotateY(180deg)] ${flipped ? '' : 'pointer-events-none'}`}
+        >
+          <TCardWatermark />
+
+          <div className="relative flex items-center justify-between">
+            <span className="text-[8.5px] font-black uppercase tracking-[0.2em] text-[var(--gold)]">Last 3 Rounds</span>
+            <span className="text-[8.5px] font-black uppercase tracking-[0.14em] text-neutral-600">Stableford</span>
+          </div>
+
+          <div className="relative mt-3 flex-1 space-y-2 overflow-hidden">
+            {rounds === null ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--gold)] border-t-transparent motion-reduce:animate-none" />
+              </div>
+            ) : rounds.length === 0 ? (
+              <div className="flex h-full items-center justify-center px-2 text-center text-[11px] text-neutral-600">
+                No completed rounds yet
+              </div>
+            ) : (
+              rounds.map((r, i) => (
+                <div
+                  key={r.matchId}
+                  className="flex items-center gap-2.5 rounded-lg border border-[#1c1c1c] bg-[#0a0a0a] px-2.5 py-2"
+                >
+                  <span className="font-mono text-[9px] font-bold tabular-nums text-neutral-600">
+                    {i === 0 ? 'LAST' : `-${i}`}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-white">
+                    {r.courseName ?? 'Round'}
+                  </span>
+                  <span className="font-mono text-[17px] font-bold leading-none tabular-nums text-[var(--gold-bright)]">
+                    {r.points ?? '—'}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+
+          <button onClick={() => setFlipped(false)} tabIndex={flipped ? 0 : -1} className={`${flipBtn} mt-3`}>
+            <RotateCcw size={12} /> Back to Card
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Oversized brand wordmark bled across the card, same trick on both faces. */
+function TCardWatermark() {
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute -bottom-2 -left-1 select-none text-[62px] font-black leading-none tracking-tighter text-white/[0.035]"
+    >
+      TITAN
+    </span>
   );
 }
 

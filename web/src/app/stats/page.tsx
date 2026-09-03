@@ -161,9 +161,11 @@ export default function StatsPage() {
     return (
       <div className="mx-auto max-w-screen-xl px-6 py-12">
         <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-12 text-center">
-          <div className="mb-3 flex justify-center"><BarChart2 size={36} className="text-[#D4AF37]/40" /></div>
-          <h3 className="text-lg font-bold text-white">No profile found</h3>
-          <p className="mt-1 text-sm text-neutral-400">Open the Titan Golf app to set up your player profile.</p>
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-[#D4AF37]/25 bg-[#D4AF37]/8 text-[var(--gold-bright)] shadow-[0_0_38px_-10px_rgba(212,175,55,0.55)]">
+            <BarChart2 size={26} />
+          </div>
+          <h3 className="text-lg font-black text-white">No profile found</h3>
+          <p className="mx-auto mt-1.5 max-w-sm text-sm text-neutral-400">Open the Titan Golf app to set up your player profile.</p>
         </div>
       </div>
     );
@@ -176,175 +178,239 @@ export default function StatsPage() {
   const maxDist = data.distances.length ? Math.max(...data.distances.map(d => d.avg)) : 1;
   const maxUsage = data.usage.length ? Math.max(...data.usage.map(u => u.count)) : 1;
 
+  const summaryTiles: { label: string; value: string | number; gold?: boolean }[] = [
+    { label: 'Total Rounds',     value: data.totalRounds, gold: true },
+    { label: 'Shots Logged',     value: data.totalShots },
+    { label: 'Avg Putts / Hole', value: data.avgPuttsPerHole != null ? data.avgPuttsPerHole.toFixed(2) : '—', gold: true },
+  ];
+
   return (
-    <div className="mx-auto max-w-screen-xl px-6 py-12">
+    <div className="relative">
+      {/* Ambient gold wash behind the header — same top-of-page treatment as the command deck. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[460px] bg-[radial-gradient(1100px_460px_at_80%_-14%,var(--gold-glow),transparent_62%)]"
+      />
 
-      {/* ── Header ───────────────────────────────────────────── */}
-      <div className="mb-10">
-        <div className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Your golf</div>
-        <h1 className="mt-1 text-5xl font-black text-white">My Stats</h1>
-        <p className="mt-2 text-neutral-400">Club distances, scoring, putting and handicap trend.</p>
-      </div>
+      <div className="relative mx-auto max-w-screen-xl px-6 py-12">
 
-      {!hasAnything ? (
-        <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-12 text-center">
-          <div className="mb-3 flex justify-center"><BarChart2 size={36} className="text-[#D4AF37]/40" /></div>
-          <h3 className="text-lg font-bold text-white">No stats yet</h3>
-          <p className="mt-1 text-sm text-neutral-400">Log some shots and rounds in the app to see your stats here.</p>
-        </div>
-      ) : (
-        <div className="space-y-10">
-
-          {/* ── Summary pills ────────────────────────────────── */}
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { label: 'Total rounds', value: data.totalRounds },
-              { label: 'Shots logged', value: data.totalShots },
-              { label: 'Avg putts / hole', value: data.avgPuttsPerHole != null ? data.avgPuttsPerHole.toFixed(2) : '—' },
-            ].map(s => (
-              <div key={s.label} className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5 text-center">
-                <div className="text-3xl font-black text-white">{s.value}</div>
-                <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-neutral-500">{s.label}</div>
-              </div>
-            ))}
+        {/* ── Header ───────────────────────────────────────────── */}
+        <div className="mb-6 overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111]">
+          <div className="flex flex-col items-center gap-6 p-6 text-center sm:flex-row sm:text-left">
+            <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl border border-[#D4AF37]/25 bg-[#D4AF37]/8 text-[var(--gold-bright)] shadow-[0_0_38px_-10px_rgba(212,175,55,0.55)]">
+              <BarChart2 size={30} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#D4AF37]">Your golf</div>
+              <h1 className="mt-1.5 text-[44px] font-black leading-[0.95] tracking-tight text-white">My Stats</h1>
+              <p className="mt-2.5 text-sm text-neutral-400">Club distances, scoring, putting and handicap trend.</p>
+            </div>
           </div>
-
-          {/* ── Club Distances ───────────────────────────────── */}
-          {data.distances.length > 0 && (
-            <section>
-              <div className="mb-4 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Club Distances</div>
-              <div className="space-y-2.5 rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5">
-                {data.distances.map(d => {
-                  const color = CATEGORY_COLOR[d.category] ?? '#888888';
-                  return (
-                    <div key={d.short} className="grid grid-cols-[3rem_1fr_4.5rem] items-center gap-3">
-                      <div className="text-sm font-bold text-white">{d.short}</div>
-                      <div className="h-6 overflow-hidden rounded-md bg-[#000000]">
-                        <div
-                          className="h-full rounded-md transition-all"
-                          style={{ width: `${Math.max((d.avg / maxDist) * 100, 4)}%`, backgroundColor: color }}
-                        />
-                      </div>
-                      <div className="text-right text-sm font-black text-white">{d.avg}<span className="ml-1 text-xs font-normal text-neutral-500">yd</span></div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* ── Club Usage ───────────────────────────────────── */}
-          {data.usage.length > 0 && (
-            <section>
-              <div className="mb-4 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Club Usage</div>
-              <div className="space-y-2.5 rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5">
-                {data.usage.map(u => {
-                  const color = CATEGORY_COLOR[u.category] ?? '#888888';
-                  return (
-                    <div key={u.short} className="grid grid-cols-[3rem_1fr_4.5rem] items-center gap-3">
-                      <div className="text-sm font-bold text-white">{u.short}</div>
-                      <div className="h-6 overflow-hidden rounded-md bg-[#000000]">
-                        <div
-                          className="h-full rounded-md transition-all"
-                          style={{ width: `${Math.max((u.count / maxUsage) * 100, 4)}%`, backgroundColor: color }}
-                        />
-                      </div>
-                      <div className="text-right text-sm font-black text-white">{u.count}<span className="ml-1 text-xs font-normal text-neutral-500">shots</span></div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* ── Scoring Breakdown ────────────────────────────── */}
-          {data.scoring.total > 0 && (
-            <section>
-              <div className="mb-4 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Scoring Breakdown</div>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-                {[
-                  { label: 'Eagle+', value: data.scoring.eagle, color: '#D4AF37' },
-                  { label: 'Birdie', value: data.scoring.birdie, color: '#4ade80' },
-                  { label: 'Par', value: data.scoring.par, color: '#f5f5f5' },
-                  { label: 'Bogey', value: data.scoring.bogey, color: '#f97316' },
-                  { label: 'Dbl+', value: data.scoring.double, color: '#f87171' },
-                ].map(s => {
-                  const pct = data.scoring.total ? Math.round((s.value / data.scoring.total) * 100) : 0;
-                  return (
-                    <div key={s.label} className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5 text-center">
-                      <div className="text-3xl font-black" style={{ color: s.color }}>{s.value}</div>
-                      <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">{s.label}</div>
-                      <div className="mt-1 text-xs text-neutral-600">{pct}%</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* ── Putting ──────────────────────────────────────── */}
-          {data.putting.total > 0 && (
-            <section>
-              <div className="mb-4 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Putting</div>
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { label: '1-putt', value: data.putting.one, color: '#4ade80' },
-                  { label: '2-putt', value: data.putting.two, color: '#f5f5f5' },
-                  { label: '3-putt+', value: data.putting.three, color: '#f87171' },
-                ].map(p => {
-                  const pct = data.putting.total ? Math.round((p.value / data.putting.total) * 100) : 0;
-                  return (
-                    <div key={p.label} className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5 text-center">
-                      <div className="text-3xl font-black" style={{ color: p.color }}>{p.value}</div>
-                      <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">{p.label}</div>
-                      <div className="mt-1 text-xs text-neutral-600">{pct}%</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* ── Fairway Accuracy ─────────────────────────────── */}
-          {data.fairways.total > 0 && (
-            <section>
-              <div className="mb-4 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Fairway Accuracy</div>
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { label: 'Left', value: data.fairways.left, highlight: false },
-                  { label: 'Centre', value: data.fairways.centre, highlight: true },
-                  { label: 'Right', value: data.fairways.right, highlight: false },
-                ].map(f => {
-                  const pct = data.fairways.total ? Math.round((f.value / data.fairways.total) * 100) : 0;
-                  return (
-                    <div
-                      key={f.label}
-                      className={`rounded-2xl border bg-[#111111] p-5 text-center ${
-                        f.highlight ? 'border-[#4ade80]/40' : 'border-[#1c1c1c]'
-                      }`}
-                    >
-                      <div className={`text-3xl font-black ${f.highlight ? 'text-[#4ade80]' : 'text-white'}`}>{f.value}</div>
-                      <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">{f.label}</div>
-                      <div className={`mt-1 text-xs ${f.highlight ? 'font-bold text-[#4ade80]' : 'text-neutral-600'}`}>{pct}%</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* ── Handicap Trend ───────────────────────────────── */}
-          {data.handicaps.length > 0 && (
-            <HandicapTrend points={data.handicaps} />
-          )}
-
         </div>
-      )}
+
+        {!hasAnything ? (
+          <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-12 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-[#D4AF37]/25 bg-[#D4AF37]/8 text-[var(--gold-bright)] shadow-[0_0_38px_-10px_rgba(212,175,55,0.55)]">
+              <BarChart2 size={26} />
+            </div>
+            <h3 className="text-lg font-black text-white">No stats yet</h3>
+            <p className="mx-auto mt-1.5 max-w-sm text-sm text-neutral-400">Log some shots and rounds in the app to see your stats here.</p>
+          </div>
+        ) : (
+          <div className="space-y-8">
+
+            {/* ── Summary tiles ──────────────────────────────── */}
+            <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#1c1c1c] sm:grid-cols-3">
+              {summaryTiles.map(s => (
+                <div key={s.label} className="bg-[#111111] px-4 py-3.5">
+                  <div className="text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-600">{s.label}</div>
+                  <div className={`mt-1.5 font-mono text-[26px] font-bold leading-none tabular-nums ${s.gold ? 'text-[var(--gold-bright)]' : 'text-white'}`}>
+                    {s.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Club Distances ───────────────────────────────── */}
+            {data.distances.length > 0 && (
+              <section>
+                <SectionHeading label="Club Distances" hint={`Top ${data.distances.length} by carry`} />
+                <div className="space-y-2 rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5">
+                  {data.distances.map(d => {
+                    const color = CATEGORY_COLOR[d.category] ?? '#888888';
+                    return (
+                      <div
+                        key={d.short}
+                        className="grid grid-cols-[3rem_1fr_4.5rem_4rem] items-center gap-3 rounded-lg px-1.5 py-1 transition-colors hover:bg-white/3"
+                      >
+                        <div className="font-mono text-[12.5px] font-bold uppercase tabular-nums text-white">{d.short}</div>
+                        <div className="h-6 overflow-hidden rounded-md bg-[#000000]">
+                          <div
+                            className="h-full rounded-md transition-all"
+                            style={{
+                              width: `${Math.max((d.avg / maxDist) * 100, 4)}%`,
+                              backgroundImage: `linear-gradient(90deg, ${color}55, ${color})`,
+                            }}
+                          />
+                        </div>
+                        <div className="text-right font-mono text-[15px] font-bold tabular-nums text-white">
+                          {d.avg}<span className="ml-1 text-[10px] font-bold text-neutral-600">yd</span>
+                        </div>
+                        <div className="text-right font-mono text-[10.5px] tabular-nums text-neutral-600">{d.count} shots</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* ── Club Usage ───────────────────────────────────── */}
+            {data.usage.length > 0 && (
+              <section>
+                <SectionHeading label="Club Usage" hint={`${data.totalShots} shots logged`} />
+                <div className="space-y-2 rounded-2xl border border-[#1c1c1c] bg-[#111111] p-5">
+                  {data.usage.map(u => {
+                    const color = CATEGORY_COLOR[u.category] ?? '#888888';
+                    return (
+                      <div
+                        key={u.short}
+                        className="grid grid-cols-[3rem_1fr_5.5rem] items-center gap-3 rounded-lg px-1.5 py-1 transition-colors hover:bg-white/3"
+                      >
+                        <div className="font-mono text-[12.5px] font-bold uppercase tabular-nums text-white">{u.short}</div>
+                        <div className="h-6 overflow-hidden rounded-md bg-[#000000]">
+                          <div
+                            className="h-full rounded-md transition-all"
+                            style={{
+                              width: `${Math.max((u.count / maxUsage) * 100, 4)}%`,
+                              backgroundImage: `linear-gradient(90deg, ${color}55, ${color})`,
+                            }}
+                          />
+                        </div>
+                        <div className="text-right font-mono text-[15px] font-bold tabular-nums text-white">
+                          {u.count}<span className="ml-1 text-[10px] font-bold text-neutral-600">shots</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* ── Scoring Breakdown ────────────────────────────── */}
+            {data.scoring.total > 0 && (
+              <section>
+                <SectionHeading label="Scoring Breakdown" hint={`${data.scoring.total} holes scored`} />
+                <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#1c1c1c] sm:grid-cols-5">
+                  {[
+                    { label: 'Eagle+', value: data.scoring.eagle, color: '#D4AF37' },
+                    { label: 'Birdie', value: data.scoring.birdie, color: '#4ade80' },
+                    { label: 'Par', value: data.scoring.par, color: '#f5f5f5' },
+                    { label: 'Bogey', value: data.scoring.bogey, color: '#f97316' },
+                    { label: 'Dbl+', value: data.scoring.double, color: '#f87171' },
+                  ].map(s => {
+                    const pct = data.scoring.total ? Math.round((s.value / data.scoring.total) * 100) : 0;
+                    return <ShareTile key={s.label} label={s.label} value={s.value} pct={pct} color={s.color} />;
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* ── Putting ──────────────────────────────────────── */}
+            {data.putting.total > 0 && (
+              <section>
+                <SectionHeading label="Putting" hint={`${data.putting.total} holes tracked`} />
+                <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#1c1c1c] sm:grid-cols-3">
+                  {[
+                    { label: '1-putt', value: data.putting.one, color: '#4ade80' },
+                    { label: '2-putt', value: data.putting.two, color: '#f5f5f5' },
+                    { label: '3-putt+', value: data.putting.three, color: '#f87171' },
+                  ].map(p => {
+                    const pct = data.putting.total ? Math.round((p.value / data.putting.total) * 100) : 0;
+                    return <ShareTile key={p.label} label={p.label} value={p.value} pct={pct} color={p.color} />;
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* ── Fairway Accuracy ─────────────────────────────── */}
+            {data.fairways.total > 0 && (
+              <section>
+                <SectionHeading label="Fairway Accuracy" hint={`${data.fairways.total} tee shots tracked`} />
+                <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#1c1c1c] sm:grid-cols-3">
+                  {[
+                    { label: 'Left', value: data.fairways.left, highlight: false },
+                    { label: 'Centre', value: data.fairways.centre, highlight: true },
+                    { label: 'Right', value: data.fairways.right, highlight: false },
+                  ].map(f => {
+                    const pct = data.fairways.total ? Math.round((f.value / data.fairways.total) * 100) : 0;
+                    return (
+                      <ShareTile
+                        key={f.label}
+                        label={f.label}
+                        value={f.value}
+                        pct={pct}
+                        color={f.highlight ? '#4ade80' : '#f5f5f5'}
+                        highlight={f.highlight}
+                      />
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* ── Handicap Trend ───────────────────────────────── */}
+            {data.handicaps.length > 0 && (
+              <HandicapTrend points={data.handicaps} />
+            )}
+
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── SectionHeading ────────────────────────────────────────────────────────────
+
+function SectionHeading({ label, hint }: { label: string; hint?: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-3">
+      <h2 className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">{label}</h2>
+      <span className="h-px flex-1 bg-[#1c1c1c]" />
+      {hint && <span className="text-[11px] font-semibold text-neutral-600">{hint}</span>}
+    </div>
+  );
+}
+
+// ── ShareTile ─────────────────────────────────────────────────────────────────
+// Hairline stat tile: the count, the share it represents, and a bar for that share.
+// Same numbers as before (count + %), just read as one tile.
+
+function ShareTile({ label, value, pct, color, highlight = false }: {
+  label: string; value: number; pct: number; color: string; highlight?: boolean;
+}) {
+  return (
+    <div className={`px-4 py-3.5 ${highlight ? 'bg-[#4ade80]/5' : 'bg-[#111111]'}`}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-600">{label}</span>
+        <span className="font-mono text-[11px] font-bold tabular-nums" style={{ color: highlight ? color : '#737373' }}>
+          {pct}%
+        </span>
+      </div>
+      <div className="mt-1.5 font-mono text-[26px] font-bold leading-none tabular-nums" style={{ color }}>
+        {value}
+      </div>
+      <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-[#000000]">
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+      </div>
     </div>
   );
 }
 
 // ── Handicap trend with inline SVG chart ────────────────────────
+// Same data and the same per-segment improving/worsening colouring as before,
+// drawn with the Locker Room recipe: grid lines, a gradient area fill under the
+// line, and the newest point emphasised.
 function HandicapTrend({ points }: { points: HandicapPoint[] }) {
   const start = points[0].value;
   const current = points[points.length - 1].value;
@@ -353,8 +419,8 @@ function HandicapTrend({ points }: { points: HandicapPoint[] }) {
   const improving = change < 0;
 
   const W = 400;
-  const H = 80;
-  const PAD = 12;
+  const H = 132;
+  const PAD = 14;
   const values = points.map(p => p.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -368,49 +434,88 @@ function HandicapTrend({ points }: { points: HandicapPoint[] }) {
     return { x, y, value: p.value };
   });
 
+  // Area fill takes the colour of the overall direction; flat falls back to teal.
+  const fillColor = change === 0 ? 'var(--teal)' : improving ? '#4ade80' : '#f87171';
+  const linePath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ');
+  const fillPath = `${linePath} L${coords[coords.length - 1].x.toFixed(1)},${H - PAD} L${coords[0].x.toFixed(1)},${H - PAD} Z`;
+
+  const summary: { label: string; value: string; cls: string }[] = [
+    { label: 'Start',   value: start.toFixed(1), cls: 'text-white' },
+    {
+      label: 'Change',
+      value: change === 0 ? '—' : `${improving ? '▼' : '▲'} ${Math.abs(change).toFixed(1)}`,
+      cls: change === 0 ? 'text-neutral-400' : improving ? 'text-[#4ade80]' : 'text-[#f87171]',
+    },
+    { label: 'Current', value: current.toFixed(1), cls: 'text-[var(--gold-bright)]' },
+  ];
+
   return (
     <section>
-      <div className="mb-4 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">Handicap Trend</div>
-      <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6">
-        <div className="mb-5 grid grid-cols-3 gap-4">
-          <div className="text-center">
-            <div className="text-2xl font-black text-white">{start.toFixed(1)}</div>
-            <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-neutral-500">Start</div>
-          </div>
-          <div className="text-center">
-            <div className={`text-2xl font-black ${change === 0 ? 'text-neutral-400' : improving ? 'text-[#4ade80]' : 'text-[#f87171]'}`}>
-              {change === 0 ? '—' : `${improving ? '▼' : '▲'} ${Math.abs(change).toFixed(1)}`}
+      <SectionHeading label="Handicap Trend" hint={`${points.length} record${points.length === 1 ? '' : 's'}`} />
+      <div className="overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111]">
+
+        <div className="grid grid-cols-3 gap-px bg-[#1c1c1c]">
+          {summary.map(s => (
+            <div key={s.label} className="bg-[#111111] px-4 py-3.5">
+              <div className="text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-600">{s.label}</div>
+              <div className={`mt-1.5 font-mono text-[26px] font-bold leading-none tabular-nums ${s.cls}`}>{s.value}</div>
             </div>
-            <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-neutral-500">Change</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-black text-[#D4AF37]">{current.toFixed(1)}</div>
-            <div className="mt-1 text-xs font-semibold uppercase tracking-widest text-neutral-500">Current</div>
-          </div>
+          ))}
         </div>
 
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none" style={{ height: 100 }}>
-          {coords.slice(1).map((c, i) => {
-            const prev = coords[i];
-            // Improving = handicap dropped from prev to current.
-            const segImproving = c.value < prev.value;
-            const segFlat = c.value === prev.value;
-            const stroke = segFlat ? '#888888' : segImproving ? '#4ade80' : '#f87171';
-            return (
-              <line
-                key={i}
-                x1={prev.x} y1={prev.y} x2={c.x} y2={c.y}
-                stroke={stroke} strokeWidth={2} strokeLinecap="round"
-              />
-            );
-          })}
-          {coords.map((c, i) => (
-            <circle key={i} cx={c.x} cy={c.y} r={2.5} fill="#D4AF37" />
-          ))}
-        </svg>
-        <div className="mt-1 flex justify-between text-xs text-neutral-500">
-          <span>{start.toFixed(1)}</span>
-          <span>{current.toFixed(1)}</span>
+        <div className="p-6">
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            className="aspect-[400/132] w-full overflow-visible"
+          >
+            <defs>
+              <linearGradient id="hcpTrendGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor={fillColor} stopOpacity="0.26" />
+                <stop offset="100%" stopColor={fillColor} stopOpacity="0" />
+              </linearGradient>
+            </defs>
+
+            {[0.25, 0.5, 0.75].map(f => {
+              const y = PAD + (H - PAD * 2) * f;
+              return <line key={f} x1={PAD} y1={y} x2={W - PAD} y2={y} stroke="#1c1c1c" strokeWidth={1} />;
+            })}
+
+            {coords.length > 1 && <path d={fillPath} fill="url(#hcpTrendGrad)" />}
+
+            {coords.slice(1).map((c, i) => {
+              const prev = coords[i];
+              // Improving = handicap dropped from prev to current.
+              const segImproving = c.value < prev.value;
+              const segFlat = c.value === prev.value;
+              const stroke = segFlat ? '#888888' : segImproving ? '#4ade80' : '#f87171';
+              return (
+                <line
+                  key={i}
+                  x1={prev.x} y1={prev.y} x2={c.x} y2={c.y}
+                  stroke={stroke} strokeWidth={2.2} strokeLinecap="round"
+                />
+              );
+            })}
+
+            {coords.map((c, i) => {
+              const isLast = i === coords.length - 1;
+              return (
+                <circle
+                  key={i}
+                  cx={c.x} cy={c.y} r={isLast ? 4.5 : 2.8}
+                  fill={isLast ? '#D4AF37' : '#0a0a0a'}
+                  stroke={isLast ? '#0a0a0a' : '#D4AF37'}
+                  strokeWidth={2}
+                />
+              );
+            })}
+          </svg>
+
+          <div className="mt-2 flex justify-between font-mono text-[9.5px] tabular-nums text-neutral-600">
+            <span>{start.toFixed(1)}</span>
+            <span>{current.toFixed(1)}</span>
+          </div>
         </div>
       </div>
     </section>

@@ -42,24 +42,26 @@ export default async function RecordsPage() {
   // Not signed in (or no society) → prompt.
   if (!user || !societyId) {
     return (
-      <div className="mx-auto max-w-screen-xl px-6 py-12">
+      <PageShell>
         <RecordsHeader societyName={null} />
         <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-12 text-center">
-          <div className="mb-3 flex justify-center"><Lock size={36} className="text-neutral-600" /></div>
-          <h3 className="text-lg font-bold text-white">Sign in to see your society&apos;s records</h3>
-          <p className="mt-1 text-sm text-neutral-400">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-[#1c1c1c] bg-[#0a0a0a] text-neutral-600">
+            <Lock size={26} />
+          </div>
+          <h3 className="text-lg font-black text-white">Sign in to see your society&apos;s records</h3>
+          <p className="mx-auto mt-1.5 max-w-sm text-sm text-neutral-400">
             The Wall of Records shows champions and all-time bests for your golf society.
           </p>
           {!user && (
             <Link
               href="/auth/login"
-              className="mt-5 inline-block rounded-lg bg-[#D4AF37] px-5 py-2.5 text-sm font-bold text-[#000000] transition-opacity hover:opacity-90"
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-[linear-gradient(155deg,var(--gold-bright),var(--gold-deep))] px-5 py-2.5 text-[12.5px] font-black tracking-wide text-[#181200] transition-[filter] hover:brightness-110"
             >
               Sign in
             </Link>
           )}
         </div>
-      </div>
+      </PageShell>
     );
   }
 
@@ -158,37 +160,72 @@ export default async function RecordsPage() {
   const hasAnything = championList.length > 0 || hasLiveRecords;
 
   return (
-    <div className="mx-auto max-w-screen-xl px-6 py-12">
-      <RecordsHeader societyName={(society as any)?.name ?? null} />
+    <PageShell>
+      <RecordsHeader
+        societyName={(society as any)?.name ?? null}
+        championCount={championList.length}
+        recordCount={liveRecords.filter(r => r.holder != null).length}
+      />
 
       {!hasAnything ? (
         <div className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-12 text-center">
-          <div className="mb-3 flex justify-center"><Trophy size={36} className="text-[#D4AF37]/40" /></div>
-          <h3 className="text-lg font-bold text-white">No records yet</h3>
-          <p className="mt-1 text-sm text-neutral-400">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-[#D4AF37]/25 bg-[#D4AF37]/8 text-[#D4AF37] shadow-[0_0_38px_-10px_rgba(212,175,55,0.55)]">
+            <Trophy size={28} />
+          </div>
+          <h3 className="text-lg font-black text-white">No records yet</h3>
+          <p className="mx-auto mt-1.5 max-w-sm text-sm text-neutral-400">
             Champions and all-time bests will appear here as rounds are played.
           </p>
         </div>
       ) : (
-        <div className="space-y-12">
+        <div className="space-y-11">
 
           {/* ── Live records ─────────────────────────────────── */}
           {hasLiveRecords && (
             <section>
-              <h2 className="mb-4 text-lg font-black text-white">All-Time Bests</h2>
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                {liveRecords.map(r => (
-                  <div
-                    key={r.label}
-                    className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6 text-center"
-                    style={{ borderColor: r.holder ? `${r.color}44` : undefined }}
-                  >
-                    <div className="mb-2 flex justify-center" style={{ color: r.color }}>{r.icon}</div>
-                    <div className="text-3xl font-black" style={{ color: r.color }}>{r.value}</div>
-                    <div className="mt-1 text-xs font-bold uppercase tracking-widest text-neutral-500">{r.label}</div>
-                    <div className="mt-2 text-sm font-semibold text-white">{r.holder ?? '—'}</div>
-                  </div>
-                ))}
+              <SectionHeading label="All-Time Bests" hint="Single round" />
+              {/* Hairline grid — one cell per record, accent colour carried by the value. */}
+              <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#1c1c1c] lg:grid-cols-4">
+                {liveRecords.map(r => {
+                  const held = r.holder != null;
+                  return (
+                    <div
+                      key={r.label}
+                      className="group relative bg-[#111111] px-5 py-6 text-center transition-colors hover:bg-[#161616]"
+                    >
+                      {held && (
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute inset-x-0 top-0 h-px"
+                          style={{ backgroundColor: r.color }}
+                        />
+                      )}
+                      <div
+                        className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl border"
+                        style={{
+                          color: held ? r.color : '#3f3f46',
+                          borderColor: held ? `${r.color}33` : '#1c1c1c',
+                          backgroundColor: held ? `${r.color}12` : '#0a0a0a',
+                        }}
+                      >
+                        {r.icon}
+                      </div>
+                      <div
+                        className="font-mono text-[34px] font-bold leading-none tabular-nums"
+                        style={{ color: held ? r.color : '#52525b' }}
+                      >
+                        {r.value}
+                      </div>
+                      <div className="mt-2.5 text-[9.5px] font-bold uppercase tracking-[0.13em] text-neutral-600">{r.label}</div>
+                      <div className="mt-2.5 text-[15px] font-black text-white">{r.holder ?? '—'}</div>
+                      {held && (
+                        <div className="mt-2 inline-flex rounded-full border border-[#1c1c1c] bg-[#0a0a0a] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-neutral-600">
+                          Record Holder
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </section>
           )}
@@ -196,28 +233,35 @@ export default async function RecordsPage() {
           {/* ── Champions wall ───────────────────────────────── */}
           {championList.length > 0 && (
             <section>
-              <h2 className="mb-4 text-lg font-black text-white">Champions</h2>
+              <SectionHeading label="Champions" hint={`${championList.length} honour${championList.length === 1 ? '' : 's'}`} />
               <div className="space-y-8">
                 {years.map(year => (
                   <div key={year}>
                     <div className="mb-3 flex items-center gap-3">
-                      <span className="text-2xl font-black text-[#D4AF37]">{year}</span>
+                      <span className="font-mono text-[26px] font-bold leading-none tabular-nums text-[var(--gold-bright)]">{year}</span>
                       <span className="h-px flex-1 bg-[#1c1c1c]" />
+                      <span className="text-[11px] font-semibold text-neutral-600">
+                        {byYear[year].length} award{byYear[year].length === 1 ? '' : 's'}
+                      </span>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {byYear[year].map((c, i) => (
                         <div
                           key={`${year}-${i}`}
-                          className="rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6 transition-all hover:border-[#D4AF37]/30"
+                          className="group relative overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111] p-6 transition-colors hover:border-[#D4AF37]/45 hover:bg-[#D4AF37]/5"
                         >
-                          <div className="mb-3 flex"><Trophy size={24} className="text-[#D4AF37]/60" /></div>
-                          <div className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">
+                          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/8 text-[#D4AF37]/70 transition-colors group-hover:border-[#D4AF37]/45 group-hover:text-[var(--gold-bright)]">
+                            <Trophy size={22} />
+                          </div>
+                          <div className="text-[9.5px] font-bold uppercase tracking-[0.13em] text-[#D4AF37]">
                             {c.award_name ?? 'Award'}
                           </div>
-                          <div className="mt-1 text-xl font-black text-white">{c.winner_name ?? '—'}</div>
+                          <div className="mt-1.5 text-[22px] font-black leading-tight text-white transition-colors group-hover:text-[var(--gold-bright)]">
+                            {c.winner_name ?? '—'}
+                          </div>
                           {c.detail && <div className="mt-2 text-sm text-neutral-400">{c.detail}</div>}
                           {c.winner_type && (
-                            <div className="mt-2 text-xs font-semibold uppercase tracking-widest text-neutral-600">
+                            <div className="mt-3 inline-flex rounded-full border border-[#1c1c1c] bg-[#0a0a0a] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-neutral-500">
                               {c.winner_type}
                             </div>
                           )}
@@ -232,21 +276,75 @@ export default async function RecordsPage() {
 
         </div>
       )}
+    </PageShell>
+  );
+}
+
+// ── Shell ─────────────────────────────────────────────────────────────────────
+// Ambient gold wash behind the header, same top-of-page treatment as the Locker Room.
+function PageShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[460px] bg-[radial-gradient(1100px_460px_at_80%_-14%,var(--gold-glow),transparent_62%)]"
+      />
+      <div className="relative mx-auto max-w-screen-xl px-6 py-12">{children}</div>
     </div>
   );
 }
 
-function RecordsHeader({ societyName }: { societyName: string | null }) {
+// ── SectionHeading ────────────────────────────────────────────────────────────
+function SectionHeading({ label, hint }: { label: string; hint?: string }) {
   return (
-    <div className="mb-10">
-      <div className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">
-        {societyName ?? 'Titan Golf'}
+    <div className="mb-3 flex items-center gap-3">
+      <h2 className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">{label}</h2>
+      <span className="h-px flex-1 bg-[#1c1c1c]" />
+      {hint && <span className="text-[11px] font-semibold text-neutral-600">{hint}</span>}
+    </div>
+  );
+}
+
+function RecordsHeader({
+  societyName,
+  championCount,
+  recordCount,
+}: {
+  societyName: string | null;
+  championCount?: number;
+  recordCount?: number;
+}) {
+  const chips = [
+    championCount ? `${championCount} champion${championCount === 1 ? '' : 's'}` : null,
+    recordCount ? `${recordCount} all-time best${recordCount === 1 ? '' : 's'}` : null,
+  ].filter(Boolean) as string[];
+
+  return (
+    <div className="mb-9 overflow-hidden rounded-2xl border border-[#1c1c1c] bg-[#111111]">
+      <div className="flex flex-col items-center gap-5 p-6 text-center sm:flex-row sm:text-left">
+        <div className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-full border-2 border-[#D4AF37] bg-[#1a1a1a] text-[#D4AF37] shadow-[0_0_0_5px_rgba(212,175,55,0.06),0_0_38px_-6px_rgba(212,175,55,0.55)]">
+          <Trophy size={32} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#D4AF37]">
+            {societyName ?? 'Titan Golf'}
+          </div>
+          <h1 className="mt-1.5 text-[44px] font-black leading-[0.95] tracking-tight text-white">Wall of Records</h1>
+          <p className="mt-3 text-sm text-neutral-400">Champions and all-time bests.</p>
+          {chips.length > 0 && (
+            <div className="mt-3.5 flex flex-wrap justify-center gap-1.5 sm:justify-start">
+              {chips.map(chip => (
+                <span
+                  key={chip}
+                  className="rounded-full border border-[#1c1c1c] bg-[#0a0a0a] px-2.5 py-1 text-[11px] font-semibold text-neutral-400"
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-      <h1 className="mt-1 flex items-center gap-3 text-5xl font-black text-white">
-        <Trophy size={16} className="text-[#D4AF37]" />
-        <span>Wall of Records</span>
-      </h1>
-      <p className="mt-2 text-neutral-400">Champions and all-time bests.</p>
     </div>
   );
 }
