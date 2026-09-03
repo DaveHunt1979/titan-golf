@@ -25,6 +25,7 @@ export default function SwindleSimulateScreen() {
   const [format, setFormat] = useState<'stableford' | 'stroke'>('stableford');
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [sims, setSims] = useState<SimRow[]>([]);
   const [loadingList, setLoadingList] = useState(true);
 
@@ -40,13 +41,17 @@ export default function SwindleSimulateScreen() {
   async function run() {
     if (!societyId) return;
     setRunning(true);
+    setError(null);
     setProgress('Starting...');
     try {
       const result = await runSwindleSimulation({ societyId, entrantCount, format, onProgress: setProgress });
-      Alert.alert('Simulation complete', `${result.gameName}\n\nWinner: ${result.winnerName} (${result.winnerScore})\n${result.syntheticPlayerCount} synthetic players created.`);
+      Alert.alert('Simulation complete', `${result.gameName}\n\nWinner: ${result.winnerName} (${result.winnerScore})\n${result.playerCount} real member${result.playerCount === 1 ? '' : 's'} entered.`);
       await loadSims();
     } catch (e: any) {
-      Alert.alert('Simulation failed', String(e?.message ?? e));
+      // Inline, not a native popup (standing UI convention) — keeps the
+      // "not enough real members" message on screen while the admin lowers
+      // the entrant stepper.
+      setError(String(e?.message ?? e));
     } finally {
       setRunning(false);
       setProgress(null);
@@ -79,7 +84,7 @@ export default function SwindleSimulateScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
         <Text style={[s.sub, { color: dc.textSecondary }]}>
-          Build and fully score a Swindle with a much bigger field than a real weekly game ever gets, to find where it breaks. Real society members first, synthetic fill for the rest.
+          Build and fully score a Swindle to find where it breaks. Uses only this society's real members — if there aren't enough for the entrant count you pick, it'll tell you rather than making anyone up.
         </Text>
 
         <Text style={[s.label, { color: dc.cardText }]}>FORMAT</Text>
@@ -113,6 +118,12 @@ export default function SwindleSimulateScreen() {
           {running ? <ActivityIndicator color="#000" /> : <Text style={s.runBtnText}>Run Full Simulation</Text>}
         </TouchableOpacity>
         {progress && <Text style={[s.progress, { color: dc.textSecondary }]}>{progress}</Text>}
+        {error && (
+          <View style={s.errorCard}>
+            <Ionicons name="alert-circle-outline" size={18} color="#f87171" style={{ marginTop: 1 }} />
+            <Text style={s.errorText}>{error}</Text>
+          </View>
+        )}
 
         <Text style={[s.sectionHeader, { color: dc.cardText }]}>PAST SIMULATIONS</Text>
         {loadingList ? (
@@ -152,6 +163,12 @@ const s = StyleSheet.create({
   runBtn: { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginBottom: 8 },
   runBtnText: { fontFamily: FFB, fontSize: 14, color: '#000', letterSpacing: 0.5 },
   progress: { fontFamily: FF, fontSize: 12, textAlign: 'center', marginBottom: 24 },
+  errorCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 8, marginBottom: 16,
+    backgroundColor: 'rgba(248,113,113,0.08)',
+    borderRadius: 12, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)', padding: 14,
+  },
+  errorText: { flex: 1, fontFamily: FF, fontSize: 12, lineHeight: 18, color: '#f87171' },
   sectionHeader: { fontFamily: FFB, fontSize: 10, letterSpacing: 1.5, marginTop: 16, marginBottom: 12 },
   simRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, borderWidth: 1, padding: 12, marginBottom: 8 },
   simName: { fontFamily: FFB, fontSize: 13 },

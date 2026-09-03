@@ -16,7 +16,7 @@ export interface SimulateSwindleResult {
   gameName: string;
   winnerName: string;
   winnerScore: string;
-  syntheticPlayerCount: number;
+  playerCount: number;   // real society members used
 }
 
 function rnd(seed: { v: number }) {
@@ -57,22 +57,22 @@ export async function runSwindleSimulation(opts: SimulateSwindleOptions): Promis
   }
   if (!course) throw new Error('No course found with clean 18-hole par/SI + rating data to simulate against.');
 
+  // Real society members ONLY (Dave, 2026-09-03: "We should only be using what
+  // we have in the society"). This used to pad a shortfall by INSERTing
+  // `Sim Player N` rows straight into the real `players` table, permanently
+  // polluting the roster. Now a shortfall is a clear error the screen shows.
   onProgress?.('Building entrant list...');
   const { data: smRows } = await supabase.from('society_members').select('player_id').eq('society_id', societyId);
-  const realIds = [...new Set((smRows ?? []).map((r: any) => r.player_id))];
+  const realIds = [...new Set((smRows ?? []).map((r: any) => r.player_id).filter(Boolean))];
   const { data: realPlayers } = realIds.length
     ? await supabase.from('players').select('id,display_name,handicap_index').in('id', realIds)
     : { data: [] as any[] };
-  const pool = (realPlayers ?? []).map((p: any) => ({ id: p.id, display_name: p.display_name, handicap_index: p.handicap_index ?? 14 }));
-  const shortfall = entrantCount - pool.length;
-  if (shortfall > 0) {
-    onProgress?.(`Creating ${shortfall} synthetic entrants (society only has ${pool.length})...`);
-    const rows = Array.from({ length: shortfall }, (_, i) => ({
-      display_name: `Sim Player ${pool.length + i + 1}`,
-      handicap_index: [4, 8, 12, 14, 16, 18, 20, 24][i % 8],
-    }));
-    const created = await insertAll<any>('players', rows);
-    pool.push(...created.map((p: any) => ({ id: p.id, display_name: p.display_name, handicap_index: p.handicap_index })));
+  const pool = (realPlayers ?? []).map((p: any) => ({ id: p.id, display_name: p.display_name ?? '—', handicap_index: p.handicap_index ?? 14 }));
+  if (pool.length < entrantCount) {
+    throw new Error(
+      `This simulation needs ${entrantCount} real society members — this society only has ${pool.length}. ` +
+      `Add more members to the society, or lower the entrant count and run it again.`
+    );
   }
   const entrants = pool.slice(0, entrantCount);
 
@@ -128,7 +128,7 @@ export async function runSwindleSimulation(opts: SimulateSwindleOptions): Promis
     gameName: game.name,
     winnerName: sorted[0] ? nameById[sorted[0][0]] : '—',
     winnerScore: sorted[0] ? (format === 'stroke' ? `${sorted[0][1]} gross` : `${sorted[0][1]} pts`) : '—',
-    syntheticPlayerCount: entrants.filter(p => p.display_name.startsWith('Sim Player')).length,
+    playerCount: entrants.length,
   };
 }
 

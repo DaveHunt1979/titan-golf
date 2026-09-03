@@ -36,9 +36,12 @@ export interface SimulateTournamentResult {
   competitionName: string;
   championName: string;    // team name for team formats, player name for individual
   kronosChampionName: string | null;
-  syntheticPlayerCount: number;
-  syntheticTeamCount: number;
+  playerCount: number;     // real society members used
+  teamCount: number;       // real society teams used
 }
+
+export interface SimRosterPlayer { id: string; display_name: string; handicap_index: number }
+export interface SimTeam { id: string; name: string; playerIds: string[] }
 
 function rnd(seed: { v: number }) {
   seed.v |= 0; seed.v = (seed.v + 0x6D2B79F5) | 0;
@@ -92,30 +95,96 @@ export async function pickSimulationCourse(): Promise<{ name: string; par: numbe
   throw new Error('No course found with clean 18-hole par/SI + rating data to simulate against.');
 }
 
-// Real society roster first, then synthetic fill (clearly named, no
-// auth_uid so they can't ever log in) — exceeding what Dave's real groups
-// have on hand is the entire point of this tool.
-export async function buildRoster(societyId: string, needed: number, onProgress?: (m: string) => void) {
+// Real society roster ONLY (Dave, 2026-09-03: "We should only be using what
+// we have in the society... we want to see it with all of us in it"). This
+// used to pad a shortfall by INSERTing `Sim Player N` rows straight into the
+// real `players` table, which permanently polluted the society's roster.
+// Never again — if the society doesn't have enough real members for what the
+// admin picked, we throw a message the screen can show instead.
+export async function buildRoster(
+  societyId: string, needed: number, formatLabel: string, onProgress?: (m: string) => void,
+): Promise<SimRosterPlayer[]> {
+  onProgress?.('Loading society members...');
   const { data: smRows, error } = await supabase
     .from('society_members').select('player_id').eq('society_id', societyId);
   if (error) throw error;
-  const realIds = [...new Set((smRows ?? []).map((r: any) => r.player_id))];
+  const realIds = [...new Set((smRows ?? []).map((r: any) => r.player_id).filter(Boolean))];
   const { data: realPlayers } = realIds.length
     ? await supabase.from('players').select('id,display_name,handicap_index').in('id', realIds)
     : { data: [] as any[] };
-  const pool = (realPlayers ?? []).map((p: any) => ({ id: p.id, display_name: p.display_name, handicap_index: p.handicap_index ?? 12 }));
+  const pool: SimRosterPlayer[] = (realPlayers ?? []).map((p: any) => ({
+    id: p.id, display_name: p.display_name ?? '—', handicap_index: p.handicap_index ?? 12,
+  }));
 
-  const shortfall = needed - pool.length;
-  if (shortfall > 0) {
-    onProgress?.(`Creating ${shortfall} synthetic players (society only has ${pool.length})...`);
-    const rows = Array.from({ length: shortfall }, (_, i) => ({
-      display_name: `Sim Player ${pool.length + i + 1}`,
-      handicap_index: [4, 8, 12, 14, 16, 18, 20, 24][i % 8],
-    }));
-    const created = await insertAll<any>('players', rows);
-    pool.push(...created.map((p: any) => ({ id: p.id, display_name: p.display_name, handicap_index: p.handicap_index })));
+  if (pool.length < needed) {
+    throw new Error(
+      `${formatLabel} needs ${needed} real society members — this society only has ${pool.length}. ` +
+      `Add more members to the society, or lower the size and run it again.`
+    );
   }
   return pool.slice(0, needed);
+}
+
+// Real society TEAMS only — same source the real tournament builder uses
+// (admin/build.tsx: `teams` scoped by society_id, then society_members
+// scoped by team_id). Each team must field its own `playersPerTeam` real
+// members; we never borrow a player from another team to fill a gap, which
+// matches the per-team minimum check scripts/seed_titan_way_sim.mts already
+// settled on ("oh you should of used members").
+export async function buildRealTeams(
+  societyId: string, numTeams: number, playersPerTeam: number, formatLabel: string, onProgress?: (m: string) => void,
+): Promise<{ teams: SimTeam[]; roster: SimRosterPlayer[] }> {
+  onProgress?.('Loading society teams...');
+  const { data: teamRows, error: teamErr } = await supabase
+    .from('teams').select('id,name').eq('society_id', societyId).order('sort_order');
+  if (teamErr) throw teamErr;
+  const allTeams = (teamRows ?? []) as any[];
+  if (allTeams.length === 0) {
+    throw new Error(
+      `${formatLabel} is a team format and runs on this society's real teams, but this society has no teams set up yet. ` +
+      `Create teams and put members in them first.`
+    );
+  }
+
+  const { data: memberRows, error: memErr } = await supabase
+    .from('society_members')
+    .select('player_id, team_id, players(display_name, handicap_index)')
+    .eq('society_id', societyId);
+  if (memErr) throw memErr;
+
+  const membersByTeam: Record<string, SimRosterPlayer[]> = {};
+  const seenByTeam: Record<string, Set<string>> = {};
+  for (const m of ((memberRows ?? []) as any[])) {
+    if (!m.team_id || !m.player_id) continue;
+    const seen = (seenByTeam[m.team_id] ??= new Set<string>());
+    if (seen.has(m.player_id)) continue;
+    seen.add(m.player_id);
+    (membersByTeam[m.team_id] ??= []).push({
+      id: m.player_id,
+      display_name: m.players?.display_name ?? '—',
+      handicap_index: m.players?.handicap_index ?? 12,
+    });
+  }
+
+  const eligible = allTeams
+    .map(t => ({ id: t.id as string, name: (t.name as string) ?? '—', members: membersByTeam[t.id] ?? [] }))
+    .filter(t => t.members.length >= playersPerTeam);
+
+  if (eligible.length < numTeams) {
+    throw new Error(
+      `${formatLabel} needs at least ${numTeams} teams of ${playersPerTeam} real members — this society only has ` +
+      `${eligible.length} team${eligible.length === 1 ? '' : 's'} with ${playersPerTeam}+ members ` +
+      `(${allTeams.length} team${allTeams.length === 1 ? '' : 's'} in total). ` +
+      `Add real members to your teams, or lower the team count and run it again.`
+    );
+  }
+
+  const picked = eligible.slice(0, numTeams);
+  const teams: SimTeam[] = picked.map(t => ({
+    id: t.id, name: t.name, playerIds: t.members.slice(0, playersPerTeam).map(p => p.id),
+  }));
+  const roster: SimRosterPlayer[] = picked.flatMap(t => t.members.slice(0, playersPerTeam));
+  return { teams, roster };
 }
 
 function matchHcp(hcpByPlayer: Record<string, number>, pid: string, day: any, allowance: number, groupIds: string[], relativeLow: boolean): number {
@@ -136,26 +205,18 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
   if (rules.requiresEvenTeams && numTeams % 2 !== 0) throw new Error(`${rules.label} requires an even number of teams.`);
   if (rules.requiresOddTeams && numTeams % 2 === 0) throw new Error(`${rules.label} requires an odd number of teams.`);
   const playersPerTeam = 4;
-  const totalPlayers = numTeams * playersPerTeam;
 
   onProgress?.('Checking course data...');
   const course = await pickSimulationCourse();
   onProgress?.(`Using ${course.name} for every round.`);
 
-  const roster = await buildRoster(societyId, totalPlayers, onProgress);
-  const syntheticPlayerCount = roster.filter(p => p.display_name.startsWith('Sim Player')).length;
+  const { teams, roster } = await buildRealTeams(societyId, numTeams, playersPerTeam, rules.label, onProgress);
   const hcpByPlayer: Record<string, number> = {};
   roster.forEach(p => { hcpByPlayer[p.id] = p.handicap_index; });
 
-  onProgress?.(`Creating ${numTeams} teams...`);
-  const teamColors = ['#D4AF37', '#f87171', '#60a5fa', '#4ade80', '#a855f7', '#fb923c', '#38bdf8', '#f472b6', '#facc15', '#94a3b8', '#34d399', '#c084fc'];
-  const teamRows = Array.from({ length: numTeams }, (_, i) => ({
-    society_id: societyId, name: `Sim Team ${i + 1}`, accent_color: teamColors[i % teamColors.length],
-  }));
-  const teams = await insertAll<any>('teams', teamRows);
-  const teamIds = teams.map((t: any) => t.id);
+  const teamIds = teams.map(t => t.id);
   const rosterByTeam: Record<string, string[]> = {};
-  teams.forEach((t: any, i: number) => { rosterByTeam[t.id] = roster.slice(i * 4, i * 4 + 4).map(p => p.id); });
+  teams.forEach(t => { rosterByTeam[t.id] = t.playerIds; });
 
   onProgress?.('Creating competition...');
   const pin = String(Math.floor(1000 + Math.random() * 9000));
@@ -352,8 +413,8 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
     competitionName: comp.name,
     championName,
     kronosChampionName,
-    syntheticPlayerCount,
-    syntheticTeamCount: numTeams,
+    playerCount: roster.length,
+    teamCount: teams.length,
   };
 }
 
@@ -369,25 +430,17 @@ async function runRoundRobinTeamSimulation(opts: SimulateTournamentOptions): Pro
   const effectiveTeams = formatId === 'ryder_cup' ? 2 : numTeams;
   if (effectiveTeams < 2) throw new Error(`${rules.label} needs at least 2 teams.`);
   const playersPerTeam = 4;
-  const totalPlayers = effectiveTeams * playersPerTeam;
 
   onProgress?.('Checking course data...');
   const course = await pickSimulationCourse();
 
-  const roster = await buildRoster(societyId, totalPlayers, onProgress);
-  const syntheticPlayerCount = roster.filter(p => p.display_name.startsWith('Sim Player')).length;
+  const { teams, roster } = await buildRealTeams(societyId, effectiveTeams, playersPerTeam, rules.label, onProgress);
   const hcpByPlayer: Record<string, number> = {};
   roster.forEach(p => { hcpByPlayer[p.id] = p.handicap_index; });
 
-  onProgress?.(`Creating ${effectiveTeams} teams...`);
-  const teamColors = ['#D4AF37', '#f87171', '#60a5fa', '#4ade80', '#a855f7', '#fb923c', '#38bdf8', '#f472b6'];
-  const teams = await insertAll<any>('teams', Array.from({ length: effectiveTeams }, (_, i) => ({
-    society_id: societyId, name: formatId === 'ryder_cup' ? (i === 0 ? 'Sim Home' : 'Sim Away') : `Sim Team ${i + 1}`,
-    accent_color: teamColors[i % teamColors.length],
-  })));
-  const teamIds = teams.map((t: any) => t.id);
+  const teamIds = teams.map(t => t.id);
   const rosterByTeam: Record<string, string[]> = {};
-  teams.forEach((t: any, i: number) => { rosterByTeam[t.id] = roster.slice(i * 4, i * 4 + 4).map(p => p.id); });
+  teams.forEach(t => { rosterByTeam[t.id] = t.playerIds; });
 
   onProgress?.('Creating competition...');
   const pin = String(Math.floor(1000 + Math.random() * 9000));
@@ -487,8 +540,8 @@ async function runRoundRobinTeamSimulation(opts: SimulateTournamentOptions): Pro
     competitionName: comp.name,
     championName: championTeam?.name ?? '—',
     kronosChampionName: rules.individualBoardDefaultOn && kronosSorted[0] ? nameByPlayerId[kronosSorted[0][0]] : null,
-    syntheticPlayerCount,
-    syntheticTeamCount: effectiveTeams,
+    playerCount: roster.length,
+    teamCount: teams.length,
   };
 }
 
@@ -503,8 +556,7 @@ async function runIndividualSimulation(opts: SimulateTournamentOptions): Promise
   onProgress?.('Checking course data...');
   const course = await pickSimulationCourse();
 
-  const roster = await buildRoster(societyId, numPlayers, onProgress);
-  const syntheticPlayerCount = roster.filter(p => p.display_name.startsWith('Sim Player')).length;
+  const roster = await buildRoster(societyId, numPlayers, rules.label, onProgress);
   const hcpByPlayer: Record<string, number> = {};
   roster.forEach(p => { hcpByPlayer[p.id] = p.handicap_index; });
 
@@ -582,8 +634,8 @@ async function runIndividualSimulation(opts: SimulateTournamentOptions): Promise
     competitionName: comp.name,
     championName: championId ? nameByPlayerId[championId] : '—',
     kronosChampionName: null,
-    syntheticPlayerCount,
-    syntheticTeamCount: 0,
+    playerCount: roster.length,
+    teamCount: 0,
   };
 }
 
@@ -596,11 +648,10 @@ export async function runTournamentSimulation(opts: SimulateTournamentOptions): 
 }
 
 // Cascades: matches -> match_holes (ON DELETE CASCADE per schema), same for
-// competition_days/competition_players via competition_id. Synthetic
-// players/teams are left in place deliberately — cheap to leave, and
-// deleting a `players` row that later got referenced elsewhere (a repeat
-// run using the same society) is a sharper edge than it's worth for a
-// dev-only cleanup action.
+// competition_days/competition_players via competition_id. Nothing else needs
+// cleaning up — as of 2026-09-03 a simulation only ever borrows the society's
+// real players and real teams, so it never creates a `players`/`teams` row to
+// delete in the first place.
 export async function deleteSimulation(competitionId: string) {
   const { error } = await supabase.from('competitions').delete().eq('id', competitionId).eq('is_simulation', true);
   if (error) throw error;
