@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"ls web/src/app/tournament/ && ls web/src/lib/ -R && echo \\\"---PKG---\\\" && cat web/package.json\"}",
-  "error": "Exit code 1\narchive\nnew\nls: -R: No such file or directory\nweb/src/lib/:\nsupabase",
-  "timestamp": "2026-09-03T09:31:05.223Z",
+  "tool_input_preview": "{\"command\":\"cd /Users/davehunt/Desktop/titan-golf/web && cat .vercel/project.json 2>/dev/null; echo \\\"---\\\"; which vercel; vercel --version 2>&1\"}",
+  "error": "Exit code 127\n---\nvercel not found\n(eval):1: command not found: vercel",
+  "timestamp": "2026-09-03T11:09:25.170Z",
   "retry_count": 1
 }
