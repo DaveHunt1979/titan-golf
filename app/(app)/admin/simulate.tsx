@@ -9,6 +9,7 @@ import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyTheme
 import { goBack } from '../../../src/lib/navigation';
 import { runTournamentSimulation, deleteSimulation } from '../../../src/lib/simulateTournament';
 import { FORMAT_RULES, type FormatId } from '../../../src/lib/tournamentFormat';
+import SwipeableRow from '../../../src/components/SwipeableRow';
 
 const GOLD = '#D4AF37';
 const FF   = 'JUSTSans';
@@ -92,7 +93,12 @@ export default function SimulateScreen() {
   function confirmDelete(sim: SimRow) {
     Alert.alert('Delete simulation', `Delete "${sim.name}" and everything in it? This can't be undone.`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => { await deleteSimulation(sim.id); loadSims(); } },
+      // Surface a failed delete inline (existing error card) rather than
+      // letting it reject silently and look like the swipe did nothing.
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try { setError(null); await deleteSimulation(sim.id); } catch (e: any) { setError(String(e?.message ?? e)); }
+        loadSims();
+      } },
     ]);
   }
 
@@ -189,15 +195,20 @@ export default function SimulateScreen() {
         ) : sims.length === 0 ? (
           <Text style={[s.hint, { color: dc.textSecondary }]}>None yet.</Text>
         ) : sims.map(sim => (
-          <View key={sim.id} style={[s.simRow, { backgroundColor: dc.card, borderColor: dc.border }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.simName, { color: dc.cardText }]} numberOfLines={1}>{sim.name}</Text>
-              <Text style={[s.simSub, { color: dc.textSecondary }]}>{sim.settings?.format_type ?? '?'} · {sim.status}</Text>
+          // Swipe the row sideways for a red bin (same gesture as the Swindle
+          // list) — there are a lot of these to clear out, and the swipe is
+          // quicker than aiming at the little icon. Both call the same delete.
+          <SwipeableRow key={sim.id} radius={10} style={{ marginBottom: 8 }} onDelete={() => confirmDelete(sim)}>
+            <View style={[s.simRow, { backgroundColor: dc.card, borderColor: dc.border, marginBottom: 0 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.simName, { color: dc.cardText }]} numberOfLines={1}>{sim.name}</Text>
+                <Text style={[s.simSub, { color: dc.textSecondary }]}>{sim.settings?.format_type ?? '?'} · {sim.status}</Text>
+              </View>
+              <TouchableOpacity onPress={() => confirmDelete(sim)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="trash-outline" size={18} color="#f87171" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={() => confirmDelete(sim)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="trash-outline" size={18} color="#f87171" />
-            </TouchableOpacity>
-          </View>
+          </SwipeableRow>
         ))}
       </ScrollView>
     </View>
