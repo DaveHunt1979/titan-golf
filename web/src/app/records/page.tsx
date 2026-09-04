@@ -32,7 +32,7 @@ export default async function RecordsPage() {
       const { data: member } = await supabase
         .from('society_members').select('society_id')
         .eq('player_id', player.id)
-        .order('created_at', { ascending: true })
+        .order('joined_at', { ascending: true })
         .limit(1)
         .maybeSingle();
       societyId = member?.society_id ?? null;

@@ -27,7 +27,7 @@ export function useSeasonAdmin() {
 
       const { data: member } = await supabase
         .from('society_members').select('role, society_id')
-        .eq('player_id', player.id).order('created_at', { ascending: true }).limit(1).maybeSingle();
+        .eq('player_id', player.id).order('joined_at', { ascending: true }).limit(1).maybeSingle();
       if (!member || !['admin', 'owner'].includes(member.role ?? '')) { router.push('/dashboard'); return; }
 
       const { data: society } = await supabase

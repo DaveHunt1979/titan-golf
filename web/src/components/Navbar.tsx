@@ -105,16 +105,26 @@ export default function Navbar() {
                 </svg>
               </button>
               {open === item.label && (
-                <div className="absolute left-0 top-full mt-1 w-52 rounded-xl border border-[#1c1c1c] bg-[#111111] py-2 shadow-2xl">
-                  {item.items.map((sub) => (
-                    <Link
-                      key={sub.label}
-                      href={sub.href}
-                      className="block px-4 py-2 text-sm text-neutral-300 transition-colors hover:bg-white/5 hover:text-[#D4AF37]"
-                    >
-                      {sub.label}
-                    </Link>
-                  ))}
+                // top-full + pt-1 (not mt-1) keeps this whole block, including
+                // the small gap above the panel, inside the parent's hover
+                // hit-box. A margin-based gap sits *outside* both the button
+                // and this element, so a mouse moving diagonally toward a
+                // link below could cross a dead strip that belongs to
+                // neither, firing onMouseLeave and closing the menu before
+                // the pointer ever reached it — reported as the dropdown
+                // "disappearing when I get near".
+                <div className="absolute left-0 top-full w-52 pt-1">
+                  <div className="rounded-xl border border-[#1c1c1c] bg-[#111111] py-2 shadow-2xl">
+                    {item.items.map((sub) => (
+                      <Link
+                        key={sub.label}
+                        href={sub.href}
+                        className="block px-4 py-2 text-sm text-neutral-300 transition-colors hover:bg-white/5 hover:text-[#D4AF37]"
+                      >
+                        {sub.label}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

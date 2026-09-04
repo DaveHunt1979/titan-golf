@@ -126,7 +126,7 @@ function Wizard() {
         .from('society_members').select('role, society_id')
         .eq('player_id', p.id)
         .in('role', ['admin', 'owner'])
-        .order('created_at', { ascending: true }).limit(1).maybeSingle();
+        .order('joined_at', { ascending: true }).limit(1).maybeSingle();
       if (!member) {
         const who = p.display_name ?? p.email ?? user.email ?? p.id;
         const memberships = (allMemberships ?? []) as { role: string; society_id: string; societies: { name: string } | { name: string }[] | null }[];

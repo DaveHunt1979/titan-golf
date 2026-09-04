@@ -15,7 +15,7 @@ export default async function AdminPage() {
   const { data: member } = await supabase
     .from('society_members').select('role, society_id')
     .eq('player_id', player.id)
-    .order('created_at', { ascending: true })
+    .order('joined_at', { ascending: true })
     .limit(1)
     .maybeSingle();
 

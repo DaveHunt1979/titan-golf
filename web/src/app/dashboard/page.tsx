@@ -87,7 +87,7 @@ export default async function DashboardPage() {
     ? await supabase
         .from('society_members').select('role')
         .eq('player_id', player.id)
-        .order('created_at', { ascending: true })
+        .order('joined_at', { ascending: true })
         .limit(1)
         .maybeSingle()
     : { data: null };
