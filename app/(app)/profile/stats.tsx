@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
@@ -159,25 +159,38 @@ export default function StatsScreen() {
 
     const pid = (player as any).id as string;
 
+    // Career-long, whole-history reads for one player — ~70+ shots and 18
+    // hole rows per round means PostgREST's 1000-row default cap is reached
+    // after only a dozen-odd rounds, and a truncated read would silently
+    // understate rounds played, shot totals and the scoring distribution.
+    // hcpRes keeps its deliberate limit(20) — a genuinely bounded list.
     const [shotsRes, statsRes, holesRes, distRes, hcpRes] = await Promise.all([
-      supabase
+      fetchAllRows<any>((from, to) => supabase
         .from('shots')
         .select('club_id, clubs(short, category)')
-        .eq('player_id', pid),
-      supabase
+        .eq('player_id', pid)
+        .order('id')
+        .range(from, to)),
+      fetchAllRows<any>((from, to) => supabase
         .from('hole_stats')
         .select('fairway_direction, putts')
-        .eq('player_id', pid),
-      supabase
+        .eq('player_id', pid)
+        .order('match_id').order('hole_number')
+        .range(from, to)),
+      fetchAllRows<any>((from, to) => supabase
         .from('match_holes')
         .select('match_id, hole_number, gross_score, matches(day:day_id(course_name))')
         .eq('player_id', pid)
-        .not('gross_score', 'is', null),
-      supabase
+        .not('gross_score', 'is', null)
+        .order('id')
+        .range(from, to)),
+      fetchAllRows<any>((from, to) => supabase
         .from('shots')
         .select('club_short, clubs(category), distance_yards')
         .eq('player_id', pid)
-        .not('distance_yards', 'is', null),
+        .not('distance_yards', 'is', null)
+        .order('id')
+        .range(from, to)),
       supabase
         .from('handicap_history')
         .select('handicap_index, calculated_at')
@@ -189,7 +202,7 @@ export default function StatsScreen() {
     // ── shots + club usage ─────────────────────────────
     const clubMap: Record<string, ClubStat> = {};
     let totalShots = 0;
-    for (const row of (shotsRes.data ?? []) as any[]) {
+    for (const row of shotsRes as any[]) {
       const club = row.clubs;
       if (!club) continue;
       totalShots++;
@@ -210,7 +223,7 @@ export default function StatsScreen() {
     const ptt: PuttData  = { one: 0, two: 0, three: 0, total: 0 };
     let totalPutts = 0, puttsHoles = 0;
 
-    for (const row of (statsRes.data ?? []) as any[]) {
+    for (const row of statsRes as any[]) {
       const r = row as any;
       if (r.fairway_direction === 'left')   drv.left++;
       if (r.fairway_direction === 'centre') drv.centre++;
@@ -231,13 +244,18 @@ export default function StatsScreen() {
     // birdie, so a points-based counter (the old behaviour here) could show
     // 18 "birdies" for a round that was actually 18 pars.
     const matchIds = new Set<string>();
-    const holeRows = (holesRes.data ?? []) as any[];
+    const holeRows = holesRes as any[];
     const courseNames = [...new Set(holeRows.map(r => r.matches?.day?.course_name).filter(Boolean))] as string[];
-    const { data: courseHolesData } = courseNames.length
-      ? await supabase.from('course_holes').select('course_name, hole_number, par').in('course_name', courseNames)
-      : { data: [] as any[] };
+    // 18 rows per course x every course this player has ever played passes
+    // 1000 rows at ~56 courses; a truncated par lookup would silently drop
+    // those rounds out of the scoring distribution entirely.
+    const courseHolesData = courseNames.length
+      ? await fetchAllRows<any>(
+          (from, to) => supabase.from('course_holes').select('course_name, hole_number, par').in('course_name', courseNames).order('course_name').order('hole_number').range(from, to)
+        )
+      : [];
     const parByCourseHole = new Map<string, Map<number, number>>();
-    (courseHolesData ?? []).forEach((h: any) => {
+    courseHolesData.forEach((h: any) => {
       if (!parByCourseHole.has(h.course_name)) parByCourseHole.set(h.course_name, new Map());
       parByCourseHole.get(h.course_name)!.set(h.hole_number, h.par);
     });
@@ -253,7 +271,7 @@ export default function StatsScreen() {
 
     // ── club distances ─────────────────────────────────
     const distMap: Record<string, { cat: Category; total: number; count: number }> = {};
-    for (const row of (distRes.data ?? []) as any[]) {
+    for (const row of distRes as any[]) {
       const key = row.club_short ?? 'unknown';
       if (!distMap[key]) {
         distMap[key] = {

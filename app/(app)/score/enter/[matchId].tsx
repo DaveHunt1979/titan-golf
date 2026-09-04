@@ -9,7 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import RoundScorecard from '../../../../src/components/RoundScorecard';
 import { useFonts } from 'expo-font';
-import { supabase, freshChannel } from '../../../../src/lib/supabase';
+import { supabase, freshChannel, fetchAllRows } from '../../../../src/lib/supabase';
 import {
   calcHoles, matchLabel, isDormie,
   calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, individualScoreValue,
@@ -1286,9 +1286,14 @@ export default function EnterScoresScreen() {
         ])) as any,
       ];
 
-      const [{ data: playersData }, { data: holesData }] = await Promise.all([
+      // Cross-group day board reads 18 holes x every player on the day — a
+      // big field passes PostgREST's 1000-row default cap, and a truncated
+      // read would silently rank the day leaderboard on partial totals.
+      const [{ data: playersData }, holesData] = await Promise.all([
         supabase.from('players').select('id, display_name').in('id', allPlayerIds),
-        supabase.from('match_holes').select('player_id, stableford_pts, gross_score, hole_number').in('match_id', allMatchIds),
+        fetchAllRows<any>(
+          (from, to) => supabase.from('match_holes').select('player_id, stableford_pts, gross_score, hole_number').in('match_id', allMatchIds).order('id').range(from, to)
+        ),
       ]);
 
       const nameMap: Record<string, string> = {};

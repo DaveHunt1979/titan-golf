@@ -6,7 +6,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
-import { supabase } from '../../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../../src/lib/supabase';
 import { scanPlayerScoresFromCamera, scanPlayerScoresFromLibrary, ScannedScore } from '../../../../src/lib/scanScorecard';
 import { calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
 import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
@@ -62,10 +62,16 @@ export default function SwindleScan() {
   useEffect(() => { load(); }, [gameId]);
 
   async function load() {
-    const [{ data: gameData }, { data: entriesData }, { data: scoresData }, { data: rptData }] = await Promise.all([
+    // 18 rows per entrant, so a swindle of ~56+ players clears PostgREST's
+    // 1000-row default cap. A truncated read would drop players out of
+    // scoredPlayers below and show them as "not yet submitted", inviting a
+    // re-scan that overwrites a card they'd already handed in.
+    const [{ data: gameData }, { data: entriesData }, scoresData, { data: rptData }] = await Promise.all([
       supabase.from('swindle_games').select('course_name, slope_rating, course_rating, hcp_allowance').eq('id', gameId).single(),
       supabase.from('swindle_entries').select('player_id, handicap, players(display_name, handicap_index)').eq('game_id', gameId),
-      supabase.from('swindle_scores').select('player_id').eq('game_id', gameId),
+      fetchAllRows<any>(
+        (from, to) => supabase.from('swindle_scores').select('player_id').eq('game_id', gameId).order('id').range(from, to)
+      ),
       supabase.from('round_player_tees').select('player_id,whs_enabled_at_start,playing_handicap_at_start').eq('swindle_game_id', gameId),
     ]);
 
@@ -80,7 +86,7 @@ export default function SwindleScan() {
     if (g?.course_rating != null) setCourseRating(g.course_rating);
     if (g?.hcp_allowance != null) setHcpAllowance(g.hcp_allowance);
 
-    const scoredPlayers = new Set((scoresData ?? []).map((s: any) => s.player_id));
+    const scoredPlayers = new Set(scoresData.map((s: any) => s.player_id));
 
     setPlayers(((entriesData ?? []) as any[]).map(e => ({
       player_id:    e.player_id,

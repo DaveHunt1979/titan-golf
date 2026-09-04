@@ -4,7 +4,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
 
@@ -59,13 +59,20 @@ export default function SeasonMajorsScreen() {
     if (rows.length === 0) { setMajors([]); setLoading(false); return; }
 
     const majorIds = rows.map(r => r.id);
-    const { data: winnerRounds } = await supabase
-      .from('season_rounds')
-      .select('major_id, final_round_points, season_entries(id, players(display_name))')
-      .in('major_id', majorIds).not('major_multiplier', 'is', null);
+    // One multiplied round per entry per Major, so this grows as entrants x
+    // Majors and clears PostgREST's 1000-row default cap for a large season.
+    // Rows come back in no meaningful order, so a truncated read could drop a
+    // whole Major's leaderboard rather than just its tail.
+    const winnerRounds = await fetchAllRows<any>(
+      (from, to) => supabase
+        .from('season_rounds')
+        .select('major_id, final_round_points, season_entries(id, players(display_name))')
+        .in('major_id', majorIds).not('major_multiplier', 'is', null)
+        .order('id').range(from, to)
+    );
 
     const leadersByMajor: Record<string, LeaderRow[]> = {};
-    for (const r of (winnerRounds ?? []) as any[]) {
+    for (const r of winnerRounds as any[]) {
       const entry = r.season_entries;
       if (!entry) continue;
       (leadersByMajor[r.major_id] ??= []).push({

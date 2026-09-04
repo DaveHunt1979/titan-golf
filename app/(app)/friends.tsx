@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../src/lib/SocietyThemeContext';
 import { goBack } from '../../src/lib/navigation';
 import TCardSheet, { type PlayingNow } from '../../src/components/TCardSheet';
@@ -126,9 +126,14 @@ export default function FriendsScreen() {
     });
 
     const matchIds = relevantMatches.map((m: any) => m.id);
-    const { data: holesData } = matchIds.length
-      ? await supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id').in('match_id', matchIds)
-      : { data: [] };
+    // Up to 100 live matches x 18 holes x every player in them clears
+    // PostgREST's 1000-row default cap; a truncated read would quietly show
+    // the wrong live points/hole against a member.
+    const holesData = matchIds.length
+      ? await fetchAllRows<any>(
+          (from, to) => supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id').in('match_id', matchIds).order('id').range(from, to)
+        )
+      : [];
 
     // Build per-player stats
     const stats: Record<string, { pts: number; maxHole: number; matchId: string; courseName: string }> = {};

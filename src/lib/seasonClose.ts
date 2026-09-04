@@ -11,7 +11,7 @@
 // division assignments (spec §6.4 steps 8-15) — that's a big enough
 // feature (seeding a season that doesn't exist yet from this one's
 // results) to be its own slice later.
-import { supabase } from './supabase';
+import { supabase, fetchAllRows } from './supabase';
 import { rankDivisionEntries } from './seasonLeaderboard';
 import { publishSeasonFinishedStory, type SeasonFinishedDivisionResult } from './seasonNews';
 import { sendPushNotification } from './notifications';
@@ -43,11 +43,18 @@ export async function closeSeason(seasonId: string): Promise<CloseSeasonResult> 
     if (entryRows.length === 0) continue;
 
     const entryIds = entryRows.map(e => e.id);
-    const { data: countingRounds } = await supabase
-      .from('season_rounds').select('season_entry_id, final_round_points')
-      .in('season_entry_id', entryIds).eq('is_counting', true);
+    // counting_round_limit defaults to 20 per entry, so a division of only
+    // ~50 players already hits PostgREST's 1000-row default cap. This read
+    // decides promotion/relegation at Season Close, so a truncated one would
+    // permanently write the wrong final standings.
+    const countingRounds = await fetchAllRows<any>(
+      (from, to) => supabase
+        .from('season_rounds').select('season_entry_id, final_round_points')
+        .in('season_entry_id', entryIds).eq('is_counting', true)
+        .order('id').range(from, to)
+    );
     const pointsByEntry: Record<string, number[]> = {};
-    for (const r of (countingRounds ?? []) as any[]) (pointsByEntry[r.season_entry_id] ??= []).push(r.final_round_points);
+    for (const r of countingRounds as any[]) (pointsByEntry[r.season_entry_id] ??= []).push(r.final_round_points);
 
     // spec §10.1/§22 — "Player has 19 rounds at close → DNQ": anyone still
     // short of the minimum at close is finalized as DNQ, never "provisional"

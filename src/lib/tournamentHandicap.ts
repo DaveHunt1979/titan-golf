@@ -12,7 +12,7 @@
 // tournament-specific — it produces the one input (an effective handicap
 // index) that scoring.ts's calcCourseHandicap/playerCourseHcp already
 // accept, without touching those functions.
-import { supabase } from './supabase';
+import { supabase, fetchAllRows } from './supabase';
 
 export interface HandicapCutBand { min: number; max: number | null; cutPerPoint: number; }
 
@@ -182,10 +182,17 @@ async function loadDayPlayerStableford(dayId: string): Promise<{ playerIds: stri
   const holesToPlay = dayMatches[0]?.holes_to_play ?? 18;
   const totals: Record<string, number> = {};
   if (dayMatches.length > 0) {
-    const { data: holes } = await supabase
-      .from('match_holes')
-      .select('player_id, stableford_pts')
-      .in('match_id', dayMatches.map(m => m.id));
+    // 18 holes x every player on the day — a big field blows past PostGREST's
+    // 1000-row default cap, and a truncated read here would silently under-count
+    // Stableford totals and cut the wrong players' handicaps.
+    const holes = await fetchAllRows<any>(
+      (from, to) => supabase
+        .from('match_holes')
+        .select('player_id, stableford_pts')
+        .in('match_id', dayMatches.map(m => m.id))
+        .order('id')
+        .range(from, to)
+    );
     (holes ?? []).forEach((h: any) => {
       if (h.stableford_pts == null) return;
       totals[h.player_id] = (totals[h.player_id] ?? 0) + h.stableford_pts;

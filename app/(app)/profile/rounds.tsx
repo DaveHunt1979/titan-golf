@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
@@ -85,33 +85,42 @@ export default function RoundsScreen() {
 
     const courseNames = [...new Set(Object.values(infoMap).map(i => i.courseName))];
 
+    // 18 rows per round across this player's entire completed history, plus
+    // 18 par rows per distinct course ever played — all three pass
+    // PostgREST's 1000-row default cap after ~56 rounds/courses, and a
+    // truncated read would silently drop whole rounds off this list and
+    // mis-total the ones it kept.
     const [holesRes, statsRes, courseHolesRes] = await Promise.all([
-      supabase
+      fetchAllRows<any>((from, to) => supabase
         .from('match_holes')
         .select('match_id, hole_number, gross_score')
         .eq('player_id', pid)
         .in('match_id', matchIds)
-        .not('gross_score', 'is', null),
-      supabase
+        .not('gross_score', 'is', null)
+        .order('id')
+        .range(from, to)),
+      fetchAllRows<any>((from, to) => supabase
         .from('hole_stats')
         .select('match_id, fairway_hit, putts')
         .eq('player_id', pid)
-        .in('match_id', matchIds),
+        .in('match_id', matchIds)
+        .order('match_id').order('hole_number')
+        .range(from, to)),
       courseNames.length
-        ? supabase.from('course_holes').select('course_name, hole_number, par').in('course_name', courseNames)
-        : Promise.resolve({ data: [] }),
+        ? fetchAllRows<any>((from, to) => supabase.from('course_holes').select('course_name, hole_number, par').in('course_name', courseNames).order('course_name').order('hole_number').range(from, to))
+        : Promise.resolve([] as any[]),
     ]);
 
     // course_name -> hole_number -> par
     const parLookup: Record<string, Record<number, number>> = {};
-    for (const c of (courseHolesRes.data ?? []) as any[]) {
+    for (const c of courseHolesRes as any[]) {
       if (!parLookup[c.course_name]) parLookup[c.course_name] = {};
       parLookup[c.course_name][c.hole_number] = c.par;
     }
 
     const grossMap: Record<string, number[]> = {};
     const breakdownMap: Record<string, Breakdown> = {};
-    for (const r of (holesRes.data ?? []) as any[]) {
+    for (const r of holesRes as any[]) {
       if (!grossMap[r.match_id]) grossMap[r.match_id] = [];
       grossMap[r.match_id].push(r.gross_score);
 
@@ -129,7 +138,7 @@ export default function RoundsScreen() {
     }
 
     const statMap: Record<string, { fh: number; ft: number; tp: number; pt: number }> = {};
-    for (const r of (statsRes.data ?? []) as any[]) {
+    for (const r of statsRes as any[]) {
       if (!statMap[r.match_id]) statMap[r.match_id] = { fh: 0, ft: 0, tp: 0, pt: 0 };
       if (r.fairway_hit !== null) {
         statMap[r.match_id].ft++;

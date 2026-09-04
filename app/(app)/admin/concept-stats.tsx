@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { goBack } from '../../../src/lib/navigation';
 
 // ── Constants ─────────────────────────────────────────────────
@@ -209,17 +209,22 @@ export default function ConceptStatsScreen() {
     if (!player) { setLoading(false); return; }
     const pid = (player as any).id as string;
 
+    // All four of these are career-long, whole-history reads for one player,
+    // so they clear PostgREST's 1000-row default cap fast: ~70+ shots and 18
+    // hole rows per round means a truncated read would quietly understate
+    // rounds played, shot counts and the scoring breakdown. hcpRes keeps its
+    // deliberate limit(20) — that one really is a bounded recent list.
     const [shotsRes, statsRes, holesRes, distRes, hcpRes] = await Promise.all([
-      supabase.from('shots').select('club_id, clubs(short, category)').eq('player_id', pid),
-      supabase.from('hole_stats').select('fairway_direction, putts').eq('player_id', pid),
-      supabase.from('match_holes').select('match_id, stableford_pts').eq('player_id', pid).not('stableford_pts', 'is', null),
-      supabase.from('shots').select('club_short, clubs(category), distance_yards').eq('player_id', pid).not('distance_yards', 'is', null),
+      fetchAllRows<any>((from, to) => supabase.from('shots').select('club_id, clubs(short, category)').eq('player_id', pid).order('id').range(from, to)),
+      fetchAllRows<any>((from, to) => supabase.from('hole_stats').select('fairway_direction, putts').eq('player_id', pid).order('match_id').order('hole_number').range(from, to)),
+      fetchAllRows<any>((from, to) => supabase.from('match_holes').select('match_id, stableford_pts').eq('player_id', pid).not('stableford_pts', 'is', null).order('id').range(from, to)),
+      fetchAllRows<any>((from, to) => supabase.from('shots').select('club_short, clubs(category), distance_yards').eq('player_id', pid).not('distance_yards', 'is', null).order('id').range(from, to)),
       supabase.from('handicap_history').select('handicap_index, calculated_at').eq('player_id', pid).order('calculated_at').limit(20),
     ]);
 
     const clubMap: Record<string, ClubStat> = {};
     let totalShots = 0;
-    for (const row of (shotsRes.data ?? []) as any[]) {
+    for (const row of shotsRes as any[]) {
       const club = row.clubs;
       if (!club) continue;
       totalShots++;
@@ -231,7 +236,7 @@ export default function ConceptStatsScreen() {
     const drv: DriveData = { left: 0, centre: 0, right: 0 };
     const ptt: PuttData  = { one: 0, two: 0, three: 0, total: 0 };
     let totalPutts = 0, puttsHoles = 0;
-    for (const row of (statsRes.data ?? []) as any[]) {
+    for (const row of statsRes as any[]) {
       if (row.fairway_direction === 'left')   drv.left++;
       if (row.fairway_direction === 'centre') drv.centre++;
       if (row.fairway_direction === 'right')  drv.right++;
@@ -245,7 +250,7 @@ export default function ConceptStatsScreen() {
 
     const matchIds = new Set<string>();
     const scr: ScoreData = { eagle: 0, birdie: 0, par: 0, bogey: 0, double: 0 };
-    for (const row of (holesRes.data ?? []) as any[]) {
+    for (const row of holesRes as any[]) {
       matchIds.add(row.match_id);
       const pts = row.stableford_pts as number;
       if (pts >= 4) scr.eagle++;
@@ -256,7 +261,7 @@ export default function ConceptStatsScreen() {
     }
 
     const distMap: Record<string, { cat: Category; total: number; count: number }> = {};
-    for (const row of (distRes.data ?? []) as any[]) {
+    for (const row of distRes as any[]) {
       const key = row.club_short ?? 'unknown';
       if (!distMap[key]) distMap[key] = { cat: ((row.clubs as any)?.category ?? inferCategory(key)) as Category, total: 0, count: 0 };
       distMap[key].total += Number(row.distance_yards);

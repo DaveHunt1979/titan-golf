@@ -318,11 +318,16 @@ async function recalculateSeasonEntry(seasonEntryId: string, seasonId: string, c
     const { data: siblings } = await supabase.from('season_entries').select('id, season_points, qualification_status').eq('division_id', entryRow.division_id);
     const siblingRows = (siblings ?? []) as { id: string; season_points: number; qualification_status: string }[];
     const siblingIds = siblingRows.map(s => s.id);
-    const { data: siblingCounting } = siblingIds.length
-      ? await supabase.from('season_rounds').select('season_entry_id, final_round_points').in('season_entry_id', siblingIds).eq('is_counting', true)
-      : { data: [] as any[] };
+    // counting_round_limit defaults to 20 per entry, so a division of only
+    // ~50 players already hits PostgREST's 1000-row default cap — a truncated
+    // read would write this player the wrong live position/movement status.
+    const siblingCounting = siblingIds.length
+      ? await fetchAllRows<any>(
+          (from, to) => supabase.from('season_rounds').select('season_entry_id, final_round_points').in('season_entry_id', siblingIds).eq('is_counting', true).order('id').range(from, to)
+        )
+      : [];
     const pointsBySibling: Record<string, number[]> = {};
-    for (const r of (siblingCounting ?? []) as any[]) (pointsBySibling[r.season_entry_id] ??= []).push(r.final_round_points);
+    for (const r of siblingCounting as any[]) (pointsBySibling[r.season_entry_id] ??= []).push(r.final_round_points);
     // This entry's own just-recalculated numbers may not be in siblingRows
     // yet if this is its very first round — fold them in explicitly.
     const withSelf = siblingRows.some(s => s.id === seasonEntryId)

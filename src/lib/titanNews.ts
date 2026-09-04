@@ -6,7 +6,7 @@
 // plain-facts JSON the titan-news edge function hands to Claude. Titan
 // calculates, AI only writes — this file is the "Titan calculates" half.
 
-import { supabase } from './supabase';
+import { supabase, fetchAllRows } from './supabase';
 import { getStandings, calcSweepBonus, scoreVsPar, individualScoreValue, getEffectiveWinner, matchLabel, buildKronosTieBreakMaps, kronosTieBreakCompare, type KronosTieBreakMaps } from './scoring';
 import { individualBoardLabel, matchFormatLabel } from './tournamentFormat';
 
@@ -34,9 +34,14 @@ async function loadCore(competitionId: string): Promise<Core> {
   ]);
 
   const matchIds = ((matches ?? []) as any[]).map(m => m.id);
-  const { data: holes } = matchIds.length
-    ? await supabase.from('match_holes').select('player_id,stableford_pts,match_id,hole_number').in('match_id', matchIds)
-    : { data: [] as any[] };
+  // Every hole of every player across the whole tournament — well past
+  // PostgREST's 1000-row default cap for any sizeable field. A truncated read
+  // here would feed the AI report silently incomplete standings.
+  const holes = matchIds.length
+    ? await fetchAllRows<any>(
+        (from, to) => supabase.from('match_holes').select('player_id,stableford_pts,match_id,hole_number').in('match_id', matchIds).order('id').range(from, to)
+      )
+    : [];
 
   return {
     competition, days: (days ?? []) as any[], matches: (matches ?? []) as any[],

@@ -295,14 +295,14 @@
     },
     {
       "path": "src/lib/seasonClose.ts",
-      "accessCount": 10,
-      "lastAccessed": 1788502227716,
+      "accessCount": 11,
+      "lastAccessed": 1788505735180,
       "type": "file"
     },
     {
       "path": "src/lib/seasonRoundIngestion.ts",
-      "accessCount": 7,
-      "lastAccessed": 1788374773495,
+      "accessCount": 8,
+      "lastAccessed": 1788505741616,
       "type": "file"
     },
     {
@@ -342,6 +342,12 @@
       "type": "file"
     },
     {
+      "path": "src/lib/titanNews.ts",
+      "accessCount": 4,
+      "lastAccessed": 1788505631136,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/clubhouse/index.tsx",
       "accessCount": 3,
       "lastAccessed": 1788370508036,
@@ -378,6 +384,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/index.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1788505637906,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/swindle/index.tsx",
       "accessCount": 2,
       "lastAccessed": 1788370455039,
@@ -402,12 +414,6 @@
       "type": "file"
     },
     {
-      "path": "src/lib/titanNews.ts",
-      "accessCount": 2,
-      "lastAccessed": 1788417831088,
-      "type": "file"
-    },
-    {
       "path": "supabase/migrations/20260824000000_round_tee_and_date.sql",
       "accessCount": 2,
       "lastAccessed": 1788426546389,
@@ -423,6 +429,18 @@
       "path": "src/lib/seasonLeaderboard.ts",
       "accessCount": 2,
       "lastAccessed": 1788502233151,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/season/table.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1788505728143,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/season/majors.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1788505748004,
       "type": "file"
     },
     {
@@ -456,12 +474,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/index.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788370554262,
-      "type": "file"
-    },
-    {
       "path": "src/lib/seasonScoring.ts",
       "accessCount": 1,
       "lastAccessed": 1788371080651,
@@ -489,18 +501,6 @@
       "path": "supabase/migrations/20260906000000_titan_season_round_sources.sql",
       "accessCount": 1,
       "lastAccessed": 1788372420611,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/season/table.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788373135810,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/season/majors.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788373411546,
       "type": "file"
     },
     {

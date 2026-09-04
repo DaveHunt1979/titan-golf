@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { supabase, freshChannel } from '../../src/lib/supabase';
+import { supabase, freshChannel, fetchAllRows } from '../../src/lib/supabase';
 import { resolveAvatar, titanLogo } from '../../src/lib/assets';
 import { useSocietyTheme, useDynamicColors } from '../../src/lib/SocietyThemeContext';
 import TCardSheet, { type PlayingNow } from '../../src/components/TCardSheet';
@@ -248,8 +248,15 @@ export default function HomeScreen() {
           const onlineSet = new Set((onlineRows ?? []).filter((r: any) => r.online).map((r: any) => r.player_id));
           const playingFriendIds = candidateFriendIds.filter(id => onlineSet.has(id));
 
-          const [{ data: holesData }, { data: friendPlayersData }] = await Promise.all([
-            playingFriendIds.length ? supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id').in('match_id', matchIds) : Promise.resolve({ data: [] as any[] }),
+          // 18 holes x every player in every live match — a busy society day
+          // clears PostgREST's 1000-row default cap, and a truncated read
+          // would quietly show friends the wrong points/hole.
+          const [holesData, { data: friendPlayersData }] = await Promise.all([
+            playingFriendIds.length
+              ? fetchAllRows<any>(
+                  (from, to) => supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id').in('match_id', matchIds).order('id').range(from, to)
+                )
+              : Promise.resolve([] as any[]),
             playingFriendIds.length ? supabase.from('players').select('id,display_name,email,handicap_index,avatar_url,t_tag').in('id', playingFriendIds) : Promise.resolve({ data: [] as any[] }),
           ]);
 

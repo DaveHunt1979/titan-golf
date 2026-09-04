@@ -4,7 +4,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
 import { rankDivisionEntries, type RankedSeasonEntry } from '../../../src/lib/seasonLeaderboard';
@@ -65,11 +65,16 @@ export default function SeasonTableScreen() {
 
     const entryRows = (entries ?? []) as any[];
     const entryIds = entryRows.map(r => r.id);
-    const { data: countingRounds } = entryIds.length
-      ? await supabase.from('season_rounds').select('season_entry_id, final_round_points').in('season_entry_id', entryIds).eq('is_counting', true)
-      : { data: [] as any[] };
+    // counting_round_limit defaults to 20 per entry, so a division of only
+    // ~50 players already hits PostgREST's 1000-row default cap — a truncated
+    // read would silently rank the division table on missing counting rounds.
+    const countingRounds = entryIds.length
+      ? await fetchAllRows<any>(
+          (from, to) => supabase.from('season_rounds').select('season_entry_id, final_round_points').in('season_entry_id', entryIds).eq('is_counting', true).order('id').range(from, to)
+        )
+      : [];
     const pointsByEntry: Record<string, number[]> = {};
-    for (const r of (countingRounds ?? []) as any[]) (pointsByEntry[r.season_entry_id] ??= []).push(r.final_round_points);
+    for (const r of countingRounds as any[]) (pointsByEntry[r.season_entry_id] ??= []).push(r.final_round_points);
 
     const ranked = rankDivisionEntries(
       entryRows.map(r => ({
