@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { Trophy, ClipboardList, Flag, BarChart3, KeyRound, ArrowUpRight, ShieldCheck } from 'lucide-react';
+import { Trophy, ClipboardList, Flag, BarChart3, KeyRound, ArrowUpRight, ShieldCheck, CalendarRange, Coins } from 'lucide-react';
 
 export default async function AdminPage() {
   const supabase = await createClient();
@@ -62,6 +62,8 @@ export default async function AdminPage() {
     { icon: <Trophy size={22} />,        label: 'New Competition',    href: '/tournament/new',     desc: 'Create a new season or casual comp' },
     { icon: <ClipboardList size={22} />, label: 'Tournament Archive', href: '/tournament/archive', desc: 'All competitions, champions & PINs' },
     { icon: <Flag size={22} />,          label: 'Tee Sheet',          href: '/admin/tee-sheet',    desc: 'Drag groups & set tee times'        },
+    { icon: <Coins size={22} />,         label: 'Swindle Manager',    href: `/swindle/${societyId}/manage`, desc: 'Create & run the society swindle' },
+    { icon: <CalendarRange size={22} />, label: 'Season Mode',        href: '/season',             desc: 'Divisions, majors & season standings' },
     { icon: <BarChart3 size={22} />,     label: 'Leaderboard',        href: '/leaderboard',        desc: 'Live Kronos & team standings'       },
     { icon: <KeyRound size={22} />,      label: 'Codes & PINs',       href: '/admin/codes',        desc: 'Join codes, tournament PINs & more' },
   ];
@@ -132,7 +134,7 @@ export default async function AdminPage() {
 
         {/* ── Quick actions ────────────────────────────────────── */}
         <SectionHeading label="Command Deck" />
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {quickActions.map(item => (
             <a
               key={item.label}

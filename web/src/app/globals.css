@@ -22,6 +22,12 @@
      not as a gold/green/red status. No existing token covered this. */
   --teal: #2dd4bf;
   --teal-fill: rgba(45,212,191,0.28);
+  /* Swindle's signature accent, carried over from the mobile app where it
+     distinguishes the Swindle from the gold Tournament identity. Secondary
+     only — used for pot/prize-money figures, never as the brand accent. */
+  --purple: #a78bfa;
+  --purple-dim: rgba(167,139,250,0.10);
+  --purple-border: rgba(167,139,250,0.35);
 }
 
 * { box-sizing: border-box; }

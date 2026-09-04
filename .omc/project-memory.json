@@ -259,8 +259,8 @@
   "hotPaths": [
     {
       "path": "app/(app)/admin/season-manage.tsx",
-      "accessCount": 32,
-      "lastAccessed": 1788415552603,
+      "accessCount": 33,
+      "lastAccessed": 1788502238868,
       "type": "file"
     },
     {
@@ -295,8 +295,8 @@
     },
     {
       "path": "src/lib/seasonClose.ts",
-      "accessCount": 9,
-      "lastAccessed": 1788374795660,
+      "accessCount": 10,
+      "lastAccessed": 1788502227716,
       "type": "file"
     },
     {
@@ -312,6 +312,12 @@
       "type": "file"
     },
     {
+      "path": "src/lib/seasonDivisions.ts",
+      "accessCount": 5,
+      "lastAccessed": 1788502227191,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/_layout.tsx",
       "accessCount": 4,
       "lastAccessed": 1788370550220,
@@ -321,12 +327,6 @@
       "path": "supabase/functions/titan-news/index.ts",
       "accessCount": 4,
       "lastAccessed": 1788374644309,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/seasonDivisions.ts",
-      "accessCount": 4,
-      "lastAccessed": 1788374686217,
       "type": "file"
     },
     {
@@ -366,6 +366,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/admin/season-create.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1788502238741,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/swindle/index.tsx",
       "accessCount": 2,
       "lastAccessed": 1788370455039,
@@ -396,12 +402,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/season-create.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1788415155310,
-      "type": "file"
-    },
-    {
       "path": "src/lib/titanNews.ts",
       "accessCount": 2,
       "lastAccessed": 1788417831088,
@@ -417,6 +417,12 @@
       "path": "supabase/migrations/20260804030000_swindle_groups.sql",
       "accessCount": 2,
       "lastAccessed": 1788426546897,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/seasonLeaderboard.ts",
+      "accessCount": 2,
+      "lastAccessed": 1788502233151,
       "type": "file"
     },
     {
@@ -483,12 +489,6 @@
       "path": "supabase/migrations/20260906000000_titan_season_round_sources.sql",
       "accessCount": 1,
       "lastAccessed": 1788372420611,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/seasonLeaderboard.ts",
-      "accessCount": 1,
-      "lastAccessed": 1788373051177,
       "type": "file"
     },
     {

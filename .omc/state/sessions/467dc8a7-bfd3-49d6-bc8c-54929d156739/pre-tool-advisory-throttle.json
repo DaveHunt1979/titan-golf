@@ -1,22 +1,34 @@
 {
   "version": 1,
   "entries": {
-    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1788440401283,
-      "message": "Verify changes work after editing. Test functionality before marking complete."
-    },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1788440272936,
+      "last_emitted_at_ms": 1788502821867,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1788440265110,
+      "last_emitted_at_ms": 1788502623366,
       "message": "Read multiple files in parallel when possible for faster analysis."
     },
-    "17aaf5114fc0cee4da570c6d45b1fe50e5f3410a24c9d0bc129414c915940939": {
-      "last_emitted_at_ms": 1788440259739,
-      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Overhaul web dashboard landing page visually"
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1788502614012,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
+    "808cb04420bcb368ab4716038ddd950b51198d0402b6cf8e965d66ca42ebccbe": {
+      "last_emitted_at_ms": 1788502329766,
+      "message": "[SLOP WARNING] Detected fallback/workaround language in this tool input. Do not make potential slop: avoid ad-hoc fallback layers, workaround shims, or environment-specific patches unless explicitly justified. For architecture concerns, consult the architect for a concrete design first. If this seems environment-specific, ask the user to confirm constraints before proceeding.\n\nVerify changes work after editing. Test functionality before marking complete."
+    },
+    "89858580493cf4b122fc9c1c78f183dde9537ade7342db85a090948d2b602853": {
+      "last_emitted_at_ms": 1788502223766,
+      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Build web swindle creation and admin management"
+    },
+    "8c578db38eb963c35ce8343865d5522c4c7cf2a9eb11ea345e8b15d72c1ded85": {
+      "last_emitted_at_ms": 1788502203450,
+      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Build web season mode creation and management"
+    },
+    "ebf47df3b3ff9c71e04eecad792e64b06ac708a6ff167d7f8ea8e3a4c3c386f0": {
+      "last_emitted_at_ms": 1788502179408,
+      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Rebuild web tournament wizard to real 7-step parity"
     }
   },
-  "updated_at": "2026-09-03T13:00:01.283Z"
+  "updated_at": "2026-09-04T06:20:21.867Z"
 }

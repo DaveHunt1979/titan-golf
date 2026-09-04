@@ -1,37 +1,20 @@
 import { createServiceClient } from '@/lib/supabase/service';
 import { Trophy, PoundSterling, Medal, Flag } from 'lucide-react';
+import { buildRounds, computeMoneyList } from '@/lib/swindle';
+import type { SwindleGameLite as Game, SwindleScoreRow as ScoreRow, SwindleRound as Round } from '@/lib/swindle';
 
 // Public, no-login "season stats" page for a society's Swindle — same
 // mechanism as /newsreel/[competitionId] (service-role client, no auth
 // required, shareable link) but for the ongoing Swindle season rather
-// than one finished tournament. Computation is self-contained rather than
-// importing the RN app's src/lib/swindleStats.ts — web/ and app/ are
+// than one finished tournament. Computation lives in @/lib/swindle rather
+// than importing the RN app's src/lib/swindleStats.ts — web/ and app/ are
 // separate projects with no cross-imports today (see newsreel's own note
-// on why it doesn't import src/lib/scoring.ts either).
+// on why it doesn't import src/lib/scoring.ts either) — and is shared with
+// the admin manage board so the two can never show a different Money List.
 
-type Game = {
-  id: string; name: string; game_date: string; entry_fee: number;
-  prize_split: number[] | null; status: string; format: string;
-};
 type Entry = { game_id: string; player_id: string; players: { display_name: string }[] | null };
-type ScoreRow = { game_id: string; player_id: string; hole_number: number; gross_score: number | null; stableford_pts: number | null };
-
-type Round = {
-  gameId: string; playerId: string;
-  front9: number; front9Holes: number; back9: number; back9Holes: number;
-  fullPts: number; fullGross: number; holesPlayed: number;
-  eagles: number; birdies: number; pars: number; blobs: number; oomPts: number;
-};
 type LeaderRow = { playerId: string; name: string; value: number };
 type RoundRecord = { playerId: string; name: string; value: number; gameName: string } | null;
-
-function oomPoints(pts: number): number {
-  if (pts >= 4) return 4;
-  if (pts === 3) return 3;
-  if (pts === 2) return 2;
-  if (pts === 0) return -1;
-  return 0;
-}
 
 function fmtDate(d: string | null) {
   if (!d) return null;
@@ -65,29 +48,7 @@ export default async function SwindleSeasonPage({ params }: { params: Promise<{ 
   const nameOf: Record<string, string> = {};
   entries.forEach(e => { nameOf[e.player_id] = e.players?.[0]?.display_name ?? 'Unknown'; });
 
-  const rounds: Record<string, Round> = {};
-  scores.forEach(s => {
-    const key = `${s.game_id}:${s.player_id}`;
-    const r = (rounds[key] ??= {
-      gameId: s.game_id, playerId: s.player_id,
-      front9: 0, front9Holes: 0, back9: 0, back9Holes: 0,
-      fullPts: 0, fullGross: 0, holesPlayed: 0,
-      eagles: 0, birdies: 0, pars: 0, blobs: 0, oomPts: 0,
-    });
-    if (s.stableford_pts != null) {
-      const pts = s.stableford_pts;
-      r.holesPlayed += 1;
-      r.fullPts += pts;
-      if (s.hole_number <= 9) { r.front9 += pts; r.front9Holes += 1; } else { r.back9 += pts; r.back9Holes += 1; }
-      if (pts >= 4) r.eagles += 1;
-      else if (pts === 3) r.birdies += 1;
-      else if (pts === 2) r.pars += 1;
-      else if (pts === 0) r.blobs += 1;
-      r.oomPts += oomPoints(pts);
-    }
-    if (s.gross_score != null) r.fullGross += s.gross_score;
-  });
-  const allRounds = Object.values(rounds);
+  const allRounds = Object.values(buildRounds(scores));
 
   const seasonAgg: Record<string, { eagles: number; birdies: number; pars: number; blobs: number; oomPts: number; games: Set<string> }> = {};
   allRounds.forEach(r => {
@@ -126,23 +87,9 @@ export default async function SwindleSeasonPage({ params }: { params: Promise<{ 
   const fullRounds   = allRounds.filter(r => r.holesPlayed >= 18);
   const medalRounds  = fullRounds.filter(r => gameById[r.gameId]?.format === 'stroke');
 
-  const earnings: Record<string, { earnings: number; wins: number; games: number }> = {};
-  games.filter(g => g.status === 'complete').forEach(g => {
-    const gameRounds = allRounds.filter(r => r.gameId === g.id).sort((a, b) => b.fullPts - a.fullPts);
-    const entrantCount = entries.filter(e => e.game_id === g.id).length;
-    const pot = entrantCount * (g.entry_fee ?? 0);
-    const split = g.prize_split ?? [50, 30, 20];
-    gameRounds.slice(0, split.length).forEach((r, i) => {
-      const payout = Math.round(pot * (split[i] ?? 0) / 100 * 100) / 100;
-      if (payout <= 0) return;
-      const e = (earnings[r.playerId] ??= { earnings: 0, wins: 0, games: 0 });
-      e.earnings += payout; e.games += 1;
-      if (i === 0) e.wins += 1;
-    });
-  });
-  const moneyList = Object.entries(earnings)
-    .map(([playerId, v]) => ({ playerId, name: nameOf[playerId] ?? 'Unknown', ...v }))
-    .sort((a, b) => b.earnings - a.earnings);
+  const entrantCountByGame: Record<string, number> = {};
+  entries.forEach(e => { entrantCountByGame[e.game_id] = (entrantCountByGame[e.game_id] ?? 0) + 1; });
+  const moneyList = computeMoneyList(games, allRounds, entrantCountByGame, nameOf);
 
   const records: { label: string; unit: string; color: string; rec: RoundRecord }[] = [
     { label: 'Best Stableford',   unit: 'pts', color: '#D4AF37', rec: bestOf(fullRounds, r => r.fullPts, 'max') },
