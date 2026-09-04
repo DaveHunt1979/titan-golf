@@ -1,22 +1,22 @@
 {
   "version": 1,
   "entries": {
-    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1788512723829,
-      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
-    },
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1788512690087,
+      "last_emitted_at_ms": 1788515068825,
       "message": "Verify changes work after editing. Test functionality before marking complete."
     },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1788512386533,
+      "last_emitted_at_ms": 1788515060052,
       "message": "Read multiple files in parallel when possible for faster analysis."
+    },
+    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
+      "last_emitted_at_ms": 1788514953931,
+      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
     "8f21a71a8a72dfa46517e973ad95eb91c5fa0fafba0ff2e5926bee748f03dad7": {
       "last_emitted_at_ms": 1788512370066,
       "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Cap font scaling so buttons stop wrapping"
     }
   },
-  "updated_at": "2026-09-04T09:05:23.829Z"
+  "updated_at": "2026-09-04T09:44:28.825Z"
 }

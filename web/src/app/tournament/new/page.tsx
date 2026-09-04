@@ -45,9 +45,10 @@ function Wizard() {
   const [error, setError] = useState('');
 
   // Identity
-  const [societyId, setSocietyId] = useState<string | null>(null);
-  const [playerId,  setPlayerId]  = useState<string | null>(null);
-  const [gateMsg,   setGateMsg]   = useState<string | null>(null);
+  const [societyId,   setSocietyId]   = useState<string | null>(null);
+  const [playerId,    setPlayerId]    = useState<string | null>(null);
+  const [gateMsg,     setGateMsg]     = useState<string | null>(null);
+  const [gateChecked, setGateChecked] = useState(false);
 
   // Step 0 — Format
   const [selectedFormat, setSelectedFormat] = useState<FormatId | null>(null);
@@ -105,17 +106,42 @@ function Wizard() {
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setGateMsg('You must be logged in to build a tournament.'); return; }
-      const { data: player } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
-      if (!player) { setGateMsg('Player profile not found.'); return; }
-      setPlayerId((player as { id: string }).id);
+      if (!user) { setGateMsg('You must be logged in to build a tournament.'); setGateChecked(true); return; }
+      const { data: player } = await supabase.from('players').select('id, display_name, email').eq('auth_uid', user.id).maybeSingle();
+      if (!player) {
+        setGateMsg(`Player profile not found for ${user.email ?? user.id}.`);
+        setGateChecked(true);
+        return;
+      }
+      const p = player as { id: string; display_name: string | null; email: string | null };
+      setPlayerId(p.id);
+      // Show every membership this player actually has, admin or not — if
+      // this list is empty, or doesn't include the society Dave expects,
+      // that tells us definitively which account the browser session
+      // resolved to, instead of guessing from a generic "access required".
+      const { data: allMemberships } = await supabase
+        .from('society_members').select('role, society_id, societies(name)')
+        .eq('player_id', p.id);
       const { data: member } = await supabase
         .from('society_members').select('role, society_id')
-        .eq('player_id', (player as { id: string }).id)
+        .eq('player_id', p.id)
         .in('role', ['admin', 'owner'])
         .order('created_at', { ascending: true }).limit(1).maybeSingle();
-      if (!member) { setGateMsg('Admin access required.'); return; }
+      if (!member) {
+        const who = p.display_name ?? p.email ?? user.email ?? p.id;
+        const memberships = (allMemberships ?? []) as { role: string; society_id: string; societies: { name: string } | { name: string }[] | null }[];
+        const societyList = memberships.length
+          ? memberships.map(m => {
+              const soc = Array.isArray(m.societies) ? m.societies[0] : m.societies;
+              return `${soc?.name ?? m.society_id} (${m.role})`;
+            }).join(', ')
+          : 'no societies at all';
+        setGateMsg(`Admin access required — signed in as ${who}, who belongs to: ${societyList}.`);
+        setGateChecked(true);
+        return;
+      }
       setSocietyId((member as { society_id: string }).society_id);
+      setGateChecked(true);
     })();
   }, [supabase]);
 
@@ -565,11 +591,22 @@ function Wizard() {
   }
 
   // ── Gate / success screens ────────────────────────────────────────────────
+  // Don't render the wizard at all until we actually know whether this
+  // session is allowed to — showing it first and yanking it away on failure
+  // is the "flash of content" bug this guard fixes.
+  if (!gateChecked) {
+    return (
+      <Shell>
+        <div className="px-6 py-12 text-sm text-neutral-500">Checking access…</div>
+      </Shell>
+    );
+  }
+
   if (gateMsg) {
     return (
       <Shell>
         <div className="mx-auto max-w-lg py-16 text-center">
-          <h1 className="text-[28px] font-black text-white">{gateMsg}</h1>
+          <h1 className="text-[22px] font-black text-white">{gateMsg}</h1>
           <Link href="/dashboard" className="mt-6 inline-block text-[12px] font-black uppercase tracking-widest text-[#D4AF37]">
             ← Back to Dashboard
           </Link>
