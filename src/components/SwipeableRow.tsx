@@ -14,18 +14,30 @@ const SWIPE_W = 76;
 // list (app/(app)/swindle/index.tsx) so the gesture feels identical
 // everywhere: drag the row sideways, a red bin slides in from the right,
 // tap it to delete.
+//
+// The revealed action defaults to Delete, but label/icon/colour can be
+// overridden so the same gesture can reveal something else — chat uses it to
+// reveal a gold "Reply" instead (ChatChannel / inbox/[playerId]).
 export default function SwipeableRow({
   children,
   onDelete,
   enabled = true,
   radius = 14,
   style,
+  actionLabel = 'Delete',
+  actionIcon = 'trash-outline',
+  actionColor = '#f87171',
+  actionTextColor = '#fff',
 }: {
   children: React.ReactNode;
   onDelete: () => void;
   enabled?: boolean;
   radius?: number;
   style?: StyleProp<ViewStyle>;
+  actionLabel?: string;
+  actionIcon?: React.ComponentProps<typeof Ionicons>['name'];
+  actionColor?: string;
+  actionTextColor?: string;
 }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const isOpen = useRef(false);
@@ -46,14 +58,23 @@ export default function SwipeableRow({
     })
   ).current;
 
+  // Snap shut before running the action — a delete unmounts the row anyway,
+  // but a non-destructive action (Reply) has to leave the row where it found
+  // it rather than stranding it open.
+  function runAction() {
+    isOpen.current = false;
+    Animated.spring(translateX, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
+    onDelete();
+  }
+
   if (!enabled) return <>{children}</>;
 
   return (
     <View style={style}>
       <View style={[sw.deleteWrap, { borderRadius: radius }]}>
-        <TouchableOpacity style={sw.deleteBtn} onPress={onDelete} activeOpacity={0.8}>
-          <Ionicons name="trash-outline" size={18} color="#fff" />
-          <Text style={sw.deleteText}>Delete</Text>
+        <TouchableOpacity style={[sw.deleteBtn, { backgroundColor: actionColor }]} onPress={runAction} activeOpacity={0.8}>
+          <Ionicons name={actionIcon} size={18} color={actionTextColor} />
+          <Text style={[sw.deleteText, { color: actionTextColor }]}>{actionLabel}</Text>
         </TouchableOpacity>
       </View>
       <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
@@ -65,6 +86,6 @@ export default function SwipeableRow({
 
 const sw = StyleSheet.create({
   deleteWrap: { position: 'absolute', top: 0, bottom: 0, right: 0, width: SWIPE_W, overflow: 'hidden' },
-  deleteBtn:  { flex: 1, backgroundColor: '#f87171', alignItems: 'center', justifyContent: 'center' },
-  deleteText: { color: '#fff', fontFamily: FFB, fontSize: 11, marginTop: 2 },
+  deleteBtn:  { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  deleteText: { fontFamily: FFB, fontSize: 11, marginTop: 2 },
 });

@@ -1,38 +1,22 @@
 {
   "version": 1,
   "entries": {
-    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1788507285783,
-      "message": "Verify changes work after editing. Test functionality before marking complete."
-    },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1788507164967,
+      "last_emitted_at_ms": 1788512723829,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1788512690087,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1788506743749,
+      "last_emitted_at_ms": 1788512386533,
       "message": "Read multiple files in parallel when possible for faster analysis."
     },
-    "33933aadb32ac828398daf920d9bc0dc10da3cf9e10ecc3488dacd44c40f5b78": {
-      "last_emitted_at_ms": 1788505436811,
-      "message": "Spawning agent: oh-my-claudecode:debugger (opus) | Task: Full sweep for unbounded 1000-row Supabase reads"
-    },
-    "808cb04420bcb368ab4716038ddd950b51198d0402b6cf8e965d66ca42ebccbe": {
-      "last_emitted_at_ms": 1788505013110,
-      "message": "[SLOP WARNING] Detected fallback/workaround language in this tool input. Do not make potential slop: avoid ad-hoc fallback layers, workaround shims, or environment-specific patches unless explicitly justified. For architecture concerns, consult the architect for a concrete design first. If this seems environment-specific, ask the user to confirm constraints before proceeding.\n\nVerify changes work after editing. Test functionality before marking complete."
-    },
-    "148b97702a0a6788700db4c71785c0e8ecac7a26e9a47737f8746f4b22740c53": {
-      "last_emitted_at_ms": 1788504689346,
-      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Add default tee-box row to casual round setup"
-    },
-    "fd8f6030041d7ec1692d832588aadfe9d17194c53e7a01405c7c8874aed2c5cd": {
-      "last_emitted_at_ms": 1788504156072,
-      "message": "Spawning agent: oh-my-claudecode:debugger (inherit) | Task: Fix course picker search selection bug"
-    },
-    "8a134f3ca7b1052e882077fd72dcebd974b0d8e04643ecff0342bc18b8e6f55a": {
-      "last_emitted_at_ms": 1788504131498,
-      "message": "Spawning agent: oh-my-claudecode:debugger (opus) | Task: Debug simulation leaderboard and swindle points mismatch"
+    "8f21a71a8a72dfa46517e973ad95eb91c5fa0fafba0ff2e5926bee748f03dad7": {
+      "last_emitted_at_ms": 1788512370066,
+      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Cap font scaling so buttons stop wrapping"
     }
   },
-  "updated_at": "2026-09-04T07:34:45.783Z"
+  "updated_at": "2026-09-04T09:05:23.829Z"
 }

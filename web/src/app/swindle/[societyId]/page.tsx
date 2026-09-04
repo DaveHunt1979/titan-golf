@@ -27,10 +27,16 @@ export default async function SwindleSeasonPage({ params }: { params: Promise<{ 
 
   const { data: society } = await supabase.from('societies').select('name').eq('id', societyId).maybeSingle();
 
+  // is_simulation is excluded as well as society_id — the mobile app's
+  // in-app Swindle simulator writes real swindle_games/entries/scores rows
+  // and enters every society member, so counting them here puts players who
+  // never joined a swindle into the Order of Merit and lets fabricated
+  // rounds hold the season records. Mirrors src/lib/swindleStats.ts.
   const { data: gamesData } = await supabase
     .from('swindle_games')
     .select('id, name, game_date, entry_fee, prize_split, status, format')
-    .eq('society_id', societyId);
+    .eq('society_id', societyId)
+    .eq('is_simulation', false);
   const games = (gamesData ?? []) as Game[];
   const gameById: Record<string, Game> = {};
   games.forEach(g => { gameById[g.id] = g; });

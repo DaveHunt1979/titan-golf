@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  backBtn: { width: 70 },
+  backBtn: { minWidth: 70 },
   backText: { fontSize: 15, fontFamily: FFB, color: GOLD },
   headerCenter: { alignItems: 'center', gap: 2 },
   logo: { width: 28, height: 28, marginBottom: 2 },

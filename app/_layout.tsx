@@ -1,3 +1,4 @@
+import '../src/lib/fontScaleCap'; // caps iOS Dynamic Type app-wide — must run before anything renders
 import { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
 import { Slot, useRouter, useSegments } from 'expo-router';

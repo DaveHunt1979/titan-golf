@@ -370,7 +370,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
     marginBottom: 8,
   },
-  back:          { color: GOLD, fontSize: 15, fontFamily: FFB, width: 60 },
+  back:          { color: GOLD, fontSize: 15, fontFamily: FFB, minWidth: 60 },
   headerTitle:   { flex: 1, fontSize: 15, fontFamily: FFB, color: '#fff', textAlign: 'center' },
   headerPts:     { fontSize: 15, fontFamily: FFB, color: GOLD, minWidth: 60, textAlign: 'right' },
   stepHint:      { fontSize: 12, color: '#fff', fontFamily: FFB, textAlign: 'center', marginBottom: 16, paddingHorizontal: 24 },

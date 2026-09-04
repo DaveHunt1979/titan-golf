@@ -7,7 +7,9 @@ import { useFocusEffect } from 'expo-router';
 import { useFonts } from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import SwipeableRow from './SwipeableRow';
 import { resolveAvatar } from '../lib/assets';
 import { useSocietyTheme } from '../lib/SocietyThemeContext';
 import { sendPushNotification } from '../lib/notifications';
@@ -15,6 +17,13 @@ import { sendPushNotification } from '../lib/notifications';
 const GOLD  = '#D4AF37';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
+
+// One select for every read path (initial load + the realtime refetch) so a
+// reply's quoted original always comes back with it. The quote is embedded off
+// the reply_to_message_id FK rather than looked up in the loaded window —
+// replies to messages older than the 60-row window still render their quote.
+const MSG_SELECT =
+  '*, player:player_id(display_name, avatar_url), reply_to:reply_to_message_id(id, player_id, content, player:player_id(display_name))';
 
 export type ChatChannelKey = 'general' | 'swindle' | 'tour';
 
@@ -24,6 +33,13 @@ export function chatReadKey(channel: ChatChannelKey) {
   return channel === 'general' ? 'chat_last_read' : `chat_last_read_${channel}`;
 }
 
+interface QuotedMessage {
+  id: string;
+  player_id: string;
+  content: string;
+  player: { display_name: string } | null;
+}
+
 interface Message {
   id: string;
   player_id: string;
@@ -31,6 +47,10 @@ interface Message {
   created_at: string;
   channel: ChatChannelKey;
   player: { display_name: string; avatar_url: string | null } | null;
+  reply_to_message_id: string | null;
+  // null while reply_to_message_id is set means the original was deleted
+  // (the FK is ON DELETE SET NULL, so this is only the pre-refetch window).
+  reply_to: QuotedMessage | null;
 }
 
 interface Me { id: string; display_name: string; avatar_url: string | null; }
@@ -53,6 +73,8 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   const flatRef = useRef<FlatList>(null);
   const subRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -89,7 +111,7 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
 
       const { data } = await supabase
         .from('messages')
-        .select('*, player:player_id(display_name, avatar_url)')
+        .select(MSG_SELECT)
         .eq('society_id', sid)
         .eq('channel', channel)
         .order('created_at', { ascending: false })
@@ -109,7 +131,7 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
             if (payload.new.channel !== channel) return;
             const { data: msg } = await supabase
               .from('messages')
-              .select('*, player:player_id(display_name, avatar_url)')
+              .select(MSG_SELECT)
               .eq('id', payload.new.id)
               .single();
             if (msg) setMessages(prev => [msg as unknown as Message, ...prev]);
@@ -133,12 +155,18 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
   async function sendMessage() {
     if (!text.trim() || !me || !societyId || sending) return;
     const content = text.trim();
+    const replyingTo = replyTo;
     setText('');
+    setReplyTo(null);
     setSending(true);
-    const { error } = await supabase.from('messages').insert({ player_id: me.id, content, society_id: societyId, channel });
+    const { error } = await supabase.from('messages').insert({
+      player_id: me.id, content, society_id: societyId, channel,
+      reply_to_message_id: replyingTo?.id ?? null,
+    });
     if (error) {
       console.error('send message failed:', error);
       setText(content);
+      setReplyTo(replyingTo);
     } else {
       supabase.from('society_members').select('player_id').eq('society_id', societyId).neq('player_id', me.id)
         .then(({ data: rows }) => {
@@ -157,35 +185,71 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
     return d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
+  // Tapping a quote jumps to the original when it's still in the loaded
+  // window and flashes it; older-than-the-window originals just do nothing
+  // rather than fetching a whole extra page.
+  function scrollToOriginal(originalId: string) {
+    const idx = messages.findIndex(m => m.id === originalId);
+    if (idx < 0) return;
+    flatRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.5 });
+    setHighlightId(originalId);
+    setTimeout(() => setHighlightId(prev => (prev === originalId ? null : prev)), 1400);
+  }
+
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isMe = item.player_id === me?.id;
     const name = item.player?.display_name?.split(' ')[0] ?? '?';
     const avatar = resolveAvatar(item.player_id, item.player?.avatar_url ?? null);
     const prev = messages[index + 1];
     const showAvatar = !prev || prev.player_id !== item.player_id;
+    const quoted = item.reply_to;
+    const quotedName = quoted
+      ? (quoted.player_id === me?.id ? 'You' : (quoted.player?.display_name?.split(' ')[0] ?? 'Player'))
+      : null;
 
     return (
-      <View style={[ss.row, isMe && ss.rowMe]}>
-        {!isMe && (
-          showAvatar
-            ? (avatar
-                ? <Image source={avatar} style={ss.avatar} />
-                : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{name[0]}</Text></View>)
-            : <View style={ss.avatarSpacer} />
-        )}
-        <View style={[ss.bubble, isMe ? ss.bubbleMe : ss.bubbleThem]}>
-          {!isMe && showAvatar && <Text style={ss.senderName}>{name}</Text>}
-          <Text style={[ss.msgText, isMe && ss.msgTextMe]}>{item.content}</Text>
-          <Text style={[ss.time, isMe && ss.timeMe]}>{formatTime(item.created_at)}</Text>
+      <SwipeableRow
+        onDelete={() => setReplyTo(item)}
+        actionLabel="Reply"
+        actionIcon="arrow-undo-outline"
+        actionColor={GOLD}
+        actionTextColor="#000"
+        radius={16}
+      >
+        <View style={[ss.row, isMe && ss.rowMe]}>
+          {!isMe && (
+            showAvatar
+              ? (avatar
+                  ? <Image source={avatar} style={ss.avatar} />
+                  : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{name[0]}</Text></View>)
+              : <View style={ss.avatarSpacer} />
+          )}
+          <View style={[ss.bubble, isMe ? ss.bubbleMe : ss.bubbleThem, highlightId === item.id && ss.bubbleFlash]}>
+            {!isMe && showAvatar && <Text style={ss.senderName}>{name}</Text>}
+            {item.reply_to_message_id && (
+              quoted ? (
+                <TouchableOpacity style={ss.quote} onPress={() => scrollToOriginal(quoted.id)} activeOpacity={0.7}>
+                  <Text style={ss.quoteName} numberOfLines={1}>{quotedName}</Text>
+                  <Text style={ss.quoteText} numberOfLines={2}>{quoted.content}</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={ss.quote}>
+                  <Text style={ss.quoteGone}>Original message deleted</Text>
+                </View>
+              )
+            )}
+            <Text style={[ss.msgText, isMe && ss.msgTextMe]}>{item.content}</Text>
+            <Text style={[ss.time, isMe && ss.timeMe]}>{formatTime(item.created_at)}</Text>
+          </View>
+          {isMe && (
+            showAvatar
+              ? (avatar
+                  ? <Image source={avatar} style={ss.avatar} />
+                  : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{(me?.display_name ?? '?')[0]}</Text></View>)
+              : <View style={ss.avatarSpacer} />
+          )}
         </View>
-        {isMe && (
-          showAvatar
-            ? (avatar
-                ? <Image source={avatar} style={ss.avatar} />
-                : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{(me?.display_name ?? '?')[0]}</Text></View>)
-            : <View style={ss.avatarSpacer} />
-        )}
-      </View>
+      </SwipeableRow>
     );
   };
 
@@ -216,6 +280,7 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
           inverted
           contentContainerStyle={ss.list}
           showsVerticalScrollIndicator={false}
+          onScrollToIndexFailed={() => {}}
           ListEmptyComponent={
             <View style={ss.empty}>
               <Text style={ss.emptyIcon}>💬</Text>
@@ -224,6 +289,24 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
             </View>
           }
         />
+
+        {replyTo && (
+          <View style={ss.replyBar}>
+            <View style={ss.replyBarBody}>
+              <Text style={ss.quoteName} numberOfLines={1}>
+                Replying to {replyTo.player_id === me?.id ? 'yourself' : (replyTo.player?.display_name?.split(' ')[0] ?? 'Player')}
+              </Text>
+              <Text style={ss.quoteText} numberOfLines={1}>{replyTo.content}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setReplyTo(null)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={18} color="#888" />
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={ss.inputRow}>
           {me && resolveAvatar(me.id, me.avatar_url)
@@ -310,6 +393,40 @@ const ss = StyleSheet.create({
     borderColor: GOLD,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 4,
+  },
+
+  bubbleFlash: { backgroundColor: 'rgba(212,175,55,0.32)', borderColor: GOLD },
+
+  // Quoted original inside a reply's own bubble, and the same treatment on
+  // the compose bar — thin gold left border + muted inset, existing tokens only.
+  quote: {
+    borderLeftWidth: 2,
+    borderLeftColor: GOLD,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    marginBottom: 5,
+  },
+  quoteName: { fontSize: 10, fontFamily: FFB, color: GOLD, letterSpacing: 0.3 },
+  quoteText: { fontSize: 12, fontFamily: FFB, color: '#aaa', lineHeight: 16, marginTop: 1 },
+  quoteGone: { fontSize: 12, fontFamily: FFB, color: '#666', fontStyle: 'italic' },
+
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#111',
+    borderTopWidth: 1,
+    borderTopColor: '#1c1c1c',
+  },
+  replyBarBody: {
+    flex: 1,
+    borderLeftWidth: 2,
+    borderLeftColor: GOLD,
+    paddingLeft: 8,
   },
 
   senderName: { fontSize: 11, fontFamily: FFB, color: '#fff', marginBottom: 2, letterSpacing: 0.3 },

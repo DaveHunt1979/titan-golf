@@ -303,9 +303,9 @@ const s = StyleSheet.create({
 
   // Header
   header:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
-  headerLeft:      { width: 60, justifyContent: 'center' },
+  headerLeft:      { minWidth: 60, justifyContent: 'center' },
   headerCenter:    { flex: 1, alignItems: 'center', gap: 4 },
-  headerRight:     { width: 60 },
+  headerRight:     { minWidth: 60 },
   back:            { fontSize: 14, fontFamily: FFB, color: GOLD },
   logo:            { width: 28, height: 28 },
   subtitle:        { fontSize: 9, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },

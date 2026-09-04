@@ -2279,7 +2279,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  backText: { fontSize: 13, fontFamily: FFB, color: GOLD, width: 80 },
+  backText: { fontSize: 13, fontFamily: FFB, color: GOLD, minWidth: 80 },
   headerCenter: { alignItems: 'center', gap: 2 },
   logo: { width: 28, height: 28, marginBottom: 2 },
   headerTitle: { fontSize: 12, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },

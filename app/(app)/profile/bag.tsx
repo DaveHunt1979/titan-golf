@@ -500,7 +500,7 @@ function makeStyles(c: ReturnType<typeof useDynamicColors>) {
       paddingTop: 60, paddingHorizontal: 24, paddingBottom: 16,
       borderBottomWidth: 1, borderBottomColor: c.border,
     },
-    back:  { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: c.gold, width: 48 },
+    back:  { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: c.gold, minWidth: 48 },
     title: { fontSize: 15, fontFamily: 'JUSTSans-ExBold', color: c.white, letterSpacing: 0.5 },
     scroll: { padding: 16, paddingBottom: 60 },
 

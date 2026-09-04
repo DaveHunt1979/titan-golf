@@ -283,7 +283,7 @@ const s = StyleSheet.create({
   headerCenter: { alignItems: 'center' },
   headerLogo:   { width: 32, height: 32 },
   headerSub:    { fontFamily: FFB, fontSize: 10, letterSpacing: 2, marginTop: 2 },
-  back:         { fontFamily: FFB, fontSize: 14, width: 48 },
+  back:         { fontFamily: FFB, fontSize: 14, minWidth: 48 },
 
   scroll:       { padding: 20, paddingBottom: 60 },
 

@@ -213,7 +213,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  back:         { fontSize: 15, fontFamily: FFB, color: GOLD, width: 70 },
+  back:         { fontSize: 15, fontFamily: FFB, color: GOLD, minWidth: 70 },
   headerCenter: { alignItems: 'center', gap: 2 },
   logo:         { width: 28, height: 28, marginBottom: 2 },
   title:        { fontSize: 13, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },

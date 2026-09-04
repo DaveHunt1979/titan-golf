@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingBottom: 12,
     borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  back: { fontSize: 13, fontFamily: FFB, color: GOLD, width: 70 },
+  back: { fontSize: 13, fontFamily: FFB, color: GOLD, minWidth: 70 },
   headerCenter: { alignItems: 'center', gap: 2 },
   logo: { width: 28, height: 28, marginBottom: 2 },
   headerTitle: { fontSize: 12, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },

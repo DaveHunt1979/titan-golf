@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd /Users/davehunt/Desktop/titan-golf/web && cat .vercel/project.json 2>/dev/null; echo \\\"---\\\"; which vercel; vercel --version 2>&1\"}",
-  "error": "Exit code 127\n---\nvercel not found\n(eval):1: command not found: vercel",
-  "timestamp": "2026-09-03T11:09:25.170Z",
+  "tool_input_preview": "{\"command\":\"cat package.json | head -40 && echo \\\"---APPJSON---\\\" && ls app.json app.config.* 2>/dev/null\",\"description\":\"Check entry point and config\"}",
+  "error": "Exit code 1\n{\n  \"name\": \"titan-golf\",\n  \"version\": \"1.0.0\",\n  \"main\": \"index.ts\",\n  \"dependencies\": {\n    \"@react-native-async-storage/async-storage\": \"2.2.0\",\n    \"@react-native-community/datetimepicker\": \"8.4.4\",\n    \"@supabase/supabase-js\": \"^2.108.2\",\n    \"expo\": \"~54.0.0\",\n    \"expo-av\": \"~14.0.7\",\n    \"expo-camera\": \"~17.0.10\",\n    \"expo-constants\": \"~18.0.13\",\n    \"expo-file-system\": \"~19.0.23\",\n    \"expo-image-picker\": \"~17.0.11\",\n    \"expo-linking\": \"~8.0.12\",\n    \"expo-local-authentica...",
+  "timestamp": "2026-09-04T08:59:38.170Z",
   "retry_count": 1
 }

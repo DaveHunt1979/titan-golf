@@ -345,7 +345,7 @@ export default function ChaChaScreen() {
 const s = StyleSheet.create({
   container:         { flex: 1, backgroundColor: '#000' },
   header:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#1c1c1c' },
-  backBtn:           { width: 60 },
+  backBtn:           { minWidth: 60 },
   back:              { fontSize: 13, fontFamily: FFB, color: GOLD },
   headerCenter:      { alignItems: 'center', gap: 4 },
   logo:              { width: 28, height: 28 },

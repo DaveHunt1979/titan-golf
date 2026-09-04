@@ -119,6 +119,12 @@ export default function SwindleAdminScreen() {
         prize_split, status, format,
         swindle_entries(player_id, players(display_name))
       `)
+      // Simulator-generated games never count towards the Money List tab
+      // (or the CSV export) below — simulateSwindle.ts writes real rows and
+      // enters EVERY society member with fabricated scores, so a player who
+      // never joined a swindle would otherwise show season earnings. Sim
+      // games are listed and deleted on app/(app)/swindle/simulate.tsx.
+      .eq('is_simulation', false)
       .order('game_date', { ascending: false });
 
     if (!gamesData) { setLoading(false); setRefreshing(false); return; }
@@ -547,7 +553,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1c1c1c',
   },
-  back: { fontSize: 15, fontFamily: FFB, color: GOLD, width: 70 },
+  back: { fontSize: 15, fontFamily: FFB, color: GOLD, minWidth: 70 },
   headerCenter: { alignItems: 'center', gap: 2 },
   logo: { width: 28, height: 28, marginBottom: 2 },
   title: { fontSize: 14, fontFamily: FFB, color: '#fff', letterSpacing: 1.5 },

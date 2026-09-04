@@ -56,10 +56,18 @@ function oomPoints(pts: number): number {
 // record. Keeping it in one function means the admin screen, the member
 // screen, and the "push to members" DM summary can never disagree.
 export async function computeSwindleSeasonStats(societyId: string): Promise<SwindleSeasonStats> {
+  // is_simulation is excluded, not just society_id. The in-app Swindle
+  // simulator (src/lib/simulateSwindle.ts) writes REAL swindle_games /
+  // swindle_entries / swindle_scores rows and enters EVERY member of the
+  // society — so without this filter a player who has never joined a real
+  // swindle still lands in the Order of Merit, and randomly generated
+  // simulated rounds set the season records. Simulations are managed and
+  // deleted from app/(app)/swindle/simulate.tsx, never counted here.
   const { data: gamesData } = await supabase
     .from('swindle_games')
     .select('id, name, game_date, entry_fee, prize_split, status, format')
-    .eq('society_id', societyId);
+    .eq('society_id', societyId)
+    .eq('is_simulation', false);
   const games = (gamesData ?? []) as {
     id: string; name: string; game_date: string; entry_fee: number;
     prize_split: number[]; status: string; format: string;

@@ -79,6 +79,10 @@ export default function SwindleManagePage({ params }: { params: Promise<{ societ
       .from('swindle_games')
       .select('id, name, game_date, course_name, entry_fee, currency, prize_split, status, format, join_code, registration_closed_at')
       .eq('society_id', societyId)
+      // Simulator-generated games are excluded here for the same reason as
+      // the public season page: they enter every society member with
+      // fabricated scores, which would pollute this board's Money List.
+      .eq('is_simulation', false)
       .order('game_date', { ascending: false });
 
     const games = (gamesData ?? []) as GameRow[];

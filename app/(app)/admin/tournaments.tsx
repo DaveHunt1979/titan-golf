@@ -274,9 +274,9 @@ const s = StyleSheet.create({
     paddingTop: 60, paddingHorizontal: 20, paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#1c1c1c',
   },
-  headerLeft:   { width: 70, alignItems: 'flex-start' },
+  headerLeft:   { minWidth: 70, alignItems: 'flex-start' },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerRight:  { width: 70, alignItems: 'flex-end' },
+  headerRight:  { minWidth: 70, alignItems: 'flex-end' },
   newBtn: {
     backgroundColor: GOLD + '1A', borderWidth: 1, borderColor: GOLD + '55',
     borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5,

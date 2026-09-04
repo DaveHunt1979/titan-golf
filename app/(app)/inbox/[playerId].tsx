@@ -8,6 +8,7 @@ import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
+import SwipeableRow from '../../../src/components/SwipeableRow';
 import { resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 import { sendPushNotification } from '../../../src/lib/notifications';
@@ -17,6 +18,10 @@ const GREEN  = '#4ade80';
 const RED    = '#f87171';
 const FFB    = 'JUSTSans-ExBold';
 
+interface QuotedDM {
+  id: string; sender_id: string; content: string;
+}
+
 interface DM {
   id: string; sender_id: string; recipient_id: string; content: string; created_at: string;
   message_type: 'text' | 'tournament_invite' | 'newsreel' | 'swindle_settlement' | 'match_report' | 'swindle_records';
@@ -24,9 +29,16 @@ interface DM {
   invite_response: 'accepted' | 'declined' | null;
   link_url: string | null;
   competitions: { name: string; pin: string | null } | null;
+  reply_to_message_id: string | null;
+  // null while reply_to_message_id is set means the original was deleted —
+  // the FK is ON DELETE SET NULL, so this is only the pre-refetch window.
+  reply_to: QuotedDM | null;
 }
 
-const DM_SELECT = 'id, sender_id, recipient_id, content, created_at, message_type, competition_id, invite_response, link_url, competitions(name, pin)';
+// The quoted original is embedded off the reply_to_message_id FK rather than
+// looked up in the loaded window, so a reply to something older than the
+// 100-row page still renders its quote.
+const DM_SELECT = 'id, sender_id, recipient_id, content, created_at, message_type, competition_id, invite_response, link_url, competitions(name, pin), reply_to_message_id, reply_to:reply_to_message_id(id, sender_id, content)';
 
 export default function DmThread() {
   const { playerId, name, avatar } = useLocalSearchParams<{ playerId: string; name?: string; avatar?: string }>();
@@ -39,6 +51,8 @@ export default function DmThread() {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [replyTo, setReplyTo] = useState<DM | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   const flatRef = useRef<FlatList>(null);
   const subRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -107,15 +121,18 @@ export default function DmThread() {
   async function sendMessage() {
     if (!text.trim() || !myId || sending) return;
     const content = text.trim();
+    const replyingTo = replyTo;
     setText('');
+    setReplyTo(null);
     setSending(true);
     const { data, error } = await supabase.from('direct_messages')
-      .insert({ sender_id: myId, recipient_id: playerId, content })
+      .insert({ sender_id: myId, recipient_id: playerId, content, reply_to_message_id: replyingTo?.id ?? null })
       .select(DM_SELECT)
       .single();
     if (error) {
       console.error('send DM failed:', error);
       setText(content);
+      setReplyTo(replyingTo);
     } else if (data) {
       setMessages(prev => [data as unknown as DM, ...prev]);
       supabase.from('players').select('display_name').eq('id', myId).single().then(({ data: me }) => {
@@ -144,8 +161,22 @@ export default function DmThread() {
         const { error } = await supabase.from('direct_messages').delete().eq('id', msg.id);
         if (error) { Alert.alert('Error', error.message); return; }
         setMessages(prev => prev.filter(m => m.id !== msg.id));
+        // Don't leave the composer aimed at a row that no longer exists —
+        // the insert's FK would reject it.
+        setReplyTo(prev => (prev?.id === msg.id ? null : prev));
       }},
     ]);
+  }
+
+  // Tapping a quote jumps to the original when it's still in the loaded
+  // window and flashes it; anything older simply does nothing rather than
+  // fetching another page.
+  function scrollToOriginal(originalId: string) {
+    const idx = messages.findIndex(m => m.id === originalId);
+    if (idx < 0) return;
+    flatRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.5 });
+    setHighlightId(originalId);
+    setTimeout(() => setHighlightId(prev => (prev === originalId ? null : prev)), 1400);
   }
 
   function formatTime(ts: string) {
@@ -266,25 +297,50 @@ export default function DmThread() {
 
     const prev = messages[index + 1];
     const showAvatar = !prev || prev.sender_id !== item.sender_id;
+    const quoted = item.reply_to;
+    const quotedName = quoted
+      ? (quoted.sender_id === myId ? 'You' : otherName.split(' ')[0])
+      : null;
 
     return (
-      <View style={[ss.row, isMe && ss.rowMe]}>
-        {!isMe && (
-          showAvatar
-            ? (avatarSrc
-                ? <Image source={avatarSrc} style={ss.avatar} />
-                : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{otherName[0]}</Text></View>)
-            : <View style={ss.avatarSpacer} />
-        )}
-        <TouchableOpacity
-          style={[ss.bubble, isMe ? ss.bubbleMe : ss.bubbleThem]}
-          onLongPress={() => confirmDeleteMessage(item)}
-          activeOpacity={0.8}
-        >
-          <Text style={ss.msgText}>{item.content}</Text>
-          <Text style={ss.time}>{formatTime(item.created_at)}</Text>
-        </TouchableOpacity>
-      </View>
+      <SwipeableRow
+        onDelete={() => setReplyTo(item)}
+        actionLabel="Reply"
+        actionIcon="arrow-undo-outline"
+        actionColor={GOLD}
+        actionTextColor="#000"
+        radius={16}
+      >
+        <View style={[ss.row, isMe && ss.rowMe]}>
+          {!isMe && (
+            showAvatar
+              ? (avatarSrc
+                  ? <Image source={avatarSrc} style={ss.avatar} />
+                  : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{otherName[0]}</Text></View>)
+              : <View style={ss.avatarSpacer} />
+          )}
+          <TouchableOpacity
+            style={[ss.bubble, isMe ? ss.bubbleMe : ss.bubbleThem, highlightId === item.id && ss.bubbleFlash]}
+            onLongPress={() => confirmDeleteMessage(item)}
+            activeOpacity={0.8}
+          >
+            {item.reply_to_message_id && (
+              quoted ? (
+                <TouchableOpacity style={ss.quote} onPress={() => scrollToOriginal(quoted.id)} activeOpacity={0.7}>
+                  <Text style={ss.quoteName} numberOfLines={1}>{quotedName}</Text>
+                  <Text style={ss.quoteText} numberOfLines={2}>{quoted.content}</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={ss.quote}>
+                  <Text style={ss.quoteGone}>Original message deleted</Text>
+                </View>
+              )
+            )}
+            <Text style={ss.msgText}>{item.content}</Text>
+            <Text style={ss.time}>{formatTime(item.created_at)}</Text>
+          </TouchableOpacity>
+        </View>
+      </SwipeableRow>
     );
   };
 
@@ -315,6 +371,7 @@ export default function DmThread() {
           inverted
           contentContainerStyle={ss.list}
           showsVerticalScrollIndicator={false}
+          onScrollToIndexFailed={() => {}}
           ListEmptyComponent={
             <View style={ss.empty}>
               <Text style={ss.emptyIcon}>✉️</Text>
@@ -323,6 +380,24 @@ export default function DmThread() {
             </View>
           }
         />
+
+        {replyTo && (
+          <View style={ss.replyBar}>
+            <View style={ss.replyBarBody}>
+              <Text style={ss.quoteName} numberOfLines={1}>
+                Replying to {replyTo.sender_id === myId ? 'yourself' : otherName.split(' ')[0]}
+              </Text>
+              <Text style={ss.quoteText} numberOfLines={1}>{replyTo.content}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setReplyTo(null)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={18} color="#888" />
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={ss.inputRow}>
           <TextInput
@@ -374,6 +449,25 @@ const ss = StyleSheet.create({
   bubble: { maxWidth: '74%', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1 },
   bubbleThem: { backgroundColor: '#111', borderColor: '#1c1c1c', borderBottomLeftRadius: 4 },
   bubbleMe:   { backgroundColor: 'rgba(212,175,55,0.15)', borderColor: GOLD, borderBottomLeftRadius: 16, borderBottomRightRadius: 4 },
+
+  bubbleFlash: { backgroundColor: 'rgba(212,175,55,0.32)', borderColor: GOLD },
+
+  // Quoted original inside a reply's own bubble, and the same treatment on
+  // the compose bar — thin gold left border + muted inset, existing tokens only.
+  quote: {
+    borderLeftWidth: 2, borderLeftColor: GOLD, backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, marginBottom: 5,
+  },
+  quoteName: { fontSize: 10, fontFamily: FFB, color: GOLD, letterSpacing: 0.3 },
+  quoteText: { fontSize: 12, fontFamily: FFB, color: '#aaa', lineHeight: 16, marginTop: 1 },
+  quoteGone: { fontSize: 12, fontFamily: FFB, color: '#666', fontStyle: 'italic' },
+
+  replyBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#111',
+    borderTopWidth: 1, borderTopColor: '#1c1c1c',
+  },
+  replyBarBody: { flex: 1, borderLeftWidth: 2, borderLeftColor: GOLD, paddingLeft: 8 },
 
   msgText: { fontSize: 14, fontFamily: FFB, color: '#fff', lineHeight: 18 },
   time:    { fontSize: 10, fontFamily: FFB, color: '#fff', marginTop: 3, alignSelf: 'flex-end' },

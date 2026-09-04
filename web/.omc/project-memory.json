@@ -159,6 +159,12 @@
       "type": "file"
     },
     {
+      "path": "src/app/swindle/[societyId]/page.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1788512015600,
+      "type": "file"
+    },
+    {
       "path": "src/app/admin/page.tsx",
       "accessCount": 4,
       "lastAccessed": 1788441157529,
@@ -180,12 +186,6 @@
       "path": "src/app/stats/page.tsx",
       "accessCount": 4,
       "lastAccessed": 1788441411189,
-      "type": "file"
-    },
-    {
-      "path": "src/app/swindle/[societyId]/page.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1788446788555,
       "type": "file"
     },
     {
@@ -243,6 +243,12 @@
       "type": "file"
     },
     {
+      "path": "src/app/swindle/[societyId]/manage/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1788512023318,
+      "type": "file"
+    },
+    {
       "path": "src/app/page.tsx",
       "accessCount": 1,
       "lastAccessed": 1787754718931,
@@ -252,6 +258,12 @@
       "path": "src/lib/supabase/client.ts",
       "accessCount": 1,
       "lastAccessed": 1788506856594,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/swindle.ts",
+      "accessCount": 1,
+      "lastAccessed": 1788511794028,
       "type": "file"
     }
   ],
