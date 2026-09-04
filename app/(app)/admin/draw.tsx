@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { getStandings, calcSweepBonus, buildKronosTieBreakMaps, rankPlayersByKronos, type KronosTieBreakMaps } from '../../../src/lib/scoring';
 import { resolveAvatar, teamLogos } from '../../../src/lib/assets';
@@ -199,8 +199,15 @@ export default function TournamentDrawScreen() {
     // singles-draw pairing (best-vs-best across the two sides).
     if (matchData && (matchData as any[]).length > 0) {
       const matchIds = (matchData as any[]).map(m => m.id);
-      const { data: holesData } = await supabase
-        .from('match_holes').select('player_id,match_id,hole_number,stableford_pts').in('match_id', matchIds);
+      // Paged: PostgREST caps an unbounded .select() at 1000 rows and a
+      // tournament's match_holes runs to several thousand (players x rounds x
+      // 18). Truncated, these Stableford totals — which seed the singles /
+      // Titan Way final-day knockout draw — were built from only part of the
+      // tournament, so the bracket could be seeded off the wrong order.
+      // Same fix already applied to the Kronos read in tour/index.tsx.
+      const holesData = await fetchAllRows<any>(
+        (from, to) => supabase.from('match_holes').select('player_id,match_id,hole_number,stableford_pts').in('match_id', matchIds).order('id').range(from, to)
+      );
       const totals: Record<string, number> = {};
       (holesData as any[] ?? []).forEach(h => {
         if (h.stableford_pts != null) totals[h.player_id] = (totals[h.player_id] ?? 0) + h.stableford_pts;

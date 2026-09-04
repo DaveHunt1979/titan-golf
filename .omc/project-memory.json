@@ -265,8 +265,14 @@
     },
     {
       "path": "app/(app)/games/GroupBuilderSheet.tsx",
-      "accessCount": 18,
-      "lastAccessed": 1788356863100,
+      "accessCount": 27,
+      "lastAccessed": 1788504256427,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 26,
+      "lastAccessed": 1788504234436,
       "type": "file"
     },
     {
@@ -285,12 +291,6 @@
       "path": "app/(app)/season/join.tsx",
       "accessCount": 12,
       "lastAccessed": 1788415594775,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 11,
-      "lastAccessed": 1788357395741,
       "type": "file"
     },
     {
@@ -336,6 +336,12 @@
       "type": "file"
     },
     {
+      "path": "src/components/TeePickerSheet.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1788504130349,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/clubhouse/index.tsx",
       "accessCount": 3,
       "lastAccessed": 1788370508036,
@@ -345,12 +351,6 @@
       "path": "app.json",
       "accessCount": 3,
       "lastAccessed": 1788375722005,
-      "type": "file"
-    },
-    {
-      "path": "src/components/TeePickerSheet.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1788415397834,
       "type": "file"
     },
     {
@@ -372,15 +372,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/swindle/index.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1788370455039,
+      "path": "src/lib/scoring.ts",
+      "accessCount": 3,
+      "lastAccessed": 1788504233323,
       "type": "file"
     },
     {
-      "path": "src/lib/scoring.ts",
+      "path": "app/(app)/swindle/index.tsx",
       "accessCount": 2,
-      "lastAccessed": 1788370763492,
+      "lastAccessed": 1788370455039,
       "type": "file"
     },
     {

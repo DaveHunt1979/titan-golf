@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, fetchAllRows } from './supabase';
 
 export type SwindleLeader = { playerId: string; name: string; value: number };
 export type SwindleRoundRecord = {
@@ -70,12 +70,20 @@ export async function computeSwindleSeasonStats(societyId: string): Promise<Swin
   games.forEach(g => { gameById[g.id] = g; });
   const gameIds = games.map(g => g.id);
 
-  const [{ data: entriesData }, { data: scoresData }] = await Promise.all([
-    supabase.from('swindle_entries').select('game_id, player_id, players(display_name)').in('game_id', gameIds),
-    supabase.from('swindle_scores').select('game_id, player_id, hole_number, gross_score, stableford_pts').in('game_id', gameIds),
+  // Paged, not a bare .select() — PostgREST caps an unbounded select at 1000
+  // rows, and this reads EVERY hole of EVERY Swindle in the society: 18 rows
+  // per player per game, so a season passes 1000 rows after roughly three
+  // 20-player games. Truncated, whole rounds silently vanished from the
+  // Order of Merit, Money List, birdie/par counts and best/worst records —
+  // real season data, not just simulations.
+  const [entries, scores] = await Promise.all([
+    fetchAllRows<any>(
+      (from, to) => supabase.from('swindle_entries').select('game_id, player_id, players(display_name)').in('game_id', gameIds).order('id').range(from, to)
+    ),
+    fetchAllRows<any>(
+      (from, to) => supabase.from('swindle_scores').select('game_id, player_id, hole_number, gross_score, stableford_pts').in('game_id', gameIds).order('id').range(from, to)
+    ),
   ]);
-  const entries = (entriesData ?? []) as any[];
-  const scores = (scoresData ?? []) as any[];
 
   const nameOf: Record<string, string> = {};
   entries.forEach(e => { nameOf[e.player_id] = e.players?.display_name ?? 'Unknown'; });

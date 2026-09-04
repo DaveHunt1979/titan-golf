@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { calcStrokesReceived } from '../../../src/lib/scoring';
 import { goBack } from '../../../src/lib/navigation';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
@@ -107,10 +107,23 @@ export default function SwindleGame() {
     // re-entering this screen (e.g. "View Leaderboard" after finishing a
     // round) right as a transient network blip hits one of the queries below.
     try {
-    const [{ data: gameData }, { data: entriesData }, { data: scoresData }, { data: groupsData }] = await Promise.all([
+    // PostgREST caps an unbounded .select() at 1000 rows — a Swindle's
+    // swindle_scores is 18 rows per entrant, so anything past ~55 entrants
+    // (well inside what the Swindle simulator and a big society day can
+    // produce) was silently truncated here: the entrants whose rows landed
+    // past row 1000 showed a partial or zero points total on this
+    // leaderboard while their own scorecard, which queries filtered by
+    // player, showed the real number. Same class already fixed on the
+    // tournament side in tour/index.tsx (2026-09-01).
+    const [{ data: gameData }, { data: entriesData }, scoresData, { data: groupsData }] = await Promise.all([
       supabase.from('swindle_games').select('*').eq('id', gameId).single(),
       supabase.from('swindle_entries').select('player_id, handicap, paid').eq('game_id', gameId),
-      supabase.from('swindle_scores').select('player_id, hole_number, gross_score, stableford_pts').eq('game_id', gameId),
+      fetchAllRows<PlayerScore>(
+        // .order('id') keeps the .range() pages deterministic — an unordered
+        // LIMIT/OFFSET can repeat or skip rows between pages, which on a
+        // points total would be worse than the truncation it replaces.
+        (from, to) => supabase.from('swindle_scores').select('player_id, hole_number, gross_score, stableford_pts').eq('game_id', gameId).order('id').range(from, to)
+      ),
       supabase.from('swindle_groups').select('id, tee_time, course_tee, created_by, swindle_group_players(player_id, is_guest, guest_name)').eq('game_id', gameId).order('tee_time'),
     ]);
 
@@ -171,7 +184,7 @@ export default function SwindleGame() {
       }
     }
 
-    const scores = (scoresData ?? []) as PlayerScore[];
+    const scores = scoresData as PlayerScore[];
     setAllScores(scores);
 
     if (entriesData) {

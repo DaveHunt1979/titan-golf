@@ -8,7 +8,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../../src/lib/supabase';
 import { calcHoles, matchLabel, individualScoreValue, formatVsPar } from '../../../../src/lib/scoring';
 import { goBack } from '../../../../src/lib/navigation';
 import { resolveAvatar } from '../../../../src/lib/assets';
@@ -95,13 +95,18 @@ export default function DayLobby() {
 
     const allPlayerIds = [...new Set((matches as any[]).flatMap(m => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]))];
 
-    const [{ data: playersData }, { data: holesData }, { data: courseHolesData }] = await Promise.all([
+    const [{ data: playersData }, holesData, { data: courseHolesData }] = await Promise.all([
       allPlayerIds.length
         ? supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allPlayerIds)
         : Promise.resolve({ data: [] }),
-      supabase.from('match_holes')
-        .select('match_id,player_id,stableford_pts,gross_score,hole_number')
-        .in('match_id', (matches as any[]).map(m => m.id)),
+      // Paged — an unbounded .select() stops at PostgREST's 1000 rows, which
+      // a single day of a 6+ team tournament already exceeds (matches x
+      // players x 18), silently dropping holes from this day's leaderboard.
+      fetchAllRows<any>(
+        (from, to) => supabase.from('match_holes')
+          .select('match_id,player_id,stableford_pts,gross_score,hole_number')
+          .in('match_id', (matches as any[]).map(m => m.id)).order('id').range(from, to)
+      ),
       // Needed for the "Best 2 From 4 (Par 3s)" Mashie variant — all scores
       // count on a par-3 hole instead of just the best 2, so teamScore below
       // needs each hole's par, not just the points already fetched above.

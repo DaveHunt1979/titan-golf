@@ -12,11 +12,10 @@
 // admin/draw.tsx's generateDraw() already does for those formats; stableford/
 // medal reuse draw.tsx's isIndividual grouping. knockout is skipped — it's
 // `available: false`, not a real format to simulate yet.
-import { supabase } from './supabase';
+import { supabase, fetchAllRows } from './supabase';
 import {
   calcStrokesReceived, calcStablefordPoints, calcHoles, getStandings,
-  calcSweepBonus, buildKronosTieBreakMaps, rankPlayersByKronos, playerCourseHcp,
-  scoreVsPar,
+  buildKronosTieBreakMaps, rankPlayersByKronos, playerCourseHcp,
 } from './scoring';
 import { computeRoundRobinMatchups, generateTitanWaySchedule } from './titanWayDraw';
 import { FORMAT_RULES, type FormatId } from './tournamentFormat';
@@ -330,16 +329,27 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
     // Kronos ranks each bracket's singles order.
     onProgress?.('Seeding playoff from qualifying standings...');
     const bracket = qualifyingStandings.map(s => s.teamId);
-    const { data: day3HoleRows } = await supabase.from('match_holes').select('player_id,match_id,hole_number,stableford_pts')
-      .in('match_id', matchIdsByDay[3] ?? []);
-    const kronosMaps = buildKronosTieBreakMaps((day3HoleRows ?? []) as any, new Set(matchIdsByDay[3] ?? []));
+    // Paged — an unbounded .select() stops at PostgREST's 1000 rows and one
+    // qualifying day of a big field already passes that, which would seed the
+    // knockout bracket's singles order off partial Kronos data.
+    const day3HoleRows = await fetchAllRows<any>(
+      (from, to) => supabase.from('match_holes').select('player_id,match_id,hole_number,stableford_pts')
+        .in('match_id', matchIdsByDay[3] ?? []).order('id').range(from, to)
+    );
+    const kronosMaps = buildKronosTieBreakMaps(day3HoleRows as any, new Set(matchIdsByDay[3] ?? []));
 
     onProgress?.('Simulating playoff...');
     let singlesMatchNum = 1;
+    // Who actually won each bracket, counted exactly the way the Tour
+    // leaderboard counts it (getEffectiveWinner returns `winner` verbatim for
+    // a complete match) so the champion this screen announces can never
+    // disagree with the team the leaderboard puts first.
+    const bracketWinners: string[] = [];
     for (let i = 0; i < bracket.length - 1; i += 2) {
       const tH = bracket[i]; const tA = bracket[i + 1];
       const rosterH = rankPlayersByKronos(rosterByTeam[tH], stablefordTotals, kronosMaps);
       const rosterA = rankPlayersByKronos(rosterByTeam[tA], stablefordTotals, kronosMaps);
+      let homeWins = 0; let awayWins = 0;
       for (let j = 0; j < 4; j++) {
         const { match } = await simulateAndInsertMatch({
           day_id: day4.id, day: day4, match_number: singlesMatchNum++, home_team_id: tH, away_team_id: tA,
@@ -347,19 +357,28 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
           handicap_method: 'individual_stableford', hcp_allowance: day4.hcp_pct,
         });
         allMatches.push(match);
+        if (match.winner === 'home') homeWins++;
+        else if (match.winner === 'away') awayWins++;
       }
+      // A level bracket leaves the higher qualifying seed in the upper slot —
+      // identical fallback to tour/index.tsx's finalPositionByTeam.
+      bracketWinners.push(awayWins > homeWins ? tA : tH);
     }
 
     onProgress?.('Finalising standings...');
-    const { data: allHoleRows } = await supabase.from('match_holes').select('player_id,match_id,hole_number,stableford_pts')
-      .in('match_id', allMatches.map((m: any) => m.id));
+    const allHoleRows = await fetchAllRows<any>(
+      (from, to) => supabase.from('match_holes').select('player_id,match_id,hole_number,stableford_pts')
+        .in('match_id', allMatches.map((m: any) => m.id)).order('id').range(from, to)
+    );
     const finalPlayerTotals: Record<string, number> = {};
-    (allHoleRows ?? []).forEach((rw: any) => { finalPlayerTotals[rw.player_id] = (finalPlayerTotals[rw.player_id] ?? 0) + (rw.stableford_pts ?? 0); });
-    const finalStableford: Record<string, number> = {};
-    teams.forEach((t: any) => { finalStableford[t.id] = rosterByTeam[t.id].reduce((s, pid) => s + (finalPlayerTotals[pid] ?? 0), 0); });
-    const finalBonus = calcSweepBonus(allMatches, new Set([day4.id]), comp.bonus_points);
-    const finalStandings = getStandings(allMatches, comp.pts_win, comp.pts_half, finalStableford, finalBonus);
-    const championTeam = teams.find((t: any) => t.id === finalStandings[0]?.teamId);
+    allHoleRows.forEach((rw: any) => { finalPlayerTotals[rw.player_id] = (finalPlayerTotals[rw.player_id] ?? 0) + (rw.stableford_pts ?? 0); });
+    // Titan Way's champion is the winner of the 1-vs-2 bracket, NOT the top of
+    // a points table recomputed over every match. This used to call
+    // getStandings() across allMatches (playoff day included, plus a sweep
+    // bonus), which is a different rule from the one the Tour leaderboard
+    // applies — so the "Simulation complete" alert could name a champion the
+    // leaderboard then showed in second place.
+    const championTeam = teams.find((t: any) => t.id === bracketWinners[0]);
     championName = championTeam?.name ?? '—';
     const kronosSorted = Object.entries(finalPlayerTotals).sort((a, b) => b[1] - a[1]);
     const nameByPlayerId: Record<string, string> = {};
@@ -396,10 +415,12 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
     const kronosSorted = Object.entries(stablefordTotals).sort((a, b) => b[1] - a[1]);
     // Final round Stableford counts toward Kronos too — recompute totals
     // including it for the reported champion, same as the live Kronos board would.
-    const { data: allHoleRows } = await supabase.from('match_holes').select('player_id,stableford_pts')
-      .in('match_id', allMatches.map((m: any) => m.id));
+    const allHoleRows = await fetchAllRows<any>(
+      (from, to) => supabase.from('match_holes').select('player_id,stableford_pts')
+        .in('match_id', allMatches.map((m: any) => m.id)).order('id').range(from, to)
+    );
     const kronosTotals: Record<string, number> = {};
-    (allHoleRows ?? []).forEach((rw: any) => { kronosTotals[rw.player_id] = (kronosTotals[rw.player_id] ?? 0) + (rw.stableford_pts ?? 0); });
+    allHoleRows.forEach((rw: any) => { kronosTotals[rw.player_id] = (kronosTotals[rw.player_id] ?? 0) + (rw.stableford_pts ?? 0); });
     const kronosFinalSorted = Object.entries(kronosTotals).sort((a, b) => b[1] - a[1]);
     const nameByPlayerId: Record<string, string> = {};
     roster.forEach(p => { nameByPlayerId[p.id] = p.display_name; });

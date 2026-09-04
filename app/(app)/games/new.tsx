@@ -18,7 +18,7 @@ import { downloadMatchPack, downloadCourseGps } from '../../../src/lib/offlinePa
 import { fetchFavouriteIds, fetchRecentlyPlayedWithIds, toggleFavourite } from '../../../src/lib/playerTiers';
 import GroupBuilderSheet, { BuiltMatch, PlayerOverride } from './GroupBuilderSheet';
 import { goBack } from '../../../src/lib/navigation';
-import { SelectableTee } from '../../../src/components/TeePickerSheet';
+import TeePickerSheet, { fetchCourseTees, SelectableTee } from '../../../src/components/TeePickerSheet';
 import { calculateWHSPlayingHandicap } from '../../../src/lib/whs';
 
 // ── Constants ─────────────────────────────────────────────────
@@ -578,6 +578,11 @@ export default function NewGameScreen() {
   const [hcpAllowance, setHcpAllowance]     = useState<number>(100);
   const [whsEnabled, setWhsEnabled]         = useState(false);
   const [playerTees, setPlayerTees]         = useState<Record<string, SelectableTee>>({});
+  // The one tee the whole round defaults to, picked straight after the course
+  // and before any players are added. Individual players still override
+  // themselves in the group builder (Rick, 2026-09-04).
+  const [roundTee, setRoundTee]             = useState<SelectableTee | null>(null);
+  const [courseTees, setCourseTees]         = useState<SelectableTee[]>([]);
   const [showWhsDetails, setShowWhsDetails] = useState(false);
   const [sideGames, setSideGames]           = useState<string[]>([]);
   const [secondaryFormat, setSecondaryFormat] = useState<string | null>('stableford');
@@ -612,6 +617,7 @@ export default function NewGameScreen() {
   const [showFormat, setShowFormat]   = useState(false);
   const [showPlayers, setShowPlayers] = useState(false);
   const [showCourse, setShowCourse]   = useState(false);
+  const [showTee, setShowTee]         = useState(false);
   const [showHoles, setShowHoles]     = useState(false);
   const [showHcp, setShowHcp]         = useState(false);
   const [showTeamSize, setShowTeamSize]   = useState(false);
@@ -628,12 +634,12 @@ export default function NewGameScreen() {
     setPair1([]); setPair2([]); setPairStep(1);
     setSelectedCourse(existingDayId && preselectedCourse ? preselectedCourse : null);
     setHcpAllowance(100); setSideGames([]); setSecondaryFormat('stableford');
-    setWhsEnabled(false); setPlayerTees({}); setShowWhsDetails(false);
+    setWhsEnabled(false); setPlayerTees({}); setRoundTee(null); setShowWhsDetails(false);
     setHoles('full18'); setVoiceEnabled(false); setStatsEnabled(false); setLdActive(false); setNpActive(false);
     setLdHole(null); setNtpHole(null); setCreating(false); setTakenPlayerIds([]);
     setTeamSize(2); setCounting(2); setNumTeams(2); setExtraTeams([]);
     setStartHole(1); setBuiltMatches(null);
-    setShowFormat(false); setShowPlayers(false); setShowCourse(false); setShowMashie(false); setShowGroupBuilder(false);
+    setShowFormat(false); setShowPlayers(false); setShowCourse(false); setShowTee(false); setShowMashie(false); setShowGroupBuilder(false);
     setShowHoles(false); setShowHcp(false); setShowTeamSize(false); setShowCounting(false); setShowNumTeams(false);
     if (existingDayId) {
       supabase.from('matches').select('home_player_ids, away_player_ids')
@@ -658,6 +664,14 @@ export default function NewGameScreen() {
 
   useEffect(() => {
     setPlayerTees({});
+    setRoundTee(null);
+  }, [selectedCourse]);
+
+  // Real course_tees rows only — same shared query every other round-setup
+  // screen uses, never a guessed list.
+  useEffect(() => {
+    if (!selectedCourse) { setCourseTees([]); return; }
+    fetchCourseTees(selectedCourse).then(setCourseTees);
   }, [selectedCourse]);
 
   useEffect(() => {
@@ -854,12 +868,14 @@ export default function NewGameScreen() {
     () => builtMatches ? [...new Set(builtMatches.flatMap(m => [...m.home, ...m.away]))] : [],
     [builtMatches]
   );
-  // Whoever's first picks the tee everyone else is on by default (32
-  // players are almost never on 32 different tees) — tapping any other
-  // player still overrides just them, for the couple of real exceptions
-  // (e.g. a lady playing a forward tee). Only ever falls back to the
-  // player actually first in the list, never invented from nothing.
-  const defaultTee: SelectableTee | undefined = allRoundPlayerIds.length > 0 ? playerTees[allRoundPlayerIds[0]] : undefined;
+  // One tee for the round (32 players are almost never on 32 different
+  // tees) — tapping any player in the group builder still overrides just
+  // them, for the couple of real exceptions (e.g. a lady playing a forward
+  // tee). The Tee row picked up front wins; with nothing picked there this
+  // falls back to whoever's first in the round, exactly as before. Never
+  // invented from nothing either way.
+  const defaultTee: SelectableTee | undefined =
+    roundTee ?? (allRoundPlayerIds.length > 0 ? playerTees[allRoundPlayerIds[0]] : undefined);
   const effectiveTee = (pid: string) => playerTees[pid] ?? defaultTee;
   const whsReady = !whsEnabled || allRoundPlayerIds.every(pid => {
     const t = effectiveTee(pid);
@@ -1313,6 +1329,21 @@ export default function NewGameScreen() {
         {/* ── Settings card ──────────────────────────────────── */}
         <View style={s.settingsCard}>
 
+          {/* Tee — sits directly under the course card: pick the course, pick
+              the tee, then the players. One default for the whole round;
+              individual players are changed on their own name in the group
+              builder (Rick, 2026-09-04). */}
+          <SettingRow
+            icon="flag-outline" label="Tee"
+            value={roundTee
+              ? `${roundTee.tee_name}${roundTee.gender ? ` (${roundTee.gender})` : ''}`
+              : (selectedCourse ? 'Select tee' : 'Pick a course first')}
+            valueColor={roundTee ? GOLD : '#6b7280'}
+            onPress={() => { if (selectedCourse) setShowTee(true); }}
+            s={s} GOLD={GOLD}
+          />
+          <View style={s.settingDivider} />
+
           {/* Format */}
           <SettingRow icon="trophy-outline" label="Format" value={formatLabel} onPress={() => setShowFormat(true)} s={s} GOLD={GOLD} />
           <View style={s.settingDivider} />
@@ -1594,6 +1625,7 @@ export default function NewGameScreen() {
         onDone={handleGroupBuilderDone}
         onClose={() => setShowGroupBuilder(false)}
         courseName={selectedCourse}
+        roundTee={roundTee}
         playerTees={playerTees}
         onSetPlayerTee={(pid, tee) => setPlayerTees(prev => {
           if (tee) return { ...prev, [pid]: tee };
@@ -1601,6 +1633,13 @@ export default function NewGameScreen() {
         })}
       />
       <CourseSheet visible={showCourse} courses={courses} selected={selectedCourse} onSelect={setSelectedCourse} onClose={() => setShowCourse(false)} ps={ps} GOLD={GOLD} />
+      <TeePickerSheet
+        visible={showTee}
+        title="Select tee"
+        tees={courseTees}
+        onSelect={tee => { setRoundTee(tee); setShowTee(false); }}
+        onClose={() => setShowTee(false)}
+      />
       <PickerSheet
         visible={showHoles} title="Holes" options={HOLES_OPTIONS}
         selected={holesMode}

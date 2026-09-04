@@ -608,6 +608,7 @@ export default function SwindleCreate() {
                   return courseRegion === 'Other' ? g === null : g === courseRegion;
                 })}
               keyExtractor={item => item.name}
+              keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[s.pickerItem, course === item.name && s.pickerItemActive]}

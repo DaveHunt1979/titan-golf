@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { supabase } from '../../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../../src/lib/supabase';
 import { calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, scoreVsPar, formatVsPar, SCORE_COLORS, ptsColor } from '../../../../src/lib/scoring';
 import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 import { resolveAvatar } from '../../../../src/lib/assets';
@@ -376,9 +376,15 @@ export default function SwindleScoreScreen() {
       }
 
       if (!wasEditing && entryVoiceOn && [6, 9, 12, 15, 16, 17, 18].includes(holeSequence.indexOf(holeToSave) + 1)) {
-        const { data: allScores } = await supabase.from('swindle_scores').select('player_id, stableford_pts').eq('game_id', gameId);
+        // Paged — an unbounded .select() stops at PostgREST's 1000-row cap,
+        // which a big field (18 rows per entrant) passes at ~55 players, and
+        // Chip/Birdie would then call the pressure standings off a truncated
+        // points total.
+        const allScores = await fetchAllRows<any>(
+          (from, to) => supabase.from('swindle_scores').select('player_id, stableford_pts').eq('game_id', gameId).order('id').range(from, to)
+        );
         const { data: entries } = await supabase.from('swindle_entries').select('player_id, players(display_name)').eq('game_id', gameId);
-        if (allScores && entries) {
+        if (allScores.length && entries) {
           const totals: Record<string, number> = {};
           for (const sc of allScores as any[]) totals[sc.player_id] = (totals[sc.player_id] ?? 0) + (sc.stableford_pts ?? 0);
           const standings = (entries as any[]).map(e => ({

@@ -2171,11 +2171,10 @@ function CourseSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={sheetStyles.overlay} activeOpacity={1} onPress={onClose} />
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '75%' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        pointerEvents="box-none"
       >
-      <View style={sheetStyles.sheet}>
+      <View style={sheetStyles.sheetKb}>
         <View style={sheetStyles.handle} />
         <Text style={sheetStyles.sheetTitle}>Select Course</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 48, marginBottom: 10, flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 2, alignItems: 'center' }}>
@@ -2207,6 +2206,7 @@ function CourseSheet({
           data={filtered}
           keyExtractor={c => c.name}
           style={{ flexGrow: 0, maxHeight: 360 }}
+          keyboardShouldPersistTaps="handled"
           ListEmptyComponent={<Text style={sheetStyles.emptyText}>No courses in the database yet — add one in Admin → Courses first.</Text>}
           renderItem={({ item }) => {
             const on = item.name === selected;
@@ -2490,6 +2490,15 @@ const sheetStyles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: '#111', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingBottom: 34, paddingHorizontal: 16,
+  },
+  // Same look as `sheet`, minus the absolute positioning — used inside a
+  // KeyboardAvoidingView that is itself pinned to the bottom, so the
+  // keyboard shrinks this sheet's available height instead of the
+  // keyboard just covering an absolutely-positioned sheet underneath it
+  // (same fix as games/new.tsx's CourseSheet, v158).
+  sheetKb: {
     backgroundColor: '#111', borderTopLeftRadius: 20, borderTopRightRadius: 20,
     paddingBottom: 34, paddingHorizontal: 16,
   },

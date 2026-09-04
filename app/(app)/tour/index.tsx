@@ -748,13 +748,21 @@ export default function TourScreen() {
     const homeWins = winners.filter(w => w === 'home').length;
     const awayWins = winners.filter(w => w === 'away').length;
     const halves = winners.filter(w => w === 'half').length;
+    // Resolve the scoreline into an actual result. Without this the bracket
+    // showed only "1 – 2 (1 halved)" and never said who had won it (Rick,
+    // 2026-09-03: "in the play-off you don't know who's won the game because
+    // it's not identifying the winners") — even though this very result is
+    // what reorders the Team table below.
+    const decided = bracketMatches.length > 0 && bracketMatches.every((m: any) => m.status === 'complete');
+    const level = homeWins === awayWins;
+    const winnerTeamId = !decided ? null : (level ? null : (homeWins > awayWins ? first.home_team_id : first.away_team_id));
     return {
       key: `${first.day_id}:${first.home_team_id}:${first.away_team_id}`,
       homeTeam: teams.find(t => t.id === first.home_team_id),
       awayTeam: teams.find(t => t.id === first.away_team_id),
       homeSeed: playoffSeeds[first.home_team_id] ?? null,
       awaySeed: playoffSeeds[first.away_team_id] ?? null,
-      homeWins, awayWins, halves,
+      homeWins, awayWins, halves, decided, level, winnerTeamId,
       swept: (homeWins === bracketMatches.length || awayWins === bracketMatches.length) && winners.every(w => !!w),
       matches: bracketMatches.slice().sort((a, b) => (a.match_number ?? 0) - (b.match_number ?? 0)),
     };
@@ -780,18 +788,38 @@ export default function TourScreen() {
         (b.homeTeam?.id === upperSeedId && b.awayTeam?.id === lowerSeedId) ||
         (b.homeTeam?.id === lowerSeedId && b.awayTeam?.id === upperSeedId)
       );
-      const decided = bracket && bracket.matches.length > 0 && bracket.matches.every((m: any) => m.status === 'complete');
-      let winnerId = upperSeedId; // undecided/tied fallback: higher qualifying seed keeps the upper slot
-      if (decided && bracket) {
-        if (bracket.homeWins !== bracket.awayWins) {
-          winnerId = (bracket.homeWins > bracket.awayWins ? bracket.homeTeam?.id : bracket.awayTeam?.id) ?? upperSeedId;
-        }
-      }
+      // Undecided or level: the higher qualifying seed keeps the upper slot.
+      const winnerId = bracket?.winnerTeamId ?? upperSeedId;
       const loserId = winnerId === upperSeedId ? lowerSeedId : upperSeedId;
       finalPositionByTeam[winnerId] = i + 1;
       finalPositionByTeam[loserId] = i + 2;
     }
   }
+
+  // Why a team with MORE qualifying points can sit below one with fewer: the
+  // playoff moved it. The table used to show only the qualifying points
+  // against a playoff-driven row order with nothing joining the two, which
+  // read as broken arithmetic (Rick, 2026-09-03: "one team got 16 points but
+  // it's not at the top which is strange"). Say it on the row.
+  const playoffNoteByTeam: Record<string, string> = {};
+  playoffBrackets.forEach(b => {
+    const homeId = b.homeTeam?.id; const awayId = b.awayTeam?.id;
+    if (!homeId || !awayId) return;
+    if (!b.decided) {
+      const note = b.matches.some((m: any) => m.status !== 'upcoming') ? 'Playoff in progress' : 'Playoff to come';
+      playoffNoteByTeam[homeId] = note;
+      playoffNoteByTeam[awayId] = note;
+      return;
+    }
+    if (b.level) {
+      playoffNoteByTeam[homeId] = 'Playoff halved';
+      playoffNoteByTeam[awayId] = 'Playoff halved';
+      return;
+    }
+    const loserId = b.winnerTeamId === homeId ? awayId : homeId;
+    playoffNoteByTeam[b.winnerTeamId!] = 'Won playoff';
+    playoffNoteByTeam[loserId] = 'Lost playoff';
+  });
 
   // Money: team prize (competitions.prize_pool split by prize_split% per
   // final position — real fields, added 2026-08-19, previously unused
@@ -870,7 +898,9 @@ export default function TourScreen() {
     // so they fall through to the original points-based order, unchanged.
     sortKey: finalPositionByTeam[s.teamId] != null ? -finalPositionByTeam[s.teamId] : s.pts,
     name: s.name,
-    subtitle: `${s.w}W ${s.h}H ${s.l}L`,
+    subtitle: playoffNoteByTeam[s.teamId]
+      ? `${s.w}W ${s.h}H ${s.l}L · ${playoffNoteByTeam[s.teamId]}`
+      : `${s.w}W ${s.h}H ${s.l}L`,
     teamName: s.name,
     teamLogoUrl: s.logo_url,
     teamAccentColor: s.accent_color,
@@ -1340,7 +1370,7 @@ export default function TourScreen() {
             {leaderboardTab === 'playoff' && (
               <View>
                 <Text style={{ fontSize: 12, fontFamily: FF, color: dc.cardText, opacity: 0.6, marginBottom: 16, lineHeight: 17 }}>
-                  Final team positions are locked from the qualifying rounds above — this is a straight knockout for pride between fixed positions, and doesn't change the Team standings.
+                  Qualifying decides who plays who — 1st v 2nd, 3rd v 4th, and so on. Winning your bracket takes the higher of your pair's two positions; a team can never jump out of its own pair. The Team table above is ordered by that final position, and its points/W-L are from the qualifying rounds only.
                 </Text>
                 {playoffBrackets.map(b => (
                   <View key={b.key} style={[st.champCard, { backgroundColor: dc.card, borderColor: dc.border, marginBottom: 16 }]}>
@@ -1367,6 +1397,31 @@ export default function TourScreen() {
                     <Text style={{ fontSize: 22, fontFamily: FFB, color: dc.gold, textAlign: 'center', marginVertical: 8 }}>
                       {b.homeWins} – {b.awayWins}{b.halves > 0 ? `  (${b.halves} halved)` : ''}
                     </Text>
+                    {/* The result in words — the scoreline alone never said
+                        who had won the bracket or what position it earned. */}
+                    {(() => {
+                      const winnerName = b.winnerTeamId === b.homeTeam?.id ? b.homeTeam?.name : b.winnerTeamId === b.awayTeam?.id ? b.awayTeam?.name : null;
+                      const upperPos = Math.min(b.homeSeed ?? 99, b.awaySeed ?? 99);
+                      if (!b.decided) {
+                        return (
+                          <Text style={{ fontSize: 11, fontFamily: FFB, color: dc.cardText, opacity: 0.6, textAlign: 'center', letterSpacing: 0.5, marginBottom: 8 }}>
+                            IN PROGRESS
+                          </Text>
+                        );
+                      }
+                      if (!winnerName) {
+                        return (
+                          <Text style={{ fontSize: 11, fontFamily: FFB, color: dc.gold, textAlign: 'center', letterSpacing: 0.5, marginBottom: 8 }}>
+                            HALVED — {ordinalLabel(upperPos)} STAYS WITH {(b.homeSeed ?? 99) < (b.awaySeed ?? 99) ? b.homeTeam?.name ?? '—' : b.awayTeam?.name ?? '—'}
+                          </Text>
+                        );
+                      }
+                      return (
+                        <Text style={{ fontSize: 12, fontFamily: FFB, color: GREEN, textAlign: 'center', letterSpacing: 0.5, marginBottom: 8 }}>
+                          {winnerName.toUpperCase()} WIN — {ordinalLabel(upperPos)} PLACE
+                        </Text>
+                      );
+                    })()}
                     {b.swept && (
                       <Text style={{ fontSize: 10, fontFamily: FFB, color: GREEN, textAlign: 'center', letterSpacing: 1, marginBottom: 8 }}>
                         CLEAN SWEEP

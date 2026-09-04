@@ -97,7 +97,7 @@ function restoreGroups(matches: BuiltMatch[], m: GameMode): GroupState[] {
 export default function GroupBuilderSheet({
   visible, mode, players, teamSize, initialStartHole, initialMatches,
   favouriteIds, recentIds, myPlayerId, friendOnlyIds, onToggleFavourite, onDone, onClose,
-  courseName, playerTees, onSetPlayerTee,
+  courseName, roundTee, playerTees, onSetPlayerTee,
 }: {
   visible: boolean;
   mode: GameMode;
@@ -118,6 +118,9 @@ export default function GroupBuilderSheet({
   // decorative color-dot picker exist alongside the real one (Dave,
   // 2026-09-04: "this is where the list should be not the dots and colours").
   courseName?: string | null;
+  // The round's default tee, chosen on the setup screen before any players
+  // were added — every player inherits it unless they've picked their own.
+  roundTee?: SelectableTee | null;
   playerTees: Record<string, SelectableTee>;
   onSetPlayerTee: (playerId: string, tee: SelectableTee | null) => void;
 }) {
@@ -144,14 +147,15 @@ export default function GroupBuilderSheet({
     else setCourseTees([]);
   }, [courseName]);
 
-  // Whoever's first in the round sets the tee everyone else defaults to —
-  // same rule as the read-only settings list on the main screen, just
-  // live here as players are actually being added (Dave, 2026-09-04).
+  // The Tee picked on the setup screen is what everyone defaults to; with
+  // none picked there, whoever's first in the round still sets it, exactly
+  // as before — same rule as the main screen, just live here as players are
+  // actually being added (Dave, 2026-09-04).
   const orderedPlayerIds = useMemo(
     () => groups.flatMap(g => g.slots.flatMap(s => [...s.home, ...s.away])),
     [groups],
   );
-  const defaultTee = orderedPlayerIds.length > 0 ? playerTees[orderedPlayerIds[0]] : undefined;
+  const defaultTee = roundTee ?? (orderedPlayerIds.length > 0 ? playerTees[orderedPlayerIds[0]] : undefined);
   const effectiveTee = (pid: string) => playerTees[pid] ?? defaultTee;
 
   useEffect(() => {
@@ -327,7 +331,7 @@ export default function GroupBuilderSheet({
     const shownTee = effectiveTee(pid);
     const hasOverride = ov?.hcp != null || ownTee != null;
     const teeLabel = shownTee
-      ? `${shownTee.tee_name}${shownTee.gender ? ` (${shownTee.gender})` : ''}${!ownTee && pid !== orderedPlayerIds[0] ? ' (default)' : ''}`
+      ? `${shownTee.tee_name}${shownTee.gender ? ` (${shownTee.gender})` : ''}${!ownTee ? ' (default)' : ''}`
       : null;
     return (
       <View style={[css.playerRow, { borderColor: dc.border }]}>
@@ -650,8 +654,9 @@ export default function GroupBuilderSheet({
                   />
 
                   {/* Tee picker — real course tees, not the old decorative
-                      colour dots. Whoever's added first sets the default;
-                      picking here for anyone else is an explicit override. */}
+                      colour dots. The round's Tee (or, failing that, whoever
+                      was added first) sets the default; picking here is an
+                      explicit override for this player only. */}
                   <Text style={[css.profileLabel, { marginTop: 16 }]}>PLAYING TEE</Text>
                   {courseTees.length === 0 ? (
                     <Text style={[css.profileNote, { marginTop: 8 }]}>
@@ -662,7 +667,7 @@ export default function GroupBuilderSheet({
                       {courseTees.map(t => {
                         const selected = profileTeeChoice?.tee_name === t.tee_name && profileTeeChoice?.gender === t.gender;
                         const isDefault = !selected && defaultTee?.tee_name === t.tee_name && defaultTee?.gender === t.gender
-                          && profileTeeChoice == null && profileTarget?.playerId !== orderedPlayerIds[0];
+                          && profileTeeChoice == null;
                         const label = `${t.tee_name}${t.gender ? ` (${t.gender})` : ''}${isDefault ? ' · default' : ''}`;
                         return (
                           <TouchableOpacity

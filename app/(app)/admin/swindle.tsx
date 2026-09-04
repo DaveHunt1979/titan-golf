@@ -9,7 +9,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
 
@@ -117,16 +117,29 @@ export default function SwindleAdminScreen() {
       .select(`
         id, name, game_date, course_name, entry_fee, currency,
         prize_split, status, format,
-        swindle_entries(player_id, players(display_name)),
-        swindle_scores(player_id, stableford_pts)
+        swindle_entries(player_id, players(display_name))
       `)
       .order('game_date', { ascending: false });
 
     if (!gamesData) { setLoading(false); setRefreshing(false); return; }
 
+    // Hole scores are fetched separately and paged rather than embedded on
+    // the games query above: every hole of every game is 18 rows per player
+    // per game, far past PostgREST's 1000-row cap once a society has a few
+    // games behind it, and a truncated read silently under-counted the
+    // top-3/points and therefore the Money List below.
+    const gameIds = (gamesData as any[]).map(g => g.id);
+    const allScoreRows = gameIds.length
+      ? await fetchAllRows<any>(
+          (from, to) => supabase.from('swindle_scores').select('game_id, player_id, stableford_pts').in('game_id', gameIds).order('id').range(from, to)
+        )
+      : [];
+    const scoresByGame: Record<string, any[]> = {};
+    for (const sc of allScoreRows) (scoresByGame[sc.game_id] ??= []).push(sc);
+
     const built: SwindleGame[] = (gamesData as any[]).map(g => {
       const entries: any[] = g.swindle_entries ?? [];
-      const scores: any[]  = g.swindle_scores ?? [];
+      const scores: any[]  = scoresByGame[g.id] ?? [];
       const entryCount = entries.length;
       const pot = entryCount * (g.entry_fee ?? 0);
 
@@ -214,15 +227,17 @@ export default function SwindleAdminScreen() {
   async function exportCSV() {
     setDownloading(true);
     try {
-      // Fetch all hole scores
-      const { data: allScores } = await supabase
-        .from('swindle_scores')
-        .select('game_id, player_id, hole_number, stableford_pts');
+      // Fetch all hole scores — paged, since an unbounded .select() stops at
+      // PostgREST's 1000-row cap and this table holds 18 rows per player per
+      // game, so the export was silently dropping whole rounds.
+      const allScores = await fetchAllRows<any>(
+        (from, to) => supabase.from('swindle_scores').select('game_id, player_id, hole_number, stableford_pts').order('id').range(from, to)
+      );
 
       // Fetch all entries with player names so we can resolve player_id -> display_name
-      const { data: allEntries } = await supabase
-        .from('swindle_entries')
-        .select('game_id, player_id, players(display_name)');
+      const allEntries = await fetchAllRows<any>(
+        (from, to) => supabase.from('swindle_entries').select('game_id, player_id, players(display_name)').order('id').range(from, to)
+      );
 
       // Build player name lookup: player_id -> display_name
       const playerNames: Record<string, string> = {};
