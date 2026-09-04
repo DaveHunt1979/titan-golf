@@ -247,6 +247,12 @@
       "accessCount": 1,
       "lastAccessed": 1787754718931,
       "type": "file"
+    },
+    {
+      "path": "src/lib/supabase/client.ts",
+      "accessCount": 1,
+      "lastAccessed": 1788506856594,
+      "type": "file"
     }
   ],
   "userDirectives": []

@@ -1,16 +1,16 @@
 {
   "version": 1,
   "entries": {
-    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1788505751909,
-      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
-    },
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1788505603772,
+      "last_emitted_at_ms": 1788507285783,
       "message": "Verify changes work after editing. Test functionality before marking complete."
     },
+    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
+      "last_emitted_at_ms": 1788507164967,
+      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
+    },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1788505445944,
+      "last_emitted_at_ms": 1788506743749,
       "message": "Read multiple files in parallel when possible for faster analysis."
     },
     "33933aadb32ac828398daf920d9bc0dc10da3cf9e10ecc3488dacd44c40f5b78": {
@@ -32,19 +32,7 @@
     "8a134f3ca7b1052e882077fd72dcebd974b0d8e04643ecff0342bc18b8e6f55a": {
       "last_emitted_at_ms": 1788504131498,
       "message": "Spawning agent: oh-my-claudecode:debugger (opus) | Task: Debug simulation leaderboard and swindle points mismatch"
-    },
-    "89858580493cf4b122fc9c1c78f183dde9537ade7342db85a090948d2b602853": {
-      "last_emitted_at_ms": 1788502223766,
-      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Build web swindle creation and admin management"
-    },
-    "8c578db38eb963c35ce8343865d5522c4c7cf2a9eb11ea345e8b15d72c1ded85": {
-      "last_emitted_at_ms": 1788502203450,
-      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Build web season mode creation and management"
-    },
-    "ebf47df3b3ff9c71e04eecad792e64b06ac708a6ff167d7f8ea8e3a4c3c386f0": {
-      "last_emitted_at_ms": 1788502179408,
-      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Rebuild web tournament wizard to real 7-step parity"
     }
   },
-  "updated_at": "2026-09-04T07:09:11.909Z"
+  "updated_at": "2026-09-04T07:34:45.783Z"
 }
