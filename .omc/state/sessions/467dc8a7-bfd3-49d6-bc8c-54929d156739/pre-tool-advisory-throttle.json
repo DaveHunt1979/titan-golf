@@ -1,22 +1,14 @@
 {
   "version": 1,
   "entries": {
-    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1788515640481,
-      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
-    },
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1788515068825,
+      "last_emitted_at_ms": 1788758730925,
       "message": "Verify changes work after editing. Test functionality before marking complete."
     },
-    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1788515060052,
-      "message": "Read multiple files in parallel when possible for faster analysis."
-    },
-    "8f21a71a8a72dfa46517e973ad95eb91c5fa0fafba0ff2e5926bee748f03dad7": {
-      "last_emitted_at_ms": 1788512370066,
-      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Cap font scaling so buttons stop wrapping"
+    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
+      "last_emitted_at_ms": 1788758676066,
+      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     }
   },
-  "updated_at": "2026-09-04T09:54:00.481Z"
+  "updated_at": "2026-09-07T05:25:30.925Z"
 }

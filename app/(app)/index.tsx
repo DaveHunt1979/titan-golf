@@ -43,6 +43,7 @@ const TILES = [
 
 type FriendRound = {
   playerId: string; name: string; courseName: string; hole: number; pts: number; matchId: string;
+  isSwindle: boolean;
   email: string | null; handicapIndex: number | null; avatarUrl: string | null; tTag: string | null;
   committeeRole: string | null; role: string; membershipTypes: string[];
 };
@@ -222,24 +223,45 @@ export default function HomeScreen() {
         // also naturally excludes a match that's in_progress with no
         // started_at yet (gte against null never matches).
         const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        const { data: activeMatches } = await supabase
-          .from('matches')
-          .select('id,home_player_ids,away_player_ids,day:day_id(course_name)')
-          .eq('status', 'in_progress')
-          .gte('started_at', dayAgo)
-          .or(orFilter);
+        // swindle_games has no started_at equivalent, only the DATE column
+        // game_date — same abandoned-round guard, just date-grained.
+        const dayAgoDate = dayAgo.slice(0, 10);
+        const [{ data: activeMatches }, { data: activeSwindleGames }] = await Promise.all([
+          supabase
+            .from('matches')
+            .select('id,home_player_ids,away_player_ids,day:day_id(course_name)')
+            .eq('status', 'in_progress')
+            .gte('started_at', dayAgo)
+            .or(orFilter),
+          supabase
+            .from('swindle_games')
+            .select('id,course_name')
+            .eq('society_id', SOCIETY_ID)
+            .eq('status', 'in_progress')
+            .gte('game_date', dayAgoDate),
+        ]);
 
         const friendMatches = activeMatches ?? [];
+        const friendSwindleGames = activeSwindleGames ?? [];
+        const swindleGameIds = friendSwindleGames.map((g: any) => g.id);
 
-        if (friendMatches.length > 0) {
+        // Swindle rounds are scored entirely through swindle_entries/
+        // swindle_scores, never the matches table — this widget used to
+        // miss anyone mid-Swindle-round entirely (Ricky, 2026-09-07).
+        const { data: swindleEntryRows } = swindleGameIds.length
+          ? await supabase.from('swindle_entries').select('game_id,player_id').in('game_id', swindleGameIds).in('player_id', memberIds)
+          : { data: [] as any[] };
+        const swindleEntries = swindleEntryRows ?? [];
+
+        if (friendMatches.length > 0 || swindleEntries.length > 0) {
           const matchIds = friendMatches.map((m: any) => m.id);
-          const candidateFriendIds = [...new Set(
-            friendMatches.flatMap((m: any): string[] => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])])
-              .filter((id: string) => memberIds.includes(id))
-          )];
+          const candidateMatchFriendIds = friendMatches.flatMap((m: any): string[] => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])])
+            .filter((id: string) => memberIds.includes(id));
+          const candidateSwindleFriendIds = swindleEntries.map((e: any) => e.player_id as string);
+          const candidateFriendIds = [...new Set([...candidateMatchFriendIds, ...candidateSwindleFriendIds])];
 
-          // Being mid-match isn't enough on its own — the app they're
-          // scoring on may have been closed/killed hours ago with the match
+          // Being mid-round isn't enough on its own — the app they're
+          // scoring on may have been closed/killed hours ago with the round
           // still sitting at in_progress. Only show a friend who's actually
           // active right now (same batched presence check friends.tsx uses).
           const { data: onlineRows } = candidateFriendIds.length
@@ -247,14 +269,21 @@ export default function HomeScreen() {
             : { data: [] as any[] };
           const onlineSet = new Set((onlineRows ?? []).filter((r: any) => r.online).map((r: any) => r.player_id));
           const playingFriendIds = candidateFriendIds.filter(id => onlineSet.has(id));
+          const playingMatchFriendIds = playingFriendIds.filter(id => candidateMatchFriendIds.includes(id));
+          const playingSwindleFriendIds = playingFriendIds.filter(id => !candidateMatchFriendIds.includes(id));
 
-          // 18 holes x every player in every live match — a busy society day
-          // clears PostgREST's 1000-row default cap, and a truncated read
-          // would quietly show friends the wrong points/hole.
-          const [holesData, { data: friendPlayersData }] = await Promise.all([
-            playingFriendIds.length
+          // 18 holes x every player in every live match/swindle — a busy
+          // society day clears PostgREST's 1000-row default cap, and a
+          // truncated read would quietly show friends the wrong points/hole.
+          const [holesData, swindleScoreData, { data: friendPlayersData }] = await Promise.all([
+            playingMatchFriendIds.length
               ? fetchAllRows<any>(
                   (from, to) => supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id').in('match_id', matchIds).order('id').range(from, to)
+                )
+              : Promise.resolve([] as any[]),
+            playingSwindleFriendIds.length
+              ? fetchAllRows<any>(
+                  (from, to) => supabase.from('swindle_scores').select('player_id,stableford_pts,hole_number,game_id').in('game_id', swindleGameIds).order('id').range(from, to)
                 )
               : Promise.resolve([] as any[]),
             playingFriendIds.length ? supabase.from('players').select('id,display_name,email,handicap_index,avatar_url,t_tag').in('id', playingFriendIds) : Promise.resolve({ data: [] as any[] }),
@@ -266,7 +295,14 @@ export default function HomeScreen() {
 
           const stats: Record<string, { pts: number; maxHole: number }> = {};
           for (const h of (holesData ?? []) as any[]) {
-            if (playingFriendIds.includes(h.player_id)) {
+            if (playingMatchFriendIds.includes(h.player_id)) {
+              if (!stats[h.player_id]) stats[h.player_id] = { pts: 0, maxHole: 0 };
+              stats[h.player_id].pts += h.stableford_pts ?? 0;
+              if (h.hole_number > stats[h.player_id].maxHole) stats[h.player_id].maxHole = h.hole_number;
+            }
+          }
+          for (const h of (swindleScoreData ?? []) as any[]) {
+            if (playingSwindleFriendIds.includes(h.player_id)) {
               if (!stats[h.player_id]) stats[h.player_id] = { pts: 0, maxHole: 0 };
               stats[h.player_id].pts += h.stableford_pts ?? 0;
               if (h.hole_number > stats[h.player_id].maxHole) stats[h.player_id].maxHole = h.hole_number;
@@ -274,18 +310,12 @@ export default function HomeScreen() {
           }
 
           setFriendRounds(playingFriendIds.map(id => {
-            const match = friendMatches.find((m: any) => {
-              const ids: string[] = [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])];
-              return ids.includes(id);
-            });
             const p = playerMap[id];
-            return {
+            const base = {
               playerId: id,
               name: nameMap[id] ?? 'Unknown',
-              courseName: (match as any)?.day?.course_name ?? 'Course',
               hole: Math.min((stats[id]?.maxHole ?? 0) + 1, 18),
               pts: stats[id]?.pts ?? 0,
-              matchId: match?.id ?? '',
               email: p?.email ?? null,
               handicapIndex: p?.handicap_index ?? null,
               avatarUrl: p?.avatar_url ?? null,
@@ -294,6 +324,16 @@ export default function HomeScreen() {
               role: memberRoleMap[id]?.role ?? 'member',
               membershipTypes: memberRoleMap[id]?.membershipTypes ?? [],
             };
+            if (candidateMatchFriendIds.includes(id)) {
+              const match = friendMatches.find((m: any) => {
+                const ids: string[] = [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])];
+                return ids.includes(id);
+              });
+              return { ...base, courseName: (match as any)?.day?.course_name ?? 'Course', matchId: match?.id ?? '', isSwindle: false };
+            }
+            const entry = swindleEntries.find((e: any) => e.player_id === id);
+            const game = friendSwindleGames.find((g: any) => g.id === entry?.game_id);
+            return { ...base, courseName: game?.course_name ?? 'The Swindle', matchId: game?.id ?? '', isSwindle: true };
           }));
         } else {
           setFriendRounds([]);
@@ -492,6 +532,7 @@ export default function HomeScreen() {
             tTag={selectedFriend?.tTag ?? null}
             playingNow={selectedFriend ? {
               matchId: selectedFriend.matchId, courseName: selectedFriend.courseName, hole: selectedFriend.hole, pts: selectedFriend.pts,
+              isSwindle: selectedFriend.isSwindle,
             } as PlayingNow : null}
             isAdmin={false}
             societyId={SOCIETY_ID ?? ''}

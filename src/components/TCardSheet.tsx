@@ -30,6 +30,7 @@ export interface PlayingNow {
   courseName: string;
   hole: number;
   pts: number | null;
+  isSwindle?: boolean;
 }
 
 // The "trading card" popup for tapping another player — T-Tag, photo,
@@ -194,7 +195,12 @@ export default function TCardSheet({
               <TouchableOpacity
                 style={s.watchBtn}
                 activeOpacity={0.85}
-                onPress={() => { onClose(); router.push(`/(app)/spectate/${playingNow.matchId}` as any); }}
+                onPress={() => {
+                  onClose();
+                  router.push((playingNow.isSwindle
+                    ? `/(app)/swindle/score/${playingNow.matchId}`
+                    : `/(app)/spectate/${playingNow.matchId}`) as any);
+                }}
               >
                 <Ionicons name="golf-outline" size={16} color={GOLD} />
                 <Text style={s.watchBtnText}>Watch Live — {playingNow.courseName}</Text>

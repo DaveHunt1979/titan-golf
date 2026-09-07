@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator, Image, Animated, PanResponder } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator, Image, Animated, PanResponder, Modal } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -55,6 +55,12 @@ export default function SwindleIndex() {
   const [isMember,    setIsMember]    = useState<boolean | null>(null);
   const [gateCode,    setGateCode]    = useState('');
   const [gateJoining, setGateJoining] = useState(false);
+  // Anyone can browse/spectate live Swindle games — the access code is only
+  // required to actually enter one (real money's on the line). Shown as a
+  // modal over the game a non-member tapped "I'm in" on, not a blanket
+  // screen block (Dave/Ricky, 2026-09-07).
+  const [showJoinGate, setShowJoinGate] = useState(false);
+  const [pendingGame,  setPendingGame]  = useState<Game | null>(null);
   const [deletingId,  setDeletingId]  = useState<string | null>(null);
 
   const [fontsLoaded] = useFonts({
@@ -83,8 +89,7 @@ export default function SwindleIndex() {
         .from('society_members').select('membership_types')
         .eq('society_id', societyId).eq('player_id', pid).maybeSingle();
       const types: string[] = (mem?.membership_types ?? []) as string[];
-      if (!types.includes('swindle')) { setIsMember(false); setLoading(false); return; }
-      setIsMember(true);
+      setIsMember(types.includes('swindle'));
     } else {
       setIsMember(true);
     }
@@ -119,6 +124,12 @@ export default function SwindleIndex() {
 
   async function imIn(game: Game) {
     if (!myId || imInBusy) return;
+    if (!isMember) { setPendingGame(game); setShowJoinGate(true); return; }
+    await doJoinGame(game);
+  }
+
+  async function doJoinGame(game: Game) {
+    if (!myId) return;
     setImInBusy(game.id);
     await supabase.from('swindle_entries').insert({ game_id: game.id, player_id: myId });
     const { data: me } = await supabase.from('players').select('handicap_index').eq('id', myId).maybeSingle();
@@ -183,41 +194,54 @@ export default function SwindleIndex() {
     }
     setIsMember(true);
     setGateJoining(false);
+    setShowJoinGate(false);
+    setGateCode('');
+    const toJoin = pendingGame;
+    setPendingGame(null);
     await loadGames(myId);
+    if (toJoin) await doJoinGame(toJoin);
   }
 
   const open     = games.filter(g => g.status === 'open' || g.status === 'in_progress');
   const complete = games.filter(g => g.status === 'complete');
 
-  if (!isMember) return (
-    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-      <StatusBar style="light" />
-      <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={{ width: 52, height: 52, marginBottom: 20 }} />
-      <View style={{ backgroundColor: PURPLE + '22', borderRadius: 99, paddingHorizontal: 16, paddingVertical: 6, borderWidth: 1, borderColor: PURPLE + '55', marginBottom: 20 }}>
-        <Text style={{ fontFamily: FFB, fontSize: 12, color: PURPLE, letterSpacing: 1 }}>INVITE ONLY</Text>
+  const joinGateModal = (
+    <Modal visible={showJoinGate} transparent animationType="slide" onRequestClose={() => { setShowJoinGate(false); setPendingGame(null); }}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <StatusBar style="light" />
+        <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={{ width: 52, height: 52, marginBottom: 20 }} />
+        <View style={{ backgroundColor: PURPLE + '22', borderRadius: 99, paddingHorizontal: 16, paddingVertical: 6, borderWidth: 1, borderColor: PURPLE + '55', marginBottom: 20 }}>
+          <Text style={{ fontFamily: FFB, fontSize: 12, color: PURPLE, letterSpacing: 1 }}>INVITE ONLY</Text>
+        </View>
+        <Text style={{ fontFamily: FFB, fontSize: 22, color: dc.cardText, textAlign: 'center', marginBottom: 10 }}>The Swindle</Text>
+        <Text style={{ fontFamily: FFB, fontSize: 13, color: '#555', textAlign: 'center', lineHeight: 22, marginBottom: 32 }}>
+          Joining costs real money, so it's invite-only.{'\n'}Enter your access code to play.
+        </Text>
+        <TextInput
+          style={{ width: '100%', backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 12, paddingHorizontal: 18, paddingVertical: 14, fontFamily: FFB, fontSize: 20, color: '#fff', letterSpacing: 4, textAlign: 'center', marginBottom: 14 }}
+          placeholder="ACCESS CODE"
+          placeholderTextColor="#333"
+          value={gateCode}
+          onChangeText={t => setGateCode(t.toUpperCase())}
+          autoCapitalize="characters"
+          maxLength={10}
+        />
+        <TouchableOpacity
+          style={{ width: '100%', backgroundColor: PURPLE, borderRadius: 12, paddingVertical: 16, alignItems: 'center', opacity: gateJoining ? 0.6 : 1 }}
+          onPress={joinSwindle}
+          disabled={gateJoining}
+          activeOpacity={0.85}
+        >
+          <Text style={{ fontFamily: FFB, fontSize: 16, color: '#fff' }}>{gateJoining ? 'Checking…' : 'Join The Swindle'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{ marginTop: 18 }}
+          onPress={() => { setShowJoinGate(false); setPendingGame(null); }}
+        >
+          <Text style={{ fontFamily: FFB, fontSize: 13, color: '#555' }}>Cancel</Text>
+        </TouchableOpacity>
       </View>
-      <Text style={{ fontFamily: FFB, fontSize: 22, color: dc.cardText, textAlign: 'center', marginBottom: 10 }}>The Swindle</Text>
-      <Text style={{ fontFamily: FFB, fontSize: 13, color: '#555', textAlign: 'center', lineHeight: 22, marginBottom: 32 }}>
-        This swindle is exclusive to invited members.{'\n'}Enter your access code to continue.
-      </Text>
-      <TextInput
-        style={{ width: '100%', backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 12, paddingHorizontal: 18, paddingVertical: 14, fontFamily: FFB, fontSize: 20, color: '#fff', letterSpacing: 4, textAlign: 'center', marginBottom: 14 }}
-        placeholder="ACCESS CODE"
-        placeholderTextColor="#333"
-        value={gateCode}
-        onChangeText={t => setGateCode(t.toUpperCase())}
-        autoCapitalize="characters"
-        maxLength={10}
-      />
-      <TouchableOpacity
-        style={{ width: '100%', backgroundColor: PURPLE, borderRadius: 12, paddingVertical: 16, alignItems: 'center', opacity: gateJoining ? 0.6 : 1 }}
-        onPress={joinSwindle}
-        disabled={gateJoining}
-        activeOpacity={0.85}
-      >
-        <Text style={{ fontFamily: FFB, fontSize: 16, color: '#fff' }}>{gateJoining ? 'Checking…' : 'Join The Swindle'}</Text>
-      </TouchableOpacity>
-    </View>
+    </Modal>
   );
 
   return (
@@ -307,6 +331,7 @@ export default function SwindleIndex() {
         onConfirm={deleteGame}
         onCancel={() => setDeletingId(null)}
       />
+      {joinGateModal}
     </View>
   );
 }

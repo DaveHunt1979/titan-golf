@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
-import SwipeableRow from './SwipeableRow';
+import MessageActionSheet from './MessageActionSheet';
 import { resolveAvatar } from '../lib/assets';
 import { useSocietyTheme } from '../lib/SocietyThemeContext';
 import { sendPushNotification } from '../lib/notifications';
@@ -74,6 +74,8 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
+  // Long-press target for the message action menu (replaces swipe-to-reply).
+  const [actionMsg, setActionMsg] = useState<Message | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const flatRef = useRef<FlatList>(null);
   const subRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -208,48 +210,43 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
       : null;
 
     return (
-      <SwipeableRow
-        onDelete={() => setReplyTo(item)}
-        actionLabel="Reply"
-        actionIcon="arrow-undo-outline"
-        actionColor={GOLD}
-        actionTextColor="#000"
-        radius={16}
-      >
-        <View style={[ss.row, isMe && ss.rowMe]}>
-          {!isMe && (
-            showAvatar
-              ? (avatar
-                  ? <Image source={avatar} style={ss.avatar} />
-                  : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{name[0]}</Text></View>)
-              : <View style={ss.avatarSpacer} />
+      <View style={[ss.row, isMe && ss.rowMe]}>
+        {!isMe && (
+          showAvatar
+            ? (avatar
+                ? <Image source={avatar} style={ss.avatar} />
+                : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{name[0]}</Text></View>)
+            : <View style={ss.avatarSpacer} />
+        )}
+        <TouchableOpacity
+          style={[ss.bubble, isMe ? ss.bubbleMe : ss.bubbleThem, highlightId === item.id && ss.bubbleFlash]}
+          onLongPress={() => setActionMsg(item)}
+          activeOpacity={0.8}
+        >
+          {!isMe && showAvatar && <Text style={ss.senderName}>{name}</Text>}
+          {item.reply_to_message_id && (
+            quoted ? (
+              <TouchableOpacity style={ss.quote} onPress={() => scrollToOriginal(quoted.id)} activeOpacity={0.7}>
+                <Text style={ss.quoteName} numberOfLines={1}>{quotedName}</Text>
+                <Text style={ss.quoteText} numberOfLines={2}>{quoted.content}</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={ss.quote}>
+                <Text style={ss.quoteGone}>Original message deleted</Text>
+              </View>
+            )
           )}
-          <View style={[ss.bubble, isMe ? ss.bubbleMe : ss.bubbleThem, highlightId === item.id && ss.bubbleFlash]}>
-            {!isMe && showAvatar && <Text style={ss.senderName}>{name}</Text>}
-            {item.reply_to_message_id && (
-              quoted ? (
-                <TouchableOpacity style={ss.quote} onPress={() => scrollToOriginal(quoted.id)} activeOpacity={0.7}>
-                  <Text style={ss.quoteName} numberOfLines={1}>{quotedName}</Text>
-                  <Text style={ss.quoteText} numberOfLines={2}>{quoted.content}</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={ss.quote}>
-                  <Text style={ss.quoteGone}>Original message deleted</Text>
-                </View>
-              )
-            )}
-            <Text style={[ss.msgText, isMe && ss.msgTextMe]}>{item.content}</Text>
-            <Text style={[ss.time, isMe && ss.timeMe]}>{formatTime(item.created_at)}</Text>
-          </View>
-          {isMe && (
-            showAvatar
-              ? (avatar
-                  ? <Image source={avatar} style={ss.avatar} />
-                  : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{(me?.display_name ?? '?')[0]}</Text></View>)
-              : <View style={ss.avatarSpacer} />
-          )}
-        </View>
-      </SwipeableRow>
+          <Text style={[ss.msgText, isMe && ss.msgTextMe]}>{item.content}</Text>
+          <Text style={[ss.time, isMe && ss.timeMe]}>{formatTime(item.created_at)}</Text>
+        </TouchableOpacity>
+        {isMe && (
+          showAvatar
+            ? (avatar
+                ? <Image source={avatar} style={ss.avatar} />
+                : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{(me?.display_name ?? '?')[0]}</Text></View>)
+            : <View style={ss.avatarSpacer} />
+        )}
+      </View>
     );
   };
 
@@ -334,6 +331,17 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <MessageActionSheet
+        visible={!!actionMsg}
+        preview={actionMsg?.content ?? ''}
+        actions={[{
+          label: 'Reply',
+          icon: 'arrow-undo-outline',
+          onPress: () => { setReplyTo(actionMsg); setActionMsg(null); },
+        }]}
+        onCancel={() => setActionMsg(null)}
+      />
     </View>
   );
 }

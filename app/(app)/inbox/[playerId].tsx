@@ -8,7 +8,7 @@ import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
-import SwipeableRow from '../../../src/components/SwipeableRow';
+import MessageActionSheet, { type MessageAction } from '../../../src/components/MessageActionSheet';
 import { resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 import { sendPushNotification } from '../../../src/lib/notifications';
@@ -52,6 +52,10 @@ export default function DmThread() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [replyTo, setReplyTo] = useState<DM | null>(null);
+  // Long-press target for the message action menu. Reply and Delete both live
+  // in this one menu — long-press used to fire Delete straight away, which
+  // left no gesture free for Reply.
+  const [actionMsg, setActionMsg] = useState<DM | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const flatRef = useRef<FlatList>(null);
   const subRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -154,18 +158,17 @@ export default function DmThread() {
     setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, invite_response: response } : m));
   }
 
-  function confirmDeleteMessage(msg: DM) {
-    Alert.alert('Delete Message', 'Delete this message? This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        const { error } = await supabase.from('direct_messages').delete().eq('id', msg.id);
-        if (error) { Alert.alert('Error', error.message); return; }
-        setMessages(prev => prev.filter(m => m.id !== msg.id));
-        // Don't leave the composer aimed at a row that no longer exists —
-        // the insert's FK would reject it.
-        setReplyTo(prev => (prev?.id === msg.id ? null : prev));
-      }},
-    ]);
+  // Same delete as before (either participant may delete a message in their
+  // own thread — see the dm_participant_delete policy); only the entry point
+  // moved from long-press-fires-delete into the long-press action menu, which
+  // carries its own on-brand confirm step.
+  async function deleteMessage(msg: DM) {
+    const { error } = await supabase.from('direct_messages').delete().eq('id', msg.id);
+    if (error) { Alert.alert('Error', error.message); return; }
+    setMessages(prev => prev.filter(m => m.id !== msg.id));
+    // Don't leave the composer aimed at a row that no longer exists —
+    // the insert's FK would reject it.
+    setReplyTo(prev => (prev?.id === msg.id ? null : prev));
   }
 
   // Tapping a quote jumps to the original when it's still in the loaded
@@ -303,46 +306,56 @@ export default function DmThread() {
       : null;
 
     return (
-      <SwipeableRow
-        onDelete={() => setReplyTo(item)}
-        actionLabel="Reply"
-        actionIcon="arrow-undo-outline"
-        actionColor={GOLD}
-        actionTextColor="#000"
-        radius={16}
-      >
-        <View style={[ss.row, isMe && ss.rowMe]}>
-          {!isMe && (
-            showAvatar
-              ? (avatarSrc
-                  ? <Image source={avatarSrc} style={ss.avatar} />
-                  : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{otherName[0]}</Text></View>)
-              : <View style={ss.avatarSpacer} />
+      <View style={[ss.row, isMe && ss.rowMe]}>
+        {!isMe && (
+          showAvatar
+            ? (avatarSrc
+                ? <Image source={avatarSrc} style={ss.avatar} />
+                : <View style={[ss.avatar, ss.avatarFallback]}><Text style={ss.avatarInitial}>{otherName[0]}</Text></View>)
+            : <View style={ss.avatarSpacer} />
+        )}
+        <TouchableOpacity
+          style={[ss.bubble, isMe ? ss.bubbleMe : ss.bubbleThem, highlightId === item.id && ss.bubbleFlash]}
+          onLongPress={() => setActionMsg(item)}
+          activeOpacity={0.8}
+        >
+          {item.reply_to_message_id && (
+            quoted ? (
+              <TouchableOpacity style={ss.quote} onPress={() => scrollToOriginal(quoted.id)} activeOpacity={0.7}>
+                <Text style={ss.quoteName} numberOfLines={1}>{quotedName}</Text>
+                <Text style={ss.quoteText} numberOfLines={2}>{quoted.content}</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={ss.quote}>
+                <Text style={ss.quoteGone}>Original message deleted</Text>
+              </View>
+            )
           )}
-          <TouchableOpacity
-            style={[ss.bubble, isMe ? ss.bubbleMe : ss.bubbleThem, highlightId === item.id && ss.bubbleFlash]}
-            onLongPress={() => confirmDeleteMessage(item)}
-            activeOpacity={0.8}
-          >
-            {item.reply_to_message_id && (
-              quoted ? (
-                <TouchableOpacity style={ss.quote} onPress={() => scrollToOriginal(quoted.id)} activeOpacity={0.7}>
-                  <Text style={ss.quoteName} numberOfLines={1}>{quotedName}</Text>
-                  <Text style={ss.quoteText} numberOfLines={2}>{quoted.content}</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={ss.quote}>
-                  <Text style={ss.quoteGone}>Original message deleted</Text>
-                </View>
-              )
-            )}
-            <Text style={ss.msgText}>{item.content}</Text>
-            <Text style={ss.time}>{formatTime(item.created_at)}</Text>
-          </TouchableOpacity>
-        </View>
-      </SwipeableRow>
+          <Text style={ss.msgText}>{item.content}</Text>
+          <Text style={ss.time}>{formatTime(item.created_at)}</Text>
+        </TouchableOpacity>
+      </View>
     );
   };
+
+  const messageActions: MessageAction[] = actionMsg ? [
+    {
+      label: 'Reply',
+      icon: 'arrow-undo-outline',
+      onPress: () => { setReplyTo(actionMsg); setActionMsg(null); },
+    },
+    {
+      label: 'Delete',
+      icon: 'trash-outline',
+      destructive: true,
+      confirm: {
+        title: 'Delete Message',
+        message: 'Delete this message? This cannot be undone.',
+        confirmLabel: 'Delete',
+      },
+      onPress: () => { setActionMsg(null); deleteMessage(actionMsg); },
+    },
+  ] : [];
 
   return (
     <View style={ss.container}>
@@ -419,6 +432,13 @@ export default function DmThread() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <MessageActionSheet
+        visible={!!actionMsg}
+        preview={actionMsg?.content ?? ''}
+        actions={messageActions}
+        onCancel={() => setActionMsg(null)}
+      />
     </View>
   );
 }

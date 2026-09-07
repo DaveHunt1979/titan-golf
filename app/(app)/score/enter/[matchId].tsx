@@ -1460,8 +1460,14 @@ export default function EnterScoresScreen() {
     if (!match || saving) return;
     setSaving(true);
     try {
+      const isStrokePlayComplete = match.round_format === 'stableford' || match.round_format === 'medal';
       const matchUpdate = {
-        status: 'complete' as const, winner: null, result_str: 'Complete',
+        status: 'complete' as const,
+        // Matchplay already computes the real winner/result_str live as
+        // holes are entered (e.g. '2UP', '3&2') — only stroke-play formats
+        // need this placeholder, otherwise we stomp the real matchplay
+        // result right before the AI report reads it (Ricky, 2026-09-07).
+        ...(isStrokePlayComplete ? { winner: null, result_str: 'Complete' } : {}),
         ...(match.completed_at ? {} : { completed_at: new Date().toISOString() }),
       };
       const { error } = await supabase.from('matches').update(matchUpdate).eq('id', match.id);

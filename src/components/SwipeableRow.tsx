@@ -28,6 +28,7 @@ export default function SwipeableRow({
   actionIcon = 'trash-outline',
   actionColor = '#f87171',
   actionTextColor = '#fff',
+  compact = false,
 }: {
   children: React.ReactNode;
   onDelete: () => void;
@@ -38,6 +39,12 @@ export default function SwipeableRow({
   actionIcon?: React.ComponentProps<typeof Ionicons>['name'];
   actionColor?: string;
   actionTextColor?: string;
+  // Delete-on-a-list-row wants the classic full-height iOS panel. A chat
+  // bubble's height varies a lot (more so now a bubble can carry a quoted
+  // reply block above it), so stretching a colored panel to match looks like
+  // an oversized button rather than a small reply affordance — compact mode
+  // renders a small centered circle instead, sized to the icon, not the row.
+  compact?: boolean;
 }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const isOpen = useRef(false);
@@ -71,10 +78,21 @@ export default function SwipeableRow({
 
   return (
     <View style={style}>
-      <View style={[sw.deleteWrap, { borderRadius: radius }]}>
-        <TouchableOpacity style={[sw.deleteBtn, { backgroundColor: actionColor }]} onPress={runAction} activeOpacity={0.8}>
-          <Ionicons name={actionIcon} size={18} color={actionTextColor} />
-          <Text style={[sw.deleteText, { color: actionTextColor }]}>{actionLabel}</Text>
+      <View
+        style={[
+          sw.deleteWrap,
+          compact ? sw.deleteWrapCompact : { borderRadius: radius },
+        ]}
+      >
+        <TouchableOpacity
+          style={compact
+            ? [sw.compactBtn, { backgroundColor: actionColor }]
+            : [sw.deleteBtn, { backgroundColor: actionColor }]}
+          onPress={runAction}
+          activeOpacity={0.8}
+        >
+          <Ionicons name={actionIcon} size={compact ? 16 : 18} color={actionTextColor} />
+          {!compact && <Text style={[sw.deleteText, { color: actionTextColor }]}>{actionLabel}</Text>}
         </TouchableOpacity>
       </View>
       <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
@@ -86,6 +104,8 @@ export default function SwipeableRow({
 
 const sw = StyleSheet.create({
   deleteWrap: { position: 'absolute', top: 0, bottom: 0, right: 0, width: SWIPE_W, overflow: 'hidden' },
+  deleteWrapCompact: { alignItems: 'center', justifyContent: 'center' },
   deleteBtn:  { flex: 1, alignItems: 'center', justifyContent: 'center' },
   deleteText: { fontFamily: FFB, fontSize: 11, marginTop: 2 },
+  compactBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
 });

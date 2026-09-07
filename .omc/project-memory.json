@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1788355292110,
+  "lastScanned": 1788758797741,
   "projectRoot": "/Users/davehunt/Desktop/titan-golf",
   "techStack": {
     "languages": [
@@ -69,7 +69,7 @@
       "path": "app",
       "purpose": "Application code",
       "fileCount": 2,
-      "lastAccessed": 1788355292100,
+      "lastAccessed": 1788758797730,
       "keyFiles": [
         "_layout.tsx"
       ]
@@ -78,7 +78,7 @@
       "path": "assets",
       "purpose": "Static assets",
       "fileCount": 26,
-      "lastAccessed": 1788355292101,
+      "lastAccessed": 1788758797732,
       "keyFiles": [
         "Golf_Competition_Format_Library_App_Blueprint.docx",
         "TitanAppLogo.png",
@@ -91,7 +91,7 @@
       "path": "concept",
       "purpose": null,
       "fileCount": 7,
-      "lastAccessed": 1788355292101,
+      "lastAccessed": 1788758797732,
       "keyFiles": [
         "Casual Round Set Up.PNG",
         "Event Screen.PNG",
@@ -104,7 +104,7 @@
       "path": "csv",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1788355292101,
+      "lastAccessed": 1788758797732,
       "keyFiles": [
         "Supabase Snippet Untitled query.csv"
       ]
@@ -113,7 +113,7 @@
       "path": "dist",
       "purpose": "Distribution/build output",
       "fileCount": 1,
-      "lastAccessed": 1788355292101,
+      "lastAccessed": 1788758797733,
       "keyFiles": [
         "metadata.json"
       ]
@@ -122,7 +122,7 @@
       "path": "errors",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1788355292101,
+      "lastAccessed": 1788758797733,
       "keyFiles": [
         "Bad.png",
         "Good.png",
@@ -135,7 +135,7 @@
       "path": "ios",
       "purpose": null,
       "fileCount": 10,
-      "lastAccessed": 1788355292102,
+      "lastAccessed": 1788758797733,
       "keyFiles": [
         "LiveActivityBridge.m",
         "LiveActivityBridge.swift",
@@ -148,15 +148,19 @@
       "path": "mashie",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1788355292102,
+      "lastAccessed": 1788758797733,
       "keyFiles": []
     },
     "screenshots": {
       "path": "screenshots",
       "purpose": null,
-      "fileCount": 2,
-      "lastAccessed": 1788355292102,
+      "fileCount": 6,
+      "lastAccessed": 1788758797733,
       "keyFiles": [
+        "Screenshot 2026-09-07 at 06.23.21.png",
+        "Screenshot 2026-09-07 at 06.23.30.png",
+        "Screenshot 2026-09-07 at 06.23.39.png",
+        "Screenshot 2026-09-07 at 06.23.43.png",
         "Titan Coach.docx"
       ]
     },
@@ -164,7 +168,7 @@
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 19,
-      "lastAccessed": 1788355292102,
+      "lastAccessed": 1788758797733,
       "keyFiles": [
         "course_name_collisions.txt",
         "course_parse_errors.txt",
@@ -177,14 +181,14 @@
       "path": "src",
       "purpose": "Source code",
       "fileCount": 0,
-      "lastAccessed": 1788355292102,
+      "lastAccessed": 1788758797733,
       "keyFiles": []
     },
     "supabase": {
       "path": "supabase",
       "purpose": null,
       "fileCount": 45,
-      "lastAccessed": 1788355292102,
+      "lastAccessed": 1788758797734,
       "keyFiles": [
         "add_admin_create_login.sql",
         "add_avatars_bucket.sql",
@@ -197,7 +201,7 @@
       "path": "web",
       "purpose": null,
       "fileCount": 12,
-      "lastAccessed": 1788355292102,
+      "lastAccessed": 1788758797734,
       "keyFiles": [
         "README.md",
         "eslint.config.mjs",
@@ -210,7 +214,7 @@
       "path": "dist/assets",
       "purpose": "Static assets",
       "fileCount": 106,
-      "lastAccessed": 1788355292103,
+      "lastAccessed": 1788758797734,
       "keyFiles": [
         "017bc6ba3fc25503e5eb5e53826d48a8",
         "034b95d9056dbaa6b07ba86af2c28ce4",
@@ -220,8 +224,8 @@
     "src/components": {
       "path": "src/components",
       "purpose": "UI components",
-      "fileCount": 19,
-      "lastAccessed": 1788355292103,
+      "fileCount": 21,
+      "lastAccessed": 1788758797735,
       "keyFiles": [
         "CaddieButton.tsx",
         "ChatChannel.tsx",
@@ -231,8 +235,8 @@
     "src/lib": {
       "path": "src/lib",
       "purpose": "Library code",
-      "fileCount": 45,
-      "lastAccessed": 1788355292103,
+      "fileCount": 53,
+      "lastAccessed": 1788758797735,
       "keyFiles": [
         "SocietyThemeContext.tsx",
         "assets.ts",
@@ -243,7 +247,7 @@
       "path": "src/types",
       "purpose": "Type definitions",
       "fileCount": 1,
-      "lastAccessed": 1788355292103,
+      "lastAccessed": 1788758797735,
       "keyFiles": [
         "index.ts"
       ]
@@ -252,309 +256,105 @@
       "path": "web/node_modules",
       "purpose": "Dependencies",
       "fileCount": 2,
-      "lastAccessed": 1788355292103,
+      "lastAccessed": 1788758797736,
       "keyFiles": []
     }
   },
   "hotPaths": [
     {
-      "path": "app/(app)/admin/season-manage.tsx",
-      "accessCount": 33,
-      "lastAccessed": 1788502238868,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/games/GroupBuilderSheet.tsx",
-      "accessCount": 27,
-      "lastAccessed": 1788504256427,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 26,
-      "lastAccessed": 1788504234436,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/news/index.tsx",
+      "path": "app/(app)/swindle/index.tsx",
       "accessCount": 14,
-      "lastAccessed": 1788418139860,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/season/index.tsx",
-      "accessCount": 12,
-      "lastAccessed": 1788415441640,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/season/join.tsx",
-      "accessCount": 12,
-      "lastAccessed": 1788415594775,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/seasonClose.ts",
-      "accessCount": 11,
-      "lastAccessed": 1788505735180,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/seasonRoundIngestion.ts",
-      "accessCount": 8,
-      "lastAccessed": 1788505741616,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/camera/index.tsx",
-      "accessCount": 6,
-      "lastAccessed": 1788418151161,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/seasonDivisions.ts",
-      "accessCount": 5,
-      "lastAccessed": 1788502227191,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/_layout.tsx",
-      "accessCount": 5,
-      "lastAccessed": 1788512410492,
-      "type": "file"
-    },
-    {
-      "path": "supabase/functions/titan-news/index.ts",
-      "accessCount": 4,
-      "lastAccessed": 1788374644309,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260905000000_titan_season_data_model.sql",
-      "accessCount": 4,
-      "lastAccessed": 1788426559087,
-      "type": "file"
-    },
-    {
-      "path": "src/components/TeePickerSheet.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1788504130349,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/titanNews.ts",
-      "accessCount": 4,
-      "lastAccessed": 1788505631136,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/clubhouse/index.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1788370508036,
-      "type": "file"
-    },
-    {
-      "path": "app.json",
-      "accessCount": 3,
-      "lastAccessed": 1788375722005,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260825020000_whs_layer.sql",
-      "accessCount": 3,
-      "lastAccessed": 1788415425168,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/admin/season-requests.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1788415427922,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/admin/season-create.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1788502238741,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/scoring.ts",
-      "accessCount": 3,
-      "lastAccessed": 1788504233323,
+      "lastAccessed": 1788759877932,
       "type": "file"
     },
     {
       "path": "app/(app)/index.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1788505637906,
+      "accessCount": 9,
+      "lastAccessed": 1788759758616,
       "type": "file"
     },
     {
-      "path": "app/(app)/swindle/index.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1788370455039,
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 5,
+      "lastAccessed": 1788759634518,
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/index.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1788371765495,
+      "path": "src/components/TCardSheet.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1788759673161,
       "type": "file"
     },
     {
-      "path": "ios/titangolf/Info.plist",
+      "path": "supabase/migrations/20260901000000_match_holes_participant_rls.sql",
       "accessCount": 2,
-      "lastAccessed": 1788375728528,
+      "lastAccessed": 1788759127269,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260913000000_casual_match_holes_rls.sql",
+      "accessCount": 2,
+      "lastAccessed": 1788759894900,
       "type": "file"
     },
     {
       "path": "ios/titangolf.xcodeproj/project.pbxproj",
       "accessCount": 2,
-      "lastAccessed": 1788375737663,
+      "lastAccessed": 1788760865213,
       "type": "file"
     },
     {
-      "path": "supabase/migrations/20260824000000_round_tee_and_date.sql",
-      "accessCount": 2,
-      "lastAccessed": 1788426546389,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260804030000_swindle_groups.sql",
-      "accessCount": 2,
-      "lastAccessed": 1788426546897,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/seasonLeaderboard.ts",
-      "accessCount": 2,
-      "lastAccessed": 1788502233151,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/season/table.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1788505728143,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/season/majors.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1788505748004,
-      "type": "file"
-    },
-    {
-      "path": "screenshots/Titan_Season_Mode_Full_Product_Technical_Specification.md",
+      "path": "screenshots/Screenshot 2026-09-07 at 06.23.21.png",
       "accessCount": 1,
-      "lastAccessed": 1788370375551,
+      "lastAccessed": 1788758881041,
       "type": "file"
     },
     {
-      "path": "app/(app)/swindle/_layout.tsx",
+      "path": "screenshots/Screenshot 2026-09-07 at 06.23.30.png",
       "accessCount": 1,
-      "lastAccessed": 1788370409669,
+      "lastAccessed": 1788758881588,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/index.tsx",
+      "path": "screenshots/Screenshot 2026-09-07 at 06.23.39.png",
       "accessCount": 1,
-      "lastAccessed": 1788370464998,
+      "lastAccessed": 1788758882183,
       "type": "file"
     },
     {
-      "path": "app/(app)/clubhouse/_layout.tsx",
+      "path": "screenshots/Screenshot 2026-09-07 at 06.23.43.png",
       "accessCount": 1,
-      "lastAccessed": 1788370471334,
+      "lastAccessed": 1788758882366,
       "type": "file"
     },
     {
-      "path": "app/(app)/season/_layout.tsx",
+      "path": "src/components/PlayerEditSheet.tsx",
       "accessCount": 1,
-      "lastAccessed": 1788370474128,
+      "lastAccessed": 1788758942018,
       "type": "file"
     },
     {
-      "path": "src/lib/seasonScoring.ts",
+      "path": "src/lib/titanNews.ts",
       "accessCount": 1,
-      "lastAccessed": 1788371080651,
+      "lastAccessed": 1788758952222,
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/hub-swindle.tsx",
+      "path": "app/(app)/_layout.tsx",
       "accessCount": 1,
-      "lastAccessed": 1788371709666,
+      "lastAccessed": 1788758956814,
       "type": "file"
     },
     {
-      "path": "src/lib/dateHelpers.ts",
+      "path": "app/(app)/admin/swindle.tsx",
       "accessCount": 1,
-      "lastAccessed": 1788371746394,
+      "lastAccessed": 1788759016001,
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/hub-season.tsx",
+      "path": "app.json",
       "accessCount": 1,
-      "lastAccessed": 1788371782961,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260906000000_titan_season_round_sources.sql",
-      "accessCount": 1,
-      "lastAccessed": 1788372420611,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/notifications.ts",
-      "accessCount": 1,
-      "lastAccessed": 1788374585233,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260907000000_titan_season_news.sql",
-      "accessCount": 1,
-      "lastAccessed": 1788374612596,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/seasonNews.ts",
-      "accessCount": 1,
-      "lastAccessed": 1788374667050,
-      "type": "file"
-    },
-    {
-      "path": "screenshots/Screenshot 2026-09-03 at 06.54.46.png",
-      "accessCount": 1,
-      "lastAccessed": 1788415047343,
-      "type": "file"
-    },
-    {
-      "path": "screenshots/Screenshot 2026-09-03 at 06.55.01.png",
-      "accessCount": 1,
-      "lastAccessed": 1788415047781,
-      "type": "file"
-    },
-    {
-      "path": "screenshots/Screenshot 2026-09-03 at 06.54.58.png",
-      "accessCount": 1,
-      "lastAccessed": 1788415047840,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260908000000_round_tee_gender.sql",
-      "accessCount": 1,
-      "lastAccessed": 1788415484196,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260908000000_season_join_no_approval.sql",
-      "accessCount": 1,
-      "lastAccessed": 1788415569023,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260823000000_photos.sql",
-      "accessCount": 1,
-      "lastAccessed": 1788417734427,
+      "lastAccessed": 1788760856940,
       "type": "file"
     }
   ],

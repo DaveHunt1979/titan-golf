@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"supabase db query \\\"$(cat supabase/migrations/20260913000000_casual_match_holes_rls.sql)\\\" --linked 2>&1\",\"description\":\"Apply the is_match_scorer RLS fix directly to the live database\"}",
+  "error": "Exit code 1\n{\"_tag\":\"Help\",\"doc\":{\"description\":\"Execute a SQL query against the database.\",\"usage\":\"supabase db query [flags] [<sql>]\",\"flags\":[{\"name\":\"db-url\",\"aliases\":[],\"type\":\"string\",\"description\":{\"_id\":\"Option\",\"_tag\":\"Some\",\"value\":\"Queries the database specified by the connection string (must be percent-encoded).\"},\"required\":false},{\"name\":\"linked\",\"aliases\":[],\"type\":\"boolean\",\"description\":{\"_id\":\"Option\",\"_tag\":\"Some\",\"value\":\"Queries the linked project's database via Management ...",
+  "timestamp": "2026-09-07T05:45:32.225Z",
+  "retry_count": 1
+}
