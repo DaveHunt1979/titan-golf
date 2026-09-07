@@ -36,8 +36,8 @@ function greet(): string {
 
 const TILES = [
   { key: 'play',      label: 'Play',        sub: 'Start a casual round',        icon: 'golf-outline'   as const, area: 'casual',  route: '/(app)/score' },
-  { key: 'events',    label: 'Tournaments',  sub: 'Tournaments & leagues',        icon: 'trophy-outline' as const, area: 'tour',    route: '/(app)/tour'    },
-  { key: 'clubhouse', label: 'Clubhouse',    sub: 'Swindles & roll-ups',          icon: 'people-outline' as const, area: 'swindle', route: '/(app)/clubhouse' },
+  { key: 'events',    label: 'Tournaments',  sub: 'Competitions & Tours',         icon: 'trophy-outline' as const, area: 'tour',    route: '/(app)/tour'    },
+  { key: 'clubhouse', label: 'Clubhouse',    sub: 'Swindle & Season',             icon: 'people-outline' as const, area: 'swindle', route: '/(app)/clubhouse' },
   { key: 'locker',    label: 'Locker Room',  sub: 'Stats, handicap & equipment',  icon: 'shield-outline' as const, area: 'casual',  route: '/(app)/profile' },
 ] as const;
 
@@ -352,7 +352,6 @@ export default function HomeScreen() {
 
   const tileSub = (key: string, def: string): string => {
     if (key === 'play'     ) return casualCount  > 0 ? `${casualCount} game${casualCount !== 1 ? 's' : ''} in progress` : def;
-    if (key === 'events'   ) return '';
     if (key === 'clubhouse') return swindleName   ? `${swindleName}${swindleCount > 0 ? ` · ${swindleCount} in` : ''}`             : def;
     return def;
   };

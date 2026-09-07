@@ -149,7 +149,12 @@ function AppLayoutInner() {
   // pause the JS timer, which isn't guaranteed.
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
-    const touch = () => { supabase.rpc('touch_my_presence'); };
+    // supabase-js query builders are lazy "thenables" — the request never
+    // actually fires unless something consumes it (await/.then()). Calling
+    // .rpc() bare like this silently no-ops, which is why last_active_at
+    // has never been set for a single player since this shipped
+    // (Dave/Ricky, 2026-09-07: presence-gated features never worked).
+    const touch = async () => { await supabase.rpc('touch_my_presence'); };
     const startIfActive = (state: string) => {
       if (state === 'active' && !interval) {
         touch();

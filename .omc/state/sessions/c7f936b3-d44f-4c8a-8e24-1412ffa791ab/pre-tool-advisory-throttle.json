@@ -1,30 +1,26 @@
 {
   "version": 1,
   "entries": {
-    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1788760856865,
-      "message": "Verify changes work after editing. Test functionality before marking complete."
-    },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1788760846457,
+      "last_emitted_at_ms": 1788774663869,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1788760839137,
+      "last_emitted_at_ms": 1788774406877,
       "message": "Read multiple files in parallel when possible for faster analysis."
     },
-    "63108ce15c37db5fb1b2676ffade6fe2df83285d7e1419a4a9f6b015af2251d3": {
-      "last_emitted_at_ms": 1788758943632,
-      "message": "Spawning agent: fork (inherit) | Task: Root-cause AI post-match report failures"
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1788774357766,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
     },
-    "68e7f81844e64dc1c745db518e7e10192aa5ed582569a84f59d7aa22a18f1286": {
-      "last_emitted_at_ms": 1788758934806,
-      "message": "Spawning agent: fork (inherit) | Task: Root-cause friends-on-course showing no games"
+    "e92ea438fd8b0d3691710909038b82d7b46ea3f75d18d11410351aa0edd068fe": {
+      "last_emitted_at_ms": 1788772565345,
+      "message": "Spawning agent: Explore (inherit) | Task: Explore score entry closures needed for extraction"
     },
-    "84da32a29b475c4b19a39cc95dbd97100f100b347e284f6b8a5ccb00e33d823b": {
-      "last_emitted_at_ms": 1788758926664,
-      "message": "Spawning agent: fork (inherit) | Task: Root-cause swindle-gated spectator/score bugs"
+    "ad7c635ddee25607269c243527a4ee07b47c5bafa6e53b9b17e92ac358c62631": {
+      "last_emitted_at_ms": 1788772553105,
+      "message": "Spawning agent: Explore (inherit) | Task: Explore simulate.tsx UI and any impersonation pattern"
     }
   },
-  "updated_at": "2026-09-07T06:00:56.865Z"
+  "updated_at": "2026-09-07T09:51:03.869Z"
 }

@@ -262,6 +262,12 @@
   },
   "hotPaths": [
     {
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 20,
+      "lastAccessed": 1788773533386,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/swindle/index.tsx",
       "accessCount": 14,
       "lastAccessed": 1788759877932,
@@ -269,20 +275,44 @@
     },
     {
       "path": "app/(app)/index.tsx",
-      "accessCount": 9,
-      "lastAccessed": 1788759758616,
+      "accessCount": 12,
+      "lastAccessed": 1788772200213,
       "type": "file"
     },
     {
-      "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 5,
-      "lastAccessed": 1788759634518,
+      "path": "src/lib/simulateVerification.ts",
+      "accessCount": 10,
+      "lastAccessed": 1788774478187,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/simulate.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1788774610880,
       "type": "file"
     },
     {
       "path": "src/components/TCardSheet.tsx",
       "accessCount": 4,
       "lastAccessed": 1788759673161,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1788771804659,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 4,
+      "lastAccessed": 1788774144755,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/simulateTournament.ts",
+      "accessCount": 3,
+      "lastAccessed": 1788772576096,
       "type": "file"
     },
     {
@@ -301,6 +331,24 @@
       "path": "ios/titangolf.xcodeproj/project.pbxproj",
       "accessCount": 2,
       "lastAccessed": 1788760865213,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/matchScoring.ts",
+      "accessCount": 2,
+      "lastAccessed": 1788773285344,
+      "type": "file"
+    },
+    {
+      "path": "supabase/functions/send-push/index.ts",
+      "accessCount": 2,
+      "lastAccessed": 1788774017310,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/supabase.ts",
+      "accessCount": 2,
+      "lastAccessed": 1788774412510,
       "type": "file"
     },
     {
@@ -340,12 +388,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/_layout.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788758956814,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/admin/swindle.tsx",
       "accessCount": 1,
       "lastAccessed": 1788759016001,
@@ -355,6 +397,36 @@
       "path": "app.json",
       "accessCount": 1,
       "lastAccessed": 1788760856940,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260906000000_titan_season_round_sources.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788772156362,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260902000000_simulation_support.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788772560013,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/whs.ts",
+      "accessCount": 1,
+      "lastAccessed": 1788772608965,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/offlineQueue.ts",
+      "accessCount": 1,
+      "lastAccessed": 1788772620195,
+      "type": "file"
+    },
+    {
+      "path": "supabase/functions/simulate-session/index.ts",
+      "accessCount": 1,
+      "lastAccessed": 1788774047205,
       "type": "file"
     }
   ],

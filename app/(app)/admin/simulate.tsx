@@ -8,6 +8,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
 import { runTournamentSimulation, deleteSimulation } from '../../../src/lib/simulateTournament';
+import { runVerification, type VerificationReport } from '../../../src/lib/simulateVerification';
 import { FORMAT_RULES, type FormatId } from '../../../src/lib/tournamentFormat';
 import SwipeableRow from '../../../src/components/SwipeableRow';
 
@@ -36,6 +37,37 @@ export default function SimulateScreen() {
   const [error, setError] = useState<string | null>(null);
   const [sims, setSims] = useState<SimRow[]>([]);
   const [loadingList, setLoadingList] = useState(true);
+
+  // "Scale Test" (above) proves the app survives at volume with random data
+  // written in one batch — a different, still-useful purpose from "Verify",
+  // which proves an 8-group real tournament behaves correctly: real
+  // per-player sessions, hole-by-hole through the real scoring path,
+  // concurrent groups, real corrections, and deliberately constructed ties
+  // checked against the real tie-break functions (Dave/Ricky, 2026-09-07).
+  const [mode, setMode] = useState<'scale' | 'verify'>('scale');
+  const [groupCount, setGroupCount] = useState(8);
+  const [verifyRunning, setVerifyRunning] = useState(false);
+  const [verifyProgress, setVerifyProgress] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [verifyReport, setVerifyReport] = useState<VerificationReport | null>(null);
+
+  async function runVerify() {
+    if (!societyId) return;
+    setVerifyRunning(true);
+    setVerifyError(null);
+    setVerifyReport(null);
+    setVerifyProgress('Starting...');
+    try {
+      const report = await runVerification({ societyId, groupCount, onProgress: setVerifyProgress });
+      setVerifyReport(report);
+      await loadSims();
+    } catch (e: any) {
+      setVerifyError(String(e?.message ?? e));
+    } finally {
+      setVerifyRunning(false);
+      setVerifyProgress(null);
+    }
+  }
 
   // Every format has its own valid team-count range (or none, for
   // individual formats) — jumping straight to a value that's actually
@@ -128,6 +160,66 @@ export default function SimulateScreen() {
           Build and fully play out a complete tournament — real scoring engine, real draw logic — so you can find where a format breaks before it happens for real. Uses only this society's real members and real teams; if there aren't enough for the size you pick, it'll tell you rather than making anyone up.
         </Text>
 
+        <View style={s.modeToggle}>
+          <TouchableOpacity style={[s.modeBtn, mode === 'scale' && s.modeBtnOn]} onPress={() => setMode('scale')} activeOpacity={0.8}>
+            <Text style={[s.modeBtnText, mode === 'scale' && s.modeBtnTextOn]}>SCALE TEST</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.modeBtn, mode === 'verify' && s.modeBtnOn]} onPress={() => setMode('verify')} activeOpacity={0.8}>
+            <Text style={[s.modeBtnText, mode === 'verify' && s.modeBtnTextOn]}>VERIFY</Text>
+          </TouchableOpacity>
+        </View>
+
+        {mode === 'verify' && (
+          <Text style={[s.sub, { color: dc.textSecondary, marginTop: -8 }]}>
+            Real per-player sessions score hole-by-hole through the exact same path a live scorer uses — concurrent groups, a real correction, and deliberately tied scores checked against the real tie-break rules. Ends with a PASS/FAIL checklist, not a leaderboard to eyeball.
+          </Text>
+        )}
+
+        {mode === 'verify' ? (
+          <>
+            <Text style={[s.label, { color: dc.cardText }]}>GROUPS ({groupCount})</Text>
+            <View style={s.stepper}>
+              <TouchableOpacity style={[s.stepperBtn, groupCount <= 2 && s.stepperBtnOff]} onPress={() => setGroupCount(n => Math.max(2, n - 1))} disabled={groupCount <= 2}>
+                <Text style={s.stepperBtnText}>–</Text>
+              </TouchableOpacity>
+              <Text style={[s.stepperValue, { color: dc.cardText }]}>{groupCount} groups</Text>
+              <TouchableOpacity style={[s.stepperBtn, groupCount >= 16 && s.stepperBtnOff]} onPress={() => setGroupCount(n => Math.min(16, n + 1))} disabled={groupCount >= 16}>
+                <Text style={s.stepperBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={[s.hint, { color: dc.textSecondary }]}>Each group scores concurrently under its own real session.</Text>
+
+            <TouchableOpacity style={[s.runBtn, verifyRunning && { opacity: 0.6 }]} onPress={runVerify} disabled={verifyRunning} activeOpacity={0.85}>
+              {verifyRunning ? <ActivityIndicator color="#000" /> : <Text style={s.runBtnText}>Run Verification</Text>}
+            </TouchableOpacity>
+            {verifyProgress && <Text style={[s.progress, { color: dc.textSecondary }]}>{verifyProgress}</Text>}
+            {verifyError && (
+              <View style={s.errorCard}>
+                <Ionicons name="alert-circle-outline" size={18} color="#f87171" style={{ marginTop: 1 }} />
+                <Text style={s.errorText}>{verifyError}</Text>
+              </View>
+            )}
+            {verifyReport && (
+              <View style={{ marginBottom: 24 }}>
+                <Text style={[s.label, { color: dc.cardText }]}>
+                  RESULT — {verifyReport.assertions.filter(a => a.pass).length}/{verifyReport.assertions.length} PASSED
+                </Text>
+                {verifyReport.assertions.map((a, i) => (
+                  <View key={i} style={[s.assertionRow, { backgroundColor: dc.card, borderColor: dc.border }]}>
+                    <Ionicons name={a.pass ? 'checkmark-circle' : 'close-circle'} size={18} color={a.pass ? '#4ade80' : '#f87171'} style={{ marginTop: 1 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.assertionName, { color: dc.cardText }]}>{a.name}</Text>
+                      <Text style={s.assertionDetail}>Expected: {a.expected}</Text>
+                      <Text style={s.assertionDetail}>Actual: {a.actual}</Text>
+                      {a.detail && <Text style={s.assertionDetail}>{a.detail}</Text>}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
+        ) : (
+        <>
         <Text style={[s.label, { color: dc.cardText }]}>FORMAT</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }} contentContainerStyle={{ gap: 8 }}>
           {SIMULATABLE_FORMATS.map(id => (
@@ -188,6 +280,8 @@ export default function SimulateScreen() {
             <Text style={s.errorText}>{error}</Text>
           </View>
         )}
+        </>
+        )}
 
         <Text style={[s.sectionHeader, { color: dc.cardText }]}>PAST SIMULATIONS</Text>
         {loadingList ? (
@@ -221,6 +315,14 @@ const s = StyleSheet.create({
   back: { fontFamily: FFB, fontSize: 13, color: GOLD },
   title: { fontFamily: FFB, fontSize: 12, letterSpacing: 1 },
   sub: { fontFamily: FF, fontSize: 13, lineHeight: 19, marginBottom: 24 },
+  modeToggle: { flexDirection: 'row', backgroundColor: '#111', borderRadius: 10, borderWidth: 1, borderColor: '#1c1c1c', padding: 4, marginBottom: 20 },
+  modeBtn: { flex: 1, borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
+  modeBtnOn: { backgroundColor: 'rgba(212,175,55,0.12)' },
+  modeBtnText: { fontFamily: FFB, fontSize: 11, letterSpacing: 1, color: '#666' },
+  modeBtnTextOn: { color: GOLD },
+  assertionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: 10, borderWidth: 1, padding: 12, marginBottom: 8 },
+  assertionName: { fontFamily: FFB, fontSize: 12, marginBottom: 4 },
+  assertionDetail: { fontFamily: FF, fontSize: 11, color: '#888', lineHeight: 16 },
   label: { fontFamily: FFB, fontSize: 10, letterSpacing: 1.5, marginBottom: 10 },
   formatChip: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10 },
   formatChipOn: { backgroundColor: 'rgba(212,175,55,0.12)', borderColor: GOLD },

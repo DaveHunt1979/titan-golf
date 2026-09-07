@@ -16,6 +16,7 @@ import {
   scoreVsPar, formatVsPar, SCORE_COLORS,
 } from '../../../../src/lib/scoring';
 import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
+import { computeAndSaveHoleScores } from '../../../../src/lib/matchScoring';
 import { getPlayerAvatar } from '../../../../src/lib/assets';
 import { courseHasGps } from '../../../../src/lib/courseGps';
 import { speakHole, speakPressure } from '../../../../src/lib/caddie';
@@ -786,104 +787,49 @@ export default function EnterScoresScreen() {
     setSaving(true);
     const wasAlreadyComplete = match.status === 'complete';
 
-    const si = courseHole.stroke_index;
     const par = courseHole.par;
-    const day = match.day;
 
-    const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
+    // Computation + the actual match_holes/hole_stats/matches write now live
+    // in src/lib/matchScoring.ts, shared with the tournament verification
+    // harness so a real scorer and a simulated one write through the exact
+    // same code (Dave, 2026-09-07). Everything below is unchanged UI-only
+    // behavior — Live Activity, voice, notifications, optimistic state,
+    // records checks, handicap-cuts reprocessing.
 
-    if (isStrokePlay) {
-      // Compute all data first so we can queue offline if needed
-      const spRows = allPlayerIds.map(id => {
-        const hcp = playerCourseHcp(id, compPlayers, day, match.hcp_allowance ?? 100, roundPlayerTees);
-        const shots = calcStrokesReceived(hcp, si);
-        const gross = scores[id] ?? null;
-        const net = gross !== null ? gross - shots : null;
-        // Medal with the Stableford side game switched off (secondary_format
-        // null) shouldn't compute Stableford points at all — Rick: "clicked
-        // off Stableford and it is running the side game" — the side game
-        // itself (when it IS on) keeps this exact calculation, untouched.
-        // Kronos is a separate, tournament-wide concern from that per-match
-        // side game though — its individual totals are just a sum of this
-        // same stableford_pts column (see src/lib/titanNews.ts), so a
-        // Kronos-enabled tournament must always populate it regardless of
-        // whether this particular day also has its own side game on
-        // (Dave, 2026-08-19 — Kronos wasn't updating for a team day alongside it).
-        const needsStablefordPts = match.round_format === 'stableford' || !!match.secondary_format || !!match.day?.competition?.include_in_kronos || !!match.day?.competition?.handicap_cuts_enabled;
-        return {
-          match_id: matchId,
-          player_id: id,
-          hole_number: activeHole,
-          score: 'd',
-          gross_score: gross,
-          net_score: net,
-          stableford_pts: needsStablefordPts ? calcStablefordPoints(gross, par, shots) : null,
-        };
-      });
+    // Try drain before saving
+    if (pendingCount > 0) await syncStatus.syncNow();
 
-      const spStatRows = allPlayerIds
-        .map(id => ({
-          match_id: matchId,
-          player_id: id,
-          hole_number: activeHole,
-          fairway_hit: courseHole.par >= 4 ? (stats[id]?.fairway != null ? stats[id]?.fairway === 'centre' : null) : null,
-          fairway_direction: courseHole.par >= 4 ? (stats[id]?.fairway ?? null) : null,
-          putts: stats[id]?.putts ?? null,
-          bunker_shots:    (stats[id]?.bunker ?? 0) > 0 ? stats[id]!.bunker! : null,
-          penalty_strokes: (stats[id]?.penalty ?? 0) > 0 ? stats[id]!.penalty! : null,
-          chip_shots:      (stats[id]?.chips ?? 0) > 0 ? stats[id]!.chips! : null,
-        }))
-        .filter(r => r.fairway_direction !== null || r.putts !== null || r.bunker_shots !== null || r.penalty_strokes !== null || r.chip_shots !== null);
+    const outcome = await computeAndSaveHoleScores({
+      match, courseHole, activeHole, editingHole: !!editingHole,
+      allPlayerIds, compPlayers, roundPlayerTees, continuingSecondary,
+      holeChars, holeSequence, scores, stats,
+    });
 
-      const spChars = [...holeChars];
-      spChars[activeHole - 1] = 'd';
-      const newHolesStr = spChars.join('');
-      const holesPlayed = newHolesStr.split('').filter(c => c !== '.').length;
-      const isAlreadyComplete = match.status === 'complete';
-      const newStatus: 'upcoming' | 'in_progress' | 'complete' = isAlreadyComplete ? 'complete' : 'in_progress';
-      const startedAtField = !match.started_at ? { started_at: new Date().toISOString() } : {};
-      const matchUpdate = isAlreadyComplete
-        ? { holes_string: newHolesStr, status: 'complete' as const, winner: match.winner, result_str: match.result_str, ...startedAtField }
-        : { holes_string: newHolesStr, status: 'in_progress' as const, winner: null as null, result_str: null as null, ...startedAtField };
+    if (outcome.kind === 'missing_match') {
+      setSaving(false);
+      Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
+        { text: 'OK', onPress: () => router.replace('/(app)/' as any) },
+      ]);
+      return;
+    }
+    if (outcome.kind === 'error') {
+      setSaving(false);
+      Alert.alert('Error', friendlyScoreError(outcome.error));
+      return;
+    }
 
-      // Try drain before saving
-      if (pendingCount > 0) await syncStatus.syncNow();
+    const { savedOffline } = outcome;
+    const c = outcome.computed;
+    if (savedOffline) syncStatus.syncNow();
 
-      let savedOffline = false;
-      try {
-        await supabase.from('match_holes').delete().eq('match_id', matchId).eq('hole_number', activeHole);
-        const { error: insErr } = await supabase.from('match_holes').insert(spRows);
-        if (insErr) throw insErr;
-        if (spStatRows.length > 0) {
-          await supabase.from('hole_stats').upsert(spStatRows, { onConflict: 'match_id,player_id,hole_number' });
-        }
-        const { error: updErr } = await supabase.from('matches').update(matchUpdate).eq('id', match.id);
-        if (updErr) throw updErr;
-      } catch (err: any) {
-        if (isMissingMatchError(err)) {
-          setSaving(false);
-          Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
-            { text: 'OK', onPress: () => router.replace('/(app)/' as any) },
-          ]);
-          return;
-        }
-        if (!isNetworkError(err)) {
-          setSaving(false);
-          Alert.alert('Error', friendlyScoreError(err));
-          return;
-        }
-        savedOffline = true;
-        await enqueueHole({ matchId: matchId as string, holeNumber: activeHole, insertRows: spRows, statRows: spStatRows, matchUpdate });
-        syncStatus.syncNow();
-      }
-
+    if (c.isStrokePlay) {
       // Optimistic local update (same path online or offline)
       setSaving(false);
       skipNextLoad.current = true;
       setHoleData(prev => {
         const next: typeof prev = {};
         for (const [pid, holes] of Object.entries(prev)) next[pid] = { ...holes };
-        for (const row of spRows) {
+        for (const row of c.holeRows) {
           if (!next[row.player_id]) next[row.player_id] = {};
           next[row.player_id][row.hole_number] = { gross: row.gross_score ?? null, pts: row.stableford_pts ?? null };
         }
@@ -891,13 +837,13 @@ export default function EnterScoresScreen() {
       });
       setPlayerTotals(prev => {
         const next = { ...prev };
-        for (const row of spRows) {
+        for (const row of c.holeRows) {
           const oldPts = editingHole ? (holeData[row.player_id]?.[activeHole]?.pts ?? 0) : 0;
           next[row.player_id] = (prev[row.player_id] ?? 0) - oldPts + (row.stableford_pts ?? 0);
         }
         return next;
       });
-      setMatch({ ...match, ...matchUpdate });
+      setMatch({ ...match, ...c.matchUpdate });
       setEditingHole(null);
       if (!editingHole) checkEagle(scores, par, activeHole);
 
@@ -906,18 +852,18 @@ export default function EnterScoresScreen() {
         const newTotals: Record<string, number> = {};
         for (const id of allPlayerIds) {
           const old = editingHole ? (holeData[id]?.[activeHole]?.pts ?? 0) : 0;
-          const row = spRows.find(r => r.player_id === id);
+          const row = c.holeRows.find(r => r.player_id === id);
           newTotals[id] = (playerTotals[id] ?? 0) - old + (row?.stableford_pts ?? 0);
         }
         {
-          const nextDot = newHolesStr.indexOf('.');
+          const nextDot = c.newHolesStr.indexOf('.');
           const nextHole = nextDot >= 0 ? nextDot + 1 : activeHole;
           const nextPar = courseHoles.find(h => h.hole_number === nextHole)?.par ?? par;
           const sortedIds = [...allPlayerIds].sort((a, b) => (newTotals[b] ?? 0) - (newTotals[a] ?? 0));
           updateLiveActivity({
             hole: nextHole,
             par: nextPar,
-            holesLeft: newHolesStr.split('').filter(c => c === '.').length,
+            holesLeft: c.newHolesStr.split('').filter(ch => ch === '.').length,
             format: match.round_format,
             players: allPlayerIds.map(id => ({
               name: (playerNames[id] ?? '').split(' ')[0],
@@ -929,9 +875,10 @@ export default function EnterScoresScreen() {
       }
 
       if (!savedOffline) {
+        const holesPlayed = c.newHolesStr.split('').filter(ch => ch !== '.').length;
         if (!editingHole && !wasAlreadyComplete && [6, 9, 12, 15, 16, 17, 18].includes(holeSequence.indexOf(activeHole) + 1)) {
           const updatedTotals = { ...playerTotals };
-          for (const row of spRows) {
+          for (const row of c.holeRows) {
             updatedTotals[row.player_id] = (updatedTotals[row.player_id] ?? 0) + (row.stableford_pts ?? 0);
           }
           const standings = allPlayerIds.map(id => ({
@@ -964,148 +911,13 @@ export default function EnterScoresScreen() {
     }
 
     // ── Match play branch ────────────────────────────────────────────
-    const getNetScore = (id: string) => {
-      const shots = calcStrokesReceived(matchplayHcp(id), si);
-      return (scores[id] ?? 99) - shots;
-    };
-
-    // Stableford-scored match play (4BBB Stableford AND, since Rick's
-    // brief section 8, Singles Match Play – Stableford) decides the hole
-    // winner by each side's best individual Stableford points at the MAIN
-    // game's own handicap allowance — never the 100%-handicap background
-    // side game (Rick: "two independent scoring calculations"). For
-    // singles this is just Math.max over a 1-element array, i.e. that
-    // player's own points — no separate branch needed. Comparing points
-    // this way also automatically satisfies "a 0-point score can never win
-    // a hole": points can't go negative, so 0 vs anything >0 always loses,
-    // and 0-0 halves like any other tie.
-    const isStablefordBestBall = match.round_format === 'matchplay'
-      && (match.handicap_method === 'relative_low_stableford' || match.handicap_method === 'individual_stableford');
-
-    let holeResult: 'h' | 'a' | 'f';
-    if (isStablefordBestBall) {
-      const getMainPts = (id: string) => {
-        const shots = calcStrokesReceived(matchplayHcp(id), si);
-        return calcStablefordPoints(scores[id] ?? 99, par, shots);
-      };
-      const homeBestPts = Math.max(...match.home_player_ids.map(getMainPts));
-      const awayBestPts = Math.max(...match.away_player_ids.map(getMainPts));
-      holeResult = homeBestPts > awayBestPts ? 'h' : awayBestPts > homeBestPts ? 'a' : 'f';
-    } else {
-      const homeNet = Math.min(...match.home_player_ids.map(getNetScore));
-      const awayNet = Math.min(...match.away_player_ids.map(getNetScore));
-      holeResult = homeNet < awayNet ? 'h' : awayNet < homeNet ? 'a' : 'f';
-    }
-
-    const rows = allPlayerIds.map(id => {
-      const gross = scores[id] ?? null;
-      // The background Stableford side game always runs off full handicap —
-      // it's independent of whatever % allowance the primary matchplay match
-      // is using (Rick: "Side game should always be 100%").
-      const fullHcp = playerCourseHcp(id, compPlayers, day, 100, roundPlayerTees);
-      const sideShots = calcStrokesReceived(fullHcp, si);
-      // Same as the stroke-play write path: only compute this when the
-      // side game is actually switched on (secondary_format set) — toggling
-      // it off must mean it stops running, not just stops being shown.
-      // Kronos rides on this same column tournament-wide though, so a
-      // Kronos-enabled competition needs it populated even when this
-      // specific team match has no side game of its own switched on.
-      const needsStablefordPts = !!match.secondary_format || !!match.day?.competition?.include_in_kronos || !!match.day?.competition?.handicap_cuts_enabled;
-      return {
-        match_id: matchId,
-        player_id: id,
-        hole_number: activeHole,
-        score: holeResult,
-        gross_score: gross,
-        stableford_pts: needsStablefordPts ? calcStablefordPoints(gross, par, sideShots) : null,
-      };
-    });
-
-    const statRows = allPlayerIds
-      .map(id => ({
-        match_id: matchId,
-        player_id: id,
-        hole_number: activeHole,
-        fairway_hit: courseHole.par >= 4 ? (stats[id]?.fairway != null ? stats[id]?.fairway === 'centre' : null) : null,
-        fairway_direction: courseHole.par >= 4 ? (stats[id]?.fairway ?? null) : null,
-        putts: stats[id]?.putts ?? null,
-        bunker_shots:    (stats[id]?.bunker ?? 0) > 0 ? stats[id]!.bunker! : null,
-        penalty_strokes: (stats[id]?.penalty ?? 0) > 0 ? stats[id]!.penalty! : null,
-        chip_shots:      (stats[id]?.chips ?? 0) > 0 ? stats[id]!.chips! : null,
-      }))
-      .filter(r => r.fairway_direction !== null || r.putts !== null || r.bunker_shots !== null || r.penalty_strokes !== null || r.chip_shots !== null);
-
-    const chars = [...holeChars];
-    chars[activeHole - 1] = holeResult;
-    const newHolesStr = chars.join('');
-    const seqStr = holeSequence.map(h => newHolesStr[h - 1] ?? '.').join('');
-    const { homeUp, played, remaining, concluded } = calcHoles(seqStr, holesToPlay);
-
-    let newStatus: 'upcoming' | 'in_progress' | 'complete' = 'in_progress';
-    let winner: string | null = null;
-    let result_str: string | null = null;
-
-    if (concluded) {
-      newStatus = 'complete';
-      winner = homeUp > 0 ? 'home' : 'away';
-      result_str = `${Math.abs(homeUp)}&${remaining}`;
-    } else if (played === holesToPlay) {
-      newStatus = 'complete';
-      if (homeUp === 0) { winner = 'half'; result_str = 'Halved'; }
-      else { winner = homeUp > 0 ? 'home' : 'away'; result_str = `${Math.abs(homeUp)}UP`; }
-    }
-
-    if (continuingSecondary) {
-      // Secondary stableford phase always continues to a full 18 regardless
-      // of the primary format's hole count — that's the point of "continue".
-      newStatus = played === 18 ? 'complete' : 'in_progress';
-      winner = match.winner;
-      result_str = match.result_str;
-    }
-
-    const timerFields2: { started_at?: string; completed_at?: string } = {};
-    if (!match.started_at) timerFields2.started_at = new Date().toISOString();
-    if (newStatus === 'complete' && !match.completed_at) timerFields2.completed_at = new Date().toISOString();
-    const matchUpdate = { holes_string: newHolesStr, status: newStatus, winner, result_str, ...timerFields2 };
-
-    // Try drain before saving
-    if (pendingCount > 0) await syncStatus.syncNow();
-
-    let savedOffline = false;
-    try {
-      await supabase.from('match_holes').delete().eq('match_id', matchId).eq('hole_number', activeHole);
-      const { error: insErr } = await supabase.from('match_holes').insert(rows);
-      if (insErr) throw insErr;
-      if (statRows.length > 0) {
-        await supabase.from('hole_stats').upsert(statRows, { onConflict: 'match_id,player_id,hole_number' });
-      }
-      const { error: updErr } = await supabase.from('matches').update(matchUpdate).eq('id', match.id);
-      if (updErr) throw updErr;
-    } catch (err: any) {
-      if (isMissingMatchError(err)) {
-        setSaving(false);
-        Alert.alert('Round no longer exists', 'This round has been deleted and can\'t be scored. Head back and start a new one.', [
-          { text: 'OK', onPress: () => router.replace('/(app)/' as any) },
-        ]);
-        return;
-      }
-      if (!isNetworkError(err)) {
-        setSaving(false);
-        Alert.alert('Error', friendlyScoreError(err));
-        return;
-      }
-      savedOffline = true;
-      await enqueueHole({ matchId: matchId as string, holeNumber: activeHole, insertRows: rows, statRows, matchUpdate });
-      syncStatus.syncNow();
-    }
-
     // Optimistic local update
     setSaving(false);
     skipNextLoad.current = true;
     setHoleData(prev => {
       const next: typeof prev = {};
       for (const [pid, holes] of Object.entries(prev)) next[pid] = { ...holes };
-      for (const row of rows) {
+      for (const row of c.holeRows) {
         if (!next[row.player_id]) next[row.player_id] = {};
         next[row.player_id][row.hole_number] = { gross: row.gross_score ?? null, pts: row.stableford_pts ?? null };
       }
@@ -1113,30 +925,31 @@ export default function EnterScoresScreen() {
     });
     setPlayerTotals(prev => {
       const next = { ...prev };
-      for (const row of rows) {
+      for (const row of c.holeRows) {
         const oldPts = editingHole ? (holeData[row.player_id]?.[activeHole]?.pts ?? 0) : 0;
         next[row.player_id] = (prev[row.player_id] ?? 0) - oldPts + (row.stableford_pts ?? 0);
       }
       return next;
     });
-    setMatch({ ...match, ...matchUpdate });
+    setMatch({ ...match, ...c.matchUpdate });
     setEditingHole(null);
 
     // Live Activity update
     {
-      const mpHolesLeft = newHolesStr.split('').filter(c => c === '.').length;
-      if (newStatus === 'complete' && !continuingSecondary) {
+      const mpHolesLeft = c.newHolesStr.split('').filter(ch => ch === '.').length;
+      if (c.newStatus === 'complete' && !continuingSecondary) {
         endLiveActivity();
       } else {
-        const nextDot = newHolesStr.indexOf('.');
+        const nextDot = c.newHolesStr.indexOf('.');
         const nextHole = nextDot >= 0 ? nextDot + 1 : activeHole;
         const nextPar = courseHoles.find(h => h.hole_number === nextHole)?.par ?? par;
         const mpHomeLabel = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
         const mpAwayLabel = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-        const mpScore = homeUp > 0
-          ? `${mpHomeLabel} ${homeUp}UP`
-          : homeUp < 0
-          ? `${mpAwayLabel} ${Math.abs(homeUp)}UP`
+        const homeUpVal = c.homeUp ?? 0;
+        const mpScore = homeUpVal > 0
+          ? `${mpHomeLabel} ${homeUpVal}UP`
+          : homeUpVal < 0
+          ? `${mpAwayLabel} ${Math.abs(homeUpVal)}UP`
           : 'All Square';
         updateLiveActivity({
           hole: nextHole,
@@ -1151,10 +964,10 @@ export default function EnterScoresScreen() {
 
     if (!savedOffline) {
       if (!editingHole) {
-        if (match.competition_id && newStatus !== 'complete' && [9, 12, 15].includes(holeSequence.indexOf(activeHole) + 1)) {
+        if (match.competition_id && c.newStatus !== 'complete' && [9, 12, 15].includes(holeSequence.indexOf(activeHole) + 1)) {
           const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
           const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-          const { homeUp: newHomeUp } = calcHoles(seqStr, holesToPlay);
+          const { homeUp: newHomeUp } = calcHoles(c.seqStr ?? '', holesToPlay);
           const at = holeSequence.indexOf(activeHole) + 1 === 9 ? 'the turn' : `hole ${activeHole}`;
           const scoreBody = newHomeUp > 0
             ? `${homeTeam} ${newHomeUp}UP at ${at}`
@@ -1193,11 +1006,11 @@ export default function EnterScoresScreen() {
         if (!editingHole) checkEagle(scores, par, activeHole);
       }
 
-      if (newStatus === 'complete' && !wasAlreadyComplete) {
+      if (c.newStatus === 'complete' && !wasAlreadyComplete) {
         const homeDisplayName = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
         const awayDisplayName = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-        const winTeam = winner === 'home' ? homeDisplayName : winner === 'away' ? awayDisplayName : null;
-        const msg = winner === 'half' ? 'Match Halved!' : `${winTeam} win ${result_str}!`;
+        const winTeam = c.winner === 'home' ? homeDisplayName : c.winner === 'away' ? awayDisplayName : null;
+        const msg = c.winner === 'half' ? 'Match Halved!' : `${winTeam} win ${c.result_str}!`;
         if (match.competition_id) {
           const pids = [...(match.home_player_ids ?? []), ...(match.away_player_ids ?? [])];
           sendMatchNotification(match.competition_id, '🏆 Match Complete', msg, pids);
@@ -1236,7 +1049,7 @@ export default function EnterScoresScreen() {
       if (!editingHole && !wasAlreadyComplete && [9, 12, 15].includes(holeSequence.indexOf(activeHole) + 1)) {
         const homeTeam = match.home_team?.name ?? match.home_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
         const awayTeam = match.away_team?.name ?? match.away_player_ids.map(id => (playerNames[id] ?? '').split(' ')[0]).join(' & ');
-        const { homeUp: newHomeUp, remaining: newRemaining } = calcHoles(seqStr, holesToPlay);
+        const { homeUp: newHomeUp, remaining: newRemaining } = calcHoles(c.seqStr ?? '', holesToPlay);
         if (!voiceOff) speakPressure({
           holeNumber: activeHole,
           holesLeft: newRemaining,
@@ -1256,7 +1069,7 @@ export default function EnterScoresScreen() {
     if (match.competition_id && match.day_id) {
       if (wasAlreadyComplete) {
         reprocessFromDay(match.day_id).catch(e => console.warn('[handicapCuts] reprocess failed', e));
-      } else if (newStatus === 'complete') {
+      } else if (c.newStatus === 'complete') {
         checkAndProcessDayCuts(match.day_id).catch(e => console.warn('[handicapCuts] process failed', e));
       }
     }
