@@ -1016,6 +1016,16 @@ export default function EnterScoresScreen() {
           sendMatchNotification(match.competition_id, '🏆 Match Complete', msg, pids);
         }
         postSpectatorEvent(match.id, 'match_result', { message: msg });
+        // Matchplay very often concludes early here (dormie, e.g. "3&2")
+        // rather than via handleCompleteRound's "Complete Round" button
+        // (that only fires once every hole is filled) — this was the ONLY
+        // place generateCasualMatchReport got triggered, so an early-dormie
+        // matchplay win never got a report at all (Rick, 2026-09-07: "match
+        // play AI didn't work in casual... nothing appeared"). Skipped when
+        // continuingSecondary is true — that means this completion is the
+        // wrap-up of a "continue to 18 for the side game" extension after
+        // an earlier dormie finish, which already generated the report once.
+        if (!match.competition_id && !continuingSecondary) newsReportPromiseRef.current = generateCasualMatchReport(matchId as string);
         const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
         const broken = allBroken.flat();
         if (broken.length > 0) {

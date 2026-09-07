@@ -262,9 +262,15 @@
   },
   "hotPaths": [
     {
+      "path": "src/lib/simulateVerification.ts",
+      "accessCount": 44,
+      "lastAccessed": 1788778150521,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 20,
-      "lastAccessed": 1788773533386,
+      "accessCount": 24,
+      "lastAccessed": 1788779868816,
       "type": "file"
     },
     {
@@ -280,15 +286,21 @@
       "type": "file"
     },
     {
-      "path": "src/lib/simulateVerification.ts",
-      "accessCount": 10,
-      "lastAccessed": 1788774478187,
+      "path": "supabase/functions/simulate-session/index.ts",
+      "accessCount": 8,
+      "lastAccessed": 1788776885833,
       "type": "file"
     },
     {
       "path": "app/(app)/admin/simulate.tsx",
       "accessCount": 7,
       "lastAccessed": 1788774610880,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/simulateTournament.ts",
+      "accessCount": 5,
+      "lastAccessed": 1788775620816,
       "type": "file"
     },
     {
@@ -307,12 +319,6 @@
       "path": "src/lib/scoring.ts",
       "accessCount": 4,
       "lastAccessed": 1788774144755,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/simulateTournament.ts",
-      "accessCount": 3,
-      "lastAccessed": 1788772576096,
       "type": "file"
     },
     {
@@ -349,6 +355,12 @@
       "path": "src/lib/supabase.ts",
       "accessCount": 2,
       "lastAccessed": 1788774412510,
+      "type": "file"
+    },
+    {
+      "path": "supabase/add_admin_create_login.sql",
+      "accessCount": 2,
+      "lastAccessed": 1788779340763,
       "type": "file"
     },
     {
@@ -424,9 +436,39 @@
       "type": "file"
     },
     {
-      "path": "supabase/functions/simulate-session/index.ts",
+      "path": "screenshots/Screenshot 2026-09-07 at 11.44.48.png",
       "accessCount": 1,
-      "lastAccessed": 1788774047205,
+      "lastAccessed": 1788777922130,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-09-07 at 11.44.53.png",
+      "accessCount": 1,
+      "lastAccessed": 1788777922672,
+      "type": "file"
+    },
+    {
+      "path": "screenshots/Screenshot 2026-09-07 at 11.44.56.png",
+      "accessCount": 1,
+      "lastAccessed": 1788777922683,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/players.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788779291754,
+      "type": "file"
+    },
+    {
+      "path": "supabase/create_george_lings.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788779304060,
+      "type": "file"
+    },
+    {
+      "path": "supabase/create_titan_logins.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788779304116,
       "type": "file"
     }
   ],

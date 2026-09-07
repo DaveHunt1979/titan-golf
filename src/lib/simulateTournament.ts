@@ -78,7 +78,16 @@ async function insertAll<T>(table: string, rows: any[], chunkSize = 400): Promis
 // corrupted rows (see project memory: 3 real corrupted-course fixes found
 // 2026-08-26 by exactly this kind of par-sum/SI-permutation check).
 export async function pickSimulationCourse(): Promise<{ name: string; par: number; rating: number; slope: number; holes: any[] }> {
-  const { data: candidateCourses } = await supabase.from('courses').select('name').limit(30);
+  // No ORDER BY here means Postgres is free to return courses in whatever
+  // order it likes — often physical/insertion order. The original
+  // pre-expansion batch of ~41 courses (inserted first) is exactly the
+  // batch that historically lacked real tee data (see project memory:
+  // "25 of 41 live courses still need real tee data"), so a small
+  // unordered sample can land entirely on that dirty cluster even though
+  // 1200+/1241 courses in the full table are clean (Dave/Ricky, 2026-09-07
+  // verification-harness run hit exactly this). 300 comfortably clears that
+  // cluster regardless of scan order.
+  const { data: candidateCourses } = await supabase.from('courses').select('name').limit(300);
   for (const c of (candidateCourses ?? []) as any[]) {
     const { data: holes } = await supabase.from('course_holes').select('hole_number,par,stroke_index')
       .eq('course_name', c.name).order('hole_number');
