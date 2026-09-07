@@ -114,10 +114,18 @@ export default function FriendsScreen() {
     const onlineMap: Record<string, boolean> = {};
     for (const r of (onlineRows ?? []) as any[]) onlineMap[r.player_id] = !!r.online;
 
-    // Active matches for any member
+    // Active matches for any member. A round that never got marked complete
+    // (a known recurring class of bug — the app killed/backgrounded mid-round
+    // with the match still sitting at in_progress) used to leave a friend
+    // "on a round" forever here even though the home screen widget already
+    // guards against exactly this (index.tsx, Dave, 2026-09-02) — this
+    // screen just never got the same fix (Dave, 2026-09-07: "apparently i am
+    // [on a round]... i hadnt even started a game"). 24h is well past any
+    // real round.
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: activeMatches } = await supabase
       .from('matches').select('id,course_name,home_player_ids,away_player_ids')
-      .eq('status', 'in_progress').limit(100);
+      .eq('status', 'in_progress').gte('started_at', dayAgo).limit(100);
 
     const memberSet = new Set(allMemberIds);
     const relevantMatches = (activeMatches ?? []).filter((m: any) => {
