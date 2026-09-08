@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
@@ -784,6 +784,25 @@ export default function NewGameScreen() {
       setLoadingPlayers(false);
     })();
   }, [societyId, societyLoading]);
+
+  // This screen lives in the "games" section's own nested stack, so it stays
+  // mounted (not remounted) across tab switches — the full players fetch
+  // above only runs once per societyId, so anyone's freshly-saved handicap
+  // otherwise stays frozen here until the whole app restarts (Dave/Rick,
+  // 2026-09-08). Cheap enough to just re-pull handicaps for whoever's
+  // already loaded every time this screen regains focus.
+  const playersRef = useRef<Player[]>([]);
+  useEffect(() => { playersRef.current = players; }, [players]);
+  useFocusEffect(useCallback(() => {
+    const ids = playersRef.current.map(p => p.id);
+    if (!ids.length) return;
+    supabase.from('players').select('id, handicap_index').in('id', ids)
+      .then(({ data }) => {
+        if (!data) return;
+        const fresh = new Map((data as any[]).map(d => [d.id, d.handicap_index]));
+        setPlayers(cur => cur.map(p => fresh.has(p.id) ? { ...p, handicap_index: fresh.get(p.id) } : p));
+      });
+  }, []));
 
   async function handleToggleFavourite(targetId: string, makeFav: boolean) {
     if (!myPlayerId) return;

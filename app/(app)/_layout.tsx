@@ -226,6 +226,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="season"         options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="watch/index"    options={{ href: null }} />
         <Tabs.Screen name="chat"           options={{ href: null }} listeners={resetOnTabPress()} />
+        <Tabs.Screen name="coach"          options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="inbox"            options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="feed/index"     options={{ href: null }} />
         <Tabs.Screen name="camera/index"   options={{ title: 'Camera',   tabBarIcon: ({ focused }) => <TabIcon focused={focused}><CameraIcon      color={ic(focused)} /></TabIcon> }} />

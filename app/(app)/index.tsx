@@ -39,6 +39,7 @@ const TILES = [
   { key: 'events',    label: 'Tournaments',  sub: 'Competitions & Tours',         icon: 'trophy-outline' as const, area: 'tour',    route: '/(app)/tour'    },
   { key: 'clubhouse', label: 'Clubhouse',    sub: 'Swindle & Season',             icon: 'people-outline' as const, area: 'swindle', route: '/(app)/clubhouse' },
   { key: 'locker',    label: 'Locker Room',  sub: 'Stats, handicap & equipment',  icon: 'shield-outline' as const, area: 'casual',  route: '/(app)/profile' },
+  { key: 'coach',     label: 'Titan Coach',  sub: 'Swing review & coaching',      icon: 'school-outline' as const, area: 'casual',  route: '/(app)/coach' },
 ] as const;
 
 type FriendRound = {
@@ -50,7 +51,7 @@ type FriendRound = {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { societyId: SOCIETY_ID, localLogo, logoUrl, societyName } = useSocietyTheme();
+  const { societyId: SOCIETY_ID, localLogo, logoUrl, heroUrl, societyName } = useSocietyTheme();
   const dc = useDynamicColors();
   const { width: winW } = useWindowDimensions();
   const contentW = IS_PAD ? winW - 220 : winW;
@@ -414,7 +415,13 @@ export default function HomeScreen() {
 
           {/* ── Hero ── */}
           <View style={s.heroWrap}>
-            {localLogo || logoUrl ? (
+            {heroUrl ? (
+              <Image
+                source={{ uri: heroUrl }}
+                style={s.heroSocietyLogo}
+                resizeMode="cover"
+              />
+            ) : localLogo || logoUrl ? (
               <View style={[s.heroLogoSection, { backgroundColor: dc.bg }]}>
                 <Image
                   source={localLogo ?? { uri: logoUrl! }}

@@ -183,6 +183,7 @@ export default function CameraScreen() {
   const [facing,    setFacing]    = useState<'front' | 'back'>('back');
   const [flash,     setFlash]     = useState<Flash>('off');
   const [mode,      setMode]      = useState<Mode>('picture');
+  const [cameraActive, setCameraActive] = useState(true);
   const [recording, setRecording] = useState(false);
   const [recTime,   setRecTime]   = useState(0);
   const [preview,   setPreview]   = useState<Preview | null>(null);
@@ -202,11 +203,22 @@ export default function CameraScreen() {
     'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
-  // Unlock screen rotation on this screen only
+  // Unlock screen rotation on this screen only, and stop the native capture
+  // session whenever the tab loses focus. Camera is a persistent tab (see
+  // loadRoundContext below) — closing out via the ✕ button only navigates
+  // away, it never unmounts this screen, so without this the AVCaptureSession
+  // just kept running in the background and the iOS green recording-indicator
+  // dot never cleared until the whole app was killed (Rick, 2026-09-07 night).
   useFocusEffect(useCallback(() => {
     ScreenOrientation.unlockAsync();
+    setCameraActive(true);
     return () => {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+      // Ref, not state, so this always targets the real native session even
+      // though this cleanup closure was created back when focus began —
+      // safe to call even when nothing is currently recording.
+      cameraRef.current?.stopRecording();
+      setCameraActive(false);
     };
   }, []));
 
@@ -645,6 +657,7 @@ export default function CameraScreen() {
         facing={facing}
         flash={flash}
         mode={mode}
+        active={cameraActive}
       />
 
       {/* Close button */}

@@ -39,8 +39,20 @@ Deno.serve(async (req) => {
     const { data: recipients } = await supabase.rpc('increment_badge_counts', { p_player_ids: playerIds });
     if (!recipients?.length) return new Response(JSON.stringify({ ok: true }), { headers: CORS });
 
+    // Multiple player rows can end up sharing the same physical device's
+    // push token (e.g. someone signed in as a different test account on a
+    // device that already had another account registered on it) — without
+    // this, the same phone gets one banner per player row instead of one
+    // per message actually sent (Dave, 2026-09-08). Highest badge_count
+    // wins so the icon shows the largest real unread total for that device.
+    const byToken = new Map<string, { push_token: string; badge_count: number }>();
+    for (const r of recipients as { push_token: string; badge_count: number }[]) {
+      const existing = byToken.get(r.push_token);
+      if (!existing || r.badge_count > existing.badge_count) byToken.set(r.push_token, r);
+    }
+
     // Send via Expo Push API
-    const messages = (recipients as { push_token: string; badge_count: number }[]).map(r => ({
+    const messages = Array.from(byToken.values()).map(r => ({
       to: r.push_token,
       sound: 'default',
       title,

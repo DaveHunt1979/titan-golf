@@ -1,14 +1,13 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, Alert, Platform, Modal, FlatList,
+  ActivityIndicator, Modal, FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
-import { scanNfcTagId, isNfcSupported, formatTagId } from '../../../src/lib/nfc';
 import { goBack } from '../../../src/lib/navigation';
 
 // ── Brand / Category / Model Data ────────────────────────────────────────────
@@ -184,15 +183,10 @@ export default function BagScreen() {
   const [clubs,       setClubs]       = useState<Club[]>([]);
   const [playerId,    setPlayerId]    = useState<string | null>(null);
   const [loading,     setLoading]     = useState(true);
-  const [scanning,    setScanning]    = useState<string | null>(null);
-  const [nfcAvail,    setNfcAvail]    = useState(false);
   const [brandPicker, setBrandPicker] = useState<BrandPickerState | null>(null);
 
   useEffect(() => {
     (async () => {
-      const supported = await isNfcSupported();
-      setNfcAvail(supported);
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
@@ -224,45 +218,6 @@ export default function BagScreen() {
     await supabase.from('clubs').update({ in_bag: updated }).eq('id', club.id);
   }
 
-  async function assignNfc(club: Club) {
-    if (!nfcAvail) {
-      Alert.alert('NFC Not Available', 'NFC requires a physical device and a development build. It cannot be tested in the simulator.');
-      return;
-    }
-    setScanning(club.id);
-    const tagId = await scanNfcTagId();
-    setScanning(null);
-
-    if (!tagId) {
-      Alert.alert('No Tag Detected', 'Make sure the sticker is directly behind your phone and try again.');
-      return;
-    }
-
-    const conflict = clubs.find(c => c.nfc_tag_id === tagId && c.id !== club.id);
-    if (conflict) {
-      Alert.alert('Tag Already Used', `This sticker is assigned to ${conflict.name}. Remove it there first.`);
-      return;
-    }
-
-    const { error } = await supabase
-      .from('clubs').update({ nfc_tag_id: tagId }).eq('id', club.id);
-    if (error) { Alert.alert('Error', error.message); return; }
-    setClubs(prev => prev.map(c => c.id === club.id ? { ...c, nfc_tag_id: tagId } : c));
-    Alert.alert('Sticker Linked ✓', `${club.name} → ${formatTagId(tagId)}`);
-  }
-
-  async function removeNfc(club: Club) {
-    Alert.alert('Remove Sticker?', `Unlink the NFC sticker from ${club.name}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove', style: 'destructive', onPress: async () => {
-          await supabase.from('clubs').update({ nfc_tag_id: null }).eq('id', club.id);
-          setClubs(prev => prev.map(c => c.id === club.id ? { ...c, nfc_tag_id: null } : c));
-        },
-      },
-    ]);
-  }
-
   function pickBrand(brand: string) {
     if (!brandPicker) return;
     setBrandPicker({ ...brandPicker, step: 'category', brand, brand_category: undefined });
@@ -284,7 +239,6 @@ export default function BagScreen() {
     await supabase.from('clubs').update({ brand, brand_category, model }).eq('id', club.id);
   }
 
-  const tagged     = clubs.filter(c => c.nfc_tag_id);
   const inBag      = clubs.filter(c => c.in_bag);
   const byCategory = clubs.reduce<Record<string, Club[]>>((acc, c) => {
     (acc[c.category] ??= []).push(c);
@@ -308,32 +262,19 @@ export default function BagScreen() {
         <TouchableOpacity onPress={() => goBack(router, '/(app)/profile')} hitSlop={hit}>
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>My Bag & NFC Tags</Text>
+        <Text style={styles.title}>My Bag</Text>
         <View style={{ width: 48 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Summary pills */}
+        {/* Summary pill */}
         <View style={styles.pills}>
           <View style={[styles.pill, { borderColor: colors.gold }]}>
             <Text style={[styles.pillNum, { color: colors.gold }]}>{inBag.length}</Text>
             <Text style={styles.pillLabel}>In Bag</Text>
           </View>
-          <View style={[styles.pill, { borderColor: tagged.length > 0 ? colors.green : colors.border }]}>
-            <Text style={[styles.pillNum, { color: tagged.length > 0 ? colors.green : colors.textMuted }]}>{tagged.length}</Text>
-            <Text style={styles.pillLabel}>NFC Tagged</Text>
-          </View>
         </View>
-
-        {!nfcAvail && (
-          <View style={styles.nfcWarning}>
-            <Text style={styles.nfcWarningText}>
-              📡 NFC tag assignment requires a physical iPhone — not available in the simulator.
-              You can still configure your bag and assign tags on-device.
-            </Text>
-          </View>
-        )}
 
         {(['wood', 'hybrid', 'iron', 'wedge', 'putter'] as const).map(cat => {
           const group = byCategory[cat];
@@ -370,33 +311,7 @@ export default function BagScreen() {
                     ) : (
                       <Text style={styles.setBrandLabel}>Tap to set brand</Text>
                     )}
-                    {club.nfc_tag_id ? (
-                      <Text style={styles.tagId}>📡 {formatTagId(club.nfc_tag_id)}</Text>
-                    ) : null}
                   </TouchableOpacity>
-
-                  {scanning === club.id ? (
-                    <View style={styles.scanningPill}>
-                      <ActivityIndicator size="small" color={colors.green} />
-                      <Text style={styles.scanningText}>Scanning…</Text>
-                    </View>
-                  ) : club.nfc_tag_id ? (
-                    <TouchableOpacity
-                      style={styles.removeBtn}
-                      onPress={() => removeNfc(club)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.removeBtnText}>✕</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      style={[styles.assignBtn, !nfcAvail && styles.assignBtnDim]}
-                      onPress={() => assignNfc(club)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.assignBtnText}>Assign</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
               ))}
             </View>
@@ -405,8 +320,7 @@ export default function BagScreen() {
 
         <Text style={styles.footer}>
           Tap a club label to add/remove it from your active bag.{'\n'}
-          Tap the club name to set brand &amp; model.{'\n'}
-          Tap Assign then hold your phone to the sticker on that club.
+          Tap the club name to set brand &amp; model.
         </Text>
       </ScrollView>
 
@@ -512,12 +426,6 @@ function makeStyles(c: ReturnType<typeof useDynamicColors>) {
     pillNum:   { fontSize: 28, fontFamily: 'JUSTSans-ExBold' },
     pillLabel: { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.textMuted, marginTop: 2 },
 
-    nfcWarning: {
-      backgroundColor: c.card, borderRadius: 12, padding: 16,
-      borderWidth: 1, borderColor: c.border, marginBottom: 24,
-    },
-    nfcWarningText: { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.textSecondary, lineHeight: 17 },
-
     section:      { marginBottom: 24 },
     sectionLabel: {
       fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.textMuted,
@@ -542,17 +450,6 @@ function makeStyles(c: ReturnType<typeof useDynamicColors>) {
     clubName:       { fontSize: 12, fontFamily: 'JUSTSans-ExBold', color: c.white, marginBottom: 1 },
     brandLabel:     { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.gold, marginBottom: 1 },
     setBrandLabel:  { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.textMuted, fontStyle: 'italic', marginBottom: 1 },
-    tagId:          { fontSize: 10, color: c.green, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', marginTop: 1 },
-
-    scanningPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8 },
-    scanningText: { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.green },
-
-    assignBtn:    { backgroundColor: c.goldDim, borderRadius: 6, paddingVertical: 6, paddingHorizontal: 8, borderWidth: 1, borderColor: c.goldBorder },
-    assignBtnDim: { opacity: 0.4 },
-    assignBtnText:{ fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.gold },
-
-    removeBtn:    { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(248,113,113,0.12)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)' },
-    removeBtnText:{ fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.red },
 
     footer: { fontSize: 10, fontFamily: 'JUSTSans-ExBold', color: c.textMuted, textAlign: 'center', lineHeight: 18, marginTop: 16 },
 

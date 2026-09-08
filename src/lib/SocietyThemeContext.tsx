@@ -140,6 +140,7 @@ export interface SocietyTheme {
   primaryColor:    string;
   secondaryColor:  string;
   logoUrl:         string | null;
+  heroUrl:         string | null;
   localLogo:       any | null;
   societyName:     string;
   tagline:         string;
@@ -155,6 +156,7 @@ const DEFAULT: SocietyTheme = {
   primaryColor:    colors.gold,
   secondaryColor:  '#1B3A5C',
   logoUrl:         null,
+  heroUrl:         null,
   localLogo:       null,
   societyName:     'TITAN GOLF',
   tagline:         '',
@@ -220,7 +222,7 @@ async function fetchTheme(): Promise<BaseTheme> {
 
   const { data: society } = await supabase
     .from('societies')
-    .select('name,tagline,primary_color,secondary_color,logo_url')
+    .select('name,tagline,primary_color,secondary_color,logo_url,hero_url')
     .eq('id', societyId!)
     .single();
 
@@ -238,6 +240,7 @@ async function fetchTheme(): Promise<BaseTheme> {
     primaryColor,
     secondaryColor,
     logoUrl:     s.logo_url ?? null,
+    heroUrl:     s.hero_url ?? null,
     localLogo:   getSocietyLogo(name),
     societyName: name,
     tagline:     s.tagline ?? '',

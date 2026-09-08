@@ -46,6 +46,7 @@ export default function ProfileScreen() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [syncingHcp,     setSyncingHcp]     = useState(false);
   const [notifCount,     setNotifCount]     = useState(0);
+  const [isCoach,        setIsCoach]        = useState(false);
 
   // Password modal
   const [showPwModal, setShowPwModal] = useState(false);
@@ -83,6 +84,10 @@ export default function ProfileScreen() {
         .eq('in_bag', true)
         .order('sort_order');
       setClubs((clubRows ?? []) as Club[]);
+
+      const { data: cp } = await supabase
+        .from('coach_profiles').select('is_active').eq('player_id', data.id).maybeSingle();
+      setIsCoach(!!cp?.is_active);
     }
 
     const { data: notifs } = await supabase.from('notifications').select('id').limit(9);
@@ -213,6 +218,15 @@ export default function ProfileScreen() {
     Alert.alert('Password updated', 'Your new password is active.');
   }
 
+  // Otherwise the next account signed into this device inherits a stale
+  // push_token row for whoever was signed in before, and both keep getting
+  // pushed to on every message — one real device, multiple banners (Dave,
+  // 2026-09-08).
+  async function clearPushTokenAndSignOut() {
+    if (player?.id) await supabase.from('players').update({ push_token: null }).eq('id', player.id);
+    await supabase.auth.signOut();
+  }
+
   async function signOut() {
     const pending = await getPendingCount();
     if (pending > 0) {
@@ -221,14 +235,14 @@ export default function ProfileScreen() {
         `You have ${pending} hole score${pending !== 1 ? 's' : ''} saved offline that haven't synced yet. Signing out now will lose them.\n\nSign out anyway?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Sign Out Anyway', style: 'destructive', onPress: () => supabase.auth.signOut() },
+          { text: 'Sign Out Anyway', style: 'destructive', onPress: clearPushTokenAndSignOut },
         ]
       );
       return;
     }
     Alert.alert('Sign out', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => supabase.auth.signOut() },
+      { text: 'Sign Out', style: 'destructive', onPress: clearPushTokenAndSignOut },
     ]);
   }
 
@@ -407,9 +421,9 @@ export default function ProfileScreen() {
               />
               <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
               <QuickLink
-                icon="wifi-outline"
-                title="My Bag & NFC Tags"
-                sub="Add, remove and reorder clubs"
+                icon="bag-handle-outline"
+                title="My Bag"
+                sub="Choose what's in your bag"
                 onPress={() => router.push('/(app)/profile/bag' as any)}
               />
               <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
@@ -419,6 +433,17 @@ export default function ProfileScreen() {
                 sub="People you play with — private to you"
                 onPress={() => router.push('/(app)/profile/library' as any)}
               />
+              {isCoach && (
+                <>
+                  <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
+                  <QuickLink
+                    icon="school-outline"
+                    title="Coaching"
+                    sub="Video library, players & drills"
+                    onPress={() => router.push('/(app)/coach/library' as any)}
+                  />
+                </>
+              )}
               <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
               <QuickLink
                 icon="navigate-outline"

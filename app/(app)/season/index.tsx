@@ -28,6 +28,15 @@ const HIGHLIGHTS: { icon: keyof typeof Ionicons.glyphMap; title: string; body: s
 interface MyEntry {
   entryId: string; seasonName: string; qualifyingRoundsCount: number; countingRoundsCount: number;
   seasonPoints: number; qualificationStatus: string; minimumQualifyingRounds: number;
+  seasonStartAt: string | null; seasonEndAt: string | null;
+}
+
+function formatSeasonDates(startAt: string | null, endAt: string | null): string | null {
+  if (!startAt || !endAt) return null;
+  const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+  const start = new Date(startAt).toLocaleDateString('en-GB', opts);
+  const end = new Date(endAt).toLocaleDateString('en-GB', opts);
+  return `${start} – ${end}`;
 }
 
 export default function SeasonIndex() {
@@ -68,6 +77,8 @@ export default function SeasonIndex() {
         seasonPoints: (entryRow as any).season_points,
         qualificationStatus: (entryRow as any).qualification_status,
         minimumQualifyingRounds: season.minimum_qualifying_rounds,
+        seasonStartAt: season.start_at ?? null,
+        seasonEndAt: season.end_at ?? null,
       });
       setPendingSeasonName(null);
       setLoading(false);
@@ -133,6 +144,9 @@ export default function SeasonIndex() {
           <View style={s.hero}>
             <View style={s.heroIconWrap}><Ionicons name="trophy" size={32} color={GREEN} /></View>
             <Text style={s.heroTitle}>{entry.seasonName}</Text>
+            {formatSeasonDates(entry.seasonStartAt, entry.seasonEndAt) && (
+              <Text style={s.heroDates}>{formatSeasonDates(entry.seasonStartAt, entry.seasonEndAt)}</Text>
+            )}
             <View style={s.statsRow}>
               <View style={s.statBlock}><Text style={s.statValue}>{entry.seasonPoints}</Text><Text style={s.statLabel}>SEASON PTS</Text></View>
               <View style={s.statBlock}><Text style={s.statValue}>{entry.countingRoundsCount}/{entry.minimumQualifyingRounds}</Text><Text style={s.statLabel}>COUNTING</Text></View>
@@ -218,6 +232,7 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginBottom: 14,
   },
   heroTitle: { fontFamily: FFB, fontSize: 22, color: GREEN, marginBottom: 8, textAlign: 'center' },
+  heroDates: { fontFamily: FFB, fontSize: 11, color: '#9ca3af', textAlign: 'center', marginTop: -4, marginBottom: 12, letterSpacing: 0.5 },
   heroSub:   { fontFamily: FF, fontSize: 13, color: '#9ca3af', textAlign: 'center', lineHeight: 19, marginBottom: 16 },
   comingSoonPill:  { backgroundColor: GREEN, borderRadius: 99, paddingHorizontal: 12, paddingVertical: 5 },
   comingSoonText:  { fontFamily: FFB, fontSize: 10, color: '#000', letterSpacing: 1.5 },

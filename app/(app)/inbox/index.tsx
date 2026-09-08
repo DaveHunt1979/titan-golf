@@ -8,6 +8,8 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
+import SwipeableRow from '../../../src/components/SwipeableRow';
+import ConfirmDialog from '../../../src/components/ConfirmDialog';
 
 const GOLD = '#D4AF37';
 const FF   = 'JUSTSans';
@@ -26,15 +28,36 @@ export default function InboxIndex() {
     'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
+  const [myId, setMyId] = useState<string | null>(null);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<Thread | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useFocusEffect(useCallback(() => { load(); }, []));
 
   async function load() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: me } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
+      if (me) setMyId(me.id);
+    }
     const { data, error } = await supabase.rpc('get_my_dm_threads');
     if (!error && data) setThreads(data as Thread[]);
     setLoading(false);
+  }
+
+  async function deleteThread() {
+    if (!deleteTarget || !myId) return;
+    setDeleting(true);
+    const { error } = await supabase
+      .from('direct_messages')
+      .delete()
+      .or(`and(sender_id.eq.${myId},recipient_id.eq.${deleteTarget.other_id}),and(sender_id.eq.${deleteTarget.other_id},recipient_id.eq.${myId})`);
+    setDeleting(false);
+    if (error) { setDeleteTarget(null); return; }
+    setThreads(prev => prev.filter(t => t.other_id !== deleteTarget.other_id));
+    setDeleteTarget(null);
   }
 
   function formatTime(ts: string) {
@@ -79,30 +102,35 @@ export default function InboxIndex() {
         renderItem={({ item }) => {
           const avatar = resolveAvatar(item.other_id, item.avatar_url);
           return (
-            <TouchableOpacity
-              style={[s.row, { backgroundColor: dc.card, borderColor: dc.border }]}
-              onPress={() => router.push(`/(app)/inbox/${item.other_id}?name=${encodeURIComponent(item.display_name)}&avatar=${encodeURIComponent(item.avatar_url ?? '')}` as any)}
-              activeOpacity={0.8}
-            >
-              {avatar
-                ? <Image source={avatar} style={s.avatar} />
-                : <View style={[s.avatar, s.avatarFallback]}><Text style={s.avatarInitial}>{item.display_name[0]?.toUpperCase()}</Text></View>
-              }
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={[s.rowName, { color: dc.cardText }]} numberOfLines={1}>{item.display_name}</Text>
-                <Text style={[s.rowPreview, item.unread_count > 0 && s.rowPreviewUnread]} numberOfLines={1}>
-                  {item.last_from_me ? 'You: ' : ''}{item.last_content}
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                <Text style={s.rowTime}>{formatTime(item.last_at)}</Text>
-                {item.unread_count > 0 && (
-                  <View style={s.unreadBadge}>
-                    <Text style={s.unreadBadgeText}>{item.unread_count > 9 ? '9+' : item.unread_count}</Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
+            <SwipeableRow onDelete={() => setDeleteTarget(item)} style={{ borderRadius: 14 }}>
+              <TouchableOpacity
+                style={[s.row, { backgroundColor: dc.card, borderColor: dc.border }]}
+                onPress={() => router.push(`/(app)/inbox/${item.other_id}?name=${encodeURIComponent(item.display_name)}&avatar=${encodeURIComponent(item.avatar_url ?? '')}` as any)}
+                activeOpacity={0.8}
+              >
+                <View>
+                  {avatar
+                    ? <Image source={avatar} style={s.avatar} />
+                    : <View style={[s.avatar, s.avatarFallback]}><Text style={s.avatarInitial}>{item.display_name[0]?.toUpperCase()}</Text></View>
+                  }
+                  {item.unread_count > 0 && <View style={s.unreadDot} />}
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[s.rowName, { color: dc.cardText }]} numberOfLines={1}>{item.display_name}</Text>
+                  <Text style={[s.rowPreview, item.unread_count > 0 && s.rowPreviewUnread]} numberOfLines={1}>
+                    {item.last_from_me ? 'You: ' : ''}{item.last_content}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                  <Text style={s.rowTime}>{formatTime(item.last_at)}</Text>
+                  {item.unread_count > 0 && (
+                    <View style={s.unreadBadge}>
+                      <Text style={s.unreadBadgeText}>{item.unread_count > 9 ? '9+' : item.unread_count}</Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </SwipeableRow>
           );
         }}
         ListEmptyComponent={
@@ -112,6 +140,16 @@ export default function InboxIndex() {
             <Text style={s.emptySub}>Tap the pencil to message a friend</Text>
           </View>
         }
+      />
+
+      <ConfirmDialog
+        visible={!!deleteTarget}
+        title="Delete Conversation"
+        message={`Delete your whole conversation with ${deleteTarget?.display_name ?? 'this player'}? This cannot be undone.`}
+        confirmLabel={deleting ? 'Deleting…' : 'Delete'}
+        destructive
+        onConfirm={deleteThread}
+        onCancel={() => setDeleteTarget(null)}
       />
     </View>
   );
@@ -127,6 +165,11 @@ const s = StyleSheet.create({
   avatar:     { width: 44, height: 44, borderRadius: 22, overflow: 'hidden' },
   avatarFallback: { backgroundColor: 'rgba(212,175,55,0.1)', alignItems: 'center', justifyContent: 'center' },
   avatarInitial:  { fontFamily: FFB, fontSize: 16, color: GOLD },
+  unreadDot: {
+    position: 'absolute', top: -1, right: -1,
+    width: 12, height: 12, borderRadius: 6,
+    backgroundColor: GOLD, borderWidth: 2, borderColor: '#000',
+  },
 
   rowName:    { fontFamily: FFB, fontSize: 14 },
   rowPreview: { fontFamily: FF, fontSize: 12, color: '#777', marginTop: 2 },

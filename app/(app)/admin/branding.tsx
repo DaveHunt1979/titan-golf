@@ -95,6 +95,8 @@ export default function SocietyBrandingScreen() {
   const [secondaryHex,   setSecondaryHex]   = useState('#C4CEDB');
   const [logoUrl,        setLogoUrl]        = useState<string | null>(null);
   const [logoLocalUri,   setLogoLocalUri]   = useState<string | null>(null);
+  const [heroUrl,        setHeroUrl]        = useState<string | null>(null);
+  const [heroLocalUri,   setHeroLocalUri]   = useState<string | null>(null);
   const [instagramUrl,   setInstagramUrl]   = useState('');
   const [loading,        setLoading]        = useState(true);
   const [saving,         setSaving]         = useState(false);
@@ -117,7 +119,7 @@ export default function SocietyBrandingScreen() {
     (async () => {
       const { data } = await supabase
         .from('societies')
-        .select('name, tagline, primary_color, secondary_color, logo_url, instagram_url')
+        .select('name, tagline, primary_color, secondary_color, logo_url, hero_url, instagram_url')
         .eq('id', societyId)
         .single();
       if (data) {
@@ -129,6 +131,7 @@ export default function SocietyBrandingScreen() {
         setPrimaryColor(pc);   setPrimaryHex(pc);
         setSecondaryColor(sc); setSecondaryHex(sc);
         setLogoUrl(d.logo_url ?? null);
+        setHeroUrl(d.hero_url ?? null);
         setInstagramUrl(d.instagram_url ?? '');
       }
       setLoading(false);
@@ -155,6 +158,14 @@ export default function SocietyBrandingScreen() {
     if (!result.canceled) setLogoLocalUri(result.assets[0].uri);
   }
 
+  async function pickHero() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'] as any,
+      allowsEditing: true, aspect: [16, 9], quality: 0.85,
+    });
+    if (!result.canceled) setHeroLocalUri(result.assets[0].uri);
+  }
+
   async function save() {
     if (!societyId) return;
     setSaving(true);
@@ -162,6 +173,10 @@ export default function SocietyBrandingScreen() {
       let finalLogoUrl = logoUrl;
       if (logoLocalUri) {
         finalLogoUrl = await uploadImage(logoLocalUri, 'society-assets', `${societyId}/logo.jpg`);
+      }
+      let finalHeroUrl = heroUrl;
+      if (heroLocalUri) {
+        finalHeroUrl = await uploadImage(heroLocalUri, 'society-assets', `${societyId}/hero.jpg`);
       }
       const rawInsta = instagramUrl.trim();
       let normalizedInsta = rawInsta;
@@ -174,11 +189,14 @@ export default function SocietyBrandingScreen() {
         primary_color:   primaryColor,
         secondary_color: secondaryColor,
         logo_url:        finalLogoUrl,
+        hero_url:        finalHeroUrl,
         instagram_url:   normalizedInsta || null,
       } as any).eq('id', societyId);
       if (error) throw error;
       if (finalLogoUrl !== logoUrl) setLogoUrl(finalLogoUrl);
+      if (finalHeroUrl !== heroUrl) setHeroUrl(finalHeroUrl);
       setLogoLocalUri(null);
+      setHeroLocalUri(null);
       setInstagramUrl(normalizedInsta);
       Alert.alert('Saved ✓', 'Branding saved. Restart the app to see the new splash screen.');
     } catch (e: any) {
@@ -189,6 +207,7 @@ export default function SocietyBrandingScreen() {
   }
 
   const displayUri = logoLocalUri ?? logoUrl;
+  const displayHeroUri = heroLocalUri ?? heroUrl;
 
   if (loading || societyLoading || !fontsLoaded) return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
@@ -259,6 +278,23 @@ export default function SocietyBrandingScreen() {
               </View>
             </View>
           </View>
+        </View>
+
+        {/* Hero image */}
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>HOME HERO PHOTO</Text>
+          <TouchableOpacity onPress={pickHero} activeOpacity={0.8}>
+            {displayHeroUri
+              ? <Image source={{ uri: displayHeroUri }} style={s.heroPreview} resizeMode="cover" />
+              : <View style={[s.heroPreview, s.heroPlaceholder]}>
+                  <Text style={s.logoPlaceholderIcon}>🖼️</Text>
+                </View>
+            }
+          </TouchableOpacity>
+          <TouchableOpacity style={s.uploadBtn} onPress={pickHero} activeOpacity={0.8}>
+            <Text style={s.uploadBtnText}>{displayHeroUri ? 'Change Hero Photo' : 'Upload Hero Photo'}</Text>
+          </TouchableOpacity>
+          <Text style={s.hint}>Widescreen photo · max 10 MB{'\n'}Replaces the course photo on members' Home screen. Leave blank to keep the default.</Text>
         </View>
 
         {/* Name */}
@@ -433,6 +469,11 @@ const s = StyleSheet.create({
   logoImg:             { width: '100%', height: '100%' },
   logoPlaceholder:     { flex: 1, alignItems: 'center', justifyContent: 'center' },
   logoPlaceholderIcon: { fontSize: 36 },
+  heroPreview: {
+    width: '100%', aspectRatio: 16 / 9, borderRadius: 12,
+    overflow: 'hidden', marginBottom: 10, backgroundColor: '#111',
+  },
+  heroPlaceholder: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#1c1c1c' },
   uploadBtn: {
     backgroundColor: GOLD, borderRadius: 12,
     paddingVertical: 10, paddingHorizontal: 16,

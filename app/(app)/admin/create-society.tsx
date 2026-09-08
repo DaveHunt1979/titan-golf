@@ -6,7 +6,9 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../../src/lib/supabase';
+import { uploadImage } from '../../../src/lib/uploadImage';
 import { goBack } from '../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
@@ -68,12 +70,26 @@ export default function CreateSocietyScreen() {
   const [adminName, setAdminName]     = useState('');
   const [primaryColor, setPrimaryColor] = useState('#D4AF37');
   const [plan, setPlan]               = useState<PlanTier>('society');
+  const [logoUri, setLogoUri]         = useState<string | null>(null);
+  const [heroUri, setHeroUri]         = useState<string | null>(null);
   const [loading, setLoading]         = useState(false);
   const [result, setResult]           = useState<{ pin: string; name: string } | null>(null);
 
   const slug          = toSlug(societyName);
   const canProceed0   = societyName.trim().length > 1 && adminName.trim().length > 1;
   const selectedSwatch = SWATCHES.find(s => s.hex === primaryColor);
+
+  async function pickImage(target: 'logo' | 'hero') {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'] as any,
+      allowsEditing: true,
+      aspect: target === 'logo' ? [1, 1] : [16, 9],
+      quality: 0.85,
+    });
+    if (result.canceled) return;
+    if (target === 'logo') setLogoUri(result.assets[0].uri);
+    else setHeroUri(result.assets[0].uri);
+  }
 
   async function create() {
     setLoading(true);
@@ -87,11 +103,28 @@ export default function CreateSocietyScreen() {
       p_owner_name:    adminName.trim(),
       p_auth_uid:      user.id,
     });
-    setLoading(false);
     if (error || !data?.[0]) {
+      setLoading(false);
       Alert.alert('Error', error?.message ?? 'Could not create society.');
       return;
     }
+    const newSocietyId = data[0].out_society_id;
+
+    if (logoUri || heroUri) {
+      try {
+        const updates: Record<string, string> = {};
+        if (logoUri) updates.logo_url = await uploadImage(logoUri, 'society-assets', `${newSocietyId}/logo.jpg`);
+        if (heroUri) updates.hero_url = await uploadImage(heroUri, 'society-assets', `${newSocietyId}/hero.jpg`);
+        await supabase.from('societies').update(updates as any).eq('id', newSocietyId);
+      } catch (e: any) {
+        // Society already exists at this point — a failed image upload
+        // shouldn't block finishing setup, just means no image for now
+        // (can still be added later via Admin → Branding).
+        Alert.alert('Image upload failed', `${e.message ?? 'Could not upload your image(s)'} — you can add them later from Admin → Branding.`);
+      }
+    }
+
+    setLoading(false);
     setResult({ pin: data[0].join_pin, name: societyName.trim() });
     setStep(3);
   }
@@ -200,6 +233,24 @@ export default function CreateSocietyScreen() {
             ))}
           </View>
           <Text style={styles.swatchLabel}>{selectedSwatch?.label ?? ''}</Text>
+
+          <Text style={[styles.fieldLabel, { marginTop: 8 }]}>LOGO &amp; HERO IMAGE</Text>
+          <Text style={styles.hint}>Optional — you can always add or change these later in Admin → Branding.</Text>
+
+          <View style={styles.imageRow}>
+            <TouchableOpacity style={styles.imagePickerSquare} onPress={() => pickImage('logo')} activeOpacity={0.8}>
+              {logoUri
+                ? <Image source={{ uri: logoUri }} style={styles.imagePickerSquareImg} resizeMode="cover" />
+                : <Text style={styles.imagePickerLabel}>+ Logo</Text>
+              }
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.imagePickerWide} onPress={() => pickImage('hero')} activeOpacity={0.8}>
+              {heroUri
+                ? <Image source={{ uri: heroUri }} style={styles.imagePickerWideImg} resizeMode="cover" />
+                : <Text style={styles.imagePickerLabel}>+ Hero Photo</Text>
+              }
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity style={styles.btn} onPress={() => setStep(2)} activeOpacity={0.8}>
             <Text style={styles.btnText}>Next →</Text>
@@ -332,6 +383,21 @@ const styles = StyleSheet.create({
     fontSize: 15, fontFamily: FFB, color: '#fff', marginBottom: 6,
   },
   hint: { fontSize: 11, fontFamily: FFB, color: '#fff', marginBottom: 16 },
+
+  imageRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
+  imagePickerSquare: {
+    width: 84, height: 84, borderRadius: 12,
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
+    borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  },
+  imagePickerSquareImg: { width: '100%', height: '100%' },
+  imagePickerWide: {
+    flex: 1, height: 84, borderRadius: 12,
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c',
+    borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  },
+  imagePickerWideImg: { width: '100%', height: '100%' },
+  imagePickerLabel: { fontSize: 12, fontFamily: FFB, color: '#666' },
 
   btn: {
     backgroundColor: GOLD, borderRadius: 12,
