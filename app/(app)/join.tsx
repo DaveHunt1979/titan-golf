@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../src/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { goBack } from '../../src/lib/navigation';
 
 const GOLD = '#D4AF37';
 const FF   = 'JUSTSans';
@@ -27,6 +28,7 @@ interface AreaInfo {
   societyName: string;
   primaryColor: string;
   areaType: string;
+  isPin: boolean;
 }
 
 export default function JoinScreen() {
@@ -72,15 +74,25 @@ export default function JoinScreen() {
   async function lookupCode(c: string) {
     setLooking(true);
     const { data, error } = await supabase.rpc('lookup_by_area_code', { p_code: c.toUpperCase() });
+    if (!error && data?.[0]) {
+      setLooking(false);
+      const d = data[0];
+      setAreaInfo({ societyId: d.society_id, societyName: d.society_name, primaryColor: d.primary_color, areaType: d.area_type, isPin: false });
+      return;
+    }
+
+    // Not an area code — try the society's main join PIN (the code admins
+    // hand out to anyone joining; grants Casual Golf, admin adds Tour/Swindle after).
+    const { data: pinData, error: pinError } = await supabase.rpc('lookup_society_by_pin', { p_pin: c });
     setLooking(false);
-    if (error || !data?.[0]) {
-      Alert.alert('Code not found', 'No area matches that code. Ask your admin for the correct code.', [
+    const pinRow = Array.isArray(pinData) ? pinData[0] : pinData;
+    if (pinError || !pinRow) {
+      Alert.alert('Code not found', 'No society matches that code. Ask your admin for the correct code.', [
         { text: 'Try again', onPress: () => { setCode(''); codeRef.current?.focus(); } },
       ]);
       return;
     }
-    const d = data[0];
-    setAreaInfo({ societyId: d.society_id, societyName: d.society_name, primaryColor: d.primary_color, areaType: d.area_type });
+    setAreaInfo({ societyId: pinRow.id, societyName: pinRow.name, primaryColor: pinRow.primary_color, areaType: 'casual', isPin: true });
   }
 
   async function joinArea() {
@@ -89,17 +101,24 @@ export default function JoinScreen() {
       return;
     }
     setSaving(true);
-    const { data, error } = await supabase.rpc('join_by_area_code', {
-      p_code:         code.toUpperCase(),
-      p_display_name: displayName.trim(),
-      p_handicap:     handicap ? parseFloat(handicap) : null,
-    });
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = areaInfo?.isPin
+      ? await supabase.rpc('join_society_by_pin', {
+          p_pin:          code,
+          p_display_name: displayName.trim(),
+          p_handicap:     handicap ? parseFloat(handicap) : null,
+          p_auth_uid:     user?.id,
+        })
+      : await supabase.rpc('join_by_area_code', {
+          p_code:         code.toUpperCase(),
+          p_display_name: displayName.trim(),
+          p_handicap:     handicap ? parseFloat(handicap) : null,
+        });
     setSaving(false);
     if (error || !data?.[0]) {
       Alert.alert('Error', error?.message ?? 'Could not join. Please try again.');
       return;
     }
-    const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await AsyncStorage.setItem(`active_society_id:${user.id}`, areaInfo!.societyId);
     }
@@ -114,6 +133,19 @@ export default function JoinScreen() {
     return (
       <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <StatusBar style="light" />
+
+        {/* Header — three-column layout */}
+        <View style={s.header}>
+          <TouchableOpacity
+            style={s.headerSide}
+            onPress={() => goBack(router, '/(app)')}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Text style={s.back}>← Back</Text>
+          </TouchableOpacity>
+          <View style={s.headerSide} />
+        </View>
+
         <ScrollView contentContainerStyle={[s.scroll, s.codeScroll]} keyboardShouldPersistTaps="handled">
 
           {/* Titan logo */}
@@ -260,7 +292,7 @@ export default function JoinScreen() {
 const s = StyleSheet.create({
   container:  { flex: 1, backgroundColor: '#000' },
   scroll:     { padding: 16, paddingBottom: 60 },
-  codeScroll: { alignItems: 'center', paddingTop: 80 },
+  codeScroll: { alignItems: 'center', paddingTop: 40 },
 
   // Header
   header: {

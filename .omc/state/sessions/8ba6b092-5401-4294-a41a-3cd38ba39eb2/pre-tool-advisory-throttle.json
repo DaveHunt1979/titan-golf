@@ -1,22 +1,22 @@
 {
   "version": 1,
   "entries": {
-    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1788940052245,
-      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
-    },
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1788940014509,
+      "last_emitted_at_ms": 1788942071072,
       "message": "Verify changes work after editing. Test functionality before marking complete."
     },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1788939736830,
+      "last_emitted_at_ms": 1788941953012,
       "message": "Read multiple files in parallel when possible for faster analysis."
+    },
+    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
+      "last_emitted_at_ms": 1788941949934,
+      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
     "3e84503e055eaffdb02194716453bd05be0b12d6c2b09c99b016a6f43b9e06d2": {
       "last_emitted_at_ms": 1788939725444,
       "message": "Spawning agent: Explore (inherit) | Task: Find society invite code logic"
     }
   },
-  "updated_at": "2026-09-09T07:47:32.245Z"
+  "updated_at": "2026-09-09T08:21:11.072Z"
 }

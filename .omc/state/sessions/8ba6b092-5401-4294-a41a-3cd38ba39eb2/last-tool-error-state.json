@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"npx supabase db query \\\"select name, join_pin, casual_join_code, tour_join_code, swindle_join_code from societies where lower(name) like '%mashie%';\\\" 2>&1\",\"description\":\"Check Mashie soc...",
-  "error": "Exit code 1\nConnecting to local database...\n{\"_tag\":\"Error\",\"error\":{\"code\":\"LegacyDbConnectError\",\"message\":\"failed to connect to postgres: failed to connect to `host=127.0.0.1 user=postgres database=postgres`: dial error (connect ECONNREFUSED 127.0.0.1:54322)\",\"suggestion\":\"Make sure Docker is running, then run: supabase start\"}}",
-  "timestamp": "2026-09-09T07:48:09.732Z",
+  "tool_input_preview": "{\"command\":\"d=/Users/davehunt/Desktop/titan-golf; while :; do\\n  grep -Hm1 '^description:' \\\"$d\\\"/.claude/skills/*/SKILL.md 2>/dev/null\\n  [ -e \\\"$d/.git\\\" ] || [ \\\"$d\\\" = / ] && break\\n  d=$(dirname ...",
+  "error": "Exit code 1\n(eval):2: no matches found: /Users/davehunt/Desktop/titan-golf/.claude/skills/*/SKILL.md",
+  "timestamp": "2026-09-09T07:56:54.371Z",
   "retry_count": 1
 }

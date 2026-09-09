@@ -319,6 +319,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/join.tsx",
+      "accessCount": 8,
+      "lastAccessed": 1788942097710,
+      "type": "file"
+    },
+    {
       "path": "src/lib/SocietyThemeContext.tsx",
       "accessCount": 7,
       "lastAccessed": 1788868952630,
@@ -388,6 +394,12 @@
       "path": "supabase/fix_create_society_ambiguity.sql",
       "accessCount": 2,
       "lastAccessed": 1788939804461,
+      "type": "file"
+    },
+    {
+      "path": "app/(auth)/join.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1788942018768,
       "type": "file"
     },
     {
@@ -541,18 +553,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/join.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788939744119,
-      "type": "file"
-    },
-    {
-      "path": "app/(auth)/join.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788939771072,
-      "type": "file"
-    },
-    {
       "path": "app/(app)/societies.tsx",
       "accessCount": 1,
       "lastAccessed": 1788939771341,
@@ -562,6 +562,12 @@
       "path": "supabase/migrations/20260918000000_area_join_code_fix.sql",
       "accessCount": 1,
       "lastAccessed": 1788940014586,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260918010000_pin_join_grants_casual.sql",
+      "accessCount": 1,
+      "lastAccessed": 1788942071149,
       "type": "file"
     }
   ],
