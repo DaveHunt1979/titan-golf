@@ -29,6 +29,7 @@ export default function AdminCodesPage() {
   const [loading,  setLoading]  = useState(true);
   const [copied,   setCopied]   = useState<string | null>(null);
   const [genning,  setGenning]  = useState(false);
+  const [genningAreaCodes, setGenningAreaCodes] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -78,6 +79,23 @@ export default function AdminCodesPage() {
     await supabase.from('societies').update({ join_pin: newPin } as any).eq('id', codes.societyId);
     setCodes(c => c ? { ...c, joinPin: newPin } : c);
     setGenning(false);
+  }
+
+  async function generateAreaCodes() {
+    if (!codes) return;
+    setGenningAreaCodes(true);
+    const { data, error } = await supabase.rpc('generate_area_codes', { p_society_id: codes.societyId } as any);
+    setGenningAreaCodes(false);
+    if (error) return;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (row) {
+      setCodes(c => c ? {
+        ...c,
+        casualCode:  row.r_casual_code  ?? c.casualCode,
+        tourCode:    row.r_tour_code    ?? c.tourCode,
+        swindleCode: row.r_swindle_code ?? c.swindleCode,
+      } : c);
+    }
   }
 
   function pinDisplay(pin: string | null | undefined) {
@@ -247,9 +265,14 @@ export default function AdminCodesPage() {
                     {copied === area.key ? 'Copied!' : 'Copy Code'}
                   </button>
                 ) : (
-                  <div className="mt-4 rounded-full border border-[#1c1c1c] bg-[#000000] px-3 py-2 text-center text-[11px] font-semibold text-neutral-600">
-                    Run membership_areas migration
-                  </div>
+                  <button
+                    onClick={generateAreaCodes}
+                    disabled={genningAreaCodes}
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-[#1c1c1c] bg-[#000000] px-3 py-2 text-[11.5px] font-bold text-neutral-400 transition-colors hover:border-neutral-700 hover:text-white disabled:opacity-50"
+                  >
+                    <RefreshCw size={13} className={genningAreaCodes ? 'animate-spin' : ''} />
+                    {genningAreaCodes ? 'Generating…' : 'Generate Code'}
+                  </button>
                 )}
               </div>
             ))}

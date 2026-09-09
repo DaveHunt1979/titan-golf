@@ -37,6 +37,7 @@ export default function CodesScreen() {
   const [mashieGroups,          setMashieGroups]          = useState<{ groupCode: string; playerNames: string }[]>([]);
   const [loading,               setLoading]               = useState(true);
   const [generatingPin,         setGeneratingPin]         = useState(false);
+  const [generatingAreaCodes,   setGeneratingAreaCodes]   = useState(false);
 
   useEffect(() => {
     if (societyLoading) return;
@@ -93,6 +94,19 @@ export default function CodesScreen() {
     setGeneratingPin(false);
     if (error) { Alert.alert('Error', error.message); return; }
     setJoinPin(newPin);
+  }
+
+  async function generateAreaCodes() {
+    setGeneratingAreaCodes(true);
+    const { data, error } = await supabase.rpc('generate_area_codes', { p_society_id: societyId } as any);
+    setGeneratingAreaCodes(false);
+    if (error) { Alert.alert('Error', error.message); return; }
+    const row = Array.isArray(data) ? data[0] : data;
+    if (row) {
+      setCasualCode(row.r_casual_code ?? '');
+      setTourCode(row.r_tour_code ?? '');
+      setSwindleCode(row.r_swindle_code ?? '');
+    }
   }
 
   async function shareText(text: string, fallbackKey: string) {
@@ -261,9 +275,22 @@ export default function CodesScreen() {
                 </TouchableOpacity>
               </>
             ) : (
-              <Text style={[s.cardHint, { color: dc.cardText, marginTop: 6 }]}>
-                Code not generated — run membership_areas migration
-              </Text>
+              <>
+                <Text style={[s.cardHint, { color: dc.cardText, marginTop: 6 }]}>
+                  No code generated yet.
+                </Text>
+                <TouchableOpacity
+                  style={[s.shareBtn, { borderColor: area.color + '55', backgroundColor: area.color + '15', marginTop: 12 }]}
+                  onPress={generateAreaCodes}
+                  disabled={generatingAreaCodes}
+                  activeOpacity={0.8}
+                >
+                  {generatingAreaCodes
+                    ? <ActivityIndicator color={area.color} size="small" />
+                    : <Text style={[s.shareBtnText, { color: area.color }]}>Generate Code</Text>
+                  }
+                </TouchableOpacity>
+              </>
             )}
           </View>
         ))}
