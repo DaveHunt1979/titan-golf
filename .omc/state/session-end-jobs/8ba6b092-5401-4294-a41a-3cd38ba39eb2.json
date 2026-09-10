@@ -1,0 +1,328 @@
+{
+  "version": 1,
+  "jobId": "03374eb2-c3cf-460c-9c62-d50f2f33fcd8",
+  "sessionId": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+  "scopeKey": "8175cd87a830baef6eeefb366707674d2145af0f1118a7af80e06504fe0fd505",
+  "revision": 41,
+  "createdAt": "2026-09-10T07:10:57.635Z",
+  "updatedAt": "2026-09-10T07:10:58.495Z",
+  "producerGraceExpiresAt": "2026-09-10T07:11:27.635Z",
+  "bestEffortDeadlineAt": "2026-09-10T07:12:18.635Z",
+  "producers": {
+    "core": {
+      "state": "sealed",
+      "intentKey": "6fa56d90776e26cd2705313c4807de45c4ada30ff4f8fefb217724b944ff500a",
+      "payloadDigest": "6fa56d90776e26cd2705313c4807de45c4ada30ff4f8fefb217724b944ff500a",
+      "sealedAt": "2026-09-10T07:10:57.689Z",
+      "sealedBy": "foreground"
+    },
+    "wiki": {
+      "state": "no-op",
+      "sealedAt": "2026-09-10T07:10:57.635Z",
+      "sealedBy": "wiki-producer"
+    }
+  },
+  "actions": {
+    "foreground-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "completed",
+      "attempts": 0,
+      "idempotencyKey": "febf6dba2f2536433960a07f7cedce72e946b43ced0896570df80f017b8914d2",
+      "payload": {
+        "transcriptPath": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+        "cwd": "/Users/davehunt/Desktop/titan-golf",
+        "reason": "other",
+        "input": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "transcript_path": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+          "cwd": "/Users/davehunt/Desktop/titan-golf",
+          "prompt_id": "0346d49e-cdb9-4598-918b-27f03dfca233",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "ended_at": "2026-09-10T07:10:57.634Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {},
+        "foregroundResult": {
+          "removedTransientFiles": 3,
+          "completedAt": "2026-09-10T07:10:57.689Z"
+        }
+      },
+      "budgetMs": 9000,
+      "completedAt": "2026-09-10T07:10:57.689Z",
+      "lastOutcomeCode": "completed"
+    },
+    "wiki-capture": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "completed",
+      "attempts": 0,
+      "idempotencyKey": "1719cd1ef5b51e0269b78c4cb8c9308c9c1f7b82fd1c067fc034c060f23863f5",
+      "payload": {},
+      "budgetMs": 9000,
+      "completedAt": "2026-09-10T07:10:57.635Z"
+    },
+    "team-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "completed",
+      "attempts": 1,
+      "idempotencyKey": "cee6ac31df545408e1e822247ac249b3f8182a98a5fe8e448ae3b251e55bdee1",
+      "payload": {
+        "transcriptPath": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+        "cwd": "/Users/davehunt/Desktop/titan-golf",
+        "reason": "other",
+        "input": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "transcript_path": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+          "cwd": "/Users/davehunt/Desktop/titan-golf",
+          "prompt_id": "0346d49e-cdb9-4598-918b-27f03dfca233",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "ended_at": "2026-09-10T07:10:57.634Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000,
+      "claimedAt": "2026-09-10T07:10:57.721Z",
+      "runner": {
+        "attempt": 1,
+        "runnerNonce": "3e6bd0b6-0a63-4f3c-9f54-6c13c2dc1512",
+        "phase": "terminal",
+        "deadlineAt": "2026-09-10T07:11:07.692Z"
+      },
+      "lastOutcomeCode": "completed",
+      "completedAt": "2026-09-10T07:10:57.841Z"
+    },
+    "python-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "completed",
+      "attempts": 1,
+      "idempotencyKey": "1f1370c4ac056606059d517e2f106b602d8cbcb04587b3fcc5f3b9f89e649cd0",
+      "payload": {
+        "transcriptPath": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+        "cwd": "/Users/davehunt/Desktop/titan-golf",
+        "reason": "other",
+        "input": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "transcript_path": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+          "cwd": "/Users/davehunt/Desktop/titan-golf",
+          "prompt_id": "0346d49e-cdb9-4598-918b-27f03dfca233",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "ended_at": "2026-09-10T07:10:57.634Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000,
+      "claimedAt": "2026-09-10T07:10:57.857Z",
+      "runner": {
+        "attempt": 1,
+        "runnerNonce": "901966e3-a597-4dcf-b09e-c813f0052e23",
+        "phase": "terminal",
+        "deadlineAt": "2026-09-10T07:11:07.692Z"
+      },
+      "lastOutcomeCode": "completed",
+      "completedAt": "2026-09-10T07:10:58.000Z"
+    },
+    "reply-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "completed",
+      "attempts": 1,
+      "idempotencyKey": "0b3a8b47c28b26d56aca004d4f572b96c118f16819c0d35162418816f9a5420a",
+      "payload": {
+        "transcriptPath": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+        "cwd": "/Users/davehunt/Desktop/titan-golf",
+        "reason": "other",
+        "input": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "transcript_path": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+          "cwd": "/Users/davehunt/Desktop/titan-golf",
+          "prompt_id": "0346d49e-cdb9-4598-918b-27f03dfca233",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "ended_at": "2026-09-10T07:10:57.634Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000,
+      "claimedAt": "2026-09-10T07:10:58.016Z",
+      "runner": {
+        "attempt": 1,
+        "runnerNonce": "da402338-ca45-479e-8bd2-12e766438882",
+        "phase": "terminal",
+        "deadlineAt": "2026-09-10T07:11:07.692Z"
+      },
+      "lastOutcomeCode": "completed",
+      "completedAt": "2026-09-10T07:10:58.117Z"
+    },
+    "callback": {
+      "class": "best-effort",
+      "phase": "deferred-best-effort",
+      "status": "completed",
+      "attempts": 1,
+      "idempotencyKey": "d068ede2655bf89e0c0950e087d0603d7dcf45538e94f20a654d08c6f4841895",
+      "payload": {
+        "transcriptPath": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+        "cwd": "/Users/davehunt/Desktop/titan-golf",
+        "reason": "other",
+        "input": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "transcript_path": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+          "cwd": "/Users/davehunt/Desktop/titan-golf",
+          "prompt_id": "0346d49e-cdb9-4598-918b-27f03dfca233",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "ended_at": "2026-09-10T07:10:57.634Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 2000,
+      "claimedAt": "2026-09-10T07:10:58.133Z",
+      "runner": {
+        "attempt": 1,
+        "runnerNonce": "bbb4b37e-dc76-439f-85c9-034f4be21fc8",
+        "phase": "terminal",
+        "deadlineAt": "2026-09-10T07:11:07.692Z"
+      },
+      "lastOutcomeCode": "completed",
+      "completedAt": "2026-09-10T07:10:58.231Z"
+    },
+    "notification": {
+      "class": "best-effort",
+      "phase": "deferred-best-effort",
+      "status": "completed",
+      "attempts": 1,
+      "idempotencyKey": "89c0438ff63097ce04beb60efb87292ff68a7af350a0ee331f3de9dbf42d62fc",
+      "payload": {
+        "transcriptPath": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+        "cwd": "/Users/davehunt/Desktop/titan-golf",
+        "reason": "other",
+        "input": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "transcript_path": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+          "cwd": "/Users/davehunt/Desktop/titan-golf",
+          "prompt_id": "0346d49e-cdb9-4598-918b-27f03dfca233",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "ended_at": "2026-09-10T07:10:57.634Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 2000,
+      "claimedAt": "2026-09-10T07:10:58.248Z",
+      "runner": {
+        "attempt": 1,
+        "runnerNonce": "dfdeff7e-9e04-459f-896a-bbf8cd9a07dd",
+        "phase": "terminal",
+        "deadlineAt": "2026-09-10T07:11:07.692Z"
+      },
+      "lastOutcomeCode": "completed",
+      "completedAt": "2026-09-10T07:10:58.346Z"
+    },
+    "openclaw": {
+      "class": "best-effort",
+      "phase": "deferred-best-effort",
+      "status": "completed",
+      "attempts": 1,
+      "idempotencyKey": "31fe8f6e1cf204e27006de511df257326fdd98655122ca437013e8779ffc735b",
+      "payload": {
+        "transcriptPath": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+        "cwd": "/Users/davehunt/Desktop/titan-golf",
+        "reason": "other",
+        "input": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "transcript_path": "/Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/8ba6b092-5401-4294-a41a-3cd38ba39eb2.jsonl",
+          "cwd": "/Users/davehunt/Desktop/titan-golf",
+          "prompt_id": "0346d49e-cdb9-4598-918b-27f03dfca233",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "8ba6b092-5401-4294-a41a-3cd38ba39eb2",
+          "ended_at": "2026-09-10T07:10:57.634Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 2000,
+      "claimedAt": "2026-09-10T07:10:58.362Z",
+      "runner": {
+        "attempt": 1,
+        "runnerNonce": "024647bf-adde-4a06-88e0-144f93cf6529",
+        "phase": "terminal",
+        "deadlineAt": "2026-09-10T07:11:07.692Z"
+      },
+      "lastOutcomeCode": "completed",
+      "completedAt": "2026-09-10T07:10:58.461Z"
+    }
+  },
+  "owner": null,
+  "phase": "complete",
+  "completion": {
+    "completedAt": "2026-09-10T07:10:58.478Z",
+    "terminalDigest": "721fe57129bf07922158de7aca8ce235894e01dc7f89d1e02628162a9118ff95",
+    "terminalRevision": 40
+  }
+}
