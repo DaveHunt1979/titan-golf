@@ -11,13 +11,14 @@ import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../../src/lib/assets';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
 const RED = '#f87171';
 const FF = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 interface Match { id: string; status: string; home_player_ids: string[]; day: { course_name: string } | null; }
@@ -44,6 +45,8 @@ function calcSkins(playerIds: string[], scores: Record<string, Record<number, nu
 export default function SkinsScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [match, setMatch]     = useState<Match | null>(null);
   const [holes, setHoles]     = useState<CourseHole[]>([]);
   const [names, setNames]     = useState<Record<string, string>>({});
@@ -63,8 +66,10 @@ export default function SkinsScreen() {
 
   useEffect(() => { load(); }, [matchId]);
 
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
+
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
       <ActivityIndicator color={GOLD} size="large" />
     </View>
@@ -172,7 +177,7 @@ export default function SkinsScreen() {
   if (!match || !hole) return null;
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
@@ -181,7 +186,7 @@ export default function SkinsScreen() {
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+          <Image source={logoSource} style={s.logo} resizeMode="contain" />
           <Text style={s.headerSub}>SKINS</Text>
         </View>
         <View style={{ width: 60 }} />
@@ -204,7 +209,7 @@ export default function SkinsScreen() {
             const count = liveSkins[id] ?? 0;
             const isLeader = count > 0;
             return (
-              <View key={id} style={[s.tallyItem, isLeader && s.tallyItemWinner]}>
+              <View key={id} style={[s.tallyItem, { backgroundColor: dc.card, borderColor: dc.border }, isLeader && s.tallyItemWinner]}>
                 <Text style={[s.tallyName, isLeader && s.tallyNameWinner]}>{names[id] ?? '?'}</Text>
                 <Text style={[s.tallySkins, isLeader && s.tallySkinsWinner]}>{count}</Text>
                 <View style={[s.tallyPill, isLeader && s.tallyPillWinner]}>
@@ -214,7 +219,7 @@ export default function SkinsScreen() {
             );
           })}
           {carryover > 0 && (
-            <View style={[s.tallyItem, s.tallyCarry]}>
+            <View style={[s.tallyItem, { backgroundColor: dc.card, borderColor: dc.border }, s.tallyCarry]}>
               <Text style={[s.tallyName, { color: '#fff' }]}>CARRY</Text>
               <Text style={[s.tallySkins, { color: '#fff' }]}>{carryover}</Text>
               <View style={s.tallyPill}>
@@ -242,7 +247,7 @@ export default function SkinsScreen() {
         {players.map(pid => {
           const sc = getScore(pid);
           return (
-            <View key={pid} style={s.playerCard}>
+            <View key={pid} style={[s.playerCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <Text style={s.playerName}>{names[pid] ?? '?'}</Text>
               <View style={s.stepper}>
                 <TouchableOpacity style={s.stepBtn} onPress={() => setPlayerScore(pid, sc - 1)} activeOpacity={0.7}>

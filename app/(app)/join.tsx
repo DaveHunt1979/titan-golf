@@ -9,11 +9,11 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../src/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { goBack } from '../../src/lib/navigation';
+import { titanLogo } from '../../src/lib/assets';
 
 const GOLD = '#D4AF37';
 const FF   = 'JUSTSans';
 const FFB  = 'JUSTSans-ExBold';
-const titanLogo = require('../../assets/TitanAppLogo.png');
 
 const AREA_META: Record<string, { icon: string; label: string; sub: string; color: string }> = {
   casual:  { icon: '🏌️', label: 'Casual Golf',  sub: 'Pick-up games with the boys',  color: '#4ade80' },

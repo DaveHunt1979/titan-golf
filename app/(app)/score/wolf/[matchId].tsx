@@ -11,13 +11,14 @@ import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../../src/lib/assets';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 interface Match { id: string; home_player_ids: string[]; day: { course_name: string } | null; }
@@ -54,6 +55,8 @@ function wolfPoints(players: string[], wolfId: string, partnerId: string | null,
 export default function WolfScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [match, setMatch]       = useState<Match | null>(null);
   const [holes, setHoles]       = useState<CourseHole[]>([]);
   const [names, setNames]       = useState<Record<string, string>>({});
@@ -79,8 +82,10 @@ export default function WolfScreen() {
 
   useEffect(() => { load(); }, [matchId]);
 
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
+
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
       <ActivityIndicator color={GOLD} size="large" />
     </View>
@@ -217,7 +222,7 @@ export default function WolfScreen() {
   if (!match || !hole || !wolfId) return null;
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
@@ -226,7 +231,7 @@ export default function WolfScreen() {
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
           <Text style={s.headerSub}>WOLF</Text>
         </View>
         <View style={s.headerSpacer} />
@@ -253,7 +258,7 @@ export default function WolfScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tallyScroll}>
         <View style={s.tally}>
           {players.map(id => (
-            <View key={id} style={[s.tallyItem, id === wolfId && s.tallyWolf]}>
+            <View key={id} style={[s.tallyItem, { backgroundColor: dc.card, borderColor: dc.border }, id === wolfId && s.tallyWolf]}>
               <Text style={[s.tallyName, id === wolfId && { color: GOLD }]}>{names[id] ?? '?'}{id === wolfId ? ' 🐺' : ''}</Text>
               <Text style={[s.tallyPts, { color: id === wolfId ? GOLD : '#fff' }]}>{cumPoints[id] ?? 0}</Text>
               <Text style={s.tallyLbl}>PTS</Text>
@@ -281,7 +286,7 @@ export default function WolfScreen() {
           {players.filter(id => id !== wolfId).map(pid => (
             <TouchableOpacity
               key={pid}
-              style={[s.partnerBtn, partnerId === pid && s.partnerBtnOn]}
+              style={[s.partnerBtn, { backgroundColor: dc.card, borderColor: dc.border }, partnerId === pid && s.partnerBtnOn]}
               onPress={() => pickPartner(pid)}
               activeOpacity={0.8}
             >
@@ -299,7 +304,7 @@ export default function WolfScreen() {
             const sc = getScore(pid);
             const isWolf = pid === wolfId;
             return (
-              <View key={pid} style={[s.playerRow, isWolf && s.playerRowWolf]}>
+              <View key={pid} style={[s.playerRow, { backgroundColor: dc.card, borderColor: dc.border }, isWolf && s.playerRowWolf]}>
                 <Text style={[s.playerName, isWolf && { color: GOLD }]}>{names[pid] ?? '?'}{isWolf ? ' 🐺' : ''}</Text>
                 <View style={s.stepper}>
                   <TouchableOpacity style={s.stepBtn} onPress={() => setPlayerScore(pid, sc - 1)} activeOpacity={0.7}>

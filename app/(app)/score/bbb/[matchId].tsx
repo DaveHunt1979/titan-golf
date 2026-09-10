@@ -11,13 +11,14 @@ import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../../src/lib/assets';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 interface Match { id: string; home_player_ids: string[]; status?: string; day: { course_name: string } | null; }
@@ -34,6 +35,8 @@ const BBB_LABELS: Record<BBBPoint, { emoji: string; label: string; sub: string }
 export default function BBBScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [match, setMatch]     = useState<Match | null>(null);
   const [holes, setHoles]     = useState<CourseHole[]>([]);
   const [names, setNames]     = useState<Record<string, string>>({});
@@ -180,8 +183,10 @@ export default function BBBScreen() {
     (['bingo', 'bango', 'bongo'] as BBBPoint[]).forEach(p => { if (hd[p] && totals[hd[p]!] !== undefined) totals[hd[p]!]++; });
   });
 
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
+
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
       <ActivityIndicator color={GOLD} size="large" />
     </View>
@@ -189,7 +194,7 @@ export default function BBBScreen() {
   if (!match || !hole) return null;
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
@@ -198,7 +203,7 @@ export default function BBBScreen() {
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+          <Image source={logoSource} style={s.logo} resizeMode="contain" />
           <Text style={s.subtitle}>BINGO BANGO BONGO</Text>
         </View>
         <View style={s.headerRight} />
@@ -218,7 +223,7 @@ export default function BBBScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.totalsScroll}>
         <View style={s.totals}>
           {players.map(id => (
-            <View key={id} style={s.totalItem}>
+            <View key={id} style={[s.totalItem, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <Text style={s.totalName}>{names[id] ?? '?'}</Text>
               <Text style={s.totalPts}>{totals[id]}</Text>
               <Text style={s.totalLbl}>PTS</Text>
@@ -244,7 +249,7 @@ export default function BBBScreen() {
         {(['bingo', 'bango', 'bongo'] as BBBPoint[]).map(point => {
           const info = BBB_LABELS[point];
           return (
-            <View key={point} style={s.pointSection}>
+            <View key={point} style={[s.pointSection, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <View style={s.pointHeader}>
                 <Text style={s.pointEmoji}>{info.emoji}</Text>
                 <View>

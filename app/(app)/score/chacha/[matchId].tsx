@@ -13,13 +13,14 @@ import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../../src/lib/assets';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 interface Match { id: string; home_player_ids: string[]; status?: string; day: { course_name: string; course_par: number; course_rating: number; slope_rating: number; } | null; }
@@ -66,6 +67,8 @@ function holeTeamPts(
 export default function ChaChaScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [match, setMatch]     = useState<Match | null>(null);
   const [holes, setHoles]     = useState<CourseHole[]>([]);
   const [players, setPlayers] = useState<PlayerInfo[]>([]);
@@ -83,8 +86,10 @@ export default function ChaChaScreen() {
     'JUSTSans-ExBold': require('../../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
+
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
       <ActivityIndicator color={GOLD} size="large" />
     </View>
@@ -226,7 +231,7 @@ export default function ChaChaScreen() {
   if (!match || !hole) return null;
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header: back | logo+subtitle | spacer */}
@@ -235,7 +240,7 @@ export default function ChaChaScreen() {
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+          <Image source={logoSource} style={s.logo} resizeMode="contain" />
           <Text style={s.headerSub}>CHA CHA</Text>
         </View>
         <View style={{ width: 60 }} />
@@ -257,7 +262,7 @@ export default function ChaChaScreen() {
           <Text style={s.teamPts}>{teamTotal}</Text>
           <Text style={s.teamLbl}>TEAM PTS</Text>
         </View>
-        <View style={s.holeBadge}>
+        <View style={[s.holeBadge, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <Text style={s.holeBadgeTxt}>BEST {holeCount}</Text>
           <Text style={s.holeBadgeSub}>SCORE{holeCount > 1 ? 'S' : ''} COUNT</Text>
         </View>
@@ -281,7 +286,7 @@ export default function ChaChaScreen() {
           const pts = calcStablefordPoints(sc, hole.par, str);
           const isCounting = countingIds.includes(p.id);
           return (
-            <View key={p.id} style={[s.playerRow, isCounting && s.playerRowCounting]}>
+            <View key={p.id} style={[s.playerRow, { backgroundColor: dc.card, borderColor: dc.border }, isCounting && s.playerRowCounting]}>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={s.playerName}>{p.name}</Text>

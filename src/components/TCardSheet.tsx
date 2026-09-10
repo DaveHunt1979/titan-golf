@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { resolveAvatar } from '../lib/assets';
 import { fetchLastRounds, type RecentRound } from '../lib/playerTiers';
+import { useDynamicColors } from '../lib/SocietyThemeContext';
 import PlayerEditSheet, { type EditablePlayer } from './PlayerEditSheet';
 
 interface TournamentHandicapSummary {
@@ -58,6 +59,7 @@ export default function TCardSheet({
   competitionId?: string;
 }) {
   const router = useRouter();
+  const dc = useDynamicColors();
   const [editing, setEditing] = useState(false);
   const [online, setOnline] = useState(false);
   const [rounds, setRounds] = useState<RecentRound[] | null>(null);
@@ -109,7 +111,7 @@ export default function TCardSheet({
     <>
       <Modal visible={visible && !editing} transparent animationType="fade" onRequestClose={onClose}>
         <Pressable style={s.backdrop} onPress={onClose}>
-          <Pressable style={s.card} onPress={() => {}}>
+          <Pressable style={[s.card, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => {}}>
             <TouchableOpacity style={s.closeBtn} onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Ionicons name="close" size={20} color="#666" />
             </TouchableOpacity>
@@ -233,7 +235,7 @@ export default function TCardSheet({
 
       <Modal visible={showHistory} transparent animationType="fade" onRequestClose={() => setShowHistory(false)}>
         <Pressable style={s.backdrop} onPress={() => setShowHistory(false)}>
-          <Pressable style={[s.card, { maxHeight: '70%' }]} onPress={() => {}}>
+          <Pressable style={[s.card, { maxHeight: '70%', backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => {}}>
             <TouchableOpacity style={s.closeBtn} onPress={() => setShowHistory(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Ionicons name="close" size={20} color="#666" />
             </TouchableOpacity>

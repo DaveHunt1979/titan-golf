@@ -10,6 +10,7 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { speakDebrief } from '../../../../src/lib/caddie';
 import { goBack } from '../../../../src/lib/navigation';
+import { useDynamicColors } from '../../../../src/lib/SocietyThemeContext';
 
 // ─── TITAN design constants ───────────────────────────────────────────────────
 
@@ -18,8 +19,6 @@ const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 const { width: SW } = Dimensions.get('window');
 
@@ -93,9 +92,9 @@ function toParColor(n: number) {
 
 // ─── sub-components ───────────────────────────────────────────────────────────
 
-function SumCard({ label, value, sub, subColor }: { label: string; value: string; sub?: string; subColor?: string }) {
+function SumCard({ label, value, sub, subColor, dc }: { label: string; value: string; sub?: string; subColor?: string; dc: ReturnType<typeof useDynamicColors> }) {
   return (
-    <View style={ss.sumCard}>
+    <View style={[ss.sumCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
       <Text style={ss.sumVal}>{value}</Text>
       <Text style={ss.sumLbl}>{label}</Text>
       {sub ? <Text style={[ss.sumSub, subColor ? { color: subColor } : {}]}>{sub}</Text> : null}
@@ -107,6 +106,7 @@ function SumCard({ label, value, sub, subColor }: { label: string; value: string
 
 export default function RoundDetailScreen() {
   const router   = useRouter();
+  const dc = useDynamicColors();
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
 
   const [fontsLoaded] = useFonts({
@@ -296,7 +296,7 @@ export default function RoundDetailScreen() {
 
   if (loading || !fontsLoaded) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
         <StatusBar style="light" />
         <ActivityIndicator color={GOLD} size="large" />
       </View>
@@ -304,7 +304,7 @@ export default function RoundDetailScreen() {
   }
 
   return (
-    <View style={ss.container}>
+    <View style={[ss.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
@@ -328,10 +328,10 @@ export default function RoundDetailScreen() {
 
       {/* Summary row — always visible */}
       <View style={ss.summaryRow}>
-        <SumCard label="SCORE" value={String(totalGross)} sub={toPar != null ? toParStr(toPar) : undefined} subColor={toPar != null ? toParColor(toPar) : undefined} />
-        <SumCard label="STABLEFORD" value={String(totalPts)} sub="pts" />
-        {puttsTracked > 0 && <SumCard label="PUTTS" value={String(totalPutts)} sub={`${puttsTracked} holes`} />}
-        {fairwaysTracked > 0 && <SumCard label="FWY" value={`${fairwaysHit}/${fairwaysTracked}`} sub={`${Math.round((fairwaysHit / fairwaysTracked) * 100)}%`} />}
+        <SumCard dc={dc} label="SCORE" value={String(totalGross)} sub={toPar != null ? toParStr(toPar) : undefined} subColor={toPar != null ? toParColor(toPar) : undefined} />
+        <SumCard dc={dc} label="STABLEFORD" value={String(totalPts)} sub="pts" />
+        {puttsTracked > 0 && <SumCard dc={dc} label="PUTTS" value={String(totalPutts)} sub={`${puttsTracked} holes`} />}
+        {fairwaysTracked > 0 && <SumCard dc={dc} label="FWY" value={`${fairwaysHit}/${fairwaysTracked}`} sub={`${Math.round((fairwaysHit / fairwaysTracked) * 100)}%`} />}
       </View>
 
       {/* Tab bar */}
@@ -436,7 +436,7 @@ export default function RoundDetailScreen() {
               })}
 
               {/* Grand total */}
-              <View style={ss.grandTotal}>
+              <View style={[ss.grandTotal, { backgroundColor: dc.card, borderColor: dc.border }]}>
                 <View style={ss.grandRow}>
                   <Text style={ss.grandLabel}>GROSS</Text>
                   <Text style={ss.grandValue}>{totalGross}</Text>

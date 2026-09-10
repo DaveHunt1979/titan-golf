@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { useDynamicColors } from '../lib/SocietyThemeContext';
 
 const GOLD = '#D4AF37';
 const FFB  = 'JUSTSans-ExBold';
@@ -25,6 +26,7 @@ function formatEvent(row: any): string | null {
 // round is scored (Dave, 2026-08-20: "we get the opening messages, we want
 // more" — was previously News-only and never updated live).
 export default function NewsTicker({ competitionId, matchId }: { competitionId: string | null; matchId?: string | null }) {
+  const dc = useDynamicColors();
   const [newsItems, setNewsItems] = useState<TickerItem[]>([]);
   const [eventItems, setEventItems] = useState<TickerItem[]>([]);
   const translateX = useRef(new Animated.Value(0)).current;
@@ -92,7 +94,7 @@ export default function NewsTicker({ competitionId, matchId }: { competitionId: 
   const text = `  ${combined.join('     •     ')}     •     `;
 
   return (
-    <View style={s.bar}>
+    <View style={[s.bar, { backgroundColor: dc.card, borderTopColor: dc.border }]}>
       <View style={s.badge}><Text style={s.badgeText}>TITAN NEWS</Text></View>
       <View style={s.track}>
         <Animated.View style={[s.row, { transform: [{ translateX }] }]}>

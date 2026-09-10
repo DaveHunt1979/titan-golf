@@ -8,26 +8,40 @@ import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyTheme
 import { titanLogo } from '../../../src/lib/assets';
 import { IS_PAD } from '../../../src/lib/useDeviceLayout';
 import { goBack } from '../../../src/lib/navigation';
+import { usePlatformAdmin } from '../../../src/lib/usePlatformAdmin';
 
 const BLUE = '#60a5fa';
 const RED  = '#f87171';
 const FF   = 'JUSTSans';
 const FFB  = 'JUSTSans-ExBold';
 
+// Plain Admin tier — every one of these already reads/writes data scoped to
+// the admin's own active society, nothing shared platform-wide (Dave,
+// 2026-09-09: normal admins should see exactly Players, Codes, Records —
+// Courses/Pins moved to God tier below since they're shared course data,
+// not per-society; Groups dropped from here — still a real, in-use feature
+// (games/new.tsx's "Load Group"), just no longer a Platform-hub tile).
 const TILES = [
   { key: 'players',  label: 'Players',  sub: 'Roster, roles, handicap & area access',        icon: 'person-outline'          as const, route: '/(app)/admin/players' },
-  { key: 'courses',  label: 'Courses',  sub: 'Par, stroke index & yardages',                 icon: 'golf-outline'            as const, route: '/(app)/admin/courses' },
-  { key: 'pins',     label: 'Pins',     sub: 'Green locations for the rangefinder',          icon: 'location-outline'        as const, route: '/(app)/admin/pins' },
-  { key: 'groups',   label: 'Groups',   sub: 'Named groups for quick game setup',            icon: 'people-circle-outline'   as const, route: '/(app)/admin/groups' },
-  { key: 'codes',    label: 'Codes',    sub: 'Join PIN, tournament PINs, area codes',        icon: 'key-outline'             as const, route: '/(app)/admin/codes' },
+  { key: 'codes',    label: 'Codes',    sub: 'Society join PIN, casual code, group codes',   icon: 'key-outline'             as const, route: '/(app)/admin/codes' },
   { key: 'records',  label: 'Records',  sub: 'All-time society bests',                       icon: 'ribbon-outline'          as const, route: '/(app)/records' },
-  { key: 'society',  label: 'New Society', sub: 'Onboard a new golf club to Titan',           icon: 'add-circle-outline'      as const, route: '/(app)/admin/create-society' },
+] as const;
+
+// God-tier only — shared platform data / cross-society actions no society
+// admin should ever see, let alone touch (Dave, 2026-09-09).
+const GOD_TILES = [
+  { key: 'society',  label: 'New Society',      sub: 'Onboard a new golf club to Titan',        icon: 'add-circle-outline' as const, route: '/(app)/admin/create-society' },
+  { key: 'societies',label: 'Societies',        sub: 'Every society & how much they\'re used',  icon: 'globe-outline'      as const, route: '/(app)/admin/societies' },
+  { key: 'courses',  label: 'Courses',          sub: 'Par, stroke index & yardages',            icon: 'golf-outline'       as const, route: '/(app)/admin/courses' },
+  { key: 'pins',     label: 'Pins',             sub: 'Green locations for the rangefinder',     icon: 'location-outline'   as const, route: '/(app)/admin/pins' },
+  { key: 'requests', label: 'Course Requests',  sub: 'Review courses society admins requested', icon: 'mail-open-outline'  as const, route: '/(app)/admin/course-requests' },
 ] as const;
 
 export default function PlatformHubScreen() {
   const router = useRouter();
   const dc = useDynamicColors();
   const { localLogo, logoUrl } = useSocietyTheme();
+  const { isPlatformAdmin } = usePlatformAdmin();
   const { width: winW } = useWindowDimensions();
   const contentW = IS_PAD ? winW - 220 : winW;
   const tileW = Math.floor((contentW - 40 - 10) / 2);
@@ -85,6 +99,20 @@ export default function PlatformHubScreen() {
             >
               <View style={[s.tileIcon, { backgroundColor: `${BLUE}18`, borderColor: `${BLUE}55` }]}>
                 <Ionicons name={t.icon} size={24} color={BLUE} />
+              </View>
+              <Text style={[s.tileLabel, { color: dc.cardText }]} numberOfLines={1}>{t.label}</Text>
+              <Text style={[s.tileSub, { color: dc.textSecondary }]} numberOfLines={2}>{t.sub}</Text>
+            </TouchableOpacity>
+          ))}
+          {isPlatformAdmin && GOD_TILES.map(t => (
+            <TouchableOpacity
+              key={t.key}
+              style={[s.tile, { width: tileW, backgroundColor: dc.card, borderColor: dc.border }]}
+              onPress={() => router.push(t.route as any)}
+              activeOpacity={0.75}
+            >
+              <View style={[s.tileIcon, { backgroundColor: `${dc.gold}18`, borderColor: `${dc.gold}55` }]}>
+                <Ionicons name={t.icon} size={24} color={dc.gold} />
               </View>
               <Text style={[s.tileLabel, { color: dc.cardText }]} numberOfLines={1}>{t.label}</Text>
               <Text style={[s.tileSub, { color: dc.textSecondary }]} numberOfLines={2}>{t.sub}</Text>

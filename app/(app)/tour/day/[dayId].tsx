@@ -9,17 +9,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../../src/lib/supabase';
 import { matchLabel, getEffectiveWinner } from '../../../../src/lib/scoring';
-import { getPlayerAvatar, teamLogos } from '../../../../src/lib/assets';
+import { getPlayerAvatar, teamLogos, titanLogo } from '../../../../src/lib/assets';
 import type { Match, Team, CompetitionDay } from '../../../../src/types';
 import { goBack } from '../../../../src/lib/navigation';
 import { matchFormatLabel } from '../../../../src/lib/tournamentFormat';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
 const RED = '#f87171';
 const FF = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface MatchWithTeams extends Match {
   home_team: Pick<Team, 'name' | 'accent_color'> | null;
@@ -29,6 +29,8 @@ interface MatchWithTeams extends Match {
 export default function TourDayScreen() {
   const { dayId } = useLocalSearchParams<{ dayId: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [day, setDay] = useState<CompetitionDay | null>(null);
   const [matches, setMatches] = useState<MatchWithTeams[]>([]);
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
@@ -104,15 +106,17 @@ export default function TourDayScreen() {
 
   if (loading || !fontsLoaded) {
     return (
-      <View style={styles.loadingScreen}>
+      <View style={[styles.loadingScreen, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
         <ActivityIndicator color={GOLD} size="large" />
       </View>
     );
   }
 
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
@@ -127,7 +131,7 @@ export default function TourDayScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerCentre}>
-            <Image source={titanLogo} style={styles.logo} resizeMode="contain" />
+            <Image source={logoSource} style={styles.logo} resizeMode="contain" />
             <Text style={styles.headerSub}>DAY {day?.day_number ?? '—'}</Text>
           </View>
 
@@ -258,6 +262,7 @@ function MatchCard({
   myPlayerId: string | null;
 }) {
   const router = useRouter();
+  const dc = useDynamicColors();
   const isLive = match.status === 'in_progress';
   const isComplete = match.status === 'complete';
   const isMyMatch = !!myPlayerId && ((match.home_player_ids ?? []).includes(myPlayerId) || (match.away_player_ids ?? []).includes(myPlayerId));
@@ -323,7 +328,7 @@ function MatchCard({
 
   return (
     <TouchableOpacity
-      style={[card.container, { borderColor: cardBorder }]}
+      style={[card.container, { backgroundColor: dc.card, borderColor: cardBorder }]}
       onPress={() => router.push(matchDest as any)}
       activeOpacity={0.75}
     >

@@ -14,11 +14,12 @@ import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../..
 import { formatStrokeHoles } from '../../../../src/lib/scoring';
 import { goBack } from '../../../../src/lib/navigation';
 import { matchFormatLabel } from '../../../../src/lib/tournamentFormat';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../../src/lib/assets';
 
 const GOLD  = '#D4AF37';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface MatchPreview {
   id: string;
@@ -57,6 +58,8 @@ function Avatar({ name, size = 72, src }: { name: string; size?: number; src?: a
 export default function MatchPreviewScreen() {
   const { matchId, dayId, dayCode, startHole } = useLocalSearchParams<{ matchId: string; dayId?: string; dayCode?: string; startHole?: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl, societyName } = useSocietyTheme();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -161,7 +164,7 @@ export default function MatchPreviewScreen() {
     if (!dayCode) return;
     const courseName = match?.day?.course_name ?? 'our round';
     Share.share({
-      message: `Follow our game at ${courseName}!\nEnter code ${dayCode} in Titan Golf → Score tab → Join Game Day to spectate (view-only — you won't be able to enter scores).`,
+      message: `Follow our game at ${courseName}!\nEnter code ${dayCode} in ${societyName} → Score tab → Join Game Day to spectate (view-only — you won't be able to enter scores).`,
     });
   }
 
@@ -205,7 +208,7 @@ export default function MatchPreviewScreen() {
   }
 
   if (loadError) return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000', gap: 16, padding: 24 }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: dc.bg, gap: 16, padding: 24 }}>
       <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16 }}>Couldn't load this round.</Text>
       <TouchableOpacity style={s.teeBtn} onPress={() => setRetryTick(t => t + 1)} activeOpacity={0.85}>
         <Text style={s.teeBtnText}>Try Again</Text>
@@ -214,12 +217,14 @@ export default function MatchPreviewScreen() {
   );
 
   if (loading || !fontsLoaded) return (
-    <View style={s.loading}>
+    <View style={[s.loading, { backgroundColor: dc.bg }]}>
       <ActivityIndicator color={GOLD} size="large" />
     </View>
   );
 
   if (!match) return null;
+
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
 
   const allIds = [...match.home_player_ids, ...match.away_player_ids];
   const homePlayers = match.home_player_ids.map(id => players.find(p => p.id === id)).filter(Boolean) as Player[];
@@ -270,7 +275,7 @@ export default function MatchPreviewScreen() {
   const sideGames = (match.side_games ?? []).filter(g => !g.startsWith('voice'));
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
@@ -279,7 +284,7 @@ export default function MatchPreviewScreen() {
           <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
           <Text style={s.headerSub}>READY TO TEE OFF</Text>
         </View>
         <View style={s.headerSide} />
@@ -319,7 +324,7 @@ export default function MatchPreviewScreen() {
         </View>
 
         {/* Match details */}
-        <View style={s.detailCard}>
+        <View style={[s.detailCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <DetailRow icon="flag-outline" label="Format" value={modeName} />
           <View style={s.divider} />
           <DetailRow icon="person-outline" label="Handicap" value={hcpLabel} />
@@ -333,7 +338,7 @@ export default function MatchPreviewScreen() {
 
         {/* Game day */}
         {dayCode && dayId && (
-          <View style={s.dayCard}>
+          <View style={[s.dayCard, { backgroundColor: dc.card }]}>
             <Text style={s.dayCardTitle}>GAME DAY</Text>
             <Text style={s.dayCardSub}>Share this code so others can spectate — view-only, they can't enter scores</Text>
             <Text style={s.dayCode}>{dayCode}</Text>
@@ -359,7 +364,7 @@ export default function MatchPreviewScreen() {
       </ScrollView>
 
       {/* Tee Off CTA */}
-      <View style={s.footer}>
+      <View style={[s.footer, { backgroundColor: dc.bg }]}>
         <TouchableOpacity style={s.teeBtn} onPress={startRound} disabled={teeing} activeOpacity={0.85}>
           {teeing
             ? <ActivityIndicator color="#000000" />

@@ -3,6 +3,7 @@ import {
   Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet,
 } from 'react-native';
 import type { SyncConflict } from '../lib/offlineQueue';
+import { useDynamicColors } from '../lib/SocietyThemeContext';
 
 const GOLD  = '#D4AF37';
 const RED   = '#f87171';
@@ -23,9 +24,10 @@ function firstName(name: string): string {
 }
 
 export default function ConflictSheet({ visible, conflicts, playerNames, onResolve, onClose }: Props) {
+  const dc = useDynamicColors();
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={s.root}>
+      <View style={[s.root, { backgroundColor: dc.bg }]}>
         {/* Header */}
         <View style={s.header}>
           <View style={s.headerLeft} />

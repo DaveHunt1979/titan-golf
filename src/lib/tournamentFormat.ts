@@ -147,8 +147,13 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     captainRotation: false,
     finalDayKnockout: false,
     lastDaySinglesOverride: false,
-    minTeams: null,
-    maxTeams: null,
+    // Always exactly 2 sides — the format's whole identity ("2 sides,
+    // captain picks") breaks otherwise. Left null/null before, so the
+    // Details step's team-count stepper let an organiser add a 3rd/4th
+    // team with nothing stopping them (Dave, 2026-09-09, live-testing
+    // with Rick).
+    minTeams: 2,
+    maxTeams: 2,
     minPlayers: null,
     exactPlayersPerTeam: null,
     requiresEvenTeams: false,

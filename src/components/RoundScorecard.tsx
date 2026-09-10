@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { scoreVsPar, SCORE_COLORS } from '../lib/scoring';
+import { useDynamicColors } from '../lib/SocietyThemeContext';
 
 const GOLD     = '#D4AF37';
 const FFB      = 'JUSTSans-ExBold';
@@ -37,6 +38,7 @@ export default function RoundScorecard({
   startHole, allPlayerIds, playerNames, holeData, courseHoles, matchHomeIds, holeChars,
   homeColor, awayColor, isStrokePlay, roundFormat, handicapMethod, secondaryFormat, onUndo, lastPlayedHole = 0, saving = false, screenWidth,
 }: RoundScorecardProps) {
+  const dc = useDynamicColors();
   const holes = Array.from({ length: 9 }, (_, i) => startHole + i);
   const title = startHole === 1 ? 'FRONT 9' : 'BACK 9';
   const totalPar = holes.reduce((a, h) => {
@@ -56,7 +58,7 @@ export default function RoundScorecard({
 
   return (
     <ScrollView style={{ width: screenWidth }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
-      <View style={sc.container}>
+      <View style={[sc.container, { backgroundColor: dc.card, borderColor: dc.border }]}>
         <Text style={sc.title}>{title}</Text>
 
         {/* Header row */}

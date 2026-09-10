@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../lib/supabase';
 import { resolveAvatar } from '../lib/assets';
+import { useDynamicColors } from '../lib/SocietyThemeContext';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -40,6 +41,7 @@ export interface EditablePlayer {
     email: string | null;
     handicap_index: number | null;
     avatar_url: string | null;
+    is_platform_admin?: boolean;
   };
 }
 
@@ -50,20 +52,23 @@ const hit = { top: 12, bottom: 12, left: 12, right: 12 };
 // Edit button, not just the admin Players screen — one place to maintain
 // instead of two copies drifting apart.
 export default function PlayerEditSheet({
-  visible, member, societyId, myRole, onClose, onSaved,
+  visible, member, societyId, myRole, viewerIsPlatformAdmin, onClose, onSaved,
 }: {
   visible: boolean;
   member: EditablePlayer | null;
   societyId: string;
   myRole: string;
+  viewerIsPlatformAdmin?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const dc = useDynamicColors();
   const [editCommittee, setEditCommittee] = useState('');
   const [editPermRole, setEditPermRole]   = useState('');
   const [editEmail, setEditEmail]         = useState('');
   const [editHcp, setEditHcp]             = useState('');
   const [areas, setAreas]                 = useState<string[]>([]);
+  const [editIsGod, setEditIsGod]         = useState(false);
   const [areaSaving, setAreaSaving]       = useState<string | null>(null);
   const [roleSaving, setRoleSaving]       = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -77,6 +82,7 @@ export default function PlayerEditSheet({
     setEditHcp(member.player.handicap_index != null ? String(member.player.handicap_index) : '');
     setAvatarUrl(member.player.avatar_url ?? null);
     setAreas(member.membership_types ?? []);
+    setEditIsGod(!!member.player.is_platform_admin);
   }, [member]);
 
   // Saves immediately on tap, same as admin/membership.tsx did — areas
@@ -195,6 +201,14 @@ export default function PlayerEditSheet({
         if (error) throw error;
       }
 
+      if (viewerIsPlatformAdmin && editIsGod !== !!member.player.is_platform_admin) {
+        const { error } = await supabase.rpc('set_platform_admin', {
+          p_player_id: member.player.id,
+          p_value:     editIsGod,
+        });
+        if (error) throw error;
+      }
+
       onSaved();
       onClose();
     } catch (e: any) {
@@ -206,7 +220,7 @@ export default function PlayerEditSheet({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={s.modalContainer}>
+      <View style={[s.modalContainer, { backgroundColor: dc.bg }]}>
         <View style={s.modalHeader}>
           <TouchableOpacity onPress={onClose} hitSlop={hit}>
             <Text style={s.back}>Cancel</Text>
@@ -341,6 +355,28 @@ export default function PlayerEditSheet({
             </>
           )}
 
+          {/* God — platform-wide, shared across every society. Only existing
+              Gods can see or grant this; a normal society owner/admin never
+              sees it exists (Dave, 2026-09-09). */}
+          {viewerIsPlatformAdmin && (
+            <>
+              <Text style={[s.sectionLabel, { marginTop: 28 }]}>GOD MODE</Text>
+              <Text style={s.sectionHint}>Full control across every society — Dave &amp; Rick only</Text>
+              <View style={s.permRow}>
+                {[{ v: false, label: 'Normal' }, { v: true, label: 'God' }].map(opt => (
+                  <TouchableOpacity
+                    key={String(opt.v)}
+                    style={[s.permChip, editIsGod === opt.v && s.godChipOn]}
+                    onPress={() => setEditIsGod(opt.v)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[s.permChipText, editIsGod === opt.v && s.godChipTextOn]}>{opt.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
+
           <TouchableOpacity style={[s.saveBtn, { marginTop: 28 }, roleSaving && { opacity: 0.5 }]}
             onPress={saveRoles} disabled={roleSaving} activeOpacity={0.8}>
             {roleSaving ? <ActivityIndicator color="#000" /> : <Text style={s.saveBtnText}>Save Changes</Text>}
@@ -401,6 +437,8 @@ const s = StyleSheet.create({
   permChipOn:     { backgroundColor: GOLD + '22', borderColor: GOLD + '55' },
   permChipText:   { fontFamily: FFB, fontSize: 14, color: '#fff' },
   permChipTextOn: { color: GOLD },
+  godChipOn:      { backgroundColor: RED + '22', borderColor: RED + '77' },
+  godChipTextOn:  { color: RED },
 
   fieldLabel: {
     fontFamily: FFB, fontSize: 10, color: '#fff',

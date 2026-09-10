@@ -14,11 +14,12 @@ import { goBack } from '../../../../src/lib/navigation';
 import { resolveAvatar } from '../../../../src/lib/assets';
 import { matchFormatLabel } from '../../../../src/lib/tournamentFormat';
 import Leaderboard, { type LeaderboardRow } from '../../../../src/components/Leaderboard';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../../src/lib/assets';
 
 const GOLD = '#D4AF37';
 const FF   = 'JUSTSans';
 const FFB  = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 // Setup screen's default, never-renamed team labels — see homeNames/awayNames below.
 const DEFAULT_TEAM_NAMES = new Set(['Team A', 'Team B', 'Team C', 'Team D']);
@@ -45,6 +46,8 @@ export default function DayLobby() {
   const { dayId, spectate } = useLocalSearchParams<{ dayId: string; spectate?: string }>();
   const isSpectator = spectate === '1';
   const router     = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl, societyName } = useSocietyTheme();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -269,12 +272,14 @@ export default function DayLobby() {
 
   function shareCode() {
     if (!day) return;
-    Share.share({ message: `Follow our game at ${day.course_name}!\nEnter code ${day.join_code} in Titan Golf → Score tab → Join Game Day to spectate (view-only — you won't be able to enter scores).` });
+    Share.share({ message: `Follow our game at ${day.course_name}!\nEnter code ${day.join_code} in ${societyName} → Score tab → Join Game Day to spectate (view-only — you won't be able to enter scores).` });
   }
 
   if (loading || !fontsLoaded || !day) {
-    return <View style={s.loading}><ActivityIndicator color={GOLD} size="large" /></View>;
+    return <View style={[s.loading, { backgroundColor: dc.bg }]}><ActivityIndicator color={GOLD} size="large" /></View>;
   }
+
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
 
   const dateStr = new Date(day.day_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -303,7 +308,7 @@ export default function DayLobby() {
   }));
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
@@ -312,7 +317,7 @@ export default function DayLobby() {
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
           <Text style={s.headerSub}>GAME DAY</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -338,7 +343,7 @@ export default function DayLobby() {
       </View>
 
       {/* Course info card */}
-      <View style={s.courseCard}>
+      <View style={[s.courseCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
         <View style={{ flex: 1 }}>
           <Text style={s.courseName}>{day.course_name}</Text>
           <Text style={s.courseDate}>{dateStr}</Text>
@@ -388,7 +393,7 @@ export default function DayLobby() {
                 const isMedal   = groups[0]?.format === 'medal';
                 const rankColor = rank === 0 ? GOLD : rank === 1 ? '#C0C0C0' : rank === 2 ? '#CD7F32' : '#444';
                 return (
-                  <View key={p.player_id} style={[s.lbCard, isFirst && s.lbCardFirst, isMe && s.lbCardMe]}>
+                  <View key={p.player_id} style={[s.lbCard, { backgroundColor: dc.card, borderColor: dc.border }, isFirst && s.lbCardFirst, isMe && s.lbCardMe]}>
                     <Text style={[s.lbRank, { color: rankColor }]}>{rank + 1}</Text>
                     <PlayerAvatar playerId={p.player_id} name={p.name} avatarUrl={p.avatarUrl} size={38} />
                     <View style={{ flex: 1, marginLeft: 12 }}>
@@ -453,7 +458,7 @@ export default function DayLobby() {
                 return (
                   <TouchableOpacity
                     key={g.match_id}
-                    style={[s.groupCard, isMyGroup && s.groupCardMe, !canNavigate && { opacity: 0.6 }]}
+                    style={[s.groupCard, { backgroundColor: dc.card, borderColor: dc.border }, isMyGroup && s.groupCardMe, !canNavigate && { opacity: 0.6 }]}
                     onPress={
                       isSpectator
                         ? () => router.push(`/(app)/spectate/${g.match_id}` as any)
@@ -539,7 +544,7 @@ export default function DayLobby() {
 
       {/* Spectator note — code was shared as view-only, no scoring/join actions here */}
       {isSpectator && (
-        <View style={s.footer}>
+        <View style={[s.footer, { backgroundColor: dc.bg }]}>
           <View style={[s.actionBtn, { backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c' }]}>
             <Ionicons name="eye-outline" size={16} color="#6b7280" style={{ marginRight: 6 }} />
             <Text style={[s.actionBtnText, { color: '#6b7280' }]}>Viewing as spectator</Text>
@@ -549,7 +554,7 @@ export default function DayLobby() {
 
       {/* Footer action — only shown for Mashie days or when player has a match */}
       {!isSpectator && (myMatchId || isMashieDay) && (
-        <View style={s.footer}>
+        <View style={[s.footer, { backgroundColor: dc.bg }]}>
           {myMatchId ? (
             groups.find(g => g.match_id === myMatchId)?.status === 'complete' ? (
               <TouchableOpacity

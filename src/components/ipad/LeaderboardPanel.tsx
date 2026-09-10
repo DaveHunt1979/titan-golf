@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useDynamicColors } from '../../lib/SocietyThemeContext';
 
 const GOLD   = '#D4AF37';
 const BG     = '#0a0a0a';
@@ -27,6 +28,7 @@ export default function LeaderboardPanel({
   homeColor, awayColor, holeChars,
   isStrokePlay, isMatchplay, liveHomeUp, homeLabel, awayLabel,
 }: Props) {
+  const dc = useDynamicColors();
   const played = holeChars.filter(c => c !== '.').length;
 
   // Sort players for the leaderboard
@@ -45,7 +47,7 @@ export default function LeaderboardPanel({
   const statusColor = liveHomeUp === 0 ? GOLD : liveHomeUp > 0 ? homeColor : awayColor;
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: dc.bg, borderColor: dc.border }]}>
       {/* Header */}
       <View style={s.header}>
         <Text style={s.headerTitle}>LEADERBOARD</Text>

@@ -12,6 +12,7 @@ import { searchUKClubs, getUKClub, clubLocation, type UKClub } from '../../../sr
 import { scanScorecardFromCamera, scanScorecardFromLibrary, type ScannedCourse } from '../../../src/lib/scanScorecard';
 import { searchCourse, getCourseHoles, type GICourseResult, type GIHoleData } from '../../../src/lib/golfIntelligence';
 import { goBack } from '../../../src/lib/navigation';
+import { usePlatformAdmin } from '../../../src/lib/usePlatformAdmin';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
@@ -60,6 +61,14 @@ function mergeGIScorecard(current: HoleConfig[], giHoles: GIHoleData[]): { holes
 export default function CoursesScreen() {
   const router = useRouter();
   const { societyId, loading: societyLoading } = useAdminSociety();
+  // Courses are shared platform-wide data now, not per-society — only Dave
+  // and Rick ("God" tier) can create/edit/delete them. Everyone else gets a
+  // request queue instead (Dave, 2026-09-09).
+  const { isPlatformAdmin, loading: platformLoading } = usePlatformAdmin();
+  const [requestModal, setRequestModal]   = useState(false);
+  const [reqCourseName, setReqCourseName] = useState('');
+  const [reqNotes, setReqNotes]           = useState('');
+  const [reqSaving, setReqSaving]         = useState(false);
   const [courses, setCourses] = useState<CourseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal]     = useState(false);
@@ -485,11 +494,42 @@ export default function CoursesScreen() {
     deleteCourse(editingName);
   }
 
+  function openRequestModal() {
+    setReqCourseName('');
+    setReqNotes('');
+    setRequestModal(true);
+  }
+
+  async function submitCourseRequest() {
+    const name = reqCourseName.trim();
+    if (!name) { Alert.alert('Required', 'Please enter a course name.'); return; }
+    if (!societyId) return;
+    setReqSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: player } = await supabase.from('players').select('id').eq('auth_uid', user?.id ?? '').maybeSingle();
+      if (!player) throw new Error('Could not identify your player record.');
+      const { error } = await supabase.from('course_requests').insert({
+        society_id:   societyId,
+        requested_by: (player as any).id,
+        course_name:  name,
+        notes:        reqNotes.trim() || null,
+      });
+      if (error) throw error;
+      setRequestModal(false);
+      Alert.alert('Request sent', `Dave/Rick will add "${name}" and let you know once it's ready.`);
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'Could not send the request.');
+    } finally {
+      setReqSaving(false);
+    }
+  }
+
   const front9Par = holes.slice(0, 9).reduce((s, h) => s + h.par, 0);
   const back9Par  = holes.slice(9).reduce((s, h) => s + h.par, 0);
   const totalPar  = front9Par + back9Par;
 
-  if (loading || societyLoading || !fontsLoaded) return (
+  if (loading || societyLoading || platformLoading || !fontsLoaded) return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
     </View>
@@ -509,8 +549,8 @@ export default function CoursesScreen() {
           <Text style={s.headerTitle}>Courses</Text>
           <Text style={s.headerSub}>admin</Text>
         </View>
-        <TouchableOpacity onPress={openNew} hitSlop={hit} style={s.headerRight}>
-          <Text style={s.addBtn}>+ Add</Text>
+        <TouchableOpacity onPress={isPlatformAdmin ? openNew : openRequestModal} hitSlop={hit} style={s.headerRight}>
+          <Text style={s.addBtn}>{isPlatformAdmin ? '+ Add' : 'Request'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -541,8 +581,8 @@ export default function CoursesScreen() {
               <Text style={s.emptyHint}>
                 Add your courses so players can select them when starting a round.
               </Text>
-              <TouchableOpacity style={s.emptyBtn} onPress={openNew} activeOpacity={0.8}>
-                <Text style={s.emptyBtnText}>Add First Course</Text>
+              <TouchableOpacity style={s.emptyBtn} onPress={isPlatformAdmin ? openNew : openRequestModal} activeOpacity={0.8}>
+                <Text style={s.emptyBtnText}>{isPlatformAdmin ? 'Add First Course' : 'Request a Course'}</Text>
               </TouchableOpacity>
             </View>
           );
@@ -573,18 +613,20 @@ export default function CoursesScreen() {
                     </View>
                     <Text style={s.arrow}>›</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => deleteCourse(c.name)}
-                    disabled={saving}
-                    hitSlop={hit}
-                    style={s.rowDeleteBtn}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={s.rowDeleteIcon}>🗑</Text>
-                  </TouchableOpacity>
+                  {isPlatformAdmin && (
+                    <TouchableOpacity
+                      onPress={() => deleteCourse(c.name)}
+                      disabled={saving}
+                      hitSlop={hit}
+                      style={s.rowDeleteBtn}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={s.rowDeleteIcon}>🗑</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ))}
-              {!searchQuery && (
+              {!searchQuery && isPlatformAdmin && (
                 <TouchableOpacity style={s.addRowBtn} onPress={openNew} activeOpacity={0.8}>
                   <Text style={s.addRowBtnText}>+ Add Another Course</Text>
                 </TouchableOpacity>
@@ -620,12 +662,14 @@ export default function CoursesScreen() {
               </Text>
               <Text style={s.headerSub}>courses</Text>
             </View>
-            {step === 'holes' ? (
+            {step === 'holes' && isPlatformAdmin ? (
               <TouchableOpacity onPress={save} disabled={saving} hitSlop={hit} style={s.modalHeaderRight}>
                 <Text style={[s.modalSave, saving && { opacity: 0.4 }]}>
                   {saving ? 'Saving…' : 'Save'}
                 </Text>
               </TouchableOpacity>
+            ) : step === 'holes' ? (
+              <View style={s.modalHeaderRight} />
             ) : (
               <TouchableOpacity
                 onPress={() => {
@@ -775,7 +819,7 @@ export default function CoursesScreen() {
                 <HoleRow key={i + 9} index={i + 9} hole={h} onPar={setPar} onSI={setSI} />
               ))}
 
-              {editingName && (
+              {editingName && isPlatformAdmin && (
                 <TouchableOpacity
                   style={s.deleteBtn}
                   onPress={confirmDelete}
@@ -788,6 +832,58 @@ export default function CoursesScreen() {
             </ScrollView>
           )}
         </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={requestModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setRequestModal(false)}
+      >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={s.modal}>
+            <View style={s.modalHeader}>
+              <TouchableOpacity onPress={() => setRequestModal(false)} hitSlop={hit} style={s.modalHeaderLeft}>
+                <Text style={s.modalCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <View style={s.modalHeaderCenter}>
+                <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+                <Text style={s.modalTitle}>Request a Course</Text>
+                <Text style={s.headerSub}>courses</Text>
+              </View>
+              <TouchableOpacity onPress={submitCourseRequest} disabled={reqSaving} hitSlop={hit} style={s.modalHeaderRight}>
+                <Text style={[s.modalSave, reqSaving && { opacity: 0.4 }]}>{reqSaving ? 'Sending…' : 'Send'}</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={s.namePad} keyboardShouldPersistTaps="handled">
+              <Text style={s.nameHint}>
+                Courses are added by Dave/Rick to keep the shared course data clean. Tell them what you need and they'll add it.
+              </Text>
+              <Text style={[s.sectionLabel, { marginTop: 20 }]}>COURSE NAME</Text>
+              <View style={s.nameCard}>
+                <TextInput
+                  style={s.nameInput}
+                  value={reqCourseName}
+                  onChangeText={setReqCourseName}
+                  placeholder="e.g. West Cliffs"
+                  placeholderTextColor="#444"
+                  autoCapitalize="words"
+                />
+              </View>
+              <Text style={[s.sectionLabel, { marginTop: 20 }]}>NOTES (OPTIONAL)</Text>
+              <View style={s.nameCard}>
+                <TextInput
+                  style={[s.nameInput, { minHeight: 80 }]}
+                  value={reqNotes}
+                  onChangeText={setReqNotes}
+                  placeholder="Club/location, which tees, anything else useful"
+                  placeholderTextColor="#444"
+                  multiline
+                />
+              </View>
+            </ScrollView>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </View>

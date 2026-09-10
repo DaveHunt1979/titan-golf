@@ -13,11 +13,12 @@ import { resolveTournamentHandicaps } from '../../../src/lib/tournamentHandicap'
 import { useSyncStatus } from '../../../src/lib/useSyncStatus';
 import { matchLabel, getEffectiveWinner, calcHoles, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, scoreVsPar, SCORE_COLORS } from '../../../src/lib/scoring';
 import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../src/lib/whs';
-import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
+import { getPlayerAvatar, teamLogos, titanLogo } from '../../../src/lib/assets';
 import { dedupeInitials } from '../../../src/lib/playerDisplay';
 import NewsTicker from '../../../src/components/NewsTicker';
 import RoundScorecard from '../../../src/components/RoundScorecard';
 import { goBack } from '../../../src/lib/navigation';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -28,7 +29,6 @@ const BLUE     = '#3b82f6';
 const DARKBLUE = '#1e3a8a';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 // NineGrid fills cells solid and always uses white text/numerals (designed
 // for the 3 saturated matchplay colours, which all contrast fine with
@@ -131,6 +131,8 @@ function SideAvatar({ playerIds, team, teamId, size, getFirstName, getAvatar }: 
 export default function SpectateScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [match, setMatch]             = useState<MatchDetail | null>(null);
   const [compName, setCompName]       = useState('');
   const [players, setPlayers]         = useState<Player[]>([]);
@@ -278,13 +280,13 @@ export default function SpectateScreen() {
   }, [matchId, load]);
 
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
     </View>
   );
 
   if (!match) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
       <Text style={{ color: '#fff', fontFamily: FFB }}>Match not found.</Text>
     </View>
@@ -484,8 +486,10 @@ export default function SpectateScreen() {
       .map((initials, i) => [strokeAllocation[i].id, initials])
   );
 
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
+
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header — three-column */}
@@ -497,7 +501,7 @@ export default function SpectateScreen() {
 
         {/* Centre: Logo + SPECTATE */}
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
           <Text style={s.headerSub}>SPECTATE</Text>
         </View>
 
@@ -515,7 +519,7 @@ export default function SpectateScreen() {
         )}
 
         {/* ── Match header card ── */}
-        <View style={s.heroCard}>
+        <View style={[s.heroCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
           {/* Status pill */}
           <View style={s.pillRow}>
             <Text style={s.matchNum}>MATCH {match.match_number}</Text>
@@ -628,7 +632,7 @@ export default function SpectateScreen() {
 
         {/* ── Now Playing ── */}
         {status === 'in_progress' && holesPlayed < holesToPlay && (
-          <View style={s.nowCard}>
+          <View style={[s.nowCard, { backgroundColor: dc.card }]}>
             <Text style={s.nowLabel}>NOW PLAYING</Text>
             <View style={s.nowRow}>
               <Text style={s.nowHole}>Hole {currentHole}</Text>
@@ -649,7 +653,7 @@ export default function SpectateScreen() {
             the hero cards above — gated the same way score/enter gates its
             own version so it only shows where a game actually exists. ── */}
         {(match.round_format === 'stableford' || !!match.secondary_format) && allPlayerIds.length > 1 && (
-          <View style={s.lbCard}>
+          <View style={[s.lbCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={s.lbTitle}>
               {match.secondary_format ? '2ND GAME · STABLEFORD' : 'STABLEFORD LEADERBOARD'}
             </Text>
@@ -673,7 +677,7 @@ export default function SpectateScreen() {
         {/* ── Shot allocation — same detailed panel as score/enter, every
             format, not a simplified spectator-only version ── */}
         {showStrokeAllocation && (
-          <View style={s.strokeCard}>
+          <View style={[s.strokeCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={s.strokeTitle}>SHOT ALLOCATION</Text>
             {strokeAllocation.map(({ id, text, getsShot }) => {
               const isHome = match.home_player_ids.includes(id);
@@ -729,7 +733,7 @@ export default function SpectateScreen() {
             scoring, read-only (Dave, 2026-08-21: "everyone spectating wants
             to see how badly the others are scoring") ── */}
         {courseHoles.length > 0 && allPlayerIds.length > 0 && (
-          <View style={s.gridCard}>
+          <View style={[s.gridCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={s.gridTitle}>SCORECARD</Text>
             <RoundScorecard
               startHole={1}

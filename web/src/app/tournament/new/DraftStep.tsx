@@ -57,7 +57,7 @@ export default function DraftStep({
   const load = useCallback(async () => {
     setLoading(true);
     const [{ data: teamRows }, { data: memberRows }] = await Promise.all([
-      supabase.from('teams').select('id, name, accent_color').eq('society_id', societyId).order('sort_order'),
+      supabase.from('teams').select('id, name, accent_color').eq('society_id', societyId).is('competition_id', null).order('sort_order'),
       supabase.from('society_members').select('player_id, team_id, players(display_name, handicap_index)').eq('society_id', societyId),
     ]);
     setTeams((teamRows as SquadTeam[] | null) ?? []);

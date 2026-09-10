@@ -1,6 +1,7 @@
 import { View, Text, Modal, TouchableOpacity, FlatList, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { resolveAvatar } from '../lib/assets';
+import { useDynamicColors } from '../lib/SocietyThemeContext';
 
 const GOLD = '#D4AF37';
 const FF   = 'JUSTSans';
@@ -27,9 +28,10 @@ export default function PlayerSelectorSheet({
   onSelect: (player: SelectablePlayer) => void;
   onClose: () => void;
 }) {
+  const dc = useDynamicColors();
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={s.container}>
+      <View style={[s.container, { backgroundColor: dc.bg }]}>
         <View style={s.header}>
           <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Text style={s.cancel}>Cancel</Text>

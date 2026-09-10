@@ -3,13 +3,14 @@ import { View, Text, StyleSheet, Animated, Image } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { supabase } from '../../lib/supabase';
+import { useDynamicColors, useSocietyTheme } from '../../lib/SocietyThemeContext';
+import { titanLogo } from '../../lib/assets';
 
 const GOLD   = '#D4AF37';
 const BG     = '#0a0a0a';
 const BORDER = '#1c1c1c';
 const MUTED  = '#6b7280';
 const RED    = '#f87171';
-const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const TEE_COLORS: Record<string, { dot: string; label: string }> = {
   blue:   { dot: '#3b82f6', label: 'B' },
@@ -54,6 +55,9 @@ function LiveDot() {
 }
 
 export default function GPSPanel({ courseName, holeNumber, par, strokeIndex, yardage, teeYardages }: Props) {
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
   const [green, setGreen] = useState<{ lat: number; lng: number } | null>(null);
   const [player, setPlayer] = useState<{ lat: number; lng: number } | null>(null);
   const [loadedHole, setLoadedHole] = useState<number | null>(null);
@@ -98,7 +102,7 @@ export default function GPSPanel({ courseName, holeNumber, par, strokeIndex, yar
   const noGpsYet = loadedHole === holeNumber && !green;
 
   return (
-    <View style={gs.root}>
+    <View style={[gs.root, { backgroundColor: dc.bg, borderColor: dc.border }]}>
       {green ? (
         <MapView
           key={holeNumber}
@@ -136,7 +140,7 @@ export default function GPSPanel({ courseName, holeNumber, par, strokeIndex, yar
           <LiveDot />
           <Text style={gs.liveText}>LIVE</Text>
         </View>
-        <Image source={titanLogo} style={gs.watermark} resizeMode="contain" />
+        <Image source={logoSource} style={gs.watermark} resizeMode="contain" />
       </View>
 
       <View style={gs.holeChip} pointerEvents="none">

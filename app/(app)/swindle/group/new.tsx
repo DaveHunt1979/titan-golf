@@ -8,15 +8,15 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
-import { useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../../src/lib/navigation';
+import { titanLogo } from '../../../../src/lib/assets';
 
 const GOLD   = '#D4AF37';
 const PURPLE = '#a78bfa';
 const RED    = '#f87171';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface SwindleMember {
   player_id: string;
@@ -29,7 +29,8 @@ interface SwindleMember {
 export default function SwindleGroupNew() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
   const router = useRouter();
-  const { societyId } = useSocietyTheme() as any;
+  const dc = useDynamicColors();
+  const { societyId, localLogo, logoUrl } = useSocietyTheme() as any;
 
   const [fontsLoaded] = useFonts({
     [FF]:  require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -187,16 +188,17 @@ export default function SwindleGroupNew() {
   }
 
   if (!fontsLoaded || loading) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
       <ActivityIndicator color={GOLD} size="large" />
     </View>
   );
 
   const totalPlayers = selected.size + guests.length;
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       <View style={s.header}>
@@ -204,7 +206,7 @@ export default function SwindleGroupNew() {
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={{ alignItems: 'center' }}>
-          <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+          <Image source={logoSource} style={s.logo} resizeMode="contain" />
           <Text style={s.headerTitle}>CREATE GROUP</Text>
         </View>
         <TouchableOpacity onPress={save} disabled={saving} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -366,7 +368,7 @@ export default function SwindleGroupNew() {
 
       {/* Add guest modal */}
       <Modal visible={addGuestModal} animationType="slide" presentationStyle="pageSheet">
-        <View style={s.modal}>
+        <View style={[s.modal, { backgroundColor: dc.bg }]}>
           <View style={s.modalHeader}>
             <TouchableOpacity onPress={() => setAddGuestModal(false)}>
               <Text style={s.modalCancel}>Cancel</Text>

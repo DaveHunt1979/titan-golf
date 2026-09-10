@@ -12,6 +12,7 @@ import MessageActionSheet, { type MessageAction } from '../../../src/components/
 import { resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 import { sendPushNotification } from '../../../src/lib/notifications';
+import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -43,6 +44,7 @@ const DM_SELECT = 'id, sender_id, recipient_id, content, created_at, message_typ
 export default function DmThread() {
   const { playerId, name, avatar } = useLocalSearchParams<{ playerId: string; name?: string; avatar?: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
   const otherName   = name ? decodeURIComponent(name) : 'Player';
   const otherAvatar = avatar ? decodeURIComponent(avatar) : null;
 
@@ -117,7 +119,7 @@ export default function DmThread() {
   }, [myId, playerId]));
 
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" /><ActivityIndicator color={GOLD} size="large" />
     </View>
   );
@@ -198,7 +200,7 @@ export default function DmThread() {
     if (item.message_type === 'match_report') {
       return (
         <View style={ss.inviteWrap}>
-          <View style={ss.inviteCard}>
+          <View style={[ss.inviteCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={ss.inviteEmoji}>⛳</Text>
             <Text style={ss.inviteHeading}>Match Report</Text>
             <Text style={ss.inviteBody}>{item.content}</Text>
@@ -216,7 +218,7 @@ export default function DmThread() {
     if (item.message_type === 'newsreel') {
       return (
         <View style={ss.inviteWrap}>
-          <View style={ss.inviteCard}>
+          <View style={[ss.inviteCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={ss.inviteEmoji}>📰</Text>
             <Text style={ss.inviteHeading}>Titan Newsreel</Text>
             <Text style={ss.inviteBody}>{item.content}</Text>
@@ -234,7 +236,7 @@ export default function DmThread() {
     if (item.message_type === 'swindle_settlement') {
       return (
         <View style={ss.inviteWrap}>
-          <View style={ss.inviteCard}>
+          <View style={[ss.inviteCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={ss.inviteEmoji}>💰</Text>
             <Text style={ss.inviteHeading}>Swindle Settlement</Text>
             <Text style={ss.inviteBody}>{item.content}</Text>
@@ -252,7 +254,7 @@ export default function DmThread() {
     if (item.message_type === 'swindle_records') {
       return (
         <View style={ss.inviteWrap}>
-          <View style={ss.inviteCard}>
+          <View style={[ss.inviteCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={ss.inviteEmoji}>🏆</Text>
             <Text style={ss.inviteHeading}>Swindle Season Stats</Text>
             <Text style={ss.inviteBody}>{item.content}</Text>
@@ -270,7 +272,7 @@ export default function DmThread() {
     if (item.message_type === 'tournament_invite') {
       return (
         <View style={ss.inviteWrap}>
-          <View style={ss.inviteCard}>
+          <View style={[ss.inviteCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={ss.inviteEmoji}>🏆</Text>
             <Text style={ss.inviteHeading}>Tournament Invite</Text>
             <Text style={ss.inviteBody}>{item.content}</Text>
@@ -315,7 +317,7 @@ export default function DmThread() {
             : <View style={ss.avatarSpacer} />
         )}
         <TouchableOpacity
-          style={[ss.bubble, isMe ? ss.bubbleMe : ss.bubbleThem, highlightId === item.id && ss.bubbleFlash]}
+          style={[ss.bubble, isMe ? ss.bubbleMe : [ss.bubbleThem, { backgroundColor: dc.card, borderColor: dc.border }], highlightId === item.id && ss.bubbleFlash]}
           onLongPress={() => setActionMsg(item)}
           activeOpacity={0.8}
         >
@@ -358,7 +360,7 @@ export default function DmThread() {
   ] : [];
 
   return (
-    <View style={ss.container}>
+    <View style={[ss.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       <View style={ss.header}>
@@ -395,7 +397,7 @@ export default function DmThread() {
         />
 
         {replyTo && (
-          <View style={ss.replyBar}>
+          <View style={[ss.replyBar, { backgroundColor: dc.card, borderTopColor: dc.border }]}>
             <View style={ss.replyBarBody}>
               <Text style={ss.quoteName} numberOfLines={1}>
                 Replying to {replyTo.sender_id === myId ? 'yourself' : otherName.split(' ')[0]}
@@ -412,7 +414,7 @@ export default function DmThread() {
           </View>
         )}
 
-        <View style={ss.inputRow}>
+        <View style={[ss.inputRow, { backgroundColor: dc.card, borderTopColor: dc.border }]}>
           <TextInput
             style={ss.input}
             value={text}

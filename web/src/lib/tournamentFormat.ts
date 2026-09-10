@@ -152,8 +152,10 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     captainRotation: false,
     finalDayKnockout: false,
     lastDaySinglesOverride: false,
-    minTeams: null,
-    maxTeams: null,
+    // Always exactly 2 sides — see src/lib/tournamentFormat.ts (mobile) for
+    // the full note.
+    minTeams: 2,
+    maxTeams: 2,
     minPlayers: null,
     exactPlayersPerTeam: null,
     requiresEvenTeams: false,

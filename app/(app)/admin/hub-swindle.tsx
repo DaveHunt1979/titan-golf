@@ -18,6 +18,7 @@ const TILES = [
   { key: 'results', label: 'Results',         sub: 'Completed games & payouts',       icon: 'trophy-outline'     as const, route: '/(app)/admin/swindle?tab=games&status=complete' },
   { key: 'money',   label: 'Money List',      sub: 'Season earnings & wins',          icon: 'cash-outline'       as const, route: '/(app)/admin/swindle?tab=money' },
   { key: 'members', label: 'Members',         sub: 'Who has swindle access',          icon: 'people-outline'     as const, route: '/(app)/admin/swindle?tab=members' },
+  { key: 'codes',   label: 'Codes',           sub: 'The Swindle join code',           icon: 'key-outline'        as const, route: '/(app)/admin/swindle-codes' },
   { key: 'stats',   label: 'Season Stats',    sub: 'Order of Merit, records & push to members', icon: 'stats-chart-outline' as const, route: '/(app)/admin/swindle-stats' },
   { key: 'simulate',label: 'Simulate',        sub: 'Stress-test with a big field',    icon: 'flask-outline'      as const, route: '/(app)/swindle/simulate' },
 ] as const;

@@ -41,6 +41,8 @@ import EagleAlert, { type EagleType } from '../../../../src/components/EagleAler
 import { IS_PAD, GPS_PANEL_ENABLED } from '../../../../src/lib/useDeviceLayout';
 import GPSPanel from '../../../../src/components/ipad/GPSPanel';
 import LeaderboardPanel from '../../../../src/components/ipad/LeaderboardPanel';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../../src/lib/assets';
 
 // ── Design tokens ──────────────────────────────────────────────
 const GOLD     = '#D4AF37';
@@ -53,7 +55,6 @@ const PLAIN    = '#ffffff';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 const { width: W } = Dimensions.get('window');
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 const TEE_OPTIONS = [
   { label: 'Yellow', color: '#EAB308' },
@@ -141,6 +142,8 @@ export default function EnterScoresScreen() {
   const { matchId, startHole: startHoleParam, teeColor } = useLocalSearchParams<{ matchId: string; startHole?: string; teeColor?: string }>();
   const startHole = Math.max(1, Math.min(18, parseInt(startHoleParam ?? '1', 10) || 1));
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl, societyName } = useSocietyTheme();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -902,7 +905,7 @@ export default function EnterScoresScreen() {
                 ...(m.away_player_ids ?? []),
               ]);
               if (otherIds.length > 0) {
-                sendMatchNotification(null as any, '⛳ Score update', 'Another group has started scoring — open Titan Golf to score your round.', otherIds);
+                sendMatchNotification(null as any, '⛳ Score update', `Another group has started scoring — open ${societyName} to score your round.`, otherIds);
               }
             });
         }
@@ -1319,7 +1322,7 @@ export default function EnterScoresScreen() {
 
   // ── Render ──────────────────────────────────────────────────────
   if (loadError) return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000', gap: 16, padding: 24 }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: dc.bg, gap: 16, padding: 24 }}>
       <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16 }}>Couldn't load this round.</Text>
       <TouchableOpacity style={s.ctaBtn} onPress={() => setRetryTick(t => t + 1)} activeOpacity={0.85}>
         <Text style={s.ctaText}>Try Again</Text>
@@ -1327,16 +1330,18 @@ export default function EnterScoresScreen() {
     </View>
   );
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: dc.bg }}>
       <ActivityIndicator color={GOLD} size="large" />
     </View>
   );
 
   if (!match) return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: dc.bg }}>
       <Text style={{ fontFamily: FFB, color: '#fff' }}>Match not found.</Text>
     </View>
   );
+
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
 
   const isStrokePlay = match.round_format === 'stableford' || match.round_format === 'medal';
   const homeColor = match.home_team?.accent_color ?? GOLD;
@@ -1438,8 +1443,8 @@ export default function EnterScoresScreen() {
   })();
 
   return (
-    <View style={(IS_PAD && broadcastMode) ? { flex: 1, flexDirection: 'row', backgroundColor: '#000' } : s.root}>
-      <View style={(IS_PAD && broadcastMode) ? { width: 360, backgroundColor: '#000000', overflow: 'hidden' } : { flex: 1 }}>
+    <View style={(IS_PAD && broadcastMode) ? { flex: 1, flexDirection: 'row', backgroundColor: dc.bg } : [s.root, { backgroundColor: dc.bg }]}>
+      <View style={(IS_PAD && broadcastMode) ? { width: 360, backgroundColor: dc.bg, overflow: 'hidden' } : { flex: 1 }}>
       <StatusBar style="light" />
 
       {/* ── Header ── */}
@@ -1466,7 +1471,7 @@ export default function EnterScoresScreen() {
           <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
           <Text style={s.headerSub} numberOfLines={1}>
             {match.day?.course_name ? `${match.day.course_name} · ${formatLabel}` : formatLabel}
           </Text>
@@ -1620,7 +1625,7 @@ export default function EnterScoresScreen() {
               )}
 
               {/* Hole card */}
-              <View style={s.holeCard}>
+              <View style={[s.holeCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
                 <View style={s.holeCardTop}>
                   {/* Hole number block */}
                   <View style={[s.holeNumberBlock, isSinglePlayerStableford && { width: 170 }]}>
@@ -2030,7 +2035,7 @@ export default function EnterScoresScreen() {
           </View>
 
           {(match.round_format === 'stableford' || match.secondary_format) && allPlayerIds.length > 0 && (
-            <View style={s.summaryCard}>
+            <View style={[s.summaryCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <Text style={s.summaryTitle}>
                 {match.secondary_format ? '2ND GAME · STABLEFORD FINAL' : 'STABLEFORD FINAL'}
               </Text>
@@ -2051,7 +2056,7 @@ export default function EnterScoresScreen() {
           )}
 
           {(match.round_format === 'stableford' || match.secondary_format) && allPlayerIds.length > 0 && Object.keys(holeData).length > 0 && (
-            <View style={s.summaryCard}>
+            <View style={[s.summaryCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <Text style={s.summaryTitle}>SCORING BREAKDOWN</Text>
               {allPlayerIds.map(id => {
                 const holes = holeData[id] ?? {};
@@ -2100,7 +2105,7 @@ export default function EnterScoresScreen() {
           )}
 
           {match.side_games && match.side_games.filter(sg => !sg.startsWith('voice')).length > 0 && (
-            <View style={s.summaryCard}>
+            <View style={[s.summaryCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <Text style={s.summaryTitle}>SIDE GAMES</Text>
               {match.side_games.filter(sg => !sg.startsWith('voice')).map(sg => {
                 const type = sg.split(':')[0];

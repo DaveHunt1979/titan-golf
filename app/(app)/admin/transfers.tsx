@@ -93,7 +93,7 @@ export default function TransferWindowScreen() {
   async function load() {
     setLoading(true);
     const [{ data: teamsData }, { data: membersData }] = await Promise.all([
-      supabase.from('teams').select('id,name,accent_color,logo_url,logo_key,sort_order').eq('society_id', societyId).order('sort_order'),
+      supabase.from('teams').select('id,name,accent_color,logo_url,logo_key,sort_order').eq('society_id', societyId).is('competition_id', null).order('sort_order'),
       supabase.from('society_members').select('player_id,team_id,players(display_name,handicap_index,avatar_url)').eq('society_id', societyId),
     ]);
 

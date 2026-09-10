@@ -10,7 +10,8 @@ import { useFonts } from 'expo-font';
 import { supabase, fetchAllRows } from '../../../../src/lib/supabase';
 import { calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, scoreVsPar, formatVsPar, SCORE_COLORS, ptsColor } from '../../../../src/lib/scoring';
 import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
-import { resolveAvatar } from '../../../../src/lib/assets';
+import { resolveAvatar, titanLogo } from '../../../../src/lib/assets';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
 import { courseHasGps } from '../../../../src/lib/courseGps';
 import { dedupeInitials } from '../../../../src/lib/playerDisplay';
 import { enqueueSwindleHole } from '../../../../src/lib/swindleOfflineQueue';
@@ -29,7 +30,6 @@ const DARKBLUE = '#1e3a8a';
 const PLAIN    = '#ffffff';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 function Avatar({ playerId, name, size = 44, avatarUrl }: { playerId?: string; name: string; size?: number; avatarUrl?: string | null }) {
   const resolved = playerId ? resolveAvatar(playerId, avatarUrl ?? null, 'normal') : null;
@@ -69,6 +69,9 @@ interface GroupPlayer {
 export default function SwindleScoreScreen() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -486,7 +489,7 @@ export default function SwindleScoreScreen() {
   }
 
   if (loadError) return (
-    <View style={s.loading}>
+    <View style={[s.loading, { backgroundColor: dc.bg }]}>
       <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16, marginBottom: 16 }}>Couldn't load this round.</Text>
       <TouchableOpacity style={s.ctaBtn} onPress={() => setRetryTick(t => t + 1)} activeOpacity={0.85}>
         <Text style={s.ctaBtnText}>Try Again</Text>
@@ -494,7 +497,7 @@ export default function SwindleScoreScreen() {
     </View>
   );
   if (groupLoadError) return (
-    <View style={s.loading}>
+    <View style={[s.loading, { backgroundColor: dc.bg }]}>
       <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16, marginBottom: 16, textAlign: 'center', paddingHorizontal: 24 }}>
         Couldn't load your tee-time group's players.
       </Text>
@@ -504,10 +507,10 @@ export default function SwindleScoreScreen() {
     </View>
   );
   if (loading || !fontsLoaded) return (
-    <View style={s.loading}><ActivityIndicator color={GOLD} size="large" /></View>
+    <View style={[s.loading, { backgroundColor: dc.bg }]}><ActivityIndicator color={GOLD} size="large" /></View>
   );
   if (!game) return (
-    <View style={s.loading}><Text style={{ fontFamily: FFB, color: '#fff' }}>Swindle not found.</Text></View>
+    <View style={[s.loading, { backgroundColor: dc.bg }]}><Text style={{ fontFamily: FFB, color: '#fff' }}>Swindle not found.</Text></View>
   );
 
   const formatLabel = isStableford ? 'Stableford' : 'Medal';
@@ -526,7 +529,7 @@ export default function SwindleScoreScreen() {
     // load() already redirects to groupLoadError before setting an empty
     // groupPlayers array, but this stays as a second line of defence.
     if (gp.length === 0) return (
-      <View style={s.loading}>
+      <View style={[s.loading, { backgroundColor: dc.bg }]}>
         <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16, marginBottom: 16, textAlign: 'center', paddingHorizontal: 24 }}>
           Couldn't load your tee-time group's players.
         </Text>
@@ -537,7 +540,7 @@ export default function SwindleScoreScreen() {
     );
     if (groupComplete || !groupActivePlayer || !groupCourseHole) {
       return (
-        <View style={s.root}>
+        <View style={[s.root, { backgroundColor: dc.bg }]}>
           <StatusBar style="light" />
           <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 64, paddingBottom: 60 }}>
             <Ionicons name="trophy" size={48} color={GOLD} style={{ alignSelf: 'center' }} />
@@ -558,8 +561,8 @@ export default function SwindleScoreScreen() {
               const vsParLabel = (v: number) => v <= -2 ? 'Eagle+' : v === -1 ? 'Birdie' : v === 0 ? 'Par' : v === 1 ? 'Bogey' : v === 2 ? 'Double' : 'Triple+';
               const totalGrossP = holesWithPar.reduce((s, h) => s + h.gross, 0);
               return (
-                <View key={p.playerId} style={s.playerResultCard}>
-                  <View style={[s.standRow, { borderBottomWidth: 0, marginBottom: 0 }]}>
+                <View key={p.playerId} style={[s.playerResultCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
+                  <View style={[s.standRow, { borderBottomWidth: 0, marginBottom: 0, backgroundColor: dc.card, borderColor: dc.border }]}>
                     <Text style={[s.standRank, i === 0 && { color: GOLD }]}>{i + 1}</Text>
                     <Avatar playerId={p.playerId} avatarUrl={p.avatarUrl} name={p.name} size={36} />
                     <Text style={s.standName}>{p.name}</Text>
@@ -610,7 +613,7 @@ export default function SwindleScoreScreen() {
     const gPar = groupCourseHole.par;
 
     return (
-      <View style={s.root}>
+      <View style={[s.root, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
 
         <View style={s.header}>
@@ -618,7 +621,7 @@ export default function SwindleScoreScreen() {
             <Ionicons name="chevron-back" size={24} color="#ffffff" />
           </TouchableOpacity>
           <View style={s.headerCenter}>
-            <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+            <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
             <Text style={s.headerSub} numberOfLines={1}>{game.course_name ?? game.name} · Group Scoring</Text>
           </View>
           <View style={s.headerSide} />
@@ -694,7 +697,7 @@ export default function SwindleScoreScreen() {
             </View>
           )}
 
-          <View style={s.groupHoleCard}>
+          <View style={[s.groupHoleCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <View style={s.holeCardTop}>
               <View style={s.holeNumberBlock}>
                 <Text style={s.holeLabelSmall}>HOLE</Text>
@@ -775,7 +778,7 @@ export default function SwindleScoreScreen() {
             <Text style={s.undoBtnText}>Spectator — just watch, don't score</Text>
           </TouchableOpacity>
 
-          <View style={s.scorecardCard}>
+          <View style={[s.scorecardCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={s.scorecardTitle}>STANDINGS</Text>
             {groupStandings.map((p, i) => {
               const holesPlayed = Object.keys(p.scores).length;
@@ -794,7 +797,7 @@ export default function SwindleScoreScreen() {
 
         <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
           <View style={s.overlay}>
-            <View style={s.sheet}>
+            <View style={[s.sheet, { backgroundColor: dc.card, borderTopColor: dc.border }]}>
               <ScrollView contentContainerStyle={s.sheetScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 <View style={s.sheetHandle} />
                 <View style={s.sheetPlayerRow}>
@@ -906,7 +909,7 @@ export default function SwindleScoreScreen() {
 
         <Modal visible={showRangeMap} transparent animationType="slide" onRequestClose={() => setShowRangeMap(false)}>
           <View style={s.popupOverlay}>
-            <View style={[s.popupSheet, { height: '75%' }]}>
+            <View style={[s.popupSheet, { height: '75%', backgroundColor: dc.card, borderTopColor: dc.border }]}>
               <View style={s.sheetHandle} />
               <View style={s.popupTitleRow}>
                 <Ionicons name="scan-outline" size={16} color={GOLD} />
@@ -932,7 +935,7 @@ export default function SwindleScoreScreen() {
   const scoreColor = isStableford ? GOLD : (vsPar < 0 ? GREEN : vsPar > 0 ? RED : '#ffffff');
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* ── Header ── */}
@@ -1011,7 +1014,7 @@ export default function SwindleScoreScreen() {
         {!isComplete ? (
           <>
             {/* Hole card */}
-            <View style={s.holeCard}>
+            <View style={[s.holeCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <Text style={s.holeLabelSmall}>HOLE</Text>
               <Text
                 style={s.holeBig}
@@ -1186,7 +1189,7 @@ export default function SwindleScoreScreen() {
 
         {/* Mini scorecard */}
         {savedScores.length > 0 && courseHoles.length > 0 && (
-          <View style={s.scorecardCard}>
+          <View style={[s.scorecardCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={s.scorecardTitle}>SCORECARD</Text>
             {[
               courseHoles.filter(h => h.hole_number <= 9).sort((a, b) => a.hole_number - b.hole_number),
@@ -1248,7 +1251,7 @@ export default function SwindleScoreScreen() {
       {/* ── Score entry modal ── */}
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
         <View style={s.overlay}>
-          <View style={s.sheet}>
+          <View style={[s.sheet, { backgroundColor: dc.card, borderTopColor: dc.border }]}>
             <ScrollView contentContainerStyle={s.sheetScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={s.sheetHandle} />
               <View style={s.sheetPlayerRow}>
@@ -1367,7 +1370,7 @@ export default function SwindleScoreScreen() {
       {/* ── Range finder ── */}
       <Modal visible={showRangeMap} transparent animationType="slide" onRequestClose={() => setShowRangeMap(false)}>
         <View style={s.popupOverlay}>
-          <View style={s.popupSheet}>
+          <View style={[s.popupSheet, { backgroundColor: dc.card, borderTopColor: dc.border }]}>
             <View style={s.sheetHandle} />
             <View style={s.popupTitleRow}>
               <Ionicons name="scan-outline" size={16} color={GOLD} />

@@ -243,6 +243,16 @@ export default function BuildTournamentScreen() {
   const [validatingGoLive, setValidatingGoLive] = useState(false);
   const [goLiveIssues, setGoLiveIssues]   = useState<GoLiveIssue[] | null>(null);
 
+  // Ryder Cup draft (Dave, 2026-09-09, live-testing with Rick) — this format
+  // doesn't pick from the society's permanent club teams at all. It creates
+  // 2 fresh event-only teams (teams.competition_id set), each led by a
+  // captain chosen from the whole membership, then the remaining members are
+  // drafted onto one side or the other by tapping who's "on the clock".
+  const [ryderTeams, setRyderTeams]       = useState<SquadTeam[]>([]);
+  const [ryderAllMembers, setRyderAllMembers] = useState<DraftMember[]>([]);
+  const [ryderTurn, setRyderTurn]         = useState<0 | 1>(0);
+  const [ryderBusy, setRyderBusy]         = useState<string | null>(null);
+
   useEffect(() => {
     // Same course list Casual Round's picker uses — course_holes.course_name
     // is the real link key (day_format scoring reads course_holes by this
@@ -327,7 +337,7 @@ export default function BuildTournamentScreen() {
   // (Rick's brief, section 12 — lifecycle testing).
   useFocusEffect(useCallback(() => {
     if (!societyId) return;
-    supabase.from('teams').select('id,name,accent_color,logo_url').eq('society_id', societyId).order('sort_order')
+    supabase.from('teams').select('id,name,accent_color,logo_url').eq('society_id', societyId).is('competition_id', null).order('sort_order')
       .then(({ data }) => setSquadTeams((data as any[]) ?? []));
   }, [societyId]));
 
@@ -517,6 +527,7 @@ export default function BuildTournamentScreen() {
   }
 
   const isMatchplay = getFormatRules(selectedFormat).isTeamFormat;
+  const isRyderCup  = selectedFormat === 'ryder_cup';
 
   async function pickLogo() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -694,7 +705,7 @@ export default function BuildTournamentScreen() {
     setCompId(comp.id);
     setCompPin(pin);
     if (societyId) {
-      supabase.from('teams').select('id,name,accent_color,logo_url').eq('society_id', societyId).order('sort_order')
+      supabase.from('teams').select('id,name,accent_color,logo_url').eq('society_id', societyId).is('competition_id', null).order('sort_order')
         .then(({ data }) => setSquadTeams((data as any[]) ?? []));
     }
     setStep(3);
@@ -718,6 +729,99 @@ export default function BuildTournamentScreen() {
   }, [compId]);
 
   useEffect(() => { if (compId) loadDraft(); }, [compId, loadDraft]);
+
+  // Ryder Cup: this competition's own 2 event-only teams (created below the
+  // first time a captain is picked), plus the whole membership pool to draft
+  // from — every member regardless of their permanent club team.
+  const loadRyderState = useCallback(async () => {
+    if (!compId || !societyId) return;
+    const [{ data: teamRows }, { data: memberRows }] = await Promise.all([
+      supabase.from('teams').select('id,name,accent_color,logo_url').eq('competition_id', compId).order('sort_order'),
+      supabase.from('society_members').select('player_id, players(display_name, handicap_index, avatar_url)').eq('society_id', societyId),
+    ]);
+    setRyderTeams((teamRows as any[] as SquadTeam[]) ?? []);
+    setRyderAllMembers(((memberRows ?? []) as any[]).map(m => ({
+      player_id: m.player_id,
+      display_name: m.players?.display_name ?? '—',
+      handicap_index: m.players?.handicap_index ?? null,
+      avatar_url: m.players?.avatar_url ?? null,
+      team_id: null,
+    })));
+  }, [compId, societyId]);
+
+  useEffect(() => { if (compId && isRyderCup) loadRyderState(); }, [compId, isRyderCup, loadRyderState]);
+
+  // Classic Ryder Cup identity — Red v Blue, not named after whoever's
+  // captaining (Dave, 2026-09-09, live-testing with Rick).
+  const RYDER_SIDES = [
+    { name: 'Red Team',  accent_color: '#DC2626' },
+    { name: 'Blue Team', accent_color: '#2563EB' },
+  ];
+
+  async function pickRyderCaptain(member: DraftMember) {
+    if (!compId || ryderTeams.length >= 2) return;
+    setRyderBusy(member.player_id);
+    const side = RYDER_SIDES[ryderTeams.length];
+    const { data: team, error } = await supabase.from('teams').insert({
+      society_id: societyId,
+      competition_id: compId,
+      name: side.name,
+      accent_color: side.accent_color,
+    }).select('id,name,accent_color,logo_url').single();
+    if (error || !team) {
+      setRyderBusy(null);
+      Alert.alert('Error', error?.message ?? 'Could not create team.');
+      return;
+    }
+    const maxHcp = maxHandicap.trim() ? parseFloat(maxHandicap) : null;
+    await supabase.from('competition_players').insert({
+      competition_id: compId,
+      player_id: member.player_id,
+      team_id: team.id,
+      is_captain: true,
+      handicap_index: (maxHcp != null && member.handicap_index != null) ? Math.min(member.handicap_index, maxHcp) : member.handicap_index,
+      status: 'enrolled',
+    });
+    await Promise.all([loadDraft(), loadRyderState()]);
+    setRyderBusy(null);
+  }
+
+  // Undo a captain pick — while no one else has been drafted onto that side
+  // yet, this is safe to fully unwind: drop the competition_players row and
+  // delete the event-only team itself, reopening that captain slot.
+  function removeRyderCaptain(team: SquadTeam) {
+    Alert.alert('Remove captain?', `${team.name} will be undone so you can pick again.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: async () => {
+        await supabase.from('competition_players').delete().eq('competition_id', compId).eq('team_id', team.id);
+        await supabase.from('teams').delete().eq('id', team.id);
+        await Promise.all([loadDraft(), loadRyderState()]);
+      }},
+    ]);
+  }
+
+  async function draftRyderPlayer(member: DraftMember) {
+    if (!compId || ryderTeams.length < 2) return;
+    const countsByTeam = [0, 1].map(i => compPlayers.filter(cp => cp.team_id === ryderTeams[i]?.id).length);
+    let turn = ryderTurn;
+    if (countsByTeam[turn] >= playersPerTeamN) turn = (turn === 0 ? 1 : 0) as 0 | 1;
+    if (countsByTeam[turn] >= playersPerTeamN) return; // both sides full
+    const team = ryderTeams[turn];
+    setRyderBusy(member.player_id);
+    const maxHcp = maxHandicap.trim() ? parseFloat(maxHandicap) : null;
+    await supabase.from('competition_players').insert({
+      competition_id: compId,
+      player_id: member.player_id,
+      team_id: team.id,
+      handicap_index: (maxHcp != null && member.handicap_index != null) ? Math.min(member.handicap_index, maxHcp) : member.handicap_index,
+      status: 'enrolled',
+    });
+    await loadDraft();
+    const otherTurn = (turn === 0 ? 1 : 0) as 0 | 1;
+    const otherCount = compPlayers.filter(cp => cp.team_id === ryderTeams[otherTurn]?.id).length;
+    setRyderTurn(otherCount >= playersPerTeamN ? turn : otherTurn);
+    setRyderBusy(null);
+  }
 
   async function openAddPlayersModal() {
     if (!societyId) return;
@@ -1716,7 +1820,144 @@ export default function BuildTournamentScreen() {
               Add everyone playing{isMatchplay ? ' and assign teams' : ''}. You can still change this later from Live Tournaments.
             </Text>
 
-            {isMatchplay ? (
+            {isMatchplay && isRyderCup ? (
+              <>
+                <Text style={styles.fieldLabel}>PLAYERS PER TEAM</Text>
+                <View style={styles.stepper}>
+                  <TouchableOpacity
+                    style={[styles.stepperBtn, playersPerTeamN <= 1 && styles.stepperBtnOff]}
+                    onPress={() => setPlayersPerTeam(String(Math.max(1, playersPerTeamN - 1)))}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.stepperBtnText}>–</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.stepperValue}>{playersPerTeamN} players</Text>
+                  <TouchableOpacity
+                    style={styles.stepperBtn}
+                    onPress={() => setPlayersPerTeam(String(playersPerTeamN + 1))}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.stepperBtnText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {ryderTeams.length < 2 ? (
+                  <>
+                    <Text style={styles.fieldLabel}>
+                      {ryderTeams.length === 0 ? 'PICK TEAM 1 CAPTAIN' : 'PICK TEAM 2 CAPTAIN'}
+                    </Text>
+                    {ryderTeams.map(t => (
+                      <View key={t.id} style={[styles.rosterPickRow, styles.rosterPickRowOn]}>
+                        <Ionicons name="star" size={16} color={t.accent_color} />
+                        <Text style={[styles.rosterPickName, { color: t.accent_color, marginLeft: 10, flex: 1 }]}>
+                          {compPlayers.find(cp => cp.team_id === t.id)?.display_name} — {t.name}
+                        </Text>
+                        <TouchableOpacity onPress={() => removeRyderCaptain(t)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Ionicons name="close-circle-outline" size={20} color="#666" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    {ryderAllMembers.filter(m => !compPlayers.some(cp => cp.player_id === m.player_id)).map(m => {
+                      const avatar = resolveAvatar(m.player_id, m.avatar_url);
+                      return (
+                        <TouchableOpacity
+                          key={m.player_id}
+                          style={styles.rosterPickRow}
+                          onPress={() => pickRyderCaptain(m)}
+                          disabled={ryderBusy === m.player_id}
+                          activeOpacity={0.7}
+                        >
+                          {avatar
+                            ? <Image source={avatar} style={styles.rosterPickAvatar} />
+                            : <View style={[styles.rosterPickAvatar, styles.rosterPickAvatarFallback]}><Text style={styles.rosterPickInitial}>{m.display_name[0]}</Text></View>
+                          }
+                          <View style={{ flex: 1, marginLeft: 10 }}>
+                            <Text style={styles.rosterPickName}>{m.display_name}</Text>
+                            {m.handicap_index != null && <Text style={styles.draftPlayerHcp}>HCP {m.handicap_index}</Text>}
+                          </View>
+                          {ryderBusy === m.player_id && <ActivityIndicator size="small" color={GOLD} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </>
+                ) : (() => {
+                  const counts = [0, 1].map(i => compPlayers.filter(cp => cp.team_id === ryderTeams[i]?.id).length);
+                  const bothFull = counts[0] >= playersPerTeamN && counts[1] >= playersPerTeamN;
+                  const undrafted = ryderAllMembers.filter(m => !compPlayers.some(cp => cp.player_id === m.player_id));
+                  return (
+                    <>
+                      <Text style={styles.fieldLabel}>TEAMS</Text>
+                      <View style={styles.badgeRow}>
+                        {ryderTeams.map((t, i) => (
+                          <View key={t.id} style={styles.badgeItem}>
+                            <View style={[styles.badgeCircle, { borderColor: t.accent_color }, ryderTurn === i && !bothFull && { borderWidth: 3 }]}>
+                              <Text style={[styles.badgeInitial, { color: t.accent_color }]}>{t.name[0]}</Text>
+                            </View>
+                            <Text style={[styles.badgeName, { color: t.accent_color }]} numberOfLines={1}>{t.name}</Text>
+                            <Text style={styles.draftPlayerHcp}>{counts[i]} / {playersPerTeamN}{ryderTurn === i && !bothFull ? ' — on the clock' : ''}</Text>
+                          </View>
+                        ))}
+                      </View>
+
+                      {bothFull ? (
+                        <View style={styles.empty}><Text style={styles.emptyHint}>Both teams are full.</Text></View>
+                      ) : (
+                        <>
+                          <Text style={styles.fieldLabel}>UNDRAFTED — TAP TO ADD TO {ryderTeams[ryderTurn]?.name}</Text>
+                          {undrafted.length === 0 ? (
+                            <View style={styles.empty}><Text style={styles.emptyHint}>Everyone's been drafted.</Text></View>
+                          ) : undrafted.map(m => {
+                            const avatar = resolveAvatar(m.player_id, m.avatar_url);
+                            return (
+                              <TouchableOpacity
+                                key={m.player_id}
+                                style={styles.rosterPickRow}
+                                onPress={() => draftRyderPlayer(m)}
+                                disabled={ryderBusy === m.player_id}
+                                activeOpacity={0.7}
+                              >
+                                {avatar
+                                  ? <Image source={avatar} style={styles.rosterPickAvatar} />
+                                  : <View style={[styles.rosterPickAvatar, styles.rosterPickAvatarFallback]}><Text style={styles.rosterPickInitial}>{m.display_name[0]}</Text></View>
+                                }
+                                <View style={{ flex: 1, marginLeft: 10 }}>
+                                  <Text style={styles.rosterPickName}>{m.display_name}</Text>
+                                  {m.handicap_index != null && <Text style={styles.draftPlayerHcp}>HCP {m.handicap_index}</Text>}
+                                </View>
+                                {ryderBusy === m.player_id && <ActivityIndicator size="small" color={GOLD} />}
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </>
+                      )}
+
+                      {ryderTeams.map(t => {
+                        const roster = compPlayers.filter(cp => cp.team_id === t.id);
+                        if (roster.length === 0) return null;
+                        return (
+                          <View key={t.id} style={styles.rosterPanel}>
+                            <Text style={styles.rosterPanelTitle}>{t.name} — {roster.length} / {playersPerTeamN} drafted</Text>
+                            {roster.map(cp => (
+                              <View key={cp.id} style={styles.draftPlayerRow}>
+                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                  <TouchableOpacity onPress={() => toggleDraftCaptain(cp)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                    <Ionicons name={cp.is_captain ? 'star' : 'star-outline'} size={14} color={cp.is_captain ? GOLD : '#555'} />
+                                  </TouchableOpacity>
+                                  <Text style={styles.draftPlayerName}>{cp.display_name}</Text>
+                                </View>
+                                <TouchableOpacity onPress={() => removeDraftPlayer(cp)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                  <Ionicons name="close-circle-outline" size={18} color="#666" />
+                                </TouchableOpacity>
+                              </View>
+                            ))}
+                          </View>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
+              </>
+            ) : isMatchplay ? (
               <>
                 <Text style={styles.fieldLabel}>PLAYERS PER TEAM</Text>
                 {(() => {

@@ -13,8 +13,10 @@ import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 import PlayerEditSheet, { type EditablePlayer } from '../../../src/components/PlayerEditSheet';
+import { usePlatformAdmin } from '../../../src/lib/usePlatformAdmin';
 
 const GOLD = '#D4AF37';
+const RED  = '#f87171';
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
@@ -31,6 +33,7 @@ export default function PlayersScreen() {
 
   const router = useRouter();
   const { societyId } = useAdminSociety();
+  const { isPlatformAdmin: viewerIsPlatformAdmin } = usePlatformAdmin();
   const [members, setMembers]   = useState<Member[]>([]);
   const [myRole, setMyRole]     = useState('member');
   const [loading, setLoading]   = useState(true);
@@ -52,7 +55,7 @@ export default function PlayersScreen() {
     const [membersRes, myRoleRes] = await Promise.all([
       supabase
         .from('society_members')
-        .select('role, committee_role, membership_types, player:player_id(id, display_name, email, handicap_index, avatar_url)')
+        .select('role, committee_role, membership_types, player:player_id(id, display_name, email, handicap_index, avatar_url, is_platform_admin)')
         .eq('society_id', societyId)
         .order('role'),
       user ? supabase
@@ -181,6 +184,7 @@ export default function PlayersScreen() {
         member={selected}
         societyId={societyId!}
         myRole={myRole}
+        viewerIsPlatformAdmin={viewerIsPlatformAdmin}
         onClose={() => setSelected(null)}
         onSaved={load}
       />
@@ -215,6 +219,11 @@ function MemberRow({ member, isLast }: { member: Member; isLast: boolean }) {
       <View style={{ alignItems: 'flex-end', gap: 4 }}>
         {player.handicap_index != null && (
           <Text style={s.hcp}>HCP {player.handicap_index}</Text>
+        )}
+        {player.is_platform_admin && (
+          <View style={[s.roleBadge, { backgroundColor: RED + '22', borderColor: RED }]}>
+            <Text style={[s.roleText, { color: RED }]}>god</Text>
+          </View>
         )}
         <View style={[
           s.roleBadge,

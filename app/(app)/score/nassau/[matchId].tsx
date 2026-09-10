@@ -11,6 +11,8 @@ import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../../src/lib/assets';
 
 // ── TITAN constants ──────────────────────────────────────────────────────────
 const GOLD  = '#D4AF37';
@@ -18,7 +20,6 @@ const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
@@ -49,6 +50,8 @@ function betLabel(diff: number, homeLabel: string, awayLabel: string) {
 export default function NassauScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [match, setMatch]     = useState<Match | null>(null);
   const [holes, setHoles]     = useState<CourseHole[]>([]);
   const [names, setNames]     = useState<Record<string, string>>({});
@@ -67,8 +70,10 @@ export default function NassauScreen() {
 
   useEffect(() => { load(); }, [matchId]);
 
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
+
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
       <ActivityIndicator color={GOLD} size="large" />
     </View>
@@ -175,7 +180,7 @@ export default function NassauScreen() {
   if (!match || !hole) return null;
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
@@ -184,7 +189,7 @@ export default function NassauScreen() {
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+          <Image source={logoSource} style={s.logo} resizeMode="contain" />
           <Text style={s.headerSub}>NASSAU</Text>
         </View>
         <View style={s.headerSpacer} />
@@ -222,7 +227,7 @@ export default function NassauScreen() {
       </View>
 
       {/* Hole card */}
-      <View style={s.holeCard}>
+      <View style={[s.holeCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
         <Text style={s.holeNum}>Hole {hole.hole_number}</Text>
         <Text style={s.holeMeta}>Par {hole.par}  ·  SI {hole.stroke_index}</Text>
       </View>
@@ -241,7 +246,7 @@ export default function NassauScreen() {
           const isBirdie = sc < hole.par;
           const isBogey  = sc > hole.par;
           return (
-            <View key={pid} style={s.playerRow}>
+            <View key={pid} style={[s.playerRow, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <View style={{ flex: 1 }}>
                 <Text style={s.playerName}>{names[pid] ?? '?'}</Text>
                 <Text style={[s.playerSide, { color: isHome ? GREEN : RED }]}>{isHome ? 'HOME' : 'AWAY'}</Text>

@@ -14,7 +14,6 @@ import { goBack } from '../../../src/lib/navigation';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
-const PURPLE = '#a78bfa';
 const FFB    = 'JUSTSans-ExBold';
 
 export default function CodesScreen() {
@@ -30,10 +29,6 @@ export default function CodesScreen() {
   const [societyName,           setSocietyName]           = useState('');
   const [joinPin,               setJoinPin]               = useState('');
   const [casualCode,            setCasualCode]            = useState('');
-  const [tourCode,              setTourCode]              = useState('');
-  const [swindleCode,           setSwindleCode]           = useState('');
-  const [activeTournamentName,  setActiveTournamentName]  = useState('');
-  const [activeTournamentPin,   setActiveTournamentPin]   = useState('');
   const [mashieGroups,          setMashieGroups]          = useState<{ groupCode: string; playerNames: string }[]>([]);
   const [loading,               setLoading]               = useState(true);
   const [generatingPin,         setGeneratingPin]         = useState(false);
@@ -44,20 +39,11 @@ export default function CodesScreen() {
     if (!societyId) { setLoading(false); return; }
     (async () => {
       try {
-        const [{ data }, { data: activeComp }] = await Promise.all([
-          supabase.from('societies').select('name, join_pin, casual_join_code, tour_join_code, swindle_join_code').eq('id', societyId).single(),
-          supabase.from('competitions').select('name, pin').eq('society_id', societyId).eq('status', 'active').limit(1).maybeSingle(),
-        ]);
+        const { data } = await supabase.from('societies').select('name, join_pin, casual_join_code').eq('id', societyId).single();
         if (data) {
           setSocietyName((data as any).name ?? '');
           setJoinPin(String((data as any).join_pin ?? '').replace(/[^0-9]/g, ''));
           setCasualCode((data as any).casual_join_code ?? '');
-          setTourCode((data as any).tour_join_code ?? '');
-          setSwindleCode((data as any).swindle_join_code ?? '');
-        }
-        if (activeComp) {
-          setActiveTournamentName((activeComp as any).name ?? '');
-          setActiveTournamentPin(String((activeComp as any).pin ?? '').replace(/[^0-9]/g, ''));
         }
         // Load active Mashie group matches (have a group_code, in_progress, belong to this society)
         const { data: mashieMatches } = await supabase
@@ -104,8 +90,6 @@ export default function CodesScreen() {
     const row = Array.isArray(data) ? data[0] : data;
     if (row) {
       setCasualCode(row.r_casual_code ?? '');
-      setTourCode(row.r_tour_code ?? '');
-      setSwindleCode(row.r_swindle_code ?? '');
     }
   }
 
@@ -197,35 +181,6 @@ export default function CodesScreen() {
           )}
         </View>
 
-        {/* Active Tournament PIN */}
-        {activeTournamentName ? (
-          <>
-            <Text style={[s.sectionLabel, { color: dc.cardText, marginTop: 24 }]}>ACTIVE TOURNAMENT</Text>
-            <View style={[s.card, { backgroundColor: dc.card, borderColor: GREEN + '44' }]}>
-              <View style={s.livePill}>
-                <View style={s.liveDot} />
-                <Text style={s.liveText}>LIVE</Text>
-              </View>
-              <Text style={[s.cardTitle, { color: dc.cardText }]}>{activeTournamentName}</Text>
-              <Text style={[s.cardHint, { color: dc.cardText }]}>Players enter this PIN to unlock the Tour tab.</Text>
-              {activeTournamentPin ? (
-                <>
-                  <Text style={[s.bigPin, { color: GREEN }]}>{activeTournamentPin.split('').join('  ')}</Text>
-                  <TouchableOpacity
-                    style={[s.shareBtn, { borderColor: GREEN + '55', backgroundColor: GREEN + '15' }]}
-                    onPress={() => shareText(`Join ${activeTournamentName} on Titan Golf — tournament PIN: ${activeTournamentPin}`, activeTournamentPin)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[s.shareBtnText, { color: GREEN }]}>Share Tournament PIN</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <Text style={[s.cardHint, { color: dc.cardText, marginTop: 8 }]}>No PIN — run add_competition_pin.sql migration</Text>
-              )}
-            </View>
-          </>
-        ) : null}
-
         {/* Mashie group codes */}
         {mashieGroups.length > 0 && (
           <>
@@ -253,12 +208,11 @@ export default function CodesScreen() {
           </>
         )}
 
-        {/* Membership area codes */}
-        <Text style={[s.sectionLabel, { color: dc.cardText, marginTop: 24 }]}>MEMBERSHIP AREA CODES</Text>
+        {/* Casual Golf join code — Tour/Swindle codes moved to their own
+            admin hubs (Dave, 2026-09-09: "split over the relevant things"). */}
+        <Text style={[s.sectionLabel, { color: dc.cardText, marginTop: 24 }]}>CASUAL GOLF CODE</Text>
         {[
           { label: 'Casual Golf', code: casualCode,  color: GREEN  },
-          { label: 'The Tour',    code: tourCode,    color: GOLD   },
-          { label: 'The Swindle', code: swindleCode, color: PURPLE },
         ].map((area, idx) => (
           <View key={area.label} style={[s.card, { backgroundColor: dc.card, borderColor: area.code ? area.color + '44' : dc.border }, idx > 0 && { marginTop: 8 }]}>
             <Text style={[s.cardLabel, { color: area.color }]}>{area.label.toUpperCase()}</Text>

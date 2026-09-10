@@ -11,6 +11,8 @@ import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../../src/lib/assets';
 
 // ─── TITAN Design Tokens ──────────────────────────────────────────────────────
 const GOLD  = '#D4AF37';
@@ -18,7 +20,6 @@ const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/teams/Titan Logo.png');
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
@@ -27,6 +28,8 @@ interface Match { id: string; status: string; home_player_ids: string[]; day: { 
 export default function ScrambleScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [match, setMatch]     = useState<Match | null>(null);
   const [holes, setHoles]     = useState<CourseHole[]>([]);
   const [names, setNames]     = useState<Record<string, string>>({});
@@ -138,8 +141,10 @@ export default function ScrambleScreen() {
   const runPar   = holes.slice(0, holeIdx + 1).reduce((s, h) => s + h.par, 0);
   const runDiff  = runGross - runPar;
 
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
+
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
       <ActivityIndicator color={GOLD} size="large" />
     </View>
@@ -154,7 +159,7 @@ export default function ScrambleScreen() {
   const diffColor        = runDiff < 0 ? GREEN : runDiff > 0 ? RED : '#fff';
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* ── Header ────────────────────────────────────────────────── */}
@@ -164,7 +169,7 @@ export default function ScrambleScreen() {
         </TouchableOpacity>
 
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+          <Image source={logoSource} style={s.logo} resizeMode="contain" />
           <Text style={s.subtitle}>SCRAMBLE</Text>
         </View>
 
@@ -189,7 +194,7 @@ export default function ScrambleScreen() {
       )}
 
       {/* ── Summary card ──────────────────────────────────────────── */}
-      <View style={s.summaryCard}>
+      <View style={[s.summaryCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
         <Text style={s.teamLabel}>
           {match.home_player_ids.map(id => names[id] ?? '?').join(' · ')}
         </Text>

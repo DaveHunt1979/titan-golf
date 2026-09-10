@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
-import { getStandings, calcSweepBonus, buildKronosTieBreakMaps, rankPlayersByKronos, type KronosTieBreakMaps } from '../../../src/lib/scoring';
+import { getStandings, calcSweepBonus, buildKronosTieBreakMaps, rankPlayersByKronos, calcStrokesReceived, calcStablefordPoints, calcHoles, playerCourseHcp, type KronosTieBreakMaps } from '../../../src/lib/scoring';
 import { resolveAvatar, teamLogos } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 import { getFormatRules, checkTitanWayStructure } from '../../../src/lib/tournamentFormat';
@@ -158,6 +158,7 @@ export default function TournamentDrawScreen() {
   const [addTeam, setAddTeam]           = useState<string | null>(null);
   const [adding, setAdding]             = useState(false);
   const [generating, setGenerating]     = useState<string | null>(null);
+  const [simulating, setSimulating]     = useState<string | null>(null);
   // One shared modal handles both Manual generation (a whole day's worth of
   // freshly-created empty-slot matches) and Edit Match (a single existing
   // match) — Rick's brief, section 4.14. Non-null = open, scoped to
@@ -178,7 +179,13 @@ export default function TournamentDrawScreen() {
       supabase.from('competition_players')
         .select('id,player_id,team_id,handicap_index,is_captain,players(display_name,avatar_url)')
         .eq('competition_id', competitionId),
-      supabase.from('teams').select('id,name,accent_color,logo_url').eq('society_id', societyId ?? '').order('sort_order'),
+      // This competition's own teams — either permanent club teams (competition_id
+      // null) or, for a Ryder Cup, its 2 event-only sides (competition_id = this
+      // competition). Excludes every OTHER competition's event-only teams.
+      supabase.from('teams').select('id,name,accent_color,logo_url')
+        .eq('society_id', societyId ?? '')
+        .or(`competition_id.is.null,competition_id.eq.${competitionId}`)
+        .order('sort_order'),
       supabase.from('matches').select('id,day_id,match_number,home_player_ids,away_player_ids,home_team_id,away_team_id,status,winner,result_str,holes_string,start_hole,is_singles')
         .eq('competition_id', competitionId).order('match_number'),
     ]);
@@ -714,6 +721,98 @@ export default function TournamentDrawScreen() {
     }
   }
 
+  // Simulate Day (Dave, 2026-09-09, live-testing Ryder Cup with Rick) — fills
+  // in plausible random hole-by-hole scores for whatever's already drawn that
+  // day, so an admin can preview how a round plays out without hand-scoring
+  // every match. Reuses the exact random-score model
+  // (simulateGross/rnd/makeRandom) and per-hole stableford-vs-par match logic
+  // src/lib/simulateTournament.ts's whole-tournament simulator already uses
+  // for this same format family — just pointed at matches that already exist
+  // (drawn via the buttons above) instead of creating new ones from scratch.
+  async function simulateDay(day: DayRow) {
+    const dayMatches = matches.filter(m => m.day_id === day.id && m.status !== 'complete' && (m.home_player_ids.length > 0 || m.away_player_ids.length > 0));
+    if (dayMatches.length === 0) {
+      Alert.alert('Nothing to simulate', 'Generate the draw for this day first, or every match is already complete.');
+      return;
+    }
+    setSimulating(day.id);
+    try {
+      const { data: holes, error: holesErr } = await supabase
+        .from('course_holes').select('hole_number,par,stroke_index').eq('course_name', day.course_name ?? '').order('hole_number');
+      if (holesErr || !holes || holes.length !== 18) {
+        Alert.alert('Error', 'Could not load 18 holes of course data for this day\'s course.');
+        return;
+      }
+      const hcpByPlayer: Record<string, number> = {};
+      compPlayers.forEach(cp => { hcpByPlayer[cp.player_id] = cp.handicap_index ?? 0; });
+
+      let seed = { v: Date.now() & 0xffffffff };
+      const rnd = () => {
+        seed.v |= 0; seed.v = (seed.v + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed.v ^ (seed.v >>> 15), 1 | seed.v);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      const scoreTable = [-2, -1, -1, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3];
+      const simulateGross = (par: number, courseHcp: number) => {
+        const expected = courseHcp / 18;
+        const shift = expected > 2 ? 1 : expected > 0.7 ? (Math.floor(rnd() * 10) < 4 ? 1 : 0) : 0;
+        return Math.max(1, par + scoreTable[Math.floor(rnd() * scoreTable.length)] + shift);
+      };
+
+      let skipped = 0;
+      // draw.tsx's DayRow never carries slope/course rating/par (not selected
+      // by this screen's query), so playerCourseHcp always takes its
+      // Math.round(hcpIndex) fallback here regardless — this object just
+      // gives TS a type with properties in common with what playerCourseHcp
+      // expects, since DayRow and that param type otherwise share none.
+      const hcpDayContext: { slope_rating?: number | null; course_rating?: number | null; course_par?: number | null } = {};
+
+      for (const m of dayMatches) {
+        const allIds = [...m.home_player_ids, ...m.away_player_ids];
+        if (m.home_player_ids.length === 0 || m.away_player_ids.length === 0) { skipped++; continue; }
+        await supabase.from('match_holes').delete().eq('match_id', m.id);
+        let holesStr = '';
+        const holeRows: any[] = [];
+        for (const h of holes as any[]) {
+          const ptsByPlayer: Record<string, number> = {};
+          const grossByPlayer: Record<string, number> = {};
+          for (const pid of allIds) {
+            const gross = simulateGross(h.par, playerCourseHcp(hcpByPlayer[pid], hcpDayContext, 100));
+            const shots = calcStrokesReceived(playerCourseHcp(hcpByPlayer[pid], hcpDayContext, day.hcp_pct), h.stroke_index);
+            grossByPlayer[pid] = gross;
+            ptsByPlayer[pid] = calcStablefordPoints(gross, h.par, shots);
+          }
+          const homeBest = Math.max(...m.home_player_ids.map(id => ptsByPlayer[id]));
+          const awayBest = Math.max(...m.away_player_ids.map(id => ptsByPlayer[id]));
+          const result: 'h' | 'a' | 'f' = homeBest > awayBest ? 'h' : awayBest > homeBest ? 'a' : 'f';
+          holesStr += result;
+          for (const pid of allIds) {
+            const shots = calcStrokesReceived(playerCourseHcp(hcpByPlayer[pid], hcpDayContext, day.hcp_pct), h.stroke_index);
+            holeRows.push({ match_id: m.id, player_id: pid, hole_number: h.hole_number, score: result, gross_score: grossByPlayer[pid], net_score: grossByPlayer[pid] - shots, stableford_pts: ptsByPlayer[pid] });
+          }
+          if (calcHoles(holesStr, 18, 1).concluded) break;
+        }
+        const { homeUp, remaining, concluded } = calcHoles(holesStr, 18, 1);
+        const winner = concluded ? (homeUp > 0 ? 'home' : 'away') : (homeUp === 0 ? 'half' : homeUp > 0 ? 'home' : 'away');
+        const result_str = concluded ? `${Math.abs(homeUp)}&${remaining}` : (homeUp === 0 ? 'Halved' : `${Math.abs(homeUp)}UP`);
+        await supabase.from('matches').update({
+          status: 'complete', winner, result_str, holes_string: holesStr.padEnd(18, '.'),
+          started_at: new Date().toISOString(), completed_at: new Date().toISOString(),
+        }).eq('id', m.id);
+        await supabase.from('match_holes').insert(holeRows);
+      }
+      await load();
+      if (skipped > 0) {
+        Alert.alert('Some matches skipped', `${skipped} match${skipped === 1 ? '' : 'es'} couldn't be simulated because one side has no players yet.`);
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Could not simulate this day.');
+    } finally {
+      setSimulating(null);
+    }
+  }
+
   // Titan Way generates every qualifying round TOGETHER as one draw, never
   // day by day (Rick's brief, 2026-08-25, section 6) — this is the whole-
   // tournament counterpart to generateDraw() above, used only for
@@ -1137,14 +1236,24 @@ export default function TournamentDrawScreen() {
                     </View>
                     <View style={{ gap: 6 }}>
                       {dayMatches.length > 0 ? (
-                        <TouchableOpacity
-                          style={[s.genBtn, s.genBtnSecondary]}
-                          onPress={() => clearDay(day)}
-                          disabled={isGen}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={[s.genBtnText, s.genBtnTextSecondary]}>CLEAR</Text>
-                        </TouchableOpacity>
+                        <>
+                          <TouchableOpacity
+                            style={s.genBtn}
+                            onPress={() => simulateDay(day)}
+                            disabled={isGen || simulating === day.id}
+                            activeOpacity={0.8}
+                          >
+                            {simulating === day.id ? <ActivityIndicator size="small" color="#000" /> : <Text style={s.genBtnText}>SIMULATE</Text>}
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[s.genBtn, s.genBtnSecondary]}
+                            onPress={() => clearDay(day)}
+                            disabled={isGen || simulating === day.id}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={[s.genBtnText, s.genBtnTextSecondary]}>CLEAR</Text>
+                          </TouchableOpacity>
+                        </>
                       ) : isGen ? (
                         <View style={s.genBtn}><ActivityIndicator size="small" color="#000" /></View>
                       ) : isTitanWayQualifyingDay ? (

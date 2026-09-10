@@ -13,8 +13,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { supabase } from '../../../src/lib/supabase';
-import { resolveAvatar } from '../../../src/lib/assets';
+import { resolveAvatar, titanLogo } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 
 const COMPOSE_WIDTH = 1080; // offscreen render width for the branded photo — good enough for social sharing without being wasteful
 
@@ -141,7 +142,6 @@ const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 type Mode = 'picture' | 'video';
 type Flash = 'off' | 'on' | 'auto';
@@ -170,6 +170,8 @@ function formatTime(secs: number): string {
 
 export default function CameraScreen() {
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
 
@@ -484,11 +486,11 @@ export default function CameraScreen() {
 
   // ── Permission gate ───────────────────────────────────────────
   if (!camPermission) {
-    return <View style={s.container} />;
+    return <View style={[s.container, { backgroundColor: dc.bg }]} />;
   }
   if (!camPermission.granted) {
     return (
-      <View style={[s.container, s.centered]}>
+      <View style={[s.container, s.centered, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
         <Text style={s.permTitle}>Camera Access</Text>
         <Text style={s.permSub}>Allow camera access to film your shots.</Text>
@@ -505,7 +507,7 @@ export default function CameraScreen() {
   // ── Preview screen ────────────────────────────────────────────
   if (preview) {
     return (
-      <View style={s.container}>
+      <View style={[s.container, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" hidden />
         <Image source={{ uri: preview.uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
         <View style={s.previewOverlay}>
@@ -533,6 +535,7 @@ export default function CameraScreen() {
 
   // ── Camera layout (portrait / landscape) ─────────────────────
   const avatar = info.playerId ? resolveAvatar(info.playerId, info.avatarUrl) : null;
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
 
   // Single source of truth for the branded frame — shown live while framing
   // AND burned into the captured photo via the same JSX (see composeRef
@@ -563,7 +566,7 @@ export default function CameraScreen() {
           )}
         </View>
       </View>
-      <Image source={titanLogo} style={s.brandLogo} resizeMode="contain" />
+      <Image source={logoSource} style={s.brandLogo} resizeMode="contain" />
     </View>
   );
 
@@ -648,7 +651,7 @@ export default function CameraScreen() {
   );
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" hidden />
 
       <CameraView

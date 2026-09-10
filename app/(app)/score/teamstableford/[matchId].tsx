@@ -18,6 +18,8 @@ import { getMatchPack } from '../../../../src/lib/offlinePack';
 import { resolveTournamentHandicaps, checkAndProcessDayCuts, reprocessFromDay } from '../../../../src/lib/tournamentHandicap';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../../src/lib/assets';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -25,7 +27,6 @@ const BLUE  = '#3b82f6';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface Match {
   id: string;
@@ -84,6 +85,8 @@ function Avatar({ name, size = 36, src }: { name: string; size?: number; src?: a
 export default function TeamStablefordScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -351,8 +354,10 @@ export default function TeamStablefordScreen() {
     ]);
   }
 
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
+
   if (loading || !fontsLoaded) {
-    return <View style={s.loading}><ActivityIndicator color={GOLD} size="large" /></View>;
+    return <View style={[s.loading, { backgroundColor: dc.bg }]}><ActivityIndicator color={GOLD} size="large" /></View>;
   }
   if (!match) return null;
 
@@ -400,7 +405,7 @@ export default function TeamStablefordScreen() {
 
     function TeamBlock({ ids, label, color }: { ids: string[]; label: string; color: string }) {
       return (
-        <View style={s.cardDark}>
+        <View style={[s.cardDark, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <View style={s.scHeaderRow}>
             <Text style={[s.scHdr, { flex: 2, color }]}>{label}</Text>
             {front9.map(h => <Text key={h} style={s.scHdr}>{h}</Text>)}
@@ -433,21 +438,21 @@ export default function TeamStablefordScreen() {
     }
 
     return (
-      <View style={s.root}>
+      <View style={[s.root, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
         <View style={s.header}>
           <TouchableOpacity onPress={() => goBack(router, `/(app)/score/${matchId}`)} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={s.headerCenter}>
-            <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+            <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
             <Text style={s.headerSub}>ROUND COMPLETE</Text>
           </View>
           <View style={s.headerSide} />
         </View>
 
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60, gap: 16 }} showsVerticalScrollIndicator={false}>
-          <View style={[s.winnerBanner, { borderColor: `${winColor}40` }]}>
+          <View style={[s.winnerBanner, { backgroundColor: dc.card, borderColor: `${winColor}40` }]}>
             <Ionicons name="trophy" size={36} color={winColor} />
             <Text style={[s.winnerText, { color: winColor }]}>{winLabel}</Text>
             {isMashieGroup ? (
@@ -495,7 +500,7 @@ export default function TeamStablefordScreen() {
 
   // ── Scoring view ────────────────────────────────────────────
   return (
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
@@ -504,7 +509,7 @@ export default function TeamStablefordScreen() {
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
           <Text style={s.headerSub}>{isMashieGroup ? `MASHIE · BEST ${baseCountN} FROM ${teamSize}` : 'TEAM STABLEFORD'}</Text>
         </View>
         <TouchableOpacity onPress={confirmDelete} style={s.headerSide} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -531,14 +536,14 @@ export default function TeamStablefordScreen() {
 
       {/* Team totals bar */}
       {isMashieGroup ? (
-        <View style={[s.totalsBar, { justifyContent: 'center' }]}>
+        <View style={[s.totalsBar, { backgroundColor: dc.card, borderColor: dc.border, justifyContent: 'center' }]}>
           <View style={{ alignItems: 'center' }}>
             <Text style={s.totalTeamLbl}>GROUP TOTAL</Text>
             <Text style={[s.totalPts, { color: GOLD }]}>{homeTotal} pts</Text>
           </View>
         </View>
       ) : (
-        <View style={s.totalsBar}>
+        <View style={[s.totalsBar, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <View style={[s.totalBlock, homeTotal > awayTotal && s.totalBlockWin]}>
             <Text style={s.totalTeamLbl}>TEAM A</Text>
             <Text style={[s.totalPts, homeTotal >= awayTotal ? { color: GOLD } : { color: '#fff' }]}>{homeTotal}</Text>
@@ -595,7 +600,7 @@ export default function TeamStablefordScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
 
         {/* Hole card */}
-        <View style={s.holeCard}>
+        <View style={[s.holeCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <Text style={s.holeNum}>{currentHole}</Text>
           <View style={s.holeDetails}>
             {hole && (
@@ -645,19 +650,19 @@ export default function TeamStablefordScreen() {
         {(homeHole.teamTotal > 0 || awayHole.teamTotal > 0) && (
           isMashieGroup ? (
             <View style={s.holeResult}>
-              <View style={[s.holeResultBlock, { borderColor: `${GOLD}40` }]}>
+              <View style={[s.holeResultBlock, { backgroundColor: dc.card, borderColor: `${GOLD}40` }]}>
                 <Text style={s.holeResultLbl}>HOLE TOTAL</Text>
                 <Text style={[s.holeResultPts, { color: GOLD }]}>{homeHole.teamTotal} pts</Text>
               </View>
             </View>
           ) : (
             <View style={s.holeResult}>
-              <View style={[s.holeResultBlock, homeHole.teamTotal >= awayHole.teamTotal && { borderColor: `${GOLD}40` }]}>
+              <View style={[s.holeResultBlock, { backgroundColor: dc.card, borderColor: dc.border }, homeHole.teamTotal >= awayHole.teamTotal && { borderColor: `${GOLD}40` }]}>
                 <Text style={s.holeResultLbl}>TEAM A</Text>
                 <Text style={[s.holeResultPts, { color: GOLD }]}>{homeHole.teamTotal}</Text>
               </View>
               <Text style={s.holeResultVs}>pts</Text>
-              <View style={[s.holeResultBlock, awayHole.teamTotal >= homeHole.teamTotal && { borderColor: `${BLUE}40` }]}>
+              <View style={[s.holeResultBlock, { backgroundColor: dc.card, borderColor: dc.border }, awayHole.teamTotal >= homeHole.teamTotal && { borderColor: `${BLUE}40` }]}>
                 <Text style={s.holeResultLbl}>TEAM B</Text>
                 <Text style={[s.holeResultPts, { color: BLUE }]}>{awayHole.teamTotal}</Text>
               </View>
@@ -730,10 +735,11 @@ function TeamSection({
   getPts: (id: string, hole: number) => number | null;
   onScore: (id: string, gross: number) => void;
 }) {
+  const dc = useDynamicColors();
   const currentHoleNum = hole?.hole_number ?? 1;
 
   return (
-    <View style={ts.container}>
+    <View style={[ts.container, { backgroundColor: dc.card, borderColor: dc.border }]}>
       <View style={ts.header}>
         <View style={[ts.accent, { backgroundColor: color }]} />
         <Text style={[ts.label, { color }]}>{label}</Text>

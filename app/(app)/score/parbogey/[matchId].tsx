@@ -13,6 +13,8 @@ import { useSyncStatus } from '../../../../src/lib/useSyncStatus';
 import { getMatchPack } from '../../../../src/lib/offlinePack';
 import SyncBar from '../../../../src/components/SyncBar';
 import ConflictSheet from '../../../../src/components/ConflictSheet';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../../src/lib/assets';
 
 // TITAN design constants
 const GOLD  = '#D4AF37';
@@ -20,7 +22,6 @@ const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 interface Match { id: string; home_player_ids: string[]; day: { course_name: string; course_par: number; course_rating: number; slope_rating: number; } | null; }
@@ -48,6 +49,8 @@ function totalLabel(t: number) {
 export default function ParBogeyScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
   const [match, setMatch]     = useState<Match | null>(null);
   const [holes, setHoles]     = useState<CourseHole[]>([]);
   const [players, setPlayers] = useState<PlayerInfo[]>([]);
@@ -213,8 +216,10 @@ export default function ParBogeyScreen() {
     });
   });
 
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
+
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
       <ActivityIndicator color={GOLD} size="large" />
     </View>
@@ -223,7 +228,7 @@ export default function ParBogeyScreen() {
   if (!match || !hole) return null;
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* Header */}
@@ -232,7 +237,7 @@ export default function ParBogeyScreen() {
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.logo} resizeMode="contain" />
+          <Image source={logoSource} style={s.logo} resizeMode="contain" />
           <Text style={s.subtitle}>PAR/BOGEY</Text>
         </View>
         <View style={{ width: 60 }} />
@@ -254,7 +259,7 @@ export default function ParBogeyScreen() {
           {players.map(p => {
             const t = runTotals[p.id] ?? 0;
             return (
-              <View key={p.id} style={[s.tallyItem, t > 0 && s.tallyWin, t < 0 && s.tallyLose]}>
+              <View key={p.id} style={[s.tallyItem, { backgroundColor: dc.card, borderColor: dc.border }, t > 0 && s.tallyWin, t < 0 && s.tallyLose]}>
                 <Text style={s.tallyName}>{p.name}</Text>
                 <Text style={[s.tallyScore, { color: t > 0 ? GREEN : t < 0 ? RED : '#fff' }]}>
                   {totalLabel(t)}
@@ -286,7 +291,7 @@ export default function ParBogeyScreen() {
           const res = holeResult(sc, hole.par, str);
           const lbl = resultLabel(res);
           return (
-            <View key={p.id} style={s.playerRow}>
+            <View key={p.id} style={[s.playerRow, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <View style={{ flex: 1 }}>
                 <Text style={s.playerName}>{p.name}</Text>
                 <Text style={s.playerSub}>

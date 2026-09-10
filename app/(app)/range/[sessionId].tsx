@@ -9,13 +9,14 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { goBack } from '../../../src/lib/navigation';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../src/lib/assets';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const CLUBS = ['Driver','3W','5W','3i','4i','5i','6i','7i','8i','9i','PW','GW','SW','LW'];
 const TARGETS = [50,75,100,125,150,175,200,225,250,275,300];
@@ -44,6 +45,8 @@ interface Shot {
 export default function RangeSessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -111,11 +114,13 @@ export default function RangeSessionScreen() {
   const max = carries.length ? Math.max(...carries) : null;
 
   if (loading || !fontsLoaded) return (
-    <View style={s.centered}><ActivityIndicator color={GOLD} size="large" /></View>
+    <View style={[s.centered, { backgroundColor: dc.bg }]}><ActivityIndicator color={GOLD} size="large" /></View>
   );
 
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
+
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* ── Header ─────────────────────────────────────────────────── */}
@@ -127,7 +132,7 @@ export default function RangeSessionScreen() {
 
         {/* Centre: logo + subtitle */}
         <View style={s.headerCentre}>
-          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
           <Text style={s.headerSub}>DRIVING RANGE</Text>
         </View>
 
@@ -158,7 +163,7 @@ export default function RangeSessionScreen() {
 
       {/* ── Stats banner ───────────────────────────────────────────── */}
       {avg !== null && (
-        <View style={s.statsBanner}>
+        <View style={[s.statsBanner, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <View style={s.statItem}>
             <Text style={s.statVal}>{avg}</Text>
             <Text style={s.statLbl}>AVG YDS</Text>
@@ -184,7 +189,7 @@ export default function RangeSessionScreen() {
       >
 
         {/* Carry input */}
-        <View style={s.inputCard}>
+        <View style={[s.inputCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <Text style={s.inputLabel}>CARRY (YARDS)</Text>
           <TextInput
             style={s.carryInput}
@@ -198,7 +203,7 @@ export default function RangeSessionScreen() {
         </View>
 
         {/* Shape picker */}
-        <View style={s.inputCard}>
+        <View style={[s.inputCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <Text style={s.inputLabel}>BALL FLIGHT</Text>
           <View style={s.shapeRow}>
             {SHAPES.map(sh => (
@@ -216,7 +221,7 @@ export default function RangeSessionScreen() {
         </View>
 
         {/* Quality picker */}
-        <View style={s.inputCard}>
+        <View style={[s.inputCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <Text style={s.inputLabel}>QUALITY</Text>
           <View style={s.qualRow}>
             {QUALITY.map(q => {
@@ -253,7 +258,7 @@ export default function RangeSessionScreen() {
           <>
             <Text style={s.historyLabel}>THIS SESSION · {shots.length} SHOTS</Text>
             {shots.map(shot => (
-              <View key={shot.id} style={s.shotRow}>
+              <View key={shot.id} style={[s.shotRow, { backgroundColor: dc.card, borderColor: dc.border }]}>
                 {/* Club badge */}
                 <View style={s.shotClub}>
                   <Text style={s.shotClubText}>{shot.club}</Text>
@@ -297,7 +302,7 @@ export default function RangeSessionScreen() {
       {/* ── Target distance modal ───────────────────────────────────── */}
       <Modal visible={showTargets} transparent animationType="slide" onRequestClose={() => setShowTargets(false)}>
         <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setShowTargets(false)}>
-          <View style={s.modalSheet}>
+          <View style={[s.modalSheet, { backgroundColor: dc.card, borderTopColor: dc.border }]}>
             <Text style={s.modalTitle}>TARGET DISTANCE</Text>
             <Text style={s.modalSub}>Set your target distance then select a club</Text>
             <View style={s.targetsGrid}>

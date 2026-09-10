@@ -14,6 +14,8 @@ import { goBack } from '../../../src/lib/navigation';
 import { getPlayerAvatar, teamLogos } from '../../../src/lib/assets';
 import { courseHasGps } from '../../../src/lib/courseGps';
 import { matchFormatLabel } from '../../../src/lib/tournamentFormat';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../src/lib/assets';
 
 const GOLD     = '#D4AF37';
 const GREEN    = '#4ade80';
@@ -24,7 +26,6 @@ const DARKBLUE = '#1e3a8a';
 const PLAIN    = '#ffffff';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
-const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 function scoreVsParColor(gross: number, par: number): string {
   return SCORE_COLORS[scoreVsPar(gross, par)];
@@ -71,6 +72,8 @@ interface MatchDetail {
 export default function MatchDetailScreen() {
   const { matchId, startHole: startHoleParam } = useLocalSearchParams<{ matchId: string; startHole?: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -200,7 +203,7 @@ export default function MatchDetailScreen() {
   })();
 
   if (loadError) return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000', gap: 16, padding: 24 }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: dc.bg, gap: 16, padding: 24 }}>
       <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16 }}>Couldn't load this round.</Text>
       <TouchableOpacity style={{ backgroundColor: GOLD, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 }} onPress={() => setRetryTick(t => t + 1)} activeOpacity={0.85}>
         <Text style={{ fontFamily: FFB, color: '#000' }}>Try Again</Text>
@@ -208,17 +211,18 @@ export default function MatchDetailScreen() {
     </View>
   );
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: dc.bg }}>
       <ActivityIndicator color={GOLD} size="large" />
     </View>
   );
 
   if (!match) return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: dc.bg }}>
       <Text style={{ fontFamily: FFB, color: '#fff' }}>Match not found.</Text>
     </View>
   );
 
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
   const isMember = myPlayerId && allPlayerIds.includes(myPlayerId);
 
   async function handleEnterScores() {
@@ -303,7 +307,7 @@ export default function MatchDetailScreen() {
   }
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* ── Header ── */}
@@ -312,7 +316,7 @@ export default function MatchDetailScreen() {
           <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
           <Text style={s.headerSub} numberOfLines={1}>
             {match.day?.course_name ? `${match.day.course_name} · ${formatLabel}` : formatLabel}
           </Text>
@@ -505,7 +509,7 @@ export default function MatchDetailScreen() {
 
                 return (
                   <View key={pid} style={{ width: screenWidth, paddingHorizontal: 16 }}>
-                    <View style={s.scorecardCard}>
+                    <View style={[s.scorecardCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
                       <View style={s.scorecardHeader}>
                         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
                         <Text style={[s.scorecardName, { color }]}>{name}</Text>

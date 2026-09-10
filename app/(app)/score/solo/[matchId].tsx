@@ -32,6 +32,8 @@ import ConflictSheet from '../../../../src/components/ConflictSheet';
 import { IS_PAD, GPS_PANEL_ENABLED } from '../../../../src/lib/useDeviceLayout';
 import GPSPanel from '../../../../src/components/ipad/GPSPanel';
 import LeaderboardPanel from '../../../../src/components/ipad/LeaderboardPanel';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../../src/lib/assets';
 
 const { width: W } = Dimensions.get('window');
 const GOLD     = '#D4AF37';
@@ -43,7 +45,6 @@ const DARKBLUE = '#1e3a8a';
 const PLAIN    = '#ffffff';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 function Avatar({ name, size = 44, src }: { name: string; size?: number; src?: any }) {
   if (src) {
@@ -81,6 +82,8 @@ export default function SoloRoundScreen() {
   const { matchId, startHole: startHoleParam, teeColor } = useLocalSearchParams<{ matchId: string; startHole?: string; teeColor?: string }>();
   const startHole = Math.max(1, Math.min(18, parseInt(startHoleParam ?? '1', 10) || 1));
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -684,7 +687,7 @@ export default function SoloRoundScreen() {
   }
 
   if (loadError) return (
-    <View style={s.loading}>
+    <View style={[s.loading, { backgroundColor: dc.bg }]}>
       <Text style={{ fontFamily: FFB, color: '#fff', fontSize: 16, marginBottom: 16 }}>Couldn't load this round.</Text>
       <TouchableOpacity style={s.ctaBtn} onPress={() => setRetryTick(t => t + 1)} activeOpacity={0.85}>
         <Text style={s.ctaBtnText}>Try Again</Text>
@@ -692,11 +695,13 @@ export default function SoloRoundScreen() {
     </View>
   );
   if (loading || !fontsLoaded) return (
-    <View style={s.loading}><ActivityIndicator color={GOLD} size="large" /></View>
+    <View style={[s.loading, { backgroundColor: dc.bg }]}><ActivityIndicator color={GOLD} size="large" /></View>
   );
   if (!match) return (
-    <View style={s.loading}><Text style={{ fontFamily: FFB, color: '#fff' }}>Round not found.</Text></View>
+    <View style={[s.loading, { backgroundColor: dc.bg }]}><Text style={{ fontFamily: FFB, color: '#fff' }}>Round not found.</Text></View>
   );
+
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
 
   const formatLabel = isStableford ? 'Stableford' : 'Medal';
   const scoreDisplay = isStableford
@@ -705,8 +710,8 @@ export default function SoloRoundScreen() {
   const scoreColor = isStableford ? GOLD : (vsPar < 0 ? GREEN : vsPar > 0 ? RED : '#ffffff');
 
   return (
-    <View style={(IS_PAD && broadcastMode) ? { flex: 1, flexDirection: 'row', backgroundColor: '#000' } : s.root}>
-      <View style={(IS_PAD && broadcastMode) ? { width: 360, backgroundColor: '#000000', overflow: 'hidden' } : { flex: 1 }}>
+    <View style={(IS_PAD && broadcastMode) ? { flex: 1, flexDirection: 'row', backgroundColor: dc.bg } : [s.root, { backgroundColor: dc.bg }]}>
+      <View style={(IS_PAD && broadcastMode) ? { width: 360, backgroundColor: dc.bg, overflow: 'hidden' } : { flex: 1 }}>
       <StatusBar style="light" />
 
       {/* ── Header ── */}
@@ -715,7 +720,7 @@ export default function SoloRoundScreen() {
           <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
+          <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
           <Text style={s.headerSub} numberOfLines={1}>{match.day?.course_name ?? 'Course'} · {formatLabel}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -836,7 +841,7 @@ export default function SoloRoundScreen() {
         {!isComplete ? (
           <>
             {/* Hole card */}
-            <View style={s.holeCard}>
+            <View style={[s.holeCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <Text style={s.holeLabelSmall}>HOLE</Text>
               <Text style={s.holeBig}>{nextHole}</Text>
               {courseHole && (
@@ -1010,7 +1015,7 @@ export default function SoloRoundScreen() {
 
         {/* Mini scorecard */}
         {savedScores.length > 0 && courseHoles.length > 0 && (
-          <View style={s.scorecardCard}>
+          <View style={[s.scorecardCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={s.scorecardTitle}>SCORECARD</Text>
             {[
               courseHoles.filter(h => h.hole_number <= 9).sort((a, b) => a.hole_number - b.hole_number),

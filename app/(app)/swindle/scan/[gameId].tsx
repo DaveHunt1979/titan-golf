@@ -11,6 +11,7 @@ import { scanPlayerScoresFromCamera, scanPlayerScoresFromLibrary, ScannedScore }
 import { calcStrokesReceived, calcStablefordPoints } from '../../../../src/lib/scoring';
 import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 import { goBack } from '../../../../src/lib/navigation';
+import { useDynamicColors } from '../../../../src/lib/SocietyThemeContext';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -34,6 +35,7 @@ interface HoleInfo { hole_number: number; par: number; stroke_index: number; }
 export default function SwindleScan() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
   const router     = useRouter();
+  const dc = useDynamicColors();
 
   const [step,        setStep]        = useState<Step>('player');
   const [players,     setPlayers]     = useState<EnteredPlayer[]>([]);
@@ -53,7 +55,7 @@ export default function SwindleScan() {
   });
 
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
       <ActivityIndicator color={GOLD} size="large" />
     </View>
@@ -183,7 +185,7 @@ export default function SwindleScan() {
   // ── Step: Select player ───────────────────────────────────────
   if (step === 'player') {
     return (
-      <View style={s.container}>
+      <View style={[s.container, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
         <View style={s.header}>
           <TouchableOpacity onPress={() => goBack(router, `/(app)/swindle/${gameId}`)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -201,7 +203,7 @@ export default function SwindleScan() {
               onPress={() => { setSelected(p); setStep('scan'); }}
               activeOpacity={0.8}
             >
-              <View style={[s.playerRowInner, p.has_scores && s.playerRowInnerSelected]}>
+              <View style={[s.playerRowInner, { backgroundColor: dc.card, borderColor: dc.border }, p.has_scores && s.playerRowInnerSelected]}>
                 <View style={{ flex: 1 }}>
                   <Text style={[s.playerName, p.has_scores && { color: GOLD }]}>{p.display_name}</Text>
                   <Text style={s.playerHcp}>
@@ -223,7 +225,7 @@ export default function SwindleScan() {
   // ── Step: Scan ────────────────────────────────────────────────
   if (step === 'scan') {
     return (
-      <View style={s.container}>
+      <View style={[s.container, { backgroundColor: dc.bg }]}>
         <StatusBar style="light" />
         <View style={s.header}>
           <TouchableOpacity onPress={() => setStep('player')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -246,11 +248,11 @@ export default function SwindleScan() {
             </View>
           ) : (
             <View style={s.scanBtns}>
-              <TouchableOpacity style={[s.scanBtn, s.scanBtnCamera]} onPress={() => doScan(false)} activeOpacity={0.8}>
+              <TouchableOpacity style={[s.scanBtn, { backgroundColor: dc.card, borderColor: dc.border }, s.scanBtnCamera]} onPress={() => doScan(false)} activeOpacity={0.8}>
                 <Text style={s.scanBtnIcon}>📷</Text>
                 <Text style={[s.scanBtnText, { color: '#000' }]}>Take Photo</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.scanBtn} onPress={() => doScan(true)} activeOpacity={0.8}>
+              <TouchableOpacity style={[s.scanBtn, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => doScan(true)} activeOpacity={0.8}>
                 <Text style={s.scanBtnIcon}>🖼️</Text>
                 <Text style={s.scanBtnText}>Choose Photo</Text>
               </TouchableOpacity>
@@ -268,7 +270,7 @@ export default function SwindleScan() {
   // ── Step: Saving ──────────────────────────────────────────────
   if (step === 'saving') {
     return (
-      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
         <StatusBar style="light" />
         <ActivityIndicator color={GOLD} size="large" />
       </View>
@@ -277,7 +279,7 @@ export default function SwindleScan() {
 
   // ── Step: Review / edit scores ────────────────────────────────
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
       <View style={s.header}>
         <TouchableOpacity onPress={() => setStep('scan')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -307,7 +309,7 @@ export default function SwindleScan() {
             const ptColor  = pts == null ? '#555' : pts >= 4 ? GOLD : pts === 3 ? GREEN : pts === 2 ? '#fff' : pts === 1 ? '#555' : RED;
 
             return (
-              <View key={holeNum} style={s.holeCell}>
+              <View key={holeNum} style={[s.holeCell, { backgroundColor: dc.card, borderColor: dc.border }]}>
                 <Text style={s.holeCellNum}>H{holeNum}</Text>
                 {holeInfo && <Text style={s.holeCellPar}>Par {holeInfo.par}{shots > 0 ? ' +' + shots : ''}</Text>}
                 <TextInput
@@ -331,7 +333,7 @@ export default function SwindleScan() {
           })}
         </View>
 
-        <View style={s.summary}>
+        <View style={[s.summary, { backgroundColor: dc.card, borderColor: dc.border }]}>
           <View style={s.summaryItem}>
             <Text style={s.summaryLabel}>HOLES</Text>
             <Text style={s.summaryValue}>{holesEntered}/18</Text>

@@ -11,6 +11,8 @@ import { scanPlayerScoresFromCamera, scanPlayerScoresFromLibrary } from '../../.
 import { calcStrokesReceived, calcStablefordPoints, formatVsPar } from '../../../../src/lib/scoring';
 import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 import { goBack } from '../../../../src/lib/navigation';
+import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
+import { titanLogo } from '../../../../src/lib/assets';
 
 // ── TITAN Design Constants ──────────────────────────────────────────────────
 const GOLD  = '#D4AF37';
@@ -18,7 +20,6 @@ const GREEN = '#4ade80';
 const RED   = '#f87171';
 const FF    = 'JUSTSans';
 const FFB   = 'JUSTSans-ExBold';
-const titanLogo = require('../../../../assets/TitanAppLogo.png');
 
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
 interface HoleScore  { hole: number; gross: number | null; }
@@ -28,6 +29,8 @@ type Step = 'scan' | 'review';
 export default function ScanMatchScorecardScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
+  const dc = useDynamicColors();
+  const { localLogo, logoUrl } = useSocietyTheme();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -114,9 +117,11 @@ export default function ScanMatchScorecardScreen() {
     })();
   }, [matchId]);
 
+  const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
+
   // Loading / font guard
   if (loading || !fontsLoaded) return (
-    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: dc.bg, alignItems: 'center', justifyContent: 'center' }}>
       <StatusBar style="light" />
       <ActivityIndicator color={GOLD} size="large" />
     </View>
@@ -229,7 +234,7 @@ export default function ScanMatchScorecardScreen() {
   }
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
 
       {/* ── Header ── */}
@@ -243,7 +248,7 @@ export default function ScanMatchScorecardScreen() {
         </TouchableOpacity>
 
         <View style={s.headerCenter}>
-          <Image source={titanLogo} style={s.logoImg} resizeMode="contain" />
+          <Image source={logoSource} style={s.logoImg} resizeMode="contain" />
           <Text style={s.headerSub}>SCAN SCORECARD</Text>
         </View>
 
@@ -266,10 +271,10 @@ export default function ScanMatchScorecardScreen() {
             </View>
           ) : (
             <View style={s.scanBtns}>
-              <TouchableOpacity style={s.scanBtnCamera} onPress={() => doScan(true)} activeOpacity={0.85}>
+              <TouchableOpacity style={[s.scanBtnCamera, { backgroundColor: dc.card }]} onPress={() => doScan(true)} activeOpacity={0.85}>
                 <Text style={s.scanBtnCameraText}>📷  Take Photo</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.scanBtnLib} onPress={() => doScan(false)} activeOpacity={0.85}>
+              <TouchableOpacity style={[s.scanBtnLib, { backgroundColor: dc.card, borderColor: dc.border }]} onPress={() => doScan(false)} activeOpacity={0.85}>
                 <Text style={s.scanBtnLibText}>🖼  Choose from Library</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setStep('review')} activeOpacity={0.7} style={{ marginTop: 12 }}>
@@ -289,7 +294,7 @@ export default function ScanMatchScorecardScreen() {
             )}
 
             {/* Grid header */}
-            <View style={s.gridHeader}>
+            <View style={[s.gridHeader, { backgroundColor: dc.card, borderColor: dc.border }]}>
               <Text style={[s.gridHdr, { flex: 1 }]}>HOLE</Text>
               <Text style={[s.gridHdr, { width: 36 }]}>PAR</Text>
               <Text style={[s.gridHdr, { width: 52 }]}>GROSS</Text>
@@ -327,7 +332,7 @@ export default function ScanMatchScorecardScreen() {
             })}
 
             {/* Totals */}
-            <View style={s.totalsRow}>
+            <View style={[s.totalsRow, { backgroundColor: dc.card }]}>
               <Text style={[s.totalsLabel, { flex: 1 }]}>TOTAL</Text>
               <Text style={[s.totalsVal, { width: 36, color: '#fff' }]}>{totalPar > 0 ? totalPar : '—'}</Text>
               <View style={{ width: 52, alignItems: 'center' }}>
@@ -345,7 +350,7 @@ export default function ScanMatchScorecardScreen() {
           </ScrollView>
 
           {/* Submit bar */}
-          <View style={s.submitBar}>
+          <View style={[s.submitBar, { backgroundColor: dc.bg }]}>
             <TouchableOpacity
               style={[s.submitBtn, submitting && { opacity: 0.6 }]}
               onPress={submit}
