@@ -1,15 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { BrokenRecord } from '../lib/records';
-import { colors, fonts, radius, spacing } from '../lib/theme';
+import { fonts, radius, spacing } from '../lib/theme';
+import { useDynamicColors } from '../lib/SocietyThemeContext';
 
 interface Props {
   records: BrokenRecord[];
   onDismiss: () => void;
 }
 
-// Orbiting gold particle
-function Particle({ angle, radius: r, delay }: { angle: number; radius: number; delay: number }) {
+// Orbiting accent-colour particle
+function Particle({ angle, radius: r, delay, color }: { angle: number; radius: number; delay: number; color: string }) {
   const opacity = useRef(new Animated.Value(0)).current;
   const scale   = useRef(new Animated.Value(0)).current;
 
@@ -30,7 +31,7 @@ function Particle({ angle, radius: r, delay }: { angle: number; radius: number; 
     <Animated.View style={{
       position: 'absolute',
       width: 6, height: 6, borderRadius: 3,
-      backgroundColor: colors.gold,
+      backgroundColor: color,
       transform: [{ translateX: x }, { translateY: y }, { scale }],
       opacity,
     }} />
@@ -38,6 +39,7 @@ function Particle({ angle, radius: r, delay }: { angle: number; radius: number; 
 }
 
 export default function RecordCelebration({ records, onDismiss }: Props) {
+  const dc = useDynamicColors();
   const trophyScale   = useRef(new Animated.Value(0)).current;
   const titleOpacity  = useRef(new Animated.Value(0)).current;
   const titleTranslY  = useRef(new Animated.Value(20)).current;
@@ -92,13 +94,13 @@ export default function RecordCelebration({ records, onDismiss }: Props) {
     <Modal transparent animationType="fade" visible statusBarTranslucent>
       <View style={ss.overlay}>
 
-        {/* Gold radial glow */}
-        <Animated.View style={[ss.glow, { opacity: glowOpacity }]} />
+        {/* Accent-colour radial glow */}
+        <Animated.View style={[ss.glow, { backgroundColor: dc.goldDim, opacity: glowOpacity }]} />
 
         {/* Trophy */}
         <View style={ss.trophyWrap}>
           {PARTICLE_ANGLES.map((angle, i) => (
-            <Particle key={angle} angle={angle} radius={70} delay={300 + i * 40} />
+            <Particle key={angle} angle={angle} radius={70} delay={300 + i * 40} color={dc.gold} />
           ))}
           <Animated.Text style={[ss.trophy, { transform: [{ scale: Animated.multiply(trophyScale, pulse) }] }]}>
             🏆
@@ -107,35 +109,35 @@ export default function RecordCelebration({ records, onDismiss }: Props) {
 
         {/* Title */}
         <Animated.View style={{ opacity: titleOpacity, transform: [{ translateY: titleTranslY }], alignItems: 'center' }}>
-          <Text style={ss.newRecord}>NEW SOCIETY RECORD{records.length > 1 ? 'S' : ''}!</Text>
-          <View style={ss.divider} />
+          <Text style={[ss.newRecord, { color: dc.gold }]}>NEW SOCIETY RECORD{records.length > 1 ? 'S' : ''}!</Text>
+          <View style={[ss.divider, { backgroundColor: dc.gold }]} />
         </Animated.View>
 
         {/* Record cards */}
         <Animated.View style={[ss.cards, { opacity: cardOpacity, transform: [{ translateY: cardTranslY }] }]}>
           {records.map(r => (
-            <View key={r.type} style={ss.card}>
+            <View key={r.type} style={[ss.card, { backgroundColor: dc.card, borderColor: dc.goldBorder }]}>
               <Text style={ss.cardIcon}>{r.icon}</Text>
               <View style={{ flex: 1 }}>
-                <Text style={ss.cardLabel}>{r.label}</Text>
+                <Text style={[ss.cardLabel, { color: dc.white }]}>{r.label}</Text>
                 {r.prevHolder && r.oldValue != null && (
-                  <Text style={ss.cardPrev}>
+                  <Text style={[ss.cardPrev, { color: dc.textMuted }]}>
                     Previous: {r.prevHolder} — {r.oldValue} {r.unit}
                   </Text>
                 )}
                 {!r.prevHolder && (
-                  <Text style={ss.cardPrev}>First ever record set!</Text>
+                  <Text style={[ss.cardPrev, { color: dc.textMuted }]}>First ever record set!</Text>
                 )}
               </View>
-              <Text style={ss.cardValue}>{r.newValue}</Text>
+              <Text style={[ss.cardValue, { color: dc.gold }]}>{r.newValue}</Text>
             </View>
           ))}
         </Animated.View>
 
         {/* Dismiss */}
         <Animated.View style={{ opacity: cardOpacity }}>
-          <TouchableOpacity style={ss.dismissBtn} onPress={onDismiss} activeOpacity={0.8}>
-            <Text style={ss.dismissText}>Incredible! 🎉</Text>
+          <TouchableOpacity style={[ss.dismissBtn, { backgroundColor: dc.gold }]} onPress={onDismiss} activeOpacity={0.8}>
+            <Text style={[ss.dismissText, { color: dc.bg }]}>Incredible! 🎉</Text>
           </TouchableOpacity>
         </Animated.View>
 
@@ -154,7 +156,6 @@ const ss = StyleSheet.create({
   glow: {
     position: 'absolute',
     width: 300, height: 300, borderRadius: 150,
-    backgroundColor: 'rgba(212,175,55,0.08)',
     top: '50%', left: '50%',
     transform: [{ translateX: -150 }, { translateY: -240 }],
   },
@@ -165,30 +166,29 @@ const ss = StyleSheet.create({
   trophy: { fontSize: 72, lineHeight: 80 },
 
   newRecord: {
-    fontSize: fonts.xl, fontWeight: '900', color: colors.gold,
+    fontSize: fonts.xl, fontWeight: '900',
     letterSpacing: 3, textTransform: 'uppercase', textAlign: 'center',
     marginBottom: spacing.sm,
   },
   divider: {
     width: 120, height: 2, borderRadius: 1,
-    backgroundColor: colors.gold, opacity: 0.4,
+    opacity: 0.4,
   },
 
   cards: { width: '100%', gap: spacing.sm },
   card: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    backgroundColor: colors.card, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.goldBorder,
+    borderRadius: radius.md, borderWidth: 1,
     padding: spacing.md,
   },
   cardIcon:  { fontSize: 28 },
-  cardLabel: { fontSize: fonts.sm, fontWeight: '800', color: colors.white, marginBottom: 2 },
-  cardPrev:  { fontSize: fonts.xs, color: colors.textMuted },
-  cardValue: { fontSize: fonts.xxl, fontWeight: '900', color: colors.gold },
+  cardLabel: { fontSize: fonts.sm, fontWeight: '800', marginBottom: 2 },
+  cardPrev:  { fontSize: fonts.xs },
+  cardValue: { fontSize: fonts.xxl, fontWeight: '900' },
 
   dismissBtn: {
-    backgroundColor: colors.gold, borderRadius: radius.full,
+    borderRadius: radius.full,
     paddingHorizontal: spacing.xl, paddingVertical: spacing.md,
   },
-  dismissText: { fontSize: fonts.md, fontWeight: '800', color: colors.bg },
+  dismissText: { fontSize: fonts.md, fontWeight: '800' },
 });

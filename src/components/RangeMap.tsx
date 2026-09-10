@@ -3,7 +3,8 @@ import { View, Text, StyleSheet } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
-import { colors, fonts, spacing, radius } from '../lib/theme';
+import { fonts, spacing, radius } from '../lib/theme';
+import { useDynamicColors } from '../lib/SocietyThemeContext';
 
 interface Props {
   courseName: string | null | undefined;
@@ -19,6 +20,7 @@ function haversineYards(lat1: number, lng1: number, lat2: number, lng2: number):
 }
 
 export default function RangeMap({ courseName, holeNumber }: Props) {
+  const dc = useDynamicColors();
   const [green, setGreen] = useState<{ lat: number; lng: number } | null>(null);
   const [player, setPlayer] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,8 +65,8 @@ export default function RangeMap({ courseName, holeNumber }: Props) {
   // explicit "do not" cases) when this particular hole isn't mapped.
   if (!green) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>GPS not mapped for this hole yet.</Text>
+      <View style={[styles.emptyContainer, { borderColor: dc.gold }]}>
+        <Text style={[styles.emptyText, { color: dc.textMuted }]}>GPS not mapped for this hole yet.</Text>
       </View>
     );
   }
@@ -72,7 +74,7 @@ export default function RangeMap({ courseName, holeNumber }: Props) {
   const distance = player ? haversineYards(player.lat, player.lng, green.lat, green.lng) : null;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { borderColor: dc.gold }]}>
       <MapView
         style={styles.map}
         mapType="satellite"
@@ -98,20 +100,20 @@ export default function RangeMap({ courseName, holeNumber }: Props) {
               { latitude: player.lat, longitude: player.lng },
               { latitude: green.lat, longitude: green.lng },
             ]}
-            strokeColor={colors.gold}
+            strokeColor={dc.gold}
             strokeWidth={2}
             lineDashPattern={[8, 4]}
           />
         )}
       </MapView>
-      <View style={styles.badge}>
+      <View style={[styles.badge, { borderColor: dc.gold }]}>
         {distance !== null ? (
           <>
-            <Text style={styles.badgeNum}>{distance}</Text>
-            <Text style={styles.badgeLbl}>YDS TO GREEN</Text>
+            <Text style={[styles.badgeNum, { color: dc.gold }]}>{distance}</Text>
+            <Text style={[styles.badgeLbl, { color: dc.gold }]}>YDS TO GREEN</Text>
           </>
         ) : (
-          <Text style={styles.badgeLbl}>GPS LOCATING…</Text>
+          <Text style={[styles.badgeLbl, { color: dc.gold }]}>GPS LOCATING…</Text>
         )}
       </View>
     </View>
@@ -121,21 +123,21 @@ export default function RangeMap({ courseName, holeNumber }: Props) {
 const styles = StyleSheet.create({
   container: {
     height: 180, borderRadius: radius.lg, overflow: 'hidden',
-    marginBottom: spacing.md, borderWidth: 1, borderColor: colors.gold,
+    marginBottom: spacing.md, borderWidth: 1,
   },
   map: { flex: 1 },
   badge: {
     position: 'absolute', top: spacing.sm, right: spacing.sm,
     backgroundColor: 'rgba(0,0,0,0.78)', borderRadius: radius.md,
     paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
-    alignItems: 'center', borderWidth: 1, borderColor: colors.gold,
+    alignItems: 'center', borderWidth: 1,
   },
-  badgeNum: { fontSize: fonts.xxl, fontWeight: '900', color: colors.gold, lineHeight: 28 },
-  badgeLbl: { fontSize: 9, fontWeight: '700', color: colors.gold, letterSpacing: 1 },
+  badgeNum: { fontSize: fonts.xxl, fontWeight: '900', lineHeight: 28 },
+  badgeLbl: { fontSize: 9, fontWeight: '700', letterSpacing: 1 },
   emptyContainer: {
     height: 100, borderRadius: radius.lg, marginBottom: spacing.md,
-    borderWidth: 1, borderColor: colors.gold, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
-  emptyText: { fontSize: 12, fontWeight: '700', color: colors.textMuted, textAlign: 'center' },
+  emptyText: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
 });

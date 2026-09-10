@@ -102,7 +102,7 @@ export default function SocietyDetailScreen() {
           <Text style={s.headerTitle} numberOfLines={1}>{societyName || '—'}</Text>
           <Text style={s.headerSub}>god admin</Text>
         </View>
-        <View style={{ width: 60 }} />
+        <View style={s.headerRight} />
       </View>
 
       {loading ? (
@@ -111,6 +111,14 @@ export default function SocietyDetailScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={s.scroll}>
+          <TouchableOpacity
+            style={s.customiseBtn}
+            onPress={() => router.push(`/(app)/admin/branding?societyId=${societyId}` as any)}
+            activeOpacity={0.8}
+          >
+            <Text style={s.customiseBtnText}>Customise Colours, Logo &amp; Hero</Text>
+          </TouchableOpacity>
+
           <View style={s.statsRow}>
             <View style={s.statCard}>
               <Text style={[s.statValue, { color: primaryColor }]}>{memberCount}</Text>
@@ -159,12 +167,19 @@ const s = StyleSheet.create({
   },
   headerLeft:   { flex: 1, alignItems: 'flex-start' },
   headerCenter: { flex: 2, alignItems: 'center' },
+  headerRight:  { flex: 1, alignItems: 'flex-end' },
   headerLogo:   { width: 24, height: 24, marginBottom: 2 },
   back:         { fontSize: 14, color: GOLD, fontFamily: FFB },
   headerTitle:  { fontSize: 15, color: '#fff', fontFamily: FFB, letterSpacing: 0.5, maxWidth: 200 },
   headerSub:    { fontSize: 9, color: GOLD, fontFamily: FFB },
 
   scroll: { padding: 20, paddingBottom: 60 },
+
+  customiseBtn: {
+    backgroundColor: GOLD, borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center', marginBottom: 20,
+  },
+  customiseBtnText: { fontSize: 14, fontFamily: FFB, color: '#000', letterSpacing: 0.3 },
 
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
   statCard: {

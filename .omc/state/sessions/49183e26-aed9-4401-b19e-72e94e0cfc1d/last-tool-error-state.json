@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd /Users/davehunt/Desktop/titan-golf/ios\\nfind . -iname \\\"WorkspaceSettings.xcsettings\\\" 2>/dev/null -exec cat {} \\\\;\\necho \\\"---\\\"\\ndefaults read com.apple.dt.Xcode IDECustomDerivedDataL...",
+  "error": "Exit code 1\n---\n2026-09-10 14:41:19.983 defaults[95891:5632362] \nThe domain/default pair of (com.apple.dt.Xcode, IDECustomDerivedDataLocation) does not exist\n2026-09-10 14:41:19.988 defaults[95892:5632366] \nThe domain/default pair of (com.apple.dt.Xcode, IDEDerivedDataPathOverride) does not exist",
+  "timestamp": "2026-09-10T13:41:20.055Z",
+  "retry_count": 1
+}

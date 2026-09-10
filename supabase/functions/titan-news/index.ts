@@ -44,15 +44,21 @@ const BANTER_SCENE_LIST = BANTER_SCENE_KEYS.map(k => `${k} (${BANTER_SCENES[k]})
 // for banter they'll never show.
 const BANTER_CHANCE = 1 / 3;
 
+// Titan News' own on-course reporters (Dave, 2026-09-10) — a separate duo
+// from Chip & Birdie, who stay exclusively on the live Caddie voice and
+// Chip & Birdie Coaching (Dave: "I want them all", not a replacement).
+// Existing published articles with banter_speaker 'chip'/'birdie' keep
+// rendering as before (see 20260918060000_titan_news_mcfadey_driver.sql) —
+// this only changes what NEW reports are generated as.
 function buildSystemPrompt(includeBanter: boolean): string {
   const banterInstruction = includeBanter ? `
 
-You also write ONE short line of "banter" from Titan's two broadcast hosts, Chip and Birdie — a classic double-act. Chip is the dry, deadpan straight man; Birdie is warmer, more excitable, quicker to rib someone. Pick whichever of the two would naturally react to the single most banter-worthy fact in the snapshot (a collapse, a hot streak, a nightmare hole, a photo finish — not "nothing happened"). The banter line is still bound by the same strict rules above: it must be a joke ABOUT a real fact in the snapshot, never an invented one. Also pick the one scene from this fixed list that best matches the mood of that fact: ${BANTER_SCENE_LIST}.` : '';
+You also write ONE short line of "banter" from Titan's two on-course reporters, Davey McFadey and Rick Driver. Davey is upbeat and story-driven — course news, player stories, a bit of banter. Rick is blunter and more opinionated — real golf, real opinions, no filters. Pick whichever of the two would naturally react to the single most banter-worthy fact in the snapshot (a collapse, a hot streak, a nightmare hole, a photo finish — not "nothing happened"). The banter line is still bound by the same strict rules above: it must be a joke or a real opinion ABOUT a fact in the snapshot, never an invented one. Also pick the one scene from this fixed list that best matches the mood of that fact: ${BANTER_SCENE_LIST}.` : '';
 
-  const banterJsonShape = includeBanter ? `,"banterSpeaker":"chip|birdie","banterText":"...","banterScene":"..."` : '';
+  const banterJsonShape = includeBanter ? `,"banterSpeaker":"mcfadey|driver","banterText":"...","banterScene":"..."` : '';
   const banterFieldDocs = includeBanter ? `
-- "banterSpeaker" — exactly "chip" or "birdie".
-- "banterText" — one or two sentences, in that host's voice, under 30 words.
+- "banterSpeaker" — exactly "mcfadey" or "driver".
+- "banterText" — one or two sentences, in that reporter's voice, under 30 words.
 - "banterScene" — exactly one of: ${BANTER_SCENE_KEYS.join(', ')}.` : '';
 
   return `You are Titan News, the automated sports desk for a golf society's tournament app. You write proper tournament journalism — pre-round previews, end-of-round reports, final tournament reports, one-off casual round match reports (storyType "casual_final"), and Titan Season Mode league stories (storyType "season_divisions_published" or "season_finished") — from a structured JSON facts package that has already been fully computed by Titan.
@@ -154,7 +160,7 @@ Deno.serve(async (req) => {
     // the banter_speaker CHECK constraint and fail the whole save, taking
     // out the report over a garnish. Falls back to no banter that run
     // instead.
-    const banterSpeaker = article.banterSpeaker === 'chip' || article.banterSpeaker === 'birdie' ? article.banterSpeaker : null;
+    const banterSpeaker = article.banterSpeaker === 'mcfadey' || article.banterSpeaker === 'driver' ? article.banterSpeaker : null;
     const banterScene = BANTER_SCENE_KEYS.includes(article.banterScene) ? article.banterScene : null;
     const banterText = banterSpeaker && typeof article.banterText === 'string' ? article.banterText : null;
 

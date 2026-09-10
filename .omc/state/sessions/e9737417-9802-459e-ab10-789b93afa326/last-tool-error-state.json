@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd /Users/davehunt/Desktop/titan-golf\\nfor f in \\\"app/(app)/admin/index.tsx\\\" \\\"app/(app)/admin/hub-platform.tsx\\\" \\\"app/(app)/admin/hub-tournament.tsx\\\" \\\"app/(app)/admin/create-society.t...",
+  "error": "Exit code 1\n=== app/(app)/admin/index.tsx ===\n=== app/(app)/admin/hub-platform.tsx ===\n=== app/(app)/admin/hub-tournament.tsx ===\n=== app/(app)/admin/create-society.tsx ===\n=== app/(app)/admin/season-create.tsx ===\n=== app/(app)/admin/swindle-stats.tsx ===\n=== app/(app)/admin/tournament-codes.tsx ===\n=== app/(app)/admin/course-requests.tsx ===\n180:  headerLeft: { width: 60 },\n=== app/(app)/admin/hub-season.tsx ===\n=== app/(app)/admin/hub-swindle.tsx ===\n=== app/(app)/admin/swindle-codes.tsx ===\n...",
+  "timestamp": "2026-09-10T14:53:05.374Z",
+  "retry_count": 1
+}

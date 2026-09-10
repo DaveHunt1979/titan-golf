@@ -9,6 +9,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
+import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useSociety } from '../../../src/lib/useSociety';
@@ -27,7 +28,7 @@ type GameMode  = '4bbb' | '4bbb_stroke' | 'singles' | 'stableford' | 'medal' | '
 type HolesMode = 'full18' | 'front9' | 'back9';
 
 interface Player      { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
-interface CourseItem  { name: string; par: number; hasGps: boolean; region: string | null; country: string | null; }
+interface CourseItem  { name: string; par: number; hasGps: boolean; region: string | null; country: string | null; lat: number | null; lng: number | null; }
 interface PlayerGroup { id: string; name: string; player_ids: string[]; }
 
 const GREEN = '#22c55e';
@@ -439,7 +440,21 @@ const COURSE_GROUP_ORDER = ['UK', 'Europe', 'USA', 'Africa', 'Middle East'];
 
 // Bump this if CourseItem's shape ever changes, so stale cached JSON isn't
 // read back as a mismatched shape.
-const COURSE_CACHE_KEY = 'course_list_cache_v1';
+const COURSE_CACHE_KEY = 'course_list_cache_v2';
+
+// Straight-line distance in miles — course-to-course "near me" sorting only
+// needs an approximate as-the-crow-flies figure, unlike the on-course
+// yardage precision rangefinder/index.tsx's haversineYards needs.
+const NEAR_ME_RADIUS_MILES = 30;
+const NEAR_ME_MIN_RESULTS  = 5;
+
+function haversineMiles(la1: number, lo1: number, la2: number, lo2: number): number {
+  const R = 3958.8;
+  const φ1 = la1 * Math.PI / 180, φ2 = la2 * Math.PI / 180;
+  const Δφ = (la2 - la1) * Math.PI / 180, Δλ = (lo2 - lo1) * Math.PI / 180;
+  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 function CourseSheet({
   visible, courses, selected, onSelect, onClose, ps, GOLD,
@@ -450,12 +465,60 @@ function CourseSheet({
 }) {
   const [search, setSearch] = useState('');
   const [group, setGroup] = useState<string | null>(null);
+  const [nearMe, setNearMe] = useState(false);
+  const [deviceLoc, setDeviceLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
   const groupOf = (c: CourseItem) => (c.country ? COUNTRY_TO_GROUP[c.country] ?? null : null);
   const availableGroups = COURSE_GROUP_ORDER.filter(g => courses.some(c => groupOf(c) === g));
   const hasOther = courses.some(c => groupOf(c) === null);
-  const filtered = courses
+
+  async function toggleNearMe() {
+    if (nearMe) { setNearMe(false); return; }
+    if (deviceLoc) { setNearMe(true); return; }
+    setLocLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Location needed', 'Allow location access to find courses near you.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setDeviceLoc({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+      setNearMe(true);
+    } catch {
+      Alert.alert('Location unavailable', 'Could not get your current location. Try again in a moment.');
+    } finally {
+      setLocLoading(false);
+    }
+  }
+
+  const distanceOf = (c: CourseItem): number | null =>
+    deviceLoc && c.lat != null && c.lng != null ? haversineMiles(deviceLoc.lat, deviceLoc.lng, c.lat, c.lng) : null;
+
+  let filtered = courses
     .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
     .filter(c => group === null || (group === 'Other' ? groupOf(c) === null : groupOf(c) === group));
+  // "Near Me" actually filters to nearby courses now that courses.lat/lng
+  // is fully populated for England (2026-09-10 GPS import) — shows
+  // everything within NEAR_ME_RADIUS_MILES, or the closest
+  // NEAR_ME_MIN_RESULTS if fewer than that are in range. Falls back to the
+  // full alphabetical list when no course in view has GPS coords at all
+  // (e.g. browsing a country without geocoded courses yet), so nothing
+  // silently vanishes.
+  if (nearMe && deviceLoc) {
+    const withDistance = filtered
+      .map(c => ({ c, d: distanceOf(c) }))
+      .filter((x): x is { c: CourseItem; d: number } => x.d != null)
+      .sort((a, b) => a.d - b.d);
+
+    if (withDistance.length > 0) {
+      const withinRadius = withDistance.filter(x => x.d <= NEAR_ME_RADIUS_MILES);
+      const chosen = withinRadius.length >= NEAR_ME_MIN_RESULTS ? withinRadius : withDistance.slice(0, NEAR_ME_MIN_RESULTS);
+      filtered = chosen.map(x => x.c);
+    } else {
+      filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+    }
+  }
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={onClose} />
@@ -467,6 +530,24 @@ function CourseSheet({
         <View style={ps.handle} />
         <Text style={ps.sheetTitle}>Select Course</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 48, marginBottom: 10, flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 2, alignItems: 'center' }}>
+          <TouchableOpacity
+            onPress={toggleNearMe}
+            activeOpacity={0.7}
+            disabled={locLoading}
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: 4,
+              paddingHorizontal: 14, paddingVertical: 7, borderRadius: 100,
+              borderWidth: 1, borderColor: nearMe ? GOLD : '#2a2a2a',
+              backgroundColor: nearMe ? 'rgba(212,175,55,0.14)' : 'transparent',
+              opacity: locLoading ? 0.5 : 1,
+            }}
+          >
+            {locLoading
+              ? <ActivityIndicator size="small" color={GOLD} />
+              : <Ionicons name="navigate" size={13} color={nearMe ? GOLD : '#9ca3af'} />
+            }
+            <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 12.5, lineHeight: 18, color: nearMe ? GOLD : '#9ca3af' }}>Near Me</Text>
+          </TouchableOpacity>
           {[{ key: null, label: 'All' }, ...availableGroups.map(g => ({ key: g, label: g })), ...(hasOther ? [{ key: 'Other', label: 'Other' }] : [])].map(opt => (
             <TouchableOpacity
               key={opt.label}
@@ -498,6 +579,7 @@ function CourseSheet({
           keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => {
             const on = item.name === selected;
+            const distance = nearMe ? distanceOf(item) : null;
             return (
               <TouchableOpacity style={ps.sheetRow} onPress={() => { onSelect(item.name); onClose(); setSearch(''); setGroup(null); }} activeOpacity={0.7}>
                 <View style={{ flex: 1 }}>
@@ -505,7 +587,13 @@ function CourseSheet({
                     <Text style={[ps.sheetOpt, on && ps.sheetOptOn]} numberOfLines={1}>{item.name}</Text>
                     {item.hasGps && <Ionicons name="location" size={13} color={GOLD} />}
                   </View>
-                  {item.region && <Text style={{ fontFamily: 'JUSTSans', fontSize: 11, color: '#777', marginTop: 1 }} numberOfLines={1}>{item.region}{item.country ? `, ${item.country}` : ''}</Text>}
+                  {distance != null ? (
+                    <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 11, color: GOLD, marginTop: 1 }}>
+                      {distance < 10 ? distance.toFixed(1) : Math.round(distance)} mi away
+                    </Text>
+                  ) : item.region ? (
+                    <Text style={{ fontFamily: 'JUSTSans', fontSize: 11, color: '#777', marginTop: 1 }} numberOfLines={1}>{item.region}{item.country ? `, ${item.country}` : ''}</Text>
+                  ) : null}
                 </View>
                 <Text style={ps.courseParLabel}>Par {item.par}</Text>
                 {on && <Ionicons name="checkmark" size={16} color={GOLD} style={{ marginLeft: 6 }} />}
@@ -705,8 +793,8 @@ export default function NewGameScreen() {
       // this silently dropped every course past row 1000 out of
       // region/country lookup entirely, dumping all of them into "Other"
       // (Dave, 2026-09-04).
-      fetchAllRows<{ name: string; region: string | null; country: string | null }>(
-        (from, to) => supabase.from('courses').select('name, region, country').range(from, to)
+      fetchAllRows<{ name: string; region: string | null; country: string | null; lat: number | null; lng: number | null }>(
+        (from, to) => supabase.from('courses').select('name, region, country, lat, lng').range(from, to)
       ),
     ]).then(([data, regionRows]) => {
       const parMap: Record<string, number> = {};
@@ -717,9 +805,11 @@ export default function NewGameScreen() {
       }
       const regionMap: Record<string, string | null> = {};
       const countryMap: Record<string, string | null> = {};
-      for (const r of regionRows) { regionMap[r.name] = r.region; countryMap[r.name] = r.country; }
+      const latMap: Record<string, number | null> = {};
+      const lngMap: Record<string, number | null> = {};
+      for (const r of regionRows) { regionMap[r.name] = r.region; countryMap[r.name] = r.country; latMap[r.name] = r.lat; lngMap[r.name] = r.lng; }
       const list = Object.entries(parMap)
-        .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name], region: regionMap[name] ?? null, country: countryMap[name] ?? null }))
+        .map(([name, par]) => ({ name, par, hasGps: !!gpsMap[name], region: regionMap[name] ?? null, country: countryMap[name] ?? null, lat: latMap[name] ?? null, lng: lngMap[name] ?? null }))
         .sort((a, b) => a.name.localeCompare(b.name));
       setCourses(list);
       setLoadingCourses(false);

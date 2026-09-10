@@ -4,12 +4,13 @@ import {
   TextInput, Image, Alert, ActivityIndicator,
   KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
+import { usePlatformAdmin } from '../../../src/lib/usePlatformAdmin';
 import { uploadImage } from '../../../src/lib/uploadImage';
 import { useDynamicColors, derivePalette } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
@@ -22,6 +23,7 @@ const FFB = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
 const BG_SWATCHES = [
+  { label: 'Titan (Classic)', hex: GOLD },
   { label: 'Midnight',   hex: '#0A0A1A' },
   { label: 'Deep Navy',  hex: '#000035' },
   { label: 'Royal Navy', hex: '#001F5B' },
@@ -85,7 +87,17 @@ function SplashPreview({ name, logoUri, primary, secondary }: {
 
 export default function SocietyBrandingScreen() {
   const router  = useRouter();
-  const { societyId, loading: societyLoading } = useAdminSociety();
+  const { societyId: paramSocietyId } = useLocalSearchParams<{ societyId?: string }>();
+  const { societyId: activeSocietyId, loading: activeLoading } = useAdminSociety();
+  const { isPlatformAdmin, loading: platformLoading } = usePlatformAdmin();
+
+  // A God-tier admin can be sent here to edit a society other than the one
+  // they currently have active (e.g. from the Societies list) — gated on
+  // is_platform_admin so a regular society admin can't edit someone else's
+  // society just by guessing a societyId in the URL.
+  const isForeign = !!paramSocietyId;
+  const societyId = isForeign ? paramSocietyId : activeSocietyId;
+  const societyLoading = isForeign ? platformLoading : activeLoading;
 
   const [name,           setName]           = useState('');
   const [tagline,        setTagline]        = useState('');
@@ -215,19 +227,34 @@ export default function SocietyBrandingScreen() {
     </View>
   );
 
+  if (isForeign && !isPlatformAdmin) {
+    return (
+      <View style={[s.container, { alignItems: 'center', justifyContent: 'center', padding: 30 }]}>
+        <StatusBar style="light" />
+        <Text style={s.headerTitle}>Not available</Text>
+        <Text style={[s.hint, { textAlign: 'center', marginTop: 8 }]}>This is a Dave/Rick-only screen.</Text>
+        <TouchableOpacity style={s.saveButton} onPress={() => goBack(router, '/(app)/admin/hub-tournament')} activeOpacity={0.8}>
+          <Text style={s.saveButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const backTarget = isForeign ? `/(app)/admin/society-detail/${societyId}` : '/(app)/admin/hub-tournament';
+
   return (
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="light" />
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => goBack(router, '/(app)/admin/hub-tournament')} hitSlop={hit} style={s.headerLeft}>
+        <TouchableOpacity onPress={() => goBack(router, backTarget)} hitSlop={hit} style={s.headerLeft}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <Image source={titanLogo} style={s.headerLogo} resizeMode="contain" />
           <Text style={s.headerTitle}>Society Branding</Text>
-          <Text style={s.headerSub}>admin</Text>
+          <Text style={s.headerSub}>{isForeign ? 'god admin' : 'admin'}</Text>
         </View>
         <TouchableOpacity onPress={save} disabled={saving} hitSlop={hit} style={s.headerRight}>
           <Text style={[s.saveBtn, saving && { opacity: 0.4 }]}>
@@ -348,7 +375,7 @@ export default function SocietyBrandingScreen() {
         {/* Background Colour */}
         <View style={s.section}>
           <Text style={s.sectionLabel}>BACKGROUND COLOUR</Text>
-          <Text style={s.hint2}>Choose a dark colour — this becomes the app background.</Text>
+          <Text style={s.hint2}>Choose a dark colour — this becomes the app background. "Titan (Classic)" resets to Titan's standard black &amp; gold look.</Text>
           <ColorSwatches swatches={BG_SWATCHES} selected={primaryColor} onSelect={setPrimaryColor} />
           <HexInput label="Custom hex" value={primaryHex} onChange={applyPrimaryHex} accent={primaryColor} />
         </View>

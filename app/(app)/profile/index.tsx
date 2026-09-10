@@ -446,10 +446,10 @@ export default function ProfileScreen() {
               )}
               <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
               <QuickLink
-                icon="navigate-outline"
-                title="Caddie"
-                sub="GPS, yardages & distances"
-                onPress={() => router.push('/(app)/rangefinder' as any)}
+                icon="sparkles-outline"
+                title="Chip & Birdie Coaching"
+                sub="AI analysis of your rounds, course by course"
+                onPress={() => router.push('/(app)/profile/coaching' as any)}
               />
               <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
               <QuickLink

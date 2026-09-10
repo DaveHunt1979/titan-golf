@@ -28,7 +28,7 @@ type CompDay = {
 type NewsRow = {
   id: string; story_type: string; day_id: string | null;
   headline: string | null; summary: string | null; body: string | null; input_snapshot: any;
-  banter_speaker: 'chip' | 'birdie' | null; banter_text: string | null; banter_scene: string | null;
+  banter_speaker: 'chip' | 'birdie' | 'mcfadey' | 'driver' | null; banter_text: string | null; banter_scene: string | null;
 };
 
 // Fixed portraits — Chip & Birdie are the same two hosts as the RN app's
@@ -41,7 +41,14 @@ type NewsRow = {
 // full-body image centers on the vertical middle by default, which crops
 // to the waist/legs, not the face (Dave, 2026-08-21 — "I only [see] chips
 // legs in this little circle image").
-const BANTER_PORTRAITS: Record<string, string> = { chip: '/hosts/chip_headshot.png', birdie: '/hosts/birdie_headshot.png' };
+const BANTER_PORTRAITS: Record<string, string> = {
+  chip: '/hosts/chip_headshot.png', birdie: '/hosts/birdie_headshot.png',
+  // Titan News' own on-course reporters (Dave, 2026-09-10) — a separate duo
+  // from Chip & Birdie, who stay on the live Caddie voice and Chip & Birdie
+  // Coaching. See 20260918060000_titan_news_mcfadey_driver.sql.
+  mcfadey: '/hosts/mcfadey_headshot.png', driver: '/hosts/driver_headshot.png',
+};
+const BANTER_NAMES: Record<string, string> = { chip: 'Chip', birdie: 'Birdie', mcfadey: 'Davey McFadey', driver: 'Rick Driver' };
 const BANTER_SCENES: Record<string, string> = {
   'golf-cart':      '/hosts/scenes/golf-cart.png',
   'hiding-tree':    '/hosts/scenes/hiding-tree.png',
@@ -53,7 +60,7 @@ const BANTER_SCENES: Record<string, string> = {
   'giant-bunker':   '/hosts/scenes/giant-bunker.png',
 };
 
-function Banter({ speaker, text, scene }: { speaker: 'chip' | 'birdie' | null; text: string | null; scene: string | null }) {
+function Banter({ speaker, text, scene }: { speaker: 'chip' | 'birdie' | 'mcfadey' | 'driver' | null; text: string | null; scene: string | null }) {
   if (!speaker || !text) return null;
   const sceneUrl = scene ? BANTER_SCENES[scene] : null;
   return (
@@ -61,7 +68,7 @@ function Banter({ speaker, text, scene }: { speaker: 'chip' | 'birdie' | null; t
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={BANTER_PORTRAITS[speaker]} alt="" className="banterPortrait" />
       <div className="banterBubble">
-        <div className="banterName">{speaker}</div>
+        <div className="banterName">{BANTER_NAMES[speaker]}</div>
         <div className="banterText">{text}</div>
       </div>
       {sceneUrl && (

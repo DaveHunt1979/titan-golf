@@ -1,4 +1,4 @@
-export const titanLogo = require('../../assets/teams/Titan Logo.png');
+export const titanLogo = require('../../assets/teams/TitanLogo.png');
 
 const societyLogos: Record<string, any> = {
   'mashie golf': require('../../assets/mashie/logo.png'),

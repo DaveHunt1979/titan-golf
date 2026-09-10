@@ -84,7 +84,7 @@ export default function SocietiesScreen() {
           <Text style={s.headerTitle}>Societies</Text>
           <Text style={s.headerSub}>god admin</Text>
         </View>
-        <View style={{ width: 60 }} />
+        <View style={s.headerRight} />
       </View>
 
       {loading ? (
@@ -136,6 +136,7 @@ const s = StyleSheet.create({
   },
   headerLeft:   { flex: 1, alignItems: 'flex-start' },
   headerCenter: { flex: 2, alignItems: 'center' },
+  headerRight:  { flex: 1, alignItems: 'flex-end' },
   headerLogo:   { width: 24, height: 24, marginBottom: 2 },
   back:         { fontSize: 14, color: GOLD, fontFamily: FFB },
   headerTitle:  { fontSize: 15, color: '#fff', fontFamily: FFB, letterSpacing: 0.5 },

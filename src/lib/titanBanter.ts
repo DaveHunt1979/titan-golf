@@ -11,8 +11,13 @@
 // this little circle image").
 export const CHIP_PORTRAIT   = require('../../assets/hosts/chip_headshot.png');
 export const BIRDIE_PORTRAIT = require('../../assets/hosts/birdie_headshot.png');
+// Titan News' on-course reporters (Dave, 2026-09-10) — a separate duo from
+// Chip & Birdie, who stay on the live Caddie voice and Chip & Birdie
+// Coaching. See 20260918060000_titan_news_mcfadey_driver.sql.
+export const MCFADEY_PORTRAIT = require('../../assets/hosts/mcfadey_headshot.png');
+export const DRIVER_PORTRAIT  = require('../../assets/hosts/driver_headshot.png');
 
-export type BanterSpeaker = 'chip' | 'birdie';
+export type BanterSpeaker = 'chip' | 'birdie' | 'mcfadey' | 'driver';
 
 // Static require() map, not a dynamic path — Metro can't resolve
 // require(`...${variable}...`), every asset must be a literal call site.
@@ -31,12 +36,19 @@ const SCENE_IMAGES: Record<string, any> = {
   'giant-bunker':   require('../../assets/hosts/scenes/giant-bunker.png'),
 };
 
+const SPEAKER_NAMES: Record<BanterSpeaker, string> = {
+  chip: 'Chip', birdie: 'Birdie', mcfadey: 'Davey McFadey', driver: 'Rick Driver',
+};
+const SPEAKER_PORTRAITS: Record<BanterSpeaker, any> = {
+  chip: CHIP_PORTRAIT, birdie: BIRDIE_PORTRAIT, mcfadey: MCFADEY_PORTRAIT, driver: DRIVER_PORTRAIT,
+};
+
 export function speakerName(speaker: BanterSpeaker): string {
-  return speaker === 'chip' ? 'Chip' : 'Birdie';
+  return SPEAKER_NAMES[speaker];
 }
 
 export function speakerPortrait(speaker: BanterSpeaker) {
-  return speaker === 'chip' ? CHIP_PORTRAIT : BIRDIE_PORTRAIT;
+  return SPEAKER_PORTRAITS[speaker];
 }
 
 export function sceneImage(scene: string | null): any | null {
