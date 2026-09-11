@@ -33,7 +33,7 @@ function FadeImageStage({ source, holdMs, onComplete }: { source: any; holdMs: n
       <Animated.Image
         source={source}
         style={[StyleSheet.absoluteFillObject, { opacity, width: SW, height: SH }]}
-        resizeMode="cover"
+        resizeMode="contain"
       />
     </View>
   );

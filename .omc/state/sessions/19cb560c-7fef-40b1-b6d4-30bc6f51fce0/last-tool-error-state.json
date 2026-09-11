@@ -1,7 +1,7 @@
 {
-  "tool_name": "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics",
-  "tool_input_preview": "{\"file\":\"/Users/davehunt/Desktop/titan-golf/src/lib/SocietyThemeContext.tsx\"}",
-  "error": "Language server 'typescript-language-server' not found.\nInstall with: npm install -g typescript-language-server typescript",
-  "timestamp": "2026-09-11T10:50:10.588Z",
-  "retry_count": 2
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"d=/Users/davehunt/Desktop/titan-golf; while :; do\\n  grep -Hm1 '^description:' \\\"$d\\\"/.claude/skills/*/SKILL.md 2>/dev/null\\n  [ -e \\\"$d/.git\\\" ] || [ \\\"$d\\\" = / ] && break\\n  d=$(dirname ...",
+  "error": "Exit code 1\n(eval):2: no matches found: /Users/davehunt/Desktop/titan-golf/.claude/skills/*/SKILL.md",
+  "timestamp": "2026-09-11T11:17:54.375Z",
+  "retry_count": 1
 }

@@ -324,6 +324,12 @@
       "type": "file"
     },
     {
+      "path": "app/_layout.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1789125746380,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/swindle/score/[gameId].tsx",
       "accessCount": 2,
       "lastAccessed": 1789124699926,
@@ -339,6 +345,12 @@
       "path": "src/lib/coachingInsights.ts",
       "accessCount": 2,
       "lastAccessed": 1789125063710,
+      "type": "file"
+    },
+    {
+      "path": "app.json",
+      "accessCount": 2,
+      "lastAccessed": 1789126133414,
       "type": "file"
     },
     {
@@ -381,12 +393,6 @@
       "path": "src/lib/assets.ts",
       "accessCount": 1,
       "lastAccessed": 1789124106671,
-      "type": "file"
-    },
-    {
-      "path": "app/_layout.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1789124456503,
       "type": "file"
     },
     {
