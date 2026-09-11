@@ -344,6 +344,12 @@
       "type": "file"
     },
     {
+      "path": "app.json",
+      "accessCount": 3,
+      "lastAccessed": 1789052379595,
+      "type": "file"
+    },
+    {
       "path": "src/lib/titanNews.ts",
       "accessCount": 2,
       "lastAccessed": 1789028267456,
@@ -485,12 +491,6 @@
       "path": "assets/splash-icon.png",
       "accessCount": 1,
       "lastAccessed": 1789046695933,
-      "type": "file"
-    },
-    {
-      "path": "app.json",
-      "accessCount": 1,
-      "lastAccessed": 1789047137885,
       "type": "file"
     },
     {
