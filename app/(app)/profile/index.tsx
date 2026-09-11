@@ -447,7 +447,7 @@ export default function ProfileScreen() {
               <View style={[s.quickLinkDivider, { backgroundColor: dc.border }]} />
               <QuickLink
                 icon="sparkles-outline"
-                title="Chip & Birdie Coaching"
+                title="McFadey & Driver Coaching"
                 sub="AI analysis of your rounds, course by course"
                 onPress={() => router.push('/(app)/profile/coaching' as any)}
               />

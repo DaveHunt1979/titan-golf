@@ -35,7 +35,7 @@ const TOPICS: Topic[] = [
     body: [
       'Start a round from the Casual Golf tile — pick your format (matchplay, Stableford, Medal and more), add players, choose a course and tee off.',
       'Side games: when you switch on Stableford or Medal as a secondary game, Titan keeps every player scoring all 18 holes even after a matchplay match is decided early (e.g. "3&2") — that extra scoring feeds your side-game result and, in tournaments with an individual standings board enabled, the cumulative Individual (called Kronos in Titan Way) standings.',
-      'Track Stats lets you log fairways, putts and more as you play. Chip & Birdie is Titan\'s voice commentary — toggle it on for eagle/birdie call-outs and light banter during your round.',
+      'Track Stats lets you log fairways, putts and more as you play.',
       'Use the in-round camera to snap a branded photo with your name, course and hole burned into the shot, ready to share.',
       'When the round finishes, everyone in it gets an AI-written match report in their Inbox.',
     ],
@@ -46,7 +46,7 @@ const TOPICS: Topic[] = [
     title: 'Swindle',
     body: [
       'Swindle is your society\'s standalone weekly competition — invite-only membership, with live prize money and season-long stats.',
-      'Join a Swindle session, get grouped in on the first tee, and score the same way you would a Casual round — group scoring, side games and Chip & Birdie voice all work the same way here too.',
+      'Join a Swindle session, get grouped in on the first tee, and score the same way you would a Casual round — group scoring and side games all work the same way here too.',
       'After a Swindle session ends, settlement is worked out automatically and sent to everyone involved as a message in their Inbox — tap it to view and mark it settled.',
     ],
   },

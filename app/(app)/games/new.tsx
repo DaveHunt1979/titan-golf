@@ -17,6 +17,7 @@ import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { getPlayerAvatar } from '../../../src/lib/assets';
 import { downloadMatchPack, downloadCourseGps } from '../../../src/lib/offlinePack';
 import { fetchFavouriteIds, fetchRecentlyPlayedWithIds, toggleFavourite } from '../../../src/lib/playerTiers';
+import { VOICE_FEATURE_ENABLED } from '../../../src/lib/caddie';
 import GroupBuilderSheet, { BuiltMatch, PlayerOverride } from './GroupBuilderSheet';
 import { goBack } from '../../../src/lib/navigation';
 import TeePickerSheet, { fetchCourseTees, SelectableTee } from '../../../src/components/TeePickerSheet';
@@ -1495,13 +1496,17 @@ export default function NewGameScreen() {
           </SettingRow>
           <View style={s.settingDivider} />
 
-          {/* Chip & Birdie */}
-          <SettingRow icon="mic-outline" label="Chip & Birdie" value={voiceEnabled ? 'On' : 'Off'} valueColor={voiceEnabled ? GOLD : '#6b7280'} onPress={() => setVoiceEnabled(v => !v)} s={s} GOLD={GOLD}>
-            <View style={[s.toggle, voiceEnabled && s.toggleOn]}>
-              <View style={[s.toggleThumb, voiceEnabled && s.toggleThumbOn]} />
-            </View>
-          </SettingRow>
-          <View style={s.settingDivider} />
+          {VOICE_FEATURE_ENABLED && (
+            <>
+              {/* Chip & Birdie */}
+              <SettingRow icon="mic-outline" label="Chip & Birdie" value={voiceEnabled ? 'On' : 'Off'} valueColor={voiceEnabled ? GOLD : '#6b7280'} onPress={() => setVoiceEnabled(v => !v)} s={s} GOLD={GOLD}>
+                <View style={[s.toggle, voiceEnabled && s.toggleOn]}>
+                  <View style={[s.toggleThumb, voiceEnabled && s.toggleThumbOn]} />
+                </View>
+              </SettingRow>
+              <View style={s.settingDivider} />
+            </>
+          )}
 
           {/* Track Stats */}
           <SettingRow icon="analytics-outline" label="Track Stats" value={statsEnabled ? 'On' : 'Off'} valueColor={statsEnabled ? GOLD : '#6b7280'} onPress={() => setStatsEnabled(v => !v)} s={s} GOLD={GOLD}>

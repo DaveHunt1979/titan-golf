@@ -18,6 +18,7 @@ import { enqueueSwindleHole } from '../../../../src/lib/swindleOfflineQueue';
 import { goBack } from '../../../../src/lib/navigation';
 import { useSwindleSyncStatus } from '../../../../src/lib/useSwindleSyncStatus';
 import { isNetworkError } from '../../../../src/lib/offlineQueue';
+import { VOICE_FEATURE_ENABLED } from '../../../../src/lib/caddie';
 import { speakIntro, speakBack9, speakOutro, speakPressure } from '../../../../src/lib/caddie';
 import RangeMap from '../../../../src/components/RangeMap';
 
@@ -1079,7 +1080,7 @@ export default function SwindleScoreScreen() {
               </View>
             )}
 
-            {savedScores.length === 0 && !editingHole && (
+            {VOICE_FEATURE_ENABLED && savedScores.length === 0 && !editingHole && (
               <View style={s.startHoleRow}>
                 <Text style={s.startHoleLabel}>CHIP &amp; BIRDIE VOICE</Text>
                 <View style={s.startHoleToggle}>

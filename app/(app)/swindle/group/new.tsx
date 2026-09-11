@@ -11,6 +11,7 @@ import { supabase } from '../../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../../src/lib/navigation';
 import { titanLogo } from '../../../../src/lib/assets';
+import { VOICE_FEATURE_ENABLED } from '../../../../src/lib/caddie';
 
 const GOLD   = '#D4AF37';
 const PURPLE = '#a78bfa';
@@ -40,7 +41,7 @@ export default function SwindleGroupNew() {
   const [teeTime,      setTeeTime]      = useState('');
   const [courseTee,    setCourseTee]    = useState('');
   const [startHole,    setStartHole]    = useState<1 | 10>(1);
-  const [voiceOn,      setVoiceOn]      = useState(true);
+  const [voiceOn,      setVoiceOn]      = useState(false);
   const [members,      setMembers]      = useState<SwindleMember[]>([]);
   const [selected,     setSelected]     = useState<Set<string>>(new Set());
   const [myId,         setMyId]         = useState<string | null>(null);
@@ -261,25 +262,28 @@ export default function SwindleGroupNew() {
           ))}
         </View>
 
-        {/* Chip & Birdie voice — on by default, group can mute it */}
-        <Text style={[s.fieldLabel, { marginTop: 20 }]}>CHIP &amp; BIRDIE VOICE</Text>
-        <View style={s.toggleRow}>
-          {([true, false] as const).map(v => (
-            <TouchableOpacity
-              key={String(v)}
-              style={[s.toggleBtn, voiceOn === v && s.toggleBtnActive]}
-              onPress={() => setVoiceOn(v)}
-              activeOpacity={0.8}
-            >
-              <Text style={[s.toggleText, voiceOn === v && s.toggleTextActive]}>
-                {v ? 'On' : 'Off'}
-              </Text>
-              <Text style={[s.toggleSub, voiceOn === v && s.toggleSubActive]}>
-                {v ? 'Commentary on checkpoints' : 'Silent round'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {VOICE_FEATURE_ENABLED && (
+          <>
+            <Text style={[s.fieldLabel, { marginTop: 20 }]}>CHIP &amp; BIRDIE VOICE</Text>
+            <View style={s.toggleRow}>
+              {([true, false] as const).map(v => (
+                <TouchableOpacity
+                  key={String(v)}
+                  style={[s.toggleBtn, voiceOn === v && s.toggleBtnActive]}
+                  onPress={() => setVoiceOn(v)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.toggleText, voiceOn === v && s.toggleTextActive]}>
+                    {v ? 'On' : 'Off'}
+                  </Text>
+                  <Text style={[s.toggleSub, voiceOn === v && s.toggleSubActive]}>
+                    {v ? 'Commentary on checkpoints' : 'Silent round'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
 
         {/* Player picker */}
         <View style={s.sectionRow}>

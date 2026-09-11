@@ -18,9 +18,9 @@ import {
   type EligibleCourse, type CoachingReport, type HoleStat,
 } from '../../../src/lib/coachingInsights';
 
-// Chip & Birdie's portraits and the banter-bubble layout are fixed Titan
-// branding regardless of society theme — same gold used by Titan News'
-// identical banter row (app/(app)/news/index.tsx).
+// Davey McFadey & Rick Driver's portraits and the banter-bubble layout are
+// fixed Titan branding regardless of society theme — same gold used by
+// Titan News' identical banter row (app/(app)/news/index.tsx).
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
 const RED   = '#f87171';
@@ -77,7 +77,7 @@ export default function CoachingScreen() {
       const saved = await generateCoachingReport(playerId, selectedCourse);
       setReport(saved);
     } catch (e: any) {
-      Alert.alert('Could not generate report', e.message ?? 'Chip and Birdie are stuck in the clubhouse. Try again shortly.');
+      Alert.alert('Could not generate report', e.message ?? 'Davey and Rick are stuck in the clubhouse. Try again shortly.');
     } finally {
       setGenerating(false);
     }
@@ -111,12 +111,12 @@ export default function CoachingScreen() {
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <Image source={localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo)} style={s.headerLogo} resizeMode="contain" />
-          <Text style={[s.title, { color: dc.white }]}>CHIP &amp; BIRDIE COACHING</Text>
+          <Text style={[s.title, { color: dc.white }]}>McFADEY &amp; DRIVER COACHING</Text>
         </View>
         <View style={s.headerSide} />
       </View>
       <Text style={s.subtitle}>
-        {selectedCourse ?? 'Chip and Birdie break down your game, hole by hole, course by course'}
+        {selectedCourse ?? 'Davey McFadey and Rick Driver break down your game, hole by hole, course by course'}
       </Text>
 
       <ScrollView
@@ -150,7 +150,7 @@ function CourseList({ courses, onSelect, dc }: {
       <View style={s.empty}>
         <Text style={s.emptyEmoji}>⛳</Text>
         <Text style={[s.emptyTitle, { color: dc.white }]}>No coaching report yet</Text>
-        <Text style={s.emptySub}>Play 3 or more rounds at the same course and Chip &amp; Birdie will find the patterns in your game there.</Text>
+        <Text style={s.emptySub}>Play 3 or more rounds at the same course and Davey &amp; Rick will find the patterns in your game there.</Text>
       </View>
     );
   }
@@ -181,7 +181,7 @@ function ReportView({ report, generating, onGenerate }: {
       <View style={s.empty}>
         <Text style={s.emptyEmoji}>📋</Text>
         <Text style={[s.emptyTitle, { color: '#fff' }]}>No report yet for this course</Text>
-        <Text style={s.emptySub}>Chip and Birdie will go through your rounds here and write you up a report.</Text>
+        <Text style={s.emptySub}>Davey and Rick will go through your rounds here and write you up a report.</Text>
         <GenerateButton generating={generating} onPress={onGenerate} label="Generate My Report" />
       </View>
     );

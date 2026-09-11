@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   TextInput, Image, Alert, ActivityIndicator,
-  KeyboardAvoidingView, Platform, Animated,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -12,78 +12,13 @@ import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
 import { usePlatformAdmin } from '../../../src/lib/usePlatformAdmin';
 import { uploadImage } from '../../../src/lib/uploadImage';
-import { useDynamicColors, derivePalette } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
 
 const GOLD = '#D4AF37';
 const GREEN = '#4ade80';
-const RED = '#f87171';
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
-
-const BG_SWATCHES = [
-  { label: 'Titan (Classic)', hex: GOLD },
-  { label: 'Midnight',   hex: '#0A0A1A' },
-  { label: 'Deep Navy',  hex: '#000035' },
-  { label: 'Royal Navy', hex: '#001F5B' },
-  { label: 'Navy',       hex: '#003087' },
-  { label: 'Forest',     hex: '#0D3321' },
-  { label: 'Dark Slate', hex: '#1A1A2E' },
-  { label: 'Graphite',   hex: '#1C1C1E' },
-  { label: 'Espresso',   hex: '#1A0A00' },
-];
-
-const ACCENT_SWATCHES = [
-  { label: 'Gold',    hex: '#D4AF37' },
-  { label: 'Silver',  hex: '#C4CEDB' },
-  { label: 'Steel',   hex: '#8898A8' },
-  { label: 'White',   hex: '#F0F0F0' },
-  { label: 'Sky',     hex: '#0284C7' },
-  { label: 'Emerald', hex: '#059669' },
-  { label: 'Teal',    hex: '#2B8A8A' },
-  { label: 'Crimson', hex: '#9B2335' },
-  { label: 'Purple',  hex: '#6B3FA0' },
-  { label: 'Copper',  hex: '#C2611F' },
-  { label: 'Rose',    hex: '#BE185D' },
-  { label: 'Lime',    hex: '#65A30D' },
-];
-
-function isValidHex(h: string) {
-  return /^#[0-9A-Fa-f]{6}$/.test(h);
-}
-
-function SplashPreview({ name, logoUri, primary, secondary }: {
-  name: string; logoUri: string | null; primary: string; secondary: string;
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const palette = derivePalette(primary, secondary);
-
-  useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(scale, { toValue: 1.12, duration: 700, useNativeDriver: true }),
-        Animated.timing(scale, { toValue: 1.0,  duration: 700, useNativeDriver: true }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, []);
-
-  return (
-    <View style={[prev.box, { backgroundColor: palette.bg }]}>
-      <Animated.Image
-        source={logoUri ? { uri: logoUri } : titanLogo}
-        style={[prev.logo, { transform: [{ scale }] }]}
-        resizeMode="contain"
-      />
-      <Text style={[prev.name, { color: palette.text, fontFamily: FFB }]} numberOfLines={1}>
-        {name || 'Your Society'}
-      </Text>
-      <Text style={[prev.sub, { color: palette.accent, fontFamily: FFB }]}>Loading…</Text>
-    </View>
-  );
-}
 
 export default function SocietyBrandingScreen() {
   const router  = useRouter();
@@ -101,10 +36,6 @@ export default function SocietyBrandingScreen() {
 
   const [name,           setName]           = useState('');
   const [tagline,        setTagline]        = useState('');
-  const [primaryColor,   setPrimaryColor]   = useState('#001F5B');
-  const [secondaryColor, setSecondaryColor] = useState('#C4CEDB');
-  const [primaryHex,     setPrimaryHex]     = useState('#001F5B');
-  const [secondaryHex,   setSecondaryHex]   = useState('#C4CEDB');
   const [logoUrl,        setLogoUrl]        = useState<string | null>(null);
   const [logoLocalUri,   setLogoLocalUri]   = useState<string | null>(null);
   const [heroUrl,        setHeroUrl]        = useState<string | null>(null);
@@ -119,29 +50,17 @@ export default function SocietyBrandingScreen() {
   });
 
   useEffect(() => {
-    if (secondaryHex !== secondaryColor) setSecondaryHex(secondaryColor);
-  }, [secondaryColor]);
-
-  useEffect(() => {
-    if (primaryHex !== primaryColor) setPrimaryHex(primaryColor);
-  }, [primaryColor]);
-
-  useEffect(() => {
     if (societyLoading || !societyId) return;
     (async () => {
       const { data } = await supabase
         .from('societies')
-        .select('name, tagline, primary_color, secondary_color, logo_url, hero_url, instagram_url')
+        .select('name, tagline, logo_url, hero_url, instagram_url')
         .eq('id', societyId)
         .single();
       if (data) {
         const d = data as any;
         setName(d.name ?? '');
         setTagline(d.tagline ?? '');
-        const pc = d.primary_color   ?? '#001F5B';
-        const sc = d.secondary_color ?? '#C4CEDB';
-        setPrimaryColor(pc);   setPrimaryHex(pc);
-        setSecondaryColor(sc); setSecondaryHex(sc);
         setLogoUrl(d.logo_url ?? null);
         setHeroUrl(d.hero_url ?? null);
         setInstagramUrl(d.instagram_url ?? '');
@@ -149,18 +68,6 @@ export default function SocietyBrandingScreen() {
       setLoading(false);
     })();
   }, [societyId, societyLoading]);
-
-  function applyPrimaryHex(raw: string) {
-    const h = raw.startsWith('#') ? raw : '#' + raw;
-    setPrimaryHex(h);
-    if (isValidHex(h)) setPrimaryColor(h);
-  }
-
-  function applySecondaryHex(raw: string) {
-    const h = raw.startsWith('#') ? raw : '#' + raw;
-    setSecondaryHex(h);
-    if (isValidHex(h)) setSecondaryColor(h);
-  }
 
   async function pickLogo() {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -198,8 +105,6 @@ export default function SocietyBrandingScreen() {
       const { error } = await supabase.from('societies').update({
         name:            name.trim() || undefined,
         tagline:         tagline.trim() || null,
-        primary_color:   primaryColor,
-        secondary_color: secondaryColor,
         logo_url:        finalLogoUrl,
         hero_url:        finalHeroUrl,
         instagram_url:   normalizedInsta || null,
@@ -265,28 +170,16 @@ export default function SocietyBrandingScreen() {
 
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
-        {/* Splash Preview */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>LOADING SCREEN PREVIEW</Text>
-          <SplashPreview
-            name={name}
-            logoUri={displayUri}
-            primary={primaryColor}
-            secondary={secondaryColor}
-          />
-          <Text style={s.hint}>This is exactly what members see when they open the app.</Text>
-        </View>
-
         {/* Logo */}
         <View style={s.section}>
           <Text style={s.sectionLabel}>SOCIETY LOGO</Text>
           <View style={s.logoCard}>
             <View style={s.logoRow}>
               <TouchableOpacity onPress={pickLogo} activeOpacity={0.8}>
-                <View style={[s.logoCircle, { borderColor: primaryColor }]}>
+                <View style={[s.logoCircle, { borderColor: GOLD }]}>
                   {displayUri
                     ? <Image source={{ uri: displayUri }} style={s.logoImg} />
-                    : <View style={[s.logoPlaceholder, { backgroundColor: primaryColor + '22' }]}>
+                    : <View style={[s.logoPlaceholder, { backgroundColor: GOLD + '22' }]}>
                         <Text style={s.logoPlaceholderIcon}>⛳</Text>
                       </View>
                   }
@@ -372,22 +265,6 @@ export default function SocietyBrandingScreen() {
           <Text style={s.hint}>Enter @handle or https://www.instagram.com/yoursociety</Text>
         </View>
 
-        {/* Background Colour */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>BACKGROUND COLOUR</Text>
-          <Text style={s.hint2}>Choose a dark colour — this becomes the app background. "Titan (Classic)" resets to Titan's standard black &amp; gold look.</Text>
-          <ColorSwatches swatches={BG_SWATCHES} selected={primaryColor} onSelect={setPrimaryColor} />
-          <HexInput label="Custom hex" value={primaryHex} onChange={applyPrimaryHex} accent={primaryColor} />
-        </View>
-
-        {/* Accent Colour */}
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>ACCENT COLOUR</Text>
-          <Text style={s.hint2}>Icons, highlights, active tabs — choose a light or vibrant colour.</Text>
-          <ColorSwatches swatches={ACCENT_SWATCHES} selected={secondaryColor} onSelect={setSecondaryColor} />
-          <HexInput label="Custom hex" value={secondaryHex} onChange={applySecondaryHex} accent={secondaryColor} />
-        </View>
-
         <TouchableOpacity
           style={[s.saveButton, saving && { opacity: 0.5 }]}
           onPress={save} disabled={saving} activeOpacity={0.8}
@@ -400,55 +277,6 @@ export default function SocietyBrandingScreen() {
 
       </ScrollView>
     </KeyboardAvoidingView>
-  );
-}
-
-function ColorSwatches({ swatches, selected, onSelect }: {
-  swatches: { label: string; hex: string }[];
-  selected: string;
-  onSelect: (hex: string) => void;
-}) {
-  const selectedSwatch = swatches.find(s => s.hex.toLowerCase() === selected.toLowerCase());
-  return (
-    <View style={sw.wrap}>
-      <View style={sw.grid}>
-        {swatches.map(s => {
-          const isOn = selected.toLowerCase() === s.hex.toLowerCase();
-          return (
-            <TouchableOpacity
-              key={s.hex}
-              style={[sw.swatch, { backgroundColor: s.hex }, isOn && sw.swatchOn]}
-              onPress={() => onSelect(s.hex)}
-              activeOpacity={0.8}
-            >
-              {isOn && <Text style={sw.tick}>✓</Text>}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-      {selectedSwatch && <Text style={sw.label}>{selectedSwatch.label}</Text>}
-    </View>
-  );
-}
-
-function HexInput({ label, value, onChange, accent }: {
-  label: string; value: string; onChange: (v: string) => void; accent: string;
-}) {
-  const valid = isValidHex(value);
-  return (
-    <View style={hi.row}>
-      <View style={[hi.preview, { backgroundColor: valid ? value : '#444' }]} />
-      <TextInput
-        style={[hi.input, { borderColor: valid ? GOLD : RED }]}
-        value={value}
-        onChangeText={onChange}
-        autoCapitalize="none"
-        autoCorrect={false}
-        maxLength={7}
-        placeholder="#000000"
-        placeholderTextColor="#444"
-      />
-    </View>
   );
 }
 
@@ -480,7 +308,6 @@ const s = StyleSheet.create({
     letterSpacing: 2, marginBottom: 8,
   },
   hint:  { fontSize: 12, fontFamily: FFB, color: '#fff', marginTop: 8, lineHeight: 17 },
-  hint2: { fontSize: 12, fontFamily: FFB, color: '#fff', marginBottom: 12 },
 
   // Logo card
   logoCard: {
@@ -526,36 +353,3 @@ const s = StyleSheet.create({
   saveButtonText: { fontSize: 15, fontFamily: FFB, color: '#000', letterSpacing: 0.5 },
 });
 
-const prev = StyleSheet.create({
-  box: {
-    borderRadius: 16, height: 200,
-    alignItems: 'center', justifyContent: 'center', gap: 10,
-    overflow: 'hidden',
-  },
-  logo: { width: 80, height: 80 },
-  name: { fontSize: 18, fontWeight: '800', letterSpacing: 1 },
-  sub:  { fontSize: 11, fontWeight: '600', letterSpacing: 2 },
-});
-
-const sw = StyleSheet.create({
-  wrap:     { marginBottom: 10 },
-  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 8 },
-  swatch: {
-    width: 44, height: 44, borderRadius: 22,
-    borderWidth: 2, borderColor: 'transparent',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  swatchOn: { borderWidth: 3, borderColor: GOLD, transform: [{ scale: 1.12 }] },
-  tick:     { color: '#ffffff', fontSize: 16, fontWeight: '800' },
-  label:    { fontSize: 11, fontFamily: FFB, color: '#fff', minHeight: 16 },
-});
-
-const hi = StyleSheet.create({
-  row:     { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
-  preview: { width: 32, height: 32, borderRadius: 8 },
-  input: {
-    flex: 1, backgroundColor: '#111', borderWidth: 1.5, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 10,
-    fontSize: 15, fontFamily: FFB, color: '#fff',
-  },
-});

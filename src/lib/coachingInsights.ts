@@ -47,7 +47,7 @@ export interface CoachingReport {
   strongest_holes: HoleStat[];
   problem_holes: HoleStat[];
   suggestions: string[];
-  banter_speaker: 'chip' | 'birdie' | null;
+  banter_speaker: 'mcfadey' | 'driver' | null;
   banter_text: string | null;
   updated_at: string;
 }

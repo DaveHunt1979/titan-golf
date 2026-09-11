@@ -13,11 +13,6 @@ const FF   = 'JUSTSans';
 const FFB  = 'JUSTSans-ExBold';
 const titanLogo = require('../../assets/TitanAppLogo.png');
 
-const SOCIETY_COLORS = [
-  '#D4AF37', '#1e3a8a', '#166534', '#7c3aed',
-  '#dc2626', '#0891b2', '#9a3412', '#374151',
-];
-
 const PLANS = [
   { id: 'free',    label: 'Free',    price: 'Free forever', sub: 'Up to 20 players · 1 active competition' },
   { id: 'society', label: 'Society', price: '£9.99/month',  sub: 'Unlimited players & competitions' },
@@ -34,7 +29,6 @@ export default function CreateSocietyScreen() {
   const [ownerName, setOwnerName]     = useState('');
   const [email, setEmail]             = useState('');
   const [password, setPassword]       = useState('');
-  const [color, setColor]             = useState(SOCIETY_COLORS[0]);
   const [plan, setPlan]               = useState('free');
   const [pin, setPin]                 = useState('');
 
@@ -58,8 +52,6 @@ export default function CreateSocietyScreen() {
       if (password.length < 6) { Alert.alert('Password too short', 'Minimum 6 characters.'); return; }
       setStep(2);
     } else if (step === 2) {
-      setStep(3);
-    } else if (step === 3) {
       create();
     }
   }
@@ -77,7 +69,7 @@ export default function CreateSocietyScreen() {
       const { data, error } = await supabase.rpc('create_society_with_owner', {
         p_name:          societyName.trim(),
         p_slug:          slugify(societyName.trim()),
-        p_primary_color: color,
+        p_primary_color: GOLD,
         p_plan_tier:     plan,
         p_owner_name:    ownerName.trim(),
         p_auth_uid:      authData.user.id,
@@ -126,7 +118,6 @@ export default function CreateSocietyScreen() {
   const STEPS = [
     { title: 'Your Society',     sub: "What's your society called?" },
     { title: 'Admin Account',    sub: 'Create your admin login' },
-    { title: 'Society Branding', sub: 'Pick your society colour' },
     { title: 'Choose a Plan',    sub: 'You can change this any time' },
   ];
 
@@ -142,14 +133,14 @@ export default function CreateSocietyScreen() {
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
         <View style={s.dots}>
-          {[0, 1, 2, 3].map(i => (
+          {[0, 1, 2].map(i => (
             <View key={i} style={[s.dot, i <= step && s.dotOn]} />
           ))}
         </View>
       </View>
 
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
-        <Text style={s.stepLabel}>STEP {step + 1} OF 4</Text>
+        <Text style={s.stepLabel}>STEP {step + 1} OF 3</Text>
         <Text style={s.stepTitle}>{STEPS[step].title}</Text>
         <Text style={s.stepSub}>{STEPS[step].sub}</Text>
 
@@ -178,25 +169,6 @@ export default function CreateSocietyScreen() {
         )}
 
         {step === 2 && (
-          <View style={s.card}>
-            <View style={s.colorGrid}>
-              {SOCIETY_COLORS.map(c => (
-                <TouchableOpacity
-                  key={c}
-                  style={[s.swatch, { backgroundColor: c }, color === c && s.swatchOn]}
-                  onPress={() => setColor(c)}
-                  activeOpacity={0.8}
-                />
-              ))}
-            </View>
-            <View style={[s.colorPreview, { backgroundColor: color + '22', borderColor: color + '55' }]}>
-              <View style={[s.colorDot, { backgroundColor: color }]} />
-              <Text style={[s.colorName, { color }]}>{societyName || 'Your Society'}</Text>
-            </View>
-          </View>
-        )}
-
-        {step === 3 && (
           <View style={{ gap: 12 }}>
             {PLANS.map(p => (
               <TouchableOpacity
@@ -221,7 +193,7 @@ export default function CreateSocietyScreen() {
         )}
 
         <TouchableOpacity style={s.nextBtn} onPress={next} activeOpacity={0.85}>
-          <Text style={s.nextBtnText}>{step === 3 ? 'Create Society' : 'Next'}</Text>
+          <Text style={s.nextBtnText}>{step === 2 ? 'Create Society' : 'Next'}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -277,20 +249,6 @@ const s = StyleSheet.create({
   fieldLabel:  { fontSize: 10, fontFamily: FFB, color: '#fff', letterSpacing: 1.5, marginBottom: 4 },
   fieldInput:  { fontSize: 16, fontFamily: FFB, color: '#fff' },
   slugPreview: { fontSize: 12, fontFamily: FFB, color: '#fff', paddingHorizontal: 16, paddingBottom: 12 },
-
-  colorGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 12,
-    justifyContent: 'center', padding: 16,
-  },
-  swatch:   { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: 'transparent' },
-  swatchOn: { borderColor: '#fff', transform: [{ scale: 1.1 }] },
-  colorPreview: {
-    margin: 16, marginTop: 0, borderRadius: 12,
-    borderWidth: 1, padding: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-  },
-  colorDot:  { width: 12, height: 12, borderRadius: 6 },
-  colorName: { fontSize: 16, fontFamily: FFB },
 
   planCard: {
     backgroundColor: '#111', borderRadius: 12,

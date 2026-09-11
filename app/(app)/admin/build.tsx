@@ -17,6 +17,7 @@ import { uploadImage } from '../../../src/lib/uploadImage';
 import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 import { individualBoardLabel, getFormatRules, checkTitanWayStructure, FORMAT_RULES, type FormatId, type FormatRules } from '../../../src/lib/tournamentFormat';
+import { VOICE_FEATURE_ENABLED } from '../../../src/lib/caddie';
 import PrizeCategoriesEditor from '../../../src/components/PrizeCategoriesEditor';
 import { ukDateToIso, isoToUk, ukDateToDate, dateToUk, dateToHm, hmToDate } from '../../../src/lib/dateHelpers';
 import { DEFAULT_HANDICAP_CUT_BANDS, type HandicapCutBand } from '../../../src/lib/tournamentHandicap';
@@ -1534,19 +1535,23 @@ export default function BuildTournamentScreen() {
               </>
             )}
 
-            <Text style={styles.fieldLabel}>CHIP & BIRDIE</Text>
-            <View style={styles.toggleRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.toggleLabel}>Voice commentary</Text>
-                <Text style={styles.toggleSub}>Same Chip & Birdie voice calls already used in Casual Golf</Text>
-              </View>
-              <Switch
-                value={voiceEnabled}
-                onValueChange={setVoiceEnabled}
-                trackColor={{ false: '#1c1c1c', true: `${GOLD}66` }}
-                thumbColor={voiceEnabled ? GOLD : '#555'}
-              />
-            </View>
+            {VOICE_FEATURE_ENABLED && (
+              <>
+                <Text style={styles.fieldLabel}>CHIP & BIRDIE</Text>
+                <View style={styles.toggleRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.toggleLabel}>Voice commentary</Text>
+                    <Text style={styles.toggleSub}>Same Chip & Birdie voice calls already used in Casual Golf</Text>
+                  </View>
+                  <Switch
+                    value={voiceEnabled}
+                    onValueChange={setVoiceEnabled}
+                    trackColor={{ false: '#1c1c1c', true: `${GOLD}66` }}
+                    thumbColor={voiceEnabled ? GOLD : '#555'}
+                  />
+                </View>
+              </>
+            )}
 
             <Text style={styles.fieldLabel}>TRACK STATS</Text>
             <View style={styles.toggleRow}>

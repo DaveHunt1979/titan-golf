@@ -19,17 +19,6 @@ const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 const titanLogo = require('../../../assets/TitanAppLogo.png');
 
-const SWATCHES = [
-  { label: 'Gold',    hex: '#D4AF37' },
-  { label: 'Navy',    hex: '#1B3A5C' },
-  { label: 'Forest',  hex: '#2D6A4F' },
-  { label: 'Crimson', hex: '#9B2335' },
-  { label: 'Purple',  hex: '#6B3FA0' },
-  { label: 'Steel',   hex: '#4A5568' },
-  { label: 'Teal',    hex: '#2B8A8A' },
-  { label: 'Copper',  hex: '#C2611F' },
-];
-
 const PLANS = [
   {
     id: 'free' as const,
@@ -68,16 +57,14 @@ export default function CreateSocietyScreen() {
   const [step, setStep]               = useState(0);
   const [societyName, setSocietyName] = useState('');
   const [adminName, setAdminName]     = useState('');
-  const [primaryColor, setPrimaryColor] = useState('#D4AF37');
   const [plan, setPlan]               = useState<PlanTier>('society');
   const [logoUri, setLogoUri]         = useState<string | null>(null);
   const [heroUri, setHeroUri]         = useState<string | null>(null);
   const [loading, setLoading]         = useState(false);
   const [result, setResult]           = useState<{ pin: string; name: string } | null>(null);
 
-  const slug          = toSlug(societyName);
-  const canProceed0   = societyName.trim().length > 1 && adminName.trim().length > 1;
-  const selectedSwatch = SWATCHES.find(s => s.hex === primaryColor);
+  const slug        = toSlug(societyName);
+  const canProceed0 = societyName.trim().length > 1 && adminName.trim().length > 1;
 
   async function pickImage(target: 'logo' | 'hero') {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -98,7 +85,7 @@ export default function CreateSocietyScreen() {
     const { data, error } = await supabase.rpc('create_society_with_owner', {
       p_name:          societyName.trim(),
       p_slug:          slug,
-      p_primary_color: primaryColor,
+      p_primary_color: GOLD,
       p_plan_tier:     plan,
       p_owner_name:    adminName.trim(),
       p_auth_uid:      user.id,
@@ -213,28 +200,10 @@ export default function CreateSocietyScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.stepTitle}>Society Colours</Text>
-          <Text style={styles.stepSub}>Pick a primary colour for your society branding.</Text>
+          <Text style={styles.stepTitle}>Society Branding</Text>
+          <Text style={styles.stepSub}>Add your society logo and hero photo.</Text>
 
-          <View style={[styles.previewBanner, { backgroundColor: primaryColor }]}>
-            <Text style={styles.previewName}>{societyName}</Text>
-          </View>
-
-          <View style={styles.swatchGrid}>
-            {SWATCHES.map(s => (
-              <TouchableOpacity
-                key={s.hex}
-                style={[styles.swatch, { backgroundColor: s.hex }, primaryColor === s.hex && styles.swatchOn]}
-                onPress={() => setPrimaryColor(s.hex)}
-                activeOpacity={0.8}
-              >
-                {primaryColor === s.hex && <Text style={styles.swatchTick}>✓</Text>}
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text style={styles.swatchLabel}>{selectedSwatch?.label ?? ''}</Text>
-
-          <Text style={[styles.fieldLabel, { marginTop: 8 }]}>LOGO &amp; HERO IMAGE</Text>
+          <Text style={styles.fieldLabel}>LOGO &amp; HERO IMAGE</Text>
           <Text style={styles.hint}>Optional — you can always add or change these later in Admin → Branding.</Text>
 
           <View style={styles.imageRow}>
@@ -284,17 +253,17 @@ export default function CreateSocietyScreen() {
           {PLANS.map(p => (
             <TouchableOpacity
               key={p.id}
-              style={[styles.planCard, plan === p.id && { borderColor: primaryColor, borderWidth: 2 }]}
+              style={[styles.planCard, plan === p.id && { borderColor: GOLD, borderWidth: 2 }]}
               onPress={() => setPlan(p.id)}
               activeOpacity={0.8}
             >
               <View style={styles.planTop}>
-                <Text style={[styles.planName, plan === p.id && { color: primaryColor }]}>{p.label}</Text>
+                <Text style={[styles.planName, plan === p.id && { color: GOLD }]}>{p.label}</Text>
                 <Text style={styles.planPrice}>{p.price}</Text>
               </View>
               {p.features.map(f => (
                 <View key={f} style={styles.planFeatureRow}>
-                  <Text style={[styles.planTick, plan === p.id && { color: primaryColor }]}>✓</Text>
+                  <Text style={[styles.planTick, plan === p.id && { color: GOLD }]}>✓</Text>
                   <Text style={styles.planFeature}>{f}</Text>
                 </View>
               ))}
@@ -302,7 +271,7 @@ export default function CreateSocietyScreen() {
           ))}
 
           <TouchableOpacity
-            style={[styles.btn, { backgroundColor: primaryColor }, loading && styles.btnDisabled]}
+            style={[styles.btn, { backgroundColor: GOLD }, loading && styles.btnDisabled]}
             onPress={create}
             disabled={loading}
             activeOpacity={0.8}
@@ -322,7 +291,7 @@ export default function CreateSocietyScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={[styles.scroll, styles.successScroll]}>
-        <View style={[styles.successBadge, { backgroundColor: primaryColor + '22', borderColor: primaryColor }]}>
+        <View style={[styles.successBadge, { backgroundColor: GOLD + '22', borderColor: GOLD }]}>
           <Text style={{ fontSize: 48 }}>⛳</Text>
         </View>
 
@@ -331,16 +300,16 @@ export default function CreateSocietyScreen() {
           Share the PIN below with your members. They'll enter it in the app to join your society.
         </Text>
 
-        <View style={[styles.pinCard, { borderColor: primaryColor }]}>
+        <View style={[styles.pinCard, { borderColor: GOLD }]}>
           <Text style={styles.pinLabel}>JOIN PIN</Text>
-          <Text style={[styles.pinNumber, { color: primaryColor }]}>
+          <Text style={[styles.pinNumber, { color: GOLD }]}>
             {result?.pin.slice(0, 3)}{' '}{result?.pin.slice(3)}
           </Text>
           <Text style={styles.pinHint}>Members enter this PIN when they sign up</Text>
         </View>
 
         <TouchableOpacity
-          style={[styles.btn, { backgroundColor: primaryColor }]}
+          style={[styles.btn, { backgroundColor: GOLD }]}
           onPress={() => router.replace('/(app)/admin' as any)}
           activeOpacity={0.8}
         >
@@ -405,25 +374,6 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.4 },
   btnText: { fontSize: 15, fontFamily: FFB, color: '#000', letterSpacing: 0.5 },
-
-  previewBanner: {
-    borderRadius: 12, paddingVertical: 20,
-    alignItems: 'center', marginBottom: 24,
-  },
-  previewName: { fontSize: 18, fontFamily: FFB, color: '#fff', letterSpacing: 0.5 },
-
-  swatchGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 16,
-    justifyContent: 'center', marginBottom: 10,
-  },
-  swatch: {
-    width: 60, height: 60, borderRadius: 30,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: 'transparent',
-  },
-  swatchOn:   { borderColor: '#fff' },
-  swatchTick: { fontSize: 24, color: '#fff', fontFamily: FFB },
-  swatchLabel: { textAlign: 'center', fontSize: 13, fontFamily: FFB, color: '#fff', marginBottom: 20, minHeight: 20 },
 
   planCard: {
     backgroundColor: '#111', borderRadius: 12,

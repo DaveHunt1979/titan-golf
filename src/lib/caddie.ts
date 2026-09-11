@@ -2,6 +2,11 @@ import { supabase } from './supabase';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Audio } from 'expo-av';
 
+// Chip & Birdie retired 2026-09-11 (Rick prefers the McFadey/Driver personas) —
+// every voice path in the app funnels through playBase64Audio below, so this
+// single flag silences all of it until Dave records McFadey & Driver voices.
+export const VOICE_FEATURE_ENABLED = false;
+
 let audioQueue: Promise<void> = Promise.resolve();
 
 // Queues audio so voices never overlap — each clip waits for the previous to
@@ -22,6 +27,7 @@ function playWithTimeout(b64: string): Promise<void> {
 }
 
 export function playBase64Audio(b64: string): Promise<void> {
+  if (!VOICE_FEATURE_ENABLED) return Promise.resolve();
   audioQueue = audioQueue.then(() => playWithTimeout(b64));
   return audioQueue;
 }
