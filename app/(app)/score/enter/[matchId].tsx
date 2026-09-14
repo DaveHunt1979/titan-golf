@@ -13,7 +13,7 @@ import { supabase, freshChannel, fetchAllRows } from '../../../../src/lib/supaba
 import {
   calcHoles, matchLabel, isDormie,
   calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, individualScoreValue,
-  scoreVsPar, formatVsPar, SCORE_COLORS,
+  scoreVsPar, formatVsPar, SCORE_COLORS, scramblePairEffectiveHcp,
 } from '../../../../src/lib/scoring';
 import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 import { computeAndSaveHoleScores } from '../../../../src/lib/matchScoring';
@@ -617,6 +617,17 @@ export default function EnterScoresScreen() {
   }
 
   const allPlayerIds = match ? [...match.home_player_ids, ...match.away_player_ids] : [];
+  // One entry per SCORING unit, which is normally one player — 2v2 Match Play
+  // Scramble (Skullers Scramble Day 1) is the exception: a pair plays one
+  // shared ball, so the entry sheet steps through two sides instead of four
+  // players and writes that single gross onto both of the pair's rows, the
+  // same shape Casual Golf's Scramble card already saves. Everything
+  // downstream (matchScoring's best-of-the-side comparison, the scorecard
+  // grid, the leaderboards) then works unchanged off two identical rows.
+  const isScramblePair = match?.handicap_method === 'scramble_pair';
+  const scoreUnits: string[][] = isScramblePair && match
+    ? [match.home_player_ids, match.away_player_ids].filter(ids => ids.length > 0)
+    : allPlayerIds.map(id => [id]);
   const shotAllocationInitials = Object.fromEntries(
     dedupeInitials(allPlayerIds.map(id => playerNames[id] ?? '?')).map((initials, i) => [allPlayerIds[i], initials])
   );
@@ -677,6 +688,16 @@ export default function EnterScoresScreen() {
   // stays on each player's own full handicap).
   function matchplayHcp(id: string): number {
     const base = playerCourseHcp(id, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100, roundPlayerTees);
+    // 2v2 Match Play Scramble: both players of a pair are allocated strokes
+    // off the pair's single blended handicap (35% low + 15% high), relative to
+    // the opposing pair's. Must stay identical to matchScoring.ts's own
+    // matchplayHcp — this copy only drives what the screen DISPLAYS.
+    if (match?.handicap_method === 'scramble_pair') {
+      const resolve = (ids: string[]) => ids.map(pid => playerCourseHcp(pid, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100, roundPlayerTees));
+      return scramblePairEffectiveHcp(
+        resolve(match.home_player_ids), resolve(match.away_player_ids), match.home_player_ids.includes(id),
+      );
+    }
     if (match?.handicap_method !== 'relative_low' && match?.handicap_method !== 'relative_low_stableford') return base;
     const groupHcps = allPlayerIds.map(pid => playerCourseHcp(pid, compPlayers, match?.day ?? null, match?.hcp_allowance ?? 100, roundPlayerTees));
     return Math.max(0, base - Math.min(...groupHcps));
@@ -687,9 +708,15 @@ export default function EnterScoresScreen() {
     ? allPlayerIds.filter(id => calcStrokesReceived(matchplayHcp(id), courseHole.stroke_index) >= 1)
     : [];
 
-  const modalPlayerId = allPlayerIds[modalPlayerIdx] ?? null;
+  // The unit currently being scored, and its first player — every per-player
+  // lookup below (avatar, team colour, strokes received) reads the same value
+  // for either player of a scramble pair, so the first stands in for the pair.
+  const modalUnitIds = scoreUnits[modalPlayerIdx] ?? [];
+  const modalPlayerId = modalUnitIds[0] ?? null;
   const isHomePlayer = modalPlayerId ? match?.home_player_ids.includes(modalPlayerId) : false;
-  const modalPlayerName = modalPlayerId ? (playerNames[modalPlayerId] ?? '?') : '';
+  const modalPlayerName = modalUnitIds.length > 1
+    ? modalUnitIds.map(id => (playerNames[id] ?? '?').split(' ')[0]).join(' & ')
+    : (modalPlayerId ? (playerNames[modalPlayerId] ?? '?') : '');
   const modalTeamColor = isHomePlayer
     ? (match?.home_team?.accent_color ?? GOLD)
     : (match?.away_team?.accent_color ?? '#6366f1');
@@ -711,9 +738,9 @@ export default function EnterScoresScreen() {
         if (g != null) preScores[id] = g;
       }
     }
-    const myIdx = myPlayerId ? allPlayerIds.indexOf(myPlayerId) : -1;
+    const myIdx = myPlayerId ? scoreUnits.findIndex(ids => ids.includes(myPlayerId)) : -1;
     const startIdx = !hole && myIdx >= 0 ? myIdx : 0;
-    const firstId = allPlayerIds[startIdx];
+    const firstId = scoreUnits[startIdx]?.[0];
     setHoleScores(preScores);
     setHoleStatMap({});
     setSelectedScore(hole && firstId ? (holeData[firstId]?.[hole]?.gross ?? null) : null);
@@ -730,22 +757,26 @@ export default function EnterScoresScreen() {
   function submitPlayerScore() {
     if (selectedScore === null || !modalPlayerId) return;
 
-    const newScores = { ...holeScores, [modalPlayerId]: selectedScore };
-    const newStats = {
-      ...holeStatMap,
-      [modalPlayerId]: {
+    // A scramble pair's one shared score lands on BOTH of its players' rows —
+    // the same duplication Casual Golf's Scramble card writes, and what lets
+    // the shared match play engine compare one team number against the other.
+    const newScores = { ...holeScores };
+    const newStats = { ...holeStatMap };
+    for (const pid of modalUnitIds) {
+      newScores[pid] = selectedScore;
+      newStats[pid] = {
         fairway: selectedFairway,
         putts: selectedPutts,
         bunker: selectedBunker,
         penalty: selectedPenalty,
         chips: selectedChips,
-      },
-    };
+      };
+    }
     setHoleScores(newScores);
     setHoleStatMap(newStats);
-    const nextIdx = (modalPlayerIdx + 1) % allPlayerIds.length;
+    const nextIdx = (modalPlayerIdx + 1) % scoreUnits.length;
     if (nextIdx !== modalStartIdx) {
-      const nextId = allPlayerIds[nextIdx];
+      const nextId = scoreUnits[nextIdx][0];
       const nextExisting = editingHole ? (holeData[nextId]?.[editingHole]?.gross ?? null) : null;
       setSelectedScore(nextExisting);
       setSelectedFairway(null);
@@ -2356,7 +2387,7 @@ export default function EnterScoresScreen() {
 
             {/* Progress + status */}
             <View style={sh.progressRow}>
-              {allPlayerIds.map((_, i) => (
+              {scoreUnits.map((_, i) => (
                 <View key={i} style={[sh.progressDot, i < modalPlayerIdx && sh.progressDotDone, i === modalPlayerIdx && sh.progressDotActive]} />
               ))}
             </View>
@@ -2382,7 +2413,7 @@ export default function EnterScoresScreen() {
                 par: 'PAR', bogey: 'BOGEY', double: 'DOUBLE +',
               };
               const scoreLabel = result ? (SCORE_LABELS[result] ?? '') : '';
-              const showStats = modalPlayerId === myPlayerId && !statsOff;
+              const showStats = !!myPlayerId && modalUnitIds.includes(myPlayerId) && !statsOff;
 
               return (
                 <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 28 }}>
@@ -2540,7 +2571,7 @@ export default function EnterScoresScreen() {
                     activeOpacity={0.8}
                   >
                     <Text style={sh.submitText}>
-                      {modalPlayerIdx < allPlayerIds.length - 1 ? `Next Player →` : '✓ Save Hole'}
+                      {modalPlayerIdx < scoreUnits.length - 1 ? (isScramblePair ? 'Next Pair →' : 'Next Player →') : '✓ Save Hole'}
                     </Text>
                   </TouchableOpacity>
                 </ScrollView>

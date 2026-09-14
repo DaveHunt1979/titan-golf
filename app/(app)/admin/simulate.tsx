@@ -28,7 +28,10 @@ export default function SimulateScreen() {
 
   const [formatId, setFormatId] = useState<FormatId>('titan_way');
   const rules = FORMAT_RULES[formatId];
-  const isRyderCup = formatId === 'ryder_cup';
+  // Formats pinned to exactly 2 sides (Ryder Cup, Skullers Scramble) have no
+  // team-count to choose — read from the registry rather than naming one id,
+  // so a new 2-side format picks this up automatically.
+  const isTwoSideFormat = rules.minTeams === 2 && rules.maxTeams === 2;
 
   const [numTeams, setNumTeams] = useState(6);
   const [numPlayers, setNumPlayers] = useState(20);
@@ -75,7 +78,7 @@ export default function SimulateScreen() {
   // a previous format that Go Live would've rejected anyway.
   useEffect(() => {
     if (!rules.isTeamFormat) return;
-    if (isRyderCup) { setNumTeams(2); return; }
+    if (isTwoSideFormat) { setNumTeams(2); return; }
     const min = rules.minTeams ?? 2;
     const max = rules.maxTeams ?? 16;
     setNumTeams(n => {
@@ -235,8 +238,8 @@ export default function SimulateScreen() {
         </ScrollView>
 
         {rules.isTeamFormat ? (
-          isRyderCup ? (
-            <Text style={[s.hint, { color: dc.textSecondary, marginTop: -8 }]}>Ryder Cup is always 2 sides of 4 — 8 players.</Text>
+          isTwoSideFormat ? (
+            <Text style={[s.hint, { color: dc.textSecondary, marginTop: -8 }]}>{rules.label} is always 2 sides of 4 — 8 players.</Text>
           ) : (
             <>
               <Text style={[s.label, { color: dc.cardText }]}>TEAMS ({numTeams})</Text>

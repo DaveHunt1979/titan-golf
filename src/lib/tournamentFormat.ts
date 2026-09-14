@@ -7,7 +7,7 @@
 // selection now flows through a single table: Available Rules ->
 // Terminology -> Scoring Options -> Game Generation Rules -> Leaderboard
 // Behaviour -> Validation, all read from here.
-export type FormatId = 'team_matchplay' | 'titan_way' | 'odd_titan' | 'ryder_cup' | 'stableford' | 'medal' | 'knockout';
+export type FormatId = 'team_matchplay' | 'titan_way' | 'odd_titan' | 'ryder_cup' | 'skullers_scramble' | 'stableford' | 'medal' | 'knockout';
 
 export interface FormatRules {
   id: FormatId;
@@ -25,6 +25,20 @@ export interface FormatRules {
   minPlayers: number | null;             // Go Live validation
   exactPlayersPerTeam: number | null;    // every team must have exactly this many active players — Titan Way only
   requiresEvenTeams: boolean;            // team count must be even — Titan Way only (the generic isMatchplay odd-team check in build.tsx predates this and stays as a fallback for other formats)
+  // Two fixed event-only sides (Red v Blue) drafted by their captains from
+  // the whole membership, instead of picking the society's permanent club
+  // teams — Ryder Cup + Skullers Scramble. build.tsx reads this rather than
+  // testing for one format id, so the draft flow lives in exactly one place.
+  captainDraftTwoSides: boolean;
+  // The Singles day's 1v1 order is submitted by each captain (Red #1 plays
+  // Blue #1, #2 plays #2, …) rather than seeded by Kronos ranking or a
+  // round-robin rotation — Skullers Scramble only.
+  captainPickedSinglesOrder: boolean;
+  // A fixed per-day format plan, one DayFormatId per day, applied when the
+  // organiser first picks this format. null = every day starts on
+  // defaultDayFormat, as before (every format except Skullers Scramble,
+  // whose two days are structurally different from each other).
+  fixedDayFormats: string[] | null;
   requiresOddTeams: boolean;             // team count must be odd — Odd Titan only (Titan Way's knockout playoff needs even pairs; this format's final round doesn't pair teams at all, so odd is the whole point)
   wholeTournamentDraw: boolean;          // qualifying rounds generated together via titanWayDraw.ts's partnership optimizer, not day-by-day — Titan Way + Odd Titan
   finalRoundStablefordTeamPoints: boolean; // final round's team points = sum of each team's players' Stableford points that round, added to the Rounds 1-3 match-play total — Odd Titan only (Dave, 2026-09-02: odd team counts can't be bracketed 1v2/3v4 the way Titan Way locks final position, so the last round counts toward the same table instead of deciding it via a knockout)
@@ -55,6 +69,9 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     exactPlayersPerTeam: null,
     requiresEvenTeams: false,
     requiresOddTeams: false,
+    captainDraftTwoSides: false,
+    captainPickedSinglesOrder: false,
+    fixedDayFormats: null,
     wholeTournamentDraw: false,
     finalRoundStablefordTeamPoints: false,
     howItWorks: null,
@@ -86,6 +103,9 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     exactPlayersPerTeam: 4,
     requiresEvenTeams: true,
     requiresOddTeams: false,
+    captainDraftTwoSides: false,
+    captainPickedSinglesOrder: false,
+    fixedDayFormats: null,
     wholeTournamentDraw: true,
     finalRoundStablefordTeamPoints: false,
     howItWorks: [
@@ -120,6 +140,9 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     exactPlayersPerTeam: 4,
     requiresEvenTeams: false,
     requiresOddTeams: true,
+    captainDraftTwoSides: false,
+    captainPickedSinglesOrder: false,
+    fixedDayFormats: null,
     wholeTournamentDraw: true,
     finalRoundStablefordTeamPoints: true,
     howItWorks: [
@@ -158,12 +181,61 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     exactPlayersPerTeam: null,
     requiresEvenTeams: false,
     requiresOddTeams: false,
+    captainDraftTwoSides: true,
+    captainPickedSinglesOrder: false,
+    fixedDayFormats: null,
     wholeTournamentDraw: false,
     finalRoundStablefordTeamPoints: false,
     howItWorks: null,
     defaultDays: 3,
     defaultDayFormat: 'four_bbb',
     defaultHcpPct: 75,
+    defaultPtsWin: 1,
+    defaultPtsHalf: 0.5,
+    defaultMaxHandicap: null,
+  },
+  // Skullers Scramble (Dave, 2026-09-14) — Ryder Cup's 2-side captain draft
+  // reused wholesale, but the two days are structurally different from each
+  // other: Day 1 is 2v2 Match Play Scramble (one shared score per pair per
+  // hole), Day 2 is 1v1 Singles Match Play whose running order is submitted
+  // by each captain rather than seeded by Kronos. Both days feed the same
+  // single Red-v-Blue points table (1 a win, ½ a halve), which is just the
+  // generic getStandings() tally every 2-team format already uses.
+  skullers_scramble: {
+    id: 'skullers_scramble',
+    label: 'Skullers Scramble',
+    sub: '2 sides, Red v Blue, captain draft. Day 1 is 2v2 Match Play Scramble, Day 2 is captain-picked Singles Match Play. Both days add into one team score.',
+    available: true,
+    isTeamFormat: true,
+    individualBoardDefaultOn: false,
+    individualBoardLabel: 'Individual',
+    captainRotation: false,
+    finalDayKnockout: false,
+    // Day 2 is already Singles by way of fixedDayFormats below — the
+    // last-day override would additionally force it to 85%, which isn't this
+    // format's rule (captain-picked singles play the full difference).
+    lastDaySinglesOverride: false,
+    minTeams: 2,
+    maxTeams: 2,
+    minPlayers: null,
+    exactPlayersPerTeam: null,
+    requiresEvenTeams: false,
+    requiresOddTeams: false,
+    captainDraftTwoSides: true,
+    captainPickedSinglesOrder: true,
+    fixedDayFormats: ['scramble', 'singles'],
+    wholeTournamentDraw: false,
+    finalRoundStablefordTeamPoints: false,
+    howItWorks: [
+      'Pick Two Captains — one for Red, one for Blue, chosen from the whole membership.',
+      'Draft The Sides — captains take turns picking players until both sides are full. Roster size is up to you, as long as both sides match.',
+      'Day 1 — 2v2 Match Play Scramble — pairs from Red play pairs from Blue, one shared score per pair per hole. Lower score wins the hole, level halves it.',
+      'Day 2 — Captain-Picked Singles — each captain submits their running order 1 to N. Red #1 plays Blue #1, Red #2 plays Blue #2, and so on down the order.',
+      'One Table, Both Days — every match is worth 1 point to the winning side and ½ each if halved, added across both days into a single Red v Blue score.',
+    ],
+    defaultDays: 2,
+    defaultDayFormat: 'scramble',
+    defaultHcpPct: 100,
     defaultPtsWin: 1,
     defaultPtsHalf: 0.5,
     defaultMaxHandicap: null,
@@ -185,6 +257,9 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     exactPlayersPerTeam: null,
     requiresEvenTeams: false,
     requiresOddTeams: false,
+    captainDraftTwoSides: false,
+    captainPickedSinglesOrder: false,
+    fixedDayFormats: null,
     wholeTournamentDraw: false,
     finalRoundStablefordTeamPoints: false,
     howItWorks: null,
@@ -212,6 +287,9 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     exactPlayersPerTeam: null,
     requiresEvenTeams: false,
     requiresOddTeams: false,
+    captainDraftTwoSides: false,
+    captainPickedSinglesOrder: false,
+    fixedDayFormats: null,
     wholeTournamentDraw: false,
     finalRoundStablefordTeamPoints: false,
     howItWorks: null,
@@ -239,6 +317,9 @@ export const FORMAT_RULES: Record<FormatId, FormatRules> = {
     exactPlayersPerTeam: null,
     requiresEvenTeams: false,
     requiresOddTeams: false,
+    captainDraftTwoSides: false,
+    captainPickedSinglesOrder: false,
+    fixedDayFormats: null,
     wholeTournamentDraw: false,
     finalRoundStablefordTeamPoints: false,
     howItWorks: null,
@@ -321,6 +402,9 @@ export function matchFormatLabel(
   if (roundFormat === 'stableford') return 'Stableford';
   if (roundFormat === 'medal') return 'Stroke Play';
   if (roundFormat !== 'matchplay') return roundFormat ?? '';
+  // Skullers Scramble Day 1 — a match play day like any other, but scored off
+  // one shared ball per pair, so it must never read as "4BBB" below.
+  if (handicapMethod === 'scramble_pair') return '2v2 Match Play Scramble';
   const stableford = handicapMethod === 'relative_low_stableford' || handicapMethod === 'individual_stableford';
   if (isSingles) return stableford ? 'Singles Match Play – Stableford' : 'Singles Match Play – Stroke Play';
   return stableford ? '4BBB Match Play – Stableford' : '4BBB Match Play – Stroke Play';

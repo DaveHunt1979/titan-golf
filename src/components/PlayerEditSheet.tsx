@@ -197,7 +197,7 @@ export default function PlayerEditSheet({
         if (error) throw error;
       }
 
-      if (myRole === 'owner' && member.role !== 'owner' && editPermRole !== member.role) {
+      if ((myRole === 'owner' || viewerIsPlatformAdmin) && member.role !== 'owner' && editPermRole !== member.role) {
         const { error } = await supabase.rpc('set_member_role', {
           p_society_id: societyId,
           p_player_id:  member.player.id,
@@ -347,8 +347,10 @@ export default function PlayerEditSheet({
             placeholderTextColor="#444"
           />
 
-          {/* App Permission Role — owner only, can't change another owner */}
-          {myRole === 'owner' && member?.role !== 'owner' && (
+          {/* App Permission Role — society owner, or any God (Dave,
+              2026-09-14: a God must be able to set up admins in a society
+              they're onboarding but don't own) — can't change another owner */}
+          {(myRole === 'owner' || viewerIsPlatformAdmin) && member?.role !== 'owner' && (
             <>
               <Text style={[s.sectionLabel, { marginTop: 28 }]}>APP PERMISSION</Text>
               <Text style={s.sectionHint}>Admins can manage players and settings</Text>

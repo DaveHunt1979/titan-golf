@@ -1,0 +1,129 @@
+{
+  "updatedAt": "2026-09-14T13:04:30.320Z",
+  "missions": [
+    {
+      "id": "session:3819fd80-e2ba-4bc8-a7d9-a1ca7b028b55:none",
+      "source": "session",
+      "name": "none",
+      "objective": "Session mission",
+      "createdAt": "2026-09-14T10:40:43.021Z",
+      "updatedAt": "2026-09-14T13:04:30.320Z",
+      "status": "done",
+      "workerCount": 3,
+      "taskCounts": {
+        "total": 3,
+        "pending": 0,
+        "blocked": 0,
+        "inProgress": 0,
+        "completed": 3,
+        "failed": 0
+      },
+      "agents": [
+        {
+          "name": "Explore:a455c72",
+          "role": "Explore",
+          "ownership": "a455c7219a36c31c9",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-09-14T13:04:30.320Z"
+        },
+        {
+          "name": "skullers-phase1:askulle",
+          "role": "skullers-phase1",
+          "ownership": "askullers-phase1-d460dbcd599b0605",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-09-14T10:57:47.114Z"
+        },
+        {
+          "name": "skullers-phase2:askulle",
+          "role": "skullers-phase2",
+          "ownership": "askullers-phase2-146fc2f65b4b96f4",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-09-14T11:30:36.393Z"
+        }
+      ],
+      "timeline": [
+        {
+          "id": "session-stop:askullers-phase2-146fc2f65b4b96f4:2026-09-14T11:14:26.064Z",
+          "at": "2026-09-14T11:14:26.064Z",
+          "kind": "completion",
+          "agent": "skullers-phase2:askulle",
+          "detail": "completed",
+          "sourceKey": "session-stop:askullers-phase2-146fc2f65b4b96f4"
+        },
+        {
+          "id": "session-stop:a19d0416a59feafa3:2026-09-14T11:29:57.535Z",
+          "at": "2026-09-14T11:29:57.535Z",
+          "kind": "completion",
+          "agent": "Explore:a455c72",
+          "detail": "completed",
+          "sourceKey": "session-stop:a19d0416a59feafa3"
+        },
+        {
+          "id": "session-start:askullers-phase2-146fc2f65b4b96f4:2026-09-14T11:30:11.995Z",
+          "at": "2026-09-14T11:30:11.995Z",
+          "kind": "update",
+          "agent": "skullers-phase2:askulle",
+          "detail": "started skullers-phase2:askulle",
+          "sourceKey": "session-start:askullers-phase2-146fc2f65b4b96f4"
+        },
+        {
+          "id": "session-stop:askullers-phase2-146fc2f65b4b96f4:2026-09-14T11:30:36.393Z",
+          "at": "2026-09-14T11:30:36.393Z",
+          "kind": "completion",
+          "agent": "skullers-phase2:askulle",
+          "detail": "completed",
+          "sourceKey": "session-stop:askullers-phase2-146fc2f65b4b96f4"
+        },
+        {
+          "id": "session-stop:a285227298ad0083b:2026-09-14T11:34:52.010Z",
+          "at": "2026-09-14T11:34:52.010Z",
+          "kind": "completion",
+          "agent": "Explore:a455c72",
+          "detail": "completed",
+          "sourceKey": "session-stop:a285227298ad0083b"
+        },
+        {
+          "id": "session-stop:a1c08be5d895c4ca5:2026-09-14T12:53:49.715Z",
+          "at": "2026-09-14T12:53:49.715Z",
+          "kind": "completion",
+          "agent": "Explore:a455c72",
+          "detail": "completed",
+          "sourceKey": "session-stop:a1c08be5d895c4ca5"
+        },
+        {
+          "id": "session-stop:abfedf718de14b93c:2026-09-14T12:54:45.099Z",
+          "at": "2026-09-14T12:54:45.099Z",
+          "kind": "completion",
+          "agent": "Explore:a455c72",
+          "detail": "completed",
+          "sourceKey": "session-stop:abfedf718de14b93c"
+        },
+        {
+          "id": "session-stop:a94868dd1988905ac:2026-09-14T12:59:57.639Z",
+          "at": "2026-09-14T12:59:57.639Z",
+          "kind": "completion",
+          "agent": "Explore:a455c72",
+          "detail": "completed",
+          "sourceKey": "session-stop:a94868dd1988905ac"
+        },
+        {
+          "id": "session-stop:a6278c8a0ef03c0bb:2026-09-14T13:04:30.320Z",
+          "at": "2026-09-14T13:04:30.320Z",
+          "kind": "completion",
+          "agent": "Explore:a455c72",
+          "detail": "completed",
+          "sourceKey": "session-stop:a6278c8a0ef03c0bb"
+        }
+      ]
+    }
+  ]
+}

@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase, fetchAllRows } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
-import { getStandings, calcSweepBonus, buildKronosTieBreakMaps, rankPlayersByKronos, calcStrokesReceived, calcStablefordPoints, calcHoles, playerCourseHcp, type KronosTieBreakMaps } from '../../../src/lib/scoring';
+import { getStandings, calcSweepBonus, buildKronosTieBreakMaps, rankPlayersByKronos, calcStrokesReceived, calcStablefordPoints, calcHoles, playerCourseHcp, calcScramblePairHandicap, scramblePairEffectiveHcp, type KronosTieBreakMaps } from '../../../src/lib/scoring';
 import { resolveAvatar, teamLogos } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 import { getFormatRules, checkTitanWayStructure } from '../../../src/lib/tournamentFormat';
@@ -25,7 +25,9 @@ const titanLogo = require('../../../assets/TitanAppLogo.png');
 // Shared between generateDraw's player-assignment logic and the manual
 // assign/edit modal, which both need to know slot-count-per-side (2 for
 // pairs, 1 for singles) without duplicating the format list.
-const PAIRS_DAY_FORMATS = ['4bbb', 'four_bbb', 'four_bbb_stroke', 'foursomes', 'greensomes'];
+// 'scramble' (Skullers Scramble Day 1) is a pairs day like the rest — 2 slots
+// a side — it just scores one shared ball per pair rather than two balls.
+const PAIRS_DAY_FORMATS = ['4bbb', 'four_bbb', 'four_bbb_stroke', 'foursomes', 'greensomes', 'scramble'];
 
 // Individual Stableford/Medal groups (no team, no away side) are capped at
 // this many players per group by generateDraw's auto-split — the manual
@@ -40,14 +42,19 @@ const DAY_FORMAT_LABELS: Record<string, string> = {
   four_bbb: '4BBB Match Play – Stableford', four_bbb_stroke: '4BBB Match Play – Stroke Play',
   foursomes: 'Foursomes', greensomes: 'Greensomes',
   singles: 'Singles Match Play – Stroke Play', singles_stableford: 'Singles Match Play – Stableford',
-  stableford: 'Stableford', medal: 'Medal', scramble: 'Scramble',
+  stableford: 'Stableford', medal: 'Medal', scramble: '2v2 Match Play Scramble',
   '4bbb': '4BBB Match Play – Stableford',
 };
 
 function dayFormatToRoundFormat(df: string): string {
   if (df === 'stableford') return 'stableford';
   if (df === 'medal') return 'medal';
-  if (df === 'scramble') return 'scramble';
+  // NOTE: 'scramble' deliberately does NOT map to a 'scramble' round_format.
+  // Casual Golf's own Scramble (round_format 'scramble' → score/scramble/) is
+  // a stroke-play card for one team with no opponent; a tournament Day 1
+  // Scramble is win/halve/lose match play between two pairs, so it runs on
+  // the shared match play engine like every other tournament match play day
+  // and identifies itself by handicap_method 'scramble_pair' instead.
   // 4bbb / four_bbb / four_bbb_stroke / foursomes / greensomes / singles are
   // all matchplay (win/halve/lose by hole) as far as the live scoring screen
   // is concerned — it only ever checks for 'matchplay' | 'stableford' | 'medal',
@@ -64,6 +71,12 @@ function dayFormatToRoundFormat(df: string): string {
 // 2026-09-14 request below. Every other Singles day — its own tournament
 // format, or mixed into Multi-Team Tour/Ryder Cup — gets the new rule.
 function dayFormatToHandicapMethod(df: string, isTitanStylePlayoff: boolean = false): string {
+  // 2v2 Match Play Scramble: each pair blends down to one combined handicap
+  // (35% of the lower + 15% of the higher — calcScramblePairHandicap), then
+  // plays relative to the other pair's. Its own method value because the
+  // blend is a different INPUT to the same stroke allocation, and because
+  // it's what the live scorer reads to show one shared score per pair.
+  if (df === 'scramble') return 'scramble_pair';
   if (df === 'four_bbb_stroke') return 'relative_low';
   // 4BBB Stableford also plays the lowest Playing Handicap in the fourball
   // off scratch, same method as 4BBB Stroke — but keeps its own distinct
@@ -108,6 +121,10 @@ interface DayRow {
 interface CompPlayer {
   id: string; player_id: string; team_id: string | null; handicap_index: number | null;
   display_name: string; avatar_url: string | null; is_captain: boolean;
+  // Skullers Scramble only — this player's position in their captain's
+  // submitted Day 2 singles order (1 = plays the other side's #1). Null for
+  // every other format, and for anyone whose captain hasn't submitted yet.
+  singles_order: number | null;
 }
 interface TeamRow { id: string; name: string; accent_color: string; logo_url: string | null; }
 
@@ -174,6 +191,13 @@ export default function TournamentDrawScreen() {
   // match) — Rick's brief, section 4.14. Non-null = open, scoped to
   // whichever match rows are in the array.
   const [assignModalMatches, setAssignModalMatches] = useState<MatchRow[] | null>(null);
+  // Skullers Scramble Day 2 — each side's captain-picked singles running
+  // order, built up locally by tapping players in order and only written to
+  // competition_players.singles_order when that captain submits. Keyed by
+  // team id; a side with no entry here falls back to whatever's already
+  // stored (see singlesOrderFor below).
+  const [orderDraft, setOrderDraft] = useState<Record<string, string[]>>({});
+  const [savingOrder, setSavingOrder] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!competitionId) return;
@@ -187,7 +211,7 @@ export default function TournamentDrawScreen() {
       supabase.from('competitions').select('id,name,status,format,tournament_type,pts_win,pts_half,opening_rounds,bonus_points,max_handicap,handicap_cuts_enabled,settings').eq('id', competitionId).single(),
       supabase.from('competition_days').select('id,day_number,course_name,day_format,hcp_pct').eq('competition_id', competitionId).order('day_number'),
       supabase.from('competition_players')
-        .select('id,player_id,team_id,handicap_index,is_captain,players(display_name,avatar_url)')
+        .select('id,player_id,team_id,handicap_index,is_captain,singles_order,players(display_name,avatar_url)')
         .eq('competition_id', competitionId),
       // This competition's own teams — either permanent club teams (competition_id
       // null) or, for a Ryder Cup, its 2 event-only sides (competition_id = this
@@ -208,6 +232,7 @@ export default function TournamentDrawScreen() {
       display_name: cp.players?.display_name ?? '—',
       avatar_url: cp.players?.avatar_url ?? null,
       is_captain: cp.is_captain ?? false,
+      singles_order: cp.singles_order ?? null,
     })));
     if (teamsData) setTeams(teamsData as TeamRow[]);
     if (matchData) setMatches(matchData as unknown as MatchRow[]);
@@ -430,6 +455,101 @@ export default function TournamentDrawScreen() {
     return partners;
   }
 
+  // ── Skullers Scramble: captain-picked Day 2 singles order ──────────────
+  // The stored order for one side, best-effort: whatever that captain has
+  // already submitted, in position order. Anyone without a position sorts to
+  // the back, so a partially-stored side still renders in a sane order rather
+  // than an arbitrary one.
+  function storedSinglesOrder(teamId: string): string[] {
+    return compPlayers
+      .filter(cp => cp.team_id === teamId)
+      .sort((a, b) => (a.singles_order ?? 9999) - (b.singles_order ?? 9999))
+      .map(cp => cp.player_id);
+  }
+
+  // A side has submitted once every one of its enrolled players has a
+  // position — derived rather than tracked as its own flag, so the two can
+  // never drift apart.
+  function singlesOrderSubmitted(teamId: string): boolean {
+    const roster = compPlayers.filter(cp => cp.team_id === teamId);
+    return roster.length > 0 && roster.every(cp => cp.singles_order != null);
+  }
+
+  function toggleOrderPick(teamId: string, playerId: string) {
+    setOrderDraft(prev => {
+      const current = prev[teamId] ?? [];
+      return {
+        ...prev,
+        [teamId]: current.includes(playerId)
+          ? current.filter(id => id !== playerId)
+          : [...current, playerId],
+      };
+    });
+  }
+
+  // Commits a finished 1-N running order for one side. Shared by the
+  // captain's own tap-through submission and by AUTO GENERATE so the two can
+  // never land in different states.
+  async function writeSinglesOrder(teamId: string, order: string[]) {
+    const roster = compPlayers.filter(cp => cp.team_id === teamId);
+    setSavingOrder(teamId);
+    try {
+      for (let i = 0; i < order.length; i++) {
+        const cp = roster.find(p => p.player_id === order[i]);
+        if (!cp) continue;
+        const { error } = await supabase.from('competition_players').update({ singles_order: i + 1 }).eq('id', cp.id);
+        if (error) { Alert.alert('Error', error.message); return; }
+      }
+      setOrderDraft(prev => ({ ...prev, [teamId]: [] }));
+      await load();
+    } finally {
+      setSavingOrder(null);
+    }
+  }
+
+  async function saveSinglesOrder(teamId: string) {
+    const order = orderDraft[teamId] ?? [];
+    const roster = compPlayers.filter(cp => cp.team_id === teamId);
+    if (order.length !== roster.length) {
+      Alert.alert('Order incomplete', `Tap all ${roster.length} players in playing order before submitting.`);
+      return;
+    }
+    await writeSinglesOrder(teamId, order);
+  }
+
+  // AUTO GENERATE (Dave, 2026-09-14) — a captain who doesn't want to tap
+  // through every position gets a random running order instead, submitted
+  // straight away. Exactly the same end state as picking it by hand, and
+  // per-side, so one captain can auto-generate while the other still picks
+  // manually. Drives both days, same as any submitted order.
+  async function autoGenerateSinglesOrder(teamId: string) {
+    const roster = compPlayers.filter(cp => cp.team_id === teamId);
+    if (roster.length === 0) {
+      Alert.alert('No players', 'Draft players onto this side before generating a running order.');
+      return;
+    }
+    await writeSinglesOrder(teamId, shuffle(roster.map(cp => cp.player_id)));
+  }
+
+  // Reopens a submitted side so its captain can re-do the order. Only clears
+  // the order itself — never the enrolment rows it lives on.
+  function reopenSinglesOrder(teamId: string) {
+    Alert.alert('Reopen this order?', 'The submitted running order for this side will be cleared so it can be picked again.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Reopen', style: 'destructive', onPress: async () => {
+        setSavingOrder(teamId);
+        try {
+          await supabase.from('competition_players').update({ singles_order: null })
+            .eq('competition_id', competitionId).eq('team_id', teamId);
+          setOrderDraft(prev => ({ ...prev, [teamId]: [] }));
+          await load();
+        } finally {
+          setSavingOrder(null);
+        }
+      }},
+    ]);
+  }
+
   // mode 'manual' reuses the exact same team-pairing decisions (who plays
   // who, how many matches) but inserts every match with empty player slots
   // instead of auto-assigning — Rick's brief, section 4.14: manual mode is
@@ -551,8 +671,26 @@ export default function TournamentDrawScreen() {
     // - Pairs, opening rounds: captain first, partnered with a teammate they
     //   haven't played with yet this opening window; rest shuffled.
     // - Everything else: pure shuffle, as before.
+    // Skullers Scramble's days are ordered by each captain's submitted running
+    // order instead (Red #1 v Blue #1, #2 v #2, …) — the same pair-by-index
+    // pairing below, just seeded from the captains rather than from Kronos.
+    // Both sides must have submitted first, or the draw would quietly pair
+    // them in enrolment order. The Scramble day reads the SAME submitted
+    // order at 2-player granularity: order 1+2 are a pair, 3+4 are a pair, and
+    // pair N plays the other side's pair N (Dave, 2026-09-14 — one order
+    // drives both days, there is no separate scramble pairing screen).
+    const usesCaptainOrder = (isSingles || df === 'scramble') && formatRules.captainPickedSinglesOrder;
+    if (usesCaptainOrder) {
+      const missing = teamIds.filter(tid => !singlesOrderSubmitted(tid));
+      if (missing.length > 0) {
+        const names = missing.map(tid => teams.find(t => t.id === tid)?.name ?? 'A side').join(' and ');
+        Alert.alert('Captain order not submitted', `${names} still needs to submit a singles running order before this draw can be generated.`);
+        return;
+      }
+    }
+
     let kronosMaps: KronosTieBreakMaps | null = null;
-    if (isSingles) {
+    if (isSingles && !usesCaptainOrder) {
       // "Best final round" for tie-break purposes = the last qualifying
       // round already played, not the singles day itself (its matches don't
       // exist yet — Kronos Rankings must be locked BEFORE the playoff they
@@ -567,7 +705,9 @@ export default function TournamentDrawScreen() {
     }
     for (const tid of teamIds) {
       const roster = grouped[tid];
-      if (isSingles) {
+      if (usesCaptainOrder) {
+        grouped[tid] = storedSinglesOrder(tid).filter(pid => roster.includes(pid));
+      } else if (isSingles) {
         grouped[tid] = rankPlayersByKronos(roster, stablefordTotals, kronosMaps!);
       } else if (isPairs && isOpeningRound) {
         const captain = compPlayers.find(cp => cp.team_id === tid && cp.is_captain)?.player_id;
@@ -789,13 +929,52 @@ export default function TournamentDrawScreen() {
       // expects, since DayRow and that param type otherwise share none.
       const hcpDayContext: { slope_rating?: number | null; course_rating?: number | null; course_par?: number | null } = {};
 
+      // 2v2 Match Play Scramble simulates one shared ball per pair (both of
+      // its players carding the same gross, exactly as the live scorer
+      // writes it), compared on net off the blended pair handicap — not
+      // best-of-two-individual-balls like 4BBB.
+      const isScrambleDay = day.day_format === 'scramble';
+      const resolveHcps = (ids: string[]) => ids.map(pid => playerCourseHcp(hcpByPlayer[pid], hcpDayContext, day.hcp_pct));
+      const scramblePairHcp = (ids: string[]) => {
+        const hs = resolveHcps(ids);
+        if (hs.length === 0) return 0;
+        return hs.length === 1 ? hs[0] : calcScramblePairHandicap(hs[0], hs[1]);
+      };
+
       for (const m of dayMatches) {
         const allIds = [...m.home_player_ids, ...m.away_player_ids];
         if (m.home_player_ids.length === 0 || m.away_player_ids.length === 0) { skipped++; continue; }
         await supabase.from('match_holes').delete().eq('match_id', m.id);
+        // Raw blended pair handicap drives how well each pair SCORES; the
+        // effective one (relative to the other pair) drives the shots it
+        // receives, via the same helper the live scorer uses.
+        const homePairHcp = isScrambleDay ? scramblePairHcp(m.home_player_ids) : 0;
+        const awayPairHcp = isScrambleDay ? scramblePairHcp(m.away_player_ids) : 0;
+        const homeEffHcp  = isScrambleDay ? scramblePairEffectiveHcp(resolveHcps(m.home_player_ids), resolveHcps(m.away_player_ids), true) : 0;
+        const awayEffHcp  = isScrambleDay ? scramblePairEffectiveHcp(resolveHcps(m.home_player_ids), resolveHcps(m.away_player_ids), false) : 0;
         let holesStr = '';
         const holeRows: any[] = [];
         for (const h of holes as any[]) {
+          if (isScrambleDay) {
+            const homeShots = calcStrokesReceived(homeEffHcp, h.stroke_index);
+            const awayShots = calcStrokesReceived(awayEffHcp, h.stroke_index);
+            const homeGross = simulateGross(h.par, homePairHcp);
+            const awayGross = simulateGross(h.par, awayPairHcp);
+            const homeNet = homeGross - homeShots;
+            const awayNet = awayGross - awayShots;
+            const scrambleResult: 'h' | 'a' | 'f' = homeNet < awayNet ? 'h' : awayNet < homeNet ? 'a' : 'f';
+            holesStr += scrambleResult;
+            for (const pid of allIds) {
+              const isHome = m.home_player_ids.includes(pid);
+              const gross = isHome ? homeGross : awayGross;
+              const shots = isHome ? homeShots : awayShots;
+              // stableford_pts stays null — a shared team ball is not either
+              // player's own round (same rule matchScoring.ts applies live).
+              holeRows.push({ match_id: m.id, player_id: pid, hole_number: h.hole_number, score: scrambleResult, gross_score: gross, net_score: gross - shots, stableford_pts: null });
+            }
+            if (calcHoles(holesStr, 18, 1).concluded) break;
+            continue;
+          }
           const ptsByPlayer: Record<string, number> = {};
           const grossByPlayer: Record<string, number> = {};
           for (const pid of allIds) {
@@ -1264,6 +1443,94 @@ export default function TournamentDrawScreen() {
                 </Text>
               </View>
             )}
+            {/* Skullers Scramble — each side's captain submits one running
+                order, which drives BOTH days: adjacent positions pair up for
+                Day 1's Scramble, and the same order runs 1-to-1 for Day 2's
+                Singles. Same banner + roster-panel + tap-to-pick shapes the
+                Ryder Cup draft and the team roster panel above already use. */}
+            {drawFormatRules.captainPickedSinglesOrder && days.length > 0 && (() => {
+              const sides = teams.filter(t => compPlayers.some(cp => cp.team_id === t.id));
+              return (
+                <>
+                  <View style={s.titanWayBanner}>
+                    <Text style={s.rosterPanelTitle}>CAPTAIN-PICKED RUNNING ORDER</Text>
+                    <Text style={s.titanWayBannerSub}>
+                      Each captain picks their side's running order once, and it sets both days. Day 1 Scramble pairs them up in twos — #1 and #2 are a pair, #3 and #4 are a pair — against the other side's pair in the same position. Day 2 Singles runs 1-to-1: Red #1 plays Blue #1, #2 plays #2, and so on down the order.
+                    </Text>
+                  </View>
+                  {sides.length === 0 && (
+                    <View style={s.empty}><Text style={s.emptyText}>Draft both sides before picking a singles order.</Text></View>
+                  )}
+                  {sides.map(team => {
+                    const roster = compPlayers.filter(cp => cp.team_id === team.id);
+                    const submitted = singlesOrderSubmitted(team.id);
+                    const picked = orderDraft[team.id] ?? [];
+                    const busy = savingOrder === team.id;
+                    return (
+                      <View key={team.id} style={s.rosterPanel}>
+                        <Text style={[s.rosterPanelTitle, { color: team.accent_color }]}>
+                          {team.name} — {submitted ? 'order submitted' : `tap players in order · ${picked.length} of ${roster.length}`}
+                        </Text>
+                        {(submitted ? storedSinglesOrder(team.id) : roster.map(cp => cp.player_id)).map(pid => {
+                          const cp = roster.find(p => p.player_id === pid);
+                          if (!cp) return null;
+                          const pos = submitted ? cp.singles_order : (picked.indexOf(pid) >= 0 ? picked.indexOf(pid) + 1 : null);
+                          return (
+                            <TouchableOpacity
+                              key={pid}
+                              style={[s.rosterPickRow, s.rosterPickTop, pos != null && s.rosterPickRowOn]}
+                              onPress={() => !submitted && !busy && toggleOrderPick(team.id, pid)}
+                              disabled={submitted || busy}
+                              activeOpacity={0.7}
+                            >
+                              <View style={[s.fmtBadge, pos == null && { borderColor: '#333' }]}>
+                                <Text style={[s.fmtBadgeText, pos == null && { color: '#444' }]}>{pos ?? '–'}</Text>
+                              </View>
+                              <PlayerAvatar cp={cp} size={32} />
+                              <View style={{ flex: 1 }}>
+                                <Text style={[s.playerName, pos != null && { color: GOLD }]}>{cp.display_name}{cp.is_captain ? '  (C)' : ''}</Text>
+                                {cp.handicap_index != null && <Text style={s.playerHcp}>HCP {cp.handicap_index}</Text>}
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                        {/* Wraps rather than overflowing once AUTO GENERATE
+                            makes this a three-button row on a narrow phone
+                            (see the 2026-09-04 font-scaling button-wrap fix). */}
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                          {submitted ? (
+                            <TouchableOpacity style={[s.genBtn, s.genBtnSecondary]} onPress={() => reopenSinglesOrder(team.id)} disabled={busy} activeOpacity={0.8}>
+                              {busy ? <ActivityIndicator size="small" color={RED} /> : <Text style={[s.genBtnText, s.genBtnTextSecondary]}>REOPEN</Text>}
+                            </TouchableOpacity>
+                          ) : (
+                            <>
+                              <TouchableOpacity style={s.genBtn} onPress={() => saveSinglesOrder(team.id)} disabled={busy} activeOpacity={0.8}>
+                                {busy ? <ActivityIndicator size="small" color="#000" /> : <Text style={s.genBtnText}>SUBMIT ORDER</Text>}
+                              </TouchableOpacity>
+                              {/* Gold text, not the secondary RED — this one
+                                  isn't destructive like CLEAR/REOPEN. */}
+                              <TouchableOpacity style={[s.genBtn, s.genBtnSecondary]} onPress={() => autoGenerateSinglesOrder(team.id)} disabled={busy} activeOpacity={0.8}>
+                                <Text style={[s.genBtnText, { color: GOLD }]}>AUTO GENERATE</Text>
+                              </TouchableOpacity>
+                              {picked.length > 0 && (
+                                <TouchableOpacity
+                                  style={[s.genBtn, s.genBtnSecondary]}
+                                  onPress={() => setOrderDraft(prev => ({ ...prev, [team.id]: [] }))}
+                                  disabled={busy}
+                                  activeOpacity={0.8}
+                                >
+                                  <Text style={[s.genBtnText, s.genBtnTextSecondary]}>CLEAR</Text>
+                                </TouchableOpacity>
+                              )}
+                            </>
+                          )}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </>
+              );
+            })()}
             {days.map(day => {
               const dayMatches = matches.filter(m => m.day_id === day.id);
               const isGen = generating === day.id;

@@ -11,7 +11,7 @@ import { supabase, freshChannel } from '../../../src/lib/supabase';
 import { getMatchPack } from '../../../src/lib/offlinePack';
 import { resolveTournamentHandicaps } from '../../../src/lib/tournamentHandicap';
 import { useSyncStatus } from '../../../src/lib/useSyncStatus';
-import { matchLabel, getEffectiveWinner, calcHoles, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, scoreVsPar, SCORE_COLORS } from '../../../src/lib/scoring';
+import { matchLabel, getEffectiveWinner, calcHoles, calcStrokesReceived, calcStablefordPoints, formatStrokeHoles, scoreVsPar, SCORE_COLORS, scramblePairEffectiveHcp } from '../../../src/lib/scoring';
 import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../src/lib/whs';
 import { getPlayerAvatar, teamLogos, titanLogo } from '../../../src/lib/assets';
 import { dedupeInitials } from '../../../src/lib/playerDisplay';
@@ -480,10 +480,16 @@ export default function SpectateScreen() {
     ? (() => {
         const cutHcpFor = (id: string) => playerCourseHcp(id, compPlayers, match.day, match.hcp_allowance ?? 100, roundPlayerTees);
         const isRelativeHcp = match.handicap_method === 'relative_low' || match.handicap_method === 'relative_low_stableford';
+        // 2v2 Match Play Scramble allocates off the pair's blended handicap
+        // relative to the opposing pair's, not off either player's own — same
+        // shared helper the live scorer and the scoring engine use.
+        const isScramblePair = match.handicap_method === 'scramble_pair';
         const groupLowest = isRelativeHcp ? Math.min(...allPlayerIds.map(cutHcpFor)) : 0;
         return allPlayerIds.map(id => {
           const cutHcp = cutHcpFor(id);
-          const effectiveHcp = isRelativeHcp ? Math.max(0, cutHcp - groupLowest) : cutHcp;
+          const effectiveHcp = isScramblePair
+            ? scramblePairEffectiveHcp(match.home_player_ids.map(cutHcpFor), match.away_player_ids.map(cutHcpFor), match.home_player_ids.includes(id))
+            : isRelativeHcp ? Math.max(0, cutHcp - groupLowest) : cutHcp;
           // Same main-game handicap used above for the stroke-holes text —
           // never the 100%-allowance Stableford side-game allocation.
           const getsShot = !!currentCourseHole && calcStrokesReceived(effectiveHcp, currentCourseHole.stroke_index) >= 1;

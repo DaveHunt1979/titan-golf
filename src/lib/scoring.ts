@@ -161,6 +161,33 @@ export function calcMatchplayHandicap(
   return Math.round(diff * allowancePct);
 }
 
+// Combined handicap for a 2-man scramble pair (Dave, 2026-09-14 — standard
+// 2-man scramble allowance): 35% of the lower course handicap plus 15% of the
+// higher. Skullers Scramble's Day 1 blends each pair down to this single
+// number and then plays it through the exact same relative-to-lowest match
+// play allocation every other match play format uses — the lower pair off
+// scratch, the higher pair receiving the difference by stroke index.
+export function calcScramblePairHandicap(hcpA: number, hcpB: number): number {
+  const low = Math.min(hcpA, hcpB);
+  const high = Math.max(hcpA, hcpB);
+  return Math.round(0.35 * low + 0.15 * high);
+}
+
+// Strokes one scramble pair actually plays off: its blended handicap less the
+// other pair's, floored at zero, so the lower pair plays off scratch. Takes
+// already-resolved course handicaps (each caller resolves those its own way —
+// compPlayers, Player rows, or a simulator's map) so the live scorer, the
+// scoring engine and the spectate view can never allocate strokes differently
+// for the same match.
+export function scramblePairEffectiveHcp(
+  homeHcps: number[], awayHcps: number[], isHome: boolean,
+): number {
+  const side = (hs: number[]) => hs.length === 0 ? 0 : hs.length === 1 ? hs[0] : calcScramblePairHandicap(hs[0], hs[1]);
+  const home = side(homeHcps);
+  const away = side(awayHcps);
+  return Math.max(0, (isHome ? home : away) - Math.min(home, away));
+}
+
 export interface TeamStanding {
   teamId: string;
   pts: number;

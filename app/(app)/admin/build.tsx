@@ -35,7 +35,11 @@ const titanLogo = require('../../../assets/TitanAppLogo.png');
 // Only formats that actually have a working Casual Round engine behind them —
 // Foursomes/Greensomes/Scramble were listed here but never got real scoring
 // support in score/enter/[matchId].tsx, so they're deliberately not offered.
-type DayFormatId = 'four_bbb' | 'four_bbb_stroke' | 'singles' | 'singles_stableford' | 'stableford' | 'medal';
+// 'scramble' is the one exception: offered only to formats whose fixed day
+// plan includes it (Skullers Scramble's Day 1), never as a free choice on any
+// other tournament, for exactly the same reason — no tournament scramble
+// scoring screen exists yet.
+type DayFormatId = 'four_bbb' | 'four_bbb_stroke' | 'singles' | 'singles_stableford' | 'stableford' | 'medal' | 'scramble';
 
 interface CompFormat {
   id: FormatId;
@@ -72,6 +76,7 @@ const DAY_FORMATS: Array<{ id: DayFormatId; label: string; sub: string }> = [
   { id: 'singles_stableford',  label: 'Singles Match Play – Stableford', sub: '1v1 matchplay, points per hole' },
   { id: 'stableford',          label: 'Stableford',                     sub: 'Points per hole' },
   { id: 'medal',               label: 'Medal',                          sub: 'Stroke play' },
+  { id: 'scramble',            label: '2v2 Match Play Scramble',        sub: 'One shared score per pair' },
 ];
 
 const HCP_OPTIONS = [
@@ -431,9 +436,12 @@ export default function BuildTournamentScreen() {
     const rules = getFormatRules(f.id);
     setSelectedFormat(f.id);
     setIncludeInKronos(rules.individualBoardDefaultOn);
-    const builtDays: DayConfig[] = Array.from({ length: f.defaultDays }, () => ({
+    // A format with a fixed day plan (Skullers Scramble: Day 1 Scramble, Day 2
+    // Singles) seeds each day from that plan; everything else keeps starting
+    // every day on the one defaultDayFormat, exactly as before.
+    const builtDays: DayConfig[] = Array.from({ length: f.defaultDays }, (_, i) => ({
       courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeGender: '', whsEnabled: false, teeTime: '', playDate: '',
-      format: f.defaultDayFormat,
+      format: (rules.fixedDayFormats?.[i] as DayFormatId | undefined) ?? f.defaultDayFormat,
       hcpPct: f.defaultHcp,
       ldEnabled: false, ldHole: null,
       ntpEnabled: false, ntpHole: null,
@@ -528,7 +536,14 @@ export default function BuildTournamentScreen() {
   }
 
   const isMatchplay = getFormatRules(selectedFormat).isTeamFormat;
-  const isRyderCup  = selectedFormat === 'ryder_cup';
+  // Ryder Cup and Skullers Scramble both build their 2 sides the same way —
+  // event-only Red/Blue teams drafted by captains from the whole membership —
+  // so the whole draft flow below is gated on the shared registry flag rather
+  // than on either format id (Dave, 2026-09-14).
+  const isTwoSideDraft = getFormatRules(selectedFormat).captainDraftTwoSides;
+  // Scramble is only a legal day format for a format that asks for it by name
+  // in its fixed day plan — no tournament scramble scoring screen exists yet.
+  const allowsScrambleDay = getFormatRules(selectedFormat).fixedDayFormats?.includes('scramble') ?? false;
 
   async function pickLogo() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -750,7 +765,7 @@ export default function BuildTournamentScreen() {
     })));
   }, [compId, societyId]);
 
-  useEffect(() => { if (compId && isRyderCup) loadRyderState(); }, [compId, isRyderCup, loadRyderState]);
+  useEffect(() => { if (compId && isTwoSideDraft) loadRyderState(); }, [compId, isTwoSideDraft, loadRyderState]);
 
   // Classic Ryder Cup identity — Red v Blue, not named after whoever's
   // captaining (Dave, 2026-09-09, live-testing with Rick).
@@ -1704,7 +1719,10 @@ export default function BuildTournamentScreen() {
                   <View style={{ flexDirection: 'row', gap: 8, paddingRight: 16 }}>
                     {/* 4BBB is a pairs/team format — only offered when the
                         tournament itself is a team competition. */}
-                    {DAY_FORMATS.filter(f => isMatchplay || (f.id !== 'four_bbb' && f.id !== 'four_bbb_stroke')).map(f => (
+                    {DAY_FORMATS
+                      .filter(f => isMatchplay || (f.id !== 'four_bbb' && f.id !== 'four_bbb_stroke'))
+                      .filter(f => f.id !== 'scramble' || allowsScrambleDay)
+                      .map(f => (
                       <TouchableOpacity
                         key={f.id}
                         style={[styles.chip, day.format === f.id && styles.chipOn]}
@@ -1825,7 +1843,7 @@ export default function BuildTournamentScreen() {
               Add everyone playing{isMatchplay ? ' and assign teams' : ''}. You can still change this later from Live Tournaments.
             </Text>
 
-            {isMatchplay && isRyderCup ? (
+            {isMatchplay && isTwoSideDraft ? (
               <>
                 <Text style={styles.fieldLabel}>PLAYERS PER TEAM</Text>
                 <View style={styles.stepper}>

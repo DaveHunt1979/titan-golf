@@ -274,27 +274,51 @@
   },
   "hotPaths": [
     {
+      "path": "app/(app)/admin/draw.tsx",
+      "accessCount": 49,
+      "lastAccessed": 1789384413989,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/simulateTournament.ts",
+      "accessCount": 28,
+      "lastAccessed": 1789390393354,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/enter/[matchId].tsx",
+      "accessCount": 16,
+      "lastAccessed": 1789384241619,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/games/new.tsx",
       "accessCount": 13,
       "lastAccessed": 1789371918942,
       "type": "file"
     },
     {
-      "path": "app/(app)/admin/draw.tsx",
-      "accessCount": 11,
-      "lastAccessed": 1789377714855,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/simulateTournament.ts",
-      "accessCount": 7,
-      "lastAccessed": 1789377885490,
+      "path": "src/lib/tournamentFormat.ts",
+      "accessCount": 10,
+      "lastAccessed": 1789384063189,
       "type": "file"
     },
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 6,
-      "lastAccessed": 1789377745845,
+      "accessCount": 8,
+      "lastAccessed": 1789384155056,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/matchScoring.ts",
+      "accessCount": 8,
+      "lastAccessed": 1789384232832,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/spectate/[matchId].tsx",
+      "accessCount": 5,
+      "lastAccessed": 1789384255227,
       "type": "file"
     },
     {
@@ -304,15 +328,33 @@
       "type": "file"
     },
     {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 4,
+      "lastAccessed": 1789384223729,
+      "type": "file"
+    },
+    {
+      "path": "app.json",
+      "accessCount": 4,
+      "lastAccessed": 1789390473249,
+      "type": "file"
+    },
+    {
+      "path": "src/components/PlayerEditSheet.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1789391005230,
+      "type": "file"
+    },
+    {
       "path": "src/lib/titanBanter.ts",
       "accessCount": 3,
       "lastAccessed": 1789370941107,
       "type": "file"
     },
     {
-      "path": "app/(app)/spectate/[matchId].tsx",
+      "path": "app/(app)/admin/simulate.tsx",
       "accessCount": 3,
-      "lastAccessed": 1789372364161,
+      "lastAccessed": 1789383136998,
       "type": "file"
     },
     {
@@ -346,9 +388,15 @@
       "type": "file"
     },
     {
-      "path": "app.json",
+      "path": "app/(app)/score/scramble/[matchId].tsx",
       "accessCount": 2,
-      "lastAccessed": 1789378768394,
+      "lastAccessed": 1789383803800,
+      "type": "file"
+    },
+    {
+      "path": "web/src/app/admin/tee-sheet/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1789384145675,
       "type": "file"
     },
     {
@@ -454,18 +502,6 @@
       "type": "file"
     },
     {
-      "path": "src/lib/tournamentFormat.ts",
-      "accessCount": 1,
-      "lastAccessed": 1789371539681,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/matchScoring.ts",
-      "accessCount": 1,
-      "lastAccessed": 1789371540023,
-      "type": "file"
-    },
-    {
       "path": "src/lib/simulateVerification.ts",
       "accessCount": 1,
       "lastAccessed": 1789371807890,
@@ -502,9 +538,39 @@
       "type": "file"
     },
     {
-      "path": "src/lib/scoring.ts",
+      "path": "screenshots/WhatsApp Image 2026-09-11 at 16.23.17.jpeg",
       "accessCount": 1,
-      "lastAccessed": 1789376731622,
+      "lastAccessed": 1789382425086,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260918020000_ryder_cup_event_teams.sql",
+      "accessCount": 1,
+      "lastAccessed": 1789382790013,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260918090000_skullers_singles_order.sql",
+      "accessCount": 1,
+      "lastAccessed": 1789382975699,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/score/[matchId].tsx",
+      "accessCount": 1,
+      "lastAccessed": 1789383811436,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1789390982808,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260918100000_platform_admin_set_member_role.sql",
+      "accessCount": 1,
+      "lastAccessed": 1789391000289,
       "type": "file"
     }
   ],

@@ -46,7 +46,10 @@ const DEFAULT_INTERVAL = 10;
 function dayFormatToRoundFormat(df: string | null) {
   if (df === 'stableford') return 'stableford';
   if (df === 'medal')      return 'medal';
-  if (df === 'scramble')   return 'scramble';
+  // 'scramble' (Skullers Scramble Day 1) stays on 'matchplay' — a tournament
+  // 2v2 scramble is match play between two pairs off one shared ball, flagged
+  // by handicap_method 'scramble_pair'. round_format 'scramble' is Casual
+  // Golf's own one-team stroke-play card, a different thing entirely.
   return 'matchplay';
 }
 
@@ -286,7 +289,7 @@ export default function TeeSheetPage() {
       // Format columns come from a group already on this day so the new one
       // scores identically; the day_format mapping is only the empty-day case.
       round_format:    template?.round_format    ?? dayFormatToRoundFormat(day.day_format),
-      handicap_method: template?.handicap_method ?? 'individual',
+      handicap_method: template?.handicap_method ?? (day.day_format === 'scramble' ? 'scramble_pair' : 'individual'),
       hcp_allowance:   template?.hcp_allowance   ?? 100,
       is_singles:      template?.is_singles      ?? false,
     });

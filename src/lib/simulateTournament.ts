@@ -16,6 +16,7 @@ import { supabase, fetchAllRows } from './supabase';
 import {
   calcStrokesReceived, calcStablefordPoints, calcHoles, getStandings,
   buildKronosTieBreakMaps, rankPlayersByKronos, playerCourseHcp,
+  calcScramblePairHandicap, scramblePairEffectiveHcp,
 } from './scoring';
 import { computeRoundRobinMatchups, generateTitanWaySchedule } from './titanWayDraw';
 import { FORMAT_RULES, type FormatId } from './tournamentFormat';
@@ -193,6 +194,67 @@ export async function buildRealTeams(
   }));
   const roster: SimRosterPlayer[] = picked.flatMap(t => t.members.slice(0, playersPerTeam));
   return { teams, roster };
+}
+
+// Same identity a real captain draft creates (admin/build.tsx's
+// RYDER_SIDES/pickRyderCaptain) — kept here too rather than exported and
+// shared, since the two are visually coupled (name + colour together) and
+// this is the only other place that needs it.
+const RYDER_SIDES = [
+  { name: 'Red Team',  accent_color: '#DC2626' },
+  { name: 'Blue Team', accent_color: '#2563EB' },
+];
+
+// Two-side captain-draft formats (Ryder Cup, Skullers Scramble) pull players
+// out of their normal club teams onto two brand-new sides for the event —
+// buildRealTeams's real-club-teams source is the wrong shape for these
+// entirely (Dave, 2026-09-14: "everyone is removed from their team and
+// drafted as either red or blue"). Draws from the whole society membership,
+// not scoped to any existing team, and creates two real competition-scoped
+// `teams` rows named/coloured exactly like a real draft would, so a
+// simulated Ryder Cup or Skullers Scramble reads the same as a real one.
+async function buildDraftTeams(
+  societyId: string, competitionId: string, playersPerSide: number, formatLabel: string, onProgress?: (m: string) => void,
+): Promise<{ teams: SimTeam[]; roster: SimRosterPlayer[] }> {
+  onProgress?.('Loading society members...');
+  const { data: memberRows, error: memErr } = await supabase
+    .from('society_members')
+    .select('player_id, players(display_name, handicap_index)')
+    .eq('society_id', societyId);
+  if (memErr) throw memErr;
+
+  const seen = new Set<string>();
+  const pool: SimRosterPlayer[] = [];
+  for (const m of ((memberRows ?? []) as any[])) {
+    if (!m.player_id || seen.has(m.player_id)) continue;
+    seen.add(m.player_id);
+    pool.push({ id: m.player_id, display_name: m.players?.display_name ?? '—', handicap_index: m.players?.handicap_index ?? 12 });
+  }
+
+  const needed = playersPerSide * 2;
+  if (pool.length < needed) {
+    throw new Error(
+      `${formatLabel} needs ${needed} real society members to draft two full sides — this society only has ${pool.length}. ` +
+      `Add more members to the society, or lower the size and run it again.`
+    );
+  }
+
+  const r = makeRandom();
+  const shuffled = pool.slice();
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = r.int(0, i);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const picked = shuffled.slice(0, needed);
+
+  const inserted = await insertAll<any>('teams', RYDER_SIDES.map(side => ({
+    society_id: societyId, competition_id: competitionId, name: side.name, accent_color: side.accent_color,
+  })));
+
+  const teams: SimTeam[] = inserted.map((t: any, i: number) => ({
+    id: t.id, name: t.name, playerIds: picked.slice(i * playersPerSide, (i + 1) * playersPerSide).map(p => p.id),
+  }));
+  return { teams, roster: picked };
 }
 
 function matchHcp(hcpByPlayer: Record<string, number>, pid: string, day: any, allowance: number, groupIds: string[], relativeLow: boolean): number {
@@ -510,21 +572,20 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
 async function runRoundRobinTeamSimulation(opts: SimulateTournamentOptions): Promise<SimulateTournamentResult> {
   const { societyId, formatId, numTeams, onProgress } = opts;
   const rules = FORMAT_RULES[formatId];
-  const effectiveTeams = formatId === 'ryder_cup' ? 2 : numTeams;
+  // A format pinned to exactly 2 sides (Ryder Cup, Skullers Scramble) ignores
+  // the team-count stepper entirely — its identity breaks with any other
+  // number.
+  const effectiveTeams = (rules.minTeams === 2 && rules.maxTeams === 2) ? 2 : numTeams;
   if (effectiveTeams < 2) throw new Error(`${rules.label} needs at least 2 teams.`);
   const playersPerTeam = 4;
 
   onProgress?.('Checking course data...');
   const course = await pickSimulationCourse();
 
-  const { teams, roster } = await buildRealTeams(societyId, effectiveTeams, playersPerTeam, rules.label, onProgress);
-  const hcpByPlayer: Record<string, number> = {};
-  roster.forEach(p => { hcpByPlayer[p.id] = p.handicap_index; });
-
-  const teamIds = teams.map(t => t.id);
-  const rosterByTeam: Record<string, string[]> = {};
-  teams.forEach(t => { rosterByTeam[t.id] = t.playerIds; });
-
+  // Two-side captain-draft formats (Ryder Cup, Skullers Scramble) need the
+  // competition to exist first — their teams are competition-scoped (Red
+  // Team/Blue Team, created fresh per event), unlike the real permanent club
+  // teams every other team format simulates against.
   onProgress?.('Creating competition...');
   const pin = String(Math.floor(1000 + Math.random() * 9000));
   const [comp] = await insertAll<any>('competitions', [{
@@ -535,11 +596,25 @@ async function runRoundRobinTeamSimulation(opts: SimulateTournamentOptions): Pro
     is_simulation: true,
   }]);
 
+  const { teams, roster } = rules.captainDraftTwoSides
+    ? await buildDraftTeams(societyId, comp.id, playersPerTeam, rules.label, onProgress)
+    : await buildRealTeams(societyId, effectiveTeams, playersPerTeam, rules.label, onProgress);
+  const hcpByPlayer: Record<string, number> = {};
+  roster.forEach(p => { hcpByPlayer[p.id] = p.handicap_index; });
+
+  const teamIds = teams.map(t => t.id);
+  const rosterByTeam: Record<string, string[]> = {};
+  teams.forEach(t => { rosterByTeam[t.id] = t.playerIds; });
+
   const numDays = rules.defaultDays;
   const dayRows = Array.from({ length: numDays }, (_, i) => {
     const dayNumber = i + 1;
     const isLast = dayNumber === numDays;
-    const df = isLast && rules.lastDaySinglesOverride ? 'singles' : rules.defaultDayFormat;
+    // A format with a fixed day plan (Skullers Scramble: Day 1 Scramble, Day
+    // 2 Singles) uses it verbatim, same as the builder does when the
+    // organiser picks that format.
+    const df = rules.fixedDayFormats?.[i]
+      ?? (isLast && rules.lastDaySinglesOverride ? 'singles' : rules.defaultDayFormat);
     return {
       competition_id: comp.id, day_number: dayNumber, course_name: course.name,
       course_par: course.par, course_rating: course.rating, slope_rating: course.slope,
@@ -548,8 +623,12 @@ async function runRoundRobinTeamSimulation(opts: SimulateTournamentOptions): Pro
   });
   const days = (await insertAll<any>('competition_days', dayRows)).sort((a: any, b: any) => a.day_number - b.day_number);
 
-  await insertAll('competition_players', teams.flatMap((t: any) => rosterByTeam[t.id].map(pid => ({
+  await insertAll('competition_players', teams.flatMap((t: any) => rosterByTeam[t.id].map((pid, idx) => ({
     competition_id: comp.id, player_id: pid, team_id: t.id, handicap_index: hcpByPlayer[pid], status: 'enrolled',
+    // Skullers Scramble's Singles day is captain-picked rather than seeded —
+    // roster order stands in for "what the captain submitted" here, which is
+    // exactly what the day loop below then pairs 1-to-1 across the two sides.
+    ...(rules.captainPickedSinglesOrder ? { singles_order: idx + 1 } : {}),
   }))));
 
   const r = makeRandom();
@@ -559,7 +638,18 @@ async function runRoundRobinTeamSimulation(opts: SimulateTournamentOptions): Pro
   for (const day of days) {
     onProgress?.(`Simulating day ${day.day_number}...`);
     const isSinglesDay = day.day_format === 'singles' || day.day_format === 'singles_stableford';
+    // 2v2 Match Play Scramble (Skullers Scramble Day 1): still a pairs day —
+    // the captain's submitted order taken two at a time, pair N against the
+    // other side's pair N — but one shared ball per pair rather than
+    // best-of-two, compared on net off the blended pair handicap.
+    const isScrambleDay = day.day_format === 'scramble';
     const ppm = isSinglesDay ? 1 : 2;
+    const resolveHcps = (ids: string[]) => ids.map(pid => playerCourseHcp(hcpByPlayer[pid], day, day.hcp_pct));
+    const scramblePairHcp = (ids: string[]) => {
+      const hs = resolveHcps(ids);
+      if (hs.length === 0) return 0;
+      return hs.length === 1 ? hs[0] : calcScramblePairHandicap(hs[0], hs[1]);
+    };
     let matchNum = 1;
     for (const [tH, tA] of computeRoundRobinMatchups(teamIds, day.day_number)) {
       const pH = rosterByTeam[tH]; const pA = rosterByTeam[tA];
@@ -568,9 +658,37 @@ async function runRoundRobinTeamSimulation(opts: SimulateTournamentOptions): Pro
         const homeIds = ppm === 2 ? [pH[j * 2], pH[j * 2 + 1]] : [pH[j]];
         const awayIds = ppm === 2 ? [pA[j * 2], pA[j * 2 + 1]] : [pA[j]];
         const allIds = [...homeIds, ...awayIds];
+        // Raw blended pair handicap drives how well each pair SCORES; the
+        // effective one (relative to the other pair) drives the shots it
+        // receives, via the same helper the live scorer uses.
+        const homePairHcp = isScrambleDay ? scramblePairHcp(homeIds) : 0;
+        const awayPairHcp = isScrambleDay ? scramblePairHcp(awayIds) : 0;
+        const homeEffHcp  = isScrambleDay ? scramblePairEffectiveHcp(resolveHcps(homeIds), resolveHcps(awayIds), true) : 0;
+        const awayEffHcp  = isScrambleDay ? scramblePairEffectiveHcp(resolveHcps(homeIds), resolveHcps(awayIds), false) : 0;
         let holesStr = '';
         const holeRows: any[] = [];
         for (const h of course.holes) {
+          if (isScrambleDay) {
+            const homeShots = calcStrokesReceived(homeEffHcp, h.stroke_index);
+            const awayShots = calcStrokesReceived(awayEffHcp, h.stroke_index);
+            const homeGross = simulateGross(h.par, homePairHcp, r);
+            const awayGross = simulateGross(h.par, awayPairHcp, r);
+            const scrambleResult: 'h' | 'a' | 'f' =
+              homeGross - homeShots < awayGross - awayShots ? 'h'
+              : awayGross - awayShots < homeGross - homeShots ? 'a' : 'f';
+            holesStr += scrambleResult;
+            for (const pid of allIds) {
+              const isHome = homeIds.includes(pid);
+              const gross = isHome ? homeGross : awayGross;
+              const shots = isHome ? homeShots : awayShots;
+              // stableford_pts stays null and nothing is added to the
+              // individual totals — a shared team ball is not either player's
+              // own round (same rule matchScoring.ts applies live).
+              holeRows.push({ match_id: null, player_id: pid, hole_number: h.hole_number, score: scrambleResult, gross_score: gross, net_score: gross - shots, stableford_pts: null });
+            }
+            if (calcHoles(holesStr, 18, 1).concluded) break;
+            continue;
+          }
           const ptsByPlayer: Record<string, number> = {};
           const grossByPlayer: Record<string, number> = {};
           for (const pid of allIds) {
@@ -596,7 +714,17 @@ async function runRoundRobinTeamSimulation(opts: SimulateTournamentOptions): Pro
         const [match] = await insertAll<any>('matches', [{
           competition_id: comp.id, day_id: day.id, match_number: matchNum++,
           home_team_id: tH, away_team_id: tA, home_player_ids: homeIds, away_player_ids: awayIds,
-          round_format: 'matchplay', is_singles: isSinglesDay, hcp_allowance: day.hcp_pct, handicap_method: isSinglesDay ? 'individual_stableford' : 'relative_low_stableford',
+          round_format: 'matchplay', is_singles: isSinglesDay, hcp_allowance: day.hcp_pct,
+          // Skullers Scramble's Singles day is a plain standalone Singles
+          // Match Play day, so it takes the same relative_low method
+          // admin/draw.tsx's dayFormatToHandicapMethod() gives it — lowest
+          // Playing Handicap in the match off scratch. Every other format's
+          // simulated day keeps exactly the method it had before.
+          handicap_method: isScrambleDay
+            ? 'scramble_pair'
+            : isSinglesDay
+              ? (rules.captainPickedSinglesOrder ? 'relative_low' : 'individual_stableford')
+              : 'relative_low_stableford',
           status: 'complete', winner, result_str, holes_string: holesStr.padEnd(18, '.'),
           holes_to_play: 18, start_hole: 1, started_at: new Date().toISOString(), completed_at: new Date().toISOString(),
         }]);

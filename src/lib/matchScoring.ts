@@ -9,7 +9,7 @@
 // only the computation + the raw DB write moved here.
 import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase as defaultSupabase } from './supabase';
-import { calcStrokesReceived, calcStablefordPoints, calcHoles } from './scoring';
+import { calcStrokesReceived, calcStablefordPoints, calcHoles, scramblePairEffectiveHcp } from './scoring';
 import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from './whs';
 import { enqueueHole, isNetworkError } from './offlineQueue';
 
@@ -114,6 +114,17 @@ function matchplayHcp(
   allPlayerIds: string[],
 ): number {
   const base = playerCourseHcp(id, compPlayers, match.day ?? null, match.hcp_allowance ?? 100, roundPlayerTees);
+  // 2v2 Match Play Scramble (Skullers Scramble Day 1): a pair plays one shared
+  // ball, so both of its players are allocated strokes off the SAME blended
+  // pair handicap — which is what lets the generic best-of-the-side Math.min
+  // below reduce two identical rows back to the one team score. Relative to
+  // the lower pair, exactly like relative_low, just at pair granularity.
+  if (match.handicap_method === 'scramble_pair') {
+    const resolve = (ids: string[]) => ids.map(pid => playerCourseHcp(pid, compPlayers, match.day ?? null, match.hcp_allowance ?? 100, roundPlayerTees));
+    return scramblePairEffectiveHcp(
+      resolve(match.home_player_ids), resolve(match.away_player_ids), match.home_player_ids.includes(id),
+    );
+  }
   if (match.handicap_method !== 'relative_low' && match.handicap_method !== 'relative_low_stableford') return base;
   const groupHcps = allPlayerIds.map(pid => playerCourseHcp(pid, compPlayers, match.day ?? null, match.hcp_allowance ?? 100, roundPlayerTees));
   return Math.max(0, base - Math.min(...groupHcps));
@@ -212,7 +223,12 @@ function computeMatchPlay(input: ComputeHoleScoresInput): Omit<ComputedHoleScore
     const gross = scores[id] ?? null;
     const fullHcp = playerCourseHcp(id, compPlayers, match.day, 100, roundPlayerTees);
     const sideShots = calcStrokesReceived(fullHcp, si);
-    const needsStablefordPts = !!match.secondary_format || !!match.day?.competition?.include_in_kronos || !!match.day?.competition?.handicap_cuts_enabled;
+    // A scramble pair's gross is the TEAM's ball, not either player's own
+    // round, so it must never be converted into individual Stableford points —
+    // that number feeds Kronos and the Handicap Cutting System, and a shared
+    // best-of-two-shots score would flatter both players there.
+    const needsStablefordPts = match.handicap_method !== 'scramble_pair'
+      && (!!match.secondary_format || !!match.day?.competition?.include_in_kronos || !!match.day?.competition?.handicap_cuts_enabled);
     return {
       match_id: match.id, player_id: id, hole_number: activeHole, score: holeResult,
       gross_score: gross,
