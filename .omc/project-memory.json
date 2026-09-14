@@ -281,8 +281,20 @@
     },
     {
       "path": "app/(app)/admin/draw.tsx",
-      "accessCount": 8,
-      "lastAccessed": 1789371787929,
+      "accessCount": 11,
+      "lastAccessed": 1789377714855,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/simulateTournament.ts",
+      "accessCount": 7,
+      "lastAccessed": 1789377885490,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1789377745845,
       "type": "file"
     },
     {
@@ -334,9 +346,9 @@
       "type": "file"
     },
     {
-      "path": "src/lib/simulateTournament.ts",
+      "path": "app.json",
       "accessCount": 2,
-      "lastAccessed": 1789371632282,
+      "lastAccessed": 1789378768394,
       "type": "file"
     },
     {
@@ -481,6 +493,18 @@
       "path": "app/(app)/swindle/score/[gameId].tsx",
       "accessCount": 1,
       "lastAccessed": 1789372398534,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/titanWayDraw.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789376697989,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789376731622,
       "type": "file"
     }
   ],

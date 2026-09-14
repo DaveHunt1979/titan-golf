@@ -236,9 +236,15 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
     is_simulation: true,
   }]);
 
+  // Odd Titan's qualifying rounds are no longer 4BBB — no team-vs-team
+  // pairing at all, so there's no round-robin bye to worry about either
+  // (Dave + Rick, 2026-09-14: "they all go out in their teams, combine all
+  // points"). Titan Way (even teams) keeps its existing 4BBB round-robin.
+  const isOddTitan = formatId === 'odd_titan';
+  const qualifyingDayFormat = isOddTitan ? 'stableford' : 'four_bbb';
   const dayDefs = [
-    { day_number: 1, format: 'four_bbb' }, { day_number: 2, format: 'four_bbb' },
-    { day_number: 3, format: 'four_bbb' }, { day_number: 4, format: 'singles_stableford' },
+    { day_number: 1, format: qualifyingDayFormat }, { day_number: 2, format: qualifyingDayFormat },
+    { day_number: 3, format: qualifyingDayFormat }, { day_number: 4, format: 'singles_stableford' },
   ];
   const dayRows = dayDefs.map(d => ({
     competition_id: comp.id, day_number: d.day_number, course_name: course.name,
@@ -301,12 +307,59 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
     return { match, stablefordByPlayer };
   }
 
+  // Odd Titan qualifying round: one match per team, all 4 players, no
+  // opponent — same shape a real standalone Individual Stableford day
+  // already uses (round_format 'stableford', away side empty), just with
+  // home_team_id populated so the team leaderboard can sum it. No best-ball,
+  // no match-play winner — every player's own gross score counts.
+  async function simulateAndInsertTeamStablefordMatch(o: {
+    day_id: string; day: any; match_number: number; team_id: string; player_ids: string[]; hcp_allowance: number;
+  }) {
+    const holeRows: any[] = [];
+    const stablefordByPlayer: Record<string, number> = {};
+    for (const h of course.holes) {
+      for (const pid of o.player_ids) {
+        const gross = simulateGross(h.par, playerCourseHcp(hcpByPlayer[pid], o.day, 100), r);
+        const shots = calcStrokesReceived(playerCourseHcp(hcpByPlayer[pid], o.day, o.hcp_allowance), h.stroke_index);
+        const pts = calcStablefordPoints(gross, h.par, shots);
+        stablefordByPlayer[pid] = (stablefordByPlayer[pid] ?? 0) + pts;
+        holeRows.push({ match_id: null, player_id: pid, hole_number: h.hole_number, score: 'd', gross_score: gross, net_score: gross - shots, stableford_pts: pts });
+      }
+    }
+    const [match] = await insertAll<any>('matches', [{
+      competition_id: comp.id, day_id: o.day_id, match_number: o.match_number,
+      home_team_id: o.team_id, away_team_id: null,
+      home_player_ids: o.player_ids, away_player_ids: [],
+      round_format: 'stableford', is_singles: false, hcp_allowance: o.hcp_allowance, handicap_method: 'individual',
+      status: 'complete', winner: null, result_str: null, holes_string: 'd'.repeat(18),
+      holes_to_play: 18, start_hole: 1, started_at: new Date().toISOString(), completed_at: new Date().toISOString(),
+    }]);
+    holeRows.forEach(row => { row.match_id = match.id; });
+    await insertAll('match_holes', holeRows);
+    return { match, stablefordByPlayer };
+  }
+
   const allMatches: any[] = [];
   const stablefordTotals: Record<string, number> = {};
   const matchIdsByDay: Record<number, string[]> = {};
-  for (const day of days.filter((d: any) => d.day_format === 'four_bbb')) {
+  for (const day of days.filter((d: any) => d.day_format === qualifyingDayFormat)) {
     onProgress?.(`Simulating day ${day.day_number}...`);
     matchIdsByDay[day.day_number] = [];
+
+    if (isOddTitan) {
+      let matchNum = 1;
+      for (const tid of teamIds) {
+        const { match, stablefordByPlayer } = await simulateAndInsertTeamStablefordMatch({
+          day_id: day.id, day, match_number: matchNum++, team_id: tid,
+          player_ids: rosterByTeam[tid], hcp_allowance: day.hcp_pct,
+        });
+        allMatches.push(match);
+        matchIdsByDay[day.day_number].push(match.id);
+        Object.entries(stablefordByPlayer).forEach(([pid, pts]) => { stablefordTotals[pid] = (stablefordTotals[pid] ?? 0) + pts; });
+      }
+      continue;
+    }
+
     let matchNum = 1;
     for (const [tH, tA] of computeRoundRobinMatchups(teamIds, day.day_number)) {
       const pairH = schedule.pairingsByDay[day.day_number]?.[tH];

@@ -867,49 +867,79 @@ export default function TournamentDrawScreen() {
     const qualifyingDayIds = new Set(qualifyingDays.map(d => d.id));
     const existingMatches = matches.filter(m => qualifyingDayIds.has(m.day_id));
 
+    // Odd Titan's qualifying rounds (Dave + Rick, 2026-09-14 live test with 5
+    // teams): round-robin 4BBB pairing byes exactly one team every round
+    // whenever the team count is odd — "one team doesn't play" — which is
+    // not what Odd Titan is supposed to be. There's no opponent pairing at
+    // all: every team's 4 players go out and play their own Stableford
+    // round, and the team's score for that round is just those 4 players'
+    // points added together (see tour/index.tsx's teamStableford — now the
+    // WHOLE-tournament total, not just the final round, for this format).
+    // Titan Way (even teams, no bye problem) keeps the existing 4BBB
+    // round-robin + partnership optimizer below unchanged.
+    const isOddTitan = comp.format === 'odd_titan';
+
     async function proceed() {
       setGenerating('titan_way');
       try {
         if (existingMatches.length > 0) {
           await supabase.from('matches').delete().in('id', existingMatches.map(m => m.id));
         }
-        const schedule = generateTitanWaySchedule({
-          teamIds,
-          rosterByTeam: grouped,
-          qualifyingDayNumbers: qualifyingDays.map(d => d.day_number),
-        });
 
         const matchRows: any[] = [];
-        for (const day of qualifyingDays) {
-          const df = day.day_format ?? 'four_bbb';
-          const roundFmt = dayFormatToRoundFormat(df);
-          const handicapMethod = dayFormatToHandicapMethod(df);
-          const hcp = day.hcp_pct ?? 100;
-          const sideGamesTags = [
-            ...(comp?.settings?.voice_enabled ? ['voice:on'] : []),
-            ...(comp?.settings?.track_stats_enabled ? [] : ['stats:off']),
-          ];
-          const dayMatchups = computeRoundRobinMatchups(teamIds, day.day_number);
-          const dayPairings = schedule.pairingsByDay[day.day_number] ?? {};
-          let matchNum = 1;
-          for (const [tH, tA] of dayMatchups) {
-            const pairingH = dayPairings[tH];
-            const pairingA = dayPairings[tA];
-            if (!pairingH || !pairingA) continue;
-            matchRows.push({
-              competition_id: competitionId, day_id: day.id, match_number: matchNum++,
-              home_team_id: tH, away_team_id: tA,
-              home_player_ids: pairingH.pair1, away_player_ids: pairingA.pair1,
-              round_format: roundFmt, is_singles: false, hcp_allowance: hcp,
-              handicap_method: handicapMethod, status: 'upcoming', side_games: sideGamesTags,
-            });
-            matchRows.push({
-              competition_id: competitionId, day_id: day.id, match_number: matchNum++,
-              home_team_id: tH, away_team_id: tA,
-              home_player_ids: pairingH.pair2, away_player_ids: pairingA.pair2,
-              round_format: roundFmt, is_singles: false, hcp_allowance: hcp,
-              handicap_method: handicapMethod, status: 'upcoming', side_games: sideGamesTags,
-            });
+        const sideGamesTags = [
+          ...(comp?.settings?.voice_enabled ? ['voice:on'] : []),
+          ...(comp?.settings?.track_stats_enabled ? [] : ['stats:off']),
+        ];
+
+        if (isOddTitan) {
+          for (const day of qualifyingDays) {
+            const hcp = day.hcp_pct ?? 100;
+            let matchNum = 1;
+            for (const tid of teamIds) {
+              matchRows.push({
+                competition_id: competitionId, day_id: day.id, match_number: matchNum++,
+                home_team_id: tid, away_team_id: null,
+                home_player_ids: grouped[tid], away_player_ids: [],
+                round_format: 'stableford', is_singles: false, hcp_allowance: hcp,
+                handicap_method: 'individual', status: 'upcoming', side_games: sideGamesTags,
+              });
+            }
+          }
+        } else {
+          const schedule = generateTitanWaySchedule({
+            teamIds,
+            rosterByTeam: grouped,
+            qualifyingDayNumbers: qualifyingDays.map(d => d.day_number),
+          });
+
+          for (const day of qualifyingDays) {
+            const df = day.day_format ?? 'four_bbb';
+            const roundFmt = dayFormatToRoundFormat(df);
+            const handicapMethod = dayFormatToHandicapMethod(df);
+            const hcp = day.hcp_pct ?? 100;
+            const dayMatchups = computeRoundRobinMatchups(teamIds, day.day_number);
+            const dayPairings = schedule.pairingsByDay[day.day_number] ?? {};
+            let matchNum = 1;
+            for (const [tH, tA] of dayMatchups) {
+              const pairingH = dayPairings[tH];
+              const pairingA = dayPairings[tA];
+              if (!pairingH || !pairingA) continue;
+              matchRows.push({
+                competition_id: competitionId, day_id: day.id, match_number: matchNum++,
+                home_team_id: tH, away_team_id: tA,
+                home_player_ids: pairingH.pair1, away_player_ids: pairingA.pair1,
+                round_format: roundFmt, is_singles: false, hcp_allowance: hcp,
+                handicap_method: handicapMethod, status: 'upcoming', side_games: sideGamesTags,
+              });
+              matchRows.push({
+                competition_id: competitionId, day_id: day.id, match_number: matchNum++,
+                home_team_id: tH, away_team_id: tA,
+                home_player_ids: pairingH.pair2, away_player_ids: pairingA.pair2,
+                round_format: roundFmt, is_singles: false, hcp_allowance: hcp,
+                handicap_method: handicapMethod, status: 'upcoming', side_games: sideGamesTags,
+              });
+            }
           }
         }
 

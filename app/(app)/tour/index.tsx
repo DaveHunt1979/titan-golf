@@ -706,10 +706,17 @@ export default function TourScreen() {
   const qualifyingMatches = excludeFinalRoundFromMatchPoints
     ? (matches as any[]).filter((m: any) => !singlesDayIds.has(m.day_id))
     : (matches as any[]);
-  const finalRoundDayId = finalRoundStablefordTeamPoints ? [...singlesDayIds][0] : undefined;
-  const finalRoundTeamStableford = finalRoundDayId ? (teamStablefordByDay[finalRoundDayId] ?? {}) : {};
+  // Odd Titan (Dave + Rick, 2026-09-14): the qualifying rounds are no longer
+  // 4BBB match-play either — every round is now "all 4 players on a team go
+  // out, their Stableford points get added together", same shape as the
+  // final round already had. Its qualifying-round matches carry no
+  // away_team_id any more (see draw.tsx's generateTitanWayDraw), so they
+  // already fall out of the win/half/loss loop below via the
+  // home_team_id-and-away_team_id filter on `standings` — this just needs to
+  // feed the WHOLE-tournament team Stableford total (every day, not only the
+  // final one) in as the team's points, instead of only the final day's.
   const bonusPts = finalRoundStablefordTeamPoints
-    ? finalRoundTeamStableford
+    ? teamStableford
     : calcSweepBonus(qualifyingMatches as Match[], singlesDayIds, (competition as any).bonus_points ?? 2);
 
   const standings = getStandings(
@@ -863,7 +870,11 @@ export default function TourScreen() {
   const dayPtsByTeam: Record<string, number[]> = {};
   teamSortedDays.forEach(day => {
     const dayIdx = teamSortedDays.indexOf(day);
-    if (finalRoundStablefordTeamPoints && singlesDayIds.has(day.id)) {
+    // Every day of an Odd Titan tournament — not just the final one — is now
+    // "4 players on a team, Stableford points added together", so every
+    // column sources straight from that day's team Stableford total rather
+    // than match-play standings (Dave + Rick, 2026-09-14).
+    if (finalRoundStablefordTeamPoints) {
       Object.entries(teamStablefordByDay[day.id] ?? {}).forEach(([teamId, pts]) => {
         if (!dayPtsByTeam[teamId]) dayPtsByTeam[teamId] = [];
         dayPtsByTeam[teamId][dayIdx] = pts;
