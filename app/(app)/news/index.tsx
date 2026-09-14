@@ -120,22 +120,42 @@ export default function TitanNewsScreen() {
   }, []);
 
   const load = useCallback(async () => {
-    // Filtering on an embedded relation's column requires `!inner` (a plain
-    // left-join embed can't be used to narrow the top-level rows) — only
-    // needed for the global view, which scopes to the currently active
-    // society rather than every society this player belongs to.
     const cols = 'id, story_type, headline, summary, body, created_at, day_id, match_id, competition_id, banter_speaker, banter_text, banter_scene, competition_days(day_number)';
-    let query = matchId
-      ? supabase.from('titan_news')
-          .select(cols)
-          .eq('match_id', matchId)
-      : competitionId
-      ? supabase.from('titan_news')
-          .select(`${cols}, competitions(name)`)
-          .eq('competition_id', competitionId)
-      : supabase.from('titan_news')
-          .select(`${cols}, competitions!inner(name, society_id)`)
-          .eq('competitions.society_id', societyId);
+
+    // Tournament stories only ever show inside their own tournament (opened
+    // with a competitionId) — they must never spill into the global feed.
+    let query;
+    if (matchId) {
+      query = supabase.from('titan_news').select(cols).eq('match_id', matchId);
+    } else if (competitionId) {
+      query = supabase.from('titan_news').select(`${cols}, competitions(name)`).eq('competition_id', competitionId);
+    } else {
+      // The global feed (no params — what the Home screen's Titan News tab
+      // opens to) is casual rounds only, scoped to people you'd actually
+      // recognise: your own society's members — "Friends" elsewhere in the
+      // app (app/(app)/friends.tsx, the "Friends on a round" widget on Home)
+      // means the same thing, your society's member list, not a separate
+      // relationship — so this is one scope, not two (Dave, 2026-09-11:
+      // "society casuals and friends list... you don't want mixed societies
+      // seeing what is going on").
+      if (!societyId) { setArticles([]); setPhotos([]); setLoading(false); setRefreshing(false); return; }
+      const { data: memberRows } = await supabase
+        .from('society_members').select('player_id').eq('society_id', societyId);
+      const memberIds = (memberRows ?? []).map((m: any) => m.player_id as string);
+      if (memberIds.length === 0) { setArticles([]); setPhotos([]); setLoading(false); setRefreshing(false); return; }
+      // Same OR-of-per-id `cs` checks already proven working elsewhere in
+      // this codebase for "does this match involve any of these players"
+      // (app/(app)/index.tsx's "Friends on a round" widget) rather than a
+      // single multi-value `ov` overlap filter, which isn't used anywhere
+      // else in this codebase.
+      const orFilter = memberIds
+        .flatMap(id => [`home_player_ids.cs.{"${id}"}`, `away_player_ids.cs.{"${id}"}`])
+        .join(',');
+      query = supabase.from('titan_news')
+        .select(`${cols}, matches!inner(home_player_ids, away_player_ids)`)
+        .eq('story_type', 'casual_final')
+        .or(orFilter, { foreignTable: 'matches' });
+    }
 
     const { data } = await query.eq('status', 'published').order('created_at', { ascending: false });
     const rows = (data ?? []) as any as Article[];

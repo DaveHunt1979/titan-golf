@@ -288,6 +288,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/news/index.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1789135611083,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/admin/create-society.tsx",
       "accessCount": 8,
       "lastAccessed": 1789123542982,
@@ -354,9 +360,21 @@
       "type": "file"
     },
     {
+      "path": "supabase/migrations/20260918060000_titan_news_mcfadey_driver.sql",
+      "accessCount": 2,
+      "lastAccessed": 1789130335293,
+      "type": "file"
+    },
+    {
       "path": "supabase/schema.sql",
-      "accessCount": 1,
-      "lastAccessed": 1789123270577,
+      "accessCount": 2,
+      "lastAccessed": 1789130926730,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/index.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1789135666840,
       "type": "file"
     },
     {
@@ -414,15 +432,105 @@
       "type": "file"
     },
     {
-      "path": "supabase/migrations/20260918060000_titan_news_mcfadey_driver.sql",
-      "accessCount": 1,
-      "lastAccessed": 1789125145670,
-      "type": "file"
-    },
-    {
       "path": "supabase/migrations/20260918080000_ai_coaching_mcfadey_driver.sql",
       "accessCount": 1,
       "lastAccessed": 1789125159094,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260818070000_titan_news.sql",
+      "accessCount": 1,
+      "lastAccessed": 1789130333355,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260820020000_casual_news.sql",
+      "accessCount": 1,
+      "lastAccessed": 1789130333809,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260821020000_titan_news_banter.sql",
+      "accessCount": 1,
+      "lastAccessed": 1789130334314,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260907000000_titan_season_news.sql",
+      "accessCount": 1,
+      "lastAccessed": 1789130335119,
+      "type": "file"
+    },
+    {
+      "path": "supabase/functions/titan-news/index.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789130345539,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260820030000_casual_match_report_dm.sql",
+      "accessCount": 1,
+      "lastAccessed": 1789130346048,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260820010000_swindle_settlement_dm.sql",
+      "accessCount": 1,
+      "lastAccessed": 1789130346592,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260818020000_direct_messages.sql",
+      "accessCount": 1,
+      "lastAccessed": 1789130347102,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260819_tournament_prizes_and_newsreel.sql",
+      "accessCount": 1,
+      "lastAccessed": 1789130347546,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/titanNews.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789130356364,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/seasonNews.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789130356792,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/news.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1789130372130,
+      "type": "file"
+    },
+    {
+      "path": "web/src/app/newsreel/[competitionId]/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1789130443367,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260825040000_swindle_society_and_records_dm.sql",
+      "accessCount": 1,
+      "lastAccessed": 1789130451796,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260705020000_casual_rounds_standalone.sql",
+      "accessCount": 1,
+      "lastAccessed": 1789130954714,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/friends.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1789135414998,
       "type": "file"
     }
   ],

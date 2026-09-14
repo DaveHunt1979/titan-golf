@@ -124,15 +124,26 @@ export default function HomeScreen() {
   }
 
   async function checkNewsUnread() {
+    // Matches the global Titan News feed's own scoping (app/(app)/news/index.tsx)
+    // — casual rounds only, from your own society's members, tournament
+    // stories never show there so must not count toward this badge either.
     if (!SOCIETY_ID) return;
     const lastRead = await AsyncStorage.getItem(NEWS_READ_KEY);
     const since = lastRead ?? new Date(0).toISOString();
+    const { data: memberRows } = await supabase
+      .from('society_members').select('player_id').eq('society_id', SOCIETY_ID);
+    const memberIds = (memberRows ?? []).map((m: any) => m.player_id as string);
+    if (memberIds.length === 0) { setNewsUnread(0); return; }
+    const orFilter = memberIds
+      .flatMap(id => [`home_player_ids.cs.{"${id}"}`, `away_player_ids.cs.{"${id}"}`])
+      .join(',');
     const { count } = await supabase
       .from('titan_news')
-      .select('id, competitions!inner(society_id)', { count: 'exact', head: true })
-      .eq('competitions.society_id', SOCIETY_ID)
+      .select('id, matches!inner(home_player_ids, away_player_ids)', { count: 'exact', head: true })
+      .eq('story_type', 'casual_final')
       .eq('status', 'published')
-      .gt('created_at', since);
+      .gt('created_at', since)
+      .or(orFilter, { foreignTable: 'matches' });
     setNewsUnread(count ?? 0);
   }
 
