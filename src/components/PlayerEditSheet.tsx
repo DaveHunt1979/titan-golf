@@ -65,6 +65,7 @@ export default function PlayerEditSheet({
   const dc = useDynamicColors();
   const [editCommittee, setEditCommittee] = useState('');
   const [editPermRole, setEditPermRole]   = useState('');
+  const [editDisplayName, setEditDisplayName] = useState('');
   const [editEmail, setEditEmail]         = useState('');
   const [editHcp, setEditHcp]             = useState('');
   const [areas, setAreas]                 = useState<string[]>([]);
@@ -78,6 +79,7 @@ export default function PlayerEditSheet({
     if (!member) return;
     setEditCommittee(member.committee_role ?? '');
     setEditPermRole(member.role);
+    setEditDisplayName(member.player.display_name ?? '');
     setEditEmail(member.player.email ?? '');
     setEditHcp(member.player.handicap_index != null ? String(member.player.handicap_index) : '');
     setAvatarUrl(member.player.avatar_url ?? null);
@@ -172,6 +174,7 @@ export default function PlayerEditSheet({
 
   async function saveRoles() {
     if (!member) return;
+    if (!editDisplayName.trim()) { Alert.alert('Name required'); return; }
     setRoleSaving(true);
     try {
       await supabase.rpc('set_committee_role', {
@@ -180,14 +183,16 @@ export default function PlayerEditSheet({
         p_role:       editCommittee,
       });
 
+      const nameChanged  = editDisplayName.trim() !== member.player.display_name;
       const emailChanged = editEmail.trim() !== (member.player.email ?? '');
       const hcpChanged   = editHcp !== (member.player.handicap_index != null ? String(member.player.handicap_index) : '');
-      if (emailChanged || hcpChanged) {
+      if (nameChanged || emailChanged || hcpChanged) {
         const { error } = await supabase.rpc('admin_update_player', {
-          p_society_id: societyId,
-          p_player_id:  member.player.id,
-          p_email:      editEmail.trim().toLowerCase() || null,
-          p_handicap:   editHcp ? parseFloat(editHcp) : null,
+          p_society_id:   societyId,
+          p_player_id:    member.player.id,
+          p_display_name: editDisplayName.trim(),
+          p_email:        editEmail.trim().toLowerCase() || null,
+          p_handicap:     editHcp ? parseFloat(editHcp) : null,
         });
         if (error) throw error;
       }
@@ -256,6 +261,15 @@ export default function PlayerEditSheet({
           <Text style={s.sectionHint}>
             Set their email so they can claim this account when they join via PIN
           </Text>
+          <Text style={s.fieldLabel}>DISPLAY NAME</Text>
+          <TextInput
+            style={s.input}
+            value={editDisplayName}
+            onChangeText={setEditDisplayName}
+            placeholder="Player name"
+            placeholderTextColor="#444"
+            autoCapitalize="words"
+          />
           <Text style={s.fieldLabel}>EMAIL</Text>
           <TextInput
             style={s.input}

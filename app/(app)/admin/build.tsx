@@ -1537,11 +1537,11 @@ export default function BuildTournamentScreen() {
 
             {VOICE_FEATURE_ENABLED && (
               <>
-                <Text style={styles.fieldLabel}>CHIP & BIRDIE</Text>
+                <Text style={styles.fieldLabel}>MCFADEY & DRIVER</Text>
                 <View style={styles.toggleRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.toggleLabel}>Voice commentary</Text>
-                    <Text style={styles.toggleSub}>Same Chip & Birdie voice calls already used in Casual Golf</Text>
+                    <Text style={styles.toggleSub}>Same Davey McFadey & Rick Driver voice calls already used in Casual Golf</Text>
                   </View>
                   <Switch
                     value={voiceEnabled}

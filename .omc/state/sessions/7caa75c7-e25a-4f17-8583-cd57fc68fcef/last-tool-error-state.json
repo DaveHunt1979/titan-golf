@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"set -a; source .env.local; set +a\\nSCRATCH=\\\"/private/tmp/claude-501/-Users-davehunt-Desktop-titan-golf/7caa75c7-e25a-4f17-8583-cd57fc68fcef/scratchpad\\\"\\nfor i in 0 1; do\\n  echo \\\"--- re...",
+  "error": "Exit code 1\n--- regenerating 0 ---\ncurl: option -d: error encountered when reading a file\ncurl: try 'curl --help' or 'curl --manual' for more information\nExpecting value: line 1 column 1 (char 0)\n--- regenerating 1 ---\ncurl: option -d: error encountered when reading a file\ncurl: try 'curl --help' or 'curl --manual' for more information\nExpecting value: line 1 column 1 (char 0)",
+  "timestamp": "2026-09-14T07:25:43.525Z",
+  "retry_count": 1
+}

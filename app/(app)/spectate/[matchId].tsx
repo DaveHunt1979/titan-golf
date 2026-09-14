@@ -276,7 +276,17 @@ export default function SpectateScreen() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'matches',    filter: `id=eq.${matchId}` },         load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'match_holes', filter: `match_id=eq.${matchId}` }, load)
       .subscribe();
-    return () => { supabase.removeChannel(sub); };
+    // Realtime alone left this screen "stuck on one hole" for as long as its
+    // websocket happened to be dead — patchy course signal, or the socket
+    // not surviving a screen lock/app background while someone spectates for
+    // several holes (Ricky, weekend findings 2026-09-14). There's no
+    // app-wide reconnect-on-foreground here, so a periodic poll is the same
+    // safety net already added to the Home widget for the identical failure
+    // shape — Realtime still delivers instantly when it's alive, this just
+    // bounds the worst case.
+    const POLL_MS = 20000;
+    const interval = setInterval(load, POLL_MS);
+    return () => { supabase.removeChannel(sub); clearInterval(interval); };
   }, [matchId, load]);
 
   if (loading || !fontsLoaded) return (

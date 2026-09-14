@@ -15,7 +15,7 @@ const FFB = 'JUSTSans-ExBold';
 type GameMode =
   | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble'
   | 'greensome' | 'foursomes' | 'modified_stableford' | 'par_bogey'
-  | 'singles' | '4bbb' | '4bbb_stroke' | 'team_stableford' | 'best2from4' | 'best2from4_par3all';
+  | 'singles' | 'singles_stableford' | '4bbb' | '4bbb_stroke' | 'team_stableford' | 'best2from4' | 'best2from4_par3all';
 
 interface Player {
   id: string;
@@ -50,7 +50,7 @@ interface GroupState {
 }
 
 function getLayout(mode: GameMode): LayoutType {
-  if (mode === 'singles' || mode === 'nassau') return 'singles';
+  if (mode === 'singles' || mode === 'singles_stableford' || mode === 'nassau') return 'singles';
   if (mode === '4bbb' || mode === '4bbb_stroke' || mode === 'greensome' || mode === 'foursomes') return 'twoteam';
   if (mode === 'best2from4' || mode === 'best2from4_par3all') return 'mashie';
   if (mode === 'team_stableford') return 'twoteam';
@@ -58,7 +58,7 @@ function getLayout(mode: GameMode): LayoutType {
 }
 
 function getPlayersPerTeam(mode: GameMode, teamSize: number): number {
-  if (mode === 'singles' || mode === 'nassau') return 1;
+  if (mode === 'singles' || mode === 'singles_stableford' || mode === 'nassau') return 1;
   if (mode === '4bbb' || mode === '4bbb_stroke' || mode === 'greensome' || mode === 'foursomes') return 2;
   if (mode === 'team_stableford') return teamSize;
   return 4;

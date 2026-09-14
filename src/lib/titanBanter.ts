@@ -11,9 +11,10 @@
 // this little circle image").
 export const CHIP_PORTRAIT   = require('../../assets/hosts/chip_headshot.png');
 export const BIRDIE_PORTRAIT = require('../../assets/hosts/birdie_headshot.png');
-// Titan News' on-course reporters (Dave, 2026-09-10) — a separate duo from
-// Chip & Birdie, who stay on the live Caddie voice and Chip & Birdie
-// Coaching. See 20260918060000_titan_news_mcfadey_driver.sql.
+// Titan News' on-course reporters (Dave, 2026-09-10), later also adopted by
+// Locker Room Coaching (2026-09-11) — Chip & Birdie now live only in the
+// still-dormant Caddie voice feature (kill-switched off, see src/lib/
+// caddie.ts). See 20260918060000_titan_news_mcfadey_driver.sql.
 export const MCFADEY_PORTRAIT = require('../../assets/hosts/mcfadey_headshot.png');
 export const DRIVER_PORTRAIT  = require('../../assets/hosts/driver_headshot.png');
 

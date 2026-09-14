@@ -270,36 +270,60 @@ export default function HomeScreen() {
           const candidateMatchFriendIds = friendMatches.flatMap((m: any): string[] => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])])
             .filter((id: string) => memberIds.includes(id));
           const candidateSwindleFriendIds = swindleEntries.map((e: any) => e.player_id as string);
-          const candidateFriendIds = [...new Set([...candidateMatchFriendIds, ...candidateSwindleFriendIds])];
 
           // Being mid-round isn't enough on its own — the app they're
           // scoring on may have been closed/killed hours ago with the round
-          // still sitting at in_progress. Only show a friend who's actually
-          // active right now (same batched presence check friends.tsx uses).
-          const { data: onlineRows } = candidateFriendIds.length
-            ? await supabase.rpc('players_online_status', { p_player_ids: candidateFriendIds })
-            : { data: [] as any[] };
-          const onlineSet = new Set((onlineRows ?? []).filter((r: any) => r.online).map((r: any) => r.player_id));
-          const playingFriendIds = candidateFriendIds.filter(id => onlineSet.has(id));
-          const playingMatchFriendIds = playingFriendIds.filter(id => candidateMatchFriendIds.includes(id));
-          const playingSwindleFriendIds = playingFriendIds.filter(id => !candidateMatchFriendIds.includes(id));
+          // still sitting at in_progress. Judge "still out there" by actual
+          // scoring activity on the match/game (any player in the group can
+          // be the one entering scores) rather than this specific player's
+          // own phone being touched in the last few minutes — that used to
+          // hide Ricky, Chris, Arron and Kevin mid-round just for not
+          // tapping their screens, and made Ross flicker in and out right
+          // at the 5-min boundary (Ricky, 2026-09-14 weekend findings).
+          const ACTIVITY_WINDOW_MS = 60 * 60 * 1000; // 60 minutes
+          const activityCutoffMs = Date.now() - ACTIVITY_WINDOW_MS;
 
-          // 18 holes x every player in every live match/swindle — a busy
+          // 18 holes x every player in every friend match/swindle — a busy
           // society day clears PostgREST's 1000-row default cap, and a
           // truncated read would quietly show friends the wrong points/hole.
-          const [holesData, swindleScoreData, { data: friendPlayersData }] = await Promise.all([
-            playingMatchFriendIds.length
+          // Fetched for every candidate match/game up front (not gated by
+          // activity yet) since this same data also determines activity.
+          const [holesData, swindleScoreData] = await Promise.all([
+            matchIds.length
               ? fetchAllRows<any>(
-                  (from, to) => supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id').in('match_id', matchIds).order('id').range(from, to)
+                  (from, to) => supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id,updated_at').in('match_id', matchIds).order('id').range(from, to)
                 )
               : Promise.resolve([] as any[]),
-            playingSwindleFriendIds.length
+            swindleGameIds.length
               ? fetchAllRows<any>(
-                  (from, to) => supabase.from('swindle_scores').select('player_id,stableford_pts,hole_number,game_id').in('game_id', swindleGameIds).order('id').range(from, to)
+                  (from, to) => supabase.from('swindle_scores').select('player_id,stableford_pts,hole_number,game_id,recorded_at').in('game_id', swindleGameIds).order('id').range(from, to)
                 )
               : Promise.resolve([] as any[]),
-            playingFriendIds.length ? supabase.from('players').select('id,display_name,email,handicap_index,avatar_url,t_tag').in('id', playingFriendIds) : Promise.resolve({ data: [] as any[] }),
           ]);
+
+          const activeMatchIds = new Set<string>();
+          for (const h of (holesData ?? []) as any[]) {
+            if (h.updated_at && new Date(h.updated_at).getTime() > activityCutoffMs) activeMatchIds.add(h.match_id);
+          }
+          const activeGameIds = new Set<string>();
+          for (const s of (swindleScoreData ?? []) as any[]) {
+            if (s.recorded_at && new Date(s.recorded_at).getTime() > activityCutoffMs) activeGameIds.add(s.game_id);
+          }
+
+          const matchIdByPlayerId: Record<string, string> = {};
+          for (const m of friendMatches as any[]) {
+            for (const id of [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]) matchIdByPlayerId[id] = m.id;
+          }
+          const gameIdByPlayerId: Record<string, string> = {};
+          for (const e of swindleEntries as any[]) gameIdByPlayerId[e.player_id] = e.game_id;
+
+          const playingMatchFriendIds = candidateMatchFriendIds.filter(id => activeMatchIds.has(matchIdByPlayerId[id]));
+          const playingSwindleFriendIds = candidateSwindleFriendIds.filter(id => activeGameIds.has(gameIdByPlayerId[id]));
+          const playingFriendIds = [...new Set([...playingMatchFriendIds, ...playingSwindleFriendIds])];
+
+          const { data: friendPlayersData } = playingFriendIds.length
+            ? await supabase.from('players').select('id,display_name,email,handicap_index,avatar_url,t_tag').in('id', playingFriendIds)
+            : { data: [] as any[] };
 
           const nameMap: Record<string, string> = {};
           const playerMap: Record<string, any> = {};
@@ -357,7 +381,18 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [SOCIETY_ID]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // Friends-on-a-round otherwise only refreshed when this tab regained
+  // focus, so its hole/points snapshot could sit stale for as long as
+  // someone stayed on Home — the T-Card popup showed hole 8 while the live
+  // Spectate screen (which fetches fresh on open) correctly showed hole 6
+  // for the same match (Ricky, 2026-09-14). Poll while Home is actually on
+  // screen so the widget stays in step with live play.
+  const FRIENDS_POLL_MS = 30000;
+  useFocusEffect(useCallback(() => {
+    load();
+    const interval = setInterval(load, FRIENDS_POLL_MS);
+    return () => clearInterval(interval);
+  }, [load]));
 
   const hasArea = (area: string) =>
     area === 'casual' || isPrivileged || memberTypes.length === 0 || memberTypes.includes(area);

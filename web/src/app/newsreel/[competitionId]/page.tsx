@@ -43,9 +43,10 @@ type NewsRow = {
 // legs in this little circle image").
 const BANTER_PORTRAITS: Record<string, string> = {
   chip: '/hosts/chip_headshot.png', birdie: '/hosts/birdie_headshot.png',
-  // Titan News' own on-course reporters (Dave, 2026-09-10) — a separate duo
-  // from Chip & Birdie, who stay on the live Caddie voice and Chip & Birdie
-  // Coaching. See 20260918060000_titan_news_mcfadey_driver.sql.
+  // Titan News' own on-course reporters (Dave, 2026-09-10), later also
+  // adopted by Locker Room Coaching (2026-09-11) — Chip & Birdie now live
+  // only in the still-dormant Caddie voice feature. See
+  // 20260918060000_titan_news_mcfadey_driver.sql.
   mcfadey: '/hosts/mcfadey_headshot.png', driver: '/hosts/driver_headshot.png',
 };
 const BANTER_NAMES: Record<string, string> = { chip: 'Chip', birdie: 'Birdie', mcfadey: 'Davey McFadey', driver: 'Rick Driver' };

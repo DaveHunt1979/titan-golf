@@ -55,21 +55,31 @@ function dayFormatToRoundFormat(df: string): string {
   return 'matchplay';
 }
 
-function dayFormatToHandicapMethod(df: string): string {
+// isTitanStylePlayoff: true only for Titan Way/Odd Titan's own auto-generated
+// final Singles Playoff day — that day reuses the exact same 'singles'/
+// 'singles_stableford' day_format ids as a standalone Singles Match Play day,
+// but Rick's brief section 8.2 deliberately keeps it on each player's own
+// full Playing Handicap (Kronos already seeds who plays who), so it must
+// keep returning 'individual'/'individual_stableford' regardless of Ricky's
+// 2026-09-14 request below. Every other Singles day — its own tournament
+// format, or mixed into Multi-Team Tour/Ryder Cup — gets the new rule.
+function dayFormatToHandicapMethod(df: string, isTitanStylePlayoff: boolean = false): string {
   if (df === 'four_bbb_stroke') return 'relative_low';
   // 4BBB Stableford also plays the lowest Playing Handicap in the fourball
   // off scratch, same method as 4BBB Stroke — but keeps its own distinct
   // value so it doesn't collide with Foursomes/Greensomes, which also map
   // to round_format 'matchplay' + is_singles false and must stay untouched.
   if (df === 'four_bbb') return 'relative_low_stableford';
-  // Singles Match Play – Stableford (Rick's brief, section 8) keeps its own
-  // distinct value too, for the same reason 4BBB Stableford does — so the
+  // Singles Match Play (Ricky, 2026-09-14 weekend findings — "in match play
+  // the lowest player needs to play off of 0"): same relative-low method as
+  // 4BBB — lowest Playing Handicap in the match plays off scratch, the other
+  // player receives the full difference (hcp_allowance stays admin-adjustable
+  // via day.hcp_pct, same field 4BBB already uses). Keeps its own distinct
+  // stableford value for the same reason 4BBB Stableford does — so the
   // scoring engine can tell "hole winner decided by Stableford points" apart
-  // from plain Singles Match Play (round_format 'matchplay' + is_singles
-  // true either way) without touching matchplayHcp's relative-low logic,
-  // which is 4BBB-only and must not apply here (each player uses their own
-  // Playing Handicap, per Rick's section 8.2).
-  if (df === 'singles_stableford') return 'individual_stableford';
+  // from plain Singles Match Play.
+  if (df === 'singles_stableford') return isTitanStylePlayoff ? 'individual_stableford' : 'relative_low_stableford';
+  if (df === 'singles') return isTitanStylePlayoff ? 'individual' : 'relative_low';
   return 'individual';
 }
 
@@ -435,10 +445,21 @@ export default function TournamentDrawScreen() {
 
     const df = day.day_format ?? 'singles';
     const roundFmt  = dayFormatToRoundFormat(df);
-    const handicapMethod = dayFormatToHandicapMethod(df);
+    // See dayFormatToHandicapMethod's comment — Titan Way/Odd Titan's own
+    // final Singles Playoff day (identified by its format-unique
+    // finalDayKnockout/finalRoundStablefordTeamPoints flag, not just
+    // "is this the last day", since Multi-Team Tour's own auto-overridden
+    // final Singles day is a normal standalone Singles day) must keep its
+    // existing individual-handicap behaviour.
+    const drawFormatRules = getFormatRules(comp?.format);
+    const drawMaxDayNumber = days.length > 0 ? Math.max(...days.map(d => d.day_number)) : day.day_number;
+    const isTitanStylePlayoffDay = (df === 'singles' || df === 'singles_stableford')
+      && (drawFormatRules.finalDayKnockout || drawFormatRules.finalRoundStablefordTeamPoints)
+      && day.day_number === drawMaxDayNumber;
+    const handicapMethod = dayFormatToHandicapMethod(df, isTitanStylePlayoffDay);
     const hcp       = day.hcp_pct ?? 100;
 
-    // Same Chip & Birdie / Track Stats toggles as Casual Golf's game
+    // Same McFadey & Driver / Track Stats toggles as Casual Golf's game
     // builder, set once on the tournament in admin/build.tsx and carried
     // through here onto every match this draw creates — score/enter reads
     // this same side_games tag convention already, so no further wiring

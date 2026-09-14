@@ -25,7 +25,7 @@ import { calculateWHSPlayingHandicap } from '../../../src/lib/whs';
 
 // ── Constants ─────────────────────────────────────────────────
 
-type GameMode  = '4bbb' | '4bbb_stroke' | 'singles' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble' | 'greensome' | 'foursomes' | 'par_bogey' | 'team_stableford' | 'best2from4' | 'best2from4_par3all';
+type GameMode  = '4bbb' | '4bbb_stroke' | 'singles' | 'singles_stableford' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble' | 'greensome' | 'foursomes' | 'par_bogey' | 'team_stableford' | 'best2from4' | 'best2from4_par3all';
 type HolesMode = 'full18' | 'front9' | 'back9';
 
 interface Player      { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
@@ -39,7 +39,8 @@ const FFB   = 'JUSTSans-ExBold';
 const MODE_INFO: Record<GameMode, { label: string; sub: string; icon: keyof typeof Ionicons.glyphMap }> = {
   '4bbb':                { label: '4BBB Stableford',  sub: 'Best ball pairs',              icon: 'people-outline' },
   '4bbb_stroke':         { label: '4BBB Stroke',      sub: 'Best ball, relative handicap',  icon: 'people-outline' },
-  'singles':             { label: 'Singles',           sub: 'Head to head matchplay',       icon: 'person-outline' },
+  'singles':             { label: 'Singles Stroke',      sub: 'Head to head, net stroke play', icon: 'person-outline' },
+  'singles_stableford':  { label: 'Singles Stableford',  sub: 'Head to head, points per hole', icon: 'person-outline' },
   'nassau':              { label: 'Nassau',            sub: 'Front / Back / Overall',       icon: 'cash-outline' },
   'foursomes':           { label: 'Foursomes',         sub: 'Alternate shot matchplay',     icon: 'swap-horizontal-outline' },
   'greensome':           { label: 'Greensomes',        sub: 'Best drive, then alternate',   icon: 'leaf-outline' },
@@ -55,7 +56,7 @@ const MODE_INFO: Record<GameMode, { label: string; sub: string; icon: keyof type
 
 function getModeSections(gold: string): { label: string; accent: string; modes: GameMode[] }[] {
   return [
-    { label: 'MATCHPLAY',    accent: gold,      modes: ['4bbb', '4bbb_stroke', 'singles'] },
+    { label: 'MATCHPLAY',    accent: gold,      modes: ['4bbb', '4bbb_stroke', 'singles', 'singles_stableford'] },
     { label: 'INDIVIDUAL',   accent: '#4ade80', modes: ['stableford', 'medal'] },
     { label: 'TEAM GAMES',   accent: '#f97316', modes: ['team_stableford'] },
     { label: 'MASHIE GOLF',  accent: '#a78bfa', modes: ['best2from4', 'best2from4_par3all'] },
@@ -909,7 +910,7 @@ export default function NewGameScreen() {
   const isSolo    = ['stableford', 'medal', 'skins', 'scramble', 'par_bogey'].includes(mode);
   const isMashie  = mode === 'best2from4' || mode === 'best2from4_par3all';
   const maxPer = mode === 'team_stableford' ? teamSize
-               : (mode === 'singles' || mode === 'nassau') ? 1
+               : (mode === 'singles' || mode === 'singles_stableford' || mode === 'nassau') ? 1
                : isSolo ? 4
                : isMashie ? 4
                : 2;
@@ -1095,10 +1096,18 @@ export default function NewGameScreen() {
         holes_string: '..................',
         start_hole: startHole,
         holes_to_play: holesMode === 'full18' ? 18 : 9,
-        is_singles: mode === 'singles',
-        round_format: (mode === '4bbb' || mode === '4bbb_stroke' || mode === 'singles') ? 'matchplay' : isMashie ? 'team_stableford' : mode,
+        is_singles: mode === 'singles' || mode === 'singles_stableford',
+        round_format: (mode === '4bbb' || mode === '4bbb_stroke' || mode === 'singles' || mode === 'singles_stableford') ? 'matchplay' : isMashie ? 'team_stableford' : mode,
         hcp_allowance: hcpAllowance,
-        handicap_method: mode === '4bbb_stroke' ? 'relative_low' : mode === '4bbb' ? 'relative_low_stableford' : 'individual',
+        // Singles Match Play (Ricky, 2026-09-14) — same relative-low method
+        // as 4BBB: lowest Playing Handicap in the match plays off scratch,
+        // the other player gets the full difference. See draw.tsx's
+        // dayFormatToHandicapMethod for the Tournament Builder's identical
+        // logic — Casual Golf's Singles mode is never part of a Titan Way
+        // playoff, so there's no "keep individual" exception to make here.
+        handicap_method: mode === '4bbb_stroke' || mode === 'singles' ? 'relative_low'
+          : mode === '4bbb' || mode === 'singles_stableford' ? 'relative_low_stableford'
+          : 'individual',
         side_games: mode === 'best2from4_par3all' ? [...sideGamesList, 'par3all'] : sideGamesList,
         secondary_format: secondaryFormat,
         ...(isTeamStableford ? { team_size: isMashie ? 4 : teamSize, counting_scores: isMashie ? 2 : countingScores } : {}),
@@ -1498,8 +1507,8 @@ export default function NewGameScreen() {
 
           {VOICE_FEATURE_ENABLED && (
             <>
-              {/* Chip & Birdie */}
-              <SettingRow icon="mic-outline" label="Chip & Birdie" value={voiceEnabled ? 'On' : 'Off'} valueColor={voiceEnabled ? GOLD : '#6b7280'} onPress={() => setVoiceEnabled(v => !v)} s={s} GOLD={GOLD}>
+              {/* McFadey & Driver */}
+              <SettingRow icon="mic-outline" label="McFadey & Driver" value={voiceEnabled ? 'On' : 'Off'} valueColor={voiceEnabled ? GOLD : '#6b7280'} onPress={() => setVoiceEnabled(v => !v)} s={s} GOLD={GOLD}>
                 <View style={[s.toggle, voiceEnabled && s.toggleOn]}>
                   <View style={[s.toggleThumb, voiceEnabled && s.toggleThumbOn]} />
                 </View>
@@ -1709,7 +1718,7 @@ export default function NewGameScreen() {
         pairStep={pairStep} numTeams={isTeamMode ? numTeams : 2} extraTeams={extraTeams}
         isSolo={isSolo} atMax={atMax} takenIds={takenPlayerIds}
         teamLabels={mode === 'team_stableford' || isMashie}
-        isSingles={mode === 'singles'}
+        isSingles={mode === 'singles' || mode === 'singles_stableford'}
         onToggle={togglePlayer}
         onNextPair={() => {
           const next = pairStep + 1;

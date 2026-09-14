@@ -1,9 +1,9 @@
-// Chip & Birdie Coaching — snapshot builder + report fetch/generate.
+// McFadey & Driver Coaching — snapshot builder + report fetch/generate.
 //
 // Same "Titan calculates, AI only writes" split as titanNews.ts: every
 // number here comes straight from match_holes/course_holes, nothing
 // inferred. The coaching-report edge function's only job is to turn the
-// snapshot into Chip & Birdie's write-up.
+// snapshot into Davey McFadey & Rick Driver's write-up.
 
 import { supabase, fetchAllRows } from './supabase';
 import { scoreVsPar } from './scoring';

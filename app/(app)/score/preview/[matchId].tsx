@@ -297,7 +297,7 @@ export default function MatchPreviewScreen() {
         {voiceOn && (
           <View style={s.voiceBadge}>
             <Ionicons name="mic-outline" size={10} color={GOLD} />
-            <Text style={s.voiceBadgeText}>CHIP & BIRDIE ACTIVE</Text>
+            <Text style={s.voiceBadgeText}>MCFADEY & DRIVER ACTIVE</Text>
           </View>
         )}
       </View>
