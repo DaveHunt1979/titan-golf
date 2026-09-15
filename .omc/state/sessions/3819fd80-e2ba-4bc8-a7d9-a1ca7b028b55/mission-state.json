@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-15T05:22:26.895Z",
+  "updatedAt": "2026-09-15T08:14:00.344Z",
   "missions": [
     {
       "id": "session:3819fd80-e2ba-4bc8-a7d9-a1ca7b028b55:none",
@@ -7,7 +7,7 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-09-14T10:40:43.021Z",
-      "updatedAt": "2026-09-15T05:22:26.895Z",
+      "updatedAt": "2026-09-15T08:14:00.344Z",
       "status": "done",
       "workerCount": 3,
       "taskCounts": {
@@ -27,7 +27,7 @@
           "currentStep": null,
           "latestUpdate": "completed",
           "completedSummary": null,
-          "updatedAt": "2026-09-15T05:22:26.895Z"
+          "updatedAt": "2026-09-15T08:14:00.344Z"
         },
         {
           "name": "skullers-phase1:askulle",
@@ -178,6 +178,30 @@
           "agent": "Explore:a455c72",
           "detail": "completed",
           "sourceKey": "session-stop:a949afe599cbc5e18"
+        },
+        {
+          "id": "session-stop:a4dc6c77f8a2d98cb:2026-09-15T08:02:16.408Z",
+          "at": "2026-09-15T08:02:16.408Z",
+          "kind": "completion",
+          "agent": "Explore:a455c72",
+          "detail": "completed",
+          "sourceKey": "session-stop:a4dc6c77f8a2d98cb"
+        },
+        {
+          "id": "session-stop:a02f17caa6e781e1c:2026-09-15T08:07:58.381Z",
+          "at": "2026-09-15T08:07:58.381Z",
+          "kind": "completion",
+          "agent": "Explore:a455c72",
+          "detail": "completed",
+          "sourceKey": "session-stop:a02f17caa6e781e1c"
+        },
+        {
+          "id": "session-stop:a9298ed88d151b432:2026-09-15T08:14:00.344Z",
+          "at": "2026-09-15T08:14:00.344Z",
+          "kind": "completion",
+          "agent": "Explore:a455c72",
+          "detail": "completed",
+          "sourceKey": "session-stop:a9298ed88d151b432"
         }
       ]
     }

@@ -122,10 +122,20 @@ export default function FriendsScreen() {
     // screen just never got the same fix (Dave, 2026-09-07: "apparently i am
     // [on a round]... i hadnt even started a game"). 24h is well past any
     // real round.
+    // course_name lives on competition_days, not matches (there is no
+    // matches.course_name column) — this query 404'd on that column on
+    // every single call, and with no error check it silently turned into
+    // "nobody is on a round" for the whole screen, always, regardless of
+    // who was actually playing (Ricky, 2026-09-15 — Arron correctly showed
+    // on the home widget, which joins through day_id correctly, but the
+    // full Friends list came back completely empty). Same root cause,
+    // same fix shape as seasonRoundIngestion.ts's identical bug the day
+    // before.
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: activeMatches } = await supabase
-      .from('matches').select('id,course_name,home_player_ids,away_player_ids')
+    const { data: activeMatches, error: activeMatchesErr } = await supabase
+      .from('matches').select('id,home_player_ids,away_player_ids,day:day_id(course_name)')
       .eq('status', 'in_progress').gte('started_at', dayAgo).limit(100);
+    if (activeMatchesErr) console.error('[friends] activeMatches query failed', activeMatchesErr);
 
     const memberSet = new Set(allMemberIds);
     const relevantMatches = (activeMatches ?? []).filter((m: any) => {
@@ -149,7 +159,7 @@ export default function FriendsScreen() {
       const ids: string[] = [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])];
       for (const id of ids) {
         if (memberSet.has(id) && !stats[id]) {
-          stats[id] = { pts: 0, maxHole: 0, matchId: m.id, courseName: m.course_name ?? 'Course' };
+          stats[id] = { pts: 0, maxHole: 0, matchId: m.id, courseName: (m.day as any)?.course_name ?? 'Course' };
         }
       }
     }

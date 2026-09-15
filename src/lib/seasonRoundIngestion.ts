@@ -128,9 +128,15 @@ async function resolveMatchSources(
   await Promise.all([...new Set(needsFallback)].map(async name => {
     const tees = await fetchCourseTees(name);
     const rated = tees.filter(t => t.course_rating != null && t.slope_rating != null);
+    // season_rounds.slope_snapshot is INTEGER — an averaged slope across
+    // several tees almost never lands on a whole number, and this fallback
+    // path had never actually run successfully before today (every call
+    // into this function 404'd on matches.course_name first), so this never
+    // surfaced until the backfill for the query fix above actually reached
+    // real players with no WHS snapshot (2026-09-15).
     fallbackRatingByCourse[name] = rated.length === 0 ? null : {
       rating: rated.reduce((a, t) => a + t.course_rating!, 0) / rated.length,
-      slope: rated.reduce((a, t) => a + t.slope_rating!, 0) / rated.length,
+      slope: Math.round(rated.reduce((a, t) => a + t.slope_rating!, 0) / rated.length),
     };
   }));
 

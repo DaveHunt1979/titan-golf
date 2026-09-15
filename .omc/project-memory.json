@@ -310,21 +310,27 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/friends.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1789458685755,
+      "type": "file"
+    },
+    {
       "path": "src/lib/matchScoring.ts",
       "accessCount": 8,
       "lastAccessed": 1789384232832,
       "type": "file"
     },
     {
-      "path": "app/(app)/spectate/[matchId].tsx",
-      "accessCount": 5,
-      "lastAccessed": 1789384255227,
+      "path": "app.json",
+      "accessCount": 6,
+      "lastAccessed": 1789460163579,
       "type": "file"
     },
     {
-      "path": "app.json",
+      "path": "app/(app)/spectate/[matchId].tsx",
       "accessCount": 5,
-      "lastAccessed": 1789449781099,
+      "lastAccessed": 1789384255227,
       "type": "file"
     },
     {
@@ -511,12 +517,6 @@
       "path": "app/(app)/watch/index.tsx",
       "accessCount": 1,
       "lastAccessed": 1789372249899,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/friends.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1789372272797,
       "type": "file"
     },
     {
