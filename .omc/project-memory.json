@@ -298,6 +298,12 @@
       "type": "file"
     },
     {
+      "path": "app/(app)/friends.tsx",
+      "accessCount": 11,
+      "lastAccessed": 1789461877358,
+      "type": "file"
+    },
+    {
       "path": "src/lib/tournamentFormat.ts",
       "accessCount": 10,
       "lastAccessed": 1789384063189,
@@ -310,12 +316,6 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/friends.tsx",
-      "accessCount": 9,
-      "lastAccessed": 1789458685755,
-      "type": "file"
-    },
-    {
       "path": "src/lib/matchScoring.ts",
       "accessCount": 8,
       "lastAccessed": 1789384232832,
@@ -323,8 +323,8 @@
     },
     {
       "path": "app.json",
-      "accessCount": 6,
-      "lastAccessed": 1789460163579,
+      "accessCount": 7,
+      "lastAccessed": 1789463120111,
       "type": "file"
     },
     {

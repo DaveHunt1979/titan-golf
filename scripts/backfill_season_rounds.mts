@@ -111,7 +111,9 @@ async function resolveMatchSources(playerId: string, startAt: string, endAt: str
   for (const s of snapshotRows as any[]) snapshotByDay[s.day_id] = s;
 
   const fallbackRatingByCourse: Record<string, { rating: number; slope: number } | null> = {};
-  const needsFallback = candidates.filter(c => !snapshotByDay[c.day_id]).map(c => c.course_name as string);
+  const needsFallback = candidates
+    .filter(c => { const s = snapshotByDay[c.day_id]; return !s || s.course_rating_at_start == null || s.slope_at_start == null; })
+    .map(c => c.course_name as string);
   await Promise.all([...new Set(needsFallback)].map(async name => {
     const tees = await fetchCourseTees(name);
     const rated = tees.filter((t: any) => t.course_rating != null && t.slope_rating != null);
@@ -236,7 +238,17 @@ async function recalculateSeasonEntry(seasonEntryId: string, seasonId: string, c
     supabase.from('season_majors').select('id, start_at, end_at').eq('season_id', seasonId),
   ]);
   const roundRows = (rounds ?? []) as any[];
-  if (roundRows.length === 0) return;
+  if (roundRows.length === 0) {
+    // Every round this entry had was cascade-deleted (its source
+    // competition — a Simulate run — got deleted), but the cached counts on
+    // season_entries never got told. Zero them out rather than leaving
+    // stale numbers from rounds that no longer exist (Dave, 2026-09-15).
+    await supabase.from('season_entries').update({
+      qualifying_rounds_count: 0, counting_rounds_count: 0, season_points: 0,
+      qualification_status: qualificationStatus(0, minimumQualifyingRounds),
+    } as any).eq('id', seasonEntryId);
+    return;
+  }
 
   const finalPointsByRound: Record<string, number> = {};
   const majorIdByRound: Record<string, string | null> = {};
@@ -305,12 +317,13 @@ async function main() {
         ingested++;
       }
 
-      if (ingested > 0) {
-        await recalculateSeasonEntry(entry.id, season.id, season.counting_round_limit, season.minimum_qualifying_rounds);
-      }
-      if (ingested > 0 || skipped > 0) {
-        console.log(`  ${name}: +${ingested} ingested, ${skipped} skipped (no eligible co-player)`);
-      }
+      // Always recalculate, not just when something new was ingested —
+      // rounds can also have disappeared since last time (a Simulate
+      // competition deleted, cascading away the season_rounds it created),
+      // and the cached counts on season_entries need to catch up either way.
+      await recalculateSeasonEntry(entry.id, season.id, season.counting_round_limit, season.minimum_qualifying_rounds);
+      const { data: after } = await supabase.from('season_entries').select('qualifying_rounds_count, season_points').eq('id', entry.id).maybeSingle();
+      console.log(`  ${name}: +${ingested} ingested, ${skipped} skipped (no eligible co-player) — now ${(after as any)?.qualifying_rounds_count ?? '?'} rounds, ${(after as any)?.season_points ?? '?'} pts`);
     }
   }
   console.log('\nDone.');

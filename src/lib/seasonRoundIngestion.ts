@@ -83,16 +83,25 @@ async function resolveMatchSources(
   // rounds have never actually been ingested for anyone.
   const { data: matchRows, error: matchErr } = await supabase
     .from('matches')
-    .select('id, day_id, home_player_ids, away_player_ids, completed_at, competition_days(course_name)')
+    .select('id, day_id, home_player_ids, away_player_ids, completed_at, competition_days(course_name, competition:competition_id(is_simulation))')
     .or(`home_player_ids.cs.{${playerId}},away_player_ids.cs.{${playerId}}`)
     .eq('status', 'complete')
     .gte('completed_at', startAt)
     .lte('completed_at', endAt);
   if (matchErr) { console.error('[seasonRoundIngestion] resolveMatchSources query failed', matchErr); return []; }
 
+  // Admin > Simulate test tournaments (is_simulation = true) reuse real
+  // society members' accounts to run through scenarios, and their matches
+  // are otherwise indistinguishable from a genuine round — same status,
+  // same 18 real holes, same real co-players. Deleting the simulation
+  // afterward cascades away the season_rounds it created (source_match_id
+  // is ON DELETE CASCADE), but until it's deleted a real player's Season
+  // total was inflated by rounds they never actually played (Dave,
+  // 2026-09-15 — "is season picking up rounds that have been classed as
+  // simulation"). Excluded outright rather than relying on cleanup timing.
   const withCourse = ((matchRows ?? []) as any[])
-    .map(m => ({ ...m, course_name: m.competition_days?.course_name ?? null }))
-    .filter(m => m.course_name != null);
+    .map(m => ({ ...m, course_name: m.competition_days?.course_name ?? null, isSimulation: !!m.competition_days?.competition?.is_simulation }))
+    .filter(m => m.course_name != null && !m.isSimulation);
   const candidates = withCourse.filter(m => !excludeMatchIds.has(m.id));
   if (candidates.length === 0) return [];
 
@@ -120,11 +129,21 @@ async function resolveMatchSources(
   const snapshotByDay: Record<string, any> = {};
   for (const s of snapshotRows as any[]) snapshotByDay[s.day_id] = s;
 
-  // Fallback rating/slope when no WHS snapshot exists for the round —
+  // Fallback rating/slope when no USABLE WHS snapshot exists for the round —
   // averaged across the course's tees, same approach the suggested-handicap
   // engine uses, since the exact tee played isn't recorded when WHS is off.
+  // round_player_tees gets a row for every round regardless of whether WHS
+  // was actually switched on for it — with WHS off, that row still exists
+  // (recording which tee was picked) but course_rating_at_start/
+  // slope_at_start are null. Checking only "does a row exist" treated that
+  // as real WHS data and skipped the fallback entirely, so any WHS-off
+  // round always failed the rating/slope null-check below and got silently
+  // dropped (Dave, 2026-09-15 — Ross and Chris's real Saturday round,
+  // WHS off, never counted despite passing every other check).
   const fallbackRatingByCourse: Record<string, { rating: number; slope: number } | null> = {};
-  const needsFallback = candidates.filter(c => !snapshotByDay[c.day_id]).map(c => c.course_name as string);
+  const needsFallback = candidates
+    .filter(c => { const s = snapshotByDay[c.day_id]; return !s || s.course_rating_at_start == null || s.slope_at_start == null; })
+    .map(c => c.course_name as string);
   await Promise.all([...new Set(needsFallback)].map(async name => {
     const tees = await fetchCourseTees(name);
     const rated = tees.filter(t => t.course_rating != null && t.slope_rating != null);

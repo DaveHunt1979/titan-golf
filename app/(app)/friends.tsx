@@ -149,13 +149,28 @@ export default function FriendsScreen() {
     // the wrong live points/hole against a member.
     const holesData = matchIds.length
       ? await fetchAllRows<any>(
-          (from, to) => supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id').in('match_id', matchIds).order('id').range(from, to)
+          (from, to) => supabase.from('match_holes').select('player_id,stableford_pts,hole_number,match_id,updated_at').in('match_id', matchIds).order('id').range(from, to)
         )
       : [];
+
+    // Being status=in_progress within the last 24h isn't enough on its own —
+    // the app may have been closed/killed hours ago with the round still
+    // sitting there. Same 60-minute real-scoring-activity rule as the home
+    // widget (index.tsx) — this screen never had it, which is exactly why
+    // it disagreed with the home widget (Dave, 2026-09-15: home screen
+    // showed no one on a round, SEE ALL still showed Arron — his round's
+    // last score was 106 minutes old by then).
+    const ACTIVITY_WINDOW_MS = 60 * 60 * 1000;
+    const activityCutoffMs = Date.now() - ACTIVITY_WINDOW_MS;
+    const activeMatchIds = new Set<string>();
+    for (const h of (holesData ?? []) as any[]) {
+      if (h.updated_at && new Date(h.updated_at).getTime() > activityCutoffMs) activeMatchIds.add(h.match_id);
+    }
 
     // Build per-player stats
     const stats: Record<string, { pts: number; maxHole: number; matchId: string; courseName: string }> = {};
     for (const m of relevantMatches) {
+      if (!activeMatchIds.has(m.id)) continue;
       const ids: string[] = [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])];
       for (const id of ids) {
         if (memberSet.has(id) && !stats[id]) {
