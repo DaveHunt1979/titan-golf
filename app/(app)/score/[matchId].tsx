@@ -45,7 +45,7 @@ function Avatar({ name, color, size = 40, source }: { name: string; color: strin
 
 interface HoleResult { hole_number: number; score: 'h' | 'a' | 'f' | null; gross_score: number | null; stableford_pts: number | null; player_id: string; }
 interface CourseHole { hole_number: number; par: number; stroke_index: number; yardage: number | null; hole_name: string | null; green_lat?: number | null; green_lng?: number | null; }
-interface Player { id: string; display_name: string; avatar_url?: string | null; }
+interface Player { id: string; display_name: string; avatar_url?: string | null; is_guest?: boolean; }
 
 interface MatchDetail {
   id: string;
@@ -118,7 +118,7 @@ export default function MatchDetailScreen() {
           ? supabase.from('course_holes').select('*').eq('course_name', matchData.day.course_name).order('hole_number')
           : Promise.resolve({ data: [] }),
         allPlayerIds.length
-          ? supabase.from('players').select('id,display_name,avatar_url').in('id', allPlayerIds)
+          ? supabase.from('players').select('id,display_name,avatar_url,is_guest').in('id', allPlayerIds)
           : Promise.resolve({ data: [] }),
       ]);
 
@@ -162,6 +162,7 @@ export default function MatchDetailScreen() {
   }
 
   const playerName = (id: string) => players.find(p => p.id === id)?.display_name?.split(' ')[0] ?? '?';
+  const isGuestPlayer = (id: string) => players.find(p => p.id === id)?.is_guest === true;
   const grossForHole = (pid: string, hole: number) => holeResults.find(h => h.player_id === pid && h.hole_number === hole)?.gross_score ?? null;
   const stablefordForHole = (pid: string, hole: number) => holeResults.find(h => h.player_id === pid && h.hole_number === hole)?.stableford_pts ?? null;
 
@@ -513,6 +514,9 @@ export default function MatchDetailScreen() {
                       <View style={s.scorecardHeader}>
                         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
                         <Text style={[s.scorecardName, { color }]}>{name}</Text>
+                        {isGuestPlayer(pid) && (
+                          <View style={s.guestTag}><Text style={s.guestTagText}>GUEST</Text></View>
+                        )}
                         {hasScores && totGross > 0 && <Text style={s.scorecardTotal}>{totGross}</Text>}
                         {hasScores && isStrokePlay && totPts > 0 && <Text style={s.scorecardPts}>{totPts} pts</Text>}
                       </View>
@@ -627,6 +631,8 @@ const s = StyleSheet.create({
   },
   scorecardName:  { flex: 1, fontFamily: FFB, fontSize: 14 },
   scorecardTotal: { fontFamily: FFB, fontSize: 14, color: '#ffffff' },
+  guestTag: { borderWidth: 1, borderColor: `${GOLD}55`, backgroundColor: `${GOLD}14`, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
+  guestTagText: { fontFamily: FFB, fontSize: 8, letterSpacing: 1, color: GOLD },
   scorecardPts:   { fontFamily: FFB, fontSize: 11, color: GOLD },
 
   pageDots:    { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 8 },

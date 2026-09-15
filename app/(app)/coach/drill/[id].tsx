@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { ResizeMode, Video } from 'expo-av';
+import VideoPreview from '../../../../src/components/VideoPreview';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../src/lib/supabase';
 import { useDynamicColors } from '../../../../src/lib/SocietyThemeContext';
@@ -242,7 +242,7 @@ export default function DrillDetailScreen() {
           <View style={[s.noteCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
             <Text style={[s.noteLabel, { color: dc.textSecondary }]}>{libraryVideo.title.toUpperCase()}</Text>
             {libraryVideo.signedUrl && (
-              <Video source={{ uri: libraryVideo.signedUrl }} style={s.videoPreview} useNativeControls resizeMode={ResizeMode.CONTAIN} isLooping={false} />
+              <VideoPreview uri={libraryVideo.signedUrl} style={s.videoPreview} />
             )}
           </View>
         )}
@@ -267,7 +267,7 @@ export default function DrillDetailScreen() {
               </>
             ) : (
               <>
-                <Video source={{ uri: videoUri }} style={s.videoPreview} useNativeControls resizeMode={ResizeMode.CONTAIN} isLooping={false} />
+                <VideoPreview uri={videoUri} style={s.videoPreview} />
                 <TextInput
                   style={[s.textareaSmall, { backgroundColor: dc.bg, borderColor: dc.border, color: dc.cardText }]}
                   value={progressNote} onChangeText={setProgressNote}
@@ -293,7 +293,7 @@ export default function DrillDetailScreen() {
               <View key={p.id} style={[s.progressCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
                 <Text style={[s.metaLine, { color: dc.textMuted }]}>{new Date(p.created_at).toLocaleDateString()}</Text>
                 {p.videos.map(v => v.signedUrl && (
-                  <Video key={v.id} source={{ uri: v.signedUrl }} style={s.videoPreview} useNativeControls resizeMode={ResizeMode.CONTAIN} isLooping={false} />
+                  <VideoPreview key={v.id} uri={v.signedUrl} style={s.videoPreview} />
                 ))}
                 {!!p.player_note && <Text style={[s.noteText, { color: dc.cardText, marginTop: 8 }]}>{p.player_note}</Text>}
 

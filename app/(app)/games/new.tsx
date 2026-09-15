@@ -28,7 +28,7 @@ import { calculateWHSPlayingHandicap } from '../../../src/lib/whs';
 type GameMode  = '4bbb' | '4bbb_stroke' | 'singles' | 'singles_stableford' | 'stableford' | 'medal' | 'skins' | 'nassau' | 'scramble' | 'greensome' | 'foursomes' | 'par_bogey' | 'team_stableford' | 'best2from4' | 'best2from4_par3all';
 type HolesMode = 'full18' | 'front9' | 'back9';
 
-interface Player      { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; }
+interface Player      { id: string; display_name: string; handicap_index: number; avatar_url?: string | null; is_guest?: boolean; }
 interface CourseItem  { name: string; par: number; hasGps: boolean; region: string | null; country: string | null; lat: number | null; lng: number | null; }
 interface PlayerGroup { id: string; name: string; player_ids: string[]; }
 
@@ -825,7 +825,7 @@ export default function NewGameScreen() {
       let societyPlayers: Player[] = [];
       if (societyIds.size > 0) {
         const { data } = await supabase
-          .from('players').select('id, display_name, handicap_index, avatar_url')
+          .from('players').select('id, display_name, handicap_index, avatar_url, is_guest')
           .in('id', Array.from(societyIds)).order('display_name');
         societyPlayers = (data ?? []) as Player[];
       }
@@ -905,6 +905,24 @@ export default function NewGameScreen() {
     });
     const err = await toggleFavourite(myPlayerId, targetId, makeFav);
     if (err) Alert.alert('Error', err);
+  }
+
+  // Guest Mode (Rick, 2026-09-15): a real players row, but auth_uid null and
+  // is_guest true, and deliberately never given a society_members row — so
+  // it scores through matches/match_holes exactly like anyone else while
+  // staying invisible to every membership-scoped surface. Held in local
+  // `players` state for this round's setup only; nothing else re-fetches it,
+  // so a guest quietly disappears from the picker once the round is built.
+  async function createGuest(name: string, handicap: number | null): Promise<Player | null> {
+    const { data, error } = await supabase
+      .from('players')
+      .insert({ display_name: name, handicap_index: handicap, auth_uid: null, is_guest: true })
+      .select('id, display_name, handicap_index, avatar_url, is_guest')
+      .single();
+    if (error || !data) return null;
+    const guest = data as Player;
+    setPlayers(prev => [...prev, guest]);
+    return guest;
   }
 
   const isSolo    = ['stableford', 'medal', 'skins', 'scramble', 'par_bogey'].includes(mode);
@@ -1745,6 +1763,7 @@ export default function NewGameScreen() {
         myPlayerId={myPlayerId}
         friendOnlyIds={friendOnlyIds}
         onToggleFavourite={handleToggleFavourite}
+        onCreateGuest={createGuest}
         onDone={handleGroupBuilderDone}
         onClose={() => setShowGroupBuilder(false)}
         courseName={selectedCourse}

@@ -9,7 +9,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { ResizeMode, Video } from 'expo-av';
+import VideoPreview from '../../../src/components/VideoPreview';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
@@ -254,7 +254,7 @@ export default function SendSwingScreen() {
               return (
                 <View key={angle} style={[s.videoCard, { borderColor: dc.border, backgroundColor: dc.card }]}>
                   <Text style={[s.videoLabel, { color: dc.textSecondary }]}>{ANGLE_LABEL[angle]}</Text>
-                  <Video source={{ uri }} style={s.videoPreview} useNativeControls resizeMode={ResizeMode.CONTAIN} isLooping={false} />
+                  <VideoPreview uri={uri} style={s.videoPreview} />
                   <TouchableOpacity style={s.retakeBtn} onPress={() => retake(angle)} activeOpacity={0.7}>
                     <Text style={[s.retakeText, { color: '#f87171' }]}>Retake</Text>
                   </TouchableOpacity>

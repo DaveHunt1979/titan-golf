@@ -157,6 +157,7 @@ export default function EnterScoresScreen() {
   const [courseTeeHoles, setCourseTeeHoles] = useState<CourseTeeHole[]>([]);
   const baseCompRef = useRef<CompPlayer[]>([]);
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
+  const [guestPlayerIds, setGuestPlayerIds] = useState<Set<string>>(new Set());
   const [playerAvatars, setPlayerAvatars] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -301,7 +302,7 @@ export default function EnterScoresScreen() {
             ? supabase.from('competition_players').select('player_id,handicap_index').eq('competition_id', matchData.competition_id).in('player_id', allIds)
             : Promise.resolve({ data: [] }),
           allIds.length
-            ? supabase.from('players').select('id,display_name,handicap_index,avatar_url').in('id', allIds)
+            ? supabase.from('players').select('id,display_name,handicap_index,avatar_url,is_guest').in('id', allIds)
             : Promise.resolve({ data: [] }),
           matchData.day_id && allIds.length
             ? supabase.from('round_player_tees').select('player_id,tee_name,gender,whs_enabled_at_start,playing_handicap_at_start').eq('day_id', matchData.day_id).in('player_id', allIds)
@@ -326,13 +327,19 @@ export default function EnterScoresScreen() {
           const names: Record<string, string> = {};
           const avatars: Record<string, string | null> = {};
           const fallback: CompPlayer[] = [];
+          // Kept as a separate set, never folded into display_name — that
+          // string feeds notifications, Live Activities and the AI news
+          // report, none of which should carry a UI marker.
+          const guests = new Set<string>();
           (playersData as any[]).forEach(p => {
             names[p.id] = p.display_name;
             avatars[p.id] = p.avatar_url ?? null;
+            if (p.is_guest) guests.add(p.id);
             fallback.push({ player_id: p.id, handicap_index: p.handicap_index ?? 0 });
           });
           setPlayerNames(names);
           setPlayerAvatars(avatars);
+          setGuestPlayerIds(guests);
           // Merge per-player rather than all-or-nothing: a player in the
           // match but not enrolled in competition_players (or with a null
           // handicap there) must still fall back to their own raw index,
@@ -2366,7 +2373,12 @@ export default function EnterScoresScreen() {
             <View style={sh.playerRow}>
               <Avatar name={modalPlayerName} color={modalTeamColor} size={44} source={modalPlayerAvatar} />
               <View style={{ flex: 1 }}>
-                <Text style={sh.playerName}>{modalPlayerName}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={sh.playerName}>{modalPlayerName}</Text>
+                  {modalUnitIds.some(id => guestPlayerIds.has(id)) && (
+                    <View style={sh.guestTag}><Text style={sh.guestTagText}>GUEST</Text></View>
+                  )}
+                </View>
                 <Text style={sh.playerInfo}>
                   {modalTeamName ? `${modalTeamName} · ` : ''}
                   Hole {activeHole} · Par {courseHole?.par ?? '?'} · SI {courseHole?.stroke_index ?? '?'}
@@ -2888,6 +2900,8 @@ const sh = StyleSheet.create({
   },
   playerName: { fontFamily: FFB, fontSize: 18, color: '#ffffff' },
   playerInfo: { fontFamily: FFB, fontSize: 11, color: '#fff', marginTop: 2 },
+  guestTag: { borderWidth: 1, borderColor: `${GOLD}55`, backgroundColor: `${GOLD}14`, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
+  guestTagText: { fontFamily: FFB, fontSize: 8, letterSpacing: 1, color: GOLD },
   hcpInput: {
     borderWidth: 1, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 12,

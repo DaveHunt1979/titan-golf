@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { ResizeMode, Video } from 'expo-av';
+import VideoPreview from '../../../src/components/VideoPreview';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
@@ -158,7 +158,7 @@ export default function CoachLibraryScreen() {
               </>
             ) : (
               <>
-                <Video source={{ uri: videoUri }} style={s.videoPreview} useNativeControls resizeMode={ResizeMode.CONTAIN} isLooping={false} />
+                <VideoPreview uri={videoUri} style={s.videoPreview} />
                 <TextInput
                   style={[s.input, { backgroundColor: dc.bg, borderColor: dc.border, color: dc.cardText }]}
                   value={title} onChangeText={setTitle}
@@ -205,7 +205,7 @@ export default function CoachLibraryScreen() {
                   )}
                 </View>
                 {v.signedUrl && (
-                  <Video source={{ uri: v.signedUrl }} style={s.videoPreview} useNativeControls resizeMode={ResizeMode.CONTAIN} isLooping={false} />
+                  <VideoPreview uri={v.signedUrl} style={s.videoPreview} />
                 )}
                 <TouchableOpacity style={s.linkBtn} onPress={() => removeVideo(v.id)} activeOpacity={0.7}>
                   <Text style={[s.linkBtnText, { color: '#f87171' }]}>Delete</Text>

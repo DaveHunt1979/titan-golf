@@ -47,7 +47,7 @@ export async function checkAndUpdateRecords(
   fallbackSocietyId: string | null,
 ): Promise<BrokenRecord[]> {
   const [playerRes, holesRes, matchRes] = await Promise.all([
-    supabase.from('players').select('display_name').eq('id', playerId).maybeSingle(),
+    supabase.from('players').select('display_name, is_guest').eq('id', playerId).maybeSingle(),
     supabase
       .from('match_holes')
       .select('hole_number, gross_score, stableford_pts')
@@ -59,6 +59,12 @@ export async function checkAndUpdateRecords(
       .eq('id', matchId)
       .maybeSingle(),
   ]);
+
+  // Every other membership-scoped surface excludes guests for free by way of
+  // them having no society_members row — this one doesn't, because it takes a
+  // raw playerId and writes straight to society_records. A guest's round must
+  // never land on the Wall of Records (Rick, 2026-09-15).
+  if ((playerRes.data as any)?.is_guest) return [];
 
   const societyId = ((matchRes.data as any)?.day?.competition?.society_id as string | undefined) ?? fallbackSocietyId ?? undefined;
   if (!societyId) return [];

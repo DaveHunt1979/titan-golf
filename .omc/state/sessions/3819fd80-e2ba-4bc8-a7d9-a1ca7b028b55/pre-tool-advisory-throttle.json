@@ -2,17 +2,29 @@
   "version": 1,
   "entries": {
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1789463120036,
+      "last_emitted_at_ms": 1789476166104,
       "message": "Verify changes work after editing. Test functionality before marking complete."
     },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1789463117151,
+      "last_emitted_at_ms": 1789475673919,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1789462532316,
+      "last_emitted_at_ms": 1789475549391,
       "message": "Read multiple files in parallel when possible for faster analysis."
+    },
+    "643f8da5031569d90f0f190678a882cfaeb9b9082776cc179f0046117b6dec8b": {
+      "last_emitted_at_ms": 1789475181196,
+      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Migrate expo-av Video to expo-video"
+    },
+    "5698f37868f527821dba55c927f11794bbcac0bf02564e16ee98bb0ddf30b4fd": {
+      "last_emitted_at_ms": 1789473919616,
+      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Guest Mode for Casual Golf"
+    },
+    "17ac460b4ad54b493eb71975a7e11d235c1eb8c37ad8567c5f8b0d5e4e2b4697": {
+      "last_emitted_at_ms": 1789473104788,
+      "message": "Spawning agent: Explore (inherit) | Task: Map existing guest-player patterns"
     }
   },
-  "updated_at": "2026-09-15T09:05:20.036Z"
+  "updated_at": "2026-09-15T12:42:46.104Z"
 }

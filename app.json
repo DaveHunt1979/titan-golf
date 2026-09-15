@@ -28,6 +28,8 @@
       }
     },
     "android": {
+      "package": "com.titangolf.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -83,7 +85,8 @@
           "isAccessMediaLocationEnabled": true
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-video"
     ],
     "newArchEnabled": false,
     "extra": {

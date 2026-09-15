@@ -287,14 +287,26 @@
     },
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 18,
-      "lastAccessed": 1789449312845,
+      "accessCount": 23,
+      "lastAccessed": 1789474197256,
       "type": "file"
     },
     {
       "path": "app/(app)/games/new.tsx",
-      "accessCount": 13,
-      "lastAccessed": 1789371918942,
+      "accessCount": 21,
+      "lastAccessed": 1789474083609,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/GroupBuilderSheet.tsx",
+      "accessCount": 19,
+      "lastAccessed": 1789474278454,
+      "type": "file"
+    },
+    {
+      "path": "app.json",
+      "accessCount": 12,
+      "lastAccessed": 1789475493481,
       "type": "file"
     },
     {
@@ -322,21 +334,15 @@
       "type": "file"
     },
     {
-      "path": "app.json",
-      "accessCount": 7,
-      "lastAccessed": 1789463120111,
+      "path": "app/(app)/score/[matchId].tsx",
+      "accessCount": 6,
+      "lastAccessed": 1789474219607,
       "type": "file"
     },
     {
       "path": "app/(app)/spectate/[matchId].tsx",
       "accessCount": 5,
       "lastAccessed": 1789384255227,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/games/GroupBuilderSheet.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1789371907794,
       "type": "file"
     },
     {
@@ -553,12 +559,6 @@
       "path": "supabase/migrations/20260918090000_skullers_singles_order.sql",
       "accessCount": 1,
       "lastAccessed": 1789382975699,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/score/[matchId].tsx",
-      "accessCount": 1,
-      "lastAccessed": 1789383811436,
       "type": "file"
     },
     {

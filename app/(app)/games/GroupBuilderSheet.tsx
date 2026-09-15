@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView,
+  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,18 @@ interface Player {
   display_name: string;
   handicap_index: number;
   avatar_url?: string | null;
+  is_guest?: boolean;
+}
+
+// Guests are real players rows to the scoring engine but never members —
+// marked wherever this round shows a full name so they can't be mistaken
+// for someone with an account (Rick, 2026-09-15).
+function GuestTag({ color }: { color: string }) {
+  return (
+    <View style={[css.guestTag, { borderColor: `${color}55`, backgroundColor: `${color}14` }]}>
+      <Text style={[css.guestTagText, { color }]}>GUEST</Text>
+    </View>
+  );
 }
 
 export type PlayerOverride = { hcp: number | null; tee: string | null };
@@ -96,7 +108,7 @@ function restoreGroups(matches: BuiltMatch[], m: GameMode): GroupState[] {
 
 export default function GroupBuilderSheet({
   visible, mode, players, teamSize, initialStartHole, initialMatches,
-  favouriteIds, recentIds, myPlayerId, friendOnlyIds, onToggleFavourite, onDone, onClose,
+  favouriteIds, recentIds, myPlayerId, friendOnlyIds, onToggleFavourite, onCreateGuest, onDone, onClose,
   courseName, roundTee, playerTees, onSetPlayerTee,
 }: {
   visible: boolean;
@@ -110,6 +122,9 @@ export default function GroupBuilderSheet({
   myPlayerId?: string | null;
   friendOnlyIds?: Set<string>;
   onToggleFavourite?: (targetId: string, makeFavourite: boolean) => void;
+  // Creates the guest's players row and folds it into the parent's player
+  // list; returns null if the insert failed so the form can say so inline.
+  onCreateGuest?: (name: string, handicap: number | null) => Promise<Player | null>;
   onDone: (matches: BuiltMatch[], overrides: Record<string, PlayerOverride>) => void;
   onClose: () => void;
   // Real, course-linked tee data — lifted to the parent (games/new.tsx
@@ -141,6 +156,11 @@ export default function GroupBuilderSheet({
   const [profileHcp, setProfileHcp] = useState('');
   const [profileTeeChoice, setProfileTeeChoice] = useState<SelectableTee | null>(null);
   const [courseTees, setCourseTees] = useState<SelectableTee[]>([]);
+  const [guestTarget, setGuestTarget] = useState<{ gi: number; si: number; side: 'home' | 'away' } | null>(null);
+  const [guestName, setGuestName] = useState('');
+  const [guestHcp, setGuestHcp] = useState('');
+  const [guestSaving, setGuestSaving] = useState(false);
+  const [guestError, setGuestError] = useState<string | null>(null);
 
   useEffect(() => {
     if (courseName) fetchCourseTees(courseName).then(setCourseTees);
@@ -169,8 +189,41 @@ export default function GroupBuilderSheet({
       setEditName(null);
       setOverrides({});
       setProfileTarget(null);
+      setGuestTarget(null);
     }
   }, [visible, mode, initialStartHole]);
+
+  function openGuestForm(target: { gi: number; si: number; side: 'home' | 'away' }) {
+    setGuestName('');
+    setGuestHcp('');
+    setGuestError(null);
+    setGuestSaving(false);
+    setPickTarget(null);
+    setGuestTarget(target);
+  }
+
+  async function submitGuest() {
+    if (!guestTarget || !onCreateGuest || guestSaving) return;
+    const name = guestName.trim();
+    if (!name) return;
+    // Blank means scratch, not null — every scoring path (stableford points,
+    // strokes received, WHS) does arithmetic on handicap_index, and a null
+    // there would propagate NaN through the whole card.
+    const parsed = parseFloat(guestHcp);
+    setGuestSaving(true);
+    setGuestError(null);
+    const guest = await onCreateGuest(name, isNaN(parsed) ? 0 : parsed);
+    setGuestSaving(false);
+    if (!guest) {
+      setGuestError("Couldn't add that guest. Check your connection and try again.");
+      return;
+    }
+    const { gi, si, side } = guestTarget;
+    setGroups(prev => prev.map((g, i) => i !== gi ? g : {
+      ...g, slots: g.slots.map((s, j) => j !== si ? s : ({ ...s, [side]: [...s[side], guest.id] })),
+    }));
+    setGuestTarget(null);
+  }
 
   function makeGroup(m: GameMode, teeTime: string, startHole: number): GroupState {
     return { startHole, teeTime, slots: [makeFreshSlot(0, m)] };
@@ -342,7 +395,10 @@ export default function GroupBuilderSheet({
         >
           <AvatarCircle player={p} />
           <View style={{ flex: 1 }}>
-            <Text style={[css.playerName, { color: dc.white }]} numberOfLines={1}>{p.display_name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={[css.playerName, { color: dc.white }]} numberOfLines={1}>{p.display_name}</Text>
+              {p.is_guest && <GuestTag color={GOLD} />}
+            </View>
             {displayHcp != null && (
               <Text style={[css.playerHcp, hasOverride && { color: GOLD }]}>
                 {hasOverride ? '★ ' : ''}HCP {displayHcp}{teeLabel ? ` · ${teeLabel}` : ''}
@@ -637,7 +693,10 @@ export default function GroupBuilderSheet({
                   {/* Player identity */}
                   <View style={{ alignItems: 'center', marginBottom: 20 }}>
                     <AvatarCircle player={profilePlayer} size={60} />
-                    <Text style={[css.profileName, { color: dc.white }]}>{profilePlayer.display_name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={[css.profileName, { color: dc.white }]}>{profilePlayer.display_name}</Text>
+                      {profilePlayer.is_guest && <GuestTag color={GOLD} />}
+                    </View>
                     <Text style={css.profileOrigHcp}>Profile HCP {profilePlayer.handicap_index}</Text>
                   </View>
 
@@ -719,6 +778,16 @@ export default function GroupBuilderSheet({
               Group {pickTarget.gi + 1}
               {layout === 'singles' ? `  ·  Match ${pickTarget.si + 1}` : ''}
             </Text>
+            {onCreateGuest && (
+              <TouchableOpacity
+                style={[css.addGuestBtn, { borderColor: `${GOLD}40` }]}
+                onPress={() => openGuestForm(pickTarget!)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="person-add-outline" size={17} color={GOLD} />
+                <Text style={[css.emptyText, { color: GOLD }]}>Add Guest</Text>
+              </TouchableOpacity>
+            )}
             <ScrollView showsVerticalScrollIndicator={false}>
               {availablePlayers.length === 0
                 ? <Text style={{ color: '#555', textAlign: 'center', padding: 20, fontFamily: FF }}>No players available</Text>
@@ -752,7 +821,10 @@ export default function GroupBuilderSheet({
                               )
                             }
                             <View style={{ flex: 1 }}>
-                              <Text style={[css.playerName, { color: dc.white }]}>{p.display_name}</Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Text style={[css.playerName, { color: dc.white }]}>{p.display_name}</Text>
+                                {p.is_guest && <GuestTag color={GOLD} />}
+                              </View>
                               {p.handicap_index != null && <Text style={css.playerHcp}>HCP {p.handicap_index}</Text>}
                             </View>
                           </TouchableOpacity>
@@ -777,6 +849,71 @@ export default function GroupBuilderSheet({
               <Text style={[css.subCancelText, { color: dc.white }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
+        </Modal>
+      )}
+
+      {/* Add Guest — same fields as the Player Library's Create Guest tab.
+          Name and handicap are set here and only here: a guest is a
+          throwaway row for this round, not an account anyone edits later. */}
+      {guestTarget !== null && (
+        <Modal visible transparent animationType="slide" onRequestClose={() => setGuestTarget(null)}>
+          <TouchableOpacity style={css.overlay} activeOpacity={1} onPress={() => setGuestTarget(null)} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '90%' }}>
+            <View style={[css.subSheet, { backgroundColor: dc.card }]}>
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <Text style={[css.subTitle, { color: dc.white, borderBottomColor: dc.border }]}>Add Guest</Text>
+
+                <Text style={css.profileLabel}>NAME</Text>
+                <TextInput
+                  style={[css.nameInput, { color: dc.white, borderColor: dc.border }]}
+                  value={guestName}
+                  onChangeText={setGuestName}
+                  placeholder="Guest's name"
+                  placeholderTextColor="#555"
+                  autoCapitalize="words"
+                  autoFocus
+                />
+
+                <Text style={[css.profileLabel, { marginTop: 16 }]}>HANDICAP — BLANK FOR SCRATCH</Text>
+                <TextInput
+                  style={[css.nameInput, { color: dc.white, borderColor: dc.border }]}
+                  value={guestHcp}
+                  onChangeText={setGuestHcp}
+                  placeholder="e.g. 14.2"
+                  placeholderTextColor="#555"
+                  keyboardType="decimal-pad"
+                  returnKeyType="done"
+                  blurOnSubmit
+                />
+
+                <Text style={css.profileNote}>
+                  A guest plays and scores in this round only — no account, no society membership, and they won't appear in stats or records.
+                </Text>
+
+                {guestError && <Text style={css.guestError}>{guestError}</Text>}
+
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                  <TouchableOpacity
+                    style={[css.profileBtn, { borderWidth: 1, borderColor: dc.border }]}
+                    onPress={() => setGuestTarget(null)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[css.profileBtnText, { color: '#777' }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[css.profileBtn, { backgroundColor: GOLD, flex: 2 }, (!guestName.trim() || guestSaving) && { opacity: 0.5 }]}
+                    onPress={submitGuest}
+                    disabled={!guestName.trim() || guestSaving}
+                    activeOpacity={0.85}
+                  >
+                    {guestSaving
+                      ? <ActivityIndicator color="#000" />
+                      : <Text style={[css.profileBtnText, { color: '#000' }]}>Add to Round</Text>}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
         </Modal>
       )}
     </Modal>
@@ -882,4 +1019,16 @@ const css = StyleSheet.create({
   },
   teeCircle: { width: 10, height: 10, borderRadius: 5 },
   teePillText: { fontFamily: FFB, fontSize: 13 },
+
+  guestTag: {
+    borderWidth: 1, borderRadius: 4,
+    paddingHorizontal: 5, paddingVertical: 1,
+  },
+  guestTagText: { fontFamily: FFB, fontSize: 8, letterSpacing: 1 },
+  addGuestBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 12, marginBottom: 6,
+    borderWidth: 1, borderStyle: 'dashed', borderRadius: 10,
+  },
+  guestError: { fontFamily: FF, fontSize: 12, color: '#ef4444', textAlign: 'center', marginTop: 10 },
 });

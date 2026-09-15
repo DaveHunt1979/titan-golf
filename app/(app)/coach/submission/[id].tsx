@@ -6,7 +6,7 @@ import {
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { ResizeMode, Video } from 'expo-av';
+import VideoPreview from '../../../../src/components/VideoPreview';
 import { supabase } from '../../../../src/lib/supabase';
 import { useDynamicColors } from '../../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../../src/lib/navigation';
@@ -212,7 +212,7 @@ export default function SubmissionDetailScreen() {
           <View key={v.id} style={[s.videoCard, { borderColor: dc.border, backgroundColor: dc.card }]}>
             <Text style={[s.videoLabel, { color: dc.textSecondary }]}>{v.camera_angle ? ANGLE_LABEL[v.camera_angle] : 'Video'}</Text>
             {v.signedUrl
-              ? <Video source={{ uri: v.signedUrl }} style={s.videoPreview} useNativeControls resizeMode={ResizeMode.CONTAIN} isLooping={false} />
+              ? <VideoPreview uri={v.signedUrl} style={s.videoPreview} />
               : <Text style={{ color: dc.textMuted, fontFamily: FF }}>Video unavailable</Text>
             }
           </View>
