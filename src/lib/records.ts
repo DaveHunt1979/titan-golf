@@ -31,19 +31,23 @@ function isBetter(type: RecordType, newVal: number, oldVal: number): boolean {
 export async function checkAndUpdateRecords(
   matchId: string,
   playerId: string,
+  // The Locker Room-active society the round was actually scored in — the
+  // caller already has this from useSocietyTheme(). A tournament round's own
+  // competition.society_id (set once, at creation, authoritative regardless
+  // of who's viewing) wins when there is one; this is only the fallback for
+  // casual rounds, which carry no competition/society link of their own at
+  // all. Never fall back to an arbitrary row off the player's own
+  // society_members — a real multi-society player (an admin of two clubs,
+  // e.g.) has no single "true" membership row, so that lookup was
+  // attributing records to whichever society happened to sort first for
+  // them, not the one the round was played in (Ricky, 2026-09-14 — his own
+  // best-round records were landing under Skullers' Wall of Records purely
+  // because that membership row outsorted his Titan one, not because he'd
+  // played for Skullers).
+  fallbackSocietyId: string | null,
 ): Promise<BrokenRecord[]> {
-  // Get player info + society
-  const [playerRes, memberRes] = await Promise.all([
+  const [playerRes, holesRes, matchRes] = await Promise.all([
     supabase.from('players').select('display_name').eq('id', playerId).maybeSingle(),
-    supabase.from('society_members').select('society_id').eq('player_id', playerId).limit(1).maybeSingle(),
-  ]);
-
-  if (!memberRes.data) return [];
-  const societyId  = (memberRes.data as any).society_id as string;
-  const playerName = (playerRes.data as any)?.display_name ?? 'Unknown';
-
-  // Get hole data for this round
-  const [holesRes, matchRes] = await Promise.all([
     supabase
       .from('match_holes')
       .select('hole_number, gross_score, stableford_pts')
@@ -51,10 +55,14 @@ export async function checkAndUpdateRecords(
       .eq('player_id', playerId),
     supabase
       .from('matches')
-      .select('day:day_id(course_name)')
+      .select('day:day_id(course_name, competition:competition_id(society_id))')
       .eq('id', matchId)
       .maybeSingle(),
   ]);
+
+  const societyId = ((matchRes.data as any)?.day?.competition?.society_id as string | undefined) ?? fallbackSocietyId ?? undefined;
+  if (!societyId) return [];
+  const playerName = (playerRes.data as any)?.display_name ?? 'Unknown';
 
   const holes = (holesRes.data ?? []) as any[];
   const holesWithScore = holes.filter(h => h.gross_score != null);

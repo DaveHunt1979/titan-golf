@@ -1256,7 +1256,14 @@ export default function TourScreen() {
                                 ? `/(app)/score/teamstableford/${m.id}`
                                 : (m.away_player_ids ?? []).length === 0 && (m.home_player_ids ?? []).length === 1 ? `/(app)/score/solo/${m.id}` : `/(app)/score/enter/${m.id}`)
                             : `/(app)/spectate/${m.id}`;
-                        const statusLabel = isComplete && m.result_str ? m.result_str : isMatchLive ? 'Live' : isLockedMatch ? 'Locked' : 'Upcoming';
+                        // A finished match with no result_str isn't unplayed —
+                        // it just has no match-play winner to report (a
+                        // Stableford/Medal round, or Odd Titan's team-combined
+                        // Stableford qualifying "match"). Falling all the way
+                        // through to 'Upcoming' for those made a genuinely
+                        // complete round read as not-yet-played (Ricky,
+                        // 2026-09-14 overnight, Odd Titan simulation).
+                        const statusLabel = isComplete ? (m.result_str ?? 'Complete') : isMatchLive ? 'Live' : isLockedMatch ? 'Locked' : 'Upcoming';
                         const winner = getEffectiveWinner(m.status, m.winner, m.holes_string ?? '..................', m.holes_to_play ?? 18);
                         const showWinner = isComplete && winner !== 'half';
                         const homeWon = showWinner && winner === 'home';

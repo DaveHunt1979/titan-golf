@@ -83,7 +83,7 @@ export default function SoloRoundScreen() {
   const startHole = Math.max(1, Math.min(18, parseInt(startHoleParam ?? '1', 10) || 1));
   const router = useRouter();
   const dc = useDynamicColors();
-  const { localLogo, logoUrl } = useSocietyTheme();
+  const { localLogo, logoUrl, societyId } = useSocietyTheme();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -361,7 +361,7 @@ export default function SoloRoundScreen() {
       setMatch(prev => prev ? { ...prev, holes_string: newHolesStr, status: newStatus, ...timerFields } : prev);
       setSaving(false);
       if (newStatus === 'complete') {
-        const broken = await checkAndUpdateRecords(matchId as string, m.home_player_ids[0]);
+        const broken = await checkAndUpdateRecords(matchId as string, m.home_player_ids[0], societyId ?? null);
         if (broken.length > 0) { setRecordsBroken(broken); }
         else { Alert.alert('Round Complete!', result, [{ text: 'Done', onPress: () => goBack(router, `/(app)/score/${matchId}`) }]); }
       }
@@ -598,7 +598,7 @@ export default function SoloRoundScreen() {
 
         if (newStatus === 'complete') {
           try {
-            const broken = await checkAndUpdateRecords(matchId as string, match.home_player_ids[0]);
+            const broken = await checkAndUpdateRecords(matchId as string, match.home_player_ids[0], societyId ?? null);
             if (broken.length > 0) setRecordsBroken(broken);
           } catch (e) {
             console.error('checkAndUpdateRecords error:', e);

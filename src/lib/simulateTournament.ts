@@ -823,7 +823,14 @@ async function runIndividualSimulation(opts: SimulateTournamentOptions): Promise
       const [match] = await insertAll<any>('matches', [{
         competition_id: comp.id, day_id: day.id, match_number: gi + 1,
         home_team_id: null, away_team_id: null, home_player_ids: group.map(p => p.id), away_player_ids: [],
-        round_format: isMedal ? 'medal' : 'stableford', is_singles: false, hcp_allowance: day.hcp_pct, handicap_method: null,
+        // 'individual' — matches.handicap_method is NOT NULL DEFAULT 'individual'
+        // (20260807_handicap_method.sql), but an explicit null in an insert
+        // bypasses that default entirely rather than falling back to it, so
+        // this was throwing a not-null violation on every Scale Test run
+        // (Ricky, 2026-09-14 overnight). 'individual' also matches what the
+        // real tournament path (admin/draw.tsx's dayFormatToHandicapMethod)
+        // already falls back to for a standalone Stableford/Medal day.
+        round_format: isMedal ? 'medal' : 'stableford', is_singles: false, hcp_allowance: day.hcp_pct, handicap_method: 'individual',
         status: 'complete', winner: null, result_str: null, holes_string: '.'.repeat(18),
         holes_to_play: 18, start_hole: 1, started_at: new Date().toISOString(), completed_at: new Date().toISOString(),
       }]);

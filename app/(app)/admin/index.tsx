@@ -22,11 +22,15 @@ const GREEN  = '#4ade80';
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
 
+// Platform swapped into Swindle's top-left slot, and Swindle into Platform's
+// old bottom-right one (Ricky, 2026-09-14 — "I need my platform button top
+// left where swindle is, I'm so used to it being there"). Tournament/Season
+// stay put.
 const BUCKETS = [
-  { key: 'swindle',    label: 'Swindle',    sub: 'Weekly games & money list',      icon: 'cash-outline'     as const, accent: PURPLE, route: '/(app)/admin/hub-swindle' },
+  { key: 'platform',   label: 'Platform',   sub: 'Players, courses & the rest',    icon: 'settings-outline' as const, accent: BLUE,   route: '/(app)/admin/hub-platform' },
   { key: 'tournament', label: 'Tournament', sub: 'Branding, teams & schedule',     icon: 'trophy-outline'   as const, accent: GOLD,   route: '/(app)/admin/hub-tournament' },
   { key: 'season',     label: 'Season',     sub: 'Divisions, Majors & league setup', icon: 'layers-outline' as const, accent: GREEN,  route: '/(app)/admin/hub-season' },
-  { key: 'platform',   label: 'Platform',   sub: 'Players, courses & the rest',    icon: 'settings-outline' as const, accent: BLUE,   route: '/(app)/admin/hub-platform' },
+  { key: 'swindle',    label: 'Swindle',    sub: 'Weekly games & money list',      icon: 'cash-outline'     as const, accent: PURPLE, route: '/(app)/admin/hub-swindle' },
 ] as const;
 
 export default function SocietyAdminScreen() {

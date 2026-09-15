@@ -74,16 +74,26 @@ async function fetchHolesByCourse(courseNames: string[]): Promise<Record<string,
 async function resolveMatchSources(
   playerId: string, startAt: string, endAt: string, excludeMatchIds: Set<string>,
 ): Promise<ResolvedRoundSource[]> {
-  const { data: matchRows } = await supabase
+  // course_name lives on competition_days, not matches (there is no
+  // matches.course_name column — this query 404'd on that column on every
+  // single call since Season Mode's ingestion was built 2026-09-06, and the
+  // missing error check below silently turned that into "no rounds found"
+  // for every player, every sync. Root cause of Ricky/Ross's "played on the
+  // 12th, zero counting rounds" report, 2026-09-14 — casual/tournament
+  // rounds have never actually been ingested for anyone.
+  const { data: matchRows, error: matchErr } = await supabase
     .from('matches')
-    .select('id, day_id, course_name, home_player_ids, away_player_ids, completed_at')
+    .select('id, day_id, home_player_ids, away_player_ids, completed_at, competition_days(course_name)')
     .or(`home_player_ids.cs.{${playerId}},away_player_ids.cs.{${playerId}}`)
     .eq('status', 'complete')
-    .not('course_name', 'is', null)
     .gte('completed_at', startAt)
     .lte('completed_at', endAt);
+  if (matchErr) { console.error('[seasonRoundIngestion] resolveMatchSources query failed', matchErr); return []; }
 
-  const candidates = ((matchRows ?? []) as any[]).filter(m => !excludeMatchIds.has(m.id));
+  const withCourse = ((matchRows ?? []) as any[])
+    .map(m => ({ ...m, course_name: m.competition_days?.course_name ?? null }))
+    .filter(m => m.course_name != null);
+  const candidates = withCourse.filter(m => !excludeMatchIds.has(m.id));
   if (candidates.length === 0) return [];
 
   const matchIds = candidates.map(c => c.id);

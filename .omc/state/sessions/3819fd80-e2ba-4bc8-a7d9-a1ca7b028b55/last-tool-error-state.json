@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"/usr/libexec/PlistBuddy -c \\\"Print :ApplicationProperties:CFBundleVersion\\\" /tmp/titangolf-177.xcarchive/Info.plist\",\"description\":\"Verify embedded build number in re-archived 177\"}",
+  "error": "Exit code 1\nPrint: Entry, \":ApplicationProperties:CFBundleVersion\", Does Not Exist\nFile Doesn't Exist, Will Create: /private/tmp/titangolf-177.xcarchive/Info.plist",
+  "timestamp": "2026-09-14T13:05:13.580Z",
+  "retry_count": 1
+}

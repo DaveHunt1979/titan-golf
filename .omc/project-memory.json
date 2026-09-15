@@ -281,14 +281,14 @@
     },
     {
       "path": "src/lib/simulateTournament.ts",
-      "accessCount": 28,
-      "lastAccessed": 1789390393354,
+      "accessCount": 30,
+      "lastAccessed": 1789448508938,
       "type": "file"
     },
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 16,
-      "lastAccessed": 1789384241619,
+      "accessCount": 18,
+      "lastAccessed": 1789449312845,
       "type": "file"
     },
     {
@@ -305,8 +305,8 @@
     },
     {
       "path": "app/(app)/tour/index.tsx",
-      "accessCount": 8,
-      "lastAccessed": 1789384155056,
+      "accessCount": 9,
+      "lastAccessed": 1789448587460,
       "type": "file"
     },
     {
@@ -322,6 +322,12 @@
       "type": "file"
     },
     {
+      "path": "app.json",
+      "accessCount": 5,
+      "lastAccessed": 1789449781099,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/games/GroupBuilderSheet.tsx",
       "accessCount": 4,
       "lastAccessed": 1789371907794,
@@ -331,12 +337,6 @@
       "path": "src/lib/scoring.ts",
       "accessCount": 4,
       "lastAccessed": 1789384223729,
-      "type": "file"
-    },
-    {
-      "path": "app.json",
-      "accessCount": 4,
-      "lastAccessed": 1789390473249,
       "type": "file"
     },
     {

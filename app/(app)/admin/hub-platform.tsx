@@ -40,7 +40,7 @@ const GOD_TILES = [
 export default function PlatformHubScreen() {
   const router = useRouter();
   const dc = useDynamicColors();
-  const { localLogo, logoUrl } = useSocietyTheme();
+  const { localLogo, logoUrl, societyId, societyName } = useSocietyTheme();
   const { isPlatformAdmin } = usePlatformAdmin();
   const { width: winW } = useWindowDimensions();
   const contentW = IS_PAD ? winW - 220 : winW;
@@ -62,6 +62,31 @@ export default function PlatformHubScreen() {
             const { error } = await supabase.from('messages').delete().gte('created_at', '2000-01-01');
             if (error) Alert.alert('Error', error.message);
             else Alert.alert('Done', 'Chat cleared.');
+          },
+        },
+      ],
+    );
+  }
+
+  // Clear Records (Dave, 2026-09-15) — wipes the active society's Wall of
+  // Records only, not every society's. Testing/practice rounds keep breaking
+  // "records" that were never meant to be real club history (same shape as
+  // the Swindle-stats-polluted-by-the-simulator incident) — a repeatable
+  // button beats a one-off manual DB cleanup every time it happens again.
+  // God-only, unlike Clear Chat below.
+  function clearRecords() {
+    if (!societyId) return;
+    Alert.alert(
+      'Clear Wall of Records?',
+      `This deletes every record for ${societyName} only. Other societies are untouched. Cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear Records', style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase.from('society_records').delete().eq('society_id', societyId);
+            if (error) Alert.alert('Error', error.message);
+            else Alert.alert('Done', `${societyName}'s Wall of Records has been cleared.`);
           },
         },
       ],
@@ -130,6 +155,20 @@ export default function PlatformHubScreen() {
             <Text style={[s.tileLabel, { color: RED }]} numberOfLines={1}>Clear Chat</Text>
             <Text style={[s.tileSub, { color: dc.textSecondary }]} numberOfLines={2}>Delete the entire chat history</Text>
           </TouchableOpacity>
+
+          {isPlatformAdmin && (
+            <TouchableOpacity
+              style={[s.tile, { width: tileW, backgroundColor: dc.card, borderColor: dc.border }]}
+              onPress={clearRecords}
+              activeOpacity={0.75}
+            >
+              <View style={[s.tileIcon, { backgroundColor: `${RED}18`, borderColor: `${RED}55` }]}>
+                <Ionicons name="trash-outline" size={24} color={RED} />
+              </View>
+              <Text style={[s.tileLabel, { color: RED }]} numberOfLines={1}>Clear Records</Text>
+              <Text style={[s.tileSub, { color: dc.textSecondary }]} numberOfLines={2}>Wipe {societyName}'s Wall of Records</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </View>

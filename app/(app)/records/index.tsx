@@ -80,7 +80,7 @@ function RecordCard({
 export default function RecordsScreen() {
   const router = useRouter();
   const dc = useDynamicColors();
-  const { localLogo, logoUrl } = useSocietyTheme();
+  const { localLogo, logoUrl, societyId, societyName: activeSocietyName } = useSocietyTheme();
   const [records, setRecords] = useState<Partial<Record<RecordType, RecordEntry>>>({});
   const [societyName, setSocietyName] = useState('Society');
   const [opened, setOpened] = useState(false);
@@ -103,7 +103,10 @@ export default function RecordsScreen() {
   const cardSlides  = useRef(RECORD_DEFS.map(() => new Animated.Value(50))).current;
   const cardOpacity = useRef(RECORD_DEFS.map(() => new Animated.Value(0))).current;
 
-  useEffect(() => { load(); }, []);
+  // Re-run once societyId resolves (useSocietyTheme loads it async) and
+  // again on a Locker Room switch, so this screen never gets stuck showing
+  // whatever society happened to be active first.
+  useEffect(() => { load(); }, [societyId]);
 
   useEffect(() => {
     if (!opened) return;
@@ -111,52 +114,32 @@ export default function RecordsScreen() {
   }, [opened]);
 
   async function load() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setOpened(true); return; }
+    // Whichever society is currently active via the Locker Room switcher —
+    // same source of truth every other screen uses (useAdminSociety etc.),
+    // not an arbitrary "first" row off society_members. A multi-society
+    // player (Ricky, Ollie, ...) was landing on whatever society happened to
+    // sort first in their memberships, so records looked scoped to the wrong
+    // society entirely (Ricky, 2026-09-14 — his own records showing under
+    // Skullers' wall while he'd never even joined Skullers).
+    if (!societyId) { setOpened(true); return; }
+    setSocietyName(activeSocietyName);
 
-    const { data: player } = await supabase
-      .from('players').select('id').eq('auth_uid', user.id).maybeSingle();
-    if (!player) { setOpened(true); return; }
+    const { data: rows } = await supabase
+      .from('society_records')
+      .select('*')
+      .eq('society_id', societyId);
 
-    const pid = (player as any).id as string;
-
-    const [memberRes, recordsRes] = await Promise.all([
-      supabase
-        .from('society_members')
-        .select('societies(name), society_id')
-        .eq('player_id', pid)
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from('society_members')
-        .select('society_id')
-        .eq('player_id', pid)
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    const societyId = (memberRes.data as any)?.society_id;
-    setSocietyName((memberRes.data as any)?.societies?.name ?? 'Society');
-
-    if (societyId) {
-      const { data: rows } = await supabase
-        .from('society_records')
-        .select('*')
-        .eq('society_id', societyId);
-
-      const map: Partial<Record<RecordType, RecordEntry>> = {};
-      for (const r of (rows ?? []) as any[]) {
-        map[r.record_type as RecordType] = {
-          type:        r.record_type,
-          playerName:  r.player_name,
-          value:       Number(r.value),
-          courseName:  r.course_name ?? null,
-          achievedAt:  r.achieved_at ?? null,
-        };
-      }
-      setRecords(map);
+    const map: Partial<Record<RecordType, RecordEntry>> = {};
+    for (const r of (rows ?? []) as any[]) {
+      map[r.record_type as RecordType] = {
+        type:        r.record_type,
+        playerName:  r.player_name,
+        value:       Number(r.value),
+        courseName:  r.course_name ?? null,
+        achievedAt:  r.achieved_at ?? null,
+      };
     }
-
+    setRecords(map);
     setOpened(true);
   }
 

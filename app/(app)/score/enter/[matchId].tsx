@@ -143,7 +143,7 @@ export default function EnterScoresScreen() {
   const startHole = Math.max(1, Math.min(18, parseInt(startHoleParam ?? '1', 10) || 1));
   const router = useRouter();
   const dc = useDynamicColors();
-  const { localLogo, logoUrl, societyName } = useSocietyTheme();
+  const { localLogo, logoUrl, societyName, societyId } = useSocietyTheme();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -1060,7 +1060,7 @@ export default function EnterScoresScreen() {
         // wrap-up of a "continue to 18 for the side game" extension after
         // an earlier dormie finish, which already generated the report once.
         if (!match.competition_id && !continuingSecondary) newsReportPromiseRef.current = generateCasualMatchReport(matchId as string);
-        const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
+        const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id, societyId ?? null)));
         const broken = allBroken.flat();
         if (broken.length > 0) {
           setRecordsBroken(broken);
@@ -1339,7 +1339,7 @@ export default function EnterScoresScreen() {
       // admin-triggered flow in admin/news.tsx — skip here to avoid a
       // second, unwanted report on those.
       if (!match.competition_id) newsReportPromiseRef.current = generateCasualMatchReport(matchId as string);
-      const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id)));
+      const allBroken = await Promise.all(allPlayerIds.map(id => checkAndUpdateRecords(matchId as string, id, societyId ?? null)));
       const broken = allBroken.flat();
       if (broken.length > 0) {
         setRecordsBroken(broken);
