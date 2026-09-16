@@ -12,6 +12,7 @@ import { useDynamicColors, useSocietyTheme } from '../../../../src/lib/SocietyTh
 import { goBack } from '../../../../src/lib/navigation';
 import { titanLogo } from '../../../../src/lib/assets';
 import { VOICE_FEATURE_ENABLED } from '../../../../src/lib/caddie';
+import { sendPushNotification } from '../../../../src/lib/notifications';
 
 const GOLD   = '#D4AF37';
 const PURPLE = '#a78bfa';
@@ -179,6 +180,15 @@ export default function SwindleGroupNew() {
     });
     if (entryRows.length > 0) {
       await supabase.from('swindle_entries').upsert(entryRows, { onConflict: 'game_id,player_id', ignoreDuplicates: true });
+    }
+
+    // "Someone adds you into a round" push (Ricky, 2026-09-15) — guests never
+    // register a push_token so they silently no-op server-side, no need to
+    // filter playerRows down to real accounts here.
+    const notifyIds = playerRows.map(r => r.player_id).filter(id => id !== myId);
+    if (notifyIds.length > 0) {
+      const addedByName = members.find(m => m.player_id === myId)?.display_name ?? 'Someone';
+      sendPushNotification('Titan Golf', `${addedByName} added you to a Swindle group — tee time ${teeTime.trim()}.`, notifyIds);
     }
 
     setSaving(false);

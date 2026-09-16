@@ -34,13 +34,29 @@ function greet(): string {
   return 'Good evening,';
 }
 
-const TILES = [
-  { key: 'play',      label: 'Play',        sub: 'Start a casual round',        icon: 'golf-outline'   as const, area: 'casual',  route: '/(app)/score' },
-  { key: 'events',    label: 'Tournaments',  sub: 'Competitions & Tours',         icon: 'trophy-outline' as const, area: 'tour',    route: '/(app)/tour'    },
-  { key: 'clubhouse', label: 'Clubhouse',    sub: 'Swindle & Season',             icon: 'people-outline' as const, area: 'swindle', route: '/(app)/clubhouse' },
-  { key: 'locker',    label: 'Locker Room',  sub: 'Stats, handicap & equipment',  icon: 'shield-outline' as const, area: 'casual',  route: '/(app)/profile' },
-  { key: 'coach',     label: 'Titan Coach',  sub: 'Swing review & coaching',      icon: 'school-outline' as const, area: 'casual',  route: '/(app)/coach' },
-] as const;
+interface Tile {
+  key: string; label: string; sub: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  area: string; route?: string; externalUrl?: string;
+}
+
+const TILES: Tile[] = [
+  { key: 'play',      label: 'Play',        sub: 'Start a casual round',        icon: 'golf-outline',   area: 'casual',  route: '/(app)/score' },
+  { key: 'events',    label: 'Tournaments',  sub: 'Competitions & Tours',         icon: 'trophy-outline', area: 'tour',    route: '/(app)/tour'    },
+  { key: 'clubhouse', label: 'Clubhouse',    sub: 'Swindle & Season',             icon: 'people-outline', area: 'swindle', route: '/(app)/clubhouse' },
+  { key: 'locker',    label: 'Locker Room',  sub: 'Stats, handicap & equipment',  icon: 'shield-outline', area: 'casual',  route: '/(app)/profile' },
+  { key: 'coach',     label: 'Titan Coach',  sub: 'Swing review & coaching',      icon: 'school-outline', area: 'casual',  route: '/(app)/coach' },
+];
+
+// Mashie Golf-only Events tile (Dave, 2026-09-16) — opens a native in-app
+// calendar (app/(app)/mashie-events.tsx) rebuilding mashiegolf.co.uk's own
+// event-schedule page rather than just linking out to it. Never shown for
+// any other society (see isMashie).
+const MASHIE_SOCIETY_ID = '40000000-0000-0000-0000-000000000001';
+const MASHIE_EVENTS_TILE: Tile = {
+  key: 'mashie_events', label: 'Events', sub: 'Mashie events calendar',
+  icon: 'calendar-outline', area: 'casual', route: '/(app)/mashie-events',
+};
 
 type FriendRound = {
   playerId: string; name: string; courseName: string; hole: number; pts: number; matchId: string;
@@ -53,6 +69,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const { societyId: SOCIETY_ID, localLogo, logoUrl, heroUrl, societyName } = useSocietyTheme();
   const dc = useDynamicColors();
+  const isMashie = SOCIETY_ID === MASHIE_SOCIETY_ID;
+  const tiles = isMashie ? [...TILES, MASHIE_EVENTS_TILE] : TILES;
   const { width: winW } = useWindowDimensions();
   const contentW = IS_PAD ? winW - 220 : winW;
   const tileW = Math.floor((contentW - 32 - 10) / 2);
@@ -406,8 +424,9 @@ export default function HomeScreen() {
   const isLive = (key: string) =>
     (key === 'play' && casualCount > 0) || (key === 'events' && tourLive > 0) || (key === 'clubhouse' && swindleCount > 0);
 
-  const handleTile = (tile: typeof TILES[number]) => {
+  const handleTile = (tile: Tile) => {
     if (!hasArea(tile.area)) { router.push('/(app)/join' as any); return; }
+    if (tile.externalUrl) { Linking.openURL(tile.externalUrl); return; }
     router.push(tile.route as any);
   };
 
@@ -486,7 +505,7 @@ export default function HomeScreen() {
 
           {/* ── 6-tile grid ── */}
           <View style={s.grid}>
-            {TILES.map(tile => {
+            {tiles.map(tile => {
               const locked = !hasArea(tile.area);
               const live   = !locked && isLive(tile.key);
               const sub    = locked ? 'Ask Rick for access' : tileSub(tile.key, tile.sub);
@@ -598,7 +617,11 @@ export default function HomeScreen() {
             <QuickBtn icon="chatbubbles-outline" label="Chat"    cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/chat' as any)}    badge={unread > 0 ? unread : undefined} badgeColor={dc.gold} />
             <QuickBtn icon="ribbon-outline"      label="Records" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/records' as any)} />
             <QuickBtn icon="time-outline"        label="History" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/profile/rounds' as any)} />
-            <QuickBtn icon="bag-outline"         label="Shop"    cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => Linking.openURL('https://titangolf-web.vercel.app/')} />
+            {isMashie ? (
+              <QuickBtn icon="link-outline" label="Partners" cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => router.push('/(app)/partners' as any)} />
+            ) : (
+              <QuickBtn icon="bag-outline"  label="Shop"     cardBg={dc.card} iconColor={dc.iconBoxIcon} textColor={dc.cardText} onPress={() => Linking.openURL('https://titangolf-web.vercel.app/')} />
+            )}
           </View>
 
           {/* ── Up & Coming row — first card is live (society trips), the

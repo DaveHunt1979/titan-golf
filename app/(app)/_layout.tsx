@@ -244,6 +244,8 @@ function AppLayoutInner() {
         <Tabs.Screen name="add/[tag]"                options={{ href: null }} />
         <Tabs.Screen name="join" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="societies" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+        <Tabs.Screen name="partners" options={{ href: null }} />
+        <Tabs.Screen name="mashie-events" options={{ href: null }} />
       </Tabs>
   );
 

@@ -159,8 +159,18 @@ export default function SeasonManageScreen() {
               <View key={season.id} style={s.card}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Text style={s.cardName}>{season.name}</Text>
-                  <View style={s.statusPill}>
-                    <Text style={s.statusPillText}>{STATUS_LABEL[season.status] ?? season.status}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={s.statusPill}>
+                      <Text style={s.statusPillText}>{STATUS_LABEL[season.status] ?? season.status}</Text>
+                    </View>
+                    {season.status !== 'locked' && (
+                      <TouchableOpacity
+                        onPress={() => router.push(`/(app)/admin/season-edit?id=${season.id}` as any)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Ionicons name="pencil-outline" size={16} color={GREEN} />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
                 <Text style={s.cardMeta}>{season.season_year} · {season.division_count} division{season.division_count === 1 ? '' : 's'}</Text>

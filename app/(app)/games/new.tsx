@@ -16,6 +16,7 @@ import { useSociety } from '../../../src/lib/useSociety';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { getPlayerAvatar } from '../../../src/lib/assets';
 import { downloadMatchPack, downloadCourseGps } from '../../../src/lib/offlinePack';
+import { sendPushNotification } from '../../../src/lib/notifications';
 import { fetchFavouriteIds, fetchRecentlyPlayedWithIds, toggleFavourite } from '../../../src/lib/playerTiers';
 import { VOICE_FEATURE_ENABLED } from '../../../src/lib/caddie';
 import GroupBuilderSheet, { BuiltMatch, PlayerOverride } from './GroupBuilderSheet';
@@ -1167,6 +1168,16 @@ export default function NewGameScreen() {
       // data too — otherwise rangefinder only tries on first use, out on the
       // course, where it can be too weak to ever complete.
       downloadCourseGps(selectedCourse).catch(() => {});
+
+      // "Someone adds you into a round" push (Ricky, 2026-09-15). Guests
+      // silently drop out server-side (increment_badge_counts only matches
+      // players with a push_token, and guests never register one), so no
+      // need to filter them out here.
+      const addedByName = players.find(p => p.id === myPlayerId)?.display_name ?? 'Someone';
+      const notifyIds = [...new Set(builtMatches.flatMap(bm => [...bm.home, ...bm.away]))].filter(id => id !== myPlayerId);
+      if (notifyIds.length > 0) {
+        sendPushNotification('Titan Golf', `${addedByName} added you to a round at ${selectedCourse}.`, notifyIds);
+      }
 
       if (isMashie) {
         // Group codes are already visible in Admin → Codes ("MASHIE GROUP CODES")

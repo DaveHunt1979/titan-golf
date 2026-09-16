@@ -14,6 +14,7 @@ import { resolveAvatar, teamLogos } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 import { getFormatRules, checkTitanWayStructure } from '../../../src/lib/tournamentFormat';
 import { generateTitanWaySchedule, computeRoundRobinMatchups } from '../../../src/lib/titanWayDraw';
+import { sendPushNotification } from '../../../src/lib/notifications';
 
 const GOLD  = '#D4AF37';
 const GREEN = '#4ade80';
@@ -36,6 +37,18 @@ const INDIVIDUAL_GROUP_SIZE = 4;
 
 function isIndividualMatch(m: { home_team_id: string | null; away_team_id: string | null }): boolean {
   return !m.home_team_id && !m.away_team_id;
+}
+
+// "Someone adds you into a round" push (Ricky, 2026-09-15), tournament side.
+// One notification per player per draw generation, not per match — Titan
+// Way's whole-schedule generation alone can place a player into a dozen
+// matches at once, and nobody wants a dozen pushes for one button tap.
+// Manual-mode shells insert with empty player_ids (filled in later via the
+// Assign Players modal, which fires its own notification on save), so this
+// naturally no-ops for them without any special-casing.
+function notifyRoundPlayers(rows: { home_player_ids: string[]; away_player_ids: string[] }[], message: string) {
+  const ids = [...new Set(rows.flatMap(r => [...r.home_player_ids, ...r.away_player_ids]))];
+  if (ids.length > 0) sendPushNotification('Titan Golf', message, ids);
 }
 
 const DAY_FORMAT_LABELS: Record<string, string> = {
@@ -629,6 +642,7 @@ export default function TournamentDrawScreen() {
         const { error } = await supabase.from('matches').insert(matchRows);
         if (error) { Alert.alert('Error', error.message); return; }
         await load();
+        notifyRoundPlayers(matchRows, `${DAY_FORMAT_LABELS[df] ?? 'Round'} draw is out for ${comp?.name ?? 'your tournament'}.`);
       } catch (e: any) {
         Alert.alert('Error', e?.message ?? 'Could not generate the draw.');
       } finally {
@@ -864,6 +878,7 @@ export default function TournamentDrawScreen() {
       const { data: inserted, error } = await supabase.from('matches').insert(matchRows).select();
       if (error) { Alert.alert('Error', error.message); return; }
       await load();
+      notifyRoundPlayers(matchRows, `${DAY_FORMAT_LABELS[df] ?? 'Round'} draw is out for ${comp?.name ?? 'your tournament'}.`);
       // Manual mode's shells have no players yet — take the organiser
       // straight into assigning them instead of leaving empty matches sitting
       // in the list looking broken.
@@ -1129,6 +1144,7 @@ export default function TournamentDrawScreen() {
         const { error } = await supabase.from('matches').insert(matchRows);
         if (error) { Alert.alert('Error', error.message); return; }
         await load();
+        notifyRoundPlayers(matchRows, `The full ${comp?.name ?? 'tournament'} schedule is out — check your matches.`);
       } catch (e: any) {
         Alert.alert('Error', e?.message ?? 'Could not generate the Titan Way draw.');
       } finally {
@@ -1764,6 +1780,7 @@ export default function TournamentDrawScreen() {
         teams={teams}
         compPlayers={compPlayers}
         days={days}
+        compName={comp?.name ?? 'your tournament'}
         onClose={() => setAssignModalMatches(null)}
         onSaved={load}
       />
@@ -1777,7 +1794,7 @@ export default function TournamentDrawScreen() {
 // open in this modal AND every other already-saved match on the same day,
 // so a player can't end up in two matches at once within the same round.
 function MatchAssignModal({
-  visible, matches, allMatches, teams, compPlayers, days, onClose, onSaved,
+  visible, matches, allMatches, teams, compPlayers, days, compName, onClose, onSaved,
 }: {
   visible: boolean;
   matches: MatchRow[];
@@ -1785,6 +1802,7 @@ function MatchAssignModal({
   teams: TeamRow[];
   compPlayers: CompPlayer[];
   days: DayRow[];
+  compName: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -1886,11 +1904,15 @@ function MatchAssignModal({
     setSaving(true);
     try {
       const sameRoster = (a: string[], b: string[]) => a.length === b.length && a.every(id => b.includes(id));
+      const newlyAddedIds = new Set<string>();
       for (const m of matches) {
         const w = working[m.id];
         if (!w) continue;
         const newHome = w.home.filter((id): id is string => !!id);
         const newAway = w.away.filter((id): id is string => !!id);
+        [...newHome, ...newAway]
+          .filter(id => !m.home_player_ids.includes(id) && !m.away_player_ids.includes(id))
+          .forEach(id => newlyAddedIds.add(id));
         const update: Record<string, unknown> = { home_player_ids: newHome, away_player_ids: newAway };
 
         // A player swap invalidates the per-hole record: match_holes is
@@ -1917,6 +1939,9 @@ function MatchAssignModal({
 
         const { error } = await supabase.from('matches').update(update).eq('id', m.id);
         if (error) throw error;
+      }
+      if (newlyAddedIds.size > 0) {
+        sendPushNotification('Titan Golf', `You've been added to a match in ${compName}.`, [...newlyAddedIds]);
       }
       onSaved();
       onClose();
