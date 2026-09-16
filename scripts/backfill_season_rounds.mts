@@ -73,7 +73,7 @@ async function fetchHolesByCourse(courseNames: string[]) {
 
 interface ResolvedRoundSource {
   sourceMatchId: string | null; sourceSwindleGroupId: string | null;
-  courseName: string; playedAt: string; otherPlayerIds: string[];
+  courseName: string; playedAt: string; otherPlayerIds: string[]; hasGuest: boolean;
   handicapIndex: number; courseRating: number; slopeRating: number;
   teeName: string | null; teeGender: string | null; holes: SeasonHoleInput[];
 }
@@ -95,15 +95,24 @@ async function resolveMatchSources(playerId: string, startAt: string, endAt: str
   const matchIds = candidates.map(c => c.id);
   const dayIds = [...new Set(candidates.map(c => c.day_id).filter((id): id is string => id != null))];
   const courseNames = [...new Set(candidates.map(c => c.course_name as string))];
+  // Guests are real `players` rows (is_guest=true) mixed into
+  // home_player_ids/away_player_ids indistinguishably from real accounts —
+  // keep this in sync with src/lib/seasonRoundIngestion.ts (Dave, 2026-09-16:
+  // "rounds with guests dont count").
+  const allOtherIds = [...new Set(candidates.flatMap(c => [...(c.home_player_ids ?? []), ...(c.away_player_ids ?? [])]).filter((id: string) => id !== playerId))];
 
-  const [holeRows, snapshotRows, courseHolesByName, playerRow] = await Promise.all([
+  const [holeRows, snapshotRows, courseHolesByName, playerRow, guestRows] = await Promise.all([
     fetchAllRows<any>((from, to) => supabase.from('match_holes').select('match_id, hole_number, gross_score').in('match_id', matchIds).eq('player_id', playerId).range(from, to) as any),
     dayIds.length
       ? supabase.from('round_player_tees').select('day_id, tee_name, gender, handicap_index_at_start, course_rating_at_start, slope_at_start').in('day_id', dayIds).eq('player_id', playerId).then(r => r.data ?? [])
       : Promise.resolve([] as any[]),
     fetchHolesByCourse(courseNames),
     supabase.from('players').select('handicap_index').eq('id', playerId).maybeSingle().then(r => r.data as any),
+    allOtherIds.length
+      ? supabase.from('players').select('id, is_guest').in('id', allOtherIds).then(r => r.data ?? [])
+      : Promise.resolve([] as any[]),
   ]);
+  const guestIds = new Set(((guestRows ?? []) as any[]).filter(p => p.is_guest).map(p => p.id as string));
 
   const grossByMatch: Record<string, Record<number, number>> = {};
   for (const h of holeRows as any[]) { if (h.gross_score == null) continue; (grossByMatch[h.match_id] ??= {})[h.hole_number] = h.gross_score; }
@@ -139,7 +148,8 @@ async function resolveMatchSources(playerId: string, startAt: string, endAt: str
 
     out.push({
       sourceMatchId: m.id, sourceSwindleGroupId: null, courseName: m.course_name, playedAt: m.completed_at,
-      otherPlayerIds, handicapIndex: snapshot?.handicap_index_at_start ?? playerRow?.handicap_index ?? 0,
+      otherPlayerIds, hasGuest: otherPlayerIds.some(id => guestIds.has(id)),
+      handicapIndex: snapshot?.handicap_index_at_start ?? playerRow?.handicap_index ?? 0,
       courseRating: Number(rating), slopeRating: Number(slope),
       teeName: snapshot?.tee_name ?? null, teeGender: snapshot?.gender ?? null,
       holes: courseHoles.map(h => ({ holeNumber: h.hole_number, par: h.par, strokeIndex: h.stroke_index, grossScore: gross[h.hole_number] })),
@@ -167,15 +177,22 @@ async function resolveSwindleSources(playerId: string, startAt: string, endAt: s
   const qualifyingGameIds = [...new Set(qualifyingGroups.map(g => g.game_id))];
   const courseNames = [...new Set(qualifyingGroups.map(g => gamesById.get(g.game_id).course_name as string).filter(Boolean))];
 
-  const [otherPlayerRows, entryRows, scoreRows, courseHolesByName] = await Promise.all([
-    supabase.from('swindle_group_players').select('group_id, player_id').in('group_id', qualifyingGroupIds).eq('is_guest', false).neq('player_id', playerId).then(r => r.data ?? []),
+  const [groupPlayerRows, entryRows, scoreRows, courseHolesByName] = await Promise.all([
+    // Fetch every group member (guests included) to detect guest presence —
+    // swindle guests store player_id NULL + is_guest true, keep in sync with
+    // src/lib/seasonRoundIngestion.ts.
+    supabase.from('swindle_group_players').select('group_id, player_id, is_guest').in('group_id', qualifyingGroupIds).then(r => r.data ?? []),
     supabase.from('swindle_entries').select('game_id, handicap').in('game_id', qualifyingGameIds).eq('player_id', playerId).then(r => r.data ?? []),
     fetchAllRows<any>((from, to) => supabase.from('swindle_scores').select('game_id, hole_number, gross_score').in('game_id', qualifyingGameIds).eq('player_id', playerId).range(from, to) as any),
     fetchHolesByCourse(courseNames),
   ]);
 
   const otherPlayersByGroup: Record<string, string[]> = {};
-  for (const r of otherPlayerRows as any[]) (otherPlayersByGroup[r.group_id] ??= []).push(r.player_id);
+  const hasGuestByGroup: Record<string, boolean> = {};
+  for (const r of groupPlayerRows as any[]) {
+    if (r.is_guest) { hasGuestByGroup[r.group_id] = true; continue; }
+    if (r.player_id && r.player_id !== playerId) (otherPlayersByGroup[r.group_id] ??= []).push(r.player_id);
+  }
   const handicapByGame: Record<string, number> = {};
   for (const r of entryRows as any[]) handicapByGame[r.game_id] = Number(r.handicap);
   const grossByGame: Record<string, Record<number, number>> = {};
@@ -193,7 +210,7 @@ async function resolveSwindleSources(playerId: string, startAt: string, endAt: s
 
     out.push({
       sourceMatchId: null, sourceSwindleGroupId: g.id, courseName: game.course_name, playedAt: new Date(game.game_date).toISOString(),
-      otherPlayerIds, handicapIndex: handicapByGame[g.game_id] ?? 0,
+      otherPlayerIds, hasGuest: !!hasGuestByGroup[g.id], handicapIndex: handicapByGame[g.game_id] ?? 0,
       courseRating: Number(game.course_rating), slopeRating: Number(game.slope_rating),
       teeName: null, teeGender: null,
       holes: courseHoles.map(h => ({ holeNumber: h.hole_number, par: h.par, strokeIndex: h.stroke_index, grossScore: gross[h.hole_number] })),
@@ -310,7 +327,7 @@ async function main() {
 
       let ingested = 0, skipped = 0;
       for (const src of [...matchSources, ...swindleSources]) {
-        const eligible = src.otherPlayerIds.some(id => societyMemberIds.has(id));
+        const eligible = !src.hasGuest && src.otherPlayerIds.some(id => societyMemberIds.has(id));
         if (!eligible) { skipped++; continue; }
         const par = src.holes.reduce((sum, h) => sum + h.par, 0);
         await ingestRound(entry.id, season.id, src, season.handicap_allowance_percent, par);
@@ -323,7 +340,7 @@ async function main() {
       // and the cached counts on season_entries need to catch up either way.
       await recalculateSeasonEntry(entry.id, season.id, season.counting_round_limit, season.minimum_qualifying_rounds);
       const { data: after } = await supabase.from('season_entries').select('qualifying_rounds_count, season_points').eq('id', entry.id).maybeSingle();
-      console.log(`  ${name}: +${ingested} ingested, ${skipped} skipped (no eligible co-player) — now ${(after as any)?.qualifying_rounds_count ?? '?'} rounds, ${(after as any)?.season_points ?? '?'} pts`);
+      console.log(`  ${name}: +${ingested} ingested, ${skipped} skipped (no eligible co-player or guest present) — now ${(after as any)?.qualifying_rounds_count ?? '?'} rounds, ${(after as any)?.season_points ?? '?'} pts`);
     }
   }
   console.log('\nDone.');

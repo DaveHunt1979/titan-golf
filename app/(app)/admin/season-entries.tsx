@@ -17,6 +17,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
+import { recalculateSeasonEntry } from '../../../src/lib/seasonRoundIngestion';
 
 const GREEN = '#4ade80';
 const RED   = '#f87171';
@@ -39,6 +40,9 @@ export default function SeasonEntriesScreen() {
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [recalculating, setRecalculating] = useState(false);
+  const [countingLimit, setCountingLimit] = useState(20);
+  const [minQualifying, setMinQualifying] = useState(20);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -48,9 +52,11 @@ export default function SeasonEntriesScreen() {
   const load = useCallback(async () => {
     if (!seasonId) { setLoading(false); return; }
     setLoading(true);
-    const { data: season } = await supabase.from('seasons').select('name, society_id').eq('id', seasonId).maybeSingle();
+    const { data: season } = await supabase.from('seasons').select('name, society_id, counting_round_limit, minimum_qualifying_rounds').eq('id', seasonId).maybeSingle();
     setSeasonName((season as any)?.name ?? '');
     setSocietyId((season as any)?.society_id ?? null);
+    setCountingLimit((season as any)?.counting_round_limit ?? 20);
+    setMinQualifying((season as any)?.minimum_qualifying_rounds ?? 20);
 
     const { data } = await supabase
       .from('season_entries')
@@ -103,6 +109,30 @@ export default function SeasonEntriesScreen() {
     }
   }
 
+  // Dave, 2026-09-16: "Rick has played 4 rounds and 273 points... but in
+  // admin it only shows 44" — a season_entries row's cached counts can drift
+  // from the real season_rounds data (e.g. an Admin > Simulate test that
+  // used a real player's account got cleaned up, cascade-deleting the
+  // season_rounds it created, but nothing re-ran recalculateSeasonEntry
+  // afterward). The standalone scripts/backfill_season_rounds.mts already
+  // fixes this from a terminal; this button is the same fix from inside the
+  // app, since Dave can't run scripts himself.
+  async function recalculateAll() {
+    if (!seasonId) return;
+    setRecalculating(true);
+    try {
+      for (const entry of entries) {
+        await recalculateSeasonEntry(entry.entryId, seasonId, countingLimit, minQualifying);
+      }
+      await load();
+      Alert.alert('Recalculated', 'Every entry\'s counts now match the real rounds on record.');
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Could not recalculate entries');
+    } finally {
+      setRecalculating(false);
+    }
+  }
+
   function confirmRemove(entry: EntryRow) {
     Alert.alert(
       'Remove from season?',
@@ -150,6 +180,11 @@ export default function SeasonEntriesScreen() {
           </TouchableOpacity>
           <Text style={s.hint}>Adds every current society member not already in this season. Safe to run more than once — already-enrolled players are skipped.</Text>
 
+          <TouchableOpacity style={s.recalcBtn} onPress={recalculateAll} disabled={recalculating || entries.length === 0} activeOpacity={0.85}>
+            {recalculating ? <ActivityIndicator color={GREEN} /> : <Text style={s.recalcBtnText}>Recalculate All Rounds &amp; Points</Text>}
+          </TouchableOpacity>
+          <Text style={s.hint}>Fixes a player's rounds/points if they look wrong or out of date (e.g. after deleting an Admin &gt; Simulate test) — recalculates from what's actually on record. Safe to run any time.</Text>
+
           <Text style={[s.sectionLabel, { marginTop: 20 }]}>{entries.length} ENROLLED</Text>
           {entries.map(entry => (
             <View key={entry.entryId} style={s.card}>
@@ -191,6 +226,12 @@ const s = StyleSheet.create({
 
   enrollBtn: { backgroundColor: GREEN, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   enrollBtnText: { fontFamily: FFB, fontSize: 14, color: '#000' },
+
+  recalcBtn: {
+    marginTop: 16, backgroundColor: `${GREEN}18`, borderWidth: 1, borderColor: `${GREEN}40`,
+    borderRadius: 12, paddingVertical: 14, alignItems: 'center',
+  },
+  recalcBtnText: { fontFamily: FFB, fontSize: 13, color: GREEN },
 
   card: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
