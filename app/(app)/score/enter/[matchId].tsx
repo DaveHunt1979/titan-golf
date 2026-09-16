@@ -1216,7 +1216,15 @@ export default function EnterScoresScreen() {
       console.log('[enter.dayBoardRealtime] unsubscribing', { channel: `day-lb-${dayId}` });
       supabase.removeChannel(sub);
     };
-  }, [match?.day_id]);
+  // courseHoles loads asynchronously via a separate effect (offline pack
+  // fetch) and can still be [] when this effect first mounts — loadDayBoard
+  // closes over whatever courseHoles was at that point, so without it here
+  // parByHole stays permanently empty, holesPlayed never increments for
+  // anyone, and the ALL GROUPS board's holesPlayed === 0 fallback shows '—'
+  // for every player forever, even once real stableford_pts/gross_score
+  // land (Dave/Ricky, 2026-09-16 — 2-group singles day, correct points on
+  // the main Tournament Leaderboard, dashes here).
+  }, [match?.day_id, courseHoles]);
 
   // ── Undo last hole ──────────────────────────────────────────────
   async function undoHole() {
