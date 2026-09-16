@@ -34,6 +34,7 @@ type Article = {
   created_at: string; day_id: string | null; match_id: string | null; competition_id: string | null;
   competitions?: { name: string } | null;
   competition_days?: { day_number: number } | null;
+  seasons?: { name: string } | null;
   banter_speaker: BanterSpeaker | null; banter_text: string | null; banter_scene: string | null;
 };
 
@@ -69,7 +70,7 @@ function photosForArticle(article: Article, photos: RoundPhoto[]): RoundPhoto[] 
 export default function TitanNewsScreen() {
   const router = useRouter();
   const { societyId } = useSocietyTheme();
-  const { competitionId, matchId, back } = useLocalSearchParams<{ competitionId?: string; matchId?: string; back?: string }>();
+  const { competitionId, matchId, seasonId, back } = useLocalSearchParams<{ competitionId?: string; matchId?: string; seasonId?: string; back?: string }>();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -124,8 +125,12 @@ export default function TitanNewsScreen() {
 
     // Tournament stories only ever show inside their own tournament (opened
     // with a competitionId) — they must never spill into the global feed.
+    // Season stories work the same way, opened with a seasonId (see
+    // app/(app)/season/index.tsx's News button).
     let query;
-    if (matchId) {
+    if (seasonId) {
+      query = supabase.from('titan_news').select(`${cols}, seasons(name)`).eq('season_id', seasonId);
+    } else if (matchId) {
       query = supabase.from('titan_news').select(cols).eq('match_id', matchId);
     } else if (competitionId) {
       query = supabase.from('titan_news').select(`${cols}, competitions(name)`).eq('competition_id', competitionId);
@@ -163,7 +168,7 @@ export default function TitanNewsScreen() {
     loadPhotos(rows).catch(e => { console.error('[news] round photo load failed', e); setPhotos([]); });
     setLoading(false);
     setRefreshing(false);
-  }, [competitionId, matchId, societyId, loadPhotos]);
+  }, [competitionId, matchId, seasonId, societyId, loadPhotos]);
 
   useFocusEffect(useCallback(() => {
     load();
@@ -228,7 +233,7 @@ export default function TitanNewsScreen() {
                 activeOpacity={0.85}
               >
                 <Text style={[s.cardType, { color: GOLD }]}>
-                  {articleLabel(a.story_type, a.competition_days?.day_number ?? null, a.competitions?.name ?? null)}
+                  {articleLabel(a.story_type, a.competition_days?.day_number ?? null, a.competitions?.name ?? a.seasons?.name ?? null)}
                 </Text>
                 <Text style={[s.headline, { color: TEXT }]}>{a.headline}</Text>
                 <Text style={[s.summary, { color: MUTED }]} numberOfLines={isOpen ? undefined : 2}>{a.summary}</Text>

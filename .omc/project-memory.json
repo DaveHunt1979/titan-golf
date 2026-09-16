@@ -302,26 +302,26 @@
   "hotPaths": [
     {
       "path": "app/(app)/admin/draw.tsx",
-      "accessCount": 66,
-      "lastAccessed": 1789538210427,
+      "accessCount": 107,
+      "lastAccessed": 1789557477651,
       "type": "file"
     },
     {
       "path": "app/(app)/score/enter/[matchId].tsx",
-      "accessCount": 36,
-      "lastAccessed": 1789546017918,
+      "accessCount": 41,
+      "lastAccessed": 1789556122440,
       "type": "file"
     },
     {
       "path": "src/lib/simulateTournament.ts",
-      "accessCount": 30,
-      "lastAccessed": 1789448508938,
+      "accessCount": 39,
+      "lastAccessed": 1789557237632,
       "type": "file"
     },
     {
       "path": "app/(app)/games/new.tsx",
-      "accessCount": 26,
-      "lastAccessed": 1789537805416,
+      "accessCount": 30,
+      "lastAccessed": 1789558841689,
       "type": "file"
     },
     {
@@ -337,6 +337,18 @@
       "type": "file"
     },
     {
+      "path": "src/lib/tournamentFormat.ts",
+      "accessCount": 13,
+      "lastAccessed": 1789556686014,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/tour/index.tsx",
+      "accessCount": 13,
+      "lastAccessed": 1789556763757,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/friends.tsx",
       "accessCount": 11,
       "lastAccessed": 1789461877358,
@@ -349,21 +361,9 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/tour/index.tsx",
-      "accessCount": 11,
-      "lastAccessed": 1789545703000,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/tournamentFormat.ts",
-      "accessCount": 10,
-      "lastAccessed": 1789384063189,
-      "type": "file"
-    },
-    {
       "path": "src/lib/matchScoring.ts",
-      "accessCount": 9,
-      "lastAccessed": 1789545643751,
+      "accessCount": 11,
+      "lastAccessed": 1789556037628,
       "type": "file"
     },
     {
@@ -373,21 +373,33 @@
       "type": "file"
     },
     {
+      "path": "src/lib/scoring.ts",
+      "accessCount": 7,
+      "lastAccessed": 1789556781420,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1789558330122,
+      "type": "file"
+    },
+    {
       "path": "app/(app)/score/[matchId].tsx",
       "accessCount": 6,
       "lastAccessed": 1789474219607,
       "type": "file"
     },
     {
-      "path": "src/lib/scoring.ts",
-      "accessCount": 4,
-      "lastAccessed": 1789384223729,
+      "path": "src/components/PlayerEditSheet.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1789550588269,
       "type": "file"
     },
     {
-      "path": "src/components/PlayerEditSheet.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1789391005230,
+      "path": "src/lib/titanWayDraw.ts",
+      "accessCount": 5,
+      "lastAccessed": 1789557076644,
       "type": "file"
     },
     {
@@ -403,15 +415,15 @@
       "type": "file"
     },
     {
-      "path": "app/(app)/_layout.tsx",
+      "path": "supabase/migrations/20260918100000_platform_admin_set_member_role.sql",
       "accessCount": 3,
-      "lastAccessed": 1789542683900,
+      "lastAccessed": 1789550521862,
       "type": "file"
     },
     {
       "path": "app/(app)/score/preview/[matchId].tsx",
-      "accessCount": 2,
-      "lastAccessed": 1789370894353,
+      "accessCount": 3,
+      "lastAccessed": 1789555743127,
       "type": "file"
     },
     {
@@ -454,12 +466,6 @@
       "path": "supabase/migrations/20260918090000_skullers_singles_order.sql",
       "accessCount": 2,
       "lastAccessed": 1789480349441,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260918100000_platform_admin_set_member_role.sql",
-      "accessCount": 2,
-      "lastAccessed": 1789480350914,
       "type": "file"
     },
     {
@@ -580,12 +586,6 @@
       "path": "app/(app)/swindle/score/[gameId].tsx",
       "accessCount": 1,
       "lastAccessed": 1789372398534,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/titanWayDraw.ts",
-      "accessCount": 1,
-      "lastAccessed": 1789376697989,
       "type": "file"
     },
     {

@@ -26,9 +26,28 @@ const HIGHLIGHTS: { icon: keyof typeof Ionicons.glyphMap; title: string; body: s
 ];
 
 interface MyEntry {
-  entryId: string; seasonName: string; qualifyingRoundsCount: number; countingRoundsCount: number;
+  entryId: string; seasonId: string; seasonName: string; qualifyingRoundsCount: number; countingRoundsCount: number;
   seasonPoints: number; qualificationStatus: string; minimumQualifyingRounds: number;
+  countingRoundLimit: number; handicapAllowancePercent: number;
   seasonStartAt: string | null; seasonEndAt: string | null;
+}
+
+// Full rules, shown to anyone already enrolled — Dave, 2026-09-16: "we want
+// all the rules listed so everyone knows all the scoring, all the little
+// bits and pieces." Numbers are pulled from the real season config, not
+// hardcoded, so this can never drift out of sync with what's actually
+// being scored.
+function seasonRules(entry: MyEntry): { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }[] {
+  return [
+    { icon: 'shield-checkmark-outline', title: 'Automatic — no separate entry', body: 'Any casual round, Titan Tour round, or Swindle round you finish with another real app player from your society counts automatically. Solo rounds never count.' },
+    { icon: 'person-remove-outline', title: 'Guests don’t count', body: 'A round only counts if a real, registered Titan Golf player is in your group. Rounds played only with guests or made-up names are excluded, even if you also finished.' },
+    { icon: 'layers-outline', title: 'Divisions', body: 'A football-style league pyramid — Premier League down to League Two, seeded by handicap.' },
+    { icon: 'stats-chart-outline', title: `Best ${entry.countingRoundLimit}`, body: `Play unlimited qualifying rounds. Only your best ${entry.countingRoundLimit} verified Stableford scores count toward your Season Points.` },
+    { icon: 'speedometer-outline', title: `${entry.handicapAllowancePercent}% Handicap Allowance`, body: `Season scoring uses ${entry.handicapAllowancePercent}% of your Course Handicap for every counting round — the same allowance applied automatically when the round is ingested.` },
+    { icon: 'checkmark-done-outline', title: 'Qualifying', body: `Play at least ${entry.minimumQualifyingRounds} rounds to become officially Qualified. Until then you're shown as Provisional on the table.` },
+    { icon: 'trending-up-outline', title: 'Promotion & Relegation', body: 'Top 3 go up, bottom 3 go down at Season close — automatically, no manual sorting.' },
+    { icon: 'ribbon-outline', title: '4 Majors', body: 'Titan Masters, Championship, Open and Season Championship — your single best round inside each Major’s window gets a 1.5× points multiplier.' },
+  ];
 }
 
 function formatSeasonDates(startAt: string | null, endAt: string | null): string | null {
@@ -71,12 +90,14 @@ export default function SeasonIndex() {
     if (entryRow) {
       const season = (entryRow as any).seasons;
       setEntry({
-        entryId: (entryRow as any).id, seasonName: season.name,
+        entryId: (entryRow as any).id, seasonId: season.id, seasonName: season.name,
         qualifyingRoundsCount: (entryRow as any).qualifying_rounds_count,
         countingRoundsCount: (entryRow as any).counting_rounds_count,
         seasonPoints: (entryRow as any).season_points,
         qualificationStatus: (entryRow as any).qualification_status,
         minimumQualifyingRounds: season.minimum_qualifying_rounds,
+        countingRoundLimit: season.counting_round_limit,
+        handicapAllowancePercent: season.handicap_allowance_percent,
         seasonStartAt: season.start_at ?? null,
         seasonEndAt: season.end_at ?? null,
       });
@@ -165,6 +186,10 @@ export default function SeasonIndex() {
                 <Ionicons name="ribbon-outline" size={15} color="#000" />
                 <Text style={s.tableBtnText}>Majors</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={s.tableBtn} onPress={() => router.push(`/(app)/news?seasonId=${entry.seasonId}` as any)} activeOpacity={0.85}>
+                <Ionicons name="newspaper-outline" size={15} color="#000" />
+                <Text style={s.tableBtnText}>News</Text>
+              </TouchableOpacity>
             </View>
           </View>
         ) : pendingSeasonName ? (
@@ -186,28 +211,18 @@ export default function SeasonIndex() {
           </View>
         )}
 
-        <Text style={s.sectionLabel}>{entry ? 'HOW ROUNDS COUNT' : "WHAT'S COMING"}</Text>
-        {entry ? (
-          <View style={s.card}>
-            <View style={s.cardIconWrap}><Ionicons name="shield-checkmark-outline" size={20} color={GREEN} /></View>
+        <Text style={s.sectionLabel}>{entry ? 'SEASON RULES' : "WHAT'S COMING"}</Text>
+        {(entry ? seasonRules(entry) : HIGHLIGHTS).map(h => (
+          <View key={h.title} style={s.card}>
+            <View style={s.cardIconWrap}>
+              <Ionicons name={h.icon} size={20} color={GREEN} />
+            </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.cardTitle}>Automatic — no separate entry</Text>
-              <Text style={s.cardBody}>Any casual round, Titan Tour round, or Swindle round you finish with another real app player from your society counts automatically. Solo rounds never count.</Text>
+              <Text style={s.cardTitle}>{h.title}</Text>
+              <Text style={s.cardBody}>{h.body}</Text>
             </View>
           </View>
-        ) : (
-          HIGHLIGHTS.map(h => (
-            <View key={h.title} style={s.card}>
-              <View style={s.cardIconWrap}>
-                <Ionicons name={h.icon} size={20} color={GREEN} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.cardTitle}>{h.title}</Text>
-                <Text style={s.cardBody}>{h.body}</Text>
-              </View>
-            </View>
-          ))
-        )}
+        ))}
       </ScrollView>
       )}
     </View>

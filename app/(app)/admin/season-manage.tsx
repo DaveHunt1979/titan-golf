@@ -14,6 +14,7 @@ import { titanLogo } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 import { publishDivisions } from '../../../src/lib/seasonDivisions';
 import { closeSeason } from '../../../src/lib/seasonClose';
+import { buildSeasonSummarySnapshot, publishSeasonSummaryStory } from '../../../src/lib/seasonNews';
 
 const GREEN = '#4ade80';
 const RED   = '#f87171';
@@ -45,6 +46,7 @@ export default function SeasonManageScreen() {
   const [loading, setLoading]   = useState(true);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [closingId, setClosingId]       = useState<string | null>(null);
+  const [postingSummaryId, setPostingSummaryId] = useState<string | null>(null);
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
     'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
@@ -125,6 +127,27 @@ export default function SeasonManageScreen() {
     }
   }
 
+  // Dave, 2026-09-16: "a new news feature that after every round or once a
+  // week depending on what we set it, a summary of the season" — no cron
+  // infra in this project, so cadence is real but manual: admin taps this
+  // whenever they like, each tap is its own dated edition in Season News.
+  async function handlePostSummary(season: SeasonRow) {
+    setPostingSummaryId(season.id);
+    try {
+      const snapshot = await buildSeasonSummarySnapshot(season.id);
+      const result = await publishSeasonSummaryStory(season.id, snapshot);
+      if (result.ok) {
+        Alert.alert('Posted', result.headline ? `"${result.headline}" is live in Season News.` : 'Season Summary posted.');
+      } else {
+        Alert.alert('Error', result.error ?? 'Could not generate the Season Summary');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Could not generate the Season Summary');
+    } finally {
+      setPostingSummaryId(null);
+    }
+  }
+
   return (
     <View style={[s.container, { backgroundColor: dc.bg }]}>
       <StatusBar style="light" />
@@ -163,6 +186,18 @@ export default function SeasonManageScreen() {
                     <View style={s.statusPill}>
                       <Text style={s.statusPillText}>{STATUS_LABEL[season.status] ?? season.status}</Text>
                     </View>
+                    <TouchableOpacity
+                      onPress={() => router.push(`/(app)/admin/season-entries?id=${season.id}` as any)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="people-outline" size={16} color={GREEN} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => router.push(`/(app)/admin/season-rounds?id=${season.id}` as any)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="list-outline" size={16} color={GREEN} />
+                    </TouchableOpacity>
                     {season.status !== 'locked' && (
                       <TouchableOpacity
                         onPress={() => router.push(`/(app)/admin/season-edit?id=${season.id}` as any)}
@@ -214,6 +249,22 @@ export default function SeasonManageScreen() {
                     </TouchableOpacity>
                   </View>
                 )}
+                {season.status !== 'draft' && season.status !== 'locked' && season.status !== 'archived' && (
+                  <TouchableOpacity
+                    style={s.summaryBtn}
+                    onPress={() => handlePostSummary(season)}
+                    disabled={postingSummaryId === season.id}
+                    activeOpacity={0.8}
+                  >
+                    {postingSummaryId === season.id
+                      ? <ActivityIndicator color="#D4AF37" size="small" />
+                      : (<>
+                          <Ionicons name="newspaper-outline" size={14} color="#D4AF37" />
+                          <Text style={s.summaryBtnText}>Post Season Summary</Text>
+                        </>)
+                    }
+                  </TouchableOpacity>
+                )}
               </View>
             ))
           )}
@@ -255,6 +306,13 @@ const s = StyleSheet.create({
   closeBtnText: { fontFamily: FFB, fontSize: 12, color: RED },
   lockedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
   lockedText: { fontFamily: FFB, fontSize: 12, color: '#666' },
+
+  summaryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    marginTop: 8, backgroundColor: '#D4AF3718', borderWidth: 1, borderColor: '#D4AF3740',
+    borderRadius: 10, paddingVertical: 10,
+  },
+  summaryBtnText: { fontFamily: FFB, fontSize: 12, color: '#D4AF37' },
 
   empty: { alignItems: 'center', paddingTop: 80, gap: 8 },
   emptyTitle: { fontFamily: FFB, fontSize: 16, color: '#fff', marginTop: 8 },

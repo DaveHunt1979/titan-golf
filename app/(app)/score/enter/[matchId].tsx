@@ -305,7 +305,7 @@ export default function EnterScoresScreen() {
             ? supabase.from('players').select('id,display_name,handicap_index,avatar_url,is_guest').in('id', allIds)
             : Promise.resolve({ data: [] }),
           matchData.day_id && allIds.length
-            ? supabase.from('round_player_tees').select('player_id,tee_name,gender,whs_enabled_at_start,playing_handicap_at_start').eq('day_id', matchData.day_id).in('player_id', allIds)
+            ? supabase.from('round_player_tees').select('player_id,tee_name,gender,whs_enabled_at_start,playing_handicap_at_start,handicap_index_at_start,slope_at_start,course_rating_at_start,par_at_start').eq('day_id', matchData.day_id).in('player_id', allIds)
             : Promise.resolve({ data: [] }),
           // Real per-tee yardage (course_tee_holes) — only meaningful once a
           // player has actually picked a tee (round_player_tees above), so

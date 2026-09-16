@@ -1,22 +1,46 @@
 {
   "version": 1,
   "entries": {
-    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1789546047477,
-      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
-    },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1789546008658,
+      "last_emitted_at_ms": 1789559548084,
       "message": "Read multiple files in parallel when possible for faster analysis."
     },
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1789545790359,
+      "last_emitted_at_ms": 1789559419647,
       "message": "Verify changes work after editing. Test functionality before marking complete."
     },
-    "1c43652e66511b58d773e74a45305a19616b5dc4aaf488bccf4f0413fe1f14c4": {
-      "last_emitted_at_ms": 1789545339008,
-      "message": "Spawning agent: Explore (inherit) | Task: Find in-round mini leaderboard component"
+    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
+      "last_emitted_at_ms": 1789559406790,
+      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
+    },
+    "b2e0bc4c9b8f37e7498f7c2e41af61a94e0565bab5d3e7b49ae5f70e5b5c1dd5": {
+      "last_emitted_at_ms": 1789559238716,
+      "message": "Spawning agent: Explore (inherit) | Task: Find publishDivisionsPublishedStory and publishSeasonFinishedStory call sites"
+    },
+    "1c9e91a903c6301a4dbb4d0e682145153a923d9100eecd94de3398718309f103": {
+      "last_emitted_at_ms": 1789559046942,
+      "message": "Spawning agent: Explore (inherit) | Task: Find Titan News AI generation infrastructure"
+    },
+    "733e7bf3419214ff5dd98489f7df017f4e3437b9f87381e273d21eec4905c7f1": {
+      "last_emitted_at_ms": 1789558823507,
+      "message": "Spawning agent: Explore (inherit) | Task: Find how guests are represented in casual/tournament matches"
+    },
+    "3228c868cc7eb5b2e8e98492a49c39ddf19084e1238183f5a7ff86ace4b35751": {
+      "last_emitted_at_ms": 1789556544511,
+      "message": "Spawning agent: Explore (inherit) | Task: Map data model for matches/teams/players in tournaments"
+    },
+    "0deb6ad5a81dd237a5bbdb89ad6f4e4e7a392d762b881085e89ac09a065b7a5b": {
+      "last_emitted_at_ms": 1789556535439,
+      "message": "Spawning agent: Explore (inherit) | Task: Deep dive into existing manual draw-editing UI"
+    },
+    "329f8ad7695d35b8086f9d5003b85bb62e7adf3b617b04cb3734a4a75efb5379": {
+      "last_emitted_at_ms": 1789556524609,
+      "message": "Spawning agent: Explore (inherit) | Task: Deep dive into current Titan Way/Odd Titan draw algorithm"
+    },
+    "808cb04420bcb368ab4716038ddd950b51198d0402b6cf8e965d66ca42ebccbe": {
+      "last_emitted_at_ms": 1789556112496,
+      "message": "[SLOP WARNING] Detected fallback/workaround language in this tool input. Do not make potential slop: avoid ad-hoc fallback layers, workaround shims, or environment-specific patches unless explicitly justified. For architecture concerns, consult the architect for a concrete design first. If this seems environment-specific, ask the user to confirm constraints before proceeding.\n\nVerify changes work after editing. Test functionality before marking complete."
     }
   },
-  "updated_at": "2026-09-16T08:07:27.477Z"
+  "updated_at": "2026-09-16T11:52:28.084Z"
 }

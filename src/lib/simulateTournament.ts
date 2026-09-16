@@ -18,7 +18,7 @@ import {
   buildKronosTieBreakMaps, rankPlayersByKronos, playerCourseHcp,
   calcScramblePairHandicap, scramblePairEffectiveHcp,
 } from './scoring';
-import { computeRoundRobinMatchups, generateTitanWaySchedule } from './titanWayDraw';
+import { computeRoundRobinMatchups, generateTitanWaySchedule, generateOddTitanGroups } from './titanWayDraw';
 import { FORMAT_RULES, type FormatId } from './tournamentFormat';
 
 const INDIVIDUAL_GROUP_SIZE = 4;
@@ -320,7 +320,17 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
   }))));
 
   onProgress?.('Generating whole-tournament draw...');
-  const schedule = generateTitanWaySchedule({ teamIds, rosterByTeam, qualifyingDayNumbers: [1, 2, 3] });
+  const schedule = isOddTitan ? null : generateTitanWaySchedule({ teamIds, rosterByTeam, qualifyingDayNumbers: [1, 2, 3] });
+  // Odd Titan groups mix players across every team for variety (never an
+  // intact team together) — team scoring below sums by rosterByTeam
+  // membership regardless of which group a player actually played in, so
+  // this mixing has zero effect on standings (Dave/Rick, 2026-09-16).
+  const oddSchedule = isOddTitan
+    ? generateOddTitanGroups({
+        players: teamIds.flatMap(tid => rosterByTeam[tid].map(pid => ({ id: pid, teamId: tid }))),
+        qualifyingDayNumbers: [1, 2, 3],
+      })
+    : null;
 
   const r = makeRandom();
 
@@ -369,13 +379,15 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
     return { match, stablefordByPlayer };
   }
 
-  // Odd Titan qualifying round: one match per team, all 4 players, no
-  // opponent — same shape a real standalone Individual Stableford day
-  // already uses (round_format 'stableford', away side empty), just with
-  // home_team_id populated so the team leaderboard can sum it. No best-ball,
-  // no match-play winner — every player's own gross score counts.
+  // Odd Titan qualifying round group — up to 4 players mixed across teams
+  // (per generateOddTitanGroups), no opponent — same shape a real
+  // standalone Individual Stableford day already uses (round_format
+  // 'stableford', away side empty, home_team_id null since a group is no
+  // longer one team). No best-ball, no match-play winner — every player's
+  // own gross score counts, and the team leaderboard sums by
+  // rosterByTeam/competition_players.team_id, never by this match's team_id.
   async function simulateAndInsertTeamStablefordMatch(o: {
-    day_id: string; day: any; match_number: number; team_id: string; player_ids: string[]; hcp_allowance: number;
+    day_id: string; day: any; match_number: number; team_id: string | null; player_ids: string[]; hcp_allowance: number;
   }) {
     const holeRows: any[] = [];
     const stablefordByPlayer: Record<string, number> = {};
@@ -410,10 +422,11 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
 
     if (isOddTitan) {
       let matchNum = 1;
-      for (const tid of teamIds) {
+      const groups = oddSchedule?.groupsByDay[day.day_number] ?? [];
+      for (const group of groups) {
         const { match, stablefordByPlayer } = await simulateAndInsertTeamStablefordMatch({
-          day_id: day.id, day, match_number: matchNum++, team_id: tid,
-          player_ids: rosterByTeam[tid], hcp_allowance: day.hcp_pct,
+          day_id: day.id, day, match_number: matchNum++, team_id: null,
+          player_ids: group, hcp_allowance: day.hcp_pct,
         });
         allMatches.push(match);
         matchIdsByDay[day.day_number].push(match.id);
@@ -424,8 +437,8 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
 
     let matchNum = 1;
     for (const [tH, tA] of computeRoundRobinMatchups(teamIds, day.day_number)) {
-      const pairH = schedule.pairingsByDay[day.day_number]?.[tH];
-      const pairA = schedule.pairingsByDay[day.day_number]?.[tA];
+      const pairH = schedule!.pairingsByDay[day.day_number]?.[tH];
+      const pairA = schedule!.pairingsByDay[day.day_number]?.[tA];
       if (!pairH || !pairA) continue;
       for (const [homePair, awayPair] of [[pairH.pair1, pairA.pair1], [pairH.pair2, pairA.pair2]] as const) {
         const { match, stablefordByPlayer } = await simulateAndInsertMatch({

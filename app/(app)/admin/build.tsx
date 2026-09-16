@@ -198,6 +198,11 @@ export default function BuildTournamentScreen() {
   const [bonusPoints, setBonusPoints]     = useState('2');
   const [sweepBonusEnabled, setSweepBonusEnabled] = useState(true);
   const [includeInKronos, setIncludeInKronos] = useState(false);
+  // Prize money toggle (Dave, 2026-09-16) — on by default so every existing
+  // tournament keeps requiring real prize amounts at Go Live exactly as
+  // before; a free/social tournament can flip this off to skip that
+  // requirement entirely (see computeGoLiveIssues).
+  const [prizesEnabled, setPrizesEnabled] = useState(true);
   // Automatic Tournament Handicap Cuts (Rick's brief, 2026-08-25) — off by
   // default, per-tournament, locked once the tournament goes live (see
   // finishDraft() and handicapCutsLockedAt below).
@@ -381,6 +386,7 @@ export default function BuildTournamentScreen() {
       setBonusPoints(String(c.bonus_points || 2));
       setSweepBonusEnabled((c.bonus_points ?? 0) > 0);
       setIncludeInKronos(!!c.include_in_kronos);
+      setPrizesEnabled(c.prizes_enabled ?? true);
       setHandicapCutsEnabled(!!c.handicap_cuts_enabled);
       setHandicapCutTrigger(String(c.handicap_cut_trigger_score ?? 36));
       setHandicapCutMinimum(String(c.handicap_cut_minimum ?? 0));
@@ -628,6 +634,7 @@ export default function BuildTournamentScreen() {
       max_handicap:    maxHandicapN,
       settings,
       include_in_kronos: includeInKronos,
+      prizes_enabled: prizesEnabled,
       handicap_cuts_enabled:      handicapCutsEnabled,
       handicap_cut_trigger_score: parseInt(handicapCutTrigger, 10) || 36,
       handicap_cut_minimum:       parseFloat(handicapCutMinimum) || 0,
@@ -1027,7 +1034,10 @@ export default function BuildTournamentScreen() {
       checkTitanWayStructure(rules, teamsForCheck).forEach(issue => issues.push({ label: issue.label, jumpToStep: 3 }));
     }
 
-    if (compId) {
+    // Skipped entirely when the organiser has explicitly turned prize money
+    // off for this tournament (Dave, 2026-09-16) — a free/social tournament
+    // has nothing here to validate.
+    if (compId && prizesEnabled) {
       const { data: cats } = await supabase
         .from('prize_categories').select('id, prize_payouts(id)').eq('competition_id', compId);
       if (!cats || cats.length === 0) {
@@ -2185,7 +2195,20 @@ export default function BuildTournamentScreen() {
             <Text style={styles.stepTitle}>Prize Categories</Text>
             <Text style={styles.stepSub}>Configure prize money before going live — you can still add or edit these later from Live Tournaments.</Text>
 
-            <PrizeCategoriesEditor competitionId={compId} />
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.toggleLabel}>Prize Money</Text>
+                <Text style={styles.toggleSub}>Turn off for a free/social tournament — Go Live won't require any prize setup.</Text>
+              </View>
+              <Switch
+                value={prizesEnabled}
+                onValueChange={setPrizesEnabled}
+                trackColor={{ false: '#1c1c1c', true: `${GOLD}66` }}
+                thumbColor={prizesEnabled ? GOLD : '#555'}
+              />
+            </View>
+
+            {prizesEnabled && <PrizeCategoriesEditor competitionId={compId} />}
           </View>
         )}
 

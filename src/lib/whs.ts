@@ -37,6 +37,17 @@ export interface RoundPlayerTeeSnapshot {
   // handicap math is involved. See round_player_tees' original design note.
   tee_name?: string | null;
   gender?: string | null;
+  // The frozen inputs behind playing_handicap_at_start — needed so
+  // resolvePlayingHandicap can recompute at a DIFFERENT allowance than the
+  // round's own (e.g. a side game deliberately always running at 100%,
+  // regardless of the primary match's chosen % — see matchScoring.ts's
+  // "Rick: side game should always be 100%" comment). Optional so callers
+  // whose own query never selected these columns still degrade gracefully
+  // to the old pre-baked-value behavior.
+  handicap_index_at_start?: number | null;
+  slope_at_start?: number | null;
+  course_rating_at_start?: number | null;
+  par_at_start?: number | null;
 }
 
 // Swindle games use one shared Tee Box the creator sets, not each player
@@ -84,8 +95,28 @@ export function resolvePlayingHandicap(
   allowance: number | undefined,
   roundPlayerTee: RoundPlayerTeeSnapshot | null | undefined,
 ): number {
-  if (roundPlayerTee?.whs_enabled_at_start && roundPlayerTee.playing_handicap_at_start != null) {
-    return roundPlayerTee.playing_handicap_at_start;
+  if (roundPlayerTee?.whs_enabled_at_start) {
+    // A caller can ask for a DIFFERENT allowance than the round itself used
+    // (e.g. a side game that's always 100% regardless of the primary
+    // match's chosen %) — recompute from the frozen inputs at that
+    // allowance rather than blindly handing back playing_handicap_at_start,
+    // which was baked at the round's own allowance and silently swallowed
+    // any override (Dave/Rick, 2026-09-16 — Handicap Cuts under-crediting
+    // "mega" rounds whenever WHS was on, because the always-100% side-game
+    // value came out %-reduced instead).
+    if (
+      roundPlayerTee.handicap_index_at_start != null && roundPlayerTee.slope_at_start != null &&
+      roundPlayerTee.course_rating_at_start != null && roundPlayerTee.par_at_start != null
+    ) {
+      return calculateWHSPlayingHandicap(
+        roundPlayerTee.handicap_index_at_start, roundPlayerTee.slope_at_start,
+        roundPlayerTee.course_rating_at_start, roundPlayerTee.par_at_start,
+        allowance ?? 100,
+      ).playingHandicap;
+    }
+    // Frozen raw inputs unavailable (caller's own query never selected
+    // them) — fall back to the pre-baked value, same as before this fix.
+    if (roundPlayerTee.playing_handicap_at_start != null) return roundPlayerTee.playing_handicap_at_start;
   }
   return playerCourseHcp(hcpIndex, day, allowance);
 }

@@ -203,6 +203,9 @@ export function stageLabel(storyType: string, dayNumber: number | null): string 
     case 'round_report':  return dayNumber ? `Round ${dayNumber} Report` : 'Round Report';
     case 'final_report':  return 'Final Tournament Report';
     case 'casual_final':  return 'Match Report';
+    case 'season_divisions_published': return 'Season Kickoff';
+    case 'season_finished': return 'Season Final';
+    case 'season_summary': return 'Season Update';
     default:               return storyType;
   }
 }

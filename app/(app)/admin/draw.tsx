@@ -13,7 +13,7 @@ import { getStandings, calcSweepBonus, buildKronosTieBreakMaps, rankPlayersByKro
 import { resolveAvatar, teamLogos } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 import { getFormatRules, checkTitanWayStructure } from '../../../src/lib/tournamentFormat';
-import { generateTitanWaySchedule, computeRoundRobinMatchups } from '../../../src/lib/titanWayDraw';
+import { generateTitanWaySchedule, computeRoundRobinMatchups, generateOddTitanGroups } from '../../../src/lib/titanWayDraw';
 import { sendPushNotification } from '../../../src/lib/notifications';
 
 const GOLD  = '#D4AF37';
@@ -155,7 +155,7 @@ interface MatchRow {
 interface SocMember { player_id: string; display_name: string; handicap_index: number | null; team_id: string | null; avatar_url?: string | null; }
 
 export default function TournamentDrawScreen() {
-  const { id: competitionId } = useLocalSearchParams<{ id: string }>();
+  const { id: competitionId, mode } = useLocalSearchParams<{ id: string; mode?: string }>();
   const router = useRouter();
   const { societyId } = useAdminSociety();
 
@@ -164,7 +164,11 @@ export default function TournamentDrawScreen() {
     [FFB]: require('../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
-  const [tab, setTab]                   = useState<Tab>('players');
+  // Draw and Make Amends are now separate buttons on the Live Tournaments
+  // menu (Dave, 2026-09-16) rather than "Draw" only being reachable by
+  // going through Amend — they still share this one screen/its three tabs
+  // (nothing here duplicated), just landing on a different starting tab.
+  const [tab, setTab]                   = useState<Tab>(mode === 'draw' ? 'draw' : 'players');
   // Which team's roster is expanded below the crest row — mirrors the
   // build wizard's Draft step (admin/build.tsx) badge+roster pattern, so
   // amending an already-live tournament's players looks the same as
@@ -204,6 +208,23 @@ export default function TournamentDrawScreen() {
   // match) — Rick's brief, section 4.14. Non-null = open, scoped to
   // whichever match rows are in the array.
   const [assignModalMatches, setAssignModalMatches] = useState<MatchRow[] | null>(null);
+  // Edit a day's game mode after the tournament has gone live (Dave/Rick,
+  // 2026-09-16 — "what happens if we selected the wrong game mode"). Only
+  // ever offered when the day has zero scores yet (see openEditFormat) —
+  // day_format drives round_format/handicap_method for every match it
+  // generates, so changing it once real scoring exists would silently
+  // desync already-played holes from the new format's rules.
+  const [editFormatDay, setEditFormatDay] = useState<DayRow | null>(null);
+  const [savingFormat, setSavingFormat] = useState(false);
+  // Manual Move/Swap between individual groups (Odd Titan spec, 2026-09-16)
+  // — tap a player, then tap a player in another group to swap, or tap "+"
+  // on a group with room to move them there. Team-vs-team matches (4BBB
+  // etc.) keep using the existing Edit Match pencil — this is scoped to
+  // groups with no away side (Odd Titan's own shape, and the generic
+  // Individual Stableford/Medal groups), which is what the spec's own
+  // "Group 1: Ricky, George, Darren, Tony" examples describe.
+  const [moveMode, setMoveMode] = useState(false);
+  const [selectedForMove, setSelectedForMove] = useState<{ matchId: string; playerId: string } | null>(null);
   // Skullers Scramble Day 2 — each side's captain-picked singles running
   // order, built up locally by tapping players in order and only written to
   // competition_players.singles_order when that captain submits. Keyed by
@@ -1087,14 +1108,29 @@ export default function TournamentDrawScreen() {
         ];
 
         if (isOddTitan) {
+          // Rebuilt 2026-09-16 (Dave/Rick) — this used to be one match row
+          // per TEAM, home_player_ids = that team's entire 4-player roster,
+          // meaning every team played as one intact group of its own
+          // members every single round: the exact opposite of "never
+          // automatically place an entire team together." Team scoring
+          // (tour/index.tsx) sums each player's Stableford total by
+          // competition_players.team_id and never reads which match/group
+          // they played in, so the physical playing group below can be
+          // freely mixed across teams with zero effect on team standings.
+          const players = teamIds.flatMap(tid => grouped[tid].map(pid => ({ id: pid, teamId: tid })));
+          const schedule = generateOddTitanGroups({
+            players,
+            qualifyingDayNumbers: qualifyingDays.map(d => d.day_number),
+          });
           for (const day of qualifyingDays) {
             const hcp = day.hcp_pct ?? 100;
+            const groups = schedule.groupsByDay[day.day_number] ?? [];
             let matchNum = 1;
-            for (const tid of teamIds) {
+            for (const group of groups) {
               matchRows.push({
                 competition_id: competitionId, day_id: day.id, match_number: matchNum++,
-                home_team_id: tid, away_team_id: null,
-                home_player_ids: grouped[tid], away_player_ids: [],
+                home_team_id: null, away_team_id: null,
+                home_player_ids: group, away_player_ids: [],
                 round_format: 'stableford', is_singles: false, hcp_allowance: hcp,
                 handicap_method: 'individual', status: 'upcoming', side_games: sideGamesTags,
               });
@@ -1198,6 +1234,154 @@ export default function TournamentDrawScreen() {
         }},
       ]
     );
+  }
+
+  // "What happens if we selected the wrong game mode" (Rick, via Dave,
+  // 2026-09-16) — blocked outright (not just warned) once any hole has been
+  // scored for the day, unlike CLEAR above: a format swap invalidates the
+  // day's existing matches entirely (different team-pairing shape, not just
+  // a roster tweak), so there is no safe "keep the scores" path here.
+  async function openEditFormat(day: DayRow) {
+    const dayMatchIds = matches.filter(m => m.day_id === day.id).map(m => m.id);
+    const { count } = dayMatchIds.length
+      ? await supabase.from('match_holes').select('id', { count: 'exact', head: true }).in('match_id', dayMatchIds)
+      : { count: 0 };
+    if ((count ?? 0) > 0) {
+      Alert.alert('Can\'t change game mode', 'This day already has scores entered. Clear the day first if you need to change its game mode — that will delete its matches and scores.');
+      return;
+    }
+    setEditFormatDay(day);
+  }
+
+  async function saveNewFormat(newFormat: string) {
+    if (!editFormatDay) return;
+    setSavingFormat(true);
+    try {
+      await supabase.from('competition_days').update({ day_format: newFormat }).eq('id', editFormatDay.id);
+      // Any shells already generated under the old format (team pairings,
+      // singles/pairs slot counts, handicap_method) no longer match — safe
+      // to drop since openEditFormat only ever gets here with zero scores.
+      await supabase.from('matches').delete().eq('day_id', editFormatDay.id);
+      setEditFormatDay(null);
+      await load();
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Could not change game mode');
+    } finally {
+      setSavingFormat(false);
+    }
+  }
+
+  // ── Manual Move/Swap between individual groups ──────────────────────────
+  async function groupHasScores(matchId: string): Promise<boolean> {
+    const { count } = await supabase.from('match_holes').select('id', { count: 'exact', head: true }).eq('match_id', matchId);
+    return (count ?? 0) > 0;
+  }
+
+  function sameTeamPairCount(playerIds: string[]): number {
+    let count = 0;
+    for (let i = 0; i < playerIds.length; i++) {
+      for (let j = i + 1; j < playerIds.length; j++) {
+        const a = compPlayers.find(cp => cp.player_id === playerIds[i])?.team_id;
+        const b = compPlayers.find(cp => cp.player_id === playerIds[j])?.team_id;
+        if (a && a === b) count++;
+      }
+    }
+    return count;
+  }
+
+  // Mirrors MatchAssignModal.save()'s roster-change handling (Rick's brief,
+  // section 4.12.4) — a group's own scores no longer mean anything once its
+  // players change, so they're cleared and the group restarts from hole 1.
+  async function resetGroupAfterRosterChange(matchId: string, removedPlayerIds: string[]) {
+    if (removedPlayerIds.length > 0) {
+      await supabase.from('match_holes').delete().eq('match_id', matchId).in('player_id', removedPlayerIds);
+    }
+    const m = matches.find(mm => mm.id === matchId);
+    await supabase.from('matches').update({
+      holes_string: '.'.repeat(m?.holes_string?.length || 18),
+      status: 'upcoming', winner: null, result_str: null,
+    } as any).eq('id', matchId);
+  }
+
+  async function performMove(fromMatchId: string, toMatchId: string, playerId: string) {
+    const fromMatch = matches.find(m => m.id === fromMatchId)!;
+    const toMatch = matches.find(m => m.id === toMatchId)!;
+    await supabase.from('matches').update({ home_player_ids: fromMatch.home_player_ids.filter(id => id !== playerId) } as any).eq('id', fromMatchId);
+    await supabase.from('matches').update({ home_player_ids: [...toMatch.home_player_ids, playerId] } as any).eq('id', toMatchId);
+    await resetGroupAfterRosterChange(fromMatchId, [playerId]);
+    await resetGroupAfterRosterChange(toMatchId, []);
+    sendPushNotification('Titan Golf', `You've been moved to a different group in ${comp?.name ?? 'your tournament'}.`, [playerId]);
+    await load();
+  }
+
+  async function performSwap(matchAId: string, playerA: string, matchBId: string, playerB: string) {
+    const matchA = matches.find(m => m.id === matchAId)!;
+    const matchB = matches.find(m => m.id === matchBId)!;
+    await supabase.from('matches').update({ home_player_ids: matchA.home_player_ids.map(id => id === playerA ? playerB : id) } as any).eq('id', matchAId);
+    await supabase.from('matches').update({ home_player_ids: matchB.home_player_ids.map(id => id === playerB ? playerA : id) } as any).eq('id', matchBId);
+    await resetGroupAfterRosterChange(matchAId, [playerA]);
+    await resetGroupAfterRosterChange(matchBId, [playerB]);
+    sendPushNotification('Titan Golf', `Your group has changed in ${comp?.name ?? 'your tournament'}.`, [playerA, playerB]);
+    await load();
+  }
+
+  async function handleMovePlayerTap(matchId: string, playerId: string) {
+    if (!selectedForMove) { setSelectedForMove({ matchId, playerId }); return; }
+    if (selectedForMove.playerId === playerId) { setSelectedForMove(null); return; }
+    if (selectedForMove.matchId === matchId) { setSelectedForMove({ matchId, playerId }); return; } // reselect within the same group
+
+    const fromMatchId = selectedForMove.matchId;
+    const fromPlayerId = selectedForMove.playerId;
+    const fromMatch = matches.find(m => m.id === fromMatchId)!;
+    const toMatch = matches.find(m => m.id === matchId)!;
+    const resultingFrom = fromMatch.home_player_ids.map(id => id === fromPlayerId ? playerId : id);
+    const resultingTo = toMatch.home_player_ids.map(id => id === playerId ? fromPlayerId : id);
+    const teamPairsBefore = sameTeamPairCount(fromMatch.home_player_ids) + sameTeamPairCount(toMatch.home_player_ids);
+    const teamPairsAfter = sameTeamPairCount(resultingFrom) + sameTeamPairCount(resultingTo);
+
+    const doSwap = async () => { await performSwap(fromMatchId, fromPlayerId, matchId, playerId); setSelectedForMove(null); };
+    const [hasScoresA, hasScoresB] = await Promise.all([groupHasScores(fromMatchId), groupHasScores(matchId)]);
+
+    if (hasScoresA || hasScoresB) {
+      Alert.alert('This will delete scores', 'One of these groups already has scores entered. Swapping will delete them and restart both groups from hole 1. Continue?', [
+        { text: 'Cancel', style: 'cancel', onPress: () => setSelectedForMove(null) },
+        { text: 'Continue', style: 'destructive', onPress: doSwap },
+      ]);
+    } else if (teamPairsAfter > teamPairsBefore) {
+      Alert.alert('Same team warning', 'This swap will put two players from the same team in one group. Continue?', [
+        { text: 'Cancel', style: 'cancel', onPress: () => setSelectedForMove(null) },
+        { text: 'Continue', onPress: doSwap },
+      ]);
+    } else {
+      await doSwap();
+    }
+  }
+
+  async function handleMoveIntoGroup(matchId: string) {
+    if (!selectedForMove) return;
+    const targetMatch = matches.find(m => m.id === matchId)!;
+    if (targetMatch.home_player_ids.length >= 4) {
+      Alert.alert('Group full', 'This group already has 4 players — tap a player in it to swap instead.');
+      return;
+    }
+    const { matchId: fromMatchId, playerId } = selectedForMove;
+    const teamPairsAfter = sameTeamPairCount([...targetMatch.home_player_ids, playerId]);
+    const doMove = async () => { await performMove(fromMatchId, matchId, playerId); setSelectedForMove(null); };
+    const hasScoresFrom = await groupHasScores(fromMatchId);
+
+    if (hasScoresFrom) {
+      Alert.alert('This will delete scores', 'This group already has scores entered. Moving this player will delete them and restart the group from hole 1. Continue?', [
+        { text: 'Cancel', style: 'cancel', onPress: () => setSelectedForMove(null) },
+        { text: 'Continue', style: 'destructive', onPress: doMove },
+      ]);
+    } else if (teamPairsAfter > 0) {
+      Alert.alert('Same team warning', 'This move will put two players from the same team in one group. Continue?', [
+        { text: 'Cancel', style: 'cancel', onPress: () => setSelectedForMove(null) },
+        { text: 'Continue', onPress: doMove },
+      ]);
+    } else {
+      await doMove();
+    }
   }
 
   // Opening Edit Match on one that already has scores warns first rather
@@ -1438,7 +1622,27 @@ export default function TournamentDrawScreen() {
           const usesWholeTournamentDraw = drawFormatRules.wholeTournamentDraw;
           return (
           <View>
-            <Text style={s.sectionLabel}>{days.length} DAYS</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={s.sectionLabel}>{days.length} DAYS</Text>
+              {days.length > 0 && (
+                <TouchableOpacity
+                  style={[s.genBtn, s.genBtnSecondary, moveMode && { backgroundColor: `${GOLD}22`, borderColor: GOLD }]}
+                  onPress={() => { setMoveMode(v => !v); setSelectedForMove(null); }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.genBtnText, s.genBtnTextSecondary, moveMode && { color: GOLD }]}>
+                    {moveMode ? 'DONE MOVING' : 'MOVE / SWAP'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {moveMode && (
+              <Text style={[s.titanWayBannerSub, { marginBottom: 10 }]}>
+                {selectedForMove
+                  ? `${playerNames[selectedForMove.playerId]?.split(' ')[0] ?? 'Player'} selected — tap another player anywhere to swap, or + on a group with room to move them there.`
+                  : 'Tap a player in any group to start a move or swap.'}
+              </Text>
+            )}
             {days.length === 0 && (
               <View style={s.empty}>
                 <Text style={s.emptyText}>No days configured. Add days in the tournament builder.</Text>
@@ -1559,9 +1763,14 @@ export default function TournamentDrawScreen() {
                       <Text style={s.dayName}>{day.course_name || 'Course TBC'}</Text>
                       <View style={s.dayBadges}>
                         {day.day_format && (
-                          <View style={s.fmtBadge}>
+                          <TouchableOpacity
+                            style={[s.fmtBadge, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
+                            onPress={() => openEditFormat(day)}
+                            activeOpacity={0.7}
+                          >
                             <Text style={s.fmtBadgeText}>{DAY_FORMAT_LABELS[day.day_format] ?? day.day_format}</Text>
-                          </View>
+                            <Ionicons name="pencil" size={10} color={GOLD} />
+                          </TouchableOpacity>
                         )}
                         <View style={[s.fmtBadge, { borderColor: '#555' }]}>
                           <Text style={[s.fmtBadgeText, { color: '#888' }]}>{day.hcp_pct ?? 100}% HCP</Text>
@@ -1620,6 +1829,31 @@ export default function TournamentDrawScreen() {
                         // side at all (see generateDraw's isIndividual
                         // branch) — show it as one plain group, not a "vs".
                         if (m.away_player_ids.length === 0 && !m.away_team_id) {
+                          if (moveMode) {
+                            const hasRoom = m.home_player_ids.length < 4;
+                            return (
+                              <View key={m.id} style={[s.matchItem, idx > 0 && { borderTopWidth: 1, borderTopColor: '#1c1c1c' }, { flexWrap: 'wrap', gap: 6 }]}>
+                                {m.home_player_ids.map(pid => {
+                                  const isSelected = selectedForMove?.playerId === pid;
+                                  return (
+                                    <TouchableOpacity
+                                      key={pid}
+                                      style={[s.moveChip, isSelected && s.moveChipSelected]}
+                                      onPress={() => handleMovePlayerTap(m.id, pid)}
+                                      activeOpacity={0.7}
+                                    >
+                                      <Text style={[s.moveChipText, isSelected && { color: '#000' }]}>{playerNames[pid]?.split(' ')[0] ?? '?'}</Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                                {selectedForMove && selectedForMove.matchId !== m.id && hasRoom && (
+                                  <TouchableOpacity style={[s.moveChip, s.moveChipAdd]} onPress={() => handleMoveIntoGroup(m.id)} activeOpacity={0.7}>
+                                    <Ionicons name="add" size={14} color={GOLD} />
+                                  </TouchableOpacity>
+                                )}
+                              </View>
+                            );
+                          }
                           const groupNames = m.home_player_ids.map(id => playerNames[id]?.split(' ')[0] ?? '?').join(', ');
                           return (
                             <View key={m.id} style={[s.matchItem, idx > 0 && { borderTopWidth: 1, borderTopColor: '#1c1c1c' }]}>
@@ -1784,6 +2018,38 @@ export default function TournamentDrawScreen() {
         onClose={() => setAssignModalMatches(null)}
         onSaved={load}
       />
+
+      <Modal visible={editFormatDay !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEditFormatDay(null)}>
+        <View style={s.modal}>
+          <View style={s.modalHeader}>
+            <TouchableOpacity onPress={() => setEditFormatDay(null)}>
+              <Text style={s.modalCancel}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={s.modalTitle}>DAY {editFormatDay?.day_number} GAME MODE</Text>
+            <View style={{ width: 50 }} />
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16 }}>
+            {(['four_bbb', 'four_bbb_stroke', 'foursomes', 'greensomes', 'singles', 'singles_stableford', 'stableford', 'medal', 'scramble'] as const).map(fmt => {
+              const isCurrent = fmt === editFormatDay?.day_format;
+              return (
+                <TouchableOpacity
+                  key={fmt}
+                  style={[s.memberRow, isCurrent && s.memberRowOn]}
+                  onPress={() => saveNewFormat(fmt)}
+                  disabled={savingFormat}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.memberName, isCurrent && { color: GOLD }]}>{DAY_FORMAT_LABELS[fmt]}</Text>
+                  </View>
+                  {isCurrent && <Ionicons name="checkmark-circle" size={20} color={GOLD} />}
+                </TouchableOpacity>
+              );
+            })}
+            {savingFormat && <ActivityIndicator color={GOLD} style={{ marginTop: 12 }} />}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -2156,6 +2422,10 @@ const s = StyleSheet.create({
   matchItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 6 },
   editMatchBtn: { padding: 4 },
   matchTeam:    { fontFamily: 'JUSTSans-ExBold', fontSize: 13 },
+  moveChip:         { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 99, paddingHorizontal: 12, paddingVertical: 7 },
+  moveChipSelected: { backgroundColor: GOLD, borderColor: GOLD },
+  moveChipAdd:      { paddingHorizontal: 10, borderStyle: 'dashed', borderColor: GOLD },
+  moveChipText:     { fontFamily: 'JUSTSans-ExBold', fontSize: 12, color: '#fff' },
   matchPlayers: { fontFamily: 'JUSTSans', fontSize: 11, color: '#fff', marginTop: 1 },
   vsText:       { fontFamily: 'JUSTSans', fontSize: 11, color: '#555', width: 20, textAlign: 'center' },
 

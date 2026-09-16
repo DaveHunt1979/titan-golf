@@ -185,7 +185,18 @@ export default function LiveTournaments() {
                     )}
                   </View>
 
-                  <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/draw?id=${c.id}` as any)} activeOpacity={0.8}>
+                  {/* Draw and Amend used to be the same button — "MAKE
+                      AMENDS" opened the exact same screen Draw does, just on
+                      its Players tab. Split into two per Dave/Rick,
+                      2026-09-16: Draw (building/regenerating pairings) is a
+                      feature in its own right, not just a step inside
+                      fixing a mistake. Both still point at admin/draw.tsx —
+                      only which tab it opens on differs (see the `mode`
+                      param there). */}
+                  <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/draw?id=${c.id}&mode=draw` as any)} activeOpacity={0.8}>
+                    <Text style={s.manageBtnText}>DRAW</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/draw?id=${c.id}&mode=amend` as any)} activeOpacity={0.8}>
                     <Text style={s.manageBtnText}>MAKE AMENDS</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/prizes?id=${c.id}` as any)} activeOpacity={0.8}>

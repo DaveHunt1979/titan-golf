@@ -172,3 +172,106 @@ export function generateTitanWaySchedule(inputs: TitanWayInputs): TitanWaySchedu
 
   return best ?? { pairingsByDay: {}, score: Infinity };
 }
+
+// ── Odd Titan whole-tournament group optimizer (Dave/Rick, 2026-09-16) ──
+//
+// Odd Titan's qualifying rounds have no team-vs-team pairing at all (see
+// admin/draw.tsx's isOddTitan branch) — every player just plays their own
+// individual Stableford round, and a team's score is the sum of its 4
+// members' points wherever they actually played. That decoupling is what
+// makes this whole function possible: the physical playing groups below are
+// purely about variety/pace-of-play, completely independent of team
+// scoring, which reads competition_players.team_id + match_holes and never
+// looks at which match/group a player was placed in.
+//
+// Same bounded randomized multi-restart shape as generateTitanWaySchedule
+// above, generalized from "split one team's 4 into 2 pairs" to "split every
+// enrolled player into N groups of ~4, drawn from across every team."
+export interface OddTitanInputs {
+  players: { id: string; teamId: string }[];
+  qualifyingDayNumbers: number[];
+  groupSize?: number; // default 4 — "fourballs should normally contain a maximum of four players"
+}
+
+export interface OddTitanSchedule {
+  groupsByDay: Record<number, string[][]>; // dayNumber -> array of player-id groups
+  score: number; // lower is better; 0 = no repeat pairings and no same-team pairings at all
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+export function generateOddTitanGroups(inputs: OddTitanInputs): OddTitanSchedule {
+  const { players, qualifyingDayNumbers, groupSize = 4 } = inputs;
+  const teamById = new Map(players.map(p => [p.id, p.teamId]));
+
+  // Hard constraint (spec: "never automatically place an entire team
+  // together") — precompute each team's full roster as a sorted key so a
+  // candidate group that happens to be exactly one team's whole roster can
+  // be rejected outright, not just scored down.
+  const rosterByTeam = new Map<string, string[]>();
+  for (const p of players) {
+    if (!rosterByTeam.has(p.teamId)) rosterByTeam.set(p.teamId, []);
+    rosterByTeam.get(p.teamId)!.push(p.id);
+  }
+  const fullTeamRosterKeys = new Set(
+    [...rosterByTeam.values()].map(ids => [...ids].sort().join('|')),
+  );
+
+  const nCandidates = Math.min(2000, 200 * Math.max(1, qualifyingDayNumbers.length));
+  const timeBudgetMs = 800;
+  const startedAt = Date.now();
+  const playerIds = players.map(p => p.id);
+
+  let best: OddTitanSchedule | null = null;
+
+  for (let attempt = 0; attempt < nCandidates; attempt++) {
+    if (attempt % 100 === 0 && Date.now() - startedAt > timeBudgetMs) break;
+
+    const groupsByDay: Record<number, string[][]> = {};
+    const pairSeen = new Map<string, number>();
+    let repeatPairings = 0;
+    let sameTeamPairings = 0;
+    let violatesHardConstraint = false;
+
+    for (const dayNumber of qualifyingDayNumbers) {
+      const shuffled = shuffle(playerIds);
+      const groups: string[][] = [];
+      for (let i = 0; i < shuffled.length; i += groupSize) groups.push(shuffled.slice(i, i + groupSize));
+
+      if (groups.some(g => g.length === groupSize && fullTeamRosterKeys.has([...g].sort().join('|')))) {
+        violatesHardConstraint = true;
+        break;
+      }
+
+      groupsByDay[dayNumber] = groups;
+      for (const g of groups) {
+        for (let i = 0; i < g.length; i++) {
+          for (let j = i + 1; j < g.length; j++) {
+            const key = randomPairingKey([g[i], g[j]]);
+            const count = pairSeen.get(key) ?? 0;
+            if (count > 0) repeatPairings += count;
+            pairSeen.set(key, count + 1);
+            if (teamById.get(g[i]) === teamById.get(g[j])) sameTeamPairings++;
+          }
+        }
+      }
+    }
+
+    if (violatesHardConstraint) continue; // retry with a fresh shuffle
+
+    // Same-team pairings weighted heaviest ("keep teammates separated
+    // wherever possible" is a stronger signal than a plain repeat pairing).
+    const score = sameTeamPairings * 5 + repeatPairings;
+    if (!best || score < best.score) best = { groupsByDay, score };
+    if (score === 0) break;
+  }
+
+  return best ?? { groupsByDay: {}, score: Infinity };
+}

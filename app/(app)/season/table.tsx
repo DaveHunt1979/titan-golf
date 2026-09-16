@@ -24,14 +24,23 @@ interface Row extends RankedSeasonEntry {
   isMe: boolean;
 }
 
+interface DivisionTab { id: string; name: string; }
+
 type ScreenState = 'loading' | 'no_entry' | 'no_division' | 'ready';
 
 export default function SeasonTableScreen() {
   const router = useRouter();
   const dc = useDynamicColors();
   const [state, setState]       = useState<ScreenState>('loading');
+  const [myEntryId, setMyEntryId] = useState<string | null>(null);
+  // Dave, 2026-09-16: "we need to see all league tables not just the one
+  // your in" — every division in the season is listed as a tab, defaulting
+  // to your own; switching tabs just re-runs loadDivision, no full reload.
+  const [divisions, setDivisions] = useState<DivisionTab[]>([]);
+  const [selectedDivisionId, setSelectedDivisionId] = useState<string | null>(null);
   const [divisionName, setDivisionName] = useState('');
   const [rows, setRows]         = useState<Row[]>([]);
+  const [tableLoading, setTableLoading] = useState(false);
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
     'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
@@ -48,14 +57,28 @@ export default function SeasonTableScreen() {
 
     const { data: myEntry } = await supabase
       .from('season_entries')
-      .select('id, division_id')
+      .select('id, season_id, division_id')
       .eq('player_id', (me as any).id)
       .order('created_at', { ascending: false })
       .maybeSingle();
     if (!myEntry) { setState('no_entry'); return; }
     if (!(myEntry as any).division_id) { setState('no_division'); return; }
-    const divisionId = (myEntry as any).division_id as string;
+    setMyEntryId((myEntry as any).id);
 
+    const { data: divs } = await supabase
+      .from('season_divisions').select('id, name')
+      .eq('season_id', (myEntry as any).season_id).order('display_order', { ascending: true });
+    setDivisions(((divs ?? []) as any[]).map(d => ({ id: d.id, name: d.name })));
+
+    const startDivisionId = (myEntry as any).division_id as string;
+    setSelectedDivisionId(startDivisionId);
+    await loadDivision(startDivisionId, (myEntry as any).id);
+    setState('ready');
+  }
+
+  async function loadDivision(divisionId: string, myEntryIdOverride?: string) {
+    setTableLoading(true);
+    const mineId = myEntryIdOverride ?? myEntryId;
     const [{ data: division }, { data: entries }] = await Promise.all([
       supabase.from('season_divisions').select('name, promotion_places, relegation_places').eq('id', divisionId).maybeSingle(),
       supabase.from('season_entries')
@@ -88,10 +111,16 @@ export default function SeasonTableScreen() {
     const byId = new Map(entryRows.map(r => [r.id, r]));
     setRows(ranked.map(r => {
       const src = byId.get(r.entryId);
-      return { ...r, displayName: src?.players?.display_name ?? 'Unknown', playedCount: src?.qualifying_rounds_count ?? 0, isMe: r.entryId === (myEntry as any).id };
+      return { ...r, displayName: src?.players?.display_name ?? 'Unknown', playedCount: src?.qualifying_rounds_count ?? 0, isMe: r.entryId === mineId };
     }));
     setDivisionName((division as any)?.name ?? '');
-    setState('ready');
+    setTableLoading(false);
+  }
+
+  function selectDivision(divisionId: string) {
+    if (divisionId === selectedDivisionId) return;
+    setSelectedDivisionId(divisionId);
+    loadDivision(divisionId);
   }
 
   if (!fontsLoaded) return <View style={[s.container, { backgroundColor: dc.bg }]} />;
@@ -126,13 +155,28 @@ export default function SeasonTableScreen() {
       )}
       {state === 'ready' && (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
+          {divisions.length > 1 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabsScroll} contentContainerStyle={s.tabsRow}>
+              {divisions.map(d => (
+                <TouchableOpacity
+                  key={d.id}
+                  style={[s.tab, d.id === selectedDivisionId && s.tabActive]}
+                  onPress={() => selectDivision(d.id)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.tabText, d.id === selectedDivisionId && s.tabTextActive]}>{d.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
           <View style={s.tableHead}>
             <Text style={[s.th, { width: 28 }]}>#</Text>
             <Text style={[s.th, { flex: 1 }]}>PLAYER</Text>
             <Text style={[s.th, { width: 44, textAlign: 'center' }]}>PLD</Text>
             <Text style={[s.th, { width: 56, textAlign: 'right' }]}>PTS</Text>
           </View>
-          {rows.map(r => (
+          {tableLoading && <ActivityIndicator color={GREEN} style={{ marginVertical: 20 }} />}
+          {!tableLoading && rows.map(r => (
             <View key={r.entryId} style={[s.row, r.isMe && s.rowMe]}>
               <View style={[s.zoneBar, { backgroundColor: STATUS_COLOR[r.movementStatus] }]} />
               <Text style={[s.pos, { width: 28 }]}>{r.position}</Text>
@@ -169,6 +213,16 @@ const s = StyleSheet.create({
   msgSub:   { fontFamily: FF, fontSize: 12, color: '#666', textAlign: 'center' },
 
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
+
+  tabsScroll: { marginBottom: 14 },
+  tabsRow: { gap: 8, paddingRight: 8 },
+  tab: {
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#1c1c1c', borderRadius: 999,
+    paddingHorizontal: 14, height: 32, justifyContent: 'center',
+  },
+  tabActive: { backgroundColor: GREEN, borderColor: GREEN },
+  tabText: { fontFamily: FFB, fontSize: 11, color: '#888' },
+  tabTextActive: { color: '#000' },
 
   tableHead: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, marginBottom: 8, gap: 8 },
   th: { fontFamily: FFB, fontSize: 9, color: '#666', letterSpacing: 1 },

@@ -181,7 +181,7 @@ function AppLayoutInner() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: player } = await supabase
-      .from('players').select('id, display_name, avatar_url').eq('auth_uid', user.id).maybeSingle();
+      .from('players').select('id, display_name, avatar_url, is_platform_admin').eq('auth_uid', user.id).maybeSingle();
     if (!player) return;
     setAvatarUrl(player.avatar_url ?? null);
     setPlayerId(player.id);
@@ -189,7 +189,11 @@ function AppLayoutInner() {
     const { data: members } = await supabase
       .from('society_members').select('role')
       .eq('player_id', player.id);
-    setIsAdmin((members ?? []).some(m => ['admin', 'owner'].includes((m.role ?? '').toLowerCase())));
+    // God (is_platform_admin) now has full admin power everywhere per RLS
+    // (20260916010000_platform_admin_universal_bypass.sql) — the Admin tab
+    // itself must recognize that too, or a God with no society_members
+    // admin/owner row anywhere would never see the tab that gets them in.
+    setIsAdmin(!!player.is_platform_admin || (members ?? []).some(m => ['admin', 'owner'].includes((m.role ?? '').toLowerCase())));
   }
 
   const ic = (focused: boolean) =>

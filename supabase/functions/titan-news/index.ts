@@ -61,7 +61,7 @@ You also write ONE short line of "banter" from Titan's two on-course reporters, 
 - "banterText" — one or two sentences, in that reporter's voice, under 30 words.
 - "banterScene" — exactly one of: ${BANTER_SCENE_KEYS.join(', ')}.` : '';
 
-  return `You are Titan News, the automated sports desk for a golf society's tournament app. You write proper tournament journalism — pre-round previews, end-of-round reports, final tournament reports, one-off casual round match reports (storyType "casual_final"), and Titan Season Mode league stories (storyType "season_divisions_published" or "season_finished") — from a structured JSON facts package that has already been fully computed by Titan.
+  return `You are Titan News, the automated sports desk for a golf society's tournament app. You write proper tournament journalism — pre-round previews, end-of-round reports, final tournament reports, one-off casual round match reports (storyType "casual_final"), and Titan Season Mode league stories (storyType "season_divisions_published", "season_finished", or "season_summary") — from a structured JSON facts package that has already been fully computed by Titan.
 
 STRICT RULES — these are absolute:
 - Only use facts contained in the supplied JSON snapshot. Nothing else.
@@ -75,7 +75,8 @@ STRICT RULES — these are absolute:
 - The individual standings board is called EXACTLY whatever "tournament.individualBoardLabel" says in the snapshot (it will be either "Kronos" or "Individual" — this is Titan Way-exclusive branding, never assume "Kronos" for any other format). Use that label whenever referring to that board or its winner.
 - If the snapshot's "winnerDecidedByTieBreak" is non-null, the individual winner was tied on points with the runner-up and the result was only settled by that named tie-break rule — say so explicitly in the report (e.g. "level on points, [Name] took it on countback via [rule]"). If it's null, don't mention tie-breaks at all.
 - "season_divisions_published" is a kickoff story: introduce the league (name, divisions, player counts) — no results exist yet, don't imply anyone has played.
-- "season_finished" is the season's final report: name every division's champion, who's promoted, who's relegated, framed like a football season finale. Every player named must come from the snapshot's champions/promoted/relegated lists — never guess at a division's outcome if it's missing from the snapshot.${banterInstruction}
+- "season_finished" is the season's final report: name every division's champion, who's promoted, who's relegated, framed like a football season finale. Every player named must come from the snapshot's champions/promoted/relegated lists — never guess at a division's outcome if it's missing from the snapshot.
+- "season_summary" is a recurring recap sent out periodically during a live season (weekly, or after a round, whichever the admin chose) — written entirely in the voice of Titan's two on-course reporters Davey McFadey and Rick Driver bantering back and forth about the state of the league, as if delivering a Soccer Saturday-style results round-up. As witty, opinionated, and larger-than-life as the snapshot's facts will support — but every name, position, points total, and round score must come straight from the snapshot (leadersByDivision, movers, bigRounds, qualifyingRoundsPlayed). Never invent a rivalry, incident, or number that isn't in the data. If a section of the snapshot is empty (e.g. no bigRounds this period), just skip it rather than making something up to fill the gap.${banterInstruction}
 
 You must respond with ONLY valid JSON, no other text, in exactly this shape:
 {"headline":"...","summary":"...","body":"...","featuredPlayers":["..."],"featuredTeams":["..."]${banterJsonShape}}
@@ -154,8 +155,11 @@ Deno.serve(async (req) => {
     // step at all (Dave, 2026-08-20, TODO item 5 — "Casual Golf only needs
     // one final report after the game is completed") and the player who
     // just finished their round is very likely not a society admin, so
-    // there's no one to publish it — auto-publish those instead.
-    const isCasual = storyType === 'casual_final';
+    // there's no one to publish it — auto-publish those instead. Every
+    // season_* story is likewise admin-triggered with nothing to review —
+    // there's no draft/publish screen for Season news at all, so leaving
+    // them at 'draft' would just mean they never surface to anyone.
+    const isCasual = storyType === 'casual_final' || storyType.startsWith('season_');
     // Validated rather than trusted — an off-spec speaker/scene would hit
     // the banter_speaker CHECK constraint and fail the whole save, taking
     // out the report over a garnish. Falls back to no banter that run

@@ -221,8 +221,13 @@ export default function PrizeCategoriesEditor({ competitionId }: { competitionId
     }
 
     await supabase.from('prize_payouts').delete().eq('category_id', categoryId);
+    // `> 0` used to silently drop an explicitly-entered "0" — indistinguishable
+    // from never having typed anything at all, so a category "configured"
+    // with £0 for every position saved zero rows and still tripped Go Live's
+    // "no prize amounts set" check (Dave, 2026-09-16). A real 0 is a valid,
+    // deliberate amount — only truly blank/non-numeric input gets dropped.
     const validPayouts = editPayouts
-      .filter(p => p.prize_money.trim() !== '' && parseFloat(p.prize_money) > 0)
+      .filter(p => p.prize_money.trim() !== '' && !isNaN(parseFloat(p.prize_money)) && parseFloat(p.prize_money) >= 0)
       .map(p => ({ category_id: categoryId, position: p.position, prize_money: parseFloat(p.prize_money) }));
     if (validPayouts.length > 0) {
       const { error } = await supabase.from('prize_payouts').insert(validPayouts);

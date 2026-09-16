@@ -5,8 +5,11 @@
 // or Swindle round (swindle_groups/swindle_scores) that a Season entrant
 // played counts automatically, PROVIDED it wasn't played solo and at least
 // one of the other players is a real, identifiable Titan Golf account who
-// belongs to the same society. Guests, made-up names, and playing alone
-// never qualify — that's the whole anti-cheating check. There is no
+// belongs to the same society, AND no guest of any kind is anywhere in the
+// round (Dave, 2026-09-16 — "it can only be players with registered
+// profiles"; previously a round with one real co-player plus guests could
+// still slip through). Playing alone never qualifies either — that's the
+// whole anti-cheating check. There is no
 // separate manual "partner taps verify" step (unlike the original spec's
 // §12) — the fact that it's a real multiplayer round recorded through the
 // app's existing scoring flows, with a real identifiable co-player, IS the
@@ -31,6 +34,7 @@ interface ResolvedRoundSource {
   courseName: string;
   playedAt: string; // ISO
   otherPlayerIds: string[]; // real, non-guest player_ids only, excludes the target player
+  hasGuest: boolean; // true if ANY guest (registered or ad-hoc) was in the round
   handicapIndex: number;
   courseRating: number;
   slopeRating: number;
@@ -108,8 +112,15 @@ async function resolveMatchSources(
   const matchIds = candidates.map(c => c.id);
   const dayIds = [...new Set(candidates.map(c => c.day_id).filter((id): id is string => id != null))];
   const courseNames = [...new Set(candidates.map(c => c.course_name as string))];
+  // Guests are real `players` rows (auth_uid null, is_guest true — see
+  // 20260918110000_casual_guest_players.sql) whose ids sit in
+  // home_player_ids/away_player_ids indistinguishably from real accounts.
+  // Dave, 2026-09-16: "rounds with guests dont count... it can only be
+  // players with registered profiles" — batch-fetch is_guest for every
+  // other player across all candidate matches up front.
+  const allOtherIds = [...new Set(candidates.flatMap(c => [...(c.home_player_ids ?? []), ...(c.away_player_ids ?? [])]).filter((id: string) => id !== playerId))];
 
-  const [holeRows, snapshotRows, courseHolesByName, playerRow] = await Promise.all([
+  const [holeRows, snapshotRows, courseHolesByName, playerRow, guestRows] = await Promise.all([
     fetchAllRows<{ match_id: string; hole_number: number; gross_score: number | null }>(
       (from, to) => supabase.from('match_holes').select('match_id, hole_number, gross_score').in('match_id', matchIds).eq('player_id', playerId).range(from, to)
     ),
@@ -118,7 +129,11 @@ async function resolveMatchSources(
       : Promise.resolve([] as any[]),
     fetchHolesByCourse(courseNames),
     supabase.from('players').select('handicap_index').eq('id', playerId).maybeSingle().then(r => r.data as any),
+    allOtherIds.length
+      ? supabase.from('players').select('id, is_guest').in('id', allOtherIds).then(r => r.data ?? [])
+      : Promise.resolve([] as any[]),
   ]);
+  const guestIds = new Set(((guestRows ?? []) as any[]).filter(p => p.is_guest).map(p => p.id as string));
 
   const grossByMatch: Record<string, Record<number, number>> = {};
   for (const h of holeRows) {
@@ -176,7 +191,7 @@ async function resolveMatchSources(
     out.push({
       sourceMatchId: m.id, sourceSwindleGroupId: null,
       courseName: m.course_name, playedAt: m.completed_at,
-      otherPlayerIds,
+      otherPlayerIds, hasGuest: otherPlayerIds.some(id => guestIds.has(id)),
       handicapIndex: snapshot?.handicap_index_at_start ?? playerRow?.handicap_index ?? 0,
       courseRating: Number(rating), slopeRating: Number(slope),
       teeName: snapshot?.tee_name ?? null, teeGender: snapshot?.gender ?? null,
@@ -213,8 +228,13 @@ async function resolveSwindleSources(
   const qualifyingGameIds = [...new Set(qualifyingGroups.map(g => g.game_id))];
   const courseNames = [...new Set(qualifyingGroups.map(g => gamesById.get(g.game_id).course_name as string).filter(Boolean))];
 
-  const [otherPlayerRows, entryRows, scoreRows, courseHolesByName] = await Promise.all([
-    supabase.from('swindle_group_players').select('group_id, player_id').in('group_id', qualifyingGroupIds).eq('is_guest', false).neq('player_id', playerId).then(r => r.data ?? []),
+  const [groupPlayerRows, entryRows, scoreRows, courseHolesByName] = await Promise.all([
+    // Fetch every group member (guests included) so we can detect guest
+    // presence — swindle guests store player_id NULL + is_guest true (see
+    // swindle_groups.sql), unlike casual matches where guests are real
+    // `players` rows mixed into the id arrays. Dave, 2026-09-16: "rounds
+    // with guests dont count" applies here too, not just casual/tournament.
+    supabase.from('swindle_group_players').select('group_id, player_id, is_guest').in('group_id', qualifyingGroupIds).then(r => r.data ?? []),
     supabase.from('swindle_entries').select('game_id, handicap').in('game_id', qualifyingGameIds).eq('player_id', playerId).then(r => r.data ?? []),
     fetchAllRows<{ game_id: string; hole_number: number; gross_score: number | null }>(
       (from, to) => supabase.from('swindle_scores').select('game_id, hole_number, gross_score').in('game_id', qualifyingGameIds).eq('player_id', playerId).range(from, to)
@@ -223,7 +243,11 @@ async function resolveSwindleSources(
   ]);
 
   const otherPlayersByGroup: Record<string, string[]> = {};
-  for (const r of otherPlayerRows as any[]) (otherPlayersByGroup[r.group_id] ??= []).push(r.player_id);
+  const hasGuestByGroup: Record<string, boolean> = {};
+  for (const r of groupPlayerRows as any[]) {
+    if (r.is_guest) { hasGuestByGroup[r.group_id] = true; continue; }
+    if (r.player_id && r.player_id !== playerId) (otherPlayersByGroup[r.group_id] ??= []).push(r.player_id);
+  }
 
   const handicapByGame: Record<string, number> = {};
   for (const r of entryRows as any[]) handicapByGame[r.game_id] = Number(r.handicap);
@@ -247,7 +271,7 @@ async function resolveSwindleSources(
     out.push({
       sourceMatchId: null, sourceSwindleGroupId: g.id,
       courseName: game.course_name, playedAt: new Date(game.game_date).toISOString(),
-      otherPlayerIds,
+      otherPlayerIds, hasGuest: !!hasGuestByGroup[g.id],
       handicapIndex: handicapByGame[g.game_id] ?? 0,
       courseRating: Number(game.course_rating), slopeRating: Number(game.slope_rating),
       teeName: null, teeGender: null,
@@ -299,7 +323,11 @@ async function ingestRound(
 // relegation zone entry, qualification reached) — verification-pending and
 // Major-countdown/result notifications don't apply to this app's simplified
 // anti-cheat model or aren't built yet.
-async function recalculateSeasonEntry(seasonEntryId: string, seasonId: string, countingLimit: number, minimumQualifyingRounds: number): Promise<void> {
+// Exported so admin/season-rounds.tsx can refresh an entry's cached counts
+// after voiding a round (e.g. a real test match played while trying the
+// app out, not a genuine qualifying round) — same recalculation the sync
+// path already runs after every ingest, just triggered manually instead.
+export async function recalculateSeasonEntry(seasonEntryId: string, seasonId: string, countingLimit: number, minimumQualifyingRounds: number): Promise<void> {
   const [{ data: entry }, { data: rounds }, { data: majors }] = await Promise.all([
     supabase.from('season_entries').select('player_id, division_id, current_position, movement_status, qualification_status, counting_rounds_count')
       .eq('id', seasonEntryId).maybeSingle(),
@@ -442,9 +470,11 @@ export async function syncSeasonRoundsForEntry(
 
   let ingested = 0, skipped = 0;
   for (const src of [...matchSources, ...swindleSources]) {
-    // The anti-cheating check: not solo, and at least one real co-player is
-    // a member of the same society this Season belongs to.
-    const eligible = src.otherPlayerIds.some(id => societyMemberIds.has(id));
+    // The anti-cheating check: not solo, no guests anywhere in the round
+    // (Dave, 2026-09-16 — "it can only be players with registered
+    // profiles"), and at least one real co-player is a member of the same
+    // society this Season belongs to.
+    const eligible = !src.hasGuest && src.otherPlayerIds.some(id => societyMemberIds.has(id));
     if (!eligible) { skipped++; continue; }
     const par = src.holes.reduce((sum, h) => sum + h.par, 0);
     await ingestRound(seasonEntryId, season.id, src, season.handicapAllowancePercent, par, profile);
