@@ -41,6 +41,16 @@ interface ResolvedRoundSource {
   teeName: string | null;
   teeGender: string | null;
   holes: SeasonHoleInput[]; // only ever built if all 18 holes have a gross score
+  // True when this player was in an otherwise-qualifying round but never
+  // personally recorded a full 18 holes of gross scores (someone else in
+  // the group scored, they didn't). Previously such players were silently
+  // dropped entirely — invisible to admin, nothing to void — even though
+  // they demonstrably played (Dave, 2026-09-17: "it didnt pick up Mike or
+  // Ollie... they werent scoring, but should still add them... then we can
+  // void them"). ingestRound records these as a zero-point,
+  // is_qualifying:false row instead, so admin can see and void the round
+  // for every participant, not just whoever happened to score.
+  didNotScore: boolean;
 }
 
 async function fetchSocietyMemberIds(societyId: string): Promise<Set<string>> {
@@ -179,14 +189,14 @@ async function resolveMatchSources(
     const courseHoles = courseHolesByName[m.course_name];
     if (!courseHoles || courseHoles.length < 18) continue;
     const gross = grossByMatch[m.id];
-    if (!gross || Object.keys(gross).length !== 18) continue; // full 18-hole gross required, spec §7.1
+    const didNotScore = !gross || Object.keys(gross).length !== 18; // full 18-hole gross required to actually score, spec §7.1 — recorded anyway below, just unscored
 
     const otherPlayerIds = [...new Set([...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])])].filter(id => id !== playerId);
     const snapshot = snapshotByDay[m.day_id];
     const fallback = fallbackRatingByCourse[m.course_name];
     const rating = snapshot?.course_rating_at_start ?? fallback?.rating;
     const slope = snapshot?.slope_at_start ?? fallback?.slope;
-    if (rating == null || slope == null) continue; // no rating data available — can't score this round
+    if (rating == null || slope == null) continue; // no rating data available — can't record this round at all
 
     out.push({
       sourceMatchId: m.id, sourceSwindleGroupId: null,
@@ -195,7 +205,8 @@ async function resolveMatchSources(
       handicapIndex: snapshot?.handicap_index_at_start ?? playerRow?.handicap_index ?? 0,
       courseRating: Number(rating), slopeRating: Number(slope),
       teeName: snapshot?.tee_name ?? null, teeGender: snapshot?.gender ?? null,
-      holes: courseHoles.map(h => ({ holeNumber: h.hole_number, par: h.par, strokeIndex: h.stroke_index, grossScore: gross[h.hole_number] })),
+      didNotScore,
+      holes: didNotScore ? [] : courseHoles.map(h => ({ holeNumber: h.hole_number, par: h.par, strokeIndex: h.stroke_index, grossScore: gross[h.hole_number] })),
     });
   }
   return out;
@@ -264,7 +275,7 @@ async function resolveSwindleSources(
     const courseHoles = courseHolesByName[game.course_name];
     if (!courseHoles || courseHoles.length < 18) continue;
     const gross = grossByGame[g.game_id];
-    if (!gross || Object.keys(gross).length !== 18) continue;
+    const didNotScore = !gross || Object.keys(gross).length !== 18;
     if (game.course_rating == null || game.slope_rating == null) continue;
     const otherPlayerIds = otherPlayersByGroup[g.id] ?? [];
 
@@ -275,7 +286,8 @@ async function resolveSwindleSources(
       handicapIndex: handicapByGame[g.game_id] ?? 0,
       courseRating: Number(game.course_rating), slopeRating: Number(game.slope_rating),
       teeName: null, teeGender: null,
-      holes: courseHoles.map(h => ({ holeNumber: h.hole_number, par: h.par, strokeIndex: h.stroke_index, grossScore: gross[h.hole_number] })),
+      didNotScore,
+      holes: didNotScore ? [] : courseHoles.map(h => ({ holeNumber: h.hole_number, par: h.par, strokeIndex: h.stroke_index, grossScore: gross[h.hole_number] })),
     });
   }
   return out;
@@ -286,6 +298,28 @@ async function ingestRound(
   seasonEntryId: string, seasonId: string, src: ResolvedRoundSource,
   handicapAllowancePercent: number, par: number, profile: SeasonScoringProfile,
 ): Promise<void> {
+  if (src.didNotScore) {
+    // Qualifying round (real co-player, no guests), but this player never
+    // personally recorded a full 18 holes — nothing to actually score.
+    // Recorded anyway, zeroed and non-qualifying, purely so admin can see
+    // every participant of a round and void it for all of them together,
+    // not just whoever happened to enter scores.
+    const { error } = await supabase.from('season_rounds').insert({
+      season_id: seasonId, season_entry_id: seasonEntryId,
+      source_match_id: src.sourceMatchId, source_swindle_group_id: src.sourceSwindleGroupId,
+      course_name: src.courseName, tee_name: src.teeName, tee_gender: src.teeGender,
+      group_player_ids: src.otherPlayerIds,
+      played_at: src.playedAt, submitted_at: src.playedAt, verified_at: src.playedAt,
+      handicap_index_snapshot: src.handicapIndex, course_rating_snapshot: src.courseRating,
+      slope_snapshot: src.slopeRating, par_snapshot: par,
+      handicap_allowance_percent: handicapAllowancePercent, playing_handicap_snapshot: 0,
+      stableford_total: 0, performance_bonus: 0, gross_achievement_bonus: 0,
+      base_titan_round_points: 0, final_round_points: 0,
+      status: 'scored', is_qualifying: false, is_counting: false,
+    } as any);
+    if (error) console.error('[seasonRoundIngestion] insert (unscored participant) failed', error);
+    return;
+  }
   const playingHandicap = calcSeasonPlayingHandicap(src.handicapIndex, src.slopeRating, src.courseRating, par, handicapAllowancePercent);
   const result = calcSeasonRound(src.holes, playingHandicap, { profile });
 

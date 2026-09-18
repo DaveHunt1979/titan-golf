@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.titangolf.app",
-      "buildNumber": "187",
+      "buildNumber": "189",
       "deploymentTarget": "16.0",
       "entitlements": {
         "com.apple.developer.nfc.readersession.formats": [
@@ -29,9 +29,9 @@
     },
     "android": {
       "package": "com.titangolf.app",
-      "versionCode": 1,
+      "versionCode": 3,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#000000",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

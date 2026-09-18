@@ -17,7 +17,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
-import { recalculateSeasonEntry } from '../../../src/lib/seasonRoundIngestion';
+import { recalculateSeasonEntry, syncSeasonRoundsForEntry } from '../../../src/lib/seasonRoundIngestion';
 
 const GREEN = '#4ade80';
 const RED   = '#f87171';
@@ -41,8 +41,12 @@ export default function SeasonEntriesScreen() {
   const [enrolling, setEnrolling] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [recalculating, setRecalculating] = useState(false);
+  const [syncingRounds, setSyncingRounds] = useState(false);
   const [countingLimit, setCountingLimit] = useState(20);
   const [minQualifying, setMinQualifying] = useState(20);
+  const [seasonStartAt, setSeasonStartAt] = useState<string | null>(null);
+  const [seasonEndAt, setSeasonEndAt] = useState<string | null>(null);
+  const [hcpAllowancePercent, setHcpAllowancePercent] = useState(100);
 
   const [fontsLoaded] = useFonts({
     'JUSTSans': require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -52,11 +56,14 @@ export default function SeasonEntriesScreen() {
   const load = useCallback(async () => {
     if (!seasonId) { setLoading(false); return; }
     setLoading(true);
-    const { data: season } = await supabase.from('seasons').select('name, society_id, counting_round_limit, minimum_qualifying_rounds').eq('id', seasonId).maybeSingle();
+    const { data: season } = await supabase.from('seasons').select('name, society_id, counting_round_limit, minimum_qualifying_rounds, start_at, end_at, handicap_allowance_percent').eq('id', seasonId).maybeSingle();
     setSeasonName((season as any)?.name ?? '');
     setSocietyId((season as any)?.society_id ?? null);
     setCountingLimit((season as any)?.counting_round_limit ?? 20);
     setMinQualifying((season as any)?.minimum_qualifying_rounds ?? 20);
+    setSeasonStartAt((season as any)?.start_at ?? null);
+    setSeasonEndAt((season as any)?.end_at ?? null);
+    setHcpAllowancePercent((season as any)?.handicap_allowance_percent ?? 100);
 
     const { data } = await supabase
       .from('season_entries')
@@ -133,6 +140,37 @@ export default function SeasonEntriesScreen() {
     }
   }
 
+  // Dave, 2026-09-17: a round only ever gets ingested for a player when THEY
+  // open the Season tab (syncSeasonRoundsForEntry's one caller, season/
+  // index.tsx) — so a player who was genuinely in a qualifying round but
+  // hasn't opened Season since is invisible to admin, nothing there to void
+  // ("it didnt pick up Mike or Ollie who was in the game"). This runs the
+  // exact same sync every entrant already gets, for everyone at once, so
+  // admin doesn't have to wait on each player to open the app themselves.
+  async function syncAllRounds() {
+    if (!seasonId || !societyId || !seasonStartAt || !seasonEndAt) return;
+    setSyncingRounds(true);
+    try {
+      let totalIngested = 0;
+      for (const entry of entries) {
+        const { ingested } = await syncSeasonRoundsForEntry(entry.entryId, entry.playerId, {
+          id: seasonId, societyId, startAt: seasonStartAt, endAt: seasonEndAt,
+          handicapAllowancePercent: hcpAllowancePercent, countingRoundLimit: countingLimit,
+          minimumQualifyingRounds: minQualifying,
+        });
+        totalIngested += ingested;
+      }
+      await load();
+      Alert.alert('Synced', totalIngested > 0
+        ? `${totalIngested} round${totalIngested === 1 ? '' : 's'} newly added across the roster.`
+        : 'Every entrant is already up to date — nothing new to add.');
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Could not sync rounds for the roster');
+    } finally {
+      setSyncingRounds(false);
+    }
+  }
+
   function confirmRemove(entry: EntryRow) {
     Alert.alert(
       'Remove from season?',
@@ -179,6 +217,11 @@ export default function SeasonEntriesScreen() {
             {enrolling ? <ActivityIndicator color="#000" /> : <Text style={s.enrollBtnText}>Auto-Enroll Whole Society</Text>}
           </TouchableOpacity>
           <Text style={s.hint}>Adds every current society member not already in this season. Safe to run more than once — already-enrolled players are skipped.</Text>
+
+          <TouchableOpacity style={s.recalcBtn} onPress={syncAllRounds} disabled={syncingRounds || entries.length === 0} activeOpacity={0.85}>
+            {syncingRounds ? <ActivityIndicator color={GREEN} /> : <Text style={s.recalcBtnText}>Sync All Entries&apos; Rounds</Text>}
+          </TouchableOpacity>
+          <Text style={s.hint}>Pulls in any qualifying round a player hasn't had added yet — normally this only happens when they open Season themselves. Run this to catch everyone up at once, including anyone who was in a round but didn't personally score (added as 0 points so it can be voided). Safe to run any time.</Text>
 
           <TouchableOpacity style={s.recalcBtn} onPress={recalculateAll} disabled={recalculating || entries.length === 0} activeOpacity={0.85}>
             {recalculating ? <ActivityIndicator color={GREEN} /> : <Text style={s.recalcBtnText}>Recalculate All Rounds &amp; Points</Text>}

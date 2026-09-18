@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Audio } from 'expo-av';
 
 // Chip & Birdie retired 2026-09-11 (Rick prefers the McFadey/Driver personas) —
 // every voice path in the app funnels through playBase64Audio below, so this
@@ -33,6 +32,16 @@ export function playBase64Audio(b64: string): Promise<void> {
 }
 
 async function _playAudio(b64: string): Promise<void> {
+  // Loaded lazily, not at module scope — expo-av is excluded from the
+  // Android native build (app.json), so a static top-level import here
+  // crashed module evaluation for every route that pulls in caddie.ts on
+  // Android (8 routes including games/new.tsx and score/solo/[matchId].tsx),
+  // even though VOICE_FEATURE_ENABLED being false means this function is
+  // never actually reached. Dave, 2026-09-17: "works on iphone sim but
+  // android no" — Expo Router silently treats a route whose module throws
+  // on load as unrouted and bounces back, which is what looked like
+  // "Start New Round closes the app."
+  const { Audio } = await import('expo-av');
   const path = `${FileSystem.cacheDirectory}caddie_${Date.now()}.mp3`;
   await FileSystem.writeAsStringAsync(path, b64, { encoding: FileSystem.EncodingType.Base64 });
   await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });

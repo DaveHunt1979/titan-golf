@@ -142,6 +142,28 @@ export async function resolveTournamentHandicaps<T extends { player_id: string; 
   const config = await fetchTournamentCutConfig(competitionId);
   if (!config.enabled) return rawComp;
 
+  // Race guard: the score screen that completes a day fires its cut
+  // processing fire-and-forget, so a later round started immediately
+  // afterward (back-to-back Admin > Simulate days, in particular) can read
+  // competition_players before that write has landed — silently resolving
+  // the pre-cut handicap. checkAndProcessDayCuts is idempotent and a cheap
+  // no-op unless a prior day is actually complete and unprocessed, so
+  // defensively (re-)running every earlier day here closes the race no
+  // matter which screen or timing triggered this read.
+  const { data: thisDay } = await supabase
+    .from('competition_days')
+    .select('day_number')
+    .eq('id', dayId)
+    .maybeSingle();
+  if (thisDay) {
+    const { data: priorDays } = await supabase
+      .from('competition_days')
+      .select('id')
+      .eq('competition_id', competitionId)
+      .lt('day_number', (thisDay as any).day_number);
+    await Promise.all(((priorDays ?? []) as any[]).map(d => checkAndProcessDayCuts(d.id)));
+  }
+
   const [{ data: cpRows }, snapshots] = await Promise.all([
     supabase.from('competition_players')
       .select('player_id, starting_tournament_handicap, current_tournament_handicap')

@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"adb pair 192.168.254.102:40349 604587 2>&1\",\"timeout\":20000,\"description\":\"Retry pairing with fresh ADB key and fresh code\"}",
+  "error": "Exit code 1\nerror: protocol fault (couldn't read status message): Undefined error: 0",
+  "timestamp": "2026-09-17T14:48:20.735Z",
+  "retry_count": 1
+}
