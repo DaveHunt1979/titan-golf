@@ -20,6 +20,7 @@ import {
 } from './scoring';
 import { computeRoundRobinMatchups, generateTitanWaySchedule, generateOddTitanGroups } from './titanWayDraw';
 import { FORMAT_RULES, type FormatId } from './tournamentFormat';
+import { computeHandicapDivisions } from './prizeCategories';
 
 const INDIVIDUAL_GROUP_SIZE = 4;
 
@@ -28,6 +29,11 @@ export interface SimulateTournamentOptions {
   formatId: FormatId;
   numTeams: number;        // ignored for stableford/medal
   numPlayers: number;      // ignored for team formats — used by stableford/medal only
+  // "Test with prize groups with a £20 limit... all fail safes and
+  // combination" (Dave, 2026-09-18) — when on, wires up the real Prize
+  // Categories/Kronos trophy flow with a deliberately tight per-category
+  // budget, not just the scoring engine. See addPrizeMoneyIfEnabled below.
+  prizeMoneyEnabled?: boolean;
   onProgress?: (msg: string) => void;
 }
 
@@ -38,6 +44,7 @@ export interface SimulateTournamentResult {
   kronosChampionName: string | null;
   playerCount: number;     // real society members used
   teamCount: number;       // real society teams used
+  prizeMoneyAdded: boolean; // false if prizeMoneyEnabled was off, or the roster had too little handicap variety to split
 }
 
 export interface SimRosterPlayer { id: string; display_name: string; handicap_index: number }
@@ -72,6 +79,45 @@ async function insertAll<T>(table: string, rows: any[], chunkSize = 400): Promis
     out.push(...(data as T[]));
   }
   return out;
+}
+
+// Prize-money fail-safe coverage for Simulate (Dave, 2026-09-18). Exercises
+// the same three places a real tournament's prize setup lives — Prize
+// Category handicap bands, per-position payouts, and the Kronos individual
+// trophy — using the exact division-boundary math the live Prize Categories
+// editor's "Auto-Split into 3 Divisions" button uses (computeHandicapDivisions),
+// so a sim run and a real admin's manual split can never disagree on where
+// the bands fall for the same roster. Each category is capped at a
+// deliberately tight combined £20 across its payouts — small enough to
+// surface rounding/division-by-position edge cases a big realistic pool
+// wouldn't — rather than a large "realistic" prize pool.
+// Mirrors the live editor's own fail-safe: with fewer than 3 distinct
+// handicaps among the roster, skips silently rather than inserting
+// meaningless bands (same guard PrizeCategoriesEditor enforces before
+// letting an admin split with too little handicap variety).
+async function addPrizeMoneyIfEnabled(compId: string, enabled: boolean | undefined, roster: SimRosterPlayer[]): Promise<boolean> {
+  if (!enabled) return false;
+  const distinctHcps = [...new Set(roster.map(p => p.handicap_index))].sort((a, b) => a - b);
+  const divisions = computeHandicapDivisions(distinctHcps);
+  if (!divisions) return false;
+  const { div1Max, div2Max } = divisions;
+
+  const cats = await insertAll<any>('prize_categories', [
+    { competition_id: compId, name: 'Division 1', hcp_min: null,          hcp_max: div1Max,       display_order: 1 },
+    { competition_id: compId, name: 'Division 2', hcp_min: div1Max + 0.1, hcp_max: div2Max,       display_order: 2 },
+    { competition_id: compId, name: 'Division 3', hcp_min: div2Max + 0.1, hcp_max: null,          display_order: 3 },
+  ]);
+  // £20 total per category, split 1st/2nd/3rd (10/6/4) — every category
+  // uses the same split regardless of size, so a category with only one or
+  // two eligible players still exercises "more payout positions than
+  // players in the band" rather than getting a conveniently-trimmed set.
+  await insertAll('prize_payouts', cats.flatMap((c: any) => [
+    { category_id: c.id, position: 1, prize_money: 10 },
+    { category_id: c.id, position: 2, prize_money: 6 },
+    { category_id: c.id, position: 3, prize_money: 4 },
+  ]));
+  await supabase.from('competitions').update({ kronos_overall_prize: 20 }).eq('id', compId);
+  return true;
 }
 
 // Shared by the tournament and swindle simulators — a course whose
@@ -295,7 +341,7 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
     year: new Date().getFullYear(), format: formatId, tournament_type: 'titan_tour', status: 'active',
     settings: { num_teams: numTeams, format_type: formatId }, pin,
     pts_win: rules.defaultPtsWin, pts_half: rules.defaultPtsHalf, opening_rounds: 3, bonus_points: 2, include_in_kronos: true,
-    is_simulation: true,
+    is_simulation: true, prizes_enabled: !!opts.prizeMoneyEnabled,
   }]);
 
   // Odd Titan's qualifying rounds are no longer 4BBB — no team-vs-team
@@ -318,6 +364,8 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
   await insertAll('competition_players', teams.flatMap((t: any) => rosterByTeam[t.id].map(pid => ({
     competition_id: comp.id, player_id: pid, team_id: t.id, handicap_index: hcpByPlayer[pid], status: 'enrolled',
   }))));
+
+  const prizeMoneyAdded = await addPrizeMoneyIfEnabled(comp.id, opts.prizeMoneyEnabled, roster);
 
   onProgress?.('Generating whole-tournament draw...');
   const schedule = isOddTitan ? null : generateTitanWaySchedule({ teamIds, rosterByTeam, qualifyingDayNumbers: [1, 2, 3] });
@@ -529,22 +577,33 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
     // needed since this round doesn't decide a knockout). Its Stableford
     // points are summed per team and added onto the qualifying total.
     onProgress?.('Simulating final round...');
+    // Was: computeRoundRobinMatchups(teamIds, 4) pairing whole teams — with
+    // an odd team count that always byes exactly one team for the day, so
+    // its 4 players never got a match_holes row and its team Stableford
+    // total was missing the whole final round (Dave, 2026-09-21: a 5-team
+    // sim's "Destroyers" scored zero). Same class of bug as the qualifying
+    // rounds fixed 2026-09-16, just missed here. Fixed the same way: pair
+    // PLAYERS 1v1 across teams (never by team) via generateOddTitanGroups at
+    // groupSize 2 — team size is fixed at 4, so the player count is always
+    // even regardless of team count, so no bye is ever needed.
     let singlesMatchNum = 1;
     const finalRoundStableford: Record<string, number> = {};
-    for (const [tH, tA] of computeRoundRobinMatchups(teamIds, 4)) {
-      const rosterH = rosterByTeam[tH]; const rosterA = rosterByTeam[tA];
-      for (let j = 0; j < 4; j++) {
-        const { match, stablefordByPlayer } = await simulateAndInsertMatch({
-          day_id: day4.id, day: day4, match_number: singlesMatchNum++, home_team_id: tH, away_team_id: tA,
-          home_player_ids: [rosterH[j]], away_player_ids: [rosterA[j]], is_singles: true,
-          handicap_method: 'individual_stableford', hcp_allowance: day4.hcp_pct,
-        });
-        allMatches.push(match);
-        Object.entries(stablefordByPlayer).forEach(([pid, pts]) => {
-          const tid = rosterByTeam[tH].includes(pid) ? tH : tA;
-          finalRoundStableford[tid] = (finalRoundStableford[tid] ?? 0) + pts;
-        });
-      }
+    const finalDayPlayers = teamIds.flatMap(tid => rosterByTeam[tid].map(pid => ({ id: pid, teamId: tid })));
+    const teamByPlayerFinal = new Map(finalDayPlayers.map(p => [p.id, p.teamId]));
+    const finalPairSchedule = generateOddTitanGroups({ players: finalDayPlayers, qualifyingDayNumbers: [4], groupSize: 2 });
+    for (const [p1, p2] of finalPairSchedule.groupsByDay[4] ?? []) {
+      if (!p1 || !p2) continue;
+      const tH = teamByPlayerFinal.get(p1)!; const tA = teamByPlayerFinal.get(p2)!;
+      const { match, stablefordByPlayer } = await simulateAndInsertMatch({
+        day_id: day4.id, day: day4, match_number: singlesMatchNum++, home_team_id: tH, away_team_id: tA,
+        home_player_ids: [p1], away_player_ids: [p2], is_singles: true,
+        handicap_method: 'individual_stableford', hcp_allowance: day4.hcp_pct,
+      });
+      allMatches.push(match);
+      Object.entries(stablefordByPlayer).forEach(([pid, pts]) => {
+        const tid = teamByPlayerFinal.get(pid)!;
+        finalRoundStableford[tid] = (finalRoundStableford[tid] ?? 0) + pts;
+      });
     }
     const combinedStandings = getStandings(allMatches.filter(m => m.day_id !== day4.id), comp.pts_win, comp.pts_half, teamStableford, finalRoundStableford);
     const championTeam = teams.find((t: any) => t.id === combinedStandings[0]?.teamId);
@@ -573,6 +632,7 @@ async function runTitanFamilySimulation(opts: SimulateTournamentOptions): Promis
     kronosChampionName,
     playerCount: roster.length,
     teamCount: teams.length,
+    prizeMoneyAdded,
   };
 }
 
@@ -606,7 +666,7 @@ async function runRoundRobinTeamSimulation(opts: SimulateTournamentOptions): Pro
     year: new Date().getFullYear(), format: formatId, tournament_type: 'titan_tour', status: 'active',
     settings: { num_teams: effectiveTeams, format_type: formatId }, pin,
     pts_win: rules.defaultPtsWin, pts_half: rules.defaultPtsHalf, opening_rounds: 0, bonus_points: 2, include_in_kronos: rules.individualBoardDefaultOn,
-    is_simulation: true,
+    is_simulation: true, prizes_enabled: !!opts.prizeMoneyEnabled,
   }]);
 
   const { teams, roster } = rules.captainDraftTwoSides
@@ -643,6 +703,8 @@ async function runRoundRobinTeamSimulation(opts: SimulateTournamentOptions): Pro
     // exactly what the day loop below then pairs 1-to-1 across the two sides.
     ...(rules.captainPickedSinglesOrder ? { singles_order: idx + 1 } : {}),
   }))));
+
+  const prizeMoneyAdded = await addPrizeMoneyIfEnabled(comp.id, opts.prizeMoneyEnabled, roster);
 
   const r = makeRandom();
   const allMatches: any[] = [];
@@ -766,6 +828,7 @@ async function runRoundRobinTeamSimulation(opts: SimulateTournamentOptions): Pro
     kronosChampionName: rules.individualBoardDefaultOn && kronosSorted[0] ? nameByPlayerId[kronosSorted[0][0]] : null,
     playerCount: roster.length,
     teamCount: teams.length,
+    prizeMoneyAdded,
   };
 }
 
@@ -791,7 +854,7 @@ async function runIndividualSimulation(opts: SimulateTournamentOptions): Promise
     year: new Date().getFullYear(), format: formatId, tournament_type: 'titan_tour', status: 'active',
     settings: { format_type: formatId }, pin,
     pts_win: rules.defaultPtsWin, pts_half: rules.defaultPtsHalf, opening_rounds: 0, bonus_points: 0, include_in_kronos: false,
-    is_simulation: true,
+    is_simulation: true, prizes_enabled: !!opts.prizeMoneyEnabled,
   }]);
 
   const numDays = rules.defaultDays;
@@ -805,6 +868,8 @@ async function runIndividualSimulation(opts: SimulateTournamentOptions): Promise
   await insertAll('competition_players', roster.map(p => ({
     competition_id: comp.id, player_id: p.id, team_id: null, handicap_index: p.handicap_index, status: 'enrolled',
   })));
+
+  const prizeMoneyAdded = await addPrizeMoneyIfEnabled(comp.id, opts.prizeMoneyEnabled, roster);
 
   const r = makeRandom();
   const isMedal = formatId === 'medal';
@@ -867,6 +932,7 @@ async function runIndividualSimulation(opts: SimulateTournamentOptions): Promise
     kronosChampionName: null,
     playerCount: roster.length,
     teamCount: 0,
+    prizeMoneyAdded,
   };
 }
 

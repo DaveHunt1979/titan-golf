@@ -12,8 +12,7 @@ import { useFonts } from 'expo-font';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, fetchAllRows } from '../../../src/lib/supabase';
-import { useSociety } from '../../../src/lib/useSociety';
-import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { getPlayerAvatar } from '../../../src/lib/assets';
 import { downloadMatchPack, downloadCourseGps } from '../../../src/lib/offlinePack';
 import { sendPushNotification } from '../../../src/lib/notifications';
@@ -527,7 +526,7 @@ function CourseSheet({
       <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={onClose} />
       <KeyboardAvoidingView
         style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '75%' }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
       <View style={ps.sheetKb}>
         <View style={ps.handle} />
@@ -644,7 +643,14 @@ function SettingRow({
 
 export default function NewGameScreen() {
   const router = useRouter();
-  const { societyId, loading: societyLoading } = useSociety();
+  // The real, switchable active society (Locker Room / society switcher),
+  // not src/lib/useSociety's arbitrary-first-membership hook — that one
+  // ignored which society you'd actually switched into, so a member of
+  // several societies (any admin doing multi-society testing, e.g. Dave/Rick
+  // in Skullers) got a player list built from a random OTHER society's
+  // roster instead (Dave, 2026-09-18).
+  const { societyId, loaded: societyLoaded } = useSocietyTheme();
+  const societyLoading = !societyLoaded;
   const { existingDayId, course: preselectedCourse, openPlayers, resumeMode, totalGroups, groupNum } = useLocalSearchParams<{ existingDayId?: string; course?: string; openPlayers?: string; resumeMode?: string; totalGroups?: string; groupNum?: string }>();
 
   const [fontsLoaded] = useFonts({

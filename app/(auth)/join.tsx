@@ -97,7 +97,7 @@ export default function JoinScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar style="light" />
 
       <View style={s.header}>

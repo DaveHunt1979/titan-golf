@@ -98,7 +98,7 @@ export default function CoachRegisterScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={[s.container, { backgroundColor: dc.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[s.container, { backgroundColor: dc.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar style="light" />
 
       <View style={[s.header, { borderBottomColor: dc.border }]}>

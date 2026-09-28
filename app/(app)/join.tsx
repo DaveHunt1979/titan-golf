@@ -131,7 +131,7 @@ export default function JoinScreen() {
   // ── Step: Code entry ──────────────────────────────────────────
   if (step === 'code') {
     return (
-      <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <StatusBar style="light" />
 
         {/* Header — three-column layout */}
@@ -225,7 +225,7 @@ export default function JoinScreen() {
 
   // ── Step: Profile setup ───────────────────────────────────────
   return (
-    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar style="light" />
 
       {/* Header — three-column layout */}

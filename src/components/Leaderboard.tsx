@@ -100,11 +100,11 @@ export default function Leaderboard({ title, columnLabels, totalLabel = 'TOTAL',
         <View style={s.headerRow}>
           <View style={s.headerRank} />
           <View style={s.headerIcon} />
-          <Text style={[s.headerCell, s.headerName, { color: dc.textSecondary }]}>PLAYER</Text>
+          <Text allowFontScaling={false} style={[s.headerCell, s.headerName, { color: dc.textSecondary }]}>PLAYER</Text>
           {columnLabels.map(label => (
-            <Text key={label} style={[s.headerCell, { color: dc.textSecondary }]}>{label}</Text>
+            <Text key={label} allowFontScaling={false} style={[s.headerCell, { color: dc.textSecondary }]}>{label}</Text>
           ))}
-          <Text style={[s.headerCell, { color: dc.textSecondary }]}>{totalLabel}</Text>
+          <Text allowFontScaling={false} style={[s.headerCell, { color: dc.textSecondary }]}>{totalLabel}</Text>
         </View>
       )}
 
@@ -124,7 +124,7 @@ export default function Leaderboard({ title, columnLabels, totalLabel = 'TOTAL',
               row.isMe && { backgroundColor: dc.goldDim },
             ]}
           >
-            <Text style={[s.rank, { color: accent === 'transparent' ? dc.textMuted : accent }]}>{tied ? `T${rank}` : rank}</Text>
+            <Text allowFontScaling={false} style={[s.rank, { color: accent === 'transparent' ? dc.textMuted : accent }]}>{tied ? `T${rank}` : rank}</Text>
             <RowIcon row={row} size={32} dc={dc} />
             <View style={s.nameCol}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -134,9 +134,9 @@ export default function Leaderboard({ title, columnLabels, totalLabel = 'TOTAL',
               {row.subtitle && <Text style={[s.subtitle, { color: dc.textSecondary }]} numberOfLines={1}>{row.subtitle}</Text>}
             </View>
             {(row.columns ?? []).map((val, i) => (
-              <Text key={i} style={[s.cell, { color: dc.textSecondary }]}>{val ?? '–'}</Text>
+              <Text key={i} allowFontScaling={false} style={[s.cell, { color: dc.textSecondary }]}>{val ?? '–'}</Text>
             ))}
-            <Text style={[s.total, { color: rank === 1 ? dc.gold : dc.cardText }]}>{row.totalDisplay}</Text>
+            <Text allowFontScaling={false} style={[s.total, { color: rank === 1 ? dc.gold : dc.cardText }]}>{row.totalDisplay}</Text>
           </RowContainer>
         );
       })}

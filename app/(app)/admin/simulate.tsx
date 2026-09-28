@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Switch } from 'react-native';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
 import { runTournamentSimulation, deleteSimulation } from '../../../src/lib/simulateTournament';
+import { generateAndPublishAllNews, type PrizeMoneySnapshot } from '../../../src/lib/titanNews';
 import { runVerification, type VerificationReport } from '../../../src/lib/simulateVerification';
 import { FORMAT_RULES, type FormatId } from '../../../src/lib/tournamentFormat';
 import SwipeableRow from '../../../src/components/SwipeableRow';
@@ -19,6 +20,25 @@ const FFB  = 'JUSTSans-ExBold';
 const SIMULATABLE_FORMATS = (Object.keys(FORMAT_RULES) as FormatId[]).filter(id => FORMAT_RULES[id].available);
 
 interface SimRow { id: string; name: string; created_at: string; status: string; settings: any }
+
+// Spells out every division's winner and payout, not just the Kronos
+// champion's name (Rick, 2026-09-18 — "where the kronos money just had the
+// winners name, can we have all the division tables for money as well in
+// there") — same figures the just-published final report and the live
+// Money tab both show, so this summary can never disagree with either.
+function formatPrizeMoneyDetail(pm: PrizeMoneySnapshot | null): string {
+  if (!pm) return '';
+  const ordinal = (n: number) => n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`;
+  const lines: string[] = [];
+  if (pm.kronosChampion) lines.push(`Kronos: ${pm.kronosChampion.name} — £${pm.kronosChampion.prize}`);
+  pm.categories.forEach(cat => {
+    const payoutStr = cat.payouts
+      .map(p => `${ordinal(p.position)} ${p.winnerName ?? '—'} £${p.prizeMoney}`)
+      .join(' · ');
+    lines.push(`${cat.name}: ${payoutStr}`);
+  });
+  return lines.length ? `\n${lines.join('\n')}` : '';
+}
 
 export default function SimulateScreen() {
   const router = useRouter();
@@ -35,6 +55,12 @@ export default function SimulateScreen() {
 
   const [numTeams, setNumTeams] = useState(6);
   const [numPlayers, setNumPlayers] = useState(20);
+  // "Test with prize groups with a £20 limit... all fail safes and
+  // combination" (Dave, 2026-09-18) — off by default so a plain sim run
+  // stays exactly as fast/simple as before; on wires up 3 real Prize
+  // Category handicap bands + payouts (£20 combined per category) plus the
+  // Kronos trophy, via runTournamentSimulation's addPrizeMoneyIfEnabled.
+  const [prizeMoneyEnabled, setPrizeMoneyEnabled] = useState(false);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -105,11 +131,29 @@ export default function SimulateScreen() {
     setProgress('Starting...');
     try {
       const result = await runTournamentSimulation({
-        societyId, formatId, numTeams, numPlayers, onProgress: setProgress,
+        societyId, formatId, numTeams, numPlayers, prizeMoneyEnabled, onProgress: setProgress,
       });
+
+      // Publish the whole newsreel too (Rick, 2026-09-18 — "publish all the
+      // news reports and the article so it can see all the news feeds
+      // working with the money") — a sim run has no admin to review drafts,
+      // so publish straight away rather than leaving them queued in Admin >
+      // News. Best-effort: a failed news run shouldn't mark the simulation
+      // itself as failed.
+      const newsResult = await generateAndPublishAllNews(result.competitionId, setProgress)
+        .catch(e => { console.error('[simulate] news generation failed', e); return null; });
+
       Alert.alert(
         'Simulation complete',
-        `${result.competitionName}\n\nChampion: ${result.championName}${result.kronosChampionName ? `\nKronos champion: ${result.kronosChampionName}` : ''}\n${result.playerCount} real member${result.playerCount === 1 ? '' : 's'}${result.teamCount ? ` across ${result.teamCount} real team${result.teamCount === 1 ? '' : 's'}` : ''}.`,
+        `${result.competitionName}\n\nChampion: ${result.championName}${result.kronosChampionName ? `\nKronos champion: ${result.kronosChampionName}` : ''}\n${result.playerCount} real member${result.playerCount === 1 ? '' : 's'}${result.teamCount ? ` across ${result.teamCount} real team${result.teamCount === 1 ? '' : 's'}` : ''}.` +
+        (prizeMoneyEnabled
+          ? (result.prizeMoneyAdded
+            ? `\n\nPrize money: 3 handicap divisions, £20 per category, Kronos trophy £20.${formatPrizeMoneyDetail(newsResult?.prizeMoney ?? null)}`
+            : '\n\nPrize money: skipped — not enough handicap variety among the roster to split into divisions.')
+          : '') +
+        (newsResult
+          ? `\n\nNews: ${newsResult.articlesPublished} report${newsResult.articlesPublished === 1 ? '' : 's'} published — check Titan News.`
+          : '\n\nNews: report generation failed — check the console.'),
       );
       await loadSims();
     } catch (e: any) {
@@ -273,6 +317,19 @@ export default function SimulateScreen() {
           </>
         )}
 
+        <View style={[s.toggleRow, { backgroundColor: dc.card, borderColor: dc.border }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.toggleLabel, { color: dc.cardText }]}>Prize Money</Text>
+            <Text style={[s.toggleSub, { color: dc.textSecondary }]}>On tests the real Prize Categories flow: 3 handicap divisions, £20 combined per category, plus the Kronos trophy.</Text>
+          </View>
+          <Switch
+            value={prizeMoneyEnabled}
+            onValueChange={setPrizeMoneyEnabled}
+            trackColor={{ false: '#1c1c1c', true: `${GOLD}66` }}
+            thumbColor={prizeMoneyEnabled ? GOLD : '#555'}
+          />
+        </View>
+
         <TouchableOpacity style={[s.runBtn, running && { opacity: 0.6 }]} onPress={run} disabled={running} activeOpacity={0.85}>
           {running ? <ActivityIndicator color="#000" /> : <Text style={s.runBtnText}>Run Full Simulation</Text>}
         </TouchableOpacity>
@@ -323,6 +380,9 @@ const s = StyleSheet.create({
   modeBtnOn: { backgroundColor: 'rgba(212,175,55,0.12)' },
   modeBtnText: { fontFamily: FFB, fontSize: 11, letterSpacing: 1, color: '#666' },
   modeBtnTextOn: { color: GOLD },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 16, borderRadius: 12, borderWidth: 1, padding: 16, marginBottom: 20 },
+  toggleLabel: { fontSize: 13, fontFamily: FFB, marginBottom: 2 },
+  toggleSub: { fontSize: 11, fontFamily: FFB, lineHeight: 16 },
   assertionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: 10, borderWidth: 1, padding: 12, marginBottom: 8 },
   assertionName: { fontFamily: FFB, fontSize: 12, marginBottom: 4 },
   assertionDetail: { fontFamily: FF, fontSize: 11, color: '#888', lineHeight: 16 },

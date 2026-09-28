@@ -1,8 +1,9 @@
 import '../src/lib/fontScaleCap'; // caps iOS Dynamic Type app-wide — must run before anything renders
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { View, Image, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { supabase } from '../src/lib/supabase';
 import { initDb } from '../src/lib/localDb';
 import { titanLogo } from '../src/lib/assets';
@@ -162,15 +163,25 @@ export default function RootLayout() {
   // left the [] -dep fade effect never re-running for the second stage
   // (Dave, 2026-09-10: "there is no pulsating logo anymore" — it never got
   // past the intro screen to reach it).
-  if (stage === 'splash') return <FadeImageStage key="splash" source={splashBgiPad ?? splashBg} holdMs={1600} onComplete={onSplashComplete} />;
-  if (stage === 'intro')  return <FadeImageStage key="intro" source={featureIntroBg} holdMs={2200} onComplete={onIntroComplete} />;
-  if (stage === 'pulse')  return <PulsingLogo onComplete={onPulseComplete} />;
-
-  return (
+  // SafeAreaProvider wraps every stage (Dave, 2026-09-21: Steve's Android
+  // report — "the home page drops off slightly off the bottom of the
+  // screen") — react-native-safe-area-context was already a dependency but
+  // never actually wired up anywhere in the app, so every screen's
+  // useSafeAreaInsets() would have silently read zeroes. Needed at the very
+  // root since it's a context provider — any screen anywhere in the tree
+  // can now read real insets, starting with the tab bar fix in
+  // app/(app)/_layout.tsx.
+  let content: ReactNode;
+  if (stage === 'splash') content = <FadeImageStage key="splash" source={splashBgiPad ?? splashBg} holdMs={1600} onComplete={onSplashComplete} />;
+  else if (stage === 'intro') content = <FadeImageStage key="intro" source={featureIntroBg} holdMs={2200} onComplete={onIntroComplete} />;
+  else if (stage === 'pulse') content = <PulsingLogo onComplete={onPulseComplete} />;
+  else content = (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <Slot />
     </View>
   );
+
+  return <SafeAreaProvider>{content}</SafeAreaProvider>;
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────

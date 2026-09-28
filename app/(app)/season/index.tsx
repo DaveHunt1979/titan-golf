@@ -5,7 +5,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../src/lib/supabase';
-import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
 import { syncSeasonRoundsForEntry } from '../../../src/lib/seasonRoundIngestion';
 
@@ -63,6 +63,7 @@ function formatSeasonDates(startAt: string | null, endAt: string | null): string
 export default function SeasonIndex() {
   const router = useRouter();
   const dc = useDynamicColors();
+  const { societyId: SOCIETY_ID } = useSocietyTheme();
   const [loading, setLoading] = useState(true);
   const [entry, setEntry]     = useState<MyEntry | null>(null);
   const [pendingSeasonName, setPendingSeasonName] = useState<string | null>(null);
@@ -73,7 +74,7 @@ export default function SeasonIndex() {
     'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  useFocusEffect(useCallback(() => { load(); }, [SOCIETY_ID]));
 
   async function load() {
     setLoading(true);
@@ -82,10 +83,20 @@ export default function SeasonIndex() {
     const { data: me } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
     if (!me) { setLoading(false); return; }
 
+    // Was: no society_id scoping at all — just whichever season_entries row
+    // the player joined most recently, across every society they're in. A
+    // player in both Titan and Skullers would still see Titan's Season Mode
+    // while browsing Skullers (Rick's weekend findings, 2026-09-21 — "Titan
+    // season mode is displaying in the skullers society... they should only
+    // see what's relevant to them"). Scoped via seasons!inner so the embedded
+    // society_id can be filtered directly — same pattern already used
+    // elsewhere for embedded-resource filters (e.g. app/(app)/index.tsx's
+    // matches!inner).
     const { data: entryRow } = await supabase
       .from('season_entries')
-      .select('id, qualifying_rounds_count, counting_rounds_count, season_points, qualification_status, seasons(id, name, society_id, start_at, end_at, handicap_allowance_percent, counting_round_limit, minimum_qualifying_rounds)')
+      .select('id, qualifying_rounds_count, counting_rounds_count, season_points, qualification_status, seasons!inner(id, name, society_id, start_at, end_at, handicap_allowance_percent, counting_round_limit, minimum_qualifying_rounds)')
       .eq('player_id', (me as any).id)
+      .eq('seasons.society_id', SOCIETY_ID ?? '')
       .order('created_at', { ascending: false })
       .maybeSingle();
 
@@ -136,8 +147,9 @@ export default function SeasonIndex() {
 
     const { data: pending } = await supabase
       .from('season_join_requests')
-      .select('status, seasons(name)')
+      .select('status, seasons!inner(name, society_id)')
       .eq('player_id', (me as any).id).eq('status', 'pending_approval')
+      .eq('seasons.society_id', SOCIETY_ID ?? '')
       .order('requested_at', { ascending: false })
       .maybeSingle();
     setPendingSeasonName(pending ? (pending as any).seasons?.name ?? null : null);
@@ -188,7 +200,7 @@ export default function SeasonIndex() {
                 <Ionicons name="ribbon-outline" size={15} color="#000" />
                 <Text style={s.tableBtnText}>Majors</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.tableBtn} onPress={() => router.push(`/(app)/news?seasonId=${entry.seasonId}` as any)} activeOpacity={0.85}>
+              <TouchableOpacity style={s.tableBtn} onPress={() => router.push(`/(app)/news?seasonId=${entry.seasonId}&back=${encodeURIComponent('/(app)/season')}` as any)} activeOpacity={0.85}>
                 <Ionicons name="newspaper-outline" size={15} color="#000" />
                 <Text style={s.tableBtnText}>News</Text>
               </TouchableOpacity>

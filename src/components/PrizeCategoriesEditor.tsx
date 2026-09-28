@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { individualBoardLabel } from '../lib/tournamentFormat';
+import { computeHandicapDivisions } from '../lib/prizeCategories';
 
 const GOLD  = '#D4AF37';
 const RED   = '#f87171';
@@ -111,13 +112,12 @@ export default function PrizeCategoriesEditor({ competitionId }: { competitionId
     }
 
     const distinctHcps = [...new Set(hcps)];
-    if (distinctHcps.length < 3) {
+    const divisions = computeHandicapDivisions(distinctHcps);
+    if (!divisions) {
       Alert.alert('Not enough handicap variety', 'Need at least 3 different handicap values among enrolled players to split into 3 meaningful divisions.');
       return;
     }
-    const dn = distinctHcps.length;
-    const div1Max = distinctHcps[Math.floor(dn / 3) - 1];
-    const div2Max = distinctHcps[Math.floor((2 * dn) / 3) - 1];
+    const { div1Max, div2Max } = divisions;
 
     Alert.alert(
       'Auto-Split into 3 Divisions?',

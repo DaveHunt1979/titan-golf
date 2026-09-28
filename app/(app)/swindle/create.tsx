@@ -562,7 +562,7 @@ export default function SwindleCreate() {
       <Modal visible={showPicker} animationType="slide" transparent>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
         <View style={s.pickerOverlay}>
           <View style={s.pickerSheet}>

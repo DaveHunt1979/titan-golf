@@ -112,7 +112,7 @@ export default function HandicapCalculatorScreen() {
   return (
     <KeyboardAvoidingView
       style={[s.container, { backgroundColor: dc.bg }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar style="light" />
 

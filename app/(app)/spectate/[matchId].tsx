@@ -502,6 +502,12 @@ export default function SpectateScreen() {
       .map((initials, i) => [strokeAllocation[i].id, initials])
   );
 
+  // The bundled Titan/Mashie marks are white-on-transparent, drawn for this
+  // screen's black header directly — only a society's own uploaded logo_url
+  // is arbitrary-coloured and needs the light contrast chip (Rick's 2026-09-21
+  // "can't see their logo" fix). Wrapping the white marks in that chip too
+  // made THEM invisible instead (Rick, 2026-09-28: "little white boxes").
+  const hasCustomLogo = !localLogo && !!logoUrl;
   const logoSource = localLogo ?? (logoUrl ? { uri: logoUrl } : titanLogo);
 
   return (
@@ -517,7 +523,20 @@ export default function SpectateScreen() {
 
         {/* Centre: Logo + SPECTATE */}
         <View style={s.headerCenter}>
-          <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
+          {/* A society's own uploaded logo can be any colour — a
+              dark-on-transparent one (e.g. Skullers') was nearly invisible
+              directly on this screen's black header (Rick's weekend
+              findings, 2026-09-21: "you can't see their logo" in Spectate).
+              A light chip behind it guarantees contrast regardless of the
+              logo's own palette. The bundled Titan/Mashie marks are white,
+              drawn for this black header directly, so they skip the chip. */}
+          {hasCustomLogo ? (
+            <View style={s.headerLogoChip}>
+              <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
+            </View>
+          ) : (
+            <Image source={logoSource} style={s.headerLogo} resizeMode="contain" />
+          )}
           <Text style={s.headerSub}>SPECTATE</Text>
         </View>
 
@@ -853,6 +872,10 @@ const s = StyleSheet.create({
   headerLeft: { flex: 1, alignItems: 'flex-start' },
   back:       { fontSize: 14, fontFamily: FFB, color: GOLD },
   headerCenter: { alignItems: 'center' },
+  headerLogoChip: {
+    width: 36, height: 36, borderRadius: 8, backgroundColor: '#f5f5f0',
+    alignItems: 'center', justifyContent: 'center', padding: 4,
+  },
   headerLogo:   { width: 28, height: 28 },
   headerSub:    { fontSize: 9, fontFamily: FFB, color: '#fff', marginTop: 2, letterSpacing: 1.5 },
   headerRight:  { flex: 1 },

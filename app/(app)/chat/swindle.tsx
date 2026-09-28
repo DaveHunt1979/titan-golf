@@ -7,6 +7,8 @@ export default function SwindleChatScreen() {
       title="Swindle Chat"
       subtitleLabel="The Swindle"
       placeholder="Message the swindle..."
+      backFallback="/(app)/swindle"
+      alwaysReplaceOnBack
     />
   );
 }

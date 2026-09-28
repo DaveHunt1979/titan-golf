@@ -248,6 +248,39 @@ export async function buildPreviewSnapshot(competitionId: string, upcomingDayId:
   };
 }
 
+// Rick's brief, section 15 — "Every handicap cut must become an event Titan
+// AI News can report." One row per player who was actually cut this round
+// (0 points over the trigger never appears — nothing for the AI to say).
+// Only the currently-active row per player/day, same as
+// fetchPlayerHandicapCutHistory — a since-superseded partial-total cut
+// (see the "Ricky Cut Test" premature-dormie bug, 2026-09-22) must never
+// reach the AI as if it were real.
+async function dayHandicapCuts(core: Core, dayId: string, dayNumber: number) {
+  if (!core.competition.handicap_cuts_enabled) return [];
+  const { data } = await supabase
+    .from('tournament_handicap_history')
+    .select('player_id, handicap_before_cut, stableford_pts, trigger_score, cut_per_point, points_over_trigger, cut_applied, handicap_after_cut')
+    .eq('competition_id', core.competition.id)
+    .eq('competition_day_id', dayId)
+    .is('superseded_at', null)
+    .gt('cut_applied', 0);
+  return ((data ?? []) as any[]).map(r => {
+    const cp = core.cpData.find(c => c.player_id === r.player_id);
+    return {
+      playerName: playerName(core.cpData, r.player_id),
+      team: cp?.team_id ? teamName(core.teams, cp.team_id) : null,
+      roundNumber: dayNumber,
+      stablefordPts: r.stableford_pts,
+      triggerScore: r.trigger_score,
+      startingTournamentHandicap: Number(r.handicap_before_cut),
+      cutRate: Number(r.cut_per_point),
+      pointsAboveTrigger: r.points_over_trigger,
+      handicapCut: Number(r.cut_applied),
+      newTournamentHandicap: Number(r.handicap_after_cut),
+    };
+  });
+}
+
 export async function buildRoundReportSnapshot(competitionId: string, dayId: string) {
   const core = await loadCore(competitionId);
   const day = core.days.find(d => d.id === dayId);
@@ -266,6 +299,7 @@ export async function buildRoundReportSnapshot(competitionId: string, dayId: str
     kronosLeaderboard: core.competition.include_in_kronos ? withPositionDeltas(individualNow, individualPrev).slice(0, 5) : null,
     thisRoundMatches: dayMatchSummaries(core, dayId),
     roundsRemaining: core.days.filter(d => d.day_number > day.day_number).length,
+    handicapCuts: await dayHandicapCuts(core, dayId, day.day_number),
   };
 }
 
@@ -377,6 +411,65 @@ export async function buildCasualFinalReportSnapshot(matchId: string) {
   };
 }
 
+export interface PrizeMoneySnapshot {
+  kronosChampion: { name: string; prize: number } | null;
+  categories: {
+    name: string; hcpMin: number | null; hcpMax: number | null;
+    payouts: { position: number; prizeMoney: number; winnerName: string | null }[];
+  }[];
+}
+
+// Same handicap-category assignment + payout math the live Money tab and
+// Prize Positions table use (app/(app)/tour/index.tsx's loadTournamentData) —
+// the overall Kronos/individual winner is skipped in every category (their
+// prize rolls down), everyone else ranked by the same tie-broken finish
+// order. Returns null when this tournament has no prize money configured at
+// all, so a plain tournament's report never gains an empty "Prize Money"
+// section (Rick, 2026-09-18 — "the kronos money just had the winners name...
+// can we have all the division tables for money as well in there").
+async function prizeMoneySnapshot(core: Core, competitionId: string, finalDayNumber: number): Promise<PrizeMoneySnapshot | null> {
+  const { data: catsData } = await supabase.from('prize_categories')
+    .select('id,name,hcp_min,hcp_max,display_order,prize_payouts(position,prize_money)')
+    .eq('competition_id', competitionId)
+    .order('display_order');
+  const categories = (catsData ?? []) as any[];
+  const kronosOverallPrize = (core.competition as any).kronos_overall_prize ?? null;
+  if (!kronosOverallPrize && categories.length === 0) return null;
+
+  const ranking = individualRanking(core, finalDayNumber);
+  const { ranking: finalRanking } = applyFinalTieBreak(ranking, core, finalDayNumber);
+  const overallWinner = core.competition.include_in_kronos ? finalRanking[0] ?? null : null;
+
+  const kronosChampion = overallWinner && kronosOverallPrize
+    ? { name: overallWinner.name, prize: Number(kronosOverallPrize) }
+    : null;
+
+  const hcpByPlayer = new Map(core.cpData.map(cp => [cp.player_id, cp.handicap_index as number | null]));
+  const categoryResults = categories.map(cat => {
+    const inCat = finalRanking.filter(r => {
+      if (r.playerId === overallWinner?.playerId) return false;
+      const hcp = hcpByPlayer.get(r.playerId);
+      if (hcp == null) return false;
+      const okMin = cat.hcp_min == null || hcp >= cat.hcp_min;
+      const okMax = cat.hcp_max == null || hcp <= cat.hcp_max;
+      return okMin && okMax;
+    });
+    const sortedPayouts = [...(cat.prize_payouts ?? [])].sort((a: any, b: any) => a.position - b.position);
+    return {
+      name: cat.name as string,
+      hcpMin: (cat.hcp_min ?? null) as number | null,
+      hcpMax: (cat.hcp_max ?? null) as number | null,
+      payouts: sortedPayouts.map((pp: any) => ({
+        position: pp.position as number,
+        prizeMoney: Number(pp.prize_money),
+        winnerName: inCat[pp.position - 1]?.name ?? null,
+      })),
+    };
+  });
+
+  return { kronosChampion, categories: categoryResults };
+}
+
 export async function buildFinalReportSnapshot(competitionId: string) {
   const core = await loadCore(competitionId);
   const finalDayNumber = Math.max(0, ...core.days.map(d => d.day_number));
@@ -387,6 +480,7 @@ export async function buildFinalReportSnapshot(competitionId: string) {
   const individualPrev  = individualRanking(core, penultimateDayNumber);
   const teamFinal = teamRanking(core, finalDayNumber);
   const teamPrev  = teamRanking(core, penultimateDayNumber);
+  const prizeMoney = await prizeMoneySnapshot(core, competitionId, finalDayNumber);
 
   return {
     storyType: 'final_report',
@@ -400,7 +494,63 @@ export async function buildFinalReportSnapshot(competitionId: string) {
     // settled by the tie-break ladder — the AI must say so, not imply a clean win.
     winnerDecidedByTieBreak: teamFinal ? null : winnerDecidedByTieBreak,
     finalDayMatches: core.days.length ? dayMatchSummaries(core, core.days[core.days.length - 1].id) : [],
+    // Null when this tournament has no prize money at all — see
+    // prizeMoneySnapshot() above.
+    prizeMoney,
   };
+}
+
+// Simulate mode's own newsreel run (Rick, 2026-09-18 — "publish all the news
+// reports and the article so it can see all the news feeds working with the
+// money"): generates a preview, every round's report, and the final report
+// for a just-simulated tournament, publishing each one immediately rather
+// than leaving it in admin/news.tsx's normal draft-for-review queue — a sim
+// run has no admin sitting on the other end to review it, the whole point is
+// to see the finished feed. Same generate() call admin/news.tsx's buttons
+// use under the hood, just looped and auto-published.
+export async function generateAndPublishAllNews(
+  competitionId: string,
+  onProgress?: (msg: string) => void,
+): Promise<{ articlesPublished: number; prizeMoney: PrizeMoneySnapshot | null }> {
+  const { data: daysData } = await supabase.from('competition_days')
+    .select('id, day_number').eq('competition_id', competitionId).order('day_number');
+  const days = (daysData ?? []) as { id: string; day_number: number }[];
+
+  let articlesPublished = 0;
+  let finalPrizeMoney: PrizeMoneySnapshot | null = null;
+
+  async function generateAndPublish(storyType: 'preview' | 'round_report' | 'final_report', dayId: string | null) {
+    const snapshot = storyType === 'preview' ? await buildPreviewSnapshot(competitionId, dayId!)
+      : storyType === 'round_report' ? await buildRoundReportSnapshot(competitionId, dayId!)
+      : await buildFinalReportSnapshot(competitionId);
+    if (storyType === 'final_report') finalPrizeMoney = (snapshot as any).prizeMoney ?? null;
+
+    const dedupeKey = `${competitionId}:${dayId ?? 'tournament'}:${storyType}`;
+    const { data, error } = await supabase.functions.invoke('titan-news', {
+      body: { dedupeKey, competitionId, dayId, storyType, snapshot },
+    });
+    // Best-effort, same as generateCasualMatchReport — one failed report
+    // (e.g. a transient Anthropic error) shouldn't stop the rest of the
+    // newsreel from generating, and shouldn't fail the simulation run itself.
+    if (error || data?.error) { console.error('[titanNews] simulation report generation failed', storyType, dayId, error ?? data?.error); return; }
+    const { error: pubErr } = await supabase.from('titan_news')
+      .update({ status: 'published', published_at: new Date().toISOString() }).eq('id', data.id);
+    if (pubErr) { console.error('[titanNews] simulation report publish failed', storyType, dayId, pubErr); return; }
+    articlesPublished++;
+  }
+
+  if (days.length > 0) {
+    onProgress?.('Publishing news: tournament preview…');
+    await generateAndPublish('preview', days[0].id);
+    for (const d of days) {
+      onProgress?.(`Publishing news: Round ${d.day_number} report…`);
+      await generateAndPublish('round_report', d.id);
+    }
+  }
+  onProgress?.('Publishing news: final tournament report…');
+  await generateAndPublish('final_report', null);
+
+  return { articlesPublished, prizeMoney: finalPrizeMoney };
 }
 
 // Fire-and-forget: builds the snapshot and calls the edge function for a

@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase, fetchAllRows } from '../../../src/lib/supabase';
-import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
+import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
 import { rankDivisionEntries, type RankedSeasonEntry } from '../../../src/lib/seasonLeaderboard';
 
@@ -31,6 +31,7 @@ type ScreenState = 'loading' | 'no_entry' | 'no_division' | 'ready';
 export default function SeasonTableScreen() {
   const router = useRouter();
   const dc = useDynamicColors();
+  const { societyId: SOCIETY_ID } = useSocietyTheme();
   const [state, setState]       = useState<ScreenState>('loading');
   const [myEntryId, setMyEntryId] = useState<string | null>(null);
   // Dave, 2026-09-16: "we need to see all league tables not just the one
@@ -46,7 +47,7 @@ export default function SeasonTableScreen() {
     'JUSTSans-ExBold': require('../../../assets/fonts/JUSTSans-ExBold.otf'),
   });
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  useFocusEffect(useCallback(() => { load(); }, [SOCIETY_ID]));
 
   async function load() {
     setState('loading');
@@ -55,10 +56,14 @@ export default function SeasonTableScreen() {
     const { data: me } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
     if (!me) { setState('no_entry'); return; }
 
+    // Was: no society scoping — same cross-society leak as season/index.tsx
+    // (Rick's weekend findings, 2026-09-21), just whichever season_entries
+    // row was most recently joined across every society the player is in.
     const { data: myEntry } = await supabase
       .from('season_entries')
-      .select('id, season_id, division_id')
+      .select('id, season_id, division_id, seasons!inner(society_id)')
       .eq('player_id', (me as any).id)
+      .eq('seasons.society_id', SOCIETY_ID ?? '')
       .order('created_at', { ascending: false })
       .maybeSingle();
     if (!myEntry) { setState('no_entry'); return; }

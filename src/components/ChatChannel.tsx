@@ -3,7 +3,7 @@ import {
   View, Text, FlatList, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
@@ -13,6 +13,7 @@ import MessageActionSheet from './MessageActionSheet';
 import { resolveAvatar } from '../lib/assets';
 import { useSocietyTheme } from '../lib/SocietyThemeContext';
 import { sendPushNotification } from '../lib/notifications';
+import { goBack } from '../lib/navigation';
 
 const GOLD  = '#D4AF37';
 const FF    = 'JUSTSans';
@@ -55,12 +56,33 @@ interface Message {
 
 interface Me { id: string; display_name: string; avatar_url: string | null; }
 
-export default function ChatChannel({ channel, title, subtitleLabel, placeholder }: {
+export default function ChatChannel({ channel, title, subtitleLabel, placeholder, backFallback = '/(app)', alwaysReplaceOnBack = false }: {
   channel: ChatChannelKey;
   title: string;
   subtitleLabel: string;
   placeholder: string;
+  // Where "← Back" lands when there's no real navigation history to pop
+  // (e.g. this chat was opened from a push notification/DM link) — the
+  // header previously had no back control at all (Rick's weekend findings,
+  // 2026-09-21: "we need a chat back button... an icon to leave the chat to
+  // go back to the tournament home page"). Defaults to Home; Tournament
+  // Chat passes '/(app)/tour' per that request.
+  backFallback?: string;
+  // Tour/Swindle chat live under app/(app)/chat/ (see chat/_layout.tsx's
+  // own Stack) as a SIBLING segment of app/(app)/tour and app/(app)/swindle
+  // — not nested under them — so navigating straight to /chat/tour or
+  // /chat/swindle makes Expo Router build out the chat segment's own stack
+  // first, auto-inserting chat/index (general chat) underneath as history
+  // that was never really visited. router.canGoBack() then reports true and
+  // router.back() lands on general chat instead of wherever the user
+  // actually came from (Dave, 2026-09-21: "click back and it takes me into
+  // all chat that isn't right"). For these two, always replace straight to
+  // backFallback rather than trusting that auto-inserted history; general
+  // chat (the default backFallback='/(app)') doesn't have this problem —
+  // it's the segment's own root, so real back-history there is genuine.
+  alwaysReplaceOnBack?: boolean;
 }) {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [me, setMe] = useState<Me | null>(null);
   // Same active-society source as everywhere else (Locker Room switcher) —
@@ -256,7 +278,14 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
 
       {/* Header: three-column */}
       <View style={ss.header}>
-        <View style={ss.headerLeft} />
+        <View style={ss.headerLeft}>
+          <TouchableOpacity
+            onPress={() => alwaysReplaceOnBack ? router.replace(backFallback as any) : goBack(router, backFallback)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="chevron-back" size={22} color={GOLD} />
+          </TouchableOpacity>
+        </View>
         <View style={ss.headerCenter}>
           <Text style={ss.headerTitle}>{title}</Text>
           <Text style={ss.headerSub}>{subtitleLabel} · {messages.length === 0 ? 'No messages yet' : 'Live'}</Text>

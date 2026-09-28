@@ -230,6 +230,17 @@ export function getStandings(
     return teamMap.get(id)!;
   };
 
+  // Every team we have a known Stableford/bonus total for gets a row even
+  // if it never appears in `matches` below — Odd Titan's rounds (qualifying
+  // AND final) are "everyone plays their own ball, points get combined per
+  // team" with no head-to-head fixture at all, so home_team_id/away_team_id
+  // are null on every one of its matches. Without this, the loop below
+  // never runs for it and the whole Team Leaderboard came back empty despite
+  // `teamStableford` already holding the right combined totals (Dave,
+  // 2026-09-18 — "it hasnt recorded any team data"). No-op for match-play
+  // formats, which already reach `ensure()` via the loop.
+  for (const id of new Set([...Object.keys(teamStableford), ...Object.keys(bonusPts)])) ensure(id);
+
   // Tie-break rung 2 ("team placed above opponent"): if two teams are still
   // level after points + combined Stableford, whoever won more head-to-head
   // matches between them ranks above the other. Aggregated across every match

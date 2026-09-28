@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, Alert, ActivityIndicator, FlatList, Modal, Platform, Image,
+  StyleSheet, Alert, ActivityIndicator, FlatList, Modal, Platform, Image, KeyboardAvoidingView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -382,25 +382,32 @@ export default function SwindleGroupNew() {
 
       {/* Add guest modal */}
       <Modal visible={addGuestModal} animationType="slide" presentationStyle="pageSheet">
-        <View style={[s.modal, { backgroundColor: dc.bg }]}>
-          <View style={s.modalHeader}>
-            <TouchableOpacity onPress={() => setAddGuestModal(false)}>
-              <Text style={s.modalCancel}>Cancel</Text>
-            </TouchableOpacity>
-            <Text style={s.modalTitle}>ADD GUEST</Text>
-            <TouchableOpacity onPress={addGuest}>
-              <Text style={s.modalDone}>Add</Text>
-            </TouchableOpacity>
+        {/* Had no keyboard handling at all — the "FULL NAME" field is the
+            first one in the form, so the keyboard opening covered it
+            outright (Dave, 2026-09-21: "when entering a name as a guest,
+            the keyboard covers it" — same report as the Casual Golf guest
+            form fixed earlier this session, GroupBuilderSheet.tsx). */}
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={[s.modal, { backgroundColor: dc.bg }]}>
+            <View style={s.modalHeader}>
+              <TouchableOpacity onPress={() => setAddGuestModal(false)}>
+                <Text style={s.modalCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={s.modalTitle}>ADD GUEST</Text>
+              <TouchableOpacity onPress={addGuest}>
+                <Text style={s.modalDone}>Add</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={s.modalScroll} keyboardShouldPersistTaps="handled">
+              <Text style={s.fieldLabel}>FULL NAME</Text>
+              <TextInput style={s.input} value={guestName} onChangeText={setGuestName} placeholder="First Surname" placeholderTextColor="#444" />
+              <Text style={s.fieldLabel}>PLAYING HANDICAP</Text>
+              <TextInput style={s.input} value={guestHcp} onChangeText={setGuestHcp} keyboardType="decimal-pad" placeholder="e.g. 12" placeholderTextColor="#444" />
+              <Text style={s.fieldLabel}>HOME CLUB (OPTIONAL)</Text>
+              <TextInput style={s.input} value={guestClub} onChangeText={setGuestClub} placeholder="e.g. Royal Birkdale" placeholderTextColor="#444" />
+            </ScrollView>
           </View>
-          <ScrollView contentContainerStyle={s.modalScroll} keyboardShouldPersistTaps="handled">
-            <Text style={s.fieldLabel}>FULL NAME</Text>
-            <TextInput style={s.input} value={guestName} onChangeText={setGuestName} placeholder="First Surname" placeholderTextColor="#444" />
-            <Text style={s.fieldLabel}>PLAYING HANDICAP</Text>
-            <TextInput style={s.input} value={guestHcp} onChangeText={setGuestHcp} keyboardType="decimal-pad" placeholder="e.g. 12" placeholderTextColor="#444" />
-            <Text style={s.fieldLabel}>HOME CLUB (OPTIONAL)</Text>
-            <TextInput style={s.input} value={guestClub} onChangeText={setGuestClub} placeholder="e.g. Royal Birkdale" placeholderTextColor="#444" />
-          </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

@@ -148,7 +148,7 @@ export default function SocietyBrandingScreen() {
   const backTarget = isForeign ? `/(app)/admin/society-detail/${societyId}` : '/(app)/admin/hub-tournament';
 
   return (
-    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar style="light" />
 
       {/* Header */}

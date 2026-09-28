@@ -49,7 +49,12 @@ export default function TeePickerSheet({
       <View style={[s.container, { backgroundColor: dc.bg }]}>
         <View style={s.header}>
           <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={s.cancel}>Cancel</Text>
+            {/* allowFontScaling={false} + numberOfLines={1} — same fix as
+                the leaderboard tabs and scorecard hole-grid cells (see their
+                comments): a fixed-width label with no room to grow wraps
+                mid-word under Dynamic Type otherwise (Rick's weekend
+                findings, 2026-09-21 — "the cancel button is on 2 lines"). */}
+            <Text allowFontScaling={false} numberOfLines={1} style={s.cancel}>Cancel</Text>
           </TouchableOpacity>
           <Text style={s.title}>{title}</Text>
           <View style={{ width: 50 }} />

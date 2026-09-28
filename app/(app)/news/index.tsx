@@ -13,6 +13,18 @@ import { articleLabel } from '../../../src/lib/titanNews';
 
 // Must match the key the Home screen's Titan News badge reads in app/(app)/index.tsx.
 const NEWS_READ_KEY = 'titan_news_last_read';
+
+// published_at over created_at — a story can sit as an unpublished draft
+// (admin/news.tsx's review queue) before an admin approves it, so the date
+// that matters to a reader is when it actually went out, not when the AI
+// first drafted it. Falls back to created_at only for the handful of
+// pre-this-feature rows that predate published_at being written at all
+// (Rick's weekend findings, 2026-09-21 — "we should have the date the news
+// was published").
+function articleDate(a: { created_at: string; published_at: string | null }): string {
+  const d = new Date(a.published_at ?? a.created_at);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' · ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
 const FFB = 'JUSTSans-ExBold';
 const FF  = 'JUSTSans';
 const HIT = { top: 10, bottom: 10, left: 10, right: 10 };
@@ -31,7 +43,7 @@ const MUTED = '#9ca3af';
 
 type Article = {
   id: string; story_type: string; headline: string | null; summary: string | null; body: string | null;
-  created_at: string; day_id: string | null; match_id: string | null; competition_id: string | null;
+  created_at: string; published_at: string | null; day_id: string | null; match_id: string | null; competition_id: string | null;
   competitions?: { name: string } | null;
   competition_days?: { day_number: number } | null;
   seasons?: { name: string } | null;
@@ -121,7 +133,7 @@ export default function TitanNewsScreen() {
   }, []);
 
   const load = useCallback(async () => {
-    const cols = 'id, story_type, headline, summary, body, created_at, day_id, match_id, competition_id, banter_speaker, banter_text, banter_scene, competition_days(day_number)';
+    const cols = 'id, story_type, headline, summary, body, created_at, published_at, day_id, match_id, competition_id, banter_speaker, banter_text, banter_scene, competition_days(day_number)';
 
     // Tournament stories only ever show inside their own tournament (opened
     // with a competitionId) — they must never spill into the global feed.
@@ -136,30 +148,41 @@ export default function TitanNewsScreen() {
       query = supabase.from('titan_news').select(`${cols}, competitions(name)`).eq('competition_id', competitionId);
     } else {
       // The global feed (no params — what the Home screen's Titan News tab
-      // opens to) is casual rounds only, scoped to people you'd actually
-      // recognise: your own society's members — "Friends" elsewhere in the
-      // app (app/(app)/friends.tsx, the "Friends on a round" widget on Home)
-      // means the same thing, your society's member list, not a separate
-      // relationship — so this is one scope, not two (Dave, 2026-09-11:
-      // "society casuals and friends list... you don't want mixed societies
-      // seeing what is going on").
+      // opens to) is casual rounds only, scoped to your own society.
       if (!societyId) { setArticles([]); setPhotos([]); setLoading(false); setRefreshing(false); return; }
+      // Casual rounds have carried their own society_id (competition_days,
+      // set by create_game_day_with_code) since 2026-09-21 — before that
+      // fix, this scoped purely by "is any player in the round currently a
+      // member of my society", which leaked a round into another society's
+      // feed the moment one multi-society player (an admin testing both,
+      // say) appeared in it, even if the round had nothing to do with that
+      // society (Dave, 2026-09-21: "why in titan news when im in skullers,
+      // showing titan news... not skullers round"). Rows from before that
+      // fix have no society_id on their day, so those still need the old
+      // player-membership check as a fallback — everything published going
+      // forward is scoped by the round's real society and doesn't.
       const { data: memberRows } = await supabase
         .from('society_members').select('player_id').eq('society_id', societyId);
-      const memberIds = (memberRows ?? []).map((m: any) => m.player_id as string);
-      if (memberIds.length === 0) { setArticles([]); setPhotos([]); setLoading(false); setRefreshing(false); return; }
-      // Same OR-of-per-id `cs` checks already proven working elsewhere in
-      // this codebase for "does this match involve any of these players"
-      // (app/(app)/index.tsx's "Friends on a round" widget) rather than a
-      // single multi-value `ov` overlap filter, which isn't used anywhere
-      // else in this codebase.
-      const orFilter = memberIds
-        .flatMap(id => [`home_player_ids.cs.{"${id}"}`, `away_player_ids.cs.{"${id}"}`])
-        .join(',');
-      query = supabase.from('titan_news')
-        .select(`${cols}, matches!inner(home_player_ids, away_player_ids)`)
+      const memberIds = new Set((memberRows ?? []).map((m: any) => m.player_id as string));
+
+      const { data: casualRows } = await supabase
+        .from('titan_news')
+        .select(`${cols}, matches!inner(home_player_ids, away_player_ids, competition_days(society_id))`)
         .eq('story_type', 'casual_final')
-        .or(orFilter, { foreignTable: 'matches' });
+        .eq('status', 'published')
+        .order('created_at', { ascending: false });
+
+      const rows = ((casualRows ?? []) as any[]).filter(row => {
+        const daySocietyId = row.matches?.competition_days?.society_id ?? null;
+        if (daySocietyId != null) return daySocietyId === societyId;
+        const players = [...(row.matches?.home_player_ids ?? []), ...(row.matches?.away_player_ids ?? [])];
+        return players.some((pid: string) => memberIds.has(pid));
+      }) as any as Article[];
+      setArticles(rows);
+      loadPhotos(rows).catch(e => { console.error('[news] round photo load failed', e); setPhotos([]); });
+      setLoading(false);
+      setRefreshing(false);
+      return;
     }
 
     const { data } = await query.eq('status', 'published').order('created_at', { ascending: false });
@@ -232,9 +255,12 @@ export default function TitanNewsScreen() {
                 onPress={() => setExpanded(isOpen ? null : a.id)}
                 activeOpacity={0.85}
               >
-                <Text style={[s.cardType, { color: GOLD }]}>
-                  {articleLabel(a.story_type, a.competition_days?.day_number ?? null, a.competitions?.name ?? a.seasons?.name ?? null)}
-                </Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={[s.cardType, { color: GOLD, marginBottom: 0 }]}>
+                    {articleLabel(a.story_type, a.competition_days?.day_number ?? null, a.competitions?.name ?? a.seasons?.name ?? null)}
+                  </Text>
+                  <Text style={[s.cardDate, { color: MUTED }]}>{articleDate(a)}</Text>
+                </View>
                 <Text style={[s.headline, { color: TEXT }]}>{a.headline}</Text>
                 <Text style={[s.summary, { color: MUTED }]} numberOfLines={isOpen ? undefined : 2}>{a.summary}</Text>
                 {isOpen && !!a.body && <Text style={[s.body, { color: MUTED }]}>{a.body}</Text>}
@@ -294,6 +320,7 @@ const s = StyleSheet.create({
   scroll: { paddingHorizontal: 20, gap: 12 },
   card: { borderRadius: 14, borderWidth: 1, padding: 16 },
   cardType: { fontSize: 10, fontFamily: FFB, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 },
+  cardDate: { fontSize: 10, fontFamily: FF, letterSpacing: 0.5 },
   headline: { fontSize: 16, fontFamily: FFB, marginBottom: 6 },
   summary:  { fontSize: 13, fontFamily: FF, lineHeight: 19 },
   body:     { fontSize: 13, fontFamily: FF, lineHeight: 20, marginTop: 12 },

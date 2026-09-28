@@ -7,6 +7,8 @@ export default function TourChatScreen() {
       title="Tournament Chat"
       subtitleLabel="The Tour"
       placeholder="Message the tour..."
+      backFallback="/(app)/tour"
+      alwaysReplaceOnBack
     />
   );
 }

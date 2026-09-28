@@ -98,7 +98,7 @@ function buildHoleSequence(startHole: number, holesToPlay: number): number[] {
 async function loadSwindleRoundContext(
   playerId: string,
   todayStr: string,
-): Promise<{ courseName: string | null; hole: number | null } | null> {
+): Promise<{ courseName: string | null; hole: number | null; gameId: string } | null> {
   const { data: entries, error } = await supabase
     .from('swindle_entries')
     .select('game_id, start_hole, game:game_id!inner(course_name, game_date, status)')
@@ -133,7 +133,36 @@ async function loadSwindleRoundContext(
   return {
     courseName: entry.game?.course_name ?? null,
     hole: holeSequence.find(h => !scored.has(h)) ?? holeSequence[holeSequence.length - 1] ?? 18,
+    gameId: entry.game_id,
   };
+}
+
+// Same round_format → scoring-screen routing table used by score/[matchId].tsx,
+// score/index.tsx and score/day/[dayId].tsx — kept in sync with those rather
+// than imported, since it's a plain string map, not a shared module export.
+// Camera is reached from a persistent bottom tab, not pushed on top of the
+// scoring screen, so `router.canGoBack()` is always false here and the old
+// hardcoded Close button dumped players straight to Home mid-round (Dave,
+// 2026-09-18 — "a bit frustrating"). Route back to the actual live
+// round/game instead whenever loadRoundContext found one.
+function scoringDestination(info: PlayerInfo): string | null {
+  if (info.matchId) {
+    const specialRoutes: Record<string, string> = {
+      skins:               `/(app)/score/skins/${info.matchId}`,
+      nassau:               `/(app)/score/nassau/${info.matchId}`,
+      scramble:             `/(app)/score/scramble/${info.matchId}`,
+      modified_stableford:  `/(app)/score/modified/${info.matchId}`,
+      par_bogey:            `/(app)/score/parbogey/${info.matchId}`,
+      team_stableford:      `/(app)/score/teamstableford/${info.matchId}`,
+      best2from4:           `/(app)/score/teamstableford/${info.matchId}`,
+      best2from4_par3all:   `/(app)/score/teamstableford/${info.matchId}`,
+    };
+    if (info.isSolo) return `/(app)/score/solo/${info.matchId}`;
+    if (info.roundFormat && specialRoutes[info.roundFormat]) return specialRoutes[info.roundFormat];
+    return `/(app)/score/enter/${info.matchId}`;
+  }
+  if (info.swindleGameId) return `/(app)/swindle/score/${info.swindleGameId}`;
+  return null;
 }
 
 // ── TITAN design tokens ───────────────────────────────────────
@@ -160,6 +189,9 @@ interface PlayerInfo {
   competitionId: string | null;
   dayId: string | null;
   matchId: string | null;
+  roundFormat: string | null;
+  isSolo: boolean;
+  swindleGameId: string | null;
 }
 
 function formatTime(secs: number): string {
@@ -196,6 +228,7 @@ export default function CameraScreen() {
   const [info, setInfo] = useState<PlayerInfo>({
     name: '', avatarUrl: null, playerId: null, courseName: null, hole: null,
     competitionId: null, dayId: null, matchId: null,
+    roundFormat: null, isSolo: false, swindleGameId: null,
   });
   const [composing, setComposing] = useState<{ uri: string; width: number; height: number } | null>(null);
   const composeRef = useRef<View>(null);
@@ -256,11 +289,14 @@ export default function CameraScreen() {
     let matchId: string | null = null;
     let dayId: string | null = null;
     let competitionId: string | null = null;
+    let roundFormat: string | null = null;
+    let isSolo = false;
+    let swindleGameId: string | null = null;
     const todayStr = localDateString(new Date());
     const liveCutoffMs = Date.now() - LIVE_MATCH_LOOKBACK_HOURS * 60 * 60 * 1000;
     const { data: candidates, error: matchErr } = await supabase
       .from('matches')
-      .select('id, competition_id, day_id, status, started_at, created_at, holes_string, holes_to_play, start_hole, day:day_id(course_name, day_date, play_date)')
+      .select('id, competition_id, day_id, status, started_at, created_at, holes_string, holes_to_play, start_hole, round_format, home_player_ids, away_player_ids, day:day_id(course_name, day_date, play_date)')
       .in('status', ['in_progress', 'upcoming'])
       .or(`home_player_ids.cs.{${player.id}},away_player_ids.cs.{${player.id}}`)
       .order('created_at', { ascending: false })
@@ -286,6 +322,8 @@ export default function CameraScreen() {
       matchId = match.id;
       dayId = match.day_id ?? null;
       competitionId = match.competition_id ?? null;
+      roundFormat = match.round_format ?? null;
+      isSolo = (match.away_player_ids ?? []).length === 0 && (match.home_player_ids ?? []).length === 1;
     }
 
     // Swindle rounds live in their own tables and never create a `matches`
@@ -300,6 +338,7 @@ export default function CameraScreen() {
       if (swindle) {
         courseName = swindle.courseName;
         hole = swindle.hole;
+        swindleGameId = swindle.gameId;
       }
     }
 
@@ -312,6 +351,9 @@ export default function CameraScreen() {
       matchId,
       dayId,
       competitionId,
+      roundFormat,
+      isSolo,
+      swindleGameId,
     });
   }, []);
 
@@ -497,7 +539,7 @@ export default function CameraScreen() {
         <TouchableOpacity style={s.permBtn} onPress={requestCamPerm}>
           <Text style={s.permBtnText}>Allow Camera</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => goBack(router, '/(app)/')} style={{ marginTop: 16 }}>
+        <TouchableOpacity onPress={() => { const dest = scoringDestination(info); if (dest) router.replace(dest as any); else goBack(router, '/(app)/'); }} style={{ marginTop: 16 }}>
           <Text style={s.closeText}>Close</Text>
         </TouchableOpacity>
       </View>
@@ -663,10 +705,14 @@ export default function CameraScreen() {
         active={cameraActive}
       />
 
-      {/* Close button */}
+      {/* Close button — back into the live round's scoring screen when
+          there is one (Dave, 2026-09-18), Home otherwise. Camera is a
+          persistent bottom tab rather than pushed on top of the scoring
+          screen, so router.canGoBack() is never true here — goBack()'s
+          fallback alone always landed on Home mid-round. */}
       <TouchableOpacity
         style={s.closeBtn}
-        onPress={() => goBack(router, '/(app)/')}
+        onPress={() => { const dest = scoringDestination(info); if (dest) router.replace(dest as any); else goBack(router, '/(app)/'); }}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
         <Text style={s.closeBtnText}>✕</Text>

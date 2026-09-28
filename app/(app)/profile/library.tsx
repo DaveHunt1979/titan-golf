@@ -524,7 +524,14 @@ export default function PlayerLibraryScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => { setAddModal(false); setLinkingEntry(null); }}
       >
-        <KeyboardAvoidingView style={s.modal} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* Android was passing `undefined` here — no keyboard avoidance at
+            all. Expo SDK 54's edge-to-edge default (see app/_layout.tsx's
+            SafeAreaProvider fix, 2026-09-21) means Android's own automatic
+            adjustResize can no longer be trusted to reposition content
+            around the keyboard on its own — 'height' is the documented
+            fallback (Dave, 2026-09-21: guest-name field hidden behind the
+            keyboard in Create Guest). */}
+        <KeyboardAvoidingView style={s.modal} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={s.modalHeader}>
             <TouchableOpacity onPress={() => { setAddModal(false); setLinkingEntry(null); }} hitSlop={hit}>
               <Text style={s.modalCancel}>Cancel</Text>

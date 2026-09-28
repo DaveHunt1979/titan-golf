@@ -1117,7 +1117,25 @@ export default function EnterScoresScreen() {
     // correction to an already-complete match takes the separate
     // reprocess path instead, which reverses and rebuilds the cut chain
     // from this round forward.
-    if (match.competition_id && match.day_id) {
+    //
+    // Dave, 2026-09-22: a match-play round is really TWO games sharing one
+    // scorecard — the team match (which can conclude early, dormie, "4&2")
+    // and the individual Stableford side game feeding Kronos/cuts (which
+    // only ever finishes at hole 18). Cuts must key off the side game's
+    // full 18 holes, never the team game's early finish — firing here on
+    // the dormie conclusion cut players on a partial total (confirmed:
+    // "Ricky Cut Test" cut Dave off 43pts through hole 16, not his real
+    // 50pts through 18, because the match was already 4up with 2 to play).
+    // So skip firing on exactly the completion that's about to offer the
+    // "continue to 18" choice — cuts fire for real once that continuation
+    // genuinely reaches hole 18 (continuingSecondary's own completion,
+    // which reaches this same block with continuingSecondary already true).
+    // If the player declines ("Finish Now"), the round never reaches a full
+    // 18-hole total, so no cut fires for it at all — consistent with "you
+    // get cut at 18, not when the team game ends."
+    const matchplayConcludedEarlyNeedsFullStableford = match.round_format === 'matchplay' && c.newStatus === 'complete' && !wasAlreadyComplete && !continuingSecondary
+      && !!(match.secondary_format || match.day?.competition?.include_in_kronos || match.day?.competition?.handicap_cuts_enabled);
+    if (match.competition_id && match.day_id && !matchplayConcludedEarlyNeedsFullStableford) {
       if (wasAlreadyComplete) {
         reprocessFromDay(match.day_id).catch(e => console.warn('[handicapCuts] reprocess failed', e));
       } else if (c.newStatus === 'complete') {
@@ -1455,6 +1473,18 @@ export default function EnterScoresScreen() {
   const statusBannerColor = isMatchplay ? (liveHomeUp >= 0 ? homeColor : awayColor) : GOLD;
   const statusBannerSub = isComplete ? 'Match complete' : holesLeft > 0 ? `${holesLeft} holes to play` : 'Last hole';
 
+  // Ricky, 2026-09-21 (WhatsApp): "the 85% of the difference isn't working"
+  // — it was, but nothing on this screen ever showed the allowance or that a
+  // Tournament Handicap Cut had already reduced a player's number, so a
+  // correctly-applied reduction read as broken. Same tag pattern already
+  // used on the results screen (score/[matchId].tsx); just wasn't here yet.
+  const hcpAllowancePct = match.hcp_allowance ?? 100;
+  const hcpCutApplied = !!match.day?.competition?.handicap_cuts_enabled && allPlayerIds.some(id => {
+    const raw = baseCompRef.current.find(c => c.player_id === id)?.handicap_index;
+    const effective = compPlayers.find(c => c.player_id === id)?.handicap_index;
+    return raw != null && effective != null && effective !== raw;
+  });
+
   const modalStatusText = editingHole
     ? `Editing Hole ${editingHole}`
     : isStrokePlay
@@ -1582,6 +1612,22 @@ export default function EnterScoresScreen() {
           <Text style={s.statusSecondary}>2nd Game: {leaderName} leads · {leaderPts}pts</Text>
         )}
         <Text style={s.statusSub}>{statusBannerSub}</Text>
+        {(hcpAllowancePct !== 100 || hcpCutApplied) && (
+          <View style={s.hcpTagsRow}>
+            {hcpAllowancePct !== 100 && (
+              <View style={s.hcpTag}>
+                <Ionicons name="person-outline" size={10} color="#fff" />
+                <Text style={s.hcpTagText}>{hcpAllowancePct === 0 ? 'Scratch' : `${hcpAllowancePct}% HCP`}</Text>
+              </View>
+            )}
+            {hcpCutApplied && (
+              <View style={[s.hcpTag, s.hcpTagGold]}>
+                <Ionicons name="trending-down-outline" size={10} color={GOLD} />
+                <Text style={[s.hcpTagText, { color: GOLD }]}>Tournament HCP Cut Applied</Text>
+              </View>
+            )}
+          </View>
+        )}
       </View>
 
       {/* ── Hole strip ── */}
@@ -1721,6 +1767,12 @@ export default function EnterScoresScreen() {
                   {dayBoard.length > 1 ? (
                     <View style={s.leaderboard}>
                       <Text style={s.lbGroupHeader}>ALL GROUPS</Text>
+                      {/* Ricky, 2026-09-21 (WhatsApp): read this board as a
+                          mistake ("I'm seeing your scores, you're in the
+                          other match") — it's the whole day's leaderboard by
+                          design (dayBoard.length > 1 above), not this
+                          match's. One line so it can't be missed. */}
+                      <Text style={s.lbGroupSubheader}>Every match today, not just yours</Text>
                       {dayBoard.slice(0, 6).map((entry, rank) => {
                         const isLeader = rank === 0 && entry.holesPlayed > 0;
                         return (
@@ -2302,7 +2354,7 @@ export default function EnterScoresScreen() {
         return (
           <Modal visible transparent animationType="slide" onRequestClose={() => setEditPlayerId(null)}>
             <TouchableOpacity style={sh.overlay} activeOpacity={1} onPress={() => setEditPlayerId(null)} />
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
               <View style={[sh.sheet, { paddingBottom: 44 }]}>
                 <View style={sh.handle} />
                 {/* Player identity */}
@@ -2732,6 +2784,10 @@ const s = StyleSheet.create({
   statusMain:   { fontFamily: FFB, fontSize: 22, letterSpacing: -0.3 },
   statusSecondary: { fontFamily: FFB, fontSize: 11, color: GOLD, marginTop: 2, letterSpacing: 0.5 },
   statusSub:    { fontFamily: FFB, fontSize: 12, color: '#fff', marginTop: 2 },
+  hcpTagsRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 8 },
+  hcpTag:       { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, backgroundColor: '#111111', borderWidth: 1, borderColor: '#1c1c1c' },
+  hcpTagGold:   { backgroundColor: `${GOLD}0d`, borderColor: `${GOLD}30` },
+  hcpTagText:   { fontFamily: FFB, fontSize: 11, color: '#fff' },
 
   holeStripWrap: { maxHeight: 72 },
   holeStrip:     { paddingHorizontal: 12, paddingVertical: 6, gap: 6, alignItems: 'center' },
@@ -2785,6 +2841,7 @@ const s = StyleSheet.create({
   soloStatPts:    { fontFamily: FFB, fontSize: 40, color: GOLD, lineHeight: 44 },
   soloStatPtsLabel: { fontFamily: FFB, fontSize: 11, color: '#9ca3af', letterSpacing: 2 },
   lbGroupHeader:  { fontFamily: FFB, fontSize: 9, color: GOLD, letterSpacing: 2, marginBottom: 2 },
+  lbGroupSubheader: { fontFamily: FFB, fontSize: 9, color: '#9ca3af', marginBottom: 6 },
   lbRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
   lbRank:         { fontFamily: FFB, fontSize: 12, width: 18, textAlign: 'center' },
   lbName:         { flex: 1, fontFamily: FFB, fontSize: 13, color: '#ffffff' },

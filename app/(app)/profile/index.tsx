@@ -259,7 +259,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={[s.root, { backgroundColor: dc.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[s.root, { backgroundColor: dc.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar style="light" />
 
       {/* ── Header ── */}
@@ -541,7 +541,7 @@ export default function ProfileScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowPwModal(false)}
       >
-        <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={s.header}>
             <TouchableOpacity onPress={() => setShowPwModal(false)} hitSlop={HIT} style={s.headerSide}>
               <Text style={s.cancelLink}>Cancel</Text>

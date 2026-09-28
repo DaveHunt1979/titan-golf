@@ -16,11 +16,16 @@ import { supabase, fetchAllRows } from './supabase';
 
 export interface HandicapCutBand { min: number; max: number | null; cutPerPoint: number; }
 
+// Rick's brief (spec doc, 2026-09-22): 0-9 -> 0.5/pt, 10-18 -> 1.0/pt,
+// 19-28 -> 1.5/pt. Above 28 is explicitly undefined in the brief ("do not
+// invent a cut rate until we have defined that additional tier") — kept at
+// the same 1.5 as the top defined tier rather than inventing a higher one,
+// pending Rick/Dave actually specifying it.
 export const DEFAULT_HANDICAP_CUT_BANDS: HandicapCutBand[] = [
   { min: 0,  max: 9.9,  cutPerPoint: 0.5 },
   { min: 10, max: 18.9, cutPerPoint: 1.0 },
-  { min: 19, max: 28.9, cutPerPoint: 2.0 },
-  { min: 29, max: null, cutPerPoint: 2.0 },
+  { min: 19, max: 28.9, cutPerPoint: 1.5 },
+  { min: 29, max: null, cutPerPoint: 1.5 },
 ];
 
 export interface TournamentCutConfig {
@@ -239,9 +244,16 @@ export async function checkAndProcessDayCuts(dayId: string | null | undefined): 
 
 // Call once every match in a day is complete (fire-and-forget from the
 // score-completion screens, plus the same reconciliation-pass pattern
-// admin/news.tsx already uses for the Final Report). Idempotent: a second
-// concurrent call for the same day+player hits the partial unique index on
-// tournament_handicap_history and is caught/ignored below.
+// admin/news.tsx already uses for the Final Report). Idempotent, and
+// self-correcting: a matchplay round's team game can go "complete" (dormie)
+// well before its individual Stableford side game reaches hole 18, so this
+// can legitimately get called twice for the same day+player — once too
+// early (partial total) and once for real. Rather than let the unique
+// index silently keep whichever call happened to insert first (which kept
+// the WRONG, partial-total cut in place forever — confirmed live, Dave,
+// 2026-09-22), every call recomputes from the day's current totals and, if
+// they've changed since the active row, supersedes it with a new revision —
+// the same supersede-then-insert shape reprocessFromDay already uses.
 export async function processDayCuts(dayId: string): Promise<void> {
   const { data: day } = await supabase
     .from('competition_days')
@@ -258,21 +270,47 @@ export async function processDayCuts(dayId: string): Promise<void> {
   const { playerIds, holesToPlay, totals } = await loadDayPlayerStableford(dayId);
   if (playerIds.length === 0) return;
 
-  const { data: cpRows } = await supabase
-    .from('competition_players')
-    .select('id, player_id, starting_tournament_handicap, current_tournament_handicap')
-    .eq('competition_id', competitionId)
-    .in('player_id', playerIds);
+  const [{ data: cpRows }, { data: activeRows }] = await Promise.all([
+    supabase.from('competition_players')
+      .select('id, player_id, starting_tournament_handicap, current_tournament_handicap')
+      .eq('competition_id', competitionId)
+      .in('player_id', playerIds),
+    supabase.from('tournament_handicap_history')
+      .select('id, player_id, revision, stableford_pts, handicap_before_cut')
+      .eq('competition_day_id', dayId)
+      .is('superseded_at', null),
+  ]);
+  const activeByPlayer = new Map(((activeRows ?? []) as any[]).map(r => [r.player_id, r]));
 
   const trigger = effectiveTriggerScore(config.triggerScore, holesToPlay);
 
   for (const cp of (cpRows ?? []) as any[]) {
     const startHcp = cp.starting_tournament_handicap;
-    const beforeCut = cp.current_tournament_handicap ?? startHcp;
-    if (beforeCut == null) continue; // not snapshotted (shouldn't happen post-Go-Live, but never guess)
+    const active = activeByPlayer.get(cp.player_id);
     const stablefordPts = totals[cp.player_id] ?? 0;
+
+    // Already has an active row for this exact total — genuinely nothing
+    // changed since the last successful call, true no-op.
+    if (active && Number(active.stableford_pts) === stablefordPts) continue;
+
+    // "Before cut" baseline: reuse whatever an existing active row for THIS
+    // day already recorded (so correcting a partial-total row recomputes
+    // only the total, never re-bases off current_tournament_handicap —
+    // which an earlier partial call may have already moved, and re-basing
+    // off that would double-cut). No active row yet — normal case, cut
+    // from wherever prior days left the player (current_tournament_handicap),
+    // falling back to the tournament start for an unprocessed day 1.
+    const beforeCut = active ? Number(active.handicap_before_cut) : (cp.current_tournament_handicap ?? startHcp);
+    if (beforeCut == null) continue; // not snapshotted (shouldn't happen post-Go-Live, but never guess)
     const result = calcRoundCut(stablefordPts, trigger, beforeCut, config.bands);
     const afterCut = applyCut(beforeCut, result.cut, config.minimum);
+
+    if (active) {
+      await supabase.from('tournament_handicap_history').update({
+        superseded_at: new Date().toISOString(),
+        superseded_reason: 'recomputed_more_complete_total',
+      }).eq('id', active.id);
+    }
 
     const { error } = await supabase.from('tournament_handicap_history').insert({
       competition_id: competitionId,
@@ -286,10 +324,10 @@ export async function processDayCuts(dayId: string): Promise<void> {
       cut_per_point: result.cutPerPoint,
       cut_applied: result.cut,
       handicap_after_cut: afterCut,
+      revision: (active?.revision ?? 0) + 1,
     });
-    // 23505 = unique_violation — another client already processed this
-    // day+player; leave their competition_players row exactly as that
-    // first successful call left it.
+    // 23505 = unique_violation — another concurrent call already inserted
+    // this exact revision first; leave their write as the winner.
     if (error) { if ((error as any).code !== '23505') console.error('[tournamentHandicap] processDayCuts insert failed', error); continue; }
 
     await supabase.from('competition_players').update({
@@ -417,5 +455,43 @@ export async function reprocessFromDay(dayId: string): Promise<void> {
       current_tournament_handicap: afterCut,
       total_tournament_cut: startHcp != null ? Number(startHcp) - afterCut : 0,
     }).eq('id', cpId);
+  }));
+}
+
+export interface PlayerHandicapCutRound {
+  dayNumber: number;
+  startingHandicap: number;
+  stablefordPts: number;
+  triggerScore: number;
+  cutPerPoint: number;
+  pointsOverTrigger: number;
+  cutApplied: number;
+  handicapAfterCut: number;
+}
+
+// The full active (non-superseded) history for one player in one
+// tournament, oldest round first — Rick's brief, section 17's "Handicap
+// History" table. Used by HandicapCutHistorySheet; kept here rather than
+// inline in the component so any future screen (e.g. a full tournament
+// audit view) can reuse the exact same read.
+export async function fetchPlayerHandicapCutHistory(
+  competitionId: string, playerId: string,
+): Promise<PlayerHandicapCutRound[]> {
+  const { data } = await supabase
+    .from('tournament_handicap_history')
+    .select('day_number, handicap_before_cut, stableford_pts, trigger_score, cut_per_point, points_over_trigger, cut_applied, handicap_after_cut')
+    .eq('competition_id', competitionId)
+    .eq('player_id', playerId)
+    .is('superseded_at', null)
+    .order('day_number', { ascending: true });
+  return ((data ?? []) as any[]).map(r => ({
+    dayNumber: r.day_number,
+    startingHandicap: Number(r.handicap_before_cut),
+    stablefordPts: r.stableford_pts,
+    triggerScore: r.trigger_score,
+    cutPerPoint: Number(r.cut_per_point),
+    pointsOverTrigger: r.points_over_trigger,
+    cutApplied: Number(r.cut_applied),
+    handicapAfterCut: Number(r.handicap_after_cut),
   }));
 }

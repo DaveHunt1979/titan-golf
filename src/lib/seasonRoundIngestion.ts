@@ -371,7 +371,14 @@ export async function recalculateSeasonEntry(seasonEntryId: string, seasonId: st
   ]);
   const entryRow = entry as { player_id: string; division_id: string | null; current_position: number | null; movement_status: string | null; qualification_status: string; counting_rounds_count: number } | null;
   const roundRows = (rounds ?? []) as { id: string; played_at: string; base_titan_round_points: number; major_id: string | null }[];
-  if (!entryRow || roundRows.length === 0) return;
+  if (!entryRow) return;
+  // Previously bailed out entirely when roundRows was empty — meaning
+  // voiding someone's LAST (or only) qualifying round left season_entries'
+  // cached season_points/counting_rounds_count/qualifying_rounds_count
+  // stuck at their old value forever, since nothing ever wrote the zeroed-out
+  // state back (Dave, 2026-09-18 — voided his rounds, still showed 93 pts).
+  // Every step below already handles an empty roundRows safely (selectCountingRounds
+  // returns 0 points/no counting rounds, the per-round update Promise.all is a no-op).
 
   // Resolve each Major window independently — only the entry's single best
   // Base Titan Round Points inside that window gets the multiplier.

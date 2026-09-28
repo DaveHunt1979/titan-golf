@@ -94,7 +94,7 @@ export default function SeasonJoinScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={[s.container, { backgroundColor: dc.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[s.container, { backgroundColor: dc.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar style="light" />
       <View style={s.header}>
         <TouchableOpacity onPress={() => goBack(router, '/(app)/season')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>

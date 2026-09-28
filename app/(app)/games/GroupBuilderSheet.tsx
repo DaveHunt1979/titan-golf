@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
@@ -157,6 +157,16 @@ export default function GroupBuilderSheet({
   const [profileTeeChoice, setProfileTeeChoice] = useState<SelectableTee | null>(null);
   const [courseTees, setCourseTees] = useState<SelectableTee[]>([]);
   const [guestTarget, setGuestTarget] = useState<{ gi: number; si: number; side: 'home' | 'away' } | null>(null);
+  // autoFocus alone opens the keyboard the instant this TextInput mounts —
+  // while the Modal's own "slide" entrance animation is still in progress,
+  // so KeyboardAvoidingView measures the view's mid-transition (wrong)
+  // position when the keyboard-show event fires, and the padding it adds
+  // never corrects itself afterwards (Dave, 2026-09-21 — "when entering a
+  // name as a guest, the keyboard covers it", also on iPhone, so this isn't
+  // Android-only). Focusing manually from the Modal's onShow — which iOS
+  // fires only once the entrance animation has actually finished — instead
+  // of the autoFocus prop avoids the race entirely.
+  const guestNameInputRef = useRef<TextInput>(null);
   const [guestName, setGuestName] = useState('');
   const [guestHcp, setGuestHcp] = useState('');
   const [guestSaving, setGuestSaving] = useState(false);
@@ -687,8 +697,26 @@ export default function GroupBuilderSheet({
         return (
           <Modal visible transparent animationType="slide" onRequestClose={() => setProfileTarget(null)}>
             <TouchableOpacity style={css.overlay} activeOpacity={1} onPress={() => setProfileTarget(null)} />
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '90%' }}>
-              <View style={[css.subSheet, { backgroundColor: dc.card, paddingBottom: 0 }]}>
+            {/* Android was passing `undefined` here — no keyboard avoidance
+                at all — relying on the OS's own adjustResize instead, which
+                doesn't reliably propagate through a Modal nested inside this
+                component's own outer Modal (each RN Modal is a separate
+                native window on Android). 'height' is the standard fix for
+                a keyboard-covering-input report inside a nested modal
+                (Rick's weekend findings, 2026-09-21 — guest-name field).
+                Also same structural fix as the Add Guest sheet below: the
+                child sheet was position:'absolute' (inherited from the
+                shared subSheet style) nested inside an already-absolute
+                KeyboardAvoidingView, which doesn't reliably respect the
+                parent's keyboard padding — switched to a full-height
+                flex-end KeyboardAvoidingView with a normal (relative)
+                sheet child. */}
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={{ flex: 1, justifyContent: 'flex-end' }}
+              pointerEvents="box-none"
+            >
+              <View style={[css.subSheet, { backgroundColor: dc.card, paddingBottom: 0, position: 'relative', maxHeight: '90%' }]}>
                 <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 44 }} showsVerticalScrollIndicator={false}>
                   {/* Player identity */}
                   <View style={{ alignItems: 'center', marginBottom: 20 }}>
@@ -856,22 +884,46 @@ export default function GroupBuilderSheet({
           Name and handicap are set here and only here: a guest is a
           throwaway row for this round, not an account anyone edits later. */}
       {guestTarget !== null && (
-        <Modal visible transparent animationType="slide" onRequestClose={() => setGuestTarget(null)}>
+        <Modal
+          visible transparent animationType="slide"
+          onRequestClose={() => setGuestTarget(null)}
+          onShow={() => guestNameInputRef.current?.focus()}
+        >
           <TouchableOpacity style={css.overlay} activeOpacity={1} onPress={() => setGuestTarget(null)} />
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '90%' }}>
-            <View style={[css.subSheet, { backgroundColor: dc.card }]}>
+          {/* Was: KeyboardAvoidingView AND its child sheet both position:
+              'absolute' (the child inherits that from the shared subSheet
+              style) — an absolutely-positioned child pinned to bottom:0
+              doesn't reliably respect its KeyboardAvoidingView parent's
+              padding adjustments, so the keyboard could still end up
+              covering the input even once it was correctly focused (Dave,
+              2026-09-21, with a screenshot: only the "Add Guest" title
+              stayed visible, the Name field pushed off-screen entirely).
+              Standard fix: KeyboardAvoidingView spans the full modal
+              (flex: 1) and bottom-aligns its child via justifyContent —
+              the sheet itself becomes a normal (position: 'relative') flex
+              child instead of independently absolute, so it actually
+              participates in the parent's keyboard-avoidance layout.
+              pointerEvents="box-none" lets taps in the KeyboardAvoidingView's
+              own empty space (above the sheet) still reach the dismiss
+              overlay behind it. */}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1, justifyContent: 'flex-end' }}
+            pointerEvents="box-none"
+          >
+            <View style={[css.subSheet, { backgroundColor: dc.card, position: 'relative', maxHeight: '90%' }]}>
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 <Text style={[css.subTitle, { color: dc.white, borderBottomColor: dc.border }]}>Add Guest</Text>
 
                 <Text style={css.profileLabel}>NAME</Text>
                 <TextInput
+                  ref={guestNameInputRef}
                   style={[css.nameInput, { color: dc.white, borderColor: dc.border }]}
                   value={guestName}
                   onChangeText={setGuestName}
                   placeholder="Guest's name"
                   placeholderTextColor="#555"
                   autoCapitalize="words"
-                  autoFocus
                 />
 
                 <Text style={[css.profileLabel, { marginTop: 16 }]}>HANDICAP — BLANK FOR SCRATCH</Text>

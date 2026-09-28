@@ -1210,7 +1210,7 @@ export default function BuildTournamentScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar style="light" />
 
@@ -2459,7 +2459,7 @@ function CourseSheet({
       <TouchableOpacity style={sheetStyles.overlay} activeOpacity={1} onPress={onClose} />
       <KeyboardAvoidingView
         style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '75%' }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
       <View style={sheetStyles.sheetKb}>
         <View style={sheetStyles.handle} />

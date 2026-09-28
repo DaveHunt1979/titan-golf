@@ -4,6 +4,7 @@ import { AppState, Platform, View, TouchableOpacity, StyleSheet, Animated, Image
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { CommonActions } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../src/lib/supabase';
 import { registerForPushNotifications, currentRoute, clearBadgeCount } from '../../src/lib/notifications';
 import { titanLogo } from '../../src/lib/assets';
@@ -109,6 +110,7 @@ export default function AppLayout() {
 
 function AppLayoutInner() {
   const { palette } = useSocietyTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
   const [isAdmin,    setIsAdmin]    = useState(false);
@@ -210,8 +212,19 @@ function AppLayoutInner() {
               backgroundColor: '#0a0a0a',
               borderTopColor: '#1c1c1c',
               borderTopWidth: 1,
-              height: Platform.OS === 'ios' ? 88 : 64,
-              paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+              // A custom height opts this tab bar out of React Navigation's
+              // own automatic bottom-inset handling, so it must add the real
+              // inset itself below — iOS's fixed 28 already matches the
+              // home indicator closely enough on every iPhone, but Android's
+              // system nav bar height genuinely varies by device/manufacturer
+              // (3-button vs gesture nav, different again per OEM skin), so
+              // a flat 8px there left real content sitting behind it on some
+              // phones (Steve, 2026-09-20 in-app chat — "the home page drops
+              // off slightly off the bottom of the screen"). insets.bottom
+              // needs react-native-safe-area-context's SafeAreaProvider,
+              // newly wired up at the app root (app/_layout.tsx) for this.
+              height: Platform.OS === 'ios' ? 88 : 64 + insets.bottom,
+              paddingBottom: Platform.OS === 'ios' ? 28 : 8 + insets.bottom,
             },
         ...(IS_PAD ? {} : {
           tabBarActiveTintColor:   palette.accent,

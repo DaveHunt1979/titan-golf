@@ -520,7 +520,7 @@ export default function TransferWindowScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setTeamModal(false)}
       >
-        <KeyboardAvoidingView style={styles.teamModal} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={styles.teamModal} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.teamModalHeader}>
             <TouchableOpacity onPress={() => setTeamModal(false)} hitSlop={hit}>
               <Text style={styles.teamModalCancel}>Cancel</Text>

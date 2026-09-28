@@ -838,6 +838,43 @@ export default function TournamentDrawScreen() {
           });
         }
       }
+    } else if (isFinalDay && comp?.format === 'odd_titan') {
+      // Odd Titan's final day fell into the generic round-robin branch below,
+      // which always byes exactly one team when the team count is odd — the
+      // same "one team doesn't play" problem already fixed for the
+      // qualifying rounds on 2026-09-16, just missed here (Dave, 2026-09-21:
+      // a 5-team sim's "Destroyers" scored zero points because their whole
+      // roster was silently excluded from every final-day match). Odd
+      // Titan's team size is fixed at 4, so the player count is always even
+      // regardless of how many teams there are — pairing players 1v1 across
+      // teams (never by team) means every player always has an opponent, no
+      // bye needed. Reuses the same mixed-pairing engine as the qualifying
+      // groups (generateOddTitanGroups), just at pair (groupSize 2) instead
+      // of fourball (groupSize 4) granularity, so "avoid pairing teammates"
+      // stays consistent between qualifying and final rounds.
+      const players = teamIds.flatMap(tid => grouped[tid].map(pid => ({ id: pid, teamId: tid })));
+      const teamByPlayer = new Map(players.map(p => [p.id, p.teamId]));
+      const pairSchedule = generateOddTitanGroups({ players, qualifyingDayNumbers: [day.day_number], groupSize: 2 });
+      const pairs = pairSchedule.groupsByDay[day.day_number] ?? [];
+      for (const pair of pairs) {
+        const [p1, p2] = pair;
+        if (!p1 || !p2) continue;
+        matchRows.push({
+          competition_id: competitionId,
+          day_id:         day.id,
+          match_number:   matchNum++,
+          home_team_id:   teamByPlayer.get(p1) ?? null,
+          away_team_id:   teamByPlayer.get(p2) ?? null,
+          home_player_ids: [p1],
+          away_player_ids: [p2],
+          round_format:   roundFmt,
+          is_singles:     true,
+          hcp_allowance:  hcp,
+          handicap_method: handicapMethod,
+          status:         'upcoming',
+          side_games:     sideGamesTags,
+        });
+      }
     } else {
       // Round-robin: rotate fixture list by day_number so matchups vary each
       // day (the "circle method"). Odd team counts get a "bye" placeholder

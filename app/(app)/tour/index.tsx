@@ -17,6 +17,7 @@ import { teamLogos, resolveAvatar } from '../../../src/lib/assets';
 import { useChatUnread } from '../../../src/lib/useChatUnread';
 import Leaderboard, { type LeaderboardRow } from '../../../src/components/Leaderboard';
 import TCardSheet from '../../../src/components/TCardSheet';
+import HandicapCutHistorySheet from '../../../src/components/HandicapCutHistorySheet';
 import type { EditablePlayer } from '../../../src/components/PlayerEditSheet';
 import type { Competition, CompetitionDay, Match, Team, Champion, Notification } from '../../../src/types';
 import {
@@ -71,6 +72,21 @@ function formatDate(s: string | null): string {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
+// include_in_kronos is an admin toggle meaning "ALSO show a supplementary
+// individual trophy board on top of this TEAM tournament" — it correctly
+// defaults off for a team format until an admin opts in. But for a format
+// with no team board at all (Individual Stableford, Stroke Play —
+// isTeamFormat: false), that same toggle was the ONLY thing gating this
+// tournament's own individual leaderboard tab, and it defaults off there
+// too — so a non-team tournament had no leaderboard reachable from the
+// Leaderboard tile at all (Rick's weekend findings, 2026-09-21: PINs 2726
+// and 7397, "not showing a leaderboard or individual scores"). For a
+// non-team format this IS the tournament's only standings board, so it
+// must always be treated as on regardless of the stored toggle value.
+function effectiveIncludeInKronos(comp: { format: string; include_in_kronos?: boolean | null }): boolean {
+  return !!comp.include_in_kronos || !getFormatRules(comp.format).isTeamFormat;
+}
+
 export default function TourScreen() {
   const dc = useDynamicColors();
   const { palette, societyId: SOCIETY_ID, localLogo, logoUrl } = useSocietyTheme();
@@ -108,6 +124,10 @@ export default function TourScreen() {
   const [champions, setChampions]     = useState<Champion[]>([]);
   const [myPlayerId, setMyPlayerId]   = useState<string | null>(null);
   const [tcardMember, setTcardMember] = useState<EditablePlayer | null>(null);
+  const [handicapHistoryFor, setHandicapHistoryFor] = useState<{
+    playerId: string; playerName: string; officialHandicap: number | null;
+    currentTournamentHandicap: number | null; totalTournamentCut: number;
+  } | null>(null);
   const chatUnread = useChatUnread('tour', SOCIETY_ID, myPlayerId);
   const [loading, setLoading]         = useState(true);
   const [refreshing, setRefreshing]   = useState(false);
@@ -524,6 +544,18 @@ export default function TourScreen() {
     // pull-to-refresh could silently swap `competition` to a tournament the
     // player never joined and bounce them to "Enter PIN" — reported by Dave
     // 2026-08-19 as "pull to refresh kicks you out of the tournament."
+    // Was: no society_id filter on the joinedComp lookup below — the
+    // remembered PIN'd competition id is stored globally (one AsyncStorage
+    // key, not scoped per society), so switching societies still found and
+    // showed the OLD society's tournament (it always wins over activeComp/
+    // completeComp below), since a competition id it once matched by is
+    // still a valid id after switching (Ricky, 2026-09-20 — a Titan
+    // tournament still displayed after switching into MASHIE Society).
+    // Scoping the lookup itself to the current SOCIETY_ID is enough — no
+    // need to also re-key AsyncStorage per society, since a stale id for
+    // the wrong society now just misses and falls through to that society's
+    // own activeComp/completeComp, and still matches correctly again the
+    // moment the player switches back.
     const alreadyJoinedId = await AsyncStorage.getItem(STORAGE_KEY);
     // A completed tournament stays visible to whoever already joined it (or
     // is the society's most recent completion, for a player who never had a
@@ -535,7 +567,7 @@ export default function TourScreen() {
     // tournament is never masked by an old completed one.
     const [{ data: joinedComp }, { data: activeComp }, { data: completeComp }, { data: notifs }, { data: soc }] = await Promise.all([
       alreadyJoinedId
-        ? supabase.from('competitions').select('*').eq('id', alreadyJoinedId).in('status', ['active', 'complete']).maybeSingle()
+        ? supabase.from('competitions').select('*').eq('id', alreadyJoinedId).eq('society_id', SOCIETY_ID ?? '').in('status', ['active', 'complete']).maybeSingle()
         : Promise.resolve({ data: null }),
       supabase.from('competitions').select('*').eq('status', 'active').eq('society_id', SOCIETY_ID ?? '').limit(1).maybeSingle(),
       supabase.from('competitions').select('*').eq('status', 'complete').eq('society_id', SOCIETY_ID ?? '').order('created_at', { ascending: false }).limit(1).maybeSingle(),
@@ -560,7 +592,7 @@ export default function TourScreen() {
     setCompetition(comp as unknown as Competition);
     setInfoPack({ ...emptyInfoPack(), ...((comp as any).info_pack ?? {}) });
     setJoinedId(alreadyJoinedId);
-    if (alreadyJoinedId === comp.id) await loadTournamentData(comp.id, !!(comp as any).include_in_kronos, mySeq, (comp as any).kronos_overall_prize ?? null);
+    if (alreadyJoinedId === comp.id) await loadTournamentData(comp.id, effectiveIncludeInKronos(comp), mySeq, (comp as any).kronos_overall_prize ?? null);
     if (mySeq !== loadSeq.current) return;
     setLoading(false);
     setRefreshing(false);
@@ -580,7 +612,7 @@ export default function TourScreen() {
     setCompetition(data as unknown as Competition);
     await AsyncStorage.setItem(STORAGE_KEY, data.id);
     setJoinedId(data.id);
-    await loadTournamentData(data.id, !!(data as any).include_in_kronos, ++loadSeq.current, (data as any).kronos_overall_prize ?? null);
+    await loadTournamentData(data.id, effectiveIncludeInKronos(data), ++loadSeq.current, (data as any).kronos_overall_prize ?? null);
   }
 
   function leaveTournament() {
@@ -607,7 +639,7 @@ export default function TourScreen() {
   // for the next one's PIN). Must come before any derived data below,
   // since that section dereferences `competition` directly.
   if (!competition || joinedId !== competition.id) return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: dc.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: dc.bg }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar style="light" />
       {/* TITAN header */}
       <View style={[st.titanHeader, { backgroundColor: dc.bg, borderBottomColor: dc.border }]}>
@@ -1129,7 +1161,7 @@ export default function TourScreen() {
             {!!competition && (
               <TouchableOpacity
                 style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]}
-                onPress={() => router.push(`/(app)/news?competitionId=${competition.id}` as any)}
+                onPress={() => router.push(`/(app)/news?competitionId=${competition.id}&back=${encodeURIComponent('/(app)/tour')}` as any)}
                 activeOpacity={0.82}
               >
                 <View style={[st.sectionTileIconBox, { backgroundColor: dc.iconBoxBg, borderColor: dc.iconBoxBorder }]}>
@@ -1139,6 +1171,26 @@ export default function TourScreen() {
                 <Text style={[st.sectionTileSub, { color: dc.cardText }]} numberOfLines={2}>AI reports & previews</Text>
               </TouchableOpacity>
             )}
+            {/* Square tile, not a full-width banner (Dave, 2026-09-18) — sits
+                next to Titan News to fill the last row's empty half instead
+                of running along the top of the menu. Same destination/badge
+                as the Live & Social copy of this button (below), untouched. */}
+            <TouchableOpacity
+              style={[st.sectionTile, { backgroundColor: dc.card, borderColor: dc.border }]}
+              onPress={() => router.push('/(app)/chat/tour' as any)}
+              activeOpacity={0.82}
+            >
+              <View style={[st.sectionTileIconBox, { backgroundColor: dc.iconBoxBg, borderColor: dc.iconBoxBorder }]}>
+                <Ionicons name="chatbubbles-outline" size={22} color={dc.iconBoxIcon} />
+              </View>
+              <Text style={[st.sectionTileLabel, { color: dc.cardText }]} numberOfLines={1}>Tournament Chat</Text>
+              <Text style={[st.sectionTileSub, { color: dc.cardText }]} numberOfLines={2}>Message everyone in the tour</Text>
+              {chatUnread > 0 && (
+                <View style={[st.chatBannerBadge, { position: 'absolute', top: 14, right: 14 }]}>
+                  <Text style={st.chatBannerBadgeText}>{chatUnread > 9 ? '9+' : chatUnread}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
         </ScrollView>
       )}
@@ -1163,31 +1215,38 @@ export default function TourScreen() {
           <View>
             {/* Leaderboard tabs — Team/Kronos only appear when relevant */}
             <View style={st.lbTabRow}>
+              {/* allowFontScaling={false} on every tab label — up to 6 tabs
+                  share one row with zero spare width, so even the app-wide
+                  1.25x Dynamic Type cap (src/lib/fontScaleCap.ts) was enough
+                  to wrap "Playoff"/"Honours" mid-word (Rick, 2026-09-18
+                  screenshot). Same fix already used for RoundScorecard's
+                  hole-grid cells, which have the identical no-room-to-grow
+                  shape. */}
               <TouchableOpacity style={[st.lbTab, leaderboardTab === 'group' && st.lbTabOn]} onPress={() => setLeaderboardTab('group')} activeOpacity={0.8}>
-                <Text style={[st.lbTabText, leaderboardTab === 'group' && st.lbTabTextOn]}>Group</Text>
+                <Text allowFontScaling={false} numberOfLines={1} style={[st.lbTabText, leaderboardTab === 'group' && st.lbTabTextOn]}>Group</Text>
               </TouchableOpacity>
               {isTeamTournament && (
                 <TouchableOpacity style={[st.lbTab, leaderboardTab === 'team' && st.lbTabOn]} onPress={() => setLeaderboardTab('team')} activeOpacity={0.8}>
-                  <Text style={[st.lbTabText, leaderboardTab === 'team' && st.lbTabTextOn]}>Team</Text>
+                  <Text allowFontScaling={false} numberOfLines={1} style={[st.lbTabText, leaderboardTab === 'team' && st.lbTabTextOn]}>Team</Text>
                 </TouchableOpacity>
               )}
               {excludePlayoffFromPoints && playoffBrackets.length > 0 && (
                 <TouchableOpacity style={[st.lbTab, leaderboardTab === 'playoff' && st.lbTabOn]} onPress={() => setLeaderboardTab('playoff')} activeOpacity={0.8}>
-                  <Text style={[st.lbTabText, leaderboardTab === 'playoff' && st.lbTabTextOn]}>Playoff</Text>
+                  <Text allowFontScaling={false} numberOfLines={1} style={[st.lbTabText, leaderboardTab === 'playoff' && st.lbTabTextOn]}>Playoff</Text>
                 </TouchableOpacity>
               )}
-              {competition?.include_in_kronos && (
+              {!!competition && effectiveIncludeInKronos(competition as any) && (
                 <TouchableOpacity style={[st.lbTab, leaderboardTab === 'kronos' && st.lbTabOn]} onPress={() => setLeaderboardTab('kronos')} activeOpacity={0.8}>
-                  <Text style={[st.lbTabText, leaderboardTab === 'kronos' && st.lbTabTextOn]}>{individualLabel}</Text>
+                  <Text allowFontScaling={false} numberOfLines={1} style={[st.lbTabText, leaderboardTab === 'kronos' && st.lbTabTextOn]}>{individualLabel}</Text>
                 </TouchableOpacity>
               )}
               {hasMoney && (
                 <TouchableOpacity style={[st.lbTab, leaderboardTab === 'money' && st.lbTabOn]} onPress={() => setLeaderboardTab('money')} activeOpacity={0.8}>
-                  <Text style={[st.lbTabText, leaderboardTab === 'money' && st.lbTabTextOn]}>Money</Text>
+                  <Text allowFontScaling={false} numberOfLines={1} style={[st.lbTabText, leaderboardTab === 'money' && st.lbTabTextOn]}>Money</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={[st.lbTab, leaderboardTab === 'honours' && st.lbTabOn]} onPress={() => setLeaderboardTab('honours')} activeOpacity={0.8}>
-                <Text style={[st.lbTabText, leaderboardTab === 'honours' && st.lbTabTextOn]}>Honours</Text>
+                <Text allowFontScaling={false} numberOfLines={1} style={[st.lbTabText, leaderboardTab === 'honours' && st.lbTabTextOn]}>Honours</Text>
               </TouchableOpacity>
             </View>
 
@@ -1611,9 +1670,19 @@ export default function TourScreen() {
                           </Text>
                         )}
                         {cutsOn && (
-                          <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: '#555', marginTop: 1 }}>
-                            H'cap {entry.current_tournament_handicap!.toFixed(1)}{entry.total_tournament_cut > 0 ? ` (-${entry.total_tournament_cut.toFixed(1)})` : ''}
-                          </Text>
+                          <TouchableOpacity
+                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                            onPress={() => setHandicapHistoryFor({
+                              playerId: entry.player_id, playerName: entry.display_name,
+                              officialHandicap: entry.handicap_index,
+                              currentTournamentHandicap: entry.current_tournament_handicap,
+                              totalTournamentCut: entry.total_tournament_cut,
+                            })}
+                          >
+                            <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: '#555', marginTop: 1, textDecorationLine: 'underline' }}>
+                              H'cap {entry.current_tournament_handicap!.toFixed(1)}{entry.total_tournament_cut > 0 ? ` (-${entry.total_tournament_cut.toFixed(1)})` : ''}
+                            </Text>
+                          </TouchableOpacity>
                         )}
                       </View>
                     </View>
@@ -1802,6 +1871,19 @@ export default function TourScreen() {
         onSaved={() => {}}
         competitionId={competition?.id}
       />
+
+      {handicapHistoryFor && competition && (
+        <HandicapCutHistorySheet
+          visible={handicapHistoryFor !== null}
+          onClose={() => setHandicapHistoryFor(null)}
+          playerName={handicapHistoryFor.playerName}
+          competitionId={competition.id}
+          playerId={handicapHistoryFor.playerId}
+          officialHandicap={handicapHistoryFor.officialHandicap}
+          currentTournamentHandicap={handicapHistoryFor.currentTournamentHandicap}
+          totalTournamentCut={handicapHistoryFor.totalTournamentCut}
+        />
+      )}
 
       {/* Scorecard — opened by tapping a Kronos row. Round tabs (1/2/3/4)
           instead of one long scroll of every hole in the tournament. */}
