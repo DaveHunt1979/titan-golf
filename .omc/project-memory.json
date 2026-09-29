@@ -317,14 +317,50 @@
   "hotPaths": [
     {
       "path": "app/(app)/spectate/[matchId].tsx",
-      "accessCount": 5,
-      "lastAccessed": 1790589135657,
+      "accessCount": 8,
+      "lastAccessed": 1790594533066,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/activity/[matchId].tsx",
+      "accessCount": 8,
+      "lastAccessed": 1790594956697,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/seasonRoundIngestion.ts",
+      "accessCount": 4,
+      "lastAccessed": 1790594533625,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/index.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1790594650978,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/admin/season-entries.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1790594529832,
+      "type": "file"
+    },
+    {
+      "path": "app.json",
+      "accessCount": 3,
+      "lastAccessed": 1790595614782,
       "type": "file"
     },
     {
       "path": "screenshots/Screenshot 2026-09-28 at 10.48.12.png",
-      "accessCount": 1,
-      "lastAccessed": 1790589012241,
+      "accessCount": 2,
+      "lastAccessed": 1790589693671,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/_layout.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1790594661619,
       "type": "file"
     },
     {
@@ -337,6 +373,66 @@
       "path": "assets/teams/TitanLogo.png",
       "accessCount": 1,
       "lastAccessed": 1790589073393,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260905000000_titan_season_data_model.sql",
+      "accessCount": 1,
+      "lastAccessed": 1790591909636,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260908010000_season_join_no_approval.sql",
+      "accessCount": 1,
+      "lastAccessed": 1790591917957,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260918110000_casual_guest_players.sql",
+      "accessCount": 1,
+      "lastAccessed": 1790591918519,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260921000000_casual_day_society_scope.sql",
+      "accessCount": 1,
+      "lastAccessed": 1790591918954,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/season/index.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1790591925886,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/games/new.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1790593481248,
+      "type": "file"
+    },
+    {
+      "path": "src/components/RoundScorecard.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1790594175407,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/titanNews.ts",
+      "accessCount": 1,
+      "lastAccessed": 1790594190069,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/activity/_layout.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1790594655865,
+      "type": "file"
+    },
+    {
+      "path": "app/(app)/activity/index.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1790594730067,
       "type": "file"
     }
   ],

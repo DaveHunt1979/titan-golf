@@ -58,6 +58,15 @@ const MASHIE_EVENTS_TILE: Tile = {
   icon: 'calendar-outline', area: 'casual', route: '/(app)/mashie-events',
 };
 
+// Recent Activity (Dave, 2026-09-28) — fills the empty 6th slot in the
+// 2-column grid for every society except Mashie, which already fills it with
+// its own Events tile above. area 'casual' is ungated (see hasArea below), so
+// it's unlocked for everyone.
+const RECENT_ACTIVITY_TILE: Tile = {
+  key: 'activity', label: 'Recent Activity', sub: "Everyone's rounds this month",
+  icon: 'time-outline', area: 'casual', route: '/(app)/activity',
+};
+
 type FriendRound = {
   playerId: string; name: string; courseName: string; hole: number; pts: number; matchId: string;
   isSwindle: boolean;
@@ -70,7 +79,7 @@ export default function HomeScreen() {
   const { societyId: SOCIETY_ID, localLogo, logoUrl, heroUrl, societyName } = useSocietyTheme();
   const dc = useDynamicColors();
   const isMashie = SOCIETY_ID === MASHIE_SOCIETY_ID;
-  const tiles = isMashie ? [...TILES, MASHIE_EVENTS_TILE] : TILES;
+  const tiles = isMashie ? [...TILES, MASHIE_EVENTS_TILE] : [...TILES, RECENT_ACTIVITY_TILE];
   const { width: winW } = useWindowDimensions();
   const contentW = IS_PAD ? winW - 220 : winW;
   const tileW = Math.floor((contentW - 32 - 10) / 2);

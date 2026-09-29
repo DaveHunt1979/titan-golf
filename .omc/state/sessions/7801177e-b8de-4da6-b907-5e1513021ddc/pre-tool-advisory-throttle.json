@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "entries": {
+    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
+      "last_emitted_at_ms": 1790595643342,
+      "message": "Read multiple files in parallel when possible for faster analysis."
+    },
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1790595589377,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
+    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
+      "last_emitted_at_ms": 1790595577182,
+      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
+    },
+    "056b2769a3836d2cf599b5616bd4cf2fe434cb58546880a78a9079b9b6663765": {
+      "last_emitted_at_ms": 1790594524210,
+      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Build Recent Activity home feature"
+    },
+    "b095fc141440e04cdfd5d79dfbd25f9e5d4466ed70736531cf8c357159cd43bb": {
+      "last_emitted_at_ms": 1790594153693,
+      "message": "Spawning agent: Explore (inherit) | Task: Explore home page layout and AI round-report infra"
+    }
+  },
+  "updated_at": "2026-09-28T11:40:43.342Z"
+}
