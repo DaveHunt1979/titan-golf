@@ -673,7 +673,7 @@ export default function NewGameScreen() {
   const [extraTeams, setExtraTeams] = useState<string[][]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string | null>(preselectedCourse ?? null);
   const [hcpAllowance, setHcpAllowance]     = useState<number>(100);
-  const [whsEnabled, setWhsEnabled]         = useState(false);
+  const [whsEnabled, setWhsEnabled]         = useState(true);
   const [playerTees, setPlayerTees]         = useState<Record<string, SelectableTee>>({});
   // The one tee the whole round defaults to, picked straight after the course
   // and before any players are added. Individual players still override

@@ -1,0 +1,7 @@
+{
+  "tool_name": "Read",
+  "tool_input_preview": "{\"file_path\":\"/Users/davehunt/Desktop/titan-golf/screenshots/Screenshot 2026-10-02 at 15.39.15.heic\"}",
+  "error": "File content (1.4MB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+  "timestamp": "2026-10-02T14:41:28.810Z",
+  "retry_count": 2
+}

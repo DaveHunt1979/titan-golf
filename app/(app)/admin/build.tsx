@@ -446,7 +446,7 @@ export default function BuildTournamentScreen() {
     // Singles) seeds each day from that plan; everything else keeps starting
     // every day on the one defaultDayFormat, exactly as before.
     const builtDays: DayConfig[] = Array.from({ length: f.defaultDays }, (_, i) => ({
-      courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeGender: '', whsEnabled: false, teeTime: '', playDate: '',
+      courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeGender: '', whsEnabled: true, teeTime: '', playDate: '',
       format: (rules.fixedDayFormats?.[i] as DayFormatId | undefined) ?? f.defaultDayFormat,
       hcpPct: f.defaultHcp,
       ldEnabled: false, ldHole: null,
@@ -491,7 +491,7 @@ export default function BuildTournamentScreen() {
   function addDay() {
     if (days.length >= 10) return;
     setDays(prev => applyLastDayOverride([...prev, {
-      courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeGender: '', whsEnabled: false, teeTime: '', playDate: '',
+      courseName: '', slopeRating: '113', courseRating: '', teeName: '', teeGender: '', whsEnabled: true, teeTime: '', playDate: '',
       format: formatDef?.defaultDayFormat ?? 'four_bbb',
       hcpPct: formatDef?.defaultHcp ?? 75,
       ldEnabled: false, ldHole: null,

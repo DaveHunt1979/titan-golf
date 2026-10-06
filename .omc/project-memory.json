@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1790588911227,
+  "lastScanned": 1791286667457,
   "projectRoot": "/Users/davehunt/Desktop/titan-golf",
   "techStack": {
     "languages": [
@@ -75,7 +75,7 @@
       "path": "android",
       "purpose": null,
       "fileCount": 7,
-      "lastAccessed": 1790588911215,
+      "lastAccessed": 1791286667437,
       "keyFiles": [
         "build.gradle",
         "gradle.properties",
@@ -88,7 +88,7 @@
       "path": "android-signing",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1790588911215,
+      "lastAccessed": 1791286667438,
       "keyFiles": [
         "titangolf-release.keystore"
       ]
@@ -97,7 +97,7 @@
       "path": "app",
       "purpose": "Application code",
       "fileCount": 2,
-      "lastAccessed": 1790588911217,
+      "lastAccessed": 1791286667438,
       "keyFiles": [
         "_layout.tsx"
       ]
@@ -106,7 +106,7 @@
       "path": "assets",
       "purpose": "Static assets",
       "fileCount": 29,
-      "lastAccessed": 1790588911217,
+      "lastAccessed": 1791286667439,
       "keyFiles": [
         "Golf_Competition_Format_Library_App_Blueprint.docx",
         "TitanAppLogo.png",
@@ -119,7 +119,7 @@
       "path": "concept",
       "purpose": null,
       "fileCount": 7,
-      "lastAccessed": 1790588911217,
+      "lastAccessed": 1791286667439,
       "keyFiles": [
         "Casual Round Set Up.PNG",
         "Event Screen.PNG",
@@ -132,7 +132,7 @@
       "path": "course-data-review",
       "purpose": null,
       "fileCount": 4,
-      "lastAccessed": 1790588911217,
+      "lastAccessed": 1791286667439,
       "keyFiles": [
         "amendments.sql",
         "full_report.json",
@@ -144,7 +144,7 @@
       "path": "csv",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1790588911217,
+      "lastAccessed": 1791286667439,
       "keyFiles": [
         "Supabase Snippet Untitled query.csv"
       ]
@@ -153,7 +153,7 @@
       "path": "dist",
       "purpose": "Distribution/build output",
       "fileCount": 1,
-      "lastAccessed": 1790588911217,
+      "lastAccessed": 1791286667439,
       "keyFiles": [
         "metadata.json"
       ]
@@ -162,7 +162,7 @@
       "path": "errors",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1790588911218,
+      "lastAccessed": 1791286667440,
       "keyFiles": [
         "Bad.png",
         "Good.png",
@@ -175,7 +175,7 @@
       "path": "ios",
       "purpose": null,
       "fileCount": 10,
-      "lastAccessed": 1790588911218,
+      "lastAccessed": 1791286667440,
       "keyFiles": [
         "LiveActivityBridge.m",
         "LiveActivityBridge.swift",
@@ -188,23 +188,24 @@
       "path": "mashie",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1790588911218,
+      "lastAccessed": 1791286667440,
       "keyFiles": []
     },
     "screenshots": {
       "path": "screenshots",
       "purpose": null,
-      "fileCount": 2,
-      "lastAccessed": 1790588911218,
+      "fileCount": 3,
+      "lastAccessed": 1791286667440,
       "keyFiles": [
-        "the cutting system.docx"
+        "Screenshot 2026-10-02 at 15.39.08.heic",
+        "Screenshot 2026-10-02 at 15.39.15.heic"
       ]
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 22,
-      "lastAccessed": 1790588911219,
+      "lastAccessed": 1791286667440,
       "keyFiles": [
         "_detach_watch_target.rb",
         "_inspect_watch_dep.rb",
@@ -217,14 +218,14 @@
       "path": "src",
       "purpose": "Source code",
       "fileCount": 0,
-      "lastAccessed": 1790588911219,
+      "lastAccessed": 1791286667440,
       "keyFiles": []
     },
     "supabase": {
       "path": "supabase",
       "purpose": null,
       "fileCount": 45,
-      "lastAccessed": 1790588911219,
+      "lastAccessed": 1791286667440,
       "keyFiles": [
         "add_admin_create_login.sql",
         "add_avatars_bucket.sql",
@@ -237,7 +238,7 @@
       "path": "web",
       "purpose": null,
       "fileCount": 12,
-      "lastAccessed": 1790588911219,
+      "lastAccessed": 1791286667440,
       "keyFiles": [
         "README.md",
         "eslint.config.mjs",
@@ -250,7 +251,7 @@
       "path": "android/app",
       "purpose": "Application code",
       "fileCount": 4,
-      "lastAccessed": 1790588911219,
+      "lastAccessed": 1791286667441,
       "keyFiles": [
         "build.gradle",
         "debug.keystore",
@@ -261,14 +262,14 @@
       "path": "android/build",
       "purpose": "Build output",
       "fileCount": 0,
-      "lastAccessed": 1790588911219,
+      "lastAccessed": 1791286667441,
       "keyFiles": []
     },
     "dist/assets": {
       "path": "dist/assets",
       "purpose": "Static assets",
       "fileCount": 106,
-      "lastAccessed": 1790588911220,
+      "lastAccessed": 1791286667441,
       "keyFiles": [
         "017bc6ba3fc25503e5eb5e53826d48a8",
         "034b95d9056dbaa6b07ba86af2c28ce4",
@@ -279,7 +280,7 @@
       "path": "src/components",
       "purpose": "UI components",
       "fileCount": 23,
-      "lastAccessed": 1790588911221,
+      "lastAccessed": 1791286667442,
       "keyFiles": [
         "CaddieButton.tsx",
         "ChatChannel.tsx",
@@ -290,7 +291,7 @@
       "path": "src/lib",
       "purpose": "Library code",
       "fileCount": 59,
-      "lastAccessed": 1790588911221,
+      "lastAccessed": 1791286667442,
       "keyFiles": [
         "SocietyThemeContext.tsx",
         "assets.ts",
@@ -301,7 +302,7 @@
       "path": "src/types",
       "purpose": "Type definitions",
       "fileCount": 1,
-      "lastAccessed": 1790588911221,
+      "lastAccessed": 1791286667442,
       "keyFiles": [
         "index.ts"
       ]
@@ -310,129 +311,15 @@
       "path": "web/node_modules",
       "purpose": "Dependencies",
       "fileCount": 2,
-      "lastAccessed": 1790588911222,
+      "lastAccessed": 1791286667443,
       "keyFiles": []
     }
   },
   "hotPaths": [
     {
-      "path": "app/(app)/spectate/[matchId].tsx",
-      "accessCount": 8,
-      "lastAccessed": 1790594533066,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/activity/[matchId].tsx",
-      "accessCount": 8,
-      "lastAccessed": 1790594956697,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/seasonRoundIngestion.ts",
-      "accessCount": 4,
-      "lastAccessed": 1790594533625,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/index.tsx",
-      "accessCount": 4,
-      "lastAccessed": 1790594650978,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/admin/season-entries.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1790594529832,
-      "type": "file"
-    },
-    {
-      "path": "app.json",
-      "accessCount": 3,
-      "lastAccessed": 1790595614782,
-      "type": "file"
-    },
-    {
-      "path": "screenshots/Screenshot 2026-09-28 at 10.48.12.png",
-      "accessCount": 2,
-      "lastAccessed": 1790589693671,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/_layout.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1790594661619,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/SocietyThemeContext.tsx",
+      "path": "scripts/import_england_audited_2026_10_06.py",
       "accessCount": 1,
-      "lastAccessed": 1790589042596,
-      "type": "file"
-    },
-    {
-      "path": "assets/teams/TitanLogo.png",
-      "accessCount": 1,
-      "lastAccessed": 1790589073393,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260905000000_titan_season_data_model.sql",
-      "accessCount": 1,
-      "lastAccessed": 1790591909636,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260908010000_season_join_no_approval.sql",
-      "accessCount": 1,
-      "lastAccessed": 1790591917957,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260918110000_casual_guest_players.sql",
-      "accessCount": 1,
-      "lastAccessed": 1790591918519,
-      "type": "file"
-    },
-    {
-      "path": "supabase/migrations/20260921000000_casual_day_society_scope.sql",
-      "accessCount": 1,
-      "lastAccessed": 1790591918954,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/season/index.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1790591925886,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/games/new.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1790593481248,
-      "type": "file"
-    },
-    {
-      "path": "src/components/RoundScorecard.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1790594175407,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/titanNews.ts",
-      "accessCount": 1,
-      "lastAccessed": 1790594190069,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/activity/_layout.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1790594655865,
-      "type": "file"
-    },
-    {
-      "path": "app/(app)/activity/index.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1790594730067,
+      "lastAccessed": 1791287366660,
       "type": "file"
     }
   ],

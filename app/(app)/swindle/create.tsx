@@ -85,7 +85,7 @@ export default function SwindleCreate() {
   const [recurringDay,  setRecurringDay]  = useState<string>('saturday');
   const [saving,        setSaving]        = useState(false);
   const [hcpAllowance, setHcpAllowance] = useState(100);
-  const [whsEnabled,   setWhsEnabled]   = useState(false);
+  const [whsEnabled,   setWhsEnabled]   = useState(true);
   const [courseTees,    setCourseTees]  = useState<SelectableTee[]>([]);
   const [tee,            setTee]        = useState<SelectableTee | null>(null);
   const [showTeePicker,  setShowTeePicker] = useState(false);

@@ -1148,6 +1148,14 @@ export default function EnterScoresScreen() {
   const prevLeaderIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!match?.day_id) return;
+    // Casual rounds share a day_id purely to link groups under the same
+    // join code — the cross-group ALL GROUPS board is a tournament feature
+    // (competition_id set). Without this gate a casual round with multiple
+    // groups showed every player from every group on the scoring screen
+    // instead of just the group being scored (Rick, 2026-10-02 — a 2-group
+    // casual round listed all 6 players here). The day-wide full leaderboard
+    // (trophy button below) already covers "see everyone" for casual rounds.
+    if (!match.competition_id) { setDayBoard([]); return; }
     const dayId = match.day_id;
     prevLeaderIdRef.current = null; // reset baseline so we don't fire a leader_change on initial load
 

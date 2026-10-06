@@ -62,7 +62,7 @@ export interface DayConfig {
 export function blankDay(format: DayFormatId, hcpPct: number): DayConfig {
   return {
     courseName: '', slopeRating: '', courseRating: '',
-    teeName: '', teeGender: '', whsEnabled: false,
+    teeName: '', teeGender: '', whsEnabled: true,
     teeTime: '', playDate: '',
     format, hcpPct,
     ldEnabled: false, ldHole: null,

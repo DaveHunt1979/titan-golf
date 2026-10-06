@@ -338,7 +338,7 @@ export async function buildCasualFinalReportSnapshot(matchId: string) {
   const holeRows = (holes ?? []) as any[];
 
   const totalsByPlayer: Record<string, { gross: number; pts: number; vsPar: number }> = {};
-  const keyMoments: { name: string; holeNumber: number; type: 'eagle' | 'birdie' }[] = [];
+  const keyMoments: { name: string; holeNumber: number; type: 'eagle' | 'birdie' | 'blob' }[] = [];
   holeRows.forEach(h => {
     if (!totalsByPlayer[h.player_id]) totalsByPlayer[h.player_id] = { gross: 0, pts: 0, vsPar: 0 };
     if (h.gross_score != null) {
@@ -350,7 +350,42 @@ export async function buildCasualFinalReportSnapshot(matchId: string) {
         keyMoments.push({ name: nameFor(h.player_id), holeNumber: h.hole_number, type: category });
       }
     }
+    // A blob — 0 Stableford points — is the side game's own signal for a
+    // disaster hole, same convention as Swindle's blobs count (src/lib/
+    // swindleStats.ts). Flagged independently of the gross-score eagle/
+    // birdie check above: a blob is about points, not strokes, and the
+    // gross score on a hole nobody could score on is often just a pick-up
+    // placeholder, not a real number worth reporting (Dave, 2026-10-02 —
+    // the AI described one as "+7 over par" instead of just "blobbed").
+    if (h.stableford_pts === 0) {
+      keyMoments.push({ name: nameFor(h.player_id), holeNumber: h.hole_number, type: 'blob' });
+    }
     if (h.stableford_pts != null) totalsByPlayer[h.player_id].pts += h.stableford_pts;
+  });
+
+  // "Back-to-back" is a claim about hole adjacency, which the AI got wrong
+  // once already — it called holes 11 and 14 "back-to-back" when they're
+  // three holes apart (Rick, 2026-10-02, via WhatsApp). Computed here, not
+  // left for the AI to infer from the raw hole numbers in keyMoments.
+  const backToBackBirdies: { name: string; holes: number[] }[] = [];
+  const goodHolesByPlayer = new Map<string, number[]>();
+  keyMoments.forEach(k => {
+    if (k.type !== 'eagle' && k.type !== 'birdie') return;
+    if (!goodHolesByPlayer.has(k.name)) goodHolesByPlayer.set(k.name, []);
+    goodHolesByPlayer.get(k.name)!.push(k.holeNumber);
+  });
+  goodHolesByPlayer.forEach((holeNums, name) => {
+    const sorted = [...holeNums].sort((a, b) => a - b);
+    let run: number[] = [sorted[0]];
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i] === run[run.length - 1] + 1) {
+        run.push(sorted[i]);
+      } else {
+        if (run.length >= 2) backToBackBirdies.push({ name, holes: run });
+        run = [sorted[i]];
+      }
+    }
+    if (run.length >= 2) backToBackBirdies.push({ name, holes: run });
   });
 
   // Medal (stroke play) ranks ascending by gross-vs-par, never by Stableford
@@ -406,6 +441,7 @@ export async function buildCasualFinalReportSnapshot(matchId: string) {
       awayPlayers: (m.away_player_ids ?? []).map(nameFor),
     } : null,
     keyMoments,
+    backToBackBirdies,
     sideGames: sideGameTags,
     stats: statsSummary,
   };

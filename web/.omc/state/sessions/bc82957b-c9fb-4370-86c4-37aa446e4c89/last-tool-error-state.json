@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd /Users/davehunt/Desktop/titan-golf && find . -iname \\\"*.test.ts\\\" -not -path \\\"*/node_modules/*\\\" | xargs grep -l \\\"titanNews\\\\|backToBack\\\\|keyMoments\\\" 2>/dev/null\",\"description\":\"Che...",
+  "error": "Exit code 1",
+  "timestamp": "2026-10-02T14:46:50.696Z",
+  "retry_count": 1
+}

@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"sed -i \\\"s/^if APPLY:\\\\n    for t in dele/X/; s/^    for t in dele:/    for t in ([] if '--skip-delete' in sys.argv else dele):/\\\" scripts/import_england_audited_2026_10_06.py && grep -n \\...",
+  "error": "Exit code 1\nsed: 1: \"scripts/import_england_ ...\": unterminated substitute pattern",
+  "timestamp": "2026-10-06T11:49:11.787Z",
+  "retry_count": 1
+}

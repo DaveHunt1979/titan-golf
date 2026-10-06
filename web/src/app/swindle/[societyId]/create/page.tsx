@@ -74,7 +74,7 @@ export default function CreateSwindlePage({ params }: { params: Promise<{ societ
   const [name,         setName]         = useState('');
   const [format,       setFormat]       = useState<'stableford' | 'stroke'>('stableford');
   const [hcpAllowance, setHcpAllowance] = useState<number>(100);
-  const [whsEnabled,   setWhsEnabled]   = useState(false);
+  const [whsEnabled,   setWhsEnabled]   = useState(true);
   const [course,       setCourse]       = useState('');
   const [courseSearch, setCourseSearch] = useState('');
   const [courseGroup,  setCourseGroup]  = useState<string | null>(null);
