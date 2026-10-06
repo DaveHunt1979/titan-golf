@@ -144,7 +144,7 @@ export default function FeedScreen() {
       supabase.from('societies').select('instagram_url').eq('id',societyId).single(),
       supabase.from('matches').select('id',{count:'exact'}).eq('status','in_progress').is('competition_id', null),
       supabase.from('matches').select('id',{count:'exact'}).eq('status','in_progress').not('competition_id','is',null),
-      supabase.from('swindle_games').select('title,entries_count:swindle_entries(count)').eq('status','open').order('created_at',{ascending:false}).limit(1).single(),
+      supabase.from('swindle_games').select('title,entries_count:swindle_entries(count)').eq('society_id',societyId).eq('status','open').order('created_at',{ascending:false}).limit(1).single(),
     ]);
 
     // Membership types — do a direct player lookup

@@ -100,6 +100,7 @@ export default function SwindleIndex() {
     const { data } = await supabase
       .from('swindle_games')
       .select('*, swindle_entries(count)')
+      .eq('society_id', societyId ?? 'none')
       .order('game_date', { ascending: false })
       .limit(20);
     if (!data) { setLoading(false); return; }

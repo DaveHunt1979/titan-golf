@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"f=\\\"app/(app)/admin/build.tsx\\\"; sed -n 1636,1690p \\\"$f\\\"; echo =====INVITE; sed -n 1155,1195p \\\"$f\\\"; echo =====TOGGLE; sed -n 925,962p \\\"$f\\\"; grep -n \\\"ukDateToDate\\\\|function dateToUk\\...",
+  "error": "Exit code 1\n                      </Text>\n                    </TouchableOpacity>\n                  </View>\n                  <View style={{ flex: 1 }}>\n                    <Text style={styles.fieldLabel}>DATE</Text>\n                    <TouchableOpacity style={styles.input} onPress={() => setDayDatePickerFor(i)} activeOpacity={0.8}>\n                      <Text style={{ fontFamily: FF, fontSize: 15, color: day.playDate ? '#fff' : '#444' }}>\n                        {day.playDate || 'DD-MM-YYYY'}\n...",
+  "timestamp": "2026-10-06T19:56:21.594Z",
+  "retry_count": 2
+}

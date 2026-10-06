@@ -85,6 +85,8 @@ function Wizard() {
   // Step 3+ — the persisted competition
   const [compId,      setCompId]      = useState<string | null>(null);
   const [compPin,     setCompPin]     = useState<string | null>(null);
+  const [inviteBusy,  setInviteBusy]  = useState(false);
+  const [inviteNote,  setInviteNote]  = useState('');
   const [compPlayers, setCompPlayers] = useState<DraftPlayer[]>([]);
 
   // Step 5 — Info Pack
@@ -483,6 +485,53 @@ function Wizard() {
     return issues;
   }
 
+  // Sends the invite card + push to every Invited player who hasn't had one
+  // yet. Safe to call repeatedly: it checks existing tournament_invite DMs
+  // for this competition first, so Go Live after "Send invites now" doesn't
+  // double-send. Mirrors the mobile builder. Returns how many were sent.
+  async function sendInvites(): Promise<number> {
+    if (!compId || !compPin || !playerId) return 0;
+    const { data: already } = await supabase.from('direct_messages')
+      .select('recipient_id').eq('competition_id', compId).eq('message_type', 'tournament_invite');
+    const alreadySent = new Set((already ?? []).map(r => r.recipient_id as string));
+    const targets = compPlayers.filter(cp =>
+      cp.status === 'invited' && cp.player_id !== playerId && !alreadySent.has(cp.player_id));
+    if (!targets.length) return 0;
+
+    const pinFormatted = `${compPin.slice(0, 3)} ${compPin.slice(3)}`;
+    const toUk = (iso: string) => iso.split('-').reverse().join('-');
+    const firstDay = days.find(d => d.playDate);
+    const when = firstDay
+      ? `${toUk(firstDay.playDate)}${firstDay.teeTime ? ` at ${firstDay.teeTime}` : ''}`
+      : (startDate ? toUk(startDate) : '');
+    const where = firstDay?.courseName?.trim() || '';
+    const details = [when && `📅 ${when}`, where && `⛳ ${where}`].filter(Boolean).join('\n');
+    const { error: dmErr } = await supabase.from('direct_messages').insert(targets.map(cp => ({
+      sender_id: playerId, recipient_id: cp.player_id,
+      content: `You've been invited to join ${name.trim()}.${details ? `\n${details}` : ''}\nCode: ${pinFormatted}`,
+      message_type: 'tournament_invite', competition_id: compId,
+    })));
+    if (dmErr) return 0;
+    try {
+      await supabase.functions.invoke('send-push', { body: {
+        title: `You're invited: ${name.trim()}`,
+        body: when ? `${when} — open your inbox to accept or decline.` : 'Open your inbox to accept or decline.',
+        playerIds: targets.map(cp => cp.player_id), data: { type: 'tournament_invite' },
+      } });
+    } catch {}
+    return targets.length;
+  }
+
+  async function sendInvitesNow() {
+    if (inviteBusy) return;
+    setInviteBusy(true); setInviteNote('');
+    const n = await sendInvites();
+    setInviteBusy(false);
+    setInviteNote(n > 0
+      ? `Invites sent to ${n} player${n === 1 ? '' : 's'}.`
+      : 'No new invites to send — everyone invited has already been sent one.');
+  }
+
   async function goLive() {
     if (!compId || !compPin) return;
     setSaving(true); setError(''); setGoLiveIssues(null);
@@ -552,19 +601,14 @@ function Wizard() {
     // abort the whole batch.
     if (playerId) {
       const pinFormatted = `${compPin.slice(0, 3)} ${compPin.slice(3)}`;
-      const rows = enrolled
-        .filter(cp => cp.player_id !== playerId)
-        .map(cp => cp.status === 'invited'
-          ? {
-              sender_id: playerId, recipient_id: cp.player_id,
-              content: `You've been invited to join ${name.trim()}. Code: ${pinFormatted}`,
-              message_type: 'tournament_invite', competition_id: compId,
-            }
-          : {
-              sender_id: playerId, recipient_id: cp.player_id,
-              content: `You've been enrolled in ${name.trim()}! Join with code ${pinFormatted} in the Tour tab.`,
-            });
-      if (rows.length) await supabase.from('direct_messages').insert(rows);
+      const enrolledRows = enrolled
+        .filter(cp => cp.status === 'enrolled' && cp.player_id !== playerId)
+        .map(cp => ({
+          sender_id: playerId, recipient_id: cp.player_id,
+          content: `You've been enrolled in ${name.trim()}! Join with code ${pinFormatted} in the Tour tab.`,
+        }));
+      if (enrolledRows.length) await supabase.from('direct_messages').insert(enrolledRows);
+      await sendInvites();
     }
 
     setSaving(false);
@@ -958,6 +1002,19 @@ function Wizard() {
       )}
 
       {/* ── Step 3: Draft ── */}
+      {step === 3 && compId && societyId && compPlayers.some(p => p.status === 'invited') && (
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={sendInvitesNow}
+            disabled={inviteBusy}
+            className="w-full rounded-xl bg-[#D4AF37] px-5 py-3.5 text-[13px] font-black tracking-wide text-black transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            {inviteBusy ? 'Sending…' : `Send invites now (${compPlayers.filter(p => p.status === 'invited').length})`}
+          </button>
+          {inviteNote && <p className="mt-2 text-center text-[12px] text-[#888]">{inviteNote}</p>}
+        </div>
+      )}
       {step === 3 && compId && societyId && (
         <DraftStep
           compId={compId}

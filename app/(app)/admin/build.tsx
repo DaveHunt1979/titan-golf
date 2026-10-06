@@ -20,6 +20,7 @@ import { individualBoardLabel, getFormatRules, checkTitanWayStructure, FORMAT_RU
 import { VOICE_FEATURE_ENABLED } from '../../../src/lib/caddie';
 import PrizeCategoriesEditor from '../../../src/components/PrizeCategoriesEditor';
 import { ukDateToIso, isoToUk, ukDateToDate, dateToUk, dateToHm, hmToDate } from '../../../src/lib/dateHelpers';
+import { sendPushNotification } from '../../../src/lib/notifications';
 import { DEFAULT_HANDICAP_CUT_BANDS, type HandicapCutBand } from '../../../src/lib/tournamentHandicap';
 import TeePickerSheet, { fetchCourseTees, SelectableTee } from '../../../src/components/TeePickerSheet';
 import { calculateWHSPlayingHandicap } from '../../../src/lib/whs';
@@ -237,13 +238,15 @@ export default function BuildTournamentScreen() {
   const [compId, setCompId]               = useState<string | null>(null);
   const [compPin, setCompPin]             = useState<string | null>(null);
   const [compPlayers, setCompPlayers]     = useState<DraftPlayer[]>([]);
+  const [inviteBusy, setInviteBusy]       = useState(false);
+  const [inviteNote, setInviteNote]       = useState<string | null>(null);
   const [squadTeams, setSquadTeams]       = useState<SquadTeam[]>([]);
   const [draftLoading, setDraftLoading]   = useState(false);
   const [addModal, setAddModal]           = useState(false);
   const [societyMembers, setSocietyMembers] = useState<DraftMember[]>([]);
   const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
   const [addTeam, setAddTeam]             = useState<string | null>(null);
-  const [addStatus, setAddStatus]         = useState<'enrolled' | 'invited'>('enrolled');
+  const [addStatus, setAddStatus]         = useState<'enrolled' | 'invited'>('invited');
   const [playersPerTeam, setPlayersPerTeam] = useState('4');
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
   const [teamRosterCache, setTeamRosterCache] = useState<Record<string, DraftMember[]>>({});
@@ -850,7 +853,7 @@ export default function BuildTournamentScreen() {
     if (!societyId) return;
     setSelectedToAdd(new Set());
     setAddTeam(squadTeams[0]?.id ?? null);
-    setAddStatus('enrolled');
+    setAddStatus('invited');
     const { data } = await supabase
       .from('society_members')
       .select('player_id, team_id, players(display_name, handicap_index, avatar_url)')
@@ -1070,6 +1073,62 @@ export default function BuildTournamentScreen() {
   // in Live Tournaments, not here — squad changes right up to the last
   // minute (drop-outs) are safer handled closer to tee-off, not baked in
   // at build time.
+  // Sends the tournament invite card + push to every Invited player who
+  // hasn't had one yet (Rick, 2026-10-06). Safe to call repeatedly — it
+  // checks existing tournament_invite DMs for this competition first, so
+  // Go Live after pressing "Send invites now" doesn't double-send.
+  // Returns how many were sent.
+  async function sendInvites(): Promise<number> {
+    if (!compId || !compPin) return 0;
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: me } = user
+      ? await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle()
+      : { data: null };
+    if (!me) return 0;
+
+    const { data: already } = await supabase.from('direct_messages')
+      .select('recipient_id').eq('competition_id', compId).eq('message_type', 'tournament_invite');
+    const alreadySent = new Set((already ?? []).map((r: any) => r.recipient_id as string));
+    const targets = compPlayers.filter(cp =>
+      cp.status === 'invited' && cp.player_id !== me.id && !alreadySent.has(cp.player_id));
+    if (!targets.length) return 0;
+
+    const pinFormatted = `${compPin.slice(0, 3)} ${compPin.slice(3)}`;
+    // When + where, so the card is a real invitation to a dated event.
+    // Earliest scheduled round; start date as fallback.
+    const firstDay = days.find(d => d.playDate);
+    const when = firstDay
+      ? `${firstDay.playDate}${firstDay.teeTime ? ` at ${firstDay.teeTime}` : ''}`
+      : (startDate || '');
+    const where = firstDay?.courseName?.trim() || '';
+    const details = [when && `📅 ${when}`, where && `⛳ ${where}`].filter(Boolean).join('\n');
+    const rows = targets.map(cp => ({
+      sender_id: me.id, recipient_id: cp.player_id,
+      content: `You've been invited to join ${name.trim()}.${details ? `\n${details}` : ''}\nCode: ${pinFormatted}`,
+      message_type: 'tournament_invite', competition_id: compId,
+    }));
+    const { error } = await supabase.from('direct_messages').insert(rows);
+    if (error) return 0;
+    await sendPushNotification(
+      `You're invited: ${name.trim()}`,
+      when ? `${when} — open your inbox to accept or decline.` : 'Open your inbox to accept or decline.',
+      targets.map(cp => cp.player_id),
+      { type: 'tournament_invite' },
+    );
+    return targets.length;
+  }
+
+  async function sendInvitesNow() {
+    if (inviteBusy) return;
+    setInviteBusy(true);
+    setInviteNote(null);
+    const n = await sendInvites();
+    setInviteBusy(false);
+    setInviteNote(n > 0
+      ? `Invites sent to ${n} player${n === 1 ? '' : 's'}.`
+      : 'No new invites to send — everyone invited has already been sent one.');
+  }
+
   async function finishDraft() {
     if (!compId) return;
     // Every normal creation path assigns a PIN (see createShellAndAdvance),
@@ -1162,22 +1221,20 @@ export default function BuildTournamentScreen() {
 
     if (me) {
       const pinFormatted = `${compPin.slice(0, 3)} ${compPin.slice(3)}`;
-      const rows = compPlayers
+      // Already-enrolled players just get a heads-up DM. Invited players go
+      // through sendInvites(), which is shared with the "Send invites now"
+      // button and skips anyone who's already been sent one.
+      const enrolledRows = compPlayers
         // Skip anyone already declined, and skip the admin's own row if
         // they're also a player — direct_messages rejects sender==recipient
         // and would abort the whole batch insert otherwise.
-        .filter(cp => cp.status !== 'declined' && cp.player_id !== me.id)
-        .map(cp => cp.status === 'invited'
-          ? {
-              sender_id: me.id, recipient_id: cp.player_id,
-              content: `You've been invited to join ${name.trim()}. Code: ${pinFormatted}`,
-              message_type: 'tournament_invite', competition_id: compId,
-            }
-          : {
-              sender_id: me.id, recipient_id: cp.player_id,
-              content: `You've been enrolled in ${name.trim()}! Join with code ${pinFormatted} in the Tour tab.`,
-            });
-      if (rows.length) await supabase.from('direct_messages').insert(rows);
+        .filter(cp => cp.status === 'enrolled' && cp.player_id !== me.id)
+        .map(cp => ({
+          sender_id: me.id, recipient_id: cp.player_id,
+          content: `You've been enrolled in ${name.trim()}! Join with code ${pinFormatted} in the Tour tab.`,
+        }));
+      if (enrolledRows.length) await supabase.from('direct_messages').insert(enrolledRows);
+      await sendInvites();
     }
 
     setFinishing(false);
@@ -1329,7 +1386,7 @@ export default function BuildTournamentScreen() {
             />
 
             <Text style={styles.fieldLabel}>START DATE</Text>
-            <TouchableOpacity style={styles.input} onPress={() => setShowStartPicker(true)} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.input} onPress={() => { if (!startDate) setStartDate(dateToUk(new Date())); setShowStartPicker(true); }} activeOpacity={0.8}>
               <Text style={{ fontFamily: FF, fontSize: 15, color: startDate ? '#fff' : '#444' }}>
                 {startDate || 'DD-MM-YYYY'}
               </Text>
@@ -1339,15 +1396,20 @@ export default function BuildTournamentScreen() {
                 value={ukDateToDate(startDate)}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                onChange={(_event, selected) => {
-                  setShowStartPicker(false);
-                  if (selected) setStartDate(dateToUk(selected));
+                onChange={(event, selected) => {
+                  if (Platform.OS !== 'ios') setShowStartPicker(false);
+                  if (selected && event.type !== 'dismissed') setStartDate(dateToUk(selected));
                 }}
               />
             )}
+            {showStartPicker && Platform.OS === 'ios' && (
+              <TouchableOpacity style={styles.nextBtn} onPress={() => setShowStartPicker(false)} activeOpacity={0.8}>
+                <Text style={styles.nextBtnText}>Done</Text>
+              </TouchableOpacity>
+            )}
 
             <Text style={styles.fieldLabel}>END DATE</Text>
-            <TouchableOpacity style={styles.input} onPress={() => setShowEndPicker(true)} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.input} onPress={() => { if (!endDate) setEndDate(startDate || dateToUk(new Date())); setShowEndPicker(true); }} activeOpacity={0.8}>
               <Text style={{ fontFamily: FF, fontSize: 15, color: endDate ? '#fff' : '#444' }}>
                 {endDate || 'DD-MM-YYYY'}
               </Text>
@@ -1357,11 +1419,16 @@ export default function BuildTournamentScreen() {
                 value={ukDateToDate(endDate)}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                onChange={(_event, selected) => {
-                  setShowEndPicker(false);
-                  if (selected) setEndDate(dateToUk(selected));
+                onChange={(event, selected) => {
+                  if (Platform.OS !== 'ios') setShowEndPicker(false);
+                  if (selected && event.type !== 'dismissed') setEndDate(dateToUk(selected));
                 }}
               />
+            )}
+            {showEndPicker && Platform.OS === 'ios' && (
+              <TouchableOpacity style={styles.nextBtn} onPress={() => setShowEndPicker(false)} activeOpacity={0.8}>
+                <Text style={styles.nextBtnText}>Done</Text>
+              </TouchableOpacity>
             )}
 
             <Text style={styles.fieldLabel}>NUMBER OF ROUNDS</Text>
@@ -1638,7 +1705,7 @@ export default function BuildTournamentScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.fieldLabel}>DATE</Text>
-                    <TouchableOpacity style={styles.input} onPress={() => setDayDatePickerFor(i)} activeOpacity={0.8}>
+                    <TouchableOpacity style={styles.input} onPress={() => { if (!day.playDate) updateDay(i, { playDate: startDate || dateToUk(new Date()) }); setDayDatePickerFor(i); }} activeOpacity={0.8}>
                       <Text style={{ fontFamily: FF, fontSize: 15, color: day.playDate ? '#fff' : '#444' }}>
                         {day.playDate || 'DD-MM-YYYY'}
                       </Text>
@@ -1646,7 +1713,7 @@ export default function BuildTournamentScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.fieldLabel}>TEE TIME</Text>
-                    <TouchableOpacity style={styles.input} onPress={() => setDayTimePickerFor(i)} activeOpacity={0.8}>
+                    <TouchableOpacity style={styles.input} onPress={() => { if (!day.teeTime) updateDay(i, { teeTime: '08:00' }); setDayTimePickerFor(i); }} activeOpacity={0.8}>
                       <Text style={{ fontFamily: FF, fontSize: 15, color: day.teeTime ? '#fff' : '#444' }}>
                         {day.teeTime || '--:--'}
                       </Text>
@@ -1658,22 +1725,32 @@ export default function BuildTournamentScreen() {
                     value={day.playDate ? ukDateToDate(day.playDate) : (startDate ? ukDateToDate(startDate) : new Date())}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                    onChange={(_event, selected) => {
-                      setDayDatePickerFor(null);
-                      if (selected) updateDay(i, { playDate: dateToUk(selected) });
+                    onChange={(event, selected) => {
+                      if (Platform.OS !== 'ios') setDayDatePickerFor(null);
+                      if (selected && event.type !== 'dismissed') updateDay(i, { playDate: dateToUk(selected) });
                     }}
                   />
+                )}
+                {dayDatePickerFor === i && Platform.OS === 'ios' && (
+                  <TouchableOpacity style={styles.nextBtn} onPress={() => setDayDatePickerFor(null)} activeOpacity={0.8}>
+                    <Text style={styles.nextBtnText}>Done</Text>
+                  </TouchableOpacity>
                 )}
                 {dayTimePickerFor === i && (
                   <DateTimePicker
                     value={hmToDate(day.teeTime)}
                     mode="time"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={(_event, selected) => {
-                      setDayTimePickerFor(null);
-                      if (selected) updateDay(i, { teeTime: dateToHm(selected) });
+                    onChange={(event, selected) => {
+                      if (Platform.OS !== 'ios') setDayTimePickerFor(null);
+                      if (selected && event.type !== 'dismissed') updateDay(i, { teeTime: dateToHm(selected) });
                     }}
                   />
+                )}
+                {dayTimePickerFor === i && Platform.OS === 'ios' && (
+                  <TouchableOpacity style={styles.nextBtn} onPress={() => setDayTimePickerFor(null)} activeOpacity={0.8}>
+                    <Text style={styles.nextBtnText}>Done</Text>
+                  </TouchableOpacity>
                 )}
 
                 <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -2147,6 +2224,22 @@ export default function BuildTournamentScreen() {
                     <Text style={styles.addPlayersBtnText}>+ ADD</Text>
                   </TouchableOpacity>
                 </View>
+
+                {compPlayers.some(cp => cp.status === 'invited') && (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.nextBtn, { marginBottom: 8 }, inviteBusy && styles.nextBtnOff]}
+                      onPress={sendInvitesNow}
+                      disabled={inviteBusy}
+                      activeOpacity={0.8}
+                    >
+                      {inviteBusy
+                        ? <ActivityIndicator color="#000" />
+                        : <Text style={styles.nextBtnText}>Send invites now ({compPlayers.filter(cp => cp.status === 'invited').length})</Text>}
+                    </TouchableOpacity>
+                    {inviteNote && <Text style={styles.emptyHint}>{inviteNote}</Text>}
+                  </>
+                )}
 
                 {draftLoading ? (
                   <ActivityIndicator color={GOLD} style={{ marginTop: 20 }} />

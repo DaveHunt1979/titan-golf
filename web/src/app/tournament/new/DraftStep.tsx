@@ -91,7 +91,7 @@ export default function DraftStep({
       player_id: m.player_id,
       team_id: teamId,
       handicap_index: clamp(m.handicap_index),
-      status: 'enrolled',
+      status: 'invited',
     });
     await onReload();
     setBusyId(null);

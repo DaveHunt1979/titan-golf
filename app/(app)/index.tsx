@@ -231,7 +231,7 @@ export default function HomeScreen() {
     ] = await Promise.all([
       casualQuery,
       supabase.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'in_progress').not('competition_id', 'is', null),
-      supabase.from('swindle_games').select('name,swindle_entries(count)').eq('status', 'open').order('created_at', { ascending: false }).limit(1).single(),
+      supabase.from('swindle_games').select('name,swindle_entries(count)').eq('society_id', SOCIETY_ID ?? 'none').eq('status', 'open').order('created_at', { ascending: false }).limit(1).single(),
     ]);
 
     setCasualCount(casual ?? 0);
