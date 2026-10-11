@@ -14,6 +14,7 @@ import { resolveAvatar } from '../lib/assets';
 import { useSocietyTheme } from '../lib/SocietyThemeContext';
 import { sendPushNotification } from '../lib/notifications';
 import { goBack } from '../lib/navigation';
+import { respondToSocialEvent, fetchSocialEvent, fetchEventResponses, EventResponseInfo } from '../lib/socialEventsApi';
 
 const GOLD  = '#D4AF37';
 const FF    = 'JUSTSans';
@@ -26,7 +27,7 @@ const FFB   = 'JUSTSans-ExBold';
 const MSG_SELECT =
   '*, player:player_id(display_name, avatar_url), reply_to:reply_to_message_id(id, player_id, content, player:player_id(display_name))';
 
-export type ChatChannelKey = 'general' | 'swindle' | 'tour';
+export type ChatChannelKey = 'general' | 'swindle' | 'tour' | 'social';
 
 export function chatReadKey(channel: ChatChannelKey) {
   // 'general' keeps the original unscoped key so nobody's existing chat
@@ -47,6 +48,7 @@ interface Message {
   content: string;
   created_at: string;
   channel: ChatChannelKey;
+  social_event_id: string | null;
   player: { display_name: string; avatar_url: string | null } | null;
   reply_to_message_id: string | null;
   // null while reply_to_message_id is set means the original was deleted
@@ -56,8 +58,9 @@ interface Message {
 
 interface Me { id: string; display_name: string; avatar_url: string | null; }
 
-export default function ChatChannel({ channel, title, subtitleLabel, placeholder, backFallback = '/(app)', alwaysReplaceOnBack = false }: {
+export default function ChatChannel({ channel, title, subtitleLabel, placeholder, backFallback = '/(app)', alwaysReplaceOnBack = false, socialEventId }: {
   channel: ChatChannelKey;
+  socialEventId?: string;
   title: string;
   subtitleLabel: string;
   placeholder: string;
@@ -99,6 +102,10 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
   // Long-press target for the message action menu (replaces swipe-to-reply).
   const [actionMsg, setActionMsg] = useState<Message | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  // Social 18 announcement cards: viewer's own response + live in/out tally per event.
+  const [eventInfo, setEventInfo] = useState<Record<string, EventResponseInfo>>({});
+  const [failedEvents, setFailedEvents] = useState<Record<string, boolean>>({});
+  const [localOut, setLocalOut] = useState<Record<string, boolean>>({});
   const flatRef = useRef<FlatList>(null);
   const subRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -133,13 +140,13 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
       const sid = societyId;
       if (!sid) { setLoading(false); return; }
 
-      const { data } = await supabase
+      let q = supabase
         .from('messages')
         .select(MSG_SELECT)
         .eq('society_id', sid)
-        .eq('channel', channel)
-        .order('created_at', { ascending: false })
-        .limit(60);
+        .eq('channel', channel);
+      if (channel === 'social' && socialEventId) q = q.eq('social_event_id', socialEventId);
+      const { data } = await q.order('created_at', { ascending: false }).limit(60);
       if (data) setMessages(data as unknown as Message[]);
       setLoading(false);
 
@@ -148,11 +155,12 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
       // client-side — keeps General/Swindle/Tour fully isolated from each
       // other without leaking rows from other societies either.
       subRef.current = supabase
-        .channel(`chat-live-${sid}-${channel}`)
+        .channel(`chat-live-${sid}-${channel}-${socialEventId ?? ''}`)
         .on('postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'messages', filter: `society_id=eq.${sid}` },
           async (payload) => {
             if (payload.new.channel !== channel) return;
+            if (channel === 'social' && payload.new.social_event_id !== socialEventId) return;
             const { data: msg } = await supabase
               .from('messages')
               .select(MSG_SELECT)
@@ -168,7 +176,32 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
     init();
 
     return () => { if (subRef.current) supabase.removeChannel(subRef.current); };
-  }, [channel, societyId, societyLoaded]);
+  }, [channel, societyId, societyLoaded, socialEventId]);
+
+  const eventIdsKey = channel === 'general'
+    ? [...new Set(messages.map(m => m.social_event_id).filter(Boolean) as string[])].sort().join(',')
+    : '';
+  const refreshEventInfo = useCallback(async () => {
+    if (!me || !eventIdsKey) return;
+    try { setEventInfo(await fetchEventResponses(eventIdsKey.split(','), me.id)); }
+    catch (e) { console.error('[chat] event tally failed', e); }
+  }, [me, eventIdsKey]);
+  useEffect(() => { refreshEventInfo(); }, [refreshEventInfo]);
+
+  // Social 18 reply from a chat card. Registers on the event, then refreshes the tally.
+  const respondFromChat = async (evId: string, response: 'accepted' | 'declined') => {
+    if (!me) return;
+    try {
+      const ev = await fetchSocialEvent(evId);
+      if (!ev || ev.status !== 'open') { setFailedEvents(prev => ({ ...prev, [evId]: true })); return; }
+      await respondToSocialEvent(ev, me.id, me.display_name, response);
+      setLocalOut(prev => ({ ...prev, [evId]: response === 'declined' }));
+      await refreshEventInfo();
+    } catch (e) {
+      console.error('[chat] social reply failed', e);
+      setFailedEvents(prev => ({ ...prev, [evId]: true }));
+    }
+  };
 
   if (loading || !fontsLoaded) return (
     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
@@ -186,17 +219,22 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
     const { error } = await supabase.from('messages').insert({
       player_id: me.id, content, society_id: societyId, channel,
       reply_to_message_id: replyingTo?.id ?? null,
+      // Only sent for event chat, so every other channel keeps working even
+      // before the Social 18 migration (messages.social_event_id) is applied.
+      ...(channel === 'social' && socialEventId ? { social_event_id: socialEventId } : {}),
     });
     if (error) {
       console.error('send message failed:', error);
       setText(content);
       setReplyTo(replyingTo);
     } else {
-      supabase.from('society_members').select('player_id').eq('society_id', societyId).neq('player_id', me.id)
-        .then(({ data: rows }) => {
-          const recipientIds = (rows ?? []).map(r => r.player_id);
-          sendPushNotification(me.display_name, content, recipientIds, { type: 'message', channel, societyId });
-        });
+      const recipientQuery = channel === 'social' && socialEventId
+        ? supabase.from('social_event_players').select('player_id').eq('event_id', socialEventId).eq('status', 'accepted').neq('player_id', me.id)
+        : supabase.from('society_members').select('player_id').eq('society_id', societyId).neq('player_id', me.id);
+      recipientQuery.then(({ data: rows }) => {
+        const recipientIds = (rows ?? []).map((r: any) => r.player_id);
+        sendPushNotification(me.display_name, content, recipientIds, { type: 'message', channel, societyId, ...(channel === 'social' && socialEventId ? { socialEventId } : {}) });
+      });
     }
     setSending(false);
   }
@@ -259,6 +297,48 @@ export default function ChatChannel({ channel, title, subtitleLabel, placeholder
             )
           )}
           <Text style={[ss.msgText, isMe && ss.msgTextMe]}>{item.content}</Text>
+          {item.social_event_id && channel === 'general' && (() => {
+            const evId = item.social_event_id!;
+            const info = eventInfo[evId];
+            const isOpen = !failedEvents[evId] && (info ? info.open : true);
+            const imIn = info?.mine === 'accepted';
+            const imOut = info?.mine === 'declined' || !!localOut[evId];
+            const btn = { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 } as const;
+            return (
+              <>
+                {info && (info.inCount > 0 || info.outCount > 0) && (
+                  <Text style={{ color: '#9ca3af', fontFamily: FF, fontSize: 12, marginTop: 6 }}>
+                    {info.inCount} in{info.outCount > 0 ? ` · ${info.outCount} out` : ''}
+                  </Text>
+                )}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                  {!isMe && (isOpen ? (
+                    <>
+                      <TouchableOpacity disabled={imIn} onPress={() => respondFromChat(evId, 'accepted')}
+                        style={[btn, { backgroundColor: '#ef4444', opacity: imIn ? 0.6 : 1 }]} activeOpacity={0.85}>
+                        <Text style={{ color: '#fff', fontFamily: FFB, fontSize: 13 }}>{imIn ? "You're in ✓" : "I'm in"}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity disabled={imOut} onPress={() => respondFromChat(evId, 'declined')}
+                        style={[btn, { borderWidth: 1, borderColor: '#6b7280', opacity: imOut ? 0.6 : 1 }]} activeOpacity={0.85}>
+                        <Text style={{ color: '#d1d5db', fontFamily: FFB, fontSize: 13 }}>{imOut ? "You're out ✓" : "Can't make it"}</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <View style={[btn, { borderWidth: 1, borderColor: '#2a2a2a' }]}>
+                      <Text style={{ color: '#6b7280', fontFamily: FFB, fontSize: 13 }}>Not open</Text>
+                    </View>
+                  ))}
+                  <TouchableOpacity
+                    onPress={() => router.push(`/(app)/social18/${evId}` as any)}
+                    style={[btn, { borderWidth: 1, borderColor: GOLD }]}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ color: GOLD, fontFamily: FFB, fontSize: 13 }}>View</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            );
+          })()}
           <Text style={[ss.time, isMe && ss.timeMe]}>{formatTime(item.created_at)}</Text>
         </TouchableOpacity>
         {isMe && (

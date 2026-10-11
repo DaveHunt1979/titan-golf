@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"sed -i 's/Square PNG or JPEG · max 10 MB/Square PNG or JPEG · 512 × 512 px/; s/Widescreen photo · max 10 MB/Widescreen photo (16:9) · 1600 × 900 px/' app/\\\\(app\\\\)/admin/branding.tsx && se...",
+  "error": "Exit code 1\nsed: 1: \"app/(app)/admin/brandin ...\": command a expects \\ followed by text",
+  "timestamp": "2026-10-08T14:07:29.918Z",
+  "retry_count": 1
+}

@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { colors } from './theme';
@@ -79,6 +80,8 @@ export interface SocietyTheme {
   lightMode:       boolean;
   toggleLightMode: () => void;
   switchSociety:   (societyId: string) => Promise<void>;
+  /** Re-read the active society's logo/hero/name/tagline right now. */
+  refreshTheme:    () => Promise<void>;
 }
 
 const DEFAULT: SocietyTheme = {
@@ -95,11 +98,12 @@ const DEFAULT: SocietyTheme = {
   lightMode:       false,
   toggleLightMode: () => {},
   switchSociety:   async () => {},
+  refreshTheme:    async () => {},
 };
 
 const Ctx = createContext<SocietyTheme>(DEFAULT);
 
-type BaseTheme = Omit<SocietyTheme, 'lightMode' | 'toggleLightMode' | 'switchSociety'>;
+type BaseTheme = Omit<SocietyTheme, 'lightMode' | 'toggleLightMode' | 'switchSociety' | 'refreshTheme'>;
 
 async function fetchTheme(): Promise<BaseTheme> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -199,6 +203,31 @@ export function SocietyThemeProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Picks up edits made after launch (hero, logo, name, tagline) — by this
+  // admin on the branding screen, or by another admin on their own phone —
+  // without a restart. Only touches those editable fields, and only when the
+  // refetch is for the society already showing: a failed/offline fetch falls
+  // back to DEFAULT, which must never overwrite real branding.
+  const baseRef = useRef(base);
+  baseRef.current = base;
+  async function refreshTheme() {
+    try {
+      const next = await fetchTheme();
+      const cur = baseRef.current;
+      if (!cur.loaded || !next.loaded || next.societyId !== cur.societyId) return;
+      if (next.logoUrl === cur.logoUrl && next.heroUrl === cur.heroUrl && next.societyName === cur.societyName && next.tagline === cur.tagline) return;
+      setBase({ ...cur, logoUrl: next.logoUrl, heroUrl: next.heroUrl, localLogo: next.localLogo, societyName: next.societyName, tagline: next.tagline });
+    } catch (e) {
+      console.error('[theme] refresh failed', e);
+    }
+  }
+
+  // Refresh whenever the app comes back to the foreground.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', state => { if (state === 'active') refreshTheme(); });
+    return () => sub.remove();
+  }, []);
+
   function toggleLightMode() {
     setLightMode(prev => {
       const next = !prev;
@@ -216,7 +245,7 @@ export function SocietyThemeProvider({ children }: { children: ReactNode }) {
 
   const palette = lightMode ? TITAN_LIGHT_PALETTE : base.palette;
 
-  const value: SocietyTheme = { ...base, palette, lightMode, toggleLightMode, switchSociety };
+  const value: SocietyTheme = { ...base, palette, lightMode, toggleLightMode, switchSociety, refreshTheme };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

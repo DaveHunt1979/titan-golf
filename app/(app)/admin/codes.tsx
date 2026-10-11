@@ -64,7 +64,7 @@ export default function CodesScreen() {
           (playerRows as any[] ?? []).forEach((p: any) => { nameMap[p.id] = p.display_name.split(' ')[0]; });
           setMashieGroups(societyMashieMatches.map((m: any, i: number) => ({
             groupCode: m.group_code,
-            playerNames: (m.home_player_ids ?? []).map((id: string) => nameMap[id] ?? '?').join(', ') || `Group ${i + 1}`,
+            playerNames: (m.home_player_ids ?? []).map((id: string) => nameMap[id] ?? '?').join(', ') || `Team ${i + 1}`,
           })));
         }
       } finally {
@@ -184,10 +184,10 @@ export default function CodesScreen() {
         {/* Mashie group codes */}
         {mashieGroups.length > 0 && (
           <>
-            <Text style={[s.sectionLabel, { color: dc.cardText, marginTop: 24 }]}>MASHIE GROUP CODES</Text>
+            <Text style={[s.sectionLabel, { color: dc.cardText, marginTop: 24 }]}>MASHIE TEAM CODES</Text>
             <View style={[s.card, { backgroundColor: dc.card, borderColor: '#a78bfa44' }]}>
               <Text style={[s.cardHint, { color: dc.cardText, marginBottom: 12 }]}>
-                Share each code with the group — they can only score their own 4.
+                Share each code with the team — they can only score their own 4.
               </Text>
               {mashieGroups.map((g, idx) => (
                 <View key={g.groupCode} style={[{ borderTopWidth: idx > 0 ? 1 : 0, borderTopColor: dc.border, paddingTop: idx > 0 ? 12 : 0, marginTop: idx > 0 ? 12 : 0 }]}>
@@ -196,7 +196,7 @@ export default function CodesScreen() {
                     <Text style={[s.areaCode, { color: '#a78bfa', fontSize: 22, letterSpacing: 4 }]}>{g.groupCode}</Text>
                     <TouchableOpacity
                       style={[s.shareBtn, { flex: 0, borderColor: '#a78bfa55', backgroundColor: '#a78bfa15', paddingHorizontal: 14 }]}
-                      onPress={() => shareText(`Your Mashie group code: ${g.groupCode} — ${g.playerNames}`, g.groupCode)}
+                      onPress={() => shareText(`Your Mashie team code: ${g.groupCode} — ${g.playerNames}`, g.groupCode)}
                       activeOpacity={0.8}
                     >
                       <Text style={[s.shareBtnText, { color: '#a78bfa' }]}>Share</Text>

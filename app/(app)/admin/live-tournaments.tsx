@@ -193,6 +193,9 @@ export default function LiveTournaments() {
                       fixing a mistake. Both still point at admin/draw.tsx —
                       only which tab it opens on differs (see the `mode`
                       param there). */}
+                  <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/review?id=${c.id}` as any)} activeOpacity={0.8}>
+                    <Text style={s.manageBtnText}>REVIEW</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity style={s.manageBtn} onPress={() => router.push(`/(app)/admin/draw?id=${c.id}&mode=draw` as any)} activeOpacity={0.8}>
                     <Text style={s.manageBtnText}>DRAW</Text>
                   </TouchableOpacity>

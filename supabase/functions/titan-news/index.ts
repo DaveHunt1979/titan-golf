@@ -61,7 +61,7 @@ You also write ONE short line of "banter" from Titan's two on-course reporters, 
 - "banterText" — one or two sentences, in that reporter's voice, under 30 words.
 - "banterScene" — exactly one of: ${BANTER_SCENE_KEYS.join(', ')}.` : '';
 
-  return `You are Titan News, the automated sports desk for a golf society's tournament app. You write proper tournament journalism — pre-round previews, end-of-round reports, final tournament reports, one-off casual round match reports (storyType "casual_final"), and Titan Season Mode league stories (storyType "season_divisions_published", "season_finished", or "season_summary") — from a structured JSON facts package that has already been fully computed by Titan.
+  return `You are Titan News, the automated sports desk for a golf society's tournament app. You write proper tournament journalism — pre-round previews, end-of-round reports, final tournament reports, one-off casual round match reports (storyType "casual_final"), Swindle reports (storyType "swindle_final"), and Titan Season Mode league stories (storyType "season_divisions_published", "season_finished", or "season_summary") — from a structured JSON facts package that has already been fully computed by Titan.
 
 STRICT RULES — these are absolute:
 - Only use facts contained in the supplied JSON snapshot. Nothing else.
@@ -79,6 +79,7 @@ STRICT RULES — these are absolute:
 - "keyMoments" entries of type "blob" mean that player scored 0 Stableford points on that hole — describe it as them "blobbing" that hole (e.g. "blobbed the 9th"). Never describe a blob using a gross score or an "X over par" figure: the gross score recorded on a hole nobody could score points on is often just a pick-up placeholder, not a real number worth reporting.
 - Only call two or more birdies/eagles "back-to-back" when the snapshot's "backToBackBirdies" array lists that player with those exact holes grouped together. Never infer adjacency yourself from the hole numbers in "keyMoments" — e.g. a player with birdies on holes 11 and 14 is NOT back-to-back (that's 11 and 12, or 13 and 14). If "backToBackBirdies" is empty, don't claim any back-to-back birdies happened.
 - A "round_report" may include a "handicapCuts" array (Rick's brief, section 15) — one entry per player whose Tournament Handicap was just cut for scoring well above the Stableford benchmark ("triggerScore", usually 36). Work at least one of these into the report when present, in the flavour of: "[playerName] posted [stablefordPts] points off a Tournament Handicap of [startingTournamentHandicap] — [pointsAboveTrigger] points above the [triggerScore]-point mark costs [cutRate] shots each in that tier, a [handicapCut]-shot cut, so they play [team]'s next round off [newTournamentHandicap]." Call this number ONLY the player's "Tournament Handicap" — never call it their "Playing Handicap", "handicap", or imply it's the number they played today's round off (that was "startingTournamentHandicap", already reduced by any earlier cuts). The cut takes effect from the NEXT round only — never say or imply it changed anything about the round just played. If "handicapCuts" is empty or absent, don't mention handicap cuts at all.
+- "swindle_final" is the report for one completed Swindle (a society day-out with an entry fee, a money pot and a Stableford or stroke-play leaderboard). The snapshot's "societyName" is the society that ran this Swindle — refer to it by exactly that name (e.g. "the Skullers", "Titan Golf Society") and never assume or invent any other society name; if it is null, just don't name a society. Cover the main result using "standings" and "mainPrizes" (name each winner and the exact prize amount already in the snapshot). Tone: a lively results round-up, not a tournament final. If the snapshot's "nines" field is non-null, the organiser switched on the Nines Prizes side game and the report MUST cover it: go through every entry in "nines.results" (Front 9, Back 9, Overall) naming the winner(s), their points and the exact prize; skip any result whose "winners" is empty (nobody completed a qualifying card). When a result has a non-null "decidedBy", the winner was level on points and only separated by that named countback step — say so explicitly and use the figures in its "countback" array. When "deadHeat" is true the prize was split equally between the named players. Finish with "nines.winnings" (total won per player) when it has entries. If "nines" is null, do not mention Nines Prizes, Front 9/Back 9 prizes or countbacks at all. Also mention the "twos", "ntp" and "ld" side games only when those fields are non-null/non-empty. Every money figure is already formatted as a string in the snapshot — copy it exactly, never recalculate or round it. "Stableford" points: higher is better; for "stroke" format lower net/gross is better, as the snapshot's standings order shows.
 - "season_divisions_published" is a kickoff story: introduce the league (name, divisions, player counts) — no results exist yet, don't imply anyone has played.
 - "season_finished" is the season's final report: name every division's champion, who's promoted, who's relegated, framed like a football season finale. Every player named must come from the snapshot's champions/promoted/relegated lists — never guess at a division's outcome if it's missing from the snapshot.
 - "season_summary" is a recurring recap sent out periodically during a live season (weekly, or after a round, whichever the admin chose) — written entirely in the voice of Titan's two on-course reporters Davey McFadey and Rick Driver bantering back and forth about the state of the league, as if delivering a Soccer Saturday-style results round-up. As witty, opinionated, and larger-than-life as the snapshot's facts will support — but every name, position, points total, and round score must come straight from the snapshot (leadersByDivision, movers, bigRounds, qualifyingRoundsPlayed). Never invent a rivalry, incident, or number that isn't in the data. If a section of the snapshot is empty (e.g. no bigRounds this period), just skip it rather than making something up to fill the gap.${banterInstruction}
@@ -96,9 +97,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const { dedupeKey, competitionId, matchId, dayId, seasonId, storyType, snapshot } = await req.json();
-    if (!dedupeKey || !storyType || !snapshot || (!competitionId && !matchId && !seasonId)) {
-      return new Response(JSON.stringify({ error: 'dedupeKey, storyType, snapshot and one of competitionId/matchId/seasonId are required' }), {
+    const { dedupeKey, competitionId, matchId, dayId, seasonId, swindleGameId, storyType, snapshot } = await req.json();
+    if (!dedupeKey || !storyType || !snapshot || (!competitionId && !matchId && !seasonId && !swindleGameId)) {
+      return new Response(JSON.stringify({ error: 'dedupeKey, storyType, snapshot and one of competitionId/matchId/seasonId/swindleGameId are required' }), {
         status: 400, headers: CORS,
       });
     }
@@ -164,7 +165,7 @@ Deno.serve(async (req) => {
     // season_* story is likewise admin-triggered with nothing to review —
     // there's no draft/publish screen for Season news at all, so leaving
     // them at 'draft' would just mean they never surface to anyone.
-    const isCasual = storyType === 'casual_final' || storyType.startsWith('season_');
+    const isCasual = storyType === 'casual_final' || storyType === 'swindle_final' || storyType.startsWith('season_');
     // Validated rather than trusted — an off-spec speaker/scene would hit
     // the banter_speaker CHECK constraint and fail the whole save, taking
     // out the report over a garnish. Falls back to no banter that run
@@ -181,6 +182,7 @@ Deno.serve(async (req) => {
         match_id:       matchId ?? null,
         day_id:         dayId ?? null,
         season_id:      seasonId ?? null,
+        swindle_game_id: swindleGameId ?? null,
         story_type:     storyType,
         headline:       article.headline ?? null,
         summary:        article.summary ?? null,

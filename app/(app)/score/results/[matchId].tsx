@@ -14,8 +14,9 @@ import { useSocietyTheme } from '../../../../src/lib/SocietyThemeContext';
 import { titanLogo } from '../../../../src/lib/assets';
 import { resolveTournamentHandicaps } from '../../../../src/lib/tournamentHandicap';
 import {
-  calcStrokesReceived,
+  calcStrokesReceived, calcStablefordPoints,
 } from '../../../../src/lib/scoring';
+import { matchplayHcp, type MatchForScoring } from '../../../../src/lib/matchScoring';
 import { resolvePlayingHandicap, type RoundPlayerTeeSnapshot } from '../../../../src/lib/whs';
 
 // ── Design tokens ───────────────────────────────────────────────
@@ -477,10 +478,28 @@ export default function ResultsScreen() {
     return resolvePlayingHandicap(profile?.handicap_index ?? 0, match?.day, match?.hcp_allowance ?? 100, roundPlayerTees[playerId]);
   }
 
+  // Match Play–Stableford: stored stableford_pts is the 100%-handicap side-game
+  // value (kept for Kronos / handicap cuts). The match itself was decided on
+  // the match's own allowance (relative-low etc.), so the PTS row and totals
+  // must be recomputed off that same handicap, exactly as the scoring engine
+  // does, or they contradict the result shown above.
+  const isMatchplayStableford = match?.round_format === 'matchplay'
+    && (match?.handicap_method === 'relative_low_stableford' || match?.handicap_method === 'individual_stableford');
+  const mainHcpFor = (playerId: string): number => {
+    if (!isMatchplayStableford || !match) return getCourseHcp(playerId);
+    const compPlayers = players.map(p => ({ player_id: p.id, handicap_index: p.handicap_index ?? 0 }));
+    return matchplayHcp(playerId, match as unknown as MatchForScoring, compPlayers, roundPlayerTees, [...match.home_player_ids, ...match.away_player_ids]);
+  };
+  const displayMatchHoles: MatchHole[] = !isMatchplayStableford ? matchHoles : matchHoles.map(mh => {
+    const ch = courseHoles.find(c => c.hole_number === mh.hole_number);
+    if (mh.gross_score == null || !ch) return mh;
+    return { ...mh, stableford_pts: calcStablefordPoints(mh.gross_score, ch.par, calcStrokesReceived(mainHcpFor(mh.player_id), ch.stroke_index)) };
+  });
+
   const selectedProfile = selectedPlayerId ? playerMap[selectedPlayerId] : null;
-  const selectedCourseHcp = selectedPlayerId ? getCourseHcp(selectedPlayerId) : 0;
+  const selectedCourseHcp = selectedPlayerId ? mainHcpFor(selectedPlayerId) : 0;
   const stats = selectedPlayerId
-    ? deriveStats(selectedPlayerId, courseHoles, matchHoles, holeStats, selectedCourseHcp)
+    ? deriveStats(selectedPlayerId, courseHoles, displayMatchHoles, holeStats, selectedCourseHcp)
     : null;
 
   // ── Share ────────────────────────────────────────────────────────
@@ -615,7 +634,7 @@ export default function ResultsScreen() {
               <ScorecardGrid
                 holeSequence={firstNine}
                 courseHoles={courseHoles}
-                matchHoles={matchHoles}
+                matchHoles={displayMatchHoles}
                 playerId={selectedPlayerId!}
                 isStableford={isStableford}
                 label={firstLabel}
@@ -628,7 +647,7 @@ export default function ResultsScreen() {
               <ScorecardGrid
                 holeSequence={secondNine}
                 courseHoles={courseHoles}
-                matchHoles={matchHoles}
+                matchHoles={displayMatchHoles}
                 playerId={selectedPlayerId!}
                 isStableford={isStableford}
                 label={secondLabel}

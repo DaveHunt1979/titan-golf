@@ -199,7 +199,7 @@ interface DayMatchRow {
   holes_to_play: number | null;
 }
 
-async function loadDayPlayerStableford(dayId: string): Promise<{ playerIds: string[]; holesToPlay: number; totals: Record<string, number> }> {
+async function loadDayPlayerStableford(dayId: string): Promise<{ playerIds: string[]; holesToPlay: number; totals: Record<string, number>; holesScored: Record<string, number> }> {
   const { data: matches } = await supabase
     .from('matches')
     .select('id, status, home_player_ids, away_player_ids, holes_to_play')
@@ -208,6 +208,7 @@ async function loadDayPlayerStableford(dayId: string): Promise<{ playerIds: stri
   const playerIds = [...new Set(dayMatches.flatMap(m => [...(m.home_player_ids ?? []), ...(m.away_player_ids ?? [])]))];
   const holesToPlay = dayMatches[0]?.holes_to_play ?? 18;
   const totals: Record<string, number> = {};
+  const holesScored: Record<string, number> = {};
   if (dayMatches.length > 0) {
     // 18 holes x every player on the day — a big field blows past PostGREST's
     // 1000-row default cap, and a truncated read here would silently under-count
@@ -215,17 +216,18 @@ async function loadDayPlayerStableford(dayId: string): Promise<{ playerIds: stri
     const holes = await fetchAllRows<any>(
       (from, to) => supabase
         .from('match_holes')
-        .select('player_id, stableford_pts')
+        .select('player_id, stableford_pts, hole_number')
         .in('match_id', dayMatches.map(m => m.id))
         .order('id')
         .range(from, to)
     );
     (holes ?? []).forEach((h: any) => {
+      holesScored[h.player_id] = (holesScored[h.player_id] ?? 0) + 1;
       if (h.stableford_pts == null) return;
       totals[h.player_id] = (totals[h.player_id] ?? 0) + h.stableford_pts;
     });
   }
-  return { playerIds, holesToPlay, totals };
+  return { playerIds, holesToPlay, totals, holesScored };
 }
 
 // Call from every score-completion write site right after a match's status
@@ -267,7 +269,7 @@ export async function processDayCuts(dayId: string): Promise<void> {
   const config = await fetchTournamentCutConfig(competitionId);
   if (!config.enabled) return;
 
-  const { playerIds, holesToPlay, totals } = await loadDayPlayerStableford(dayId);
+  const { playerIds, holesToPlay, totals, holesScored } = await loadDayPlayerStableford(dayId);
   if (playerIds.length === 0) return;
 
   const [{ data: cpRows }, { data: activeRows }] = await Promise.all([
@@ -285,6 +287,11 @@ export async function processDayCuts(dayId: string): Promise<void> {
   const trigger = effectiveTriggerScore(config.triggerScore, holesToPlay);
 
   for (const cp of (cpRows ?? []) as any[]) {
+    // Cuts key off a full round only. A match-play team game can conclude
+    // early (dormie) with the Stableford side game still part-played —
+    // never cut on that partial total. Decided from the scored holes
+    // themselves, so it holds for every caller.
+    if ((holesScored[cp.player_id] ?? 0) < holesToPlay) continue;
     const startHcp = cp.starting_tournament_handicap;
     const active = activeByPlayer.get(cp.player_id);
     const stablefordPts = totals[cp.player_id] ?? 0;

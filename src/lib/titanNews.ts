@@ -9,6 +9,7 @@
 import { supabase, fetchAllRows } from './supabase';
 import { getStandings, calcSweepBonus, scoreVsPar, individualScoreValue, getEffectiveWinner, matchLabel, buildKronosTieBreakMaps, kronosTieBreakCompare, type KronosTieBreakMaps } from './scoring';
 import { individualBoardLabel, matchFormatLabel } from './tournamentFormat';
+import { summariseNines, fmtMoney } from './swindleNines';
 
 interface Core {
   competition: any;
@@ -203,6 +204,7 @@ export function stageLabel(storyType: string, dayNumber: number | null): string 
     case 'round_report':  return dayNumber ? `Round ${dayNumber} Report` : 'Round Report';
     case 'final_report':  return 'Final Tournament Report';
     case 'casual_final':  return 'Match Report';
+    case 'swindle_final': return 'Swindle Report';
     case 'season_divisions_published': return 'Season Kickoff';
     case 'season_finished': return 'Season Final';
     case 'season_summary': return 'Season Update';
@@ -640,5 +642,119 @@ export async function generateCasualMatchReport(matchId: string): Promise<void> 
     }
   } catch (e) {
     console.error('[titanNews] casual report generation failed', e);
+  }
+}
+
+
+// Swindle's one report, generated when the organiser marks the game complete.
+// Same "Titan calculates, AI only writes" split as every other builder here:
+// the standings, prizes and Nines results all come from the same code the
+// Swindle screen uses (swindleNines.ts), pre-formatted as money strings so
+// the AI never does arithmetic. "nines" is null unless the organiser switched
+// the Nines Prizes side game on — the edge function prompt keys off that.
+export async function buildSwindleFinalReportSnapshot(gameId: string) {
+  const { data: game, error } = await supabase.from('swindle_games').select('*').eq('id', gameId).single();
+  if (error || !game) throw new Error('Swindle not found');
+  const g = game as any;
+  const cur = g.currency ?? '£';
+
+  const [{ data: entryRows }, scores, { data: holeRows }] = await Promise.all([
+    supabase.from('swindle_entries').select('player_id, handicap').eq('game_id', gameId),
+    fetchAllRows<any>((from, to) => supabase.from('swindle_scores').select('player_id, hole_number, gross_score, stableford_pts').eq('game_id', gameId).order('id').range(from, to)),
+    g.course_name ? supabase.from('course_holes').select('hole_number,par').eq('course_name', g.course_name) : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const entries = (entryRows ?? []) as any[];
+  const ids = entries.map(e => e.player_id);
+  const { data: playerRows } = ids.length ? await supabase.from('players').select('id, display_name').in('id', ids) : { data: [] as any[] };
+  const nameOf = (id: string | null) => {
+    const n = (playerRows ?? []).find((p: any) => p.id === id)?.display_name as string | undefined;
+    return n ? n.split(' ')[0] : null;
+  };
+
+  const { data: soc } = g.society_id ? await supabase.from('societies').select('name').eq('id', g.society_id).maybeSingle() : { data: null as any };
+
+  const isStroke = (g.format ?? 'stableford') === 'stroke';
+  const perPlayer = entries.map(e => {
+    const mine = scores.filter(s => s.player_id === e.player_id);
+    return {
+      id: e.player_id as string, name: nameOf(e.player_id) ?? '—',
+      points: mine.reduce((t, s) => t + (s.stableford_pts ?? 0), 0),
+      gross: mine.reduce((t, s) => t + (s.gross_score ?? 0), 0),
+      holes: mine.length,
+    };
+  });
+  perPlayer.sort((a, b) => isStroke ? a.gross - b.gross || b.holes - a.holes : b.points - a.points || b.holes - a.holes);
+
+  const nines = g.nines_enabled ? summariseNines(
+    { enabled: true, mode: g.nines_mode ?? 'fixed', front: Number(g.nines_front), back: Number(g.nines_back), overall: Number(g.nines_overall) },
+    Number(g.entry_fee),
+    perPlayer.map(p => ({
+      id: p.id, name: p.name,
+      holes: Object.fromEntries(scores.filter(s => s.player_id === p.id).map(s => [s.hole_number, s.stableford_pts ?? 0])),
+    })),
+    entries.length,
+  ) : null;
+
+  const mainFee = nines ? nines.allocation.main / 100 : Number(g.entry_fee);
+  const mainPot = mainFee * entries.length;
+  const prizes: number[] = (g.prize_split ?? []).map((pct: number) => mainPot * pct / 100);
+  const money = (n: number) => `${cur}${n.toFixed(n % 1 === 0 ? 0 : 2)}`;
+
+  const parOf = (h: number) => (holeRows ?? []).find((r: any) => r.hole_number === h)?.par;
+  const twos = g.twos_enabled
+    ? scores.filter(s => parOf(s.hole_number) != null && s.gross_score <= parOf(s.hole_number) - 2)
+        .map(s => ({ player: nameOf(s.player_id), hole: s.hole_number }))
+    : [];
+
+  return {
+    storyType: 'swindle_final',
+    societyName: (soc as any)?.name ?? null,
+    game: { name: g.name, course: g.course_name ?? null, date: g.game_date ?? null, format: isStroke ? 'stroke' : 'stableford', players: entries.length, entryFee: money(Number(g.entry_fee)) },
+    mainPot: mainPot > 0 ? money(mainPot) : null,
+    mainPrizes: prizes.map((amt, i) => ({ position: i + 1, winner: perPlayer[i]?.name ?? null, prize: money(amt) })).filter(p => p.winner && prizes[p.position - 1] > 0),
+    standings: perPlayer.map((p, i) => ({ position: i + 1, name: p.name, ...(isStroke ? { grossTotal: p.gross } : { stablefordPoints: p.points }), holesPlayed: p.holes })),
+    nines: nines ? {
+      entryFeeSplit: `${fmtMoney(nines.allocation.front, cur)} Front 9 + ${fmtMoney(nines.allocation.back, cur)} Back 9 + ${fmtMoney(nines.allocation.overall, cur)} Overall + ${fmtMoney(nines.allocation.main, cur)} main swindle`,
+      results: nines.results.map(r => ({
+        competition: r.label, pot: fmtMoney(r.potPence, cur), qualifiedPlayers: r.qualified,
+        winners: r.winners.map(w => ({ name: w.name, points: w.points, prize: fmtMoney(w.sharePence, cur) })),
+        decidedBy: r.decidedBy, countback: r.countback.map(c => ({ name: c.name, score: c.score })), deadHeat: r.deadHeat,
+      })),
+      winnings: nines.winnings.map(w => ({ name: w.name, total: fmtMoney(w.pence, cur) })),
+    } : null,
+    twos: twos.length ? { pot: money((g.twos_fee ?? 0) * entries.length), scores: twos } : null,
+    ntp: g.ntp_hole && g.ntp_winner_id ? { hole: g.ntp_hole, winner: nameOf(g.ntp_winner_id) } : null,
+    ld: g.ld_hole && g.ld_winner_id ? { hole: g.ld_hole, winner: nameOf(g.ld_winner_id) } : null,
+  };
+}
+
+// Fire-and-forget like the casual report: a failure here must never block or
+// alarm the organiser who just completed the game — it just means no report.
+// Auto-published by the edge function; every entrant gets it in their inbox.
+export async function generateSwindleReport(gameId: string): Promise<void> {
+  try {
+    const snapshot = await buildSwindleFinalReportSnapshot(gameId);
+    const { data, error } = await supabase.functions.invoke('titan-news', {
+      body: { dedupeKey: `swindle:${gameId}`, swindleGameId: gameId, storyType: 'swindle_final', snapshot },
+    });
+    if (error || data?.error) { console.error('[titanNews] swindle report generation failed', error ?? data.error); return; }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: me } = await supabase.from('players').select('id').eq('auth_uid', user.id).maybeSingle();
+    if (!me) return;
+    const { data: entryRows } = await supabase.from('swindle_entries').select('player_id').eq('game_id', gameId);
+    const rows = [...new Set((entryRows ?? []).map((e: any) => e.player_id as string))].map(id => ({
+      sender_id: (me as any).id, recipient_id: id,
+      content: data?.headline ?? 'Your Swindle report is ready to read.',
+      message_type: 'match_report' as const,
+      link_url: `titangolf://news?swindleGameId=${gameId}`,
+    }));
+    if (rows.length) {
+      const { error: dmErr } = await supabase.from('direct_messages').insert(rows);
+      if (dmErr) console.error('[titanNews] swindle report DM send failed', dmErr);
+    }
+  } catch (e) {
+    console.error('[titanNews] swindle report generation failed', e);
   }
 }

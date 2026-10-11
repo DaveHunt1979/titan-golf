@@ -204,6 +204,10 @@ export default function BuildTournamentScreen() {
   // before; a free/social tournament can flip this off to skip that
   // requirement entirely (see computeGoLiveIssues).
   const [prizesEnabled, setPrizesEnabled] = useState(true);
+  // Division prizes (Rick/Dave, 2026-10-07) — off means a single overall
+  // winner takes the money (e.g. a singles event); no handicap divisions to
+  // configure. Default on, same reasoning as prizesEnabled.
+  const [divisionPrizesEnabled, setDivisionPrizesEnabled] = useState(true);
   // Automatic Tournament Handicap Cuts (Rick's brief, 2026-08-25) — off by
   // default, per-tournament, locked once the tournament goes live (see
   // finishDraft() and handicapCutsLockedAt below).
@@ -238,6 +242,8 @@ export default function BuildTournamentScreen() {
   const [compId, setCompId]               = useState<string | null>(null);
   const [compPin, setCompPin]             = useState<string | null>(null);
   const [compPlayers, setCompPlayers]     = useState<DraftPlayer[]>([]);
+  const compPlayersRef = useRef<DraftPlayer[]>([]);
+  compPlayersRef.current = compPlayers;
   const [inviteBusy, setInviteBusy]       = useState(false);
   const [inviteNote, setInviteNote]       = useState<string | null>(null);
   const [squadTeams, setSquadTeams]       = useState<SquadTeam[]>([]);
@@ -390,6 +396,7 @@ export default function BuildTournamentScreen() {
       setSweepBonusEnabled((c.bonus_points ?? 0) > 0);
       setIncludeInKronos(!!c.include_in_kronos);
       setPrizesEnabled(c.prizes_enabled ?? true);
+      setDivisionPrizesEnabled(c.division_prizes_enabled ?? true);
       setHandicapCutsEnabled(!!c.handicap_cuts_enabled);
       setHandicapCutTrigger(String(c.handicap_cut_trigger_score ?? 36));
       setHandicapCutMinimum(String(c.handicap_cut_minimum ?? 0));
@@ -638,6 +645,7 @@ export default function BuildTournamentScreen() {
       settings,
       include_in_kronos: includeInKronos,
       prizes_enabled: prizesEnabled,
+      division_prizes_enabled: divisionPrizesEnabled,
       handicap_cuts_enabled:      handicapCutsEnabled,
       handicap_cut_trigger_score: parseInt(handicapCutTrigger, 10) || 36,
       handicap_cut_minimum:       parseFloat(handicapCutMinimum) || 0,
@@ -737,9 +745,9 @@ export default function BuildTournamentScreen() {
     setStep(3);
   }
 
-  const loadDraft = useCallback(async () => {
+  const loadDraft = useCallback(async (silent = false) => {
     if (!compId) return;
-    setDraftLoading(true);
+    if (!silent) setDraftLoading(true);
     const { data } = await supabase
       .from('competition_players')
       .select('id,player_id,team_id,handicap_index,is_captain,status,players(display_name)')
@@ -755,6 +763,29 @@ export default function BuildTournamentScreen() {
   }, [compId]);
 
   useEffect(() => { if (compId) loadDraft(); }, [compId, loadDraft]);
+
+  // Live invite responses (Rick, 2026-10-07): when an invited player taps
+  // Accept/Decline in their inbox their competition_players row changes —
+  // refresh the list and say who answered, so the organiser knows who's in
+  // before drafting teams. Also refetches on screen focus as a fallback in
+  // case realtime isn't delivering.
+  useFocusEffect(useCallback(() => {
+    if (compId) loadDraft(true);
+  }, [compId, loadDraft]));
+  useEffect(() => {
+    if (!compId) return;
+    const channel = supabase.channel(`build-invites-${compId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'competition_players', filter: `competition_id=eq.${compId}` }, (payload: any) => {
+        const row = payload.new;
+        if (row?.status === 'enrolled' || row?.status === 'declined') {
+          const who = compPlayersRef.current.find(cp => cp.player_id === row.player_id)?.display_name?.split(' ')[0];
+          if (who) setInviteNote(row.status === 'enrolled' ? `✅ ${who} accepted the invite.` : `❌ ${who} declined the invite.`);
+        }
+        loadDraft(true);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [compId, loadDraft]);
 
   // Ryder Cup: this competition's own 2 event-only teams (created below the
   // first time a captain is picked), plus the whole membership pool to draft
@@ -1041,9 +1072,16 @@ export default function BuildTournamentScreen() {
     // off for this tournament (Dave, 2026-09-16) — a free/social tournament
     // has nothing here to validate.
     if (compId && prizesEnabled) {
-      const { data: cats } = await supabase
-        .from('prize_categories').select('id, prize_payouts(id)').eq('competition_id', compId);
-      if (!cats || cats.length === 0) {
+      const { data: cats } = divisionPrizesEnabled
+        ? await supabase.from('prize_categories').select('id, prize_payouts(id)').eq('competition_id', compId)
+        : { data: [] as any[] };
+      if (!divisionPrizesEnabled) {
+        // Overall winner only — no divisions to check, but that prize is now
+        // the whole prize list, so it must exist.
+        if (!includeInKronos) {
+          issues.push({ label: 'Overall winner prize needs the Individual board switched on (Details step)', jumpToStep: 1 });
+        }
+      } else if (!cats || cats.length === 0) {
         issues.push({ label: 'Prize Categories — not configured', jumpToStep: 4 });
       } else {
         // A category with zero payouts previously passed Go Live silently —
@@ -1110,8 +1148,8 @@ export default function BuildTournamentScreen() {
     const { error } = await supabase.from('direct_messages').insert(rows);
     if (error) return 0;
     await sendPushNotification(
-      `You're invited: ${name.trim()}`,
-      when ? `${when} — open your inbox to accept or decline.` : 'Open your inbox to accept or decline.',
+      "You're invited to a Tournament",
+      `${name.trim()}${when ? ` · ${when}` : ''} — open your inbox to accept or decline.`,
       targets.map(cp => cp.player_id),
       { type: 'tournament_invite' },
     );
@@ -2191,12 +2229,12 @@ export default function BuildTournamentScreen() {
                               </TouchableOpacity>
                               {selected && (
                                 <TouchableOpacity
-                                  style={[styles.statusChip, cp!.status === 'invited' && styles.statusChipInvited]}
+                                  style={[styles.statusChip, cp!.status === 'invited' && styles.statusChipInvited, cp!.status === 'declined' && styles.statusChipDeclined]}
                                   onPress={() => toggleDraftStatus(cp!)}
                                   activeOpacity={0.7}
                                 >
-                                  <Text style={[styles.statusChipText, cp!.status === 'invited' && styles.statusChipTextInvited]}>
-                                    {cp!.status === 'invited' ? 'Invited' : 'Enrolled'}
+                                  <Text style={[styles.statusChipText, cp!.status === 'invited' && styles.statusChipTextInvited, cp!.status === 'declined' && styles.statusChipTextDeclined]}>
+                                    {cp!.status === 'invited' ? 'Invited' : cp!.status === 'declined' ? 'Declined' : 'Enrolled'}
                                   </Text>
                                 </TouchableOpacity>
                               )}
@@ -2224,6 +2262,13 @@ export default function BuildTournamentScreen() {
                     <Text style={styles.addPlayersBtnText}>+ ADD</Text>
                   </TouchableOpacity>
                 </View>
+
+                {compPlayers.some(cp => cp.status !== 'enrolled') && (
+                  <Text style={styles.emptyHint}>
+                    {compPlayers.filter(cp => cp.status === 'enrolled').length} in · {compPlayers.filter(cp => cp.status === 'invited').length} awaiting reply · {compPlayers.filter(cp => cp.status === 'declined').length} declined
+                  </Text>
+                )}
+                {inviteNote && !compPlayers.some(cp => cp.status === 'invited') && <Text style={styles.emptyHint}>{inviteNote}</Text>}
 
                 {compPlayers.some(cp => cp.status === 'invited') && (
                   <>
@@ -2255,12 +2300,12 @@ export default function BuildTournamentScreen() {
                         {cp.handicap_index != null && <Text style={styles.draftPlayerHcp}>HCP {cp.handicap_index}</Text>}
                       </View>
                       <TouchableOpacity
-                        style={[styles.statusChip, cp.status === 'invited' && styles.statusChipInvited]}
+                        style={[styles.statusChip, cp.status === 'invited' && styles.statusChipInvited, cp.status === 'declined' && styles.statusChipDeclined]}
                         onPress={() => toggleDraftStatus(cp)}
                         activeOpacity={0.7}
                       >
-                        <Text style={[styles.statusChipText, cp.status === 'invited' && styles.statusChipTextInvited]}>
-                          {cp.status === 'invited' ? 'Invited' : 'Enrolled'}
+                        <Text style={[styles.statusChipText, cp.status === 'invited' && styles.statusChipTextInvited, cp.status === 'declined' && styles.statusChipTextDeclined]}>
+                          {cp.status === 'invited' ? 'Invited' : cp.status === 'declined' ? 'Declined' : 'Enrolled'}
                         </Text>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => removeDraftPlayer(cp)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -2301,7 +2346,22 @@ export default function BuildTournamentScreen() {
               />
             </View>
 
-            {prizesEnabled && <PrizeCategoriesEditor competitionId={compId} />}
+            {prizesEnabled && (
+              <View style={styles.toggleRow}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={styles.toggleLabel}>Division Prizes</Text>
+                  <Text style={styles.toggleSub}>Turn off if there's just one overall winner (e.g. singles) — no handicap divisions to set up.</Text>
+                </View>
+                <Switch
+                  value={divisionPrizesEnabled}
+                  onValueChange={setDivisionPrizesEnabled}
+                  trackColor={{ false: '#1c1c1c', true: `${GOLD}66` }}
+                  thumbColor={divisionPrizesEnabled ? GOLD : '#555'}
+                />
+              </View>
+            )}
+
+            {prizesEnabled && <PrizeCategoriesEditor competitionId={compId} divisionsEnabled={divisionPrizesEnabled} />}
           </View>
         )}
 
@@ -2830,6 +2890,8 @@ const styles = StyleSheet.create({
   statusChipInvited: { backgroundColor: `${PURPLE}18`, borderColor: `${PURPLE}55` },
   statusChipText: { fontSize: 10, fontFamily: FFB, color: GREEN, letterSpacing: 0.5 },
   statusChipTextInvited: { color: PURPLE },
+  statusChipDeclined: { backgroundColor: 'rgba(248,113,113,0.1)', borderColor: 'rgba(248,113,113,0.4)' },
+  statusChipTextDeclined: { color: '#f87171' },
 
   // Add Players modal
   addModal: { flex: 1, backgroundColor: '#000' },

@@ -34,7 +34,10 @@ function ordinal(n: number): string {
   return `${n}th`;
 }
 
-export default function PrizeCategoriesEditor({ competitionId }: { competitionId: string }) {
+// divisionsEnabled=false (Tournament Builder's "Division Prizes" switch) hides
+// everything handicap-division related and leaves just the overall winner's
+// prize — for events where one player takes the lot.
+export default function PrizeCategoriesEditor({ competitionId, divisionsEnabled = true }: { competitionId: string; divisionsEnabled?: boolean }) {
   const [compFormat, setCompFormat]   = useState<string | null>(null);
   const [categories, setCategories]   = useState<PrizeCat[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -267,12 +270,14 @@ export default function PrizeCategoriesEditor({ competitionId }: { competitionId
   return (
     <View>
       <Text style={s.intro}>
-        Define handicap bands and prize money per position. Players are automatically placed in their category.
+        {divisionsEnabled
+          ? 'Define handicap bands and prize money per position. Players are automatically placed in their category.'
+          : 'One overall winner takes the prize — no handicap divisions needed.'}
       </Text>
 
       <View style={s.catCard}>
         <Text style={s.catName}>{individualLabel} Overall Winner</Text>
-        <Text style={[s.catRange, { marginBottom: 12 }]}>Prize for the outright {individualLabel} champion — separate from the divisions below.</Text>
+        <Text style={[s.catRange, { marginBottom: 12 }]}>{divisionsEnabled ? `Prize for the outright ${individualLabel} champion — separate from the divisions below.` : `Prize for the outright ${individualLabel} champion.`}</Text>
         <View style={s.payoutInputWrap}>
           <Text style={s.poundSign}>£</Text>
           <TextInput
@@ -288,7 +293,7 @@ export default function PrizeCategoriesEditor({ competitionId }: { competitionId
         </View>
       </View>
 
-      {handicapsLockedAt ? (
+      {divisionsEnabled && (handicapsLockedAt ? (
         <View style={s.lockedBadge}>
           <Ionicons name="lock-closed" size={14} color={GREEN} />
           <Text style={s.lockedBadgeText}>
@@ -305,9 +310,9 @@ export default function PrizeCategoriesEditor({ competitionId }: { competitionId
               </>
           }
         </TouchableOpacity>
-      )}
+      ))}
 
-      <TouchableOpacity style={s.splitBtn} onPress={autoSplitDivisions} disabled={splitting} activeOpacity={0.85}>
+      {divisionsEnabled && <TouchableOpacity style={s.splitBtn} onPress={autoSplitDivisions} disabled={splitting} activeOpacity={0.85}>
         {splitting
           ? <ActivityIndicator color={GOLD} size="small" />
           : <>
@@ -315,9 +320,9 @@ export default function PrizeCategoriesEditor({ competitionId }: { competitionId
               <Text style={s.splitBtnText}>AUTO-SPLIT INTO 3 DIVISIONS</Text>
             </>
         }
-      </TouchableOpacity>
+      </TouchableOpacity>}
 
-      {categories.length === 0 ? (
+      {divisionsEnabled && (categories.length === 0 ? (
         <View style={s.empty}>
           <Text style={s.emptyText}>No prize categories yet.{'\n'}Tap + ADD CATEGORY to get started.</Text>
         </View>
@@ -351,12 +356,12 @@ export default function PrizeCategoriesEditor({ competitionId }: { competitionId
             )}
           </View>
         ))
-      )}
+      ))}
 
-      <TouchableOpacity style={s.addBtn} onPress={openAdd} activeOpacity={0.85}>
+      {divisionsEnabled && <TouchableOpacity style={s.addBtn} onPress={openAdd} activeOpacity={0.85}>
         <Ionicons name="add" size={18} color={GOLD} />
         <Text style={s.addBtnText}>ADD CATEGORY</Text>
-      </TouchableOpacity>
+      </TouchableOpacity>}
 
       {/* Edit / Add Modal */}
       <Modal visible={modalOpen} animationType="slide" presentationStyle="pageSheet">

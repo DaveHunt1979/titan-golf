@@ -92,7 +92,12 @@ export default function DayLobby() {
       .from('matches')
       .select('id,home_player_ids,away_player_ids,round_format,is_singles,handicap_method,hcp_allowance,counting_scores,side_games,status,holes_string,holes_to_play,start_hole,winner,result_str,home_name,away_name,group_code')
       .eq('day_id', dayId)
-      .neq('status', 'cancelled');
+      .neq('status', 'cancelled')
+      // Builder order, so "Group 1"/"Team 1" here is the same one the
+      // organiser built (id breaks ties on days made before match_number
+      // was unique per group).
+      .order('match_number', { ascending: true })
+      .order('id', { ascending: true });
 
     if (!matches) { setLoading(false); setRefreshing(false); return; }
 
@@ -246,7 +251,7 @@ export default function DayLobby() {
         .eq('day_id', dayId)
         .maybeSingle();
       if (!match) {
-        Alert.alert('Not found', 'No group found with that code — double-check with Rick and try again.');
+        Alert.alert('Not found', 'No team found with that code — double-check with Rick and try again.');
         return;
       }
       const existing: string[] = (match as any).home_player_ids ?? [];
@@ -294,6 +299,14 @@ export default function DayLobby() {
     for (const g of groups) {
       for (const id of g.home_player_ids) teamNameByPlayer[id] = g.home_name ?? 'Team A';
       for (const id of g.away_player_ids) teamNameByPlayer[id] = g.away_name ?? 'Team B';
+    }
+    // Mashie: every 4-ball is its own team, not "Team A" — label by its
+    // number on this screen (or the name it was given).
+    if (isMashieDay) {
+      groups.forEach((g, i) => {
+        const label = g.home_name && !DEFAULT_TEAM_NAMES.has(g.home_name) ? g.home_name : `Team ${i + 1}`;
+        for (const id of g.home_player_ids) teamNameByPlayer[id] = label;
+      });
     }
   }
   const leaderboardRows: LeaderboardRow[] = players.map(p => ({
@@ -453,39 +466,41 @@ export default function DayLobby() {
                 }
 
                 const isMyGroup = g.match_id === myMatchId;
-                const canNavigate = !isMashieDay || isMyGroup || !myMatchId;
+                // On a Mashie day you can only score your own team; every
+                // other team's card is a spectate button instead.
+                const spectateOnly = !isSpectator && isMashieDay && !isMyGroup && !!myMatchId;
+                const canNavigate = !spectateOnly;
+                const unitWord = isMashieDay ? 'TEAM' : 'GROUP';
 
                 return (
                   <TouchableOpacity
                     key={g.match_id}
-                    style={[s.groupCard, { backgroundColor: dc.card, borderColor: dc.border }, isMyGroup && s.groupCardMe, !canNavigate && { opacity: 0.6 }]}
+                    style={[s.groupCard, { backgroundColor: dc.card, borderColor: dc.border }, isMyGroup && s.groupCardMe]}
                     onPress={
-                      isSpectator
+                      isSpectator || spectateOnly
                         ? () => router.push(`/(app)/spectate/${g.match_id}` as any)
-                        : canNavigate
-                          ? () => router.push((
-                              g.format === 'team_stableford' ? `/(app)/score/teamstableford/${g.match_id}`
-                              : g.away_player_ids.length === 0 && g.home_player_ids.length === 1 ? `/(app)/score/solo/${g.match_id}`
-                              : `/(app)/score/enter/${g.match_id}`
-                            ) as any)
-                          : undefined
+                        : () => router.push((
+                            g.format === 'team_stableford' ? `/(app)/score/teamstableford/${g.match_id}`
+                            : g.away_player_ids.length === 0 && g.home_player_ids.length === 1 ? `/(app)/score/solo/${g.match_id}`
+                            : `/(app)/score/enter/${g.match_id}`
+                          ) as any)
                     }
-                    activeOpacity={canNavigate ? 0.8 : 1}
-                    disabled={!canNavigate}
+                    activeOpacity={0.8}
                   >
                     {isMyGroup && <View style={s.groupAccent} />}
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                        <Text style={s.groupNum}>GROUP {i + 1}</Text>
+                        <Text style={s.groupNum}>{unitWord} {i + 1}</Text>
                         <View style={s.formatChip}>
-                          <Text style={s.formatChipText}>{(g.format === 'matchplay' ? matchFormatLabel(g.format, g.isSingles, g.handicapMethod) : g.format.replace(/_/g, ' ')).toUpperCase()}</Text>
+                          <Text style={s.formatChipText}>{(isMashieDay ? 'mashie' : g.format === 'matchplay' ? matchFormatLabel(g.format, g.isSingles, g.handicapMethod) : g.format.replace(/_/g, ' ')).toUpperCase()}</Text>
                         </View>
                         {isMyGroup && (
-                          <View style={s.yourGroupBadge}><Text style={s.yourGroupText}>YOUR GROUP</Text></View>
+                          <View style={s.yourGroupBadge}><Text style={s.yourGroupText}>YOUR {unitWord}</Text></View>
                         )}
-                        {!canNavigate && (
-                          <View style={[s.yourGroupBadge, { backgroundColor: '#1c1c1c' }]}>
-                            <Text style={[s.yourGroupText, { color: '#555' }]}>VIEW ONLY</Text>
+                        {spectateOnly && (
+                          <View style={[s.yourGroupBadge, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                            <Ionicons name="eye-outline" size={12} color={GOLD} />
+                            <Text style={s.yourGroupText}>SPECTATE</Text>
                           </View>
                         )}
                       </View>
@@ -533,9 +548,7 @@ export default function DayLobby() {
                         </View>
                       )}
                     </View>
-                    {canNavigate && (
-                      <Ionicons name="chevron-forward" size={18} color={isMyGroup ? GOLD : '#444'} style={{ marginLeft: 8 }} />
-                    )}
+                    <Ionicons name="chevron-forward" size={18} color={isMyGroup || spectateOnly ? GOLD : '#444'} style={{ marginLeft: 8 }} />
                   </TouchableOpacity>
                 );
               })
@@ -577,7 +590,7 @@ export default function DayLobby() {
                 }}
                 activeOpacity={0.85}
               >
-                <Text style={s.actionBtnText}>Score My Group</Text>
+                <Text style={s.actionBtnText}>{isMashieDay ? 'Score My Team' : 'Score My Group'}</Text>
                 <Ionicons name="chevron-forward" size={20} color="#000" />
               </TouchableOpacity>
             )
@@ -585,7 +598,7 @@ export default function DayLobby() {
             <View style={s.joinRow}>
               <TextInput
                 style={s.joinInput}
-                placeholder="Group code"
+                placeholder={isMashieDay ? 'Team code' : 'Group code'}
                 placeholderTextColor="#555"
                 value={joinCode}
                 onChangeText={t => setJoinCode(t.toUpperCase())}

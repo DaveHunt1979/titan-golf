@@ -43,5 +43,9 @@ export async function uploadImage(
     throw new Error(message);
   }
 
-  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+  // Same path is re-uploaded in place (x-upsert), so the bare URL never
+  // changes and every device keeps showing its cached copy of the old image.
+  // A fresh ?v= on each upload makes the saved URL new, which busts the
+  // image cache for everyone the next time the society details reload.
+  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}?v=${Date.now()}`;
 }

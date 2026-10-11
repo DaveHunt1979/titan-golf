@@ -538,7 +538,7 @@ export default function TeamStablefordScreen() {
       {isMashieGroup ? (
         <View style={[s.totalsBar, { backgroundColor: dc.card, borderColor: dc.border, justifyContent: 'center' }]}>
           <View style={{ alignItems: 'center' }}>
-            <Text style={s.totalTeamLbl}>GROUP TOTAL</Text>
+            <Text style={s.totalTeamLbl}>TEAM TOTAL</Text>
             <Text style={[s.totalPts, { color: GOLD }]}>{homeTotal} pts</Text>
           </View>
         </View>
@@ -618,7 +618,7 @@ export default function TeamStablefordScreen() {
 
         {/* Team A / Group */}
         <TeamSection
-          label={isMashieGroup ? 'GROUP' : 'TEAM A'} color={GOLD}
+          label={isMashieGroup ? 'TEAM' : 'TEAM A'} color={GOLD}
           playerIds={match.home_player_ids}
           players={players}
           hole={hole}

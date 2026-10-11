@@ -43,7 +43,7 @@ interface Tile {
 const TILES: Tile[] = [
   { key: 'play',      label: 'Play',        sub: 'Start a casual round',        icon: 'golf-outline',   area: 'casual',  route: '/(app)/score' },
   { key: 'events',    label: 'Tournaments',  sub: 'Competitions & Tours',         icon: 'trophy-outline', area: 'tour',    route: '/(app)/tour'    },
-  { key: 'clubhouse', label: 'Clubhouse',    sub: 'Swindle & Season',             icon: 'people-outline', area: 'swindle', route: '/(app)/clubhouse' },
+  { key: 'clubhouse', label: 'Clubhouse',    sub: 'Swindle, Season & Social 18',           icon: 'people-outline', area: 'swindle', route: '/(app)/clubhouse' },
   { key: 'locker',    label: 'Locker Room',  sub: 'Stats, handicap & equipment',  icon: 'shield-outline', area: 'casual',  route: '/(app)/profile' },
   { key: 'coach',     label: 'Titan Coach',  sub: 'Swing review & coaching',      icon: 'school-outline', area: 'casual',  route: '/(app)/coach' },
 ];

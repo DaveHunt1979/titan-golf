@@ -82,7 +82,7 @@ function photosForArticle(article: Article, photos: RoundPhoto[]): RoundPhoto[] 
 export default function TitanNewsScreen() {
   const router = useRouter();
   const { societyId } = useSocietyTheme();
-  const { competitionId, matchId, seasonId, back } = useLocalSearchParams<{ competitionId?: string; matchId?: string; seasonId?: string; back?: string }>();
+  const { competitionId, matchId, seasonId, swindleGameId, back } = useLocalSearchParams<{ competitionId?: string; matchId?: string; seasonId?: string; swindleGameId?: string; back?: string }>();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -142,6 +142,11 @@ export default function TitanNewsScreen() {
     let query;
     if (seasonId) {
       query = supabase.from('titan_news').select(`${cols}, seasons(name)`).eq('season_id', seasonId);
+    } else if (swindleGameId) {
+      // A Swindle's report only ever opens from its own game / inbox link —
+      // never the global feed, so it can't leak across societies (RLS also
+      // scopes it by the game's society_id).
+      query = supabase.from('titan_news').select(cols).eq('swindle_game_id', swindleGameId);
     } else if (matchId) {
       query = supabase.from('titan_news').select(cols).eq('match_id', matchId);
     } else if (competitionId) {
@@ -191,7 +196,7 @@ export default function TitanNewsScreen() {
     loadPhotos(rows).catch(e => { console.error('[news] round photo load failed', e); setPhotos([]); });
     setLoading(false);
     setRefreshing(false);
-  }, [competitionId, matchId, seasonId, societyId, loadPhotos]);
+  }, [competitionId, matchId, seasonId, swindleGameId, societyId, loadPhotos]);
 
   useFocusEffect(useCallback(() => {
     load();

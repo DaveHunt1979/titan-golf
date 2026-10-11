@@ -13,6 +13,7 @@ const IS_PAD  = Platform.OS === 'ios' && !!(Platform as any).isPad;
 const splashBg     = require('../assets/splash-screen.png');
 const splashBgiPad = IS_PAD ? require('../assets/splash-screen-ipad.png') : null;
 const featureIntroBg = require('../assets/feature-intro.png');
+const featureIntroBgiPad = IS_PAD ? require('../assets/feature-intro-ipad.png') : null;
 
 // ── Fade-in / hold / fade-out image beat — used for both screen 1 (splash)
 // and screen 2 (feature intro). Fully automatic, no tap — Dave, 2026-09-10:
@@ -173,7 +174,7 @@ export default function RootLayout() {
   // app/(app)/_layout.tsx.
   let content: ReactNode;
   if (stage === 'splash') content = <FadeImageStage key="splash" source={splashBgiPad ?? splashBg} holdMs={1600} onComplete={onSplashComplete} />;
-  else if (stage === 'intro') content = <FadeImageStage key="intro" source={featureIntroBg} holdMs={2200} onComplete={onIntroComplete} />;
+  else if (stage === 'intro') content = <FadeImageStage key="intro" source={featureIntroBgiPad ?? featureIntroBg} holdMs={2200} onComplete={onIntroComplete} />;
   else if (stage === 'pulse') content = <PulsingLogo onComplete={onPulseComplete} />;
   else content = (
     <View style={{ flex: 1, backgroundColor: '#000' }}>

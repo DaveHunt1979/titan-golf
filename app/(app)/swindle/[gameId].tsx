@@ -11,6 +11,8 @@ import ConfirmDialog from '../../../src/components/ConfirmDialog';
 import { useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import type { SelectableTee } from '../../../src/components/TeePickerSheet';
 import { buildSwindleTeeSnapshot } from '../../../src/lib/whs';
+import { generateSwindleReport } from '../../../src/lib/titanNews';
+import { summariseNines, fmtMoney, NINES_LABEL, NinesSummary } from '../../../src/lib/swindleNines';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -31,6 +33,8 @@ type Game = {
   whs_enabled: boolean; hcp_allowance: number;
   tee_name: string | null; tee_gender: string | null; tee_par: number | null;
   course_rating: number | null; slope_rating: number | null;
+  nines_enabled: boolean; nines_mode: 'fixed' | 'percent';
+  nines_front: number; nines_back: number; nines_overall: number;
 };
 type SwindleGroup = {
   id: string; tee_time: string; course_tee: string | null; created_by: string;
@@ -236,7 +240,17 @@ export default function SwindleGame() {
     const { error } = await supabase.from('swindle_entries').insert({
       game_id: game.id, player_id: p.id, handicap: p.handicap_index ?? null,
     });
-    if (error && error.code !== '23505') Alert.alert('Error', error.message);
+    if (error && error.code !== '23505') {
+      setJoining(false);
+      console.error('[swindle.join] failed', error);
+      Alert.alert(
+        error.code === '23503' ? 'Game not found' : 'Could not join',
+        error.code === '23503'
+          ? 'This swindle no longer exists — go back and refresh the list.'
+          : error.message,
+      );
+      return;
+    }
     const snapshot = buildSwindleTeeSnapshot(game, p.handicap_index);
     if (snapshot) {
       await supabase.from('round_player_tees').upsert(
@@ -256,9 +270,31 @@ export default function SwindleGame() {
         await supabase.from('swindle_games').update({ status: 'complete' }).eq('id', game.id);
         await postResultsToChat();
         await sendSettlementDMs();
+        // Fire-and-forget AI report (covers Nines Prizes when switched on) —
+        // never blocks completing the game.
+        generateSwindleReport(game.id);
         load();
       }},
     ]);
+  }
+
+  // Nines Prizes side game (Front 9 / Back 9 / Overall). Null when the game
+  // doesn't use it, so every existing Swindle behaves exactly as before.
+  function computeNines(): NinesSummary | null {
+    if (!game || !game.nines_enabled) return null;
+    const byPlayer: Record<string, Record<number, number>> = {};
+    for (const sc of allScores) (byPlayer[sc.player_id] ??= {})[sc.hole_number] = sc.stableford_pts ?? 0;
+    const players = entries.map(e => ({ id: e.player_id, name: e.display_name.split(' ')[0], holes: byPlayer[e.player_id] ?? {} }));
+    return summariseNines(
+      { enabled: true, mode: game.nines_mode ?? 'fixed', front: Number(game.nines_front), back: Number(game.nines_back), overall: Number(game.nines_overall) },
+      game.entry_fee, players, entries.length,
+    );
+  }
+  // What each player's entry contributes to the MAIN swindle (entry fee minus
+  // the nines prizes). Unchanged entry_fee when nines is off.
+  function mainEntryFee(): number {
+    const n = computeNines();
+    return n ? n.allocation.main / 100 : (game?.entry_fee ?? 0);
   }
 
   // Dave, 2026-08-20 — "it should send a message to the inbox on how much
@@ -287,8 +323,15 @@ export default function SwindleGame() {
       for (const e of entries) {
         if (e.paid || e.player_id === myId) continue;
         const owed = game.prize_split
-          .map((pct, i) => ({ winner: entries[i], amt: game.entry_fee * pct / 100 }))
+          .map((pct, i) => ({ winner: entries[i], amt: mainEntryFee() * pct / 100 }))
           .filter(o => o.winner && o.winner.player_id !== e.player_id);
+        // Each nines winner is owed their share of that prize's pot, spread
+        // across every player's entry (a winner never pays themselves).
+        for (const r of computeNines()?.results ?? []) for (const w of r.winners) {
+          if (w.id !== e.player_id && w.sharePence > 0) {
+            owed.push({ winner: { player_id: w.id, display_name: `${w.name} (${r.label})` } as any, amt: w.sharePence / 100 / entries.length });
+          }
+        }
         if (owed.length === 0) continue;
         const breakdown = owed.map(o => `${game.currency}${o.amt.toFixed(2)} to ${o.winner.display_name.split(' ')[0]}`).join(', ');
         rows.push({
@@ -346,8 +389,9 @@ export default function SwindleGame() {
     if (!game) return;
     const fmt = game.format ?? 'stableford';
     const suffix = (i: number) => i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th';
-    const pot   = game.entry_fee * entries.length;
+    const pot   = mainEntryFee() * entries.length;
     const prizes = game.prize_split.map(pct => pot * pct / 100);
+    const nines = computeNines();
 
     const lines = [
       `🏆 ${game.name} — Results`,
@@ -361,6 +405,14 @@ export default function SwindleGame() {
       const prize = prizes[i] ? ` — ${game.currency}${prizes[i].toFixed(0)}` : '';
       lines.push(`${i + 1}${suffix(i)}  ${e.display_name.split(' ')[0]} · ${score}${prize}`);
     });
+
+    if (nines) {
+      lines.push('');
+      for (const r of nines.results) {
+        if (r.winners.length === 0) continue;
+        lines.push(`🎯 ${r.label}: ${r.winners.map(w => w.name).join(' & ')} · ${r.winners[0].points}pts · ${fmtMoney(r.winners[0].sharePence, game.currency)}${r.winners.length > 1 ? ' each' : ''}${r.decidedBy ? ` (countback: ${r.decidedBy})` : ''}`);
+      }
+    }
 
     if (twos.length > 0) {
       const twosPot = (game.twos_fee ?? 0) * entries.length;
@@ -386,8 +438,9 @@ export default function SwindleGame() {
     if (!game || !myId || !societyId) return;
     const fmt = game.format ?? 'stableford';
     const suffix = (i: number) => i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th';
-    const pot    = game.entry_fee * entries.length;
+    const pot    = mainEntryFee() * entries.length;
     const prizes = game.prize_split.map(pct => pot * pct / 100);
+    const nines  = computeNines();
 
     const lines = [`🏆 ${game.name} — Results`, ''];
     entries.slice(0, 3).forEach((e, i) => {
@@ -395,6 +448,13 @@ export default function SwindleGame() {
       const prize = prizes[i] ? ` — ${game.currency}${prizes[i].toFixed(0)}` : '';
       lines.push(`${i + 1}${suffix(i)}  ${e.display_name.split(' ')[0]} · ${score}${prize}`);
     });
+
+    if (nines) {
+      for (const r of nines.results) {
+        if (r.winners.length === 0) continue;
+        lines.push(`🎯 ${r.label}: ${r.winners.map(w => w.name).join(' & ')} ${r.winners[0].points}pts ${fmtMoney(r.winners[0].sharePence, game.currency)}${r.winners.length > 1 ? ' each' : ''}`);
+      }
+    }
 
     if (twos.length > 0) {
       const twosPot = (game.twos_fee ?? 0) * entries.length;
@@ -430,7 +490,8 @@ export default function SwindleGame() {
   }
 
   const isStroke = (game.format ?? 'stableford') === 'stroke';
-  const pot      = game.entry_fee * entries.length;
+  const nines    = computeNines();
+  const pot      = mainEntryFee() * entries.length;
   const inGame   = entries.some(e => e.player_id === myId);
   const prizes   = game.prize_split.map(pct => pot * pct / 100);
   const myEntry  = entries.find(e => e.player_id === myId);
@@ -524,7 +585,7 @@ export default function SwindleGame() {
             <View style={s.statDivider} />
             <StatBox label="PLAYERS" value={`${entries.length}`} />
             <View style={s.statDivider} />
-            <StatBox label="POT" value={pot > 0 ? `${game.currency}${pot.toFixed(0)}` : '—'} gold />
+            <StatBox label={nines ? 'MAIN POT' : 'POT'} value={pot > 0 ? `${game.currency}${pot.toFixed(0)}` : '—'} gold />
             <View style={s.statDivider} />
             <StatBox label="CODE" value={game.join_code} />
           </View>
@@ -551,6 +612,56 @@ export default function SwindleGame() {
                   )}
                 </View>
               </View>
+            </View>
+          </View>
+        )}
+
+        {/* Nines prizes — Front 9 / Back 9 / Overall */}
+        {nines && (
+          <View style={s.section}>
+            <View style={s.sectionHeaderRow}>
+              <Text style={s.sectionLabel}>NINES PRIZES</Text>
+              {game.status !== 'complete' && (
+                <View style={s.potPill}><Text style={s.potPillText}>provisional</Text></View>
+              )}
+            </View>
+            <View style={s.card}>
+              {nines.results.map(r => (
+                <View key={r.key} style={[s.cardRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 4 }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+                    <Text style={s.cardSub}>{r.label.toUpperCase()} · {fmtMoney(r.potPence, game.currency)} pot</Text>
+                    {r.winners.length > 0 && (
+                      <Text style={s.cardRowAmt}>{fmtMoney(r.winners[0].sharePence, game.currency)}{r.winners.length > 1 ? ' each' : ''}</Text>
+                    )}
+                  </View>
+                  {r.winners.length === 0 ? (
+                    <Text style={s.cardRowName}>
+                      {r.potPence <= 0 ? 'No prize set' : r.key === 'overall' ? 'Waiting for a completed 18-hole card' : `Waiting for a completed ${r.label}`}
+                    </Text>
+                  ) : (
+                    <>
+                      <Text style={s.cardRowName}>{r.winners.map(w => w.name).join(' & ')} · {r.winners[0].points} pts</Text>
+                      {r.decidedBy && r.countback.length > 0 && (
+                        <Text style={s.cardSub}>
+                          Countback ({r.decidedBy}): {r.countback.map(c => `${c.name} ${c.score}`).join(', ')}
+                        </Text>
+                      )}
+                      {r.deadHeat && <Text style={s.cardSub}>Dead heat after countback — prize split equally</Text>}
+                    </>
+                  )}
+                </View>
+              ))}
+              {nines.winnings.length > 0 && (
+                <View style={[s.cardRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+                  <Text style={s.cardSub}>NINES WINNINGS</Text>
+                  {nines.winnings.map(w => (
+                    <View key={w.id} style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+                      <Text style={s.cardRowName}>{w.name}</Text>
+                      <Text style={s.cardRowAmt}>{fmtMoney(w.pence, game.currency)}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -594,7 +705,7 @@ export default function SwindleGame() {
                 <View style={[s.cardRow, { borderBottomColor: '#1a1a1a' }]}>
                   <Text style={s.cardRowLabel}>💰</Text>
                   <Text style={s.cardRowName}>
-                    Collected by {entries.find(e => e.player_id === game.collector_player_id)?.display_name.split(' ')[0] ?? '—'}
+                    Entry fee · pay {entries.find(e => e.player_id === game.collector_player_id)?.display_name.split(' ')[0] ?? '—'}
                   </Text>
                   {isCreator && (
                     <TouchableOpacity style={s.setWinnerBtn} onPress={() => setShowCollectorPicker(true)} activeOpacity={0.8}>
@@ -622,7 +733,15 @@ export default function SwindleGame() {
               </View>
             ) : (
               <View style={s.card}>
-                {entries.length > 1 && myId && !entries.find(e => e.player_id === myId)?.paid && (() => {
+                {game.status !== 'complete' && (
+                  // Nobody owes anyone anything until there's a result — before
+                  // that, "winners" are just whoever is first in the list.
+                  <View style={[s.cardRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+                    <Text style={s.cardSub}>ENTRY FEE</Text>
+                    <Text style={s.cardRowName}>{game.currency}{Number(game.entry_fee).toFixed(0)} each — paid to the winners at the end</Text>
+                  </View>
+                )}
+                {game.status === 'complete' && entries.length > 1 && myId && !entries.find(e => e.player_id === myId)?.paid && (() => {
                   // Each non-winner of prize position i pays entry_fee×pct_i
                   // directly to that winner (the winner's own share of their
                   // own prize just stays with them, no self-payment) — this
@@ -637,12 +756,17 @@ export default function SwindleGame() {
                   // gap gets worse with more players (Dave, 2026-08-20 —
                   // "who owes who" testing).
                   const owed = game.prize_split
-                    .map((pct, i) => ({ winner: entries[i], amt: game.entry_fee * pct / 100 }))
+                    .map((pct, i) => ({ winner: entries[i], amt: mainEntryFee() * pct / 100 }))
                     .filter(o => o.winner && o.winner.player_id !== myId);
+                  for (const r of nines?.results ?? []) for (const w of r.winners) {
+                    if (w.id !== myId && w.sharePence > 0) {
+                      owed.push({ winner: { player_id: w.id, display_name: `${w.name} (${r.label})` } as any, amt: w.sharePence / 100 / entries.length });
+                    }
+                  }
                   if (owed.length === 0) return null;
                   return (
                     <View style={[s.cardRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
-                      <Text style={s.cardSub}>YOU OWE</Text>
+                      <Text style={s.cardSub}>PAY THE WINNERS</Text>
                       {owed.map((o, i) => (
                         <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
                           <Text style={s.cardRowName}>{o.winner.display_name.split(' ')[0]}</Text>
@@ -912,6 +1036,11 @@ export default function SwindleGame() {
         {isCreator && game.status !== 'complete' && (
           <TouchableOpacity style={s.completeBtn} onPress={complete} activeOpacity={0.85}>
             <Text style={s.completeBtnText}>Mark Complete</Text>
+          </TouchableOpacity>
+        )}
+        {game.status === 'complete' && (
+          <TouchableOpacity style={s.completeBtn} onPress={() => router.push({ pathname: '/(app)/news', params: { swindleGameId: game.id, back: `/(app)/swindle/${game.id}` } } as any)} activeOpacity={0.85}>
+            <Text style={s.completeBtnText}>Read the Swindle Report</Text>
           </TouchableOpacity>
         )}
         {game.status === 'complete' && (

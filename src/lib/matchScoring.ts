@@ -109,7 +109,7 @@ function playerCourseHcp(
   return resolvePlayingHandicap(cp?.handicap_index ?? 0, day, hcpAllowance, roundPlayerTees[playerId]);
 }
 
-function matchplayHcp(
+export function matchplayHcp(
   id: string, match: MatchForScoring, compPlayers: CompPlayer[], roundPlayerTees: Record<string, RoundPlayerTeeSnapshot>,
   allPlayerIds: string[],
 ): number {

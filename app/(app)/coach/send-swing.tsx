@@ -13,6 +13,7 @@ import VideoPreview from '../../../src/components/VideoPreview';
 import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
+import { sendPushNotification } from '../../../src/lib/notifications';
 
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
@@ -156,6 +157,16 @@ export default function SendSwingScreen() {
         });
         if (videoError) throw videoError;
       }
+
+      // Tell the coach there's a swing waiting. Fire-and-forget: the swing is
+      // already saved, so a failed push must never turn into a send error.
+      supabase.from('players').select('display_name').eq('id', relationship.player_id).maybeSingle()
+        .then(({ data: me }) => sendPushNotification(
+          'New swing to review',
+          `${(me as any)?.display_name ?? 'A player'} sent you a ${shotType ?? 'swing'}.`,
+          [relationship.coach_id],
+          { type: 'coach_swing', submissionId: submission.id },
+        ), () => {});
 
       setStep('done');
     } catch (e: any) {

@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd /Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/memory && sed -n 1,40p project_build_number_root_cause_2026_08_14.md; sed -n 1,40p project_android_support_plan_2026_...",
+  "error": "Exit code 1\n---\nname: project-build-number-root-cause-2026-08-14\ndescription: \"Root cause of the long-running 'TestFlight build number drift' pattern found and fixed: ios/titangolf/Info.plist hardcoded a literal, stale CFBundleVersion instead of referencing the CURRENT_PROJECT_VERSION build setting\"\nmetadata: \n  node_type: memory\n  type: project\n  originSessionId: a21147b3-92b8-4b51-8f52-17739414b7c3\n  modified: 2026-08-14T11:07:42.364Z\n---\n\n## The bug\n\nBuild 134's Xcode archive/upload failed. D...",
+  "timestamp": "2026-10-07T11:40:49.835Z",
+  "retry_count": 1
+}

@@ -550,7 +550,7 @@ export default function GroupBuilderSheet({
     return (
       <View style={[css.groupCard, { backgroundColor: dc.card, borderColor: premium ? GOLD : dc.border }]}>
         <View style={[css.groupHeader, { backgroundColor: hdrBg }]}>
-          <Text style={[css.groupTitle, { color: hdrText }]}>Group {gi + 1}</Text>
+          <Text style={[css.groupTitle, { color: hdrText }]}>{layout === 'mashie' ? 'Team' : 'Group'} {gi + 1}</Text>
           <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
             <TouchableOpacity style={[css.pill, { backgroundColor: pillBg, borderColor: pillBdr }]} onPress={() => setHoleGi(gi)} activeOpacity={0.7}>
               <Text style={[css.pillText, { color: hdrText }]}>Hole {g.startHole} ▾</Text>
@@ -617,7 +617,7 @@ export default function GroupBuilderSheet({
             activeOpacity={0.7}
           >
             <Ionicons name="add-circle-outline" size={20} color={GOLD} />
-            <Text style={[css.addGroupText, { color: GOLD }]}>Add Group</Text>
+            <Text style={[css.addGroupText, { color: GOLD }]}>{layout === 'mashie' ? 'Add Team' : 'Add Group'}</Text>
           </TouchableOpacity>
         </ScrollView>
 
@@ -803,7 +803,7 @@ export default function GroupBuilderSheet({
           <TouchableOpacity style={css.overlay} activeOpacity={1} onPress={() => setPickTarget(null)} />
           <View style={[css.subSheet, { backgroundColor: dc.card, maxHeight: '75%' }]}>
             <Text style={[css.subTitle, { color: dc.white, borderBottomColor: dc.border }]}>
-              Group {pickTarget.gi + 1}
+              {layout === 'mashie' ? 'Team' : 'Group'} {pickTarget.gi + 1}
               {layout === 'singles' ? `  ·  Match ${pickTarget.si + 1}` : ''}
             </Text>
             {onCreateGuest && (

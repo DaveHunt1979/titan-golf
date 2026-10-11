@@ -8,6 +8,7 @@ import { useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../src/lib/navigation';
 import TeePickerSheet, { fetchCourseTees, SelectableTee } from '../../../src/components/TeePickerSheet';
 import { buildSwindleTeeSnapshot } from '../../../src/lib/whs';
+import { ninesAllocation, fmtMoney, NinesMode } from '../../../src/lib/swindleNines';
 
 const GOLD   = '#D4AF37';
 const PURPLE = '#a78bfa';
@@ -81,6 +82,11 @@ export default function SwindleCreate() {
   const [ldEnabled,     setLdEnabled]     = useState(false);
   const [ldHole,        setLdHole]        = useState<number | null>(null);
   const [ldFee,         setLdFee]         = useState('');
+  const [ninesEnabled,  setNinesEnabled]  = useState(false);
+  const [ninesMode,     setNinesMode]     = useState<NinesMode>('fixed');
+  const [ninesFront,    setNinesFront]    = useState('');
+  const [ninesBack,     setNinesBack]     = useState('');
+  const [ninesOverall,  setNinesOverall]  = useState('');
   const [isRecurring,   setIsRecurring]   = useState(false);
   const [recurringDay,  setRecurringDay]  = useState<string>('saturday');
   const [saving,        setSaving]        = useState(false);
@@ -134,6 +140,10 @@ export default function SwindleCreate() {
     if (!name.trim()) { Alert.alert('Name required'); return; }
     const entryFee = parseFloat(fee);
     if (isNaN(entryFee) || entryFee < 0) { Alert.alert('Invalid entry fee'); return; }
+    const ninesCfg = { enabled: ninesEnabled, mode: ninesMode, front: parseFloat(ninesFront) || 0, back: parseFloat(ninesBack) || 0, overall: parseFloat(ninesOverall) || 0 };
+    const nines = ninesAllocation(ninesCfg, entryFee);
+    if (ninesEnabled && nines.overAllocated) { Alert.alert('Nines prizes too big', `They add up to more than the ${currency}${entryFee} entry fee. Lower them or raise the entry fee.`); return; }
+    if (ninesEnabled && nines.total === 0) { Alert.alert('Nines prizes', 'Enter an amount for at least one prize, or switch Nines Prizes off.'); return; }
     setSaving(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -173,10 +183,19 @@ export default function SwindleCreate() {
         ntp_fee: ntpEnabled && ntpFee ? parseFloat(ntpFee) || 0 : 0,
         ld_hole: ldEnabled ? ldHole : null,
         ld_fee: ldEnabled && ldFee ? parseFloat(ldFee) || 0 : 0,
+        nines_enabled: ninesEnabled,
+        nines_mode: ninesMode,
+        nines_front: ninesEnabled ? ninesCfg.front : 0,
+        nines_back: ninesEnabled ? ninesCfg.back : 0,
+        nines_overall: ninesEnabled ? ninesCfg.overall : 0,
       }).select('id').single();
 
       if (!error && data) {
-        await supabase.from('swindle_entries').insert({ game_id: data.id, player_id: player.id });
+        const { error: entryErr } = await supabase.from('swindle_entries').insert({ game_id: data.id, player_id: player.id });
+        if (entryErr) {
+          console.error('[swindle.create] creator entry failed', entryErr);
+          Alert.alert('Game created', "We couldn't add you as a player yet — tap Join on the next screen.");
+        }
         const snapshot = buildSwindleTeeSnapshot(
           { tee_name: tee?.tee_name ?? null, tee_gender: tee?.gender ?? null, tee_par: tee?.par ?? null, course_rating: tee?.course_rating ?? null, slope_rating: tee?.slope_rating ?? null, whs_enabled: whsEnabled, hcp_allowance: hcpAllowance },
           player.handicap_index,
@@ -331,6 +350,65 @@ export default function SwindleCreate() {
               <Text style={s.methodDesc}>{pm.desc}</Text>
             </TouchableOpacity>
           ))}
+        </Field>
+
+        {/* Nines prizes — Front 9 / Back 9 / Overall carved out of the entry fee */}
+        <Field label="NINES PRIZES">
+          <TouchableOpacity
+            style={[s.sidePotCard, ninesEnabled && s.sidePotCardActive]}
+            onPress={() => setNinesEnabled(v => !v)}
+            activeOpacity={0.8}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[s.sidePotTitle, ninesEnabled && s.sidePotTitleActive]}>Front 9, Back 9 & Overall</Text>
+              <Text style={s.sidePotDesc}>Three extra Stableford prizes taken out of each player's entry fee. Ties are settled by countback. Whatever is left stays in the main swindle.</Text>
+            </View>
+            <View style={s.onOffRow}>
+              <TouchableOpacity style={[s.onOffBtn, !ninesEnabled && s.onOffBtnActive]} onPress={() => setNinesEnabled(false)} activeOpacity={0.8}>
+                <Text style={[s.onOffText, !ninesEnabled && s.onOffTextActive]}>OFF</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.onOffBtn, ninesEnabled && s.onOffBtnActive]} onPress={() => setNinesEnabled(true)} activeOpacity={0.8}>
+                <Text style={[s.onOffText, ninesEnabled && s.onOffTextActive]}>ON</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+          {ninesEnabled && (() => {
+            const entry = parseFloat(fee) || 0;
+            const alloc = ninesAllocation({ enabled: true, mode: ninesMode, front: parseFloat(ninesFront) || 0, back: parseFloat(ninesBack) || 0, overall: parseFloat(ninesOverall) || 0 }, entry);
+            const unit = ninesMode === 'fixed' ? currency : '%';
+            const rows: { label: string; val: string; set: (v: string) => void }[] = [
+              { label: 'Front 9', val: ninesFront, set: setNinesFront },
+              { label: 'Back 9', val: ninesBack, set: setNinesBack },
+              { label: 'Overall', val: ninesOverall, set: setNinesOverall },
+            ];
+            return (
+              <>
+                <View style={s.feeRow}>
+                  <Text style={s.sideFeeLabel}>Set prizes as</Text>
+                  {(['fixed', 'percent'] as NinesMode[]).map(m => (
+                    <TouchableOpacity key={m} style={[s.currencyBtn, { width: undefined, paddingHorizontal: 12 }, ninesMode === m && s.currencyBtnActive]} onPress={() => setNinesMode(m)}>
+                      <Text style={[s.currencyText, ninesMode === m && s.currencyTextActive]}>{m === 'fixed' ? `${currency} amount` : '% of entry'}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {rows.map(r => (
+                  <View key={r.label} style={s.feeRow}>
+                    <Text style={s.sideFeeLabel}>{r.label} (per player, {unit})</Text>
+                    <TextInput style={[s.input, s.sideFeeInput]} value={r.val} onChangeText={r.set} keyboardType="decimal-pad" placeholder={ninesMode === 'fixed' ? `${currency}5` : '25'} placeholderTextColor="#444" />
+                  </View>
+                ))}
+                {alloc.overAllocated ? (
+                  <Text style={[s.methodDesc, { color: '#f87171' }]}>
+                    That's {fmtMoney(alloc.total, currency)} of prizes but the entry fee is only {fmtMoney(Math.round(entry * 100), currency)}. Lower a prize or raise the entry fee.
+                  </Text>
+                ) : (
+                  <Text style={s.methodDesc}>
+                    {fmtMoney(Math.round(entry * 100), currency)} entry = {fmtMoney(alloc.front, currency)} Front 9 + {fmtMoney(alloc.back, currency)} Back 9 + {fmtMoney(alloc.overall, currency)} Overall + {fmtMoney(alloc.main, currency)} main swindle
+                  </Text>
+                )}
+              </>
+            );
+          })()}
         </Field>
 
         {/* Recurring */}

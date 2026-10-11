@@ -20,6 +20,10 @@ import { useDynamicColors, useSocietyTheme } from '../../../src/lib/SocietyTheme
 import { titanLogo } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 import RoundScorecard from '../../../src/components/RoundScorecard';
+import { calcStrokesReceived, calcStablefordPoints } from '../../../src/lib/scoring';
+import { matchplayHcp, type MatchForScoring, type CompPlayer } from '../../../src/lib/matchScoring';
+import { resolveTournamentHandicaps } from '../../../src/lib/tournamentHandicap';
+import type { RoundPlayerTeeSnapshot } from '../../../src/lib/whs';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -39,9 +43,12 @@ interface MatchDetail {
   secondary_format: string | null;
   handicap_method: string | null;
   completed_at: string | null;
+  hcp_allowance: number | null;
+  competition_id: string | null;
+  day_id: string | null;
   home_team: { name: string; accent_color: string } | null;
   away_team: { name: string; accent_color: string } | null;
-  day: { course_name: string | null } | null;
+  day: { course_name: string | null; slope_rating: number | null; course_rating: number | null; course_par: number | null } | null;
 }
 interface Player     { id: string; display_name: string; }
 interface CourseHole { hole_number: number; par: number; stroke_index: number; }
@@ -58,6 +65,11 @@ export default function ActivityDetailScreen() {
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([]);
   const [holeRows, setHoleRows]       = useState<HoleRow[]>([]);
   const [report, setReport]           = useState<Report | null>(null);
+  // Only filled for Match Play–Stableford rounds, whose grid pts must be
+  // recomputed at the match's own allowance (stored stableford_pts is the
+  // 100%-handicap side-game value).
+  const [compPlayers, setCompPlayers] = useState<CompPlayer[]>([]);
+  const [roundPlayerTees, setRoundPlayerTees] = useState<Record<string, RoundPlayerTeeSnapshot>>({});
   const [loading, setLoading]         = useState(true);
 
   const [fontsLoaded] = useFonts({
@@ -69,7 +81,7 @@ export default function ActivityDetailScreen() {
     if (!matchId) { setLoading(false); return; }
     const { data: matchData } = await supabase
       .from('matches')
-      .select('*, home_team:home_team_id(name,accent_color), away_team:away_team_id(name,accent_color), day:day_id(course_name)')
+      .select('*, home_team:home_team_id(name,accent_color), away_team:away_team_id(name,accent_color), day:day_id(course_name,slope_rating,course_rating,course_par)')
       .eq('id', matchId)
       .maybeSingle();
     if (!matchData) { setLoading(false); return; }
@@ -104,6 +116,23 @@ export default function ActivityDetailScreen() {
     // match-scoped). Missing report here just means none was written; the
     // scorecard still shows regardless.
     if (newsData) setReport(newsData as Report);
+
+    const md = matchData as any;
+    if (md.round_format === 'matchplay' && (md.handicap_method === 'relative_low_stableford' || md.handicap_method === 'individual_stableford') && allIds.length) {
+      const [{ data: profs }, { data: rptData }] = await Promise.all([
+        md.competition_id
+          ? supabase.from('competition_players').select('player_id, handicap_index').eq('competition_id', md.competition_id).in('player_id', allIds)
+          : supabase.from('players').select('id, handicap_index').in('id', allIds),
+        md.day_id
+          ? supabase.from('round_player_tees').select('player_id,whs_enabled_at_start,playing_handicap_at_start').eq('day_id', md.day_id).in('player_id', allIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+      const raw: CompPlayer[] = ((profs ?? []) as any[]).map(r => ({ player_id: r.player_id ?? r.id, handicap_index: r.handicap_index ?? 0 }));
+      setCompPlayers(await resolveTournamentHandicaps(md.competition_id, md.day_id, raw));
+      const rpt: Record<string, RoundPlayerTeeSnapshot> = {};
+      ((rptData ?? []) as any[]).forEach(r => { rpt[r.player_id] = r; });
+      setRoundPlayerTees(rpt);
+    }
     setLoading(false);
   }, [matchId]);
 
@@ -158,6 +187,26 @@ export default function ActivityDetailScreen() {
     holeData[row.player_id][row.hole_number] = { gross: row.gross_score, pts: row.stableford_pts };
   }
 
+  // Match Play–Stableford: recompute grid pts at the match's own handicap, as
+  // the scoring engine decided the result (see score/enter mainPtsHoleData).
+  const isMatchplayStableford = match.round_format === 'matchplay'
+    && (match.handicap_method === 'relative_low_stableford' || match.handicap_method === 'individual_stableford');
+  const mainPtsHoleData: typeof holeData = !isMatchplayStableford || compPlayers.length === 0 ? holeData : (() => {
+    const out: typeof holeData = {};
+    for (const id of allPlayerIds) {
+      const hcp = matchplayHcp(id, match as unknown as MatchForScoring, compPlayers, roundPlayerTees, allPlayerIds);
+      out[id] = {};
+      for (const [holeStr, rec] of Object.entries(holeData[id] ?? {})) {
+        const ch = courseHoles.find(c => c.hole_number === Number(holeStr));
+        out[id][Number(holeStr)] = {
+          gross: rec.gross,
+          pts: (rec.gross != null && ch) ? calcStablefordPoints(rec.gross, ch.par, calcStrokesReceived(hcp, ch.stroke_index)) : null,
+        };
+      }
+    }
+    return out;
+  })();
+
   const courseName = match.day?.course_name ?? 'Round';
   const playedAt = match.completed_at
     ? new Date(match.completed_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -195,7 +244,7 @@ export default function ActivityDetailScreen() {
               startHole={1}
               allPlayerIds={allPlayerIds}
               playerNames={playerNames}
-              holeData={holeData}
+              holeData={mainPtsHoleData}
               courseHoles={courseHoles}
               matchHomeIds={match.home_player_ids}
               holeChars={holeChars}
@@ -211,7 +260,7 @@ export default function ActivityDetailScreen() {
               startHole={10}
               allPlayerIds={allPlayerIds}
               playerNames={playerNames}
-              holeData={holeData}
+              holeData={mainPtsHoleData}
               courseHoles={courseHoles}
               matchHomeIds={match.home_player_ids}
               holeChars={holeChars}

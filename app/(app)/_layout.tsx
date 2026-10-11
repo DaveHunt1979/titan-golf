@@ -117,7 +117,7 @@ function AppLayoutInner() {
   const [avatarUrl,  setAvatarUrl]  = useState<string | null>(null);
   const [playerId,   setPlayerId]   = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
-  const [messageAlert, setMessageAlert] = useState<{ senderName: string; preview: string; senderId?: string; channel?: string } | null>(null);
+  const [messageAlert, setMessageAlert] = useState<{ senderName: string; preview: string; senderId?: string; channel?: string; socialEventId?: string } | null>(null);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -132,13 +132,14 @@ function AppLayoutInner() {
   // still handles it, so this only ever adds behavior, never removes it.
   useEffect(() => {
     const sub = Notifications.addNotificationReceivedListener(notification => {
-      const data = notification.request.content.data as { type?: string; senderId?: string; channel?: string } | undefined;
+      const data = notification.request.content.data as { type?: string; senderId?: string; channel?: string; socialEventId?: string } | undefined;
       if (data?.type !== 'message' || !currentRoute.path.startsWith('/score/')) return;
       setMessageAlert({
         senderName: notification.request.content.title ?? 'New message',
         preview: notification.request.content.body ?? '',
         senderId: data.senderId,
         channel: data.channel,
+        socialEventId: data.socialEventId,
       });
     });
     return () => sub.remove();
@@ -240,6 +241,7 @@ function AppLayoutInner() {
         <Tabs.Screen name="tour"           options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="swindle"        options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="clubhouse"      options={{ href: null }} listeners={resetOnTabPress()} />
+        <Tabs.Screen name="social18"       options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="season"         options={{ href: null }} listeners={resetOnTabPress()} />
         <Tabs.Screen name="watch/index"    options={{ href: null }} />
         <Tabs.Screen name="chat"           options={{ href: null }} listeners={resetOnTabPress()} />
@@ -284,6 +286,7 @@ function AppLayoutInner() {
           setMessageAlert(null);
           if (!alert) return;
           if (alert.senderId) router.push(`/(app)/inbox/${alert.senderId}` as any);
+          else if (alert.channel === 'social' && alert.socialEventId) router.push(`/(app)/social18/chat/${alert.socialEventId}` as any);
           else if (alert.channel) router.push((alert.channel === 'general' ? '/(app)/chat' : `/(app)/chat/${alert.channel}`) as any);
         }}
       />

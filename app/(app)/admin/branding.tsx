@@ -10,6 +10,7 @@ import { useFonts } from 'expo-font';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../../src/lib/supabase';
 import { useAdminSociety } from '../../../src/lib/useAdminSociety';
+import { useSocietyTheme } from '../../../src/lib/SocietyThemeContext';
 import { usePlatformAdmin } from '../../../src/lib/usePlatformAdmin';
 import { uploadImage } from '../../../src/lib/uploadImage';
 import { goBack } from '../../../src/lib/navigation';
@@ -24,6 +25,7 @@ export default function SocietyBrandingScreen() {
   const router  = useRouter();
   const { societyId: paramSocietyId } = useLocalSearchParams<{ societyId?: string }>();
   const { societyId: activeSocietyId, loading: activeLoading } = useAdminSociety();
+  const { refreshTheme } = useSocietyTheme();
   const { isPlatformAdmin, loading: platformLoading } = usePlatformAdmin();
 
   // A God-tier admin can be sent here to edit a society other than the one
@@ -115,7 +117,10 @@ export default function SocietyBrandingScreen() {
       setLogoLocalUri(null);
       setHeroLocalUri(null);
       setInstagramUrl(normalizedInsta);
-      Alert.alert('Saved ✓', 'Branding saved. Restart the app to see the new splash screen.');
+      // Only matters when editing the society that's currently showing; a
+      // no-op otherwise. Home, headers and inbox pick the change up live.
+      await refreshTheme();
+      Alert.alert('Saved ✓', 'Branding saved. Your new hero, logo and details are live now. The opening animation will show the new logo next time the app launches.');
     } catch (e: any) {
       Alert.alert('Error', e.message ?? 'Could not save.');
     } finally {
@@ -194,7 +199,7 @@ export default function SocietyBrandingScreen() {
                     {displayUri ? 'Change Logo' : 'Upload Logo'}
                   </Text>
                 </TouchableOpacity>
-                <Text style={s.hint}>Square PNG or JPEG · max 10 MB{'\n'}Used in the splash screen and app header.</Text>
+                <Text style={s.hint}>Square PNG or JPEG · 512 × 512 px{'\n'}Used in the splash screen and app header.</Text>
               </View>
             </View>
           </View>
@@ -214,7 +219,7 @@ export default function SocietyBrandingScreen() {
           <TouchableOpacity style={s.uploadBtn} onPress={pickHero} activeOpacity={0.8}>
             <Text style={s.uploadBtnText}>{displayHeroUri ? 'Change Hero Photo' : 'Upload Hero Photo'}</Text>
           </TouchableOpacity>
-          <Text style={s.hint}>Widescreen photo · max 10 MB{'\n'}Replaces the course photo on members' Home screen. Leave blank to keep the default.</Text>
+          <Text style={s.hint}>Widescreen photo (16:9) · 1600 × 900 px{'\n'}Replaces the course photo on members' Home screen. Leave blank to keep the default.</Text>
         </View>
 
         {/* Name */}

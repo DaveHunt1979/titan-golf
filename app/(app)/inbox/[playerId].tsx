@@ -13,6 +13,7 @@ import { resolveAvatar } from '../../../src/lib/assets';
 import { goBack } from '../../../src/lib/navigation';
 import { sendPushNotification } from '../../../src/lib/notifications';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
+import { respondToSocialEvent, fetchSocialEvent } from '../../../src/lib/socialEventsApi';
 
 const GOLD   = '#D4AF37';
 const GREEN  = '#4ade80';
@@ -25,8 +26,9 @@ interface QuotedDM {
 
 interface DM {
   id: string; sender_id: string; recipient_id: string; content: string; created_at: string;
-  message_type: 'text' | 'tournament_invite' | 'newsreel' | 'swindle_settlement' | 'match_report' | 'swindle_records';
+  message_type: 'text' | 'tournament_invite' | 'newsreel' | 'swindle_settlement' | 'match_report' | 'swindle_records' | 'social_invite';
   competition_id: string | null;
+  social_event_id: string | null;
   invite_response: 'accepted' | 'declined' | null;
   link_url: string | null;
   competitions: { name: string; pin: string | null } | null;
@@ -39,7 +41,7 @@ interface DM {
 // The quoted original is embedded off the reply_to_message_id FK rather than
 // looked up in the loaded window, so a reply to something older than the
 // 100-row page still renders its quote.
-const DM_SELECT = 'id, sender_id, recipient_id, content, created_at, message_type, competition_id, invite_response, link_url, competitions(name, pin), reply_to_message_id, reply_to:reply_to_message_id(id, sender_id, content)';
+const DM_SELECT = 'id, sender_id, recipient_id, content, created_at, message_type, competition_id, social_event_id, invite_response, link_url, competitions(name, pin), reply_to_message_id, reply_to:reply_to_message_id(id, sender_id, content)';
 
 export default function DmThread() {
   const { playerId, name, avatar } = useLocalSearchParams<{ playerId: string; name?: string; avatar?: string }>();
@@ -51,6 +53,7 @@ export default function DmThread() {
   const [myId, setMyId] = useState<string | null>(null);
   const [messages, setMessages] = useState<DM[]>([]);
   const [text, setText] = useState('');
+  const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [replyTo, setReplyTo] = useState<DM | null>(null);
@@ -158,6 +161,45 @@ export default function DmThread() {
     if (cpErr) { Alert.alert('Error', cpErr.message); return; }
     await supabase.from('direct_messages').update({ invite_response: response }).eq('id', msg.id);
     setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, invite_response: response } : m));
+
+    // Tell whoever set the tournament up (the invite's sender) — a DM in their
+    // inbox plus a push — so they know who's in while they draft teams.
+    // Best-effort: a failure here must never undo the player's own response.
+    try {
+      const { data: me } = await supabase.from('players').select('display_name').eq('id', myId).maybeSingle();
+      const who = (me?.display_name ?? 'A player').split(' ')[0];
+      const tName = msg.competitions?.name ?? 'your tournament';
+      const content = response === 'accepted'
+        ? `✅ ${who} has accepted your invite to ${tName}.`
+        : `❌ ${who} has declined your invite to ${tName}.`;
+      await supabase.from('direct_messages').insert({
+        sender_id: myId, recipient_id: msg.sender_id, content, message_type: 'text',
+      });
+      sendPushNotification(response === 'accepted' ? `${who} is in!` : `${who} can't make it`, content, [msg.sender_id], { type: 'message', senderId: myId });
+    } catch (e) {
+      console.error('[inbox.respondToInvite] organiser notify failed', e);
+    }
+  }
+
+  async function respondToSocialInvite(msg: DM, response: 'accepted' | 'declined') {
+    if (!myId || msg.recipient_id !== myId || msg.invite_response || !msg.social_event_id) return;
+    const setErr = (m: string | null) => setInviteErrors(prev => {
+      const n = { ...prev }; if (m) n[msg.id] = m; else delete n[msg.id]; return n;
+    });
+    setErr(null);
+    try {
+      const event = await fetchSocialEvent(msg.social_event_id);
+      if (!event) { setErr('This event is no longer open.'); return; }
+      const { data: me } = await supabase.from('players').select('display_name').eq('id', myId).maybeSingle();
+      await respondToSocialEvent(event, myId, (me as any)?.display_name ?? 'A player', response);
+      await supabase.from('direct_messages').update({ invite_response: response }).eq('id', msg.id);
+      setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, invite_response: response } : m));
+    } catch (e) {
+      console.error('[inbox.respondToSocialInvite] failed', e);
+      const m = e instanceof Error ? e.message : '';
+      setErr(m === 'Removed' ? 'The host has taken you off this event. Ask them to invite you again.'
+        : m === 'Event is not open' ? 'This event is no longer open.' : 'Could not reply — try again.');
+    }
   }
 
   // Same delete as before (either participant may delete a message in their
@@ -261,6 +303,43 @@ export default function DmThread() {
             {item.link_url && (
               <TouchableOpacity style={ss.inviteYesBtn} onPress={() => Linking.openURL(item.link_url!)} activeOpacity={0.85}>
                 <Text style={ss.inviteYesText}>View the Leaderboard</Text>
+              </TouchableOpacity>
+            )}
+            <Text style={[ss.time, { alignSelf: 'center', marginTop: 8 }]}>{formatTime(item.created_at)}</Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (item.message_type === 'social_invite') {
+      return (
+        <View style={ss.inviteWrap}>
+          <View style={[ss.inviteCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
+            <Text style={ss.inviteEmoji}>⛳</Text>
+            <Text style={ss.inviteHeading}>Social 18 Invite</Text>
+            <Text style={ss.inviteBody}>{item.content}</Text>
+            {item.invite_response ? (
+              <View style={[ss.inviteBadge, item.invite_response === 'accepted' ? ss.inviteBadgeYes : ss.inviteBadgeNo]}>
+                <Text style={[ss.inviteBadgeText, { color: item.invite_response === 'accepted' ? GREEN : RED }]}>
+                  {item.invite_response === 'accepted' ? '✓ Accepted' : '✕ Declined'}
+                </Text>
+              </View>
+            ) : isMe ? (
+              <Text style={ss.invitePending}>Waiting for their response…</Text>
+            ) : (
+              <View style={ss.inviteActions}>
+                <TouchableOpacity style={ss.inviteYesBtn} onPress={() => respondToSocialInvite(item, 'accepted')} activeOpacity={0.85}>
+                  <Text style={ss.inviteYesText}>Yes, I'm in</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={ss.inviteNoBtn} onPress={() => respondToSocialInvite(item, 'declined')} activeOpacity={0.85}>
+                  <Text style={ss.inviteNoText}>Decline</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {inviteErrors[item.id] ? <Text style={{ color: RED, fontSize: 12, marginTop: 8, textAlign: 'center' }}>{inviteErrors[item.id]}</Text> : null}
+            {item.social_event_id && (
+              <TouchableOpacity onPress={() => router.push(`/(app)/social18/${item.social_event_id}` as any)} activeOpacity={0.8} style={{ marginTop: 10, alignSelf: 'center' }}>
+                <Text style={[ss.invitePending, { color: GOLD }]}>View event</Text>
               </TouchableOpacity>
             )}
             <Text style={[ss.time, { alignSelf: 'center', marginTop: 8 }]}>{formatTime(item.created_at)}</Text>

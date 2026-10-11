@@ -343,12 +343,12 @@ function MashieGroupSheet({
       <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={onClose} />
       <View style={[ps.sheet, { maxHeight: '90%' }]}>
         <View style={ps.handle} />
-        <Text style={ps.sheetTitle}>Set Up Groups</Text>
+        <Text style={ps.sheetTitle}>Set Up Teams</Text>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 8, gap: 12 }}>
           {groups.map((group, gi) => (
             <View key={gi} style={{ backgroundColor: '#111', borderRadius: 12, padding: 12, gap: 8, marginBottom: 4 }}>
-              <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: GOLD, letterSpacing: 1.5 }}>GROUP {gi + 1}</Text>
+              <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 10, color: GOLD, letterSpacing: 1.5 }}>TEAM {gi + 1}</Text>
               {group.map(pid => (
                 <View key={pid} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 }}>
                   <View style={ps.playerAvatar}>
@@ -379,7 +379,7 @@ function MashieGroupSheet({
             activeOpacity={0.7}
           >
             <Ionicons name="add" size={18} color={GOLD} />
-            <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 14, color: GOLD }}>Add Group</Text>
+            <Text style={{ fontFamily: 'JUSTSans-ExBold', fontSize: 14, color: GOLD }}>Add Team</Text>
           </TouchableOpacity>
         </ScrollView>
 
@@ -396,7 +396,7 @@ function MashieGroupSheet({
           <TouchableOpacity style={ps.overlay} activeOpacity={1} onPress={() => setPickGroup(null)} />
           <View style={[ps.sheet, { maxHeight: '70%' }]}>
             <View style={ps.handle} />
-            <Text style={ps.sheetTitle}>Add to Group {pickGroup + 1}</Text>
+            <Text style={ps.sheetTitle}>Add to Team {pickGroup + 1}</Text>
             <ScrollView>
               {available.length === 0
                 ? <Text style={{ color: '#555', textAlign: 'center', padding: 20, fontFamily: 'JUSTSans' }}>No players available</Text>
@@ -651,7 +651,7 @@ export default function NewGameScreen() {
   // roster instead (Dave, 2026-09-18).
   const { societyId, loaded: societyLoaded } = useSocietyTheme();
   const societyLoading = !societyLoaded;
-  const { existingDayId, course: preselectedCourse, openPlayers, resumeMode, totalGroups, groupNum } = useLocalSearchParams<{ existingDayId?: string; course?: string; openPlayers?: string; resumeMode?: string; totalGroups?: string; groupNum?: string }>();
+  const { existingDayId, course: preselectedCourse, openPlayers, resumeMode, totalGroups, groupNum, socialEventId, onlyPlayerIds } = useLocalSearchParams<{ existingDayId?: string; course?: string; openPlayers?: string; resumeMode?: string; totalGroups?: string; groupNum?: string; socialEventId?: string; onlyPlayerIds?: string }>();
 
   const [fontsLoaded] = useFonts({
     'JUSTSans':        require('../../../assets/fonts/JUSTSans-Regular.otf'),
@@ -729,9 +729,9 @@ export default function NewGameScreen() {
   useFocusEffect(useCallback(() => {
     setMode((resumeMode as GameMode | undefined) ?? 'stableford');
     setPair1([]); setPair2([]); setPairStep(1);
-    setSelectedCourse(existingDayId && preselectedCourse ? preselectedCourse : null);
+    setSelectedCourse((existingDayId || socialEventId) && preselectedCourse ? preselectedCourse : null);
     setHcpAllowance(100); setSideGames([]); setSecondaryFormat('stableford');
-    setWhsEnabled(false); setPlayerTees({}); setRoundTee(null); setShowWhsDetails(false);
+    setWhsEnabled(true); setPlayerTees({}); setRoundTee(null); setShowWhsDetails(false);
     setHoles('full18'); setVoiceEnabled(false); setStatsEnabled(false); setLdActive(false); setNpActive(false);
     setLdHole(null); setNtpHole(null); setCreating(false); setTakenPlayerIds([]);
     setTeamSize(2); setCounting(2); setNumTeams(2); setExtraTeams([]);
@@ -751,7 +751,7 @@ export default function NewGameScreen() {
         setTimeout(() => setShowGroupBuilder(true), 300);
       }
     }
-  }, [existingDayId, preselectedCourse, openPlayers, resumeMode]));
+  }, [existingDayId, preselectedCourse, openPlayers, resumeMode, socialEventId]));
 
   useEffect(() => {
     if (!selectedCourse) { setCourseHoleData([]); return; }
@@ -878,11 +878,12 @@ export default function NewGameScreen() {
           allPlayers = [...societyPlayers, ...extraFriends];
         }
       }
-      setPlayers(allPlayers);
+      const only = onlyPlayerIds ? new Set(onlyPlayerIds.split(',').filter(Boolean)) : null;
+      setPlayers(only ? allPlayers.filter(p => only.has(p.id)) : allPlayers);
       setFriendOnlyIds(friendIds);
       setLoadingPlayers(false);
     })();
-  }, [societyId, societyLoading]);
+  }, [societyId, societyLoading, onlyPlayerIds]);
 
   // This screen lives in the "games" section's own nested stack, so it stays
   // mounted (not remounted) across tab switches — the full players fetch
@@ -1144,7 +1145,7 @@ export default function NewGameScreen() {
       if (!builtMatches || builtMatches.length === 0) throw new Error('No players selected');
 
       console.log('[createGame] inserting matches...', { count: builtMatches.length });
-      const results = await Promise.all(builtMatches.map(bm => {
+      const results = await Promise.all(builtMatches.map((bm, bmIdx) => {
         const extra = isMashie ? { group_code: genGroupCode() } : {};
         const nameExtra = (bm.homeName || bm.awayName)
           ? { home_name: bm.homeName || null, away_name: bm.awayName || null }
@@ -1157,6 +1158,10 @@ export default function NewGameScreen() {
           ...teamCommonFields,
           ...extra,
           ...nameExtra,
+          // Distinct, builder-ordered numbers so Game Day can list "Team 1" /
+          // "Group 1" in the same order they were built (all matches used to
+          // share one number, leaving the order to the database).
+          match_number: matchNum + bmIdx,
           start_hole: bm.startHole,
           home_player_ids: bm.home,
           away_player_ids: bm.away,
@@ -1170,6 +1175,11 @@ export default function NewGameScreen() {
       firstMatchId = firstResult.data.id;
       console.log('[createGame] matches inserted', { firstMatchId, matchIds: results.map(r => r.data?.id) });
       results.forEach(r => { if (r.data?.id) downloadMatchPack(r.data.id).catch(() => {}); });
+      if (socialEventId) {
+        const { error: linkErr } = await supabase.from('social_events')
+          .update({ day_id: resolvedDayId, status: 'started' }).eq('id', socialEventId).eq('status', 'open');
+        if (linkErr) console.error('[createGame] linking Social 18 day failed', linkErr);
+      }
       // Signal is at its best right now (clubhouse), so grab the course's GPS
       // data too — otherwise rangefinder only tries on first use, out on the
       // course, where it can be too weak to ever complete.
@@ -1522,7 +1532,7 @@ export default function NewGameScreen() {
           <SettingRow icon="stats-chart-outline" label="Handicap" value={hcpLabel} onPress={() => setShowHcp(true)} s={s} GOLD={GOLD} />
           <View style={s.settingDivider} />
 
-          {/* WHS Handicap — off by default; existing behaviour is unchanged until this is switched on */}
+          {/* WHS Handicap — on by default (reset on every focus) */}
           <SettingRow
             icon="calculator-outline" label="WHS Handicap"
             value={whsEnabled ? 'On' : 'Off'} valueColor={whsEnabled ? GOLD : '#6b7280'}

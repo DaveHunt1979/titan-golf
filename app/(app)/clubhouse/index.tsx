@@ -8,6 +8,7 @@ import { titanLogo } from '../../../src/lib/assets';
 
 const PURPLE = '#a78bfa';
 const GREEN  = '#4ade80';
+const RED    = '#ef4444';
 const FF     = 'JUSTSans';
 const FFB    = 'JUSTSans-ExBold';
 
@@ -67,6 +68,22 @@ export default function ClubhouseIndex() {
           </View>
           <Text style={s.cardSub}>Year-long league · divisions · promotion & relegation</Text>
           <Ionicons name="chevron-forward" size={18} color={GREEN} style={s.cardChevron} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[s.card, { borderColor: `${RED}60`, backgroundColor: `${RED}14` }]}
+          onPress={() => router.push('/(app)/social18' as any)}
+          activeOpacity={0.85}
+        >
+          <View style={[s.cardIconWrap, { backgroundColor: `${RED}25`, borderColor: `${RED}60` }]}>
+            <Ionicons name="people-outline" size={26} color={RED} />
+          </View>
+          <View style={s.titleRow}>
+            <Text style={[s.cardTitle, { color: RED }]}>Social 18</Text>
+            <View style={[s.newBadge, { backgroundColor: RED }]}><Text style={[s.newBadgeText, { color: '#fff' }]}>NEW</Text></View>
+          </View>
+          <Text style={s.cardSub}>One-day gatherings · invite the boys · build the groups on the day</Text>
+          <Ionicons name="chevron-forward" size={18} color={RED} style={s.cardChevron} />
         </TouchableOpacity>
       </View>
     </View>

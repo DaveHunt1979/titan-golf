@@ -11,6 +11,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { useDynamicColors } from '../../../src/lib/SocietyThemeContext';
 import { titanLogo, resolveAvatar } from '../../../src/lib/assets';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
+import { sendPushNotification } from '../../../src/lib/notifications';
 
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
@@ -159,6 +160,12 @@ export default function CoachHub() {
     const { error } = await supabase.rpc('request_coach_connection', { p_coach_id: foundRow.id });
     setConnecting(false);
     if (error) { setConnectError(error.message); return; }
+    // Tell the coach someone wants to connect (fire-and-forget).
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data: me } = await supabase.from('players').select('display_name').eq('auth_uid', user.id).maybeSingle();
+      sendPushNotification('New coaching request', `${(me as any)?.display_name ?? 'A player'} wants you as their coach.`, [foundRow.id], { type: 'coach_request' });
+    }).catch(() => {});
     setTagInput('');
     load();
   }
@@ -174,7 +181,14 @@ export default function CoachHub() {
 
   async function acceptRequest(id: string) {
     setBusyId(id);
-    await supabase.rpc('accept_coach_connection', { p_relationship_id: id });
+    const { error: acceptErr } = await supabase.rpc('accept_coach_connection', { p_relationship_id: id });
+    if (!acceptErr) {
+      // Tell the player their coach accepted (fire-and-forget).
+      (async () => {
+        const { data: rel } = await supabase.from('coaching_relationships').select('player_id, coach:coach_id(display_name)').eq('id', id).maybeSingle();
+        if (rel) sendPushNotification('Coach connected', `${(rel as any).coach?.display_name ?? 'Your coach'} accepted your request. You can send your first swing now.`, [(rel as any).player_id], { type: 'coach_accepted' });
+      })().catch(() => {});
+    }
     setBusyId(null);
     load();
   }

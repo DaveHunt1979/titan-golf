@@ -34,7 +34,7 @@ export default function PlayerSelectorSheet({
       <View style={[s.container, { backgroundColor: dc.bg }]}>
         <View style={s.header}>
           <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={s.cancel}>Cancel</Text>
+            <Text allowFontScaling={false} numberOfLines={1} style={s.cancel}>Cancel</Text>
           </TouchableOpacity>
           <Text style={s.title}>{title}</Text>
           <View style={{ width: 50 }} />

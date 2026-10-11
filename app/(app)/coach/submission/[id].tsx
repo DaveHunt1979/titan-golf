@@ -10,6 +10,7 @@ import VideoPreview from '../../../../src/components/VideoPreview';
 import { supabase } from '../../../../src/lib/supabase';
 import { useDynamicColors } from '../../../../src/lib/SocietyThemeContext';
 import { goBack } from '../../../../src/lib/navigation';
+import { sendPushNotification } from '../../../../src/lib/notifications';
 
 const FF  = 'JUSTSans';
 const FFB = 'JUSTSans-ExBold';
@@ -49,6 +50,7 @@ export default function SubmissionDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [videos, setVideos] = useState<SubmissionVideo[]>([]);
+  const [analysedIds, setAnalysedIds] = useState<Set<string>>(new Set());
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [myId, setMyId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -85,6 +87,13 @@ export default function SubmissionDetailScreen() {
       return { ...v, signedUrl: signed?.signedUrl };
     }));
     setVideos(withUrls);
+
+    // Which of these videos already have a coach analysis drawn on them.
+    const vidIds = (vids ?? []).map(v => v.id);
+    if (vidIds.length) {
+      const { data: an } = await supabase.from('coaching_analyses').select('coaching_video_id, annotations').in('coaching_video_id', vidIds);
+      setAnalysedIds(new Set((an ?? []).filter((r: any) => Array.isArray(r.annotations) && r.annotations.length > 0).map((r: any) => r.coaching_video_id as string)));
+    } else setAnalysedIds(new Set());
 
     const { data: lessonRow } = await supabase
       .from('coaching_lessons').select('id, coach_feedback_text, created_at')
@@ -149,6 +158,15 @@ export default function SubmissionDetailScreen() {
       const { error: statusError } = await supabase
         .from('coaching_submissions').update({ status: 'feedback_ready' }).eq('id', submission.id);
       if (statusError) throw statusError;
+
+      // Tell the player their feedback is ready (fire-and-forget — it's saved).
+      supabase.from('players').select('display_name').eq('id', submission.coach_id).maybeSingle()
+        .then(({ data: coach }) => sendPushNotification(
+          'Your coach has replied',
+          `${(coach as any)?.display_name ?? 'Your coach'} reviewed your ${submission.shot_type ?? 'swing'}${assignDrill && drillName.trim() ? ' and set you a drill' : ''}.`,
+          [submission.player_id],
+          { type: 'coach_feedback', submissionId: submission.id },
+        ), () => {});
 
       load();
     } catch (e: any) {
@@ -215,6 +233,23 @@ export default function SubmissionDetailScreen() {
               ? <VideoPreview uri={v.signedUrl} style={s.videoPreview} />
               : <Text style={{ color: dc.textMuted, fontFamily: FF }}>Video unavailable</Text>
             }
+            {isMine ? (
+              <TouchableOpacity
+                style={[s.analyseBtn, { borderColor: dc.gold }]}
+                onPress={() => router.push({ pathname: '/(app)/coach/analyse/[videoId]', params: { videoId: v.id } } as any)}
+                activeOpacity={0.85}
+              >
+                <Text style={[s.analyseBtnText, { color: dc.gold }]}>{analysedIds.has(v.id) ? 'Edit analysis' : 'Analyse'}</Text>
+              </TouchableOpacity>
+            ) : analysedIds.has(v.id) ? (
+              <TouchableOpacity
+                style={[s.analyseBtn, { borderColor: dc.gold }]}
+                onPress={() => router.push({ pathname: '/(app)/coach/analyse/[videoId]', params: { videoId: v.id } } as any)}
+                activeOpacity={0.85}
+              >
+                <Text style={[s.analyseBtnText, { color: dc.gold }]}>See your coach's analysis</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         ))}
 
@@ -351,6 +386,8 @@ function makeStyles(dc: ReturnType<typeof useDynamicColors>) {
     noteText: { fontFamily: FF, fontSize: 14, lineHeight: 20 },
 
     videoCard: { borderWidth: 1, borderRadius: 14, padding: 12, marginBottom: 14 },
+    analyseBtn: { borderWidth: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 10 },
+    analyseBtnText: { fontFamily: FFB, fontSize: 13 },
     videoLabel: { fontFamily: FFB, fontSize: 11, letterSpacing: 1, marginBottom: 8 },
     videoPreview: { width: '100%', aspectRatio: 9 / 16, borderRadius: 10, backgroundColor: '#000' },
 

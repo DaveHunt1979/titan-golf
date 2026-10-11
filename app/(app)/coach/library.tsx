@@ -22,7 +22,7 @@ const AREA_LABEL: Record<string, string> = {
   driver: 'Driver', iron: 'Iron', short_game: 'Short Game', putting: 'Putting', bunker: 'Bunker', general: 'General',
 };
 
-interface LibraryVideo { id: string; title: string; area: string | null; storage_path: string; created_at: string; signedUrl?: string; }
+interface LibraryVideo { id: string; title: string; description: string | null; is_model: boolean; area: string | null; storage_path: string; created_at: string; signedUrl?: string; }
 
 export default function CoachLibraryScreen() {
   const router = useRouter();
@@ -40,6 +40,13 @@ export default function CoachLibraryScreen() {
   const [adding, setAdding] = useState(false);
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [isModel, setIsModel] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editModel, setEditModel] = useState(false);
+  const [editArea, setEditArea] = useState<string | null>(null);
   const [area, setArea] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -52,7 +59,7 @@ export default function CoachLibraryScreen() {
     setCoachId(me.id);
 
     const { data: rows } = await supabase
-      .from('coach_video_library').select('id, title, area, storage_path, created_at')
+      .from('coach_video_library').select('id, title, description, is_model, area, storage_path, created_at')
       .eq('coach_id', me.id).order('created_at', { ascending: false });
     const withUrls = await Promise.all((rows ?? []).map(async v => {
       const { data: signed } = await supabase.storage.from('coaching-videos').createSignedUrl(v.storage_path, 3600);
@@ -93,17 +100,33 @@ export default function CoachLibraryScreen() {
       if (uploadError) throw uploadError;
 
       const { error: insertError } = await supabase.from('coach_video_library').insert({
-        coach_id: coachId, title: title.trim(), area, storage_path: path,
+        coach_id: coachId, title: title.trim(), description: description.trim() || null, is_model: isModel, area, storage_path: path,
       });
       if (insertError) throw insertError;
 
-      setAdding(false); setVideoUri(null); setTitle(''); setArea(null);
+      setAdding(false); setVideoUri(null); setTitle(''); setDescription(''); setIsModel(false); setArea(null);
       load();
     } catch (e: any) {
       setError(e.message ?? 'Could not save video.');
     } finally {
       setBusy(false);
     }
+  }
+
+  function startEdit(v: LibraryVideo) {
+    setEditId(v.id); setEditTitle(v.title); setEditDesc(v.description ?? ''); setEditModel(v.is_model); setEditArea(v.area);
+  }
+
+  async function saveEdit() {
+    if (!editId || !editTitle.trim()) return;
+    setBusy(true);
+    const { error: e } = await supabase.from('coach_video_library').update({
+      title: editTitle.trim(), description: editDesc.trim() || null, is_model: editModel, area: editArea,
+    }).eq('id', editId);
+    setBusy(false);
+    if (e) { setError(e.message); return; }
+    setEditId(null);
+    load();
   }
 
   async function removeVideo(id: string) {
@@ -164,6 +187,16 @@ export default function CoachLibraryScreen() {
                   value={title} onChangeText={setTitle}
                   placeholder="Title, e.g. Split Grip Drill Demo" placeholderTextColor={dc.textMuted}
                 />
+                <TextInput
+                  style={[s.input, s.textarea, { backgroundColor: dc.bg, borderColor: dc.border, color: dc.cardText }]}
+                  value={description} onChangeText={setDescription}
+                  placeholder="Description (what it shows, when to use it)" placeholderTextColor={dc.textMuted}
+                  multiline
+                />
+                <TouchableOpacity style={s.toggleRow} onPress={() => setIsModel(v => !v)} activeOpacity={0.7}>
+                  <View style={[s.checkbox, { borderColor: dc.gold }, isModel && { backgroundColor: dc.gold }]} />
+                  <Text style={[s.toggleText, { color: dc.cardText }]}>This is a model swing</Text>
+                </TouchableOpacity>
                 <View style={s.chipWrap}>
                   {AREAS.map(a => (
                     <TouchableOpacity
@@ -196,20 +229,70 @@ export default function CoachLibraryScreen() {
             <Text style={[s.sectionLabel, { color: dc.textSecondary }]}>YOUR VIDEOS</Text>
             {videos.map(v => (
               <View key={v.id} style={[s.videoCard, { backgroundColor: dc.card, borderColor: dc.border }]}>
-                <View style={s.videoCardTop}>
-                  <Text style={[s.videoTitle, { color: dc.cardText }]}>{v.title}</Text>
-                  {!!v.area && (
-                    <View style={[s.areaPill, { backgroundColor: dc.goldDim }]}>
-                      <Text style={[s.areaPillText, { color: dc.gold }]}>{AREA_LABEL[v.area]}</Text>
+                {editId === v.id ? (
+                  <>
+                    <TextInput
+                      style={[s.input, { backgroundColor: dc.bg, borderColor: dc.border, color: dc.cardText, marginTop: 0 }]}
+                      value={editTitle} onChangeText={setEditTitle} placeholder="Title" placeholderTextColor={dc.textMuted}
+                    />
+                    <TextInput
+                      style={[s.input, s.textarea, { backgroundColor: dc.bg, borderColor: dc.border, color: dc.cardText }]}
+                      value={editDesc} onChangeText={setEditDesc} placeholder="Description" placeholderTextColor={dc.textMuted} multiline
+                    />
+                    <View style={s.chipWrap}>
+                      {AREAS.map(a => (
+                        <TouchableOpacity key={a} style={[s.chip, { borderColor: dc.border }, editArea === a && { backgroundColor: dc.gold, borderColor: dc.gold }]} onPress={() => setEditArea(a)} activeOpacity={0.8}>
+                          <Text style={[s.chipText, { color: editArea === a ? '#000' : dc.cardText }]}>{AREA_LABEL[a]}</Text>
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                  )}
-                </View>
-                {v.signedUrl && (
-                  <VideoPreview uri={v.signedUrl} style={s.videoPreview} />
+                    <TouchableOpacity style={s.toggleRow} onPress={() => setEditModel(m => !m)} activeOpacity={0.7}>
+                      <View style={[s.checkbox, { borderColor: dc.gold }, editModel && { backgroundColor: dc.gold }]} />
+                      <Text style={[s.toggleText, { color: dc.cardText }]}>This is a model swing</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[s.primaryBtn, { backgroundColor: dc.gold }, (!editTitle.trim() || busy) && { opacity: 0.4 }]} onPress={saveEdit} disabled={!editTitle.trim() || busy} activeOpacity={0.85}>
+                      <Text style={s.primaryBtnText}>Save changes</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.linkBtn} onPress={() => setEditId(null)} activeOpacity={0.7}>
+                      <Text style={[s.linkBtnText, { color: dc.textSecondary }]}>Cancel</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <View style={s.videoCardTop}>
+                      <Text style={[s.videoTitle, { color: dc.cardText }]}>{v.title}</Text>
+                      {v.is_model && (
+                        <View style={[s.areaPill, { backgroundColor: dc.gold }]}>
+                          <Text style={[s.areaPillText, { color: '#000' }]}>Model</Text>
+                        </View>
+                      )}
+                      {!!v.area && (
+                        <View style={[s.areaPill, { backgroundColor: dc.goldDim, marginLeft: 6 }]}>
+                          <Text style={[s.areaPillText, { color: dc.gold }]}>{AREA_LABEL[v.area]}</Text>
+                        </View>
+                      )}
+                    </View>
+                    {!!v.description && <Text style={[s.desc, { color: dc.textSecondary }]}>{v.description}</Text>}
+                    {v.signedUrl && (
+                      <VideoPreview uri={v.signedUrl} style={s.videoPreview} />
+                    )}
+                    <TouchableOpacity
+                      style={[s.secondaryBtn, { borderColor: dc.gold }]}
+                      onPress={() => router.push({ pathname: '/(app)/coach/analyse/[videoId]', params: { videoId: v.id, source: 'library' } } as any)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[s.secondaryBtnText, { color: dc.gold }]}>Analyse</Text>
+                    </TouchableOpacity>
+                    <View style={s.cardActions}>
+                      <TouchableOpacity style={s.linkBtn} onPress={() => startEdit(v)} activeOpacity={0.7}>
+                        <Text style={[s.linkBtnText, { color: dc.gold }]}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={s.linkBtn} onPress={() => removeVideo(v.id)} activeOpacity={0.7}>
+                        <Text style={[s.linkBtnText, { color: '#f87171' }]}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
                 )}
-                <TouchableOpacity style={s.linkBtn} onPress={() => removeVideo(v.id)} activeOpacity={0.7}>
-                  <Text style={[s.linkBtnText, { color: '#f87171' }]}>Delete</Text>
-                </TouchableOpacity>
               </View>
             ))}
           </>
@@ -257,6 +340,12 @@ function makeStyles(dc: ReturnType<typeof useDynamicColors>) {
     videoTitle: { fontFamily: FFB, fontSize: 14, flex: 1 },
     areaPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
     areaPillText: { fontFamily: FFB, fontSize: 10.5 },
+    textarea: { minHeight: 70, textAlignVertical: 'top' },
+    desc: { fontFamily: FF, fontSize: 13, lineHeight: 18, marginBottom: 10 },
+    cardActions: { flexDirection: 'row', justifyContent: 'center', gap: 28 },
+    toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 8 },
+    checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2 },
+    toggleText: { fontFamily: FFB, fontSize: 13 },
     videoPreview: { width: '100%', aspectRatio: 9 / 16, borderRadius: 10, backgroundColor: '#000' },
   });
 }

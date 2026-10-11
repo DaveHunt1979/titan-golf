@@ -497,6 +497,32 @@ export default function SpectateScreen() {
         });
       })()
     : [];
+  // Scorecard grid pts for matchplay: stored stableford_pts is the 100%-handicap
+  // side-game value, so recompute main-game pts off the same effective handicap
+  // the stroke panel above uses (score/enter's mainPtsHoleData, read-only).
+  const mainPtsHoleData = (() => {
+    if (isStrokePlay) return holeData;
+    const cutHcpFor = (id: string) => playerCourseHcp(id, compPlayers, match.day, match.hcp_allowance ?? 100, roundPlayerTees);
+    const isRelativeHcp = match.handicap_method === 'relative_low' || match.handicap_method === 'relative_low_stableford';
+    const isScramblePair = match.handicap_method === 'scramble_pair';
+    const groupLowest = isRelativeHcp ? Math.min(...allPlayerIds.map(cutHcpFor)) : 0;
+    const effectiveHcpFor = (id: string) => isScramblePair
+      ? scramblePairEffectiveHcp(match.home_player_ids.map(cutHcpFor), match.away_player_ids.map(cutHcpFor), match.home_player_ids.includes(id))
+      : isRelativeHcp ? Math.max(0, cutHcpFor(id) - groupLowest) : cutHcpFor(id);
+    const out: typeof holeData = {};
+    for (const id of allPlayerIds) {
+      const hcp = effectiveHcpFor(id);
+      out[id] = {};
+      for (const [holeStr, rec] of Object.entries(holeData[id] ?? {})) {
+        const ch = courseHoles.find(c => c.hole_number === Number(holeStr));
+        out[id][Number(holeStr)] = {
+          gross: rec.gross,
+          pts: (rec.gross != null && ch) ? calcStablefordPoints(rec.gross, ch.par, calcStrokesReceived(hcp, ch.stroke_index)) : null,
+        };
+      }
+    }
+    return out;
+  })();
   const strokeAllocationInitials = Object.fromEntries(
     dedupeInitials(strokeAllocation.map(({ id }) => players.find(p => p.id === id)?.display_name ?? '?'))
       .map((initials, i) => [strokeAllocation[i].id, initials])
@@ -774,7 +800,7 @@ export default function SpectateScreen() {
               startHole={1}
               allPlayerIds={allPlayerIds}
               playerNames={playerNames}
-              holeData={holeData}
+              holeData={mainPtsHoleData}
               courseHoles={courseHoles}
               matchHomeIds={match.home_player_ids}
               holeChars={holeChars}
@@ -790,7 +816,7 @@ export default function SpectateScreen() {
               startHole={10}
               allPlayerIds={allPlayerIds}
               playerNames={playerNames}
-              holeData={holeData}
+              holeData={mainPtsHoleData}
               courseHoles={courseHoles}
               matchHomeIds={match.home_player_ids}
               holeChars={holeChars}

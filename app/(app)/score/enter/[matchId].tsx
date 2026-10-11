@@ -1118,24 +1118,11 @@ export default function EnterScoresScreen() {
     // reprocess path instead, which reverses and rebuilds the cut chain
     // from this round forward.
     //
-    // Dave, 2026-09-22: a match-play round is really TWO games sharing one
-    // scorecard — the team match (which can conclude early, dormie, "4&2")
-    // and the individual Stableford side game feeding Kronos/cuts (which
-    // only ever finishes at hole 18). Cuts must key off the side game's
-    // full 18 holes, never the team game's early finish — firing here on
-    // the dormie conclusion cut players on a partial total (confirmed:
-    // "Ricky Cut Test" cut Dave off 43pts through hole 16, not his real
-    // 50pts through 18, because the match was already 4up with 2 to play).
-    // So skip firing on exactly the completion that's about to offer the
-    // "continue to 18" choice — cuts fire for real once that continuation
-    // genuinely reaches hole 18 (continuingSecondary's own completion,
-    // which reaches this same block with continuingSecondary already true).
-    // If the player declines ("Finish Now"), the round never reaches a full
-    // 18-hole total, so no cut fires for it at all — consistent with "you
-    // get cut at 18, not when the team game ends."
-    const matchplayConcludedEarlyNeedsFullStableford = match.round_format === 'matchplay' && c.newStatus === 'complete' && !wasAlreadyComplete && !continuingSecondary
-      && !!(match.secondary_format || match.day?.competition?.include_in_kronos || match.day?.competition?.handicap_cuts_enabled);
-    if (match.competition_id && match.day_id && !matchplayConcludedEarlyNeedsFullStableford) {
+    // A match-play team game can conclude early (dormie) with the Stableford
+    // side game part-played — processDayCuts skips any player without a full
+    // set of holes scored, so early finishes never cut on a partial total
+    // while a match that goes the full 18 cuts immediately.
+    if (match.competition_id && match.day_id) {
       if (wasAlreadyComplete) {
         reprocessFromDay(match.day_id).catch(e => console.warn('[handicapCuts] reprocess failed', e));
       } else if (c.newStatus === 'complete') {
@@ -2243,7 +2230,7 @@ export default function EnterScoresScreen() {
                 startHole={1}
                 allPlayerIds={allPlayerIds}
                 playerNames={playerNames}
-                holeData={holeData}
+                holeData={mainPtsHoleData}
                 courseHoles={courseHoles}
                 matchHomeIds={match.home_player_ids}
                 holeChars={holeChars}
@@ -2262,7 +2249,7 @@ export default function EnterScoresScreen() {
                 startHole={10}
                 allPlayerIds={allPlayerIds}
                 playerNames={playerNames}
-                holeData={holeData}
+                holeData={mainPtsHoleData}
                 courseHoles={courseHoles}
                 matchHomeIds={match.home_player_ids}
                 holeChars={holeChars}
