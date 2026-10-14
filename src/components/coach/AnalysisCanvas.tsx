@@ -21,14 +21,15 @@ interface Props {
   color: string;
   mode: 'all' | 'frame';
   onCommit?: (a: Annotation) => void;
+  zoom?: number;             // view scale, so strokes stay constant on screen
 }
 
 const STROKE = 3;
 const TAP_SLOP = 8;
 
-function Shape({ a, w, h, aspect, draft }: { a: Annotation; w: number; h: number; aspect: number; draft?: boolean }) {
+function Shape({ a, w, h, aspect, zoom, draft }: { a: Annotation; w: number; h: number; aspect: number; zoom: number; draft?: boolean }) {
   const px = (p: Pt) => ({ x: p.x * w, y: p.y * h });
-  const common = { stroke: a.color, strokeWidth: STROKE, strokeOpacity: draft ? 0.7 : 1, fill: 'none' as const, strokeLinecap: 'round' as const };
+  const common = { stroke: a.color, strokeWidth: STROKE / zoom, strokeOpacity: draft ? 0.7 : 1, fill: 'none' as const, strokeLinecap: 'round' as const };
   const P = a.points.map(px);
 
   if (a.tool === 'line' && P.length >= 2) {
@@ -47,7 +48,7 @@ function Shape({ a, w, h, aspect, draft }: { a: Annotation; w: number; h: number
     return <Polyline points={P.map(p => `${p.x},${p.y}`).join(' ')} {...common} strokeLinejoin="round" />;
   }
   if (a.tool === 'angle') {
-    const dots = P.map((p, i) => <Circle key={i} cx={p.x} cy={p.y} r={4} fill={a.color} />);
+    const dots = P.map((p, i) => <Circle key={i} cx={p.x} cy={p.y} r={4 / zoom} fill={a.color} />);
     if (P.length < 2) return <>{dots}</>;
     const lines = [
       <Line key="l1" x1={P[1].x} y1={P[1].y} x2={P[0].x} y2={P[0].y} {...common} />,
@@ -58,7 +59,7 @@ function Shape({ a, w, h, aspect, draft }: { a: Annotation; w: number; h: number
       <>
         {lines}{dots}
         {deg != null && (
-          <SvgText x={P[1].x + 10} y={P[1].y - 10} fill={a.color} fontSize={18} fontWeight="bold" stroke="#000" strokeWidth={0.6}>
+          <SvgText x={P[1].x + 10 / zoom} y={P[1].y - 10 / zoom} fill={a.color} fontSize={18 / zoom} fontWeight="bold" stroke="#000" strokeWidth={0.6 / zoom}>
             {`${deg.toFixed(0)}°`}
           </SvgText>
         )}
@@ -68,12 +69,12 @@ function Shape({ a, w, h, aspect, draft }: { a: Annotation; w: number; h: number
   return null;
 }
 
-export default function AnalysisCanvas({ width, height, aspect, time, annotations, tool, color, mode, onCommit }: Props) {
+export default function AnalysisCanvas({ width, height, aspect, time, annotations, tool, color, mode, onCommit, zoom = 1 }: Props) {
   const [draft, setDraft] = useState<Annotation | null>(null);
 
   // PanResponder is built once; read the latest props through a ref.
-  const live = useRef({ width, height, tool, color, mode, time, onCommit, draft: null as Annotation | null, angle: [] as Pt[] });
-  live.current = { ...live.current, width, height, tool, color, mode, time, onCommit };
+  const live = useRef({ width, height, tool, color, mode, time, onCommit, zoom, draft: null as Annotation | null, angle: [] as Pt[] });
+  live.current = { ...live.current, width, height, tool, color, mode, time, onCommit, zoom };
 
   const startRef = useRef<Pt>({ x: 0, y: 0 });
   const downRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -98,7 +99,8 @@ export default function AnalysisCanvas({ width, height, aspect, time, annotation
     onPanResponderMove: (e, g) => {
       const L = live.current;
       if (!L.tool || L.tool === 'angle' || !L.draft) return;
-      const cur = toPt(downRef.current.x + g.dx, downRef.current.y + g.dy);
+      // g.dx/dy are screen px; the start point is in the (zoomed) view's own space.
+      const cur = toPt(downRef.current.x + g.dx / L.zoom, downRef.current.y + g.dy / L.zoom);
       const d = L.tool === 'free'
         ? { ...L.draft, points: [...L.draft.points, cur] }
         : { ...L.draft, points: [startRef.current, cur] };
@@ -149,8 +151,8 @@ export default function AnalysisCanvas({ width, height, aspect, time, annotation
   return (
     <View style={[StyleSheet.absoluteFill, { width, height }]} {...(tool ? responder.panHandlers : {})}>
       <Svg width={width} height={height} pointerEvents="none">
-        {shown.map(a => <Shape key={a.id} a={a} w={width} h={height} aspect={aspect} />)}
-        {draft && <Shape a={draft} w={width} h={height} aspect={aspect} draft />}
+        {shown.map(a => <Shape key={a.id} a={a} w={width} h={height} aspect={aspect} zoom={zoom} />)}
+        {draft && <Shape a={draft} w={width} h={height} aspect={aspect} zoom={zoom} draft />}
       </Svg>
     </View>
   );

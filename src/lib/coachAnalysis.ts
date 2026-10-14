@@ -57,6 +57,15 @@ export function fitBox(w: number, h: number, aspect: number): { width: number; h
 
 export const FRAME_STEP = 1 / 30;
 
+// m:ss.ff with ff = frame number at 30fps, e.g. 0:01.15.
+export function fmtTime(t: number): string {
+  const m = Math.floor(t / 60), s = Math.floor(t % 60), f = Math.floor((t % 1) * 30);
+  return `${m}:${String(s).padStart(2, '0')}.${String(f).padStart(2, '0')}`;
+}
+
+// Default library title for a still grabbed from a video at `t` seconds.
+export const stillTitle = (t: number) => `Frame ${fmtTime(t)}`;
+
 export function stepTime(t: number, frames: number, duration: number): number {
   return Math.min(Math.max(0, duration), Math.max(0, t + frames * FRAME_STEP));
 }
@@ -75,4 +84,39 @@ export function parseAnnotations(raw: unknown): Annotation[] {
     mode: a.mode === 'frame' ? 'frame' : 'all',
     t: typeof a.t === 'number' ? a.t : 0,
   }));
+}
+
+export interface View { scale: number; x: number; y: number }
+export const MIN_SCALE = 1;
+export const MAX_SCALE = 5;
+export const IDENTITY_VIEW: View = { scale: 1, x: 0, y: 0 };
+
+const clampTo = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
+// Keep the zoomed content covering the box: no empty margins when panning.
+export function clampView(v: View, w: number, h: number): View {
+  const scale = clampTo(v.scale, MIN_SCALE, MAX_SCALE);
+  const maxX = (w * (scale - 1)) / 2;
+  const maxY = (h * (scale - 1)) / 2;
+  return { scale, x: clampTo(v.x, -maxX, maxX) + 0, y: clampTo(v.y, -maxY, maxY) + 0 };
+}
+
+// Mids are px relative to the box centre. The content point under the fingers
+// at the start stays under the fingers throughout (x = mid - scale * contentPt).
+export function pinchView(start: View, startMid: Pt, startDist: number, mid: Pt, dist: number, w: number, h: number): View {
+  const scale = clampTo(start.scale * (startDist > 0 ? dist / startDist : 1), MIN_SCALE, MAX_SCALE);
+  const cx = (startMid.x - start.x) / start.scale;
+  const cy = (startMid.y - start.y) / start.scale;
+  return clampView({ scale, x: mid.x - scale * cx, y: mid.y - scale * cy }, w, h);
+}
+
+export function panView(start: View, dx: number, dy: number, w: number, h: number): View {
+  if (start.scale <= MIN_SCALE) return IDENTITY_VIEW;
+  return clampView({ scale: start.scale, x: start.x + dx, y: start.y + dy }, w, h);
+}
+
+export function zoomBy(v: View, factor: number, w: number, h: number): View {
+  const scale = clampTo(v.scale * factor, MIN_SCALE, MAX_SCALE);
+  const k = scale / v.scale;
+  return clampView({ scale, x: v.x * k, y: v.y * k }, w, h);
 }

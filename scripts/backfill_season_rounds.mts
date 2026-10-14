@@ -327,7 +327,7 @@ async function main() {
 
       let ingested = 0, skipped = 0;
       for (const src of [...matchSources, ...swindleSources]) {
-        const eligible = !src.hasGuest && src.otherPlayerIds.some(id => societyMemberIds.has(id));
+        const eligible = src.otherPlayerIds.length > 0 || src.hasGuest;
         if (!eligible) { skipped++; continue; }
         const par = src.holes.reduce((sum, h) => sum + h.par, 0);
         await ingestRound(entry.id, season.id, src, season.handicap_allowance_percent, par);
@@ -340,7 +340,7 @@ async function main() {
       // and the cached counts on season_entries need to catch up either way.
       await recalculateSeasonEntry(entry.id, season.id, season.counting_round_limit, season.minimum_qualifying_rounds);
       const { data: after } = await supabase.from('season_entries').select('qualifying_rounds_count, season_points').eq('id', entry.id).maybeSingle();
-      console.log(`  ${name}: +${ingested} ingested, ${skipped} skipped (no eligible co-player or guest present) — now ${(after as any)?.qualifying_rounds_count ?? '?'} rounds, ${(after as any)?.season_points ?? '?'} pts`);
+      console.log(`  ${name}: +${ingested} ingested, ${skipped} skipped (solo round) — now ${(after as any)?.qualifying_rounds_count ?? '?'} rounds, ${(after as any)?.season_points ?? '?'} pts`);
     }
   }
   console.log('\nDone.');

@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "entries": {
+    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
+      "last_emitted_at_ms": 1791880259439,
+      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
+    },
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1791877701142,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
+    "618a69750188c12167a659df581a00d9fa1764809ce8ddfd0e442f746baa3372": {
+      "last_emitted_at_ms": 1791877691930,
+      "message": "Spawning agent: oh-my-claudecode:executor (sonnet) | Task: Fix reviewer findings in one pass"
+    },
+    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
+      "last_emitted_at_ms": 1791877621761,
+      "message": "Read multiple files in parallel when possible for faster analysis."
+    },
+    "70b64b65639c2301f3ea2b9ec81e7a36f8ace55da985a7be36c574a2dcb4b60f": {
+      "last_emitted_at_ms": 1791877532213,
+      "message": "Spawning agent: oh-my-claudecode:code-reviewer (opus) | Task: Independent review of coach changes"
+    },
+    "615701d8463cbc23860c5d371e7aa21d54da3e73f14a6db40c7f82aa5392dfe1": {
+      "last_emitted_at_ms": 1791877297766,
+      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: Implement Task 6 screenshot stills"
+    },
+    "7d5bfc1b60e80ebe7a4d5a2c0c206084399baf953a3fbb499d86bc3b464f0afb": {
+      "last_emitted_at_ms": 1791877232601,
+      "message": "Spawning agent: oh-my-claudecode:executor (sonnet) | Task: Implement Task 4 EditTools refactor"
+    },
+    "7fc353c22477e096f95e4a4619c27bc20f024a1e9efa8031bd73c5a3b290955e": {
+      "last_emitted_at_ms": 1791877152730,
+      "message": "Spawning agent: oh-my-claudecode:executor (sonnet) | Task: Implement Task 3 ZoomView wiring"
+    },
+    "51564e0acff1a4d99d38c468970bd418056ad3107d1a570b26685e66c55f30ab": {
+      "last_emitted_at_ms": 1791877031194,
+      "message": "Spawning agent: oh-my-claudecode:executor (haiku) | Task: Implement Task 2 zoom math"
+    },
+    "c985d83d7582961af27eef5e90a35087a36caf12e64fc89cfe8c9ca4f9e5be83": {
+      "last_emitted_at_ms": 1791876939860,
+      "message": "Spawning agent: oh-my-claudecode:executor (haiku) | Task: Implement Task 1 autosave"
+    }
+  },
+  "updated_at": "2026-10-13T08:30:59.439Z"
+}

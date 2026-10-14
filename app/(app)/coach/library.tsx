@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, TextInput,
+  View, Text, ScrollView, TouchableOpacity, TextInput, Image,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -22,7 +22,7 @@ const AREA_LABEL: Record<string, string> = {
   driver: 'Driver', iron: 'Iron', short_game: 'Short Game', putting: 'Putting', bunker: 'Bunker', general: 'General',
 };
 
-interface LibraryVideo { id: string; title: string; description: string | null; is_model: boolean; area: string | null; storage_path: string; created_at: string; signedUrl?: string; }
+interface LibraryVideo { id: string; title: string; description: string | null; is_model: boolean; area: string | null; storage_path: string; created_at: string; media_type?: string | null; signedUrl?: string; }
 
 export default function CoachLibraryScreen() {
   const router = useRouter();
@@ -59,7 +59,7 @@ export default function CoachLibraryScreen() {
     setCoachId(me.id);
 
     const { data: rows } = await supabase
-      .from('coach_video_library').select('id, title, description, is_model, area, storage_path, created_at')
+      .from('coach_video_library').select('id, title, description, is_model, area, storage_path, created_at, media_type')
       .eq('coach_id', me.id).order('created_at', { ascending: false });
     const withUrls = await Promise.all((rows ?? []).map(async v => {
       const { data: signed } = await supabase.storage.from('coaching-videos').createSignedUrl(v.storage_path, 3600);
@@ -273,8 +273,9 @@ export default function CoachLibraryScreen() {
                       )}
                     </View>
                     {!!v.description && <Text style={[s.desc, { color: dc.textSecondary }]}>{v.description}</Text>}
-                    {v.signedUrl && (
-                      <VideoPreview uri={v.signedUrl} style={s.videoPreview} />
+                    {v.signedUrl && (v.media_type === 'image'
+                      ? <Image source={{ uri: v.signedUrl }} style={s.videoPreview} resizeMode="contain" />
+                      : <VideoPreview uri={v.signedUrl} style={s.videoPreview} />
                     )}
                     <TouchableOpacity
                       style={[s.secondaryBtn, { borderColor: dc.gold }]}

@@ -103,7 +103,7 @@ export default function SubmissionDetailScreen() {
     if (me && sub && (sub as any).coach_id === me.id) {
       const { data: libRows } = await supabase
         .from('coach_video_library').select('id, title, area')
-        .eq('coach_id', me.id).order('created_at', { ascending: false });
+        .eq('coach_id', me.id).eq('media_type', 'video').order('created_at', { ascending: false });
       setLibraryVideos((libRows ?? []) as LibraryVideo[]);
     }
 

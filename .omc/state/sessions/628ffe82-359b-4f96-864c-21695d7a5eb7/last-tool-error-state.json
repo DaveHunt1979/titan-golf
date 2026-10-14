@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"grep -n \\\"CURRENT_PROJECT_VERSION\\\" ios/titangolf.xcodeproj/project.pbxproj | sort | uniq -c | head; cat /Users/davehunt/.claude/projects/-Users-davehunt-Desktop-titan-golf/memory/project_...",
+  "error": "Exit code 1\n   1 566:\t\t\t\tCURRENT_PROJECT_VERSION = 206;\n   1 603:\t\t\t\tCURRENT_PROJECT_VERSION = 206;\n   1 757:\t\t\t\tCURRENT_PROJECT_VERSION = 206;\n   1 808:\t\t\t\tCURRENT_PROJECT_VERSION = 206;\n   1 856:\t\t\t\tCURRENT_PROJECT_VERSION = 206;\n   1 905:\t\t\t\tCURRENT_PROJECT_VERSION = 206;\n26:**Update 2026-09-16, later — first real signed AAB produced, EAS cloud build path found broken**. `android.package` was already set (`com.titangolf.app`, confirmed matching `android/app/build.gradle`'s `applicationId`) — ...",
+  "timestamp": "2026-10-13T14:41:56.657Z",
+  "retry_count": 1
+}

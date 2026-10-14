@@ -1,23 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, PanResponder, LayoutChangeEvent } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, PanResponder, LayoutChangeEvent, Image, PixelRatio, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
+import { captureRef } from 'react-native-view-shot';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 import AnalysisCanvas from './AnalysisCanvas';
-import { Annotation, COLORS, Tool, fitBox, stepTime } from '../../lib/coachAnalysis';
+import ZoomView from './ZoomView';
+import EditTools from './EditTools';
+import type { View as ViewState } from '../../lib/coachAnalysis';
+import { Annotation, COLORS, IDENTITY_VIEW, Tool, fitBox, fmtTime as fmt, stepTime, stillTitle } from '../../lib/coachAnalysis';
+import { grabFrame, saveStill, saveToPhotos } from '../../lib/coachStills';
 import { useDeviceLayout } from '../../lib/useDeviceLayout';
 
 const GOLD = '#D4AF37';
 const FFB = 'JUSTSans-ExBold';
 const FF = 'JUSTSans';
 const SPEEDS = [0.1, 0.25, 0.5, 1];
-
-const TOOLS: { key: Tool; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'line',   label: 'Line',   icon: 'remove-outline' },
-  { key: 'angle',  label: 'Angle',  icon: 'git-merge-outline' },
-  { key: 'circle', label: 'Circle', icon: 'ellipse-outline' },
-  { key: 'rect',   label: 'Box',    icon: 'square-outline' },
-  { key: 'free',   label: 'Draw',   icon: 'brush-outline' },
-];
+const noop = () => {};
 
 interface Props {
   uri: string;
@@ -28,16 +27,13 @@ interface Props {
   onSave?: () => void;
   saving?: boolean;
   dirty?: boolean;
+  coachId?: string;                          // enables Screenshot (coach's own library)
 }
 
-const fmt = (t: number) => {
-  const m = Math.floor(t / 60), s = Math.floor(t % 60), f = Math.floor((t % 1) * 30);
-  return `${m}:${String(s).padStart(2, '0')}.${String(f).padStart(2, '0')}`;
-};
-
-export default function VideoAnalyser({ uri, annotations, onChange, aspect: savedAspect, onAspect, onSave, saving, dirty }: Props) {
+export default function VideoAnalyser({ uri, annotations, onChange, aspect: savedAspect, onAspect, onSave, saving, dirty, coachId }: Props) {
   const editable = !!onChange;
   const { isPad } = useDeviceLayout();
+  const router = useRouter();
 
   const player = useVideoPlayer({ uri }, p => { p.loop = false; p.timeUpdateEventInterval = 0.04; p.preservesPitch = true; });
   const [time, setTime] = useState(0);
@@ -53,6 +49,16 @@ export default function VideoAnalyser({ uri, annotations, onChange, aspect: save
   const [root, setRoot] = useState({ w: 0, h: 0 });
   const [stage, setStage] = useState({ w: 0, h: 0 });
   const [trackW, setTrackW] = useState(0);
+  const [view, setView] = useState<ViewState>(IDENTITY_VIEW);
+
+  // Screenshot: raw frame -> library, copy with drawings burned in -> Photos.
+  const [shotBusy, setShotBusy] = useState(false);
+  const [shot, setShot] = useState<{ libraryId: string; photos: boolean } | null>(null);
+  const [shotErr, setShotErr] = useState('');
+  const [burn, setBurn] = useState<{ uri: string; time: number; w: number; h: number } | null>(null);
+  const burnRef = useRef<View>(null);
+  const burnLoaded = useRef<(() => void) | null>(null);
+  const burnFailed = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const subs = [
@@ -75,6 +81,8 @@ export default function VideoAnalyser({ uri, annotations, onChange, aspect: save
   // what the player reports; 9:16 is the fallback for a phone swing video.
   const aspect = savedAspect ?? detectedAspect ?? 9 / 16;
   const box = fitBox(stage.w, stage.h, aspect);
+
+  useEffect(() => setView(IDENTITY_VIEW), [box.width, box.height]);
 
   const seek = (t: number) => {
     const clamped = Math.min(Math.max(0, t), duration || t);
@@ -101,6 +109,47 @@ export default function VideoAnalyser({ uri, annotations, onChange, aspect: save
     const t = Math.min(1, Math.max(0, x / w)) * d;
     player.currentTime = t;
     setTime(t);
+  }
+
+  // Renders the frame + drawings in a hidden view, waits for the image to
+  // load, then captures it to a temp PNG.
+  function burnIn(frameUri: string, t: number, frameW: number): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { burnLoaded.current = null; burnFailed.current = null; reject(new Error('Timed out')); }, 10000);
+      burnFailed.current = () => {
+        burnLoaded.current = null; burnFailed.current = null;
+        clearTimeout(timer);
+        reject(new Error('Could not load the frame'));
+      };
+      burnLoaded.current = () => {
+        burnLoaded.current = null; burnFailed.current = null;
+        requestAnimationFrame(() => {
+          captureRef(burnRef, { format: 'png', quality: 1, result: 'tmpfile' })
+            .then(r => { clearTimeout(timer); resolve(r); }, e => { clearTimeout(timer); reject(e); });
+        });
+      };
+      const w = frameW / PixelRatio.get();
+      setBurn({ uri: frameUri, time: t, w, h: w / aspect });
+    });
+  }
+
+  async function screenshot() {
+    if (shotBusy || !coachId) return;
+    player.pause();
+    setShotBusy(true); setShot(null); setShotErr('');
+    const t = player.currentTime ?? time;
+    try {
+      const frame = await grabFrame(player, t);
+      const { libraryId } = await saveStill({ coachId, title: stillTitle(t), frameUri: frame.uri });
+      let photos = false;
+      try { photos = await saveToPhotos(await burnIn(frame.uri, t, frame.width)); } catch { photos = false; }
+      setShot({ libraryId, photos });
+    } catch (e: any) {
+      setShotErr(e?.message ?? 'Could not save the screenshot.');
+    } finally {
+      setBurn(null);
+      setShotBusy(false);
+    }
   }
 
   const landscape = isPad && root.w > root.h;
@@ -137,67 +186,61 @@ export default function VideoAnalyser({ uri, annotations, onChange, aspect: save
             <Text style={[st.chipText, rate === r && st.chipTextOn]}>{r}×</Text>
           </TouchableOpacity>
         ))}
-      </View>
-
-      {editable && (
-        <>
-          <Text style={st.label}>TOOLS</Text>
-          <View style={st.chipRow}>
-            {TOOLS.map(t => (
-              <TouchableOpacity key={t.key} style={[st.tool, tool === t.key && st.chipOn]} onPress={() => pickTool(t.key)} activeOpacity={0.8}>
-                <Ionicons name={t.icon} size={20} color={tool === t.key ? '#000' : '#fff'} />
-                <Text style={[st.toolText, tool === t.key && st.chipTextOn]}>{t.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {tool === 'angle' && <Text style={st.hint}>Tap three points: end of one arm, the corner, end of the other.</Text>}
-
-          <View style={st.chipRow}>
-            {COLORS.map(c => (
-              <TouchableOpacity key={c} onPress={() => setColor(c)} activeOpacity={0.8}
-                style={[st.swatch, { backgroundColor: c }, color === c && st.swatchOn]} />
-            ))}
-          </View>
-
-          <View style={st.chipRow}>
-            <TouchableOpacity style={[st.chip, mode === 'all' && st.chipOn]} onPress={() => setMode('all')} activeOpacity={0.8}>
-              <Text style={[st.chipText, mode === 'all' && st.chipTextOn]}>Stays on whole video</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[st.chip, mode === 'frame' && st.chipOn]} onPress={() => setMode('frame')} activeOpacity={0.8}>
-              <Text style={[st.chipText, mode === 'frame' && st.chipTextOn]}>This frame only</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={st.chipRow}>
-            <TouchableOpacity style={st.chip} onPress={() => onChange!(annotations.slice(0, -1))} disabled={!annotations.length} activeOpacity={0.8}>
-              <Text style={[st.chipText, !annotations.length && { opacity: 0.4 }]}>Undo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={st.chip} onPress={() => onChange!([])} disabled={!annotations.length} activeOpacity={0.8}>
-              <Text style={[st.chipText, { color: '#f87171' }, !annotations.length && { opacity: 0.4 }]}>Clear all</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={[st.save, (!dirty || saving) && { opacity: 0.45 }]} onPress={onSave} disabled={!dirty || saving} activeOpacity={0.85}>
-            <Text style={st.saveText}>{saving ? 'Saving…' : dirty ? 'Save analysis' : 'Saved'}</Text>
+        {editable && !!coachId && (
+          <TouchableOpacity style={[st.chip, st.shotChip, shotBusy && { opacity: 0.5 }]} onPress={screenshot} disabled={shotBusy} activeOpacity={0.8}>
+            {shotBusy ? <ActivityIndicator size="small" color={GOLD} /> : <Ionicons name="camera" size={14} color={GOLD} />}
+            <Text style={[st.chipText, { color: GOLD }]}>Screenshot</Text>
           </TouchableOpacity>
-        </>
-      )}
+        )}
+      </View>
+      <EditTools
+        editable={editable} tool={tool} color={color} mode={mode} annotations={annotations}
+        onTool={pickTool} onColor={setColor} onMode={setMode} onChange={onChange ?? noop}
+        onSave={onSave} saving={saving} dirty={dirty}
+        view={view} onView={setView} w={box.width} h={box.height}
+      />
     </View>
   );
 
   return (
     <View style={[st.root, landscape && { flexDirection: 'row' }]} onLayout={e => setRoot({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
+      {/* Hidden under the opaque stage/panel; only mounted while burning a screenshot. */}
+      {burn && (
+        <View ref={burnRef} collapsable={false} pointerEvents="none" style={[st.burn, { width: burn.w, height: burn.h }]}>
+          <Image source={{ uri: burn.uri }} style={StyleSheet.absoluteFill} resizeMode="contain" onLoad={() => burnLoaded.current?.()} onError={() => burnFailed.current?.()} />
+          <AnalysisCanvas
+            width={burn.w} height={burn.h} aspect={aspect} time={burn.time}
+            annotations={annotations} tool={null} color={color} mode="all"
+          />
+        </View>
+      )}
       <View style={st.stage} onLayout={e => setStage({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
         {stage.w > 0 && (
-          <View style={{ width: box.width, height: box.height }}>
-            <VideoView player={player} style={StyleSheet.absoluteFill} nativeControls={false} contentFit="contain" />
-            <AnalysisCanvas
-              width={box.width} height={box.height} aspect={aspect} time={time}
-              annotations={annotations} tool={editable ? tool : null} color={color} mode={mode}
-              onCommit={a => onChange?.([...annotations, a])}
-            />
+          <ZoomView width={box.width} height={box.height} view={view} onViewChange={setView} panWithOneFinger={!(editable && tool)}>
+            <View style={{ width: box.width, height: box.height }}>
+              <VideoView player={player} style={StyleSheet.absoluteFill} nativeControls={false} contentFit="contain" surfaceType="textureView" />
+              <AnalysisCanvas
+                width={box.width} height={box.height} aspect={aspect} time={time}
+                annotations={annotations} tool={editable ? tool : null} color={color} mode={mode}
+                onCommit={a => onChange?.([...annotations, a])} zoom={view.scale}
+              />
+            </View>
+          </ZoomView>
+        )}
+        {/* Overlaid on the stage so showing it never resizes the stage (which would reset the zoom). */}
+        {!!shot && (
+          <View style={[st.banner, st.overlay]}>
+            <Text style={st.bannerText}>{shot.photos ? 'Saved to your library and Photos' : 'Saved to your library (Photos access not allowed)'}</Text>
+            <TouchableOpacity
+              style={st.bannerBtn}
+              onPress={() => { const id = shot.libraryId; setShot(null); router.push({ pathname: '/(app)/coach/analyse/[videoId]', params: { videoId: id, source: 'library' } } as any); }}
+              activeOpacity={0.85}
+            >
+              <Text style={st.bannerBtnText}>Edit</Text>
+            </TouchableOpacity>
           </View>
         )}
+        {!!shotErr && <Text style={[st.shotErr, st.overlay]}>{shotErr}</Text>}
       </View>
       {controls}
     </View>
@@ -222,17 +265,19 @@ const st = StyleSheet.create({
   playBtn: { width: 58, height: 58, borderRadius: 29, backgroundColor: GOLD },
   hint: { color: '#9ca3af', fontFamily: FF, fontSize: 11, textAlign: 'center' },
 
-  label: { color: '#9ca3af', fontFamily: FFB, fontSize: 10.5, letterSpacing: 1, marginTop: 4 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   chip: { borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#111' },
   chipOn: { backgroundColor: GOLD, borderColor: GOLD },
   chipText: { color: '#fff', fontFamily: FFB, fontSize: 12 },
   chipTextOn: { color: '#000' },
-  tool: { borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#111', alignItems: 'center', gap: 2, minWidth: 58 },
-  toolText: { color: '#fff', fontFamily: FFB, fontSize: 10.5 },
-  swatch: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: 'transparent' },
-  swatchOn: { borderColor: GOLD },
+  shotChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderColor: GOLD },
 
-  save: { backgroundColor: GOLD, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
-  saveText: { color: '#000', fontFamily: FFB, fontSize: 14 },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#1a1608', borderWidth: 1, borderColor: GOLD, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
+  bannerText: { flex: 1, color: GOLD, fontFamily: FFB, fontSize: 12 },
+  bannerBtn: { backgroundColor: GOLD, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
+  bannerBtnText: { color: '#000', fontFamily: FFB, fontSize: 12 },
+  shotErr: { color: '#f87171', fontFamily: FF, fontSize: 12, textAlign: 'center' },
+  overlay: { position: 'absolute', left: 12, right: 12, bottom: 8 },
+  burn: { position: 'absolute', top: 0, left: 0, backgroundColor: '#000' },
+
 });

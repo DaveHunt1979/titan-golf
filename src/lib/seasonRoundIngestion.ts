@@ -5,10 +5,8 @@
 // or Swindle round (swindle_groups/swindle_scores) that a Season entrant
 // played counts automatically, PROVIDED it wasn't played solo and at least
 // one of the other players is a real, identifiable Titan Golf account who
-// belongs to the same society, AND no guest of any kind is anywhere in the
-// round (Dave, 2026-09-16 — "it can only be players with registered
-// profiles"; previously a round with one real co-player plus guests could
-// still slip through). Playing alone never qualifies either — that's the
+// belongs to the same society. (Superseded 2026-10-13: any non-solo round now
+// counts — see the eligibility check in the ingest loop.) Playing alone never qualifies — that's the
 // whole anti-cheating check. There is no
 // separate manual "partner taps verify" step (unlike the original spec's
 // §12) — the fact that it's a real multiplayer round recorded through the
@@ -511,11 +509,10 @@ export async function syncSeasonRoundsForEntry(
 
   let ingested = 0, skipped = 0;
   for (const src of [...matchSources, ...swindleSources]) {
-    // The anti-cheating check: not solo, no guests anywhere in the round
-    // (Dave, 2026-09-16 — "it can only be players with registered
-    // profiles"), and at least one real co-player is a member of the same
-    // society this Season belongs to.
-    const eligible = !src.hasGuest && src.otherPlayerIds.some(id => societyMemberIds.has(id));
+    // The only check: not solo. Anyone else in the group (member, other-
+    // society player or guest) makes it a real round (Dave, 2026-10-13 —
+    // "anyone that plays but not on their own, their rounds must count").
+    const eligible = src.otherPlayerIds.length > 0 || src.hasGuest;
     if (!eligible) { skipped++; continue; }
     const par = src.holes.reduce((sum, h) => sum + h.par, 0);
     await ingestRound(seasonEntryId, season.id, src, season.handicapAllowancePercent, par, profile);

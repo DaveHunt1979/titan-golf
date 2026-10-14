@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"npx jest src/lib/coachAnalysis.test.ts 2>&1\"}",
+  "error": "Exit code 1\nFAIL src/lib/coachAnalysis.test.ts\n  angleDegrees\n    ✓ right angle on a square frame (1 ms)\n    ✓ straight line is 180\n    ✓ accounts for a portrait frame: same normalised diagonal is steeper\n    ✓ degenerate points give 0, not NaN\n  circleRadius\n    ✓ uses real proportions\n  fitBox\n    ✓ letterboxes a portrait video in a wide area (1 ms)\n    ✓ fits by width when the area is tall\n  visibleAt\n    ✓ 'all' always shows\n    ✓ 'frame' only on its own frame\n  stepTime\n    ✓ clamps at both...",
+  "timestamp": "2026-10-13T07:37:42.950Z",
+  "retry_count": 1
+}
